@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "carousel-1",
+      "description": "Abstract purple and blue lights",
+      "imageUrl": "https://images.unsplash.com/photo-1668681919287-7367677cdc4c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMHB1cnBsZXxlbnwwfHx8fDE3NjczMjExNjF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract purple"
+    },
+    {
+      "id": "carousel-2",
+      "description": "Geometric crystal patterns",
+      "imageUrl": "https://images.unsplash.com/photo-1766430191918-2cca9f763790?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Z2VvbWV0cmljJTIwY3J5c3RhbHxlbnwwfHx8fDE3NjczODIwODB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "geometric crystal"
+    },
+    {
+      "id": "carousel-3",
+      "description": "Nebula with swirling gases",
+      "imageUrl": "https://images.unsplash.com/photo-1530253051357-e0b79ee40459?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxnYWxheHklMjBuZWJ1bGF8ZW58MHx8fHwxNzY3MzM4NzQyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "galaxy nebula"
+    },
+    {
+      "id": "carousel-4",
+      "description": "Person meditating with glowing aura",
+      "imageUrl": "https://images.unsplash.com/photo-1641518005535-fdf14d1e3f2a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxtZWRpdGF0aW9uJTIwYXVyYXxlbnwwfHx8fDE3NjczODIwNzl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "meditation aura"
+    },
+    {
+      "id": "carousel-5",
+      "description": "Intricate sacred geometry",
+      "imageUrl": "https://images.unsplash.com/photo-1741997852952-34de866f085b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzYWNyZWQlMjBnZW9tZXRyeXxlbnwwfHx8fDE3NjczODIwNzl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sacred geometry"
+    }
+  ]
 }
