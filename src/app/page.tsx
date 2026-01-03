@@ -154,7 +154,7 @@ export default function Home() {
         <section className="py-20 md:py-32 bg-secondary/10">
           <div className="container mx-auto px-4">
             <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12 text-center">Why, Mission, Vision & Goals</h2>
-            <div className="max-w-2xl mx-auto bg-card/80 border-border/50 backdrop-blur-sm p-8 rounded-lg text-left">
+            <div className="max-w-2xl mx-auto bg-card/80 border-border/50 backdrop-blur-sm p-8 rounded-lg text-left transition-all duration-300 hover:border-primary hover:scale-105">
                 <div className="space-y-6">
                     <div>
                         <h3 className="text-foreground font-bold text-xl mb-2">Why</h3>
