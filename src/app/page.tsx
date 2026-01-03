@@ -8,7 +8,7 @@ import { Footer } from '@/components/sections/footer';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 
-import { CheckCircle2, Users, BrainCircuit, Lightbulb, Rocket, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Users, BrainCircuit, Lightbulb, Rocket, ShieldCheck, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
@@ -77,6 +77,12 @@ export default function Home() {
                         <p className="mt-2 text-2xl md:text-3xl text-primary">The Evolution of Self Improvement</p>
                     </div>
                 </div>
+            </div>
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10">
+                <Link href="#projects" className="flex flex-col items-center gap-2 text-primary hover:text-foreground transition-colors animate-fade-in [animation-delay:1s] animation-fill-mode-backwards">
+                    <span className="font-headline tracking-widest">EXPLORE MORE</span>
+                    <ArrowDown className="w-6 h-6 animate-bounce" />
+                </Link>
             </div>
         </section>
 
