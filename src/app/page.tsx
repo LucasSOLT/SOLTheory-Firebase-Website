@@ -111,7 +111,7 @@ export default function Home() {
                             src={projectImage.imageUrl}
                             alt={projectImage.description}
                             fill
-                            className="object-cover"
+                            className={project.id === '21-games' ? 'object-contain' : 'object-cover'}
                             data-ai-hint={projectImage.imageHint}
                           />
                         </div>
