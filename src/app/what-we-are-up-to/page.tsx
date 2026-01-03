@@ -10,7 +10,7 @@ export default function WhatWeAreUpToPage() {
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Lightbulb className="size-12 text-primary" />
-            <h1 className="font-headline text-5xl text-foreground">
+            <h1 className="font-headline text-5xl text-foreground font-bold">
               What We&apos;re Up To
             </h1>
           </div>

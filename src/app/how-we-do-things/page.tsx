@@ -10,7 +10,7 @@ export default function HowWeDoThingsPage() {
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Combine className="size-12 text-primary" />
-            <h1 className="font-headline text-5xl text-foreground">
+            <h1 className="font-headline text-5xl text-foreground font-bold">
               How We Do Things
             </h1>
           </div>

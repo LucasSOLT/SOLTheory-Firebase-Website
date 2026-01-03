@@ -10,7 +10,7 @@ export default function WhoWeArePage() {
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Zap className="size-12 text-primary" />
-            <h1 className="font-headline text-5xl text-foreground">
+            <h1 className="font-headline text-5xl text-foreground font-bold">
               Who We Are
             </h1>
           </div>

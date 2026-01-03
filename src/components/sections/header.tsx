@@ -6,7 +6,7 @@ export function Header() {
       <div className="container mx-auto px-4 flex items-center justify-center">
         <div className="flex items-center gap-3">
           <Logo className="h-10 w-10" />
-          <span className="font-headline text-2xl tracking-wider text-foreground">
+          <span className="font-headline text-2xl tracking-wider text-foreground font-bold">
             SOL Theory
           </span>
         </div>

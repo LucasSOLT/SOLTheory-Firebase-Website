@@ -10,7 +10,7 @@ export default function VisionAndGoalsPage() {
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Target className="size-12 text-primary" />
-            <h1 className="font-headline text-5xl text-foreground">
+            <h1 className="font-headline text-5xl text-foreground font-bold">
               Vision & Goals
             </h1>
           </div>

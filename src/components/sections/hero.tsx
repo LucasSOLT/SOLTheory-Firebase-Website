@@ -15,7 +15,7 @@ export function Hero({ images }: HeroProps) {
       </div>
       
       <div className="relative z-10 text-center px-4 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-        <h1 className="font-headline text-5xl md:text-7xl lg:text-8xl text-foreground">
+        <h1 className="font-headline text-5xl md:text-7xl lg:text-8xl text-foreground font-bold">
           Unlock Your Potential
         </h1>
         <p className="mt-4 text-lg md:text-xl text-primary max-w-2xl mx-auto">
