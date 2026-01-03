@@ -1,27 +1,16 @@
-import type { SVGProps } from 'react';
+import Image from 'next/image';
+import type { HTMLAttributes } from 'react';
 
-export function Logo(props: SVGProps<SVGSVGElement>) {
+export function Logo(props: HTMLAttributes<HTMLDivElement>) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 100 100"
-      aria-label="SOL Theory Logo"
-      {...props}
-    >
-      <defs>
-        <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
-          <stop offset="100%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 1 }} />
-        </linearGradient>
-      </defs>
-      <path
-        fill="none"
-        stroke="url(#logo-gradient)"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M30,75 C10,50 40,20 50,30 S90,50 70,75 C60,85 40,85 30,75 M50,30 C50,55 50,55 50,80"
+    <div {...props}>
+      <Image
+        src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=c0e9a9fd-eadf-4e3b-9e0f-a16d867d554e"
+        alt="SOL Theory Logo"
+        width={100}
+        height={100}
+        className="h-full w-full"
       />
-    </svg>
+    </div>
   );
 }
