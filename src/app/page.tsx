@@ -65,7 +65,7 @@ export default function Home() {
         <section className="py-20 md:py-32">
           <div className="container mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto">
-              <h2 className="font-headline text-4xl md:text-5xl font-bold">SOL Theory</h2>
+              <h2 className="font-headline text-5xl md:text-6xl font-bold">SOL Theory</h2>
               <h3 className="text-primary text-2xl md:text-3xl mt-2 mb-6">The Etsy of Self Improvement</h3>
               <p className="text-muted-foreground mb-4 text-lg">
                 SOL Theory is a curated community of creators and an ecosystem of apps where members can discover and share their products, services, and knowledge.
