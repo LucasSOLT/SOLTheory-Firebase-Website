@@ -1,4 +1,5 @@
 
+
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Header } from '@/components/sections/header';
@@ -7,6 +8,7 @@ import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
+import InteractiveSpaceship from '@/components/interactive-spaceship';
 
 import { CheckCircle2, Users, BrainCircuit, Lightbulb, Rocket, ShieldCheck, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,12 +59,7 @@ export default function Home() {
         {/* Hero Section */}
         <section className="relative flex items-center justify-center h-screen bg-black overflow-hidden">
              <div className="absolute inset-0 z-0">
-                <Image 
-                    src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page.png?alt=media&token=31024488-c529-4f7a-9fd7-46d888ac0f81"
-                    alt="Hero Background"
-                    fill
-                    className="object-cover opacity-100 scale-110"
-                />
+                <InteractiveSpaceship />
                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
             </div>
             <div className="relative z-10 container mx-auto px-4">
