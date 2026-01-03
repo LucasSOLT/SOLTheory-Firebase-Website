@@ -75,9 +75,9 @@ export default function Home() {
                     src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page.png?alt=media&token=31024488-c529-4f7a-9fd7-46d888ac0f81"
                     alt="Hero Background"
                     fill
-                    className="object-cover opacity-50"
+                    className="object-cover opacity-100"
                 />
-                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent"></div>
+                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
             </div>
             <div className="relative z-10 container mx-auto px-4">
                 <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
@@ -255,5 +255,7 @@ export default function Home() {
     </div>
   );
 }
+
+    
 
     
