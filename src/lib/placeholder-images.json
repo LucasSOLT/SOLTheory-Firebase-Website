@@ -14,21 +14,21 @@
     },
     {
       "id": "thrive-coaching",
-      "description": "Abstract image representing growth and AI coaching",
-      "imageUrl": "https://images.unsplash.com/photo-1746021513186-501feeee85a4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxncm93dGglMjBjb2FjaGluZ3xlbnwwfHx8fDE3Njc0NjE1OTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "growth coaching"
+      "description": "A person having a thoughtful conversation, representing coaching.",
+      "imageUrl": "https://images.unsplash.com/photo-1543269865-cbf427effbad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjb2FjaGluZ3xlbnwwfHx8fDE3Njc1MzE3MDF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "coaching conversation"
     },
     {
       "id": "life-navigation",
-      "description": "A compass representing life direction and university",
-      "imageUrl": "https://images.unsplash.com/photo-1668864840122-8bdaf2a87e77?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjb21wYXNzJTIwZGlyZWN0aW9ufGVufDB8fHx8MTc2NzQ2MTU5OHww&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "compass direction"
+      "description": "A compass on a map, symbolizing guidance and life navigation.",
+      "imageUrl": "https://images.unsplash.com/photo-1521295121783-8a321d551ad2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjb21wYXNzJTIwbWFwfGVufDB8fHx8MTc2NzUzMTc1N3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "compass map"
     },
     {
       "id": "21-games",
-      "description": "Abstract representation of games and challenges",
-      "imageUrl": "https://images.unsplash.com/photo-1663625318124-c34c28df5bb4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxnYW1lJTIwY2hhbGxlbmdlfGVufDB8fHx8MTc2NzQ2MTU5OHww&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "game challenge"
+      "description": "An abstract image of colorful blocks, representing games and challenges.",
+      "imageUrl": "https://images.unsplash.com/photo-1578357078587-a22989b486f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdhbWV8ZW58MHx8fHwxNzY3NTMxNzk4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract game"
     }
   ]
 }
