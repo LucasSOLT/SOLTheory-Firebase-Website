@@ -23,7 +23,7 @@ export default function RootLayout({
         <div 
           className="fixed inset-0 z-[-1] bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: "url('https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page%20(1).png?alt=media&token=fd7b3e2d-309d-4462-a736-7e51e80456d0')",
+            backgroundImage: "url('https://images.unsplash.com/photo-1634712282210-27d173634456?q=80&w=2070&auto=format&fit=crop')",
           }}
         />
         <div className="relative z-10">
