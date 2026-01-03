@@ -84,7 +84,7 @@ export default function Home() {
                     <div className="flex-shrink-0">
                         <Logo className="w-40 h-40 md:w-52 md:h-52" />
                     </div>
-                    <div className="text-center md:text-left ml-16">
+                    <div className="text-center md:text-left ml-20">
                         <h1 className="font-headline text-6xl md:text-8xl font-bold tracking-tight">
                             SOL Theory
                         </h1>
