@@ -22,49 +22,38 @@ const InteractiveSpaceship: React.FC = () => {
         renderer.setClearColor(0x000000, 0);
         mountRef.current.appendChild(renderer.domElement);
 
-        // Spaceship
-        const shipGroup = new THREE.Group();
-        shipGroup.visible = false; // Hide spaceship for now, as it's only in the hero
-
-        const bodyGeometry = new THREE.ConeGeometry(0.5, 2, 32);
-        const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xcccccc, shininess: 80 });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.rotation.x = Math.PI / 2;
-        shipGroup.add(body);
-
-        const cockpitGeometry = new THREE.SphereGeometry(0.3, 32, 32);
-        const cockpitMaterial = new THREE.MeshPhongMaterial({ color: 0x4d5ca3, shininess: 100, transparent: true, opacity: 0.8 });
-        const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
-        cockpit.position.y = 0.5;
-        shipGroup.add(cockpit);
-
-        const wingGeometry = new THREE.BoxGeometry(2.5, 0.1, 1);
-        const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 50 });
-        const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        leftWing.position.set(-1, -0.3, 0);
-        shipGroup.add(leftWing);
-
-        const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        rightWing.position.set(1, -0.3, 0);
-        shipGroup.add(rightWing);
-        
-        scene.add(shipGroup);
-        shipGroup.rotation.y = -Math.PI / 8;
-        shipGroup.rotation.x = -Math.PI / 12;
-
         // Stars
         const starsGeometry = new THREE.BufferGeometry();
-        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.8, transparent: true });
+        const starsMaterial = new THREE.PointsMaterial({ 
+            color: 0xffffff, 
+            size: 0.08, 
+            opacity: 0.9, 
+            transparent: true,
+            vertexColors: true
+        });
+
         const starVertices = [];
-        for (let i = 0; i < 20000; i++) {
+        const starColors = [];
+        const color = new THREE.Color();
+
+        for (let i = 0; i < 40000; i++) {
             const x = (Math.random() - 0.5) * 2000;
             const y = (Math.random() - 0.5) * 2000;
             const z = (Math.random() - 0.5) * 2000;
-            if (x*x + y*y + z*z > 100*100) { // only add stars outside a certain radius to avoid them being inside the scene
+            if (x*x + y*y + z*z > 100*100) { // only add stars outside a certain radius
                 starVertices.push(x, y, z);
+                // Assign a color: mostly white, with some violet/blue
+                if (Math.random() > 0.9) {
+                    color.set(Math.random() > 0.5 ? 0xaa88ff : 0x88aaff);
+                } else {
+                    color.set(0xffffff);
+                }
+                starColors.push(color.r, color.g, color.b);
             }
         }
         starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+
         const stars = new THREE.Points(starsGeometry, starsMaterial);
         scene.add(stars);
 
@@ -73,11 +62,11 @@ const InteractiveSpaceship: React.FC = () => {
         const ambientLight = new THREE.AmbientLight(0x404040, 2);
         scene.add(ambientLight);
 
-        const pointLight = new THREE.PointLight(0xffffff, 1.5, 100);
+        const pointLight = new THREE.PointLight(0xaa88ff, 1, 100);
         pointLight.position.set(5, 5, 5);
         scene.add(pointLight);
         
-        const pointLight2 = new THREE.PointLight(0xaaaaff, 1, 100);
+        const pointLight2 = new THREE.PointLight(0x88aaff, 0.8, 100);
         pointLight2.position.set(-10, -5, -2);
         scene.add(pointLight2);
 
@@ -94,12 +83,6 @@ const InteractiveSpaceship: React.FC = () => {
         const clock = new THREE.Clock();
         const animate = () => {
             requestAnimationFrame(animate);
-
-            const elapsedTime = clock.getElapsedTime();
-
-            // floating animation
-            shipGroup.position.y = Math.sin(elapsedTime * 0.5) * 0.2;
-            shipGroup.position.x = Math.sin(elapsedTime * 0.3) * 0.1;
 
             // star movement
             stars.rotation.y += 0.0001;
@@ -133,7 +116,7 @@ const InteractiveSpaceship: React.FC = () => {
         };
     }, []);
 
-    return <div ref={mountRef} className="absolute inset-0" />;
+    return <div ref={mountRef} className="fixed inset-0 z-[-1]" />;
 };
 
 export default InteractiveSpaceship;

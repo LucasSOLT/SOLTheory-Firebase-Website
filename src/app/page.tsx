@@ -52,7 +52,7 @@ export default function Home() {
   const brainImage = PlaceHolderImages.find(img => img.id === 'brain-diagram');
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent text-foreground">
+    <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
         {/* Hero Section */}

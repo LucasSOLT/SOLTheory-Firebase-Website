@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
+import InteractiveSpaceship from '@/components/interactive-spaceship';
 
 export const metadata: Metadata = {
   title: 'SOL Theory Reimagined',
@@ -20,12 +21,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Questrial&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <div 
-          className="fixed inset-0 z-[-1] bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: "url('https://images.unsplash.com/photo-1634712282210-27d173634456?q=80&w=2070&auto=format&fit=crop')",
-          }}
-        />
+        <InteractiveSpaceship />
         <div className="relative z-10">
           {children}
         </div>
