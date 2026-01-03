@@ -8,7 +8,6 @@ import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import InteractiveSpaceship from '@/components/interactive-spaceship';
 
 import { ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -53,15 +52,11 @@ export default function Home() {
   const brainImage = PlaceHolderImages.find(img => img.id === 'brain-diagram');
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen bg-transparent text-foreground">
       <Header />
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="relative flex items-center justify-center h-screen bg-black overflow-hidden">
-             <div className="absolute inset-0 z-0">
-                <InteractiveSpaceship />
-                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
-            </div>
+        <section className="relative flex items-center justify-center h-screen overflow-hidden">
             <div className="relative z-10 container mx-auto px-4">
                 <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
                     <div className="flex-shrink-0">

@@ -24,6 +24,7 @@ const InteractiveSpaceship: React.FC = () => {
 
         // Spaceship
         const shipGroup = new THREE.Group();
+        shipGroup.visible = false; // Hide spaceship for now, as it's only in the hero
 
         const bodyGeometry = new THREE.ConeGeometry(0.5, 2, 32);
         const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xcccccc, shininess: 80 });
@@ -53,9 +54,9 @@ const InteractiveSpaceship: React.FC = () => {
 
         // Stars
         const starsGeometry = new THREE.BufferGeometry();
-        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.03 });
+        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.8, transparent: true });
         const starVertices = [];
-        for (let i = 0; i < 10000; i++) {
+        for (let i = 0; i < 20000; i++) {
             const x = (Math.random() - 0.5) * 2000;
             const y = (Math.random() - 0.5) * 2000;
             const z = (Math.random() - 0.5) * 2000;
@@ -126,11 +127,13 @@ const InteractiveSpaceship: React.FC = () => {
         return () => {
             window.removeEventListener('resize', handleResize);
             document.removeEventListener('mousemove', handleMouseMove);
-            mountRef.current?.removeChild(renderer.domElement);
+            if (mountRef.current && renderer.domElement) {
+                mountRef.current.removeChild(renderer.domElement);
+            }
         };
     }, []);
 
-    return <div ref={mountRef} className="absolute inset-0 z-0 opacity-70" />;
+    return <div ref={mountRef} className="absolute inset-0" />;
 };
 
 export default InteractiveSpaceship;
