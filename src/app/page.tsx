@@ -137,7 +137,7 @@ export default function Home() {
               {whatQualifies.map((item) => (
                 <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-6 text-left">
                   <CardHeader>
-                    <CardTitle className="font-headline text-2xl text-primary mb-4">{item.title}</CardTitle>
+                    <CardTitle className="font-headline text-2xl text-foreground mb-4">{item.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-muted-foreground">{item.description}</p>
