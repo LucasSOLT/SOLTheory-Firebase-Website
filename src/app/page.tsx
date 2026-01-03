@@ -44,20 +44,6 @@ const whatWereUpTo = [
     }
 ]
 
-const whoWeAreItems = [
-  {
-    icon: <Image src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/we-are-who-1.png?alt=media&token=38971f45-748a-40a2-94b7-5a1e80937a0c" alt="Icon 1" width={64} height={64} />,
-    text: "We are a human-centered community of creators, artists and modern philosophers."
-  },
-  {
-    icon: <Image src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/we-are-who-2.png?alt=media&token=a3e2e848-3c35-4424-b159-f9f252db5606" alt="Icon 2" width={64} height={64} />,
-    text: "We are a team of scientists, engineers, and designers."
-  },
-  {
-    icon: <Image src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/we-are-who-3.png?alt=media&token=36f2541a-8c92-48a1-949f-16982eb9a3e2" alt="Icon 3" width={64} height={64} />,
-    text: "We are a platform to share, connect, and grow with a community."
-  }
-];
 
 
 export default function Home() {
@@ -110,26 +96,7 @@ export default function Home() {
           </div>
         </section>
         
-        {/* We Are Who */}
-        <section className="py-20 md:py-32 bg-secondary/10">
-            <div className="container mx-auto px-4 text-center">
-                <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">WE ARE WHO</h2>
-                <div className="flex flex-col md:flex-row items-center justify-center gap-12">
-                   <div className="space-y-8 text-left max-w-lg">
-                        {whoWeAreItems.map((item, index) => (
-                             <p key={index} className="text-lg text-muted-foreground">{item.text}</p>
-                        ))}
-                    </div>
-                    <div className="flex items-center justify-center gap-4">
-                         {whoWeAreItems.map((item, index) => (
-                            <div key={index} className="bg-card p-4 rounded-full shadow-lg">
-                                {item.icon}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </section>
+        
 
 
         {/* What Qualifies */}
@@ -171,33 +138,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How Do We Do Things */}
-        <section className="py-20 md:py-32">
-            <div className="container mx-auto px-4">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                    <div>
-                        {brainImage && (
-                             <Image 
-                                src={brainImage.imageUrl} 
-                                alt={brainImage.description} 
-                                width={500} 
-                                height={500} 
-                                data-ai-hint={brainImage.imageHint}
-                                className="brightness-0 invert opacity-50"
-                            />
-                        )}
-                    </div>
-                    <div className="max-w-lg">
-                        <h2 className="font-headline text-4xl md:text-5xl font-bold mb-6">How Do We Do Things</h2>
-                        <div className="space-y-4 text-muted-foreground text-lg">
-                           <p>We connect the real connection. Social media makes us connected but we lost that human touch completely. From our research, when you are at your best then it will be from one of our partner that contribute.</p>
-                           <p>As for SOL we have a framework for creators, business, and platform management tools for the whole ecosystem to connect and operate.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
+        
 
         {/* Vision & Goals */}
         <section className="py-20 md:py-32 bg-secondary/10">
