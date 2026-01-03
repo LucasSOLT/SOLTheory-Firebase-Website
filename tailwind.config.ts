@@ -17,8 +17,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['Sofia Sans', 'sans-serif'],
-        headline: ['Sofia Sans', 'serif'],
+        body: ['Questrial', 'sans-serif'],
+        headline: ['Nunito', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
