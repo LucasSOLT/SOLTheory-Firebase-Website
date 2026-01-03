@@ -52,18 +52,27 @@ export default function Home() {
   const brainImage = PlaceHolderImages.find(img => img.id === 'brain-diagram');
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent">
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="relative flex items-center justify-center h-screen overflow-hidden">
+            <div className="absolute inset-0 z-0">
+                <Image
+                    src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page%20(1).png?alt=media&token=fd7b3e2d-309d-4462-a736-7e51e80456d0"
+                    alt="Galaxy background"
+                    fill
+                    className="object-cover"
+                />
+                <div className="absolute inset-0 bg-black/30" />
+            </div>
             <div className="relative z-10 container mx-auto px-4">
                 <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
                     <div className="flex-shrink-0">
                         <Logo className="w-40 h-40 md:w-52 md:h-52" />
                     </div>
                     <div className="text-center md:text-left">
-                        <h1 className="font-headline text-6xl md:text-8xl font-bold tracking-tight">
+                        <h1 className="font-headline text-6xl md:text-8xl font-bold tracking-tight text-white">
                             SOL Theory
                         </h1>
                         <p className="mt-2 text-2xl md:text-3xl text-primary">The Evolution of Self Improvement</p>
@@ -71,7 +80,7 @@ export default function Home() {
                 </div>
             </div>
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10">
-                <Link href="#projects" className="flex flex-col items-center gap-2 text-primary hover:text-foreground transition-colors animate-fade-in [animation-delay:1s] animation-fill-mode-backwards">
+                <Link href="#projects" className="flex flex-col items-center gap-2 text-primary hover:text-white transition-colors animate-fade-in [animation-delay:1s] animation-fill-mode-backwards">
                     <span className="font-headline tracking-widest">EXPLORE MORE</span>
                     <ArrowDown className="w-6 h-6 animate-bounce" />
                 </Link>
