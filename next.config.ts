@@ -33,6 +33,12 @@ const nextConfig: NextConfig = {
         hostname: 'firebasestorage.googleapis.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.solarsystemscope.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },

@@ -19,21 +19,15 @@ export function IntergalacticScene() {
     renderer.setPixelRatio(window.devicePixelRatio);
     currentMount.appendChild(renderer.domElement);
 
-    camera.position.set(0, 2, 8);
+    camera.position.set(0, 5, 20);
 
-    // Starfield
-    const starVertices = [];
-    for (let i = 0; i < 15000; i++) {
-        const x = (Math.random() - 0.5) * 2000;
-        const y = (Math.random() - 0.5) * 2000;
-        const z = (Math.random() - 2) * 1000;
-        starVertices.push(x, y, z);
-    }
-    const starGeometry = new THREE.BufferGeometry();
-    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2 });
-    const stars = new THREE.Points(starGeometry, starMaterial);
-    scene.add(stars);
+    // Earth
+    const textureLoader = new THREE.TextureLoader();
+    const earthTexture = textureLoader.load('https://www.solarsystemscope.com/textures/download/8k_earth_daymap.jpg');
+    const earthGeometry = new THREE.SphereGeometry(10, 64, 64);
+    const earthMaterial = new THREE.MeshStandardMaterial({ map: earthTexture });
+    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    scene.add(earth);
 
     // Robot model
     const robot = new THREE.Group();
@@ -51,15 +45,16 @@ export function IntergalacticScene() {
     eye.position.set(0, 0.65, 0.25);
     robot.add(eye);
 
+    robot.position.set(0, 0, 15);
     scene.add(robot);
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0x404040, 2);
+    const ambientLight = new THREE.AmbientLight(0x404040, 1);
     scene.add(ambientLight);
     
-    const pointLight = new THREE.PointLight(0xffffff, 2, 100);
-    pointLight.position.set(2, 4, 6);
-    scene.add(pointLight);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 4);
+    sunLight.position.set(10, 10, 10);
+    scene.add(sunLight);
 
     const eyeLight = new THREE.PointLight(0x833ab4, 5, 5);
     eye.add(eyeLight);
@@ -100,9 +95,8 @@ export function IntergalacticScene() {
         camera.position.lerp(cameraPosition, 0.05);
         camera.lookAt(robotPosition);
 
-        // Rotate stars for parallax effect
-        stars.position.z += delta * 0.5;
-        if(stars.position.z > 500) stars.position.z = -500;
+        // Rotate Earth for effect
+        earth.rotation.y += delta * 0.02;
 
         renderer.render(scene, camera);
     };
