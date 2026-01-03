@@ -96,29 +96,15 @@ export default function Home() {
         {/* SOL Theory The Etsy of Self Improvement */}
         <section className="py-20 md:py-32">
           <div className="container mx-auto px-4">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="max-w-md">
-                <h2 className="font-headline text-4xl md:text-5xl font-bold">SOL Theory</h2>
-                <h3 className="text-primary text-2xl md:text-3xl mt-2 mb-6">The Etsy of Self Improvement</h3>
-                <p className="text-muted-foreground mb-4">
-                  SOL Theory is a curated community of creators and an ecosystem of apps where members can discover and share their products, services, and knowledge.
-                </p>
-                <p className="text-muted-foreground">
-                  We provide a platform for A-Hope, B-Tools, C-Practice. Every product must be able to demonstrate and have a SPF (Simple, Practical and Fun) rating for its products and life.
-                </p>
-              </div>
-              <div>
-                {etsyImage && (
-                    <Image 
-                        src={etsyImage.imageUrl} 
-                        alt={etsyImage.description} 
-                        width={600} 
-                        height={400} 
-                        data-ai-hint={etsyImage.imageHint}
-                        className="rounded-lg shadow-2xl shadow-primary/10"
-                    />
-                )}
-              </div>
+            <div className="text-center max-w-3xl mx-auto">
+              <h2 className="font-headline text-4xl md:text-5xl font-bold">SOL Theory</h2>
+              <h3 className="text-primary text-2xl md:text-3xl mt-2 mb-6">The Etsy of Self Improvement</h3>
+              <p className="text-muted-foreground mb-4 text-lg">
+                SOL Theory is a curated community of creators and an ecosystem of apps where members can discover and share their products, services, and knowledge.
+              </p>
+              <p className="text-muted-foreground text-lg">
+                We provide a platform for A-Hope, B-Tools, C-Practice. Every product must be able to demonstrate and have a SPF (Simple, Practical and Fun) rating for its products and life.
+              </p>
             </div>
           </div>
         </section>
@@ -255,7 +241,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
-
-    
