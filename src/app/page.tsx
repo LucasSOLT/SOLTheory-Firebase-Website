@@ -157,7 +157,7 @@ export default function Home() {
             <div className="max-w-2xl mx-auto bg-card/80 border-border/50 backdrop-blur-sm p-8 rounded-lg text-left">
                 <div className="space-y-6">
                     <div>
-                        <h3 className="text-primary font-bold text-xl mb-2">Why</h3>
+                        <h3 className="text-foreground font-bold text-xl mb-2">Why</h3>
                         <p className="text-muted-foreground">To empower everyone to look for what is possible.</p>
                     </div>
                       <div>
