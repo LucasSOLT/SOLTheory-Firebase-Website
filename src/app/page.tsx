@@ -10,7 +10,7 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import InteractiveSpaceship from '@/components/interactive-spaceship';
 
-import { CheckCircle2, Users, BrainCircuit, Lightbulb, Rocket, ShieldCheck, ArrowDown } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
