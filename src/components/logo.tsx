@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import type { HTMLAttributes } from 'react';
+import { cn } from '@/lib/utils';
 
-export function Logo(props: HTMLAttributes<HTMLDivElement>) {
+export function Logo({className, ...props}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div {...props}>
       <Image
@@ -9,7 +10,7 @@ export function Logo(props: HTMLAttributes<HTMLDivElement>) {
         alt="SOL Theory Logo"
         width={100}
         height={100}
-        className="h-full w-full"
+        className={cn("h-full w-full brightness-0 invert", className)}
       />
     </div>
   );
