@@ -62,7 +62,7 @@ export default function Home() {
         </section>
 
         {/* SOL Theory The Etsy of Self Improvement */}
-        <section className="py-20 md:py-32">
+        <section className="py-20">
           <div className="container mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto">
               <h2 className="font-headline text-5xl md:text-6xl font-bold">SOL Theory</h2>
@@ -81,7 +81,7 @@ export default function Home() {
 
 
         {/* What Qualifies */}
-        <section id="qualifies" className="py-20 md:py-32">
+        <section id="qualifies" className="py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">What Qualifies to be on SOL Theory</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
@@ -103,37 +103,33 @@ export default function Home() {
 
         {/* Vision & Goals */}
         <section className="py-20 md:py-32 bg-secondary/10">
-            <div className="container mx-auto px-4">
-                 <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">Why, Mission, Vision & Goals</h2>
+            <div className="max-w-2xl mx-auto bg-card/80 border-border/50 backdrop-blur-sm p-8 rounded-lg text-left">
+                <div className="space-y-6">
                     <div>
-                        <h2 className="font-headline text-4xl md:text-5xl font-bold">Why, Mission, Vision & Goals</h2>
+                        <h3 className="text-primary font-bold text-xl mb-2">Why</h3>
+                        <p className="text-muted-foreground">To empower everyone to look for what is possible.</p>
                     </div>
-                    <div className="bg-card/80 border-border/50 backdrop-blur-sm p-8 rounded-lg">
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="text-primary font-bold text-xl mb-2">Why</h3>
-                                <p className="text-muted-foreground">To empower everyone to look for what is possible.</p>
-                            </div>
-                             <div>
-                                <h3 className="text-primary font-bold text-xl mb-2">Mission</h3>
-                                <p className="text-muted-foreground">To create a platform, ecosystem and community for people to improve their lives, and share knowledge.</p>
-                            </div>
-                             <div>
-                                <h3 className="text-primary font-bold text-xl mb-2">Vision</h3>
-                                <p className="text-muted-foreground">To be the #1 place for self improvement.</p>
-                            </div>
-                             <div>
-                                <h3 className="text-primary font-bold text-xl mb-2">Goals</h3>
-                                <ul className="list-disc list-inside text-muted-foreground space-y-2">
-                                    <li>Build a community of creators that can make an impact for humankind.</li>
-                                    <li>Be a creative and innovative place for creators.</li>
-                                    <li>Measure everything based on data and science.</li>
-                                </ul>
-                            </div>
-                        </div>
+                      <div>
+                        <h3 className="text-primary font-bold text-xl mb-2">Mission</h3>
+                        <p className="text-muted-foreground">To create a platform, ecosystem and community for people to improve their lives, and share knowledge.</p>
+                    </div>
+                      <div>
+                        <h3 className="text-primary font-bold text-xl mb-2">Vision</h3>
+                        <p className="text-muted-foreground">To be the #1 place for self improvement.</p>
+                    </div>
+                      <div>
+                        <h3 className="text-primary font-bold text-xl mb-2">Goals</h3>
+                        <ul className="list-disc list-inside text-muted-foreground space-y-2">
+                            <li>Build a community of creators that can make an impact for humankind.</li>
+                            <li>Be a creative and innovative place for creators.</li>
+                            <li>Measure everything based on data and science.</li>
+                        </ul>
                     </div>
                 </div>
             </div>
+          </div>
         </section>
 
 
