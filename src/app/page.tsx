@@ -25,25 +25,6 @@ const whatQualifies = [
   }
 ];
 
-const whatWereUpTo = [
-    {
-        icon: <Image src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/persona.png?alt=media&token=c1303117-6262-4b53-a1f7-0c74b8c73d93" alt="Persona Icon" width={48} height={48} className="w-12 h-12" />,
-        title: "Persona"
-    },
-    {
-        icon: <Image src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/elements.png?alt=media&token=c9b3c3e2-8097-402a-993d-4c3db341a027" alt="Elements Icon" width={48} height={48} className="w-12 h-12" />,
-        title: "Elements"
-    },
-    {
-        icon: <Image src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/all-things.png?alt=media&token=0a321d5a-5264-42b3-96e0-24957e841f92" alt="All Things Icon" width={48} height={48} className="w-12 h-12" />,
-        title: "All Things"
-    },
-    {
-        icon: <Image src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/sync.png?alt=media&token=8011c7d2-74f8-4b72-a05e-f00609384724" alt="Sync Icon" width={48} height={48} className="w-12 h-12" />,
-        title: "Sync"
-    }
-]
-
 
 
 export default function Home() {
@@ -113,26 +94,6 @@ export default function Home() {
                     <p className="text-muted-foreground">{item.description}</p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* What We're Up To */}
-        <section id="what-we-do" className="py-20 md:py-32 bg-secondary/10">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="font-headline text-4xl md:text-5xl font-bold">What We&apos;re Up To</h2>
-            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto mb-12">
-              We're a team of developers & builders, we create things to empower our users.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-8">
-              {whatWereUpTo.map((item) => (
-                <div key={item.title} className="flex flex-col items-center gap-4">
-                  <div className="p-5 rounded-full bg-card shadow-lg border border-border/50">
-                    {item.icon}
-                  </div>
-                  <h3 className="font-semibold text-foreground">{item.title}</h3>
-                </div>
               ))}
             </div>
           </div>
