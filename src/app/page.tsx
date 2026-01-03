@@ -85,10 +85,10 @@ export default function Home() {
                         <Logo className="w-40 h-40 md:w-52 md:h-52" />
                     </div>
                     <div className="text-center md:text-left">
-                        <h1 className="font-headline text-5xl md:text-7xl font-bold tracking-tight">
+                        <h1 className="font-headline text-6xl md:text-8xl font-bold tracking-tight">
                             SOL Theory
                         </h1>
-                        <p className="mt-2 text-xl md:text-2xl text-primary">The Evolution of Self Improvement</p>
+                        <p className="mt-2 text-2xl md:text-3xl text-primary">The Evolution of Self Improvement</p>
                     </div>
                 </div>
             </div>
@@ -242,5 +242,7 @@ export default function Home() {
     </div>
   );
 }
+
+    
 
     
