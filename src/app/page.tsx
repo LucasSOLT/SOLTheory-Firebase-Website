@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
 import { Logo } from '@/components/logo';
+import Link from 'next/link';
 
 import { CheckCircle2, Users, BrainCircuit, Lightbulb, Rocket, ShieldCheck } from 'lucide-react';
 
@@ -25,6 +26,23 @@ const whatQualifies = [
   }
 ];
 
+const featuredProjects = [
+  {
+    id: "thrive-coaching",
+    title: "THRiVE Coaching",
+    url: "https://www.thrivecoaching.ai",
+  },
+  {
+    id: "life-navigation",
+    title: "Life Navigation University",
+    url: "https://www.lifenavigation.ai",
+  },
+  {
+    id: "21-games",
+    title: "21 Games",
+    url: "https://www.21games.ai",
+  },
+];
 
 
 export default function Home() {
@@ -77,7 +95,37 @@ export default function Home() {
           </div>
         </section>
         
-        
+        {/* Featured Projects Section */}
+        <section id="projects" className="py-20 bg-secondary/10">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">Featured Projects</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              {featuredProjects.map((project) => {
+                const projectImage = PlaceHolderImages.find(img => img.id === project.id);
+                return (
+                  <Link href={project.url} key={project.id} target="_blank" rel="noopener noreferrer" className="block group">
+                    <Card className="bg-card/80 border-border/50 backdrop-blur-sm overflow-hidden h-full flex flex-col transition-all duration-300 group-hover:border-primary group-hover:scale-105">
+                      {projectImage && (
+                        <div className="relative h-48 w-full">
+                          <Image
+                            src={projectImage.imageUrl}
+                            alt={projectImage.description}
+                            fill
+                            className="object-cover"
+                            data-ai-hint={projectImage.imageHint}
+                          />
+                        </div>
+                      )}
+                      <CardHeader>
+                        <CardTitle className="font-headline text-2xl text-primary">{project.title}</CardTitle>
+                      </CardHeader>
+                    </Card>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        </section>
 
 
         {/* What Qualifies */}

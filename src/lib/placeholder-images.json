@@ -11,6 +11,24 @@
       "description": "Stylized diagram of a human brain with connected nodes",
       "imageUrl": "https://images.unsplash.com/photo-1602046274544-5f52668372dc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxicmFpbiUyMGRpYWdyYW18ZW58MHx8fHwxNzY3NDUzNjA2fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "brain diagram"
+    },
+    {
+      "id": "thrive-coaching",
+      "description": "Abstract image representing growth and AI coaching",
+      "imageUrl": "https://images.unsplash.com/photo-1746021513186-501feeee85a4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxncm93dGglMjBjb2FjaGluZ3xlbnwwfHx8fDE3Njc0NjE1OTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "growth coaching"
+    },
+    {
+      "id": "life-navigation",
+      "description": "A compass representing life direction and university",
+      "imageUrl": "https://images.unsplash.com/photo-1668864840122-8bdaf2a87e77?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjb21wYXNzJTIwZGlyZWN0aW9ufGVufDB8fHx8MTc2NzQ2MTU5OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "compass direction"
+    },
+    {
+      "id": "21-games",
+      "description": "Abstract representation of games and challenges",
+      "imageUrl": "https://images.unsplash.com/photo-1663625318124-c34c28df5bb4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxnYW1lJTIwY2hhbGxlbmdlfGVufDB8fHx8MTc2NzQ2MTU5OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "game challenge"
     }
   ]
 }
