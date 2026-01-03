@@ -80,14 +80,15 @@ export default function Home() {
                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
             </div>
             <div className="relative z-10 container mx-auto px-4">
-                <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 md:-ml-12">
+                <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
                     <div className="flex-shrink-0">
                         <Logo className="w-40 h-40 md:w-52 md:h-52" />
                     </div>
                     <div className="text-center md:text-left">
                         <h1 className="font-headline text-5xl md:text-7xl font-bold tracking-tight">
-                            The Evolution of <br /> Self Improvement
+                            SOL Theory
                         </h1>
+                        <p className="mt-2 text-xl md:text-2xl text-primary">The Evolution of Self Improvement</p>
                     </div>
                 </div>
             </div>
@@ -241,3 +242,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
