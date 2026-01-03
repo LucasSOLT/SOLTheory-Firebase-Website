@@ -135,7 +135,7 @@ export default function Home() {
             <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">What Qualifies to be on SOL Theory</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               {whatQualifies.map((item) => (
-                <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-6 text-left">
+                <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-6 text-left transition-all duration-300 hover:border-primary hover:scale-105">
                   <CardHeader>
                     <CardTitle className="font-headline text-2xl text-foreground mb-4">{item.title}</CardTitle>
                   </CardHeader>
