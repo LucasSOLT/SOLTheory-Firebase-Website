@@ -52,20 +52,11 @@ export default function Home() {
   const brainImage = PlaceHolderImages.find(img => img.id === 'brain-diagram');
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="relative flex items-center justify-center h-screen overflow-hidden">
-            <div className="absolute inset-0 z-0">
-                <Image
-                    src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page%20(1).png?alt=media&token=fd7b3e2d-309d-4462-a736-7e51e80456d0"
-                    alt="Galaxy background"
-                    fill
-                    className="object-cover"
-                />
-                <div className="absolute inset-0 bg-black/30" />
-            </div>
             <div className="relative z-10 container mx-auto px-4">
                 <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
                     <div className="flex-shrink-0">
