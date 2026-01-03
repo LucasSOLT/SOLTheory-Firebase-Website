@@ -80,7 +80,7 @@ export default function Home() {
                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
             </div>
             <div className="relative z-10 container mx-auto px-4">
-                <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 md:ml-32">
+                <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
                     <div className="flex-shrink-0">
                         <Logo className="w-40 h-40 md:w-52 md:h-52" />
                     </div>
