@@ -55,13 +55,13 @@ export default function Home() {
       <Header />
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="relative flex items-center justify-center h-screen bg-black">
+        <section className="relative flex items-center justify-center h-screen bg-black overflow-hidden">
              <div className="absolute inset-0 z-0">
                 <Image 
                     src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page.png?alt=media&token=31024488-c529-4f7a-9fd7-46d888ac0f81"
                     alt="Hero Background"
                     fill
-                    className="object-cover object-left opacity-100"
+                    className="object-cover opacity-100 scale-110"
                 />
                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
             </div>
