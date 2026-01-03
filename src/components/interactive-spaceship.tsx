@@ -53,7 +53,7 @@ const InteractiveSpaceship: React.FC = () => {
 
         // Stars
         const starsGeometry = new THREE.BufferGeometry();
-        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.02 });
+        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.03 });
         const starVertices = [];
         for (let i = 0; i < 10000; i++) {
             const x = (Math.random() - 0.5) * 2000;
@@ -130,7 +130,7 @@ const InteractiveSpaceship: React.FC = () => {
         };
     }, []);
 
-    return <div ref={mountRef} className="absolute inset-0 z-0 opacity-50" />;
+    return <div ref={mountRef} className="absolute inset-0 z-0 opacity-70" />;
 };
 
 export default InteractiveSpaceship;
