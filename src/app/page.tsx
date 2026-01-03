@@ -78,12 +78,16 @@ export default function Home() {
                 />
                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
             </div>
-          <div className="relative z-10 container mx-auto px-4 flex flex-col md:flex-row items-center justify-center gap-16 text-center md:text-left">
-            <Logo className="w-48 h-48 md:w-64 md:h-64" />
-            <h1 className="font-headline text-5xl md:text-7xl font-bold tracking-tight">
-              The Evolution of <br /> Self Improvement
-            </h1>
-          </div>
+            <div className="relative z-10 container mx-auto px-4 flex flex-col md:flex-row items-center justify-center gap-16 text-center md:text-left">
+                <div className="w-1/2 flex justify-end pr-8">
+                    <Logo className="w-64 h-64" />
+                </div>
+                <div className="w-1/2 flex justify-start pl-8">
+                    <h1 className="font-headline text-5xl md:text-7xl font-bold tracking-tight">
+                        The Evolution of <br /> Self Improvement
+                    </h1>
+                </div>
+            </div>
         </section>
 
         {/* SOL Theory The Etsy of Self Improvement */}
