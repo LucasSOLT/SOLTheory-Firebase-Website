@@ -165,11 +165,11 @@ export default function Home() {
                         <p className="text-muted-foreground">To create a platform, ecosystem and community for people to improve their lives, and share knowledge.</p>
                     </div>
                       <div>
-                        <h3 className="text-primary font-bold text-xl mb-2">Vision</h3>
+                        <h3 className="text-foreground font-bold text-xl mb-2">Vision</h3>
                         <p className="text-muted-foreground">To be the #1 place for self improvement.</p>
                     </div>
                       <div>
-                        <h3 className="text-primary font-bold text-xl mb-2">Goals</h3>
+                        <h3 className="text-foreground font-bold text-xl mb-2">Goals</h3>
                         <ul className="list-disc list-inside text-muted-foreground space-y-2">
                             <li>Build a community of creators that can make an impact for humankind.</li>
                             <li>Be a creative and innovative place for creators.</li>
