@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import Image from 'next/image';
 
-const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=c0e9a9fd-eadf-4e3b-9e0f-a16d867d554e";
+const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440";
 
 export const metadata: Metadata = {
   title: 'SOL Theory Reimagined',
@@ -19,6 +19,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         <link rel="icon" href={iconUrl} type="image/png" sizes="any" />
+        <link rel="apple-touch-icon" href={iconUrl} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Questrial&display=swap" rel="stylesheet" />
