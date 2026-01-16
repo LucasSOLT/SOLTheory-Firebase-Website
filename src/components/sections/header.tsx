@@ -48,19 +48,20 @@ export function Header() {
           <Logo className="h-10 w-10" />
           <SolTheoryLogoText />
         </Link>
-        <div className="ml-auto flex items-center gap-2">
-            <nav className="hidden md:flex">
-              <ul className="flex items-center gap-8">
-                {navLinks.map((link) => (
-                  <li key={link.href}>
-                    <Link href={link.href} className="text-lg text-muted-foreground hover:text-primary transition-colors">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+        
+        <nav className="hidden md:flex ml-16">
+          <ul className="flex items-center gap-8">
+            {navLinks.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} className="text-lg text-muted-foreground hover:text-primary transition-colors">
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
+        <div className="ml-auto flex items-center gap-2">
             {!isUserLoading && !user && (
               <Button onClick={openAuthDialog}>Login</Button>
             )}
