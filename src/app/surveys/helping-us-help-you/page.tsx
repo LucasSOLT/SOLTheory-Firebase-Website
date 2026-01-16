@@ -160,7 +160,7 @@ function HelpingUsHelpYouForm() {
                     name="reminderTreadmill"
                     render={({ field }) => (
                       <FormItem className="space-y-3 p-4 rounded-lg bg-background/50">
-                        <FormLabel className="text-xl text-foreground">3. The "Reminder" Treadmill: How much of your week is spent sending routine text messages or emails to clients just to remind them of appointments, class times, or document deadlines?</FormLabel>
+                        <FormLabel className="text-xl text-foreground">3. The "Reminder" Treadmill: How much of your week is spent sending/awaiting responses on routine text messages or emails to clients just to remind them of appointments, class times, or document deadlines?</FormLabel>
                         <FormControl>
                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2 pt-2">
                              <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="None" /></FormControl><FormLabel className="font-normal text-lg text-muted-foreground">None</FormLabel></FormItem>
