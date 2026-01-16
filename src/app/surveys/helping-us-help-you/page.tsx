@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PasswordProtect } from '@/components/password-protect';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
@@ -391,9 +390,5 @@ function HelpingUsHelpYouForm() {
 
 
 export default function HelpingUsHelpYouSurveyPage() {
-  return (
-    <PasswordProtect>
-      <HelpingUsHelpYouForm />
-    </PasswordProtect>
-  );
+  return <HelpingUsHelpYouForm />;
 }

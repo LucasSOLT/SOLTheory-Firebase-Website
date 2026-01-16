@@ -12,6 +12,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
+import { useUser } from '@/firebase';
+import { useAuthStore } from '@/hooks/use-auth-store';
+import { UserNav } from '@/components/auth/UserNav';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -35,6 +38,9 @@ const dropdownMenuItems = [
 
 
 export function Header() {
+  const { user, isUserLoading } = useUser();
+  const { openAuthDialog } = useAuthStore();
+
   return (
     <header className="absolute top-0 left-0 right-0 z-20 py-4">
       <div className="container mx-auto px-4 flex items-center">
@@ -54,6 +60,13 @@ export function Header() {
                 ))}
               </ul>
             </nav>
+
+            {!isUserLoading && !user && (
+              <Button onClick={openAuthDialog}>Login</Button>
+            )}
+            
+            {user && <UserNav />}
+
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon">
