@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import Image from 'next/image';
+import { SurveyGate } from '@/components/survey-gate';
 
 const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440";
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Questrial&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
+        <SurveyGate />
         <div className="fixed inset-0 z-[-1]">
             <Image
                 src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page%20(1).png?alt=media&token=fd7b3e2d-309d-4462-a736-7e51e80456d0"
