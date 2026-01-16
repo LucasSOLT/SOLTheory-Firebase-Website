@@ -27,8 +27,13 @@ import {
 } from '@/components/ui/form';
 import { AuthError } from 'firebase/auth';
 
+const allowedDomains = ['@advancepathways.org', '@nxtchapter.org', '@soltheory.org'];
+
 const createAccountSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email({ message: "Invalid email address." })
+    .refine(email => allowedDomains.some(domain => email.toLowerCase().endsWith(domain)), {
+        message: "Please use an organization email: @advancepathways.org, @nxtchapter.org, or @soltheory.org."
+    }),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
@@ -57,6 +62,7 @@ export function AuthDialog() {
     switch (error.code) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
+      case 'auth/invalid-credential':
         message = 'Invalid email or password.';
         break;
       case 'auth/email-already-in-use':
@@ -157,7 +163,7 @@ export function AuthDialog() {
             <DialogHeader>
               <DialogTitle>Create Account</DialogTitle>
               <DialogDescription>
-                To access surveys, please register using your company email address (UPN).
+                To access surveys, you must register with an organization email (UPN). Accepted domains are @advancepathways.org, @nxtchapter.org, and @soltheory.org.
               </DialogDescription>
             </DialogHeader>
             <Form {...createAccountForm}>
@@ -167,9 +173,9 @@ export function AuthDialog() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Company Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="name@example.com" {...field} />
+                        <Input placeholder="name@your-organization.org" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

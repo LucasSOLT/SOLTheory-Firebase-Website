@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardDescription,
@@ -8,9 +10,29 @@ import {
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Lock } from 'lucide-react';
+import { ArrowRight, Lock, Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SurveysPage() {
+  const { toast } = useToast();
+
+  const handleCopyLink = (path: string) => {
+    const url = `${window.location.origin}${path}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast({
+        title: 'Copied Link!',
+        description: 'The survey link has been copied to your clipboard.',
+      });
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+      toast({
+        variant: "destructive",
+        title: 'Copy Failed',
+        description: 'Could not copy link to clipboard.',
+      });
+    });
+  };
+
   return (
     <div className="min-h-screen w-full py-12 px-4">
       <div className="max-w-5xl mx-auto">
@@ -36,12 +58,16 @@ export default function SurveysPage() {
               A survey for team members to identify daily pain points and
               time-consuming tasks. Your feedback is crucial for automation.
             </CardDescription>
-            <CardFooter className="mt-4">
-              <Link href="/surveys/helping-us-help-you" className="w-full">
+            <CardFooter className="mt-4 flex items-center gap-2">
+              <Link href="/surveys/helping-us-help-you" className="flex-grow">
                 <Button className="w-full">
                   Begin Survey <ArrowRight className="ml-2" />
                 </Button>
               </Link>
+              <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/helping-us-help-you')}>
+                  <Copy />
+                  <span className="sr-only">Copy Link</span>
+              </Button>
             </CardFooter>
           </Card>
 
@@ -60,11 +86,15 @@ export default function SurveysPage() {
                     <Badge variant="secondary">Reserved</Badge>
                 </div>
             </CardHeader>
-            <CardFooter className="mt-auto pt-4">
-                <div className="flex items-center text-sm text-muted-foreground/60 w-full">
+            <CardFooter className="mt-auto pt-4 flex items-center justify-between">
+                <div className="flex items-center text-sm text-muted-foreground/60">
                     <Lock className="mr-2 h-4 w-4" />
                     <span>Reserved for Upper Management or a SME</span>
                 </div>
+                 <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/master-requirements')}>
+                    <Copy />
+                    <span className="sr-only">Copy Link</span>
+                </Button>
             </CardFooter>
           </Card>
           
@@ -82,11 +112,15 @@ export default function SurveysPage() {
                     <Badge variant="secondary">Reserved</Badge>
                 </div>
             </CardHeader>
-            <CardFooter className="mt-auto pt-4">
+            <CardFooter className="mt-auto pt-4 flex items-center justify-between">
                  <div className="flex items-center text-sm text-muted-foreground/60 w-full">
                     <Lock className="mr-2 h-4 w-4" />
                      <span>Reserved for Upper Management or a SME</span>
                 </div>
+                <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/technical-requirements')}>
+                    <Copy />
+                    <span className="sr-only">Copy Link</span>
+                </Button>
             </CardFooter>
           </Card>
 
