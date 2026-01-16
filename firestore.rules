@@ -12,6 +12,8 @@
  * - /users/{userId}: Stores private user account information. The document ID is the
  *   user's Firebase Authentication UID, creating a direct and secure link between
  *   the user's identity and their data.
+ * - /users/{userId}/survey_responses/{surveyId}: Stores a user's private responses
+ *   to a specific survey. Access is restricted to the owner.
  * - /interest_tags/{interestTagId}: A top-level collection for tags that are publicly
  *   readable by all users for profile creation, but are not writable by clients.
  * - /subscriptions/{subscriptionId}: A collection for subscription data, which is
@@ -19,8 +21,8 @@
  *
  * @section Key Security Decisions
  * - User Isolation: Users can only read and write their own documents within the /users
- *   collection. Listing of the entire /users collection is explicitly disallowed to
- *   prevent enumeration of all users in the system.
+ *   collection and its subcollections. Listing of the entire /users collection is
+ *   explicitly disallowed to prevent enumeration of all users in the system.
  * - Public Read-Only Data: The `/interest_tags` collection is globally readable to
  *   populate UI elements, but write access is denied to prevent unauthorized modification.
  *   Writes should be handled by a trusted server environment or admin role.
@@ -96,20 +98,33 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     /**
-     * @description Manages user account documents.
+     * @description Manages user account documents and their subcollections.
      * @path /users/{userId}
-     * @allow (get) A user can read their own account document.
-     * @allow (create) A new user can create their own account document.
-     * @deny (list) A user cannot list all documents in the /users collection.
-     * @deny (update) A user cannot update another user's account document.
-     * @principle Restricts access to a user's own data tree and enforces ownership.
      */
     match /users/{userId} {
+      /**
+       * @description A user's own account document.
+       * @allow (get) A user can read their own account document.
+       * @allow (create) A new user can create their own account document.
+       * @deny (list) A user cannot list all documents in the /users collection.
+       * @deny (update) A user cannot update another user's account document.
+       */
       allow get: if isOwner(userId);
       allow list: if false;
       allow create: if isCreatingOwnValidUserDocument(userId);
       allow update: if isUpdatingOwnValidUserDocument(userId);
       allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Manages a user's individual survey responses.
+       * @path /users/{userId}/survey_responses/{surveyId}
+       * @allow (read, create, update, delete) A user can manage their own survey responses.
+       * @principle Restricts survey data to the user who created it.
+       */
+      match /survey_responses/{surveyId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if isOwner(userId); // Allows user to reset their survey
+      }
     }
 
     /**
@@ -143,3 +158,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

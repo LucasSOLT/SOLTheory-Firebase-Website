@@ -61,6 +61,97 @@
         "id",
         "name"
       ]
+    },
+    "SurveyResponse": {
+      "title": "SurveyResponse",
+      "type": "object",
+      "description": "Stores a user's responses for a specific survey.",
+      "properties": {
+        "surveyId": { "type": "string" },
+        "name": { "type": "string" },
+        "position": { "type": "string" },
+        "willingnessToAI": { "type": "string" },
+        "technicalKnowledge": { "type": "string" },
+        "canReachOut": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "copyPasteTest": { "type": "string" },
+        "copyPasteOffenders": { "type": "string" },
+        "treasureHunt": { "type": "string" },
+        "reminderTreadmill": { "type": "string" },
+        "signatureChase": { "type": "string" },
+        "signatureChaseWho": { "type": "string" },
+        "didntKnowProblem": { "type": "string" },
+        "grantReporting": { "type": "string" },
+        "cheatSheet": { "type": "string" },
+        "paperTrail": { "type": "string" },
+        "workaround": { "type": "string" },
+        "magicWand": { "type": "string" },
+        "missionMultiplier": { "type": "string" },
+        "missionMultiplierOther": { "type": "string" },
+        "clientJourney": { "type": "string" },
+        "finalThoughts": { "type": "string" },
+        "databaseOrigin": { "type": "string" },
+        "databaseOriginOther": { "type": "string" },
+        "primaryEntities": { "type": "string" },
+        "userRoles": { "type": "string" },
+        "technicalAptitude": { "type": "string" },
+        "technicalAptitudeOther": { "type": "string" },
+        "dataInputMethod": { "type": "string" },
+        "revenueBarrier": { "type": "string" },
+        "revenueBarrierOther": { "type": "string" },
+        "missedOpportunities": { "type": "string" },
+        "missedOpportunitiesOther": { "type": "string" },
+        "cashflowVisibility": { "type": "string" },
+        "cashflowVisibilityOther": { "type": "string" },
+        "staffRetention": { "type": "string" },
+        "staffRetentionOther": { "type": "string" },
+        "uselessTools": { "type": "string" },
+        "uselessToolsOther": { "type": "string" },
+        "sourceOfChaos": { "type": "string" },
+        "sourceOfChaosOther": { "type": "string" },
+        "approvalBottlenecks": { "type": "string" },
+        "shadowSystems": { "type": "string" },
+        "grantReportingEffort": { "type": "string" },
+        "onboardingEfficiency": { "type": "string" },
+        "paperProcesses": { "type": "string" },
+        "busFactor": { "type": "string" },
+        "taskToAutomate": { "type": "string" },
+        "meetingPreparedness": { "type": "string" },
+        "repetitiveDataEntry": { "type": "string" },
+        "clientIntakeExperience": { "type": "string" },
+        "clientIntakeExperienceOther": { "type": "string" },
+        "timeOnReminders": { "type": "string" },
+        "manualWorkarounds": { "type": "string" },
+        "manualWorkaroundsOther": { "type": "string" },
+        "auditConfidence": { "type": "string" },
+        "dataTrust": { "type": "string" },
+        "desiredMetrics": { "type": "string" },
+        "reportingSpeed": { "type": "string" },
+        "legalDocTracking": { "type": "string" },
+        "mandatoryReporting": { "type": "string" },
+        "dataPrivacy": { "type": "string" },
+        "securityIncident": { "type": "string" },
+        "clientFeedbackLoop": { "type": "string" },
+        "inventoryManagement": { "type": "string" },
+        "serviceEligibility": { "type": "string" },
+        "clientAgingOut": { "type": "string" },
+        "caseManagerAssignment": { "type": "string" },
+        "employerDatabase": { "type": "string" },
+        "postPlacementTracking": { "type": "string" },
+        "telehealthUsability": { "type": "string" },
+        "externalAccess": { "type": "string" },
+        "magicButtonMetric": { "type": "string" },
+        "launchSuccess": { "type": "string" },
+        "launchSuccessOther": { "type": "string" },
+        "projectFear": { "type": "string" },
+        "automationAnxiety": { "type": "string" },
+        "automationAnxietyOther": { "type": "string" },
+        "legacyGoal": { "type": "string" },
+        "dreamFeature": { "type": "string" },
+        "departmentCommunication": { "type": "string" },
+        "volunteerDataPolicy": { "type": "string" },
+        "immediatePriorities": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -83,6 +174,26 @@
             {
               "name": "userId",
               "description": "The Firebase Authentication UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/survey_responses/{surveyId}",
+        "definition": {
+          "entityName": "SurveyResponse",
+          "schema": {
+            "$ref": "#/backend/entities/SurveyResponse"
+          },
+          "description": "Stores individual survey responses for a user. The document ID is the name of the survey.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The user's UID."
+            },
+            {
+              "name": "surveyId",
+              "description": "The unique identifier for the survey (e.g., 'helping-us-help-you')."
             }
           ]
         }
@@ -120,6 +231,6 @@
         }
       }
     ],
-    "reasoning": "This Firestore data structure is designed to support user accounts, interest tags, and subscription information for the SOL Theory Reimagined application. It prioritizes security, scalability, and debuggability by adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure uses path-based ownership for user accounts and a dedicated collection for globally available interest tags.\n\n**Authorization Independence:** UserAccount data is stored under `/users/{userId}` using the Firebase Authentication UID as the document ID. This structure inherently enforces ownership and avoids the need for complex `get()` calls in security rules.  Access control is based directly on the `request.auth.uid` matching the `{userId}` in the path.\n\n**QAPs Support:**\n*   **User Account Data:**  Storing user data in `/users/{userId}` ensures that listing user accounts is not generally possible (only accessible via direct ID lookup or, potentially, administrative functions secured with more complex rules that are outside the scope of this design). User data is segregated, preventing unauthorized access through listing.\n*   **Interest Tags:** Interest tags are stored in a flat `/interest_tags` collection.  This allows for easy listing of all available tags, which is necessary for the profile setup dialog.  Security rules can limit creation/modification of these tags to administrators.\n*   **Subscriptions:** Subscriptions are stored in a `/subscriptions` collection. While this allows listing, it's assumed this collection is for internal use (e.g., by a cloud function) and not directly exposed to end-user `list` operations. If end-user listing is required, security rules can be configured to limit access based on authentication or other criteria.\n\n**Denormalization:** The `UserAccount` includes `interestTagIds`, which references the selected interest tags. In a more complex scenario, where displaying tag names within the user profile is crucial and requires high read performance, we could denormalize the `name` field of the `InterestTag` directly into the `UserAccount` document as an array of objects `[{id: "
-  }
+    "reasoning": "This Firestore data structure is designed to support user accounts, interest tags, and subscription information for the SOL Theory Reimagined application. It prioritizes security, scalability, and debuggability by adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure uses path-based ownership for user accounts and a dedicated collection for globally available interest tags.\n\n**Authorization Independence:** UserAccount data is stored under `/users/{userId}` using the Firebase Authentication UID as the document ID. This structure inherently enforces ownership and avoids the need for complex `get()` calls in security rules.  Access control is based directly on the `request.auth.uid` matching the `{userId}` in the path.\n\n**QAPs Support:**\n*   **User Account Data:**  Storing user data in `/users/{userId}` ensures that listing user accounts is not generally possible (only accessible via direct ID lookup or, potentially, administrative functions secured with more complex rules that are outside the scope of this design). User data is segregated, preventing unauthorized access through listing.\n*   **Interest Tags:** Interest tags are stored in a flat `/interest_tags` collection.  This allows for easy listing of all available tags, which is necessary for the profile setup dialog.  Security rules can limit creation/modification of these tags to administrators.\n*   **Subscriptions:** Subscriptions are stored in a `/subscriptions` collection. While this allows listing, it's assumed this is for internal use (e.g., by a cloud function) and not directly exposed to end-user `list` operations. If end-user listing is required, security rules can be configured to limit access based on authentication or other criteria.\n\n**Denormalization:** The `UserAccount` includes `interestTagIds`, which references the selected interest tags. In a more complex scenario, where displaying tag names within the user profile is crucial and requires high read performance, we could denormalize the `name` field of the `InterestTag` directly into the `UserAccount` document as an array of objects `[{id: \"`\n  }
 }
+    
