@@ -1,0 +1,145 @@
+/**
+ * @file firestore.rules
+ * @description Firestore Security Rules for the application.
+ *
+ * @section Core Philosophy
+ * This ruleset enforces a strict user-ownership model where each user has complete
+ * control over their own data, and their data is inaccessible to others. The primary
+ * goal is to ensure user privacy while providing flexibility for rapid development.
+ * Public data, such as interest tags, is explicitly marked as readable by anyone.
+ *
+ * @section Data Structure
+ * - /users/{userId}: Stores private user account information. The document ID is the
+ *   user's Firebase Authentication UID, creating a direct and secure link between
+ *   the user's identity and their data.
+ * - /interest_tags/{interestTagId}: A top-level collection for tags that are publicly
+ *   readable by all users for profile creation, but are not writable by clients.
+ * - /subscriptions/{subscriptionId}: A collection for subscription data, which is
+ *   currently locked down and inaccessible to clients for security purposes.
+ *
+ * @section Key Security Decisions
+ * - User Isolation: Users can only read and write their own documents within the /users
+ *   collection. Listing of the entire /users collection is explicitly disallowed to
+ *   prevent enumeration of all users in the system.
+ * - Public Read-Only Data: The `/interest_tags` collection is globally readable to
+ *   populate UI elements, but write access is denied to prevent unauthorized modification.
+ *   Writes should be handled by a trusted server environment or admin role.
+ * - Secure by Default: Any collection path not explicitly defined or with ambiguous
+ *   requirements (like `/subscriptions`) is completely locked down, denying all client
+ *   read and write operations.
+ *
+ * @section Denormalization for Authorization
+ * The primary security mechanism relies on using the user's auth UID as the document
+ * ID in the `/users/{userId}` path. This avoids costly and slow `get()` calls to other
+ * documents for authorization checks. The user's own document also contains an `id` field
+ * which must match the path UID, ensuring relational integrity.
+ *
+ * @section Structural Segregation
+ * Private user data (`/users`) and public application data (`/interest_tags`) are stored
+ * in separate top-level collections. This provides a clear, secure, and performant
+ * separation of concerns, making it easy to apply broad security rules (e.g., public list
+ * vs. owner-only list) without complex field-based checks.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the core function for verifying document ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership on an existing document. Used for update and delete
+     * operations to prevent acting on non-existent data.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates a new UserAccount document on creation.
+     * Ensures the user is creating their own document and that the internal `id`
+     * field correctly matches their UID for relational integrity.
+     */
+    function isCreatingOwnValidUserDocument(userId) {
+      return isOwner(userId) && request.resource.data.id == userId;
+    }
+
+    /**
+     * Validates a UserAccount document on update.
+     * Ensures the user owns the document and that the immutable `id` field is not changed.
+     */
+    function isUpdatingOwnValidUserDocument(userId) {
+      // The `id` field must not be changed after creation.
+      // This check securely allows partial updates without requiring the client to resend the `id`.
+      return isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Collection Rules
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Manages user account documents.
+     * @path /users/{userId}
+     * @allow (get) A user can read their own account document.
+     * @allow (create) A new user can create their own account document.
+     * @deny (list) A user cannot list all documents in the /users collection.
+     * @deny (update) A user cannot update another user's account document.
+     * @principle Restricts access to a user's own data tree and enforces ownership.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isCreatingOwnValidUserDocument(userId);
+      allow update: if isUpdatingOwnValidUserDocument(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages the global list of interest tags.
+     * @path /interest_tags/{interestTagId}
+     * @allow (get, list) Any user, signed in or not, can read the list of available tags.
+     * @deny (create, update, delete) No client is allowed to modify the tags.
+     * @principle Provides public read access for UI elements while protecting data integrity.
+     */
+    match /interest_tags/{interestTagId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // TODO: Should be restricted to an admin role
+      allow update: if false; // TODO: Should be restricted to an admin role
+      allow delete: if false; // TODO: Should be restricted to an admin role
+    }
+
+    /**
+     * @description Manages user subscription information.
+     * @path /subscriptions/{subscriptionId}
+     * @allow (none) No client access is permitted.
+     * @deny (all) All read and write operations are denied for all users.
+     * @principle Enforces a "secure by default" posture for sensitive or internal-only data.
+     */
+    match /subscriptions/{subscriptionId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}

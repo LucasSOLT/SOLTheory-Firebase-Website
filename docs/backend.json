@@ -1,0 +1,125 @@
+{
+  "entities": {
+    "UserAccount": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserAccount",
+      "type": "object",
+      "description": "Represents a user account in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user account."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "username": {
+          "type": "string",
+          "description": "The user's chosen username."
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL of the user's profile picture.",
+          "format": "uri"
+        },
+        "bio": {
+          "type": "string",
+          "description": "A short biography of the user."
+        },
+        "interestTagIds": {
+          "type": "array",
+          "description": "References to InterestTags. (Relationship: UserAccount N:N InterestTag)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "username"
+      ]
+    },
+    "InterestTag": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InterestTag",
+      "type": "object",
+      "description": "Represents a tag describing a user's interests.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the interest tag."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the interest tag (e.g., 'AI', 'Web Development')."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserAccount",
+          "schema": {
+            "$ref": "#/backend/entities/UserAccount"
+          },
+          "description": "Stores user account information. The document ID is the Firebase Authentication UID. Includes denormalized 'interestTagIds' for storing interest tags. All fields are writeable only to the authenticated user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/interest_tags/{interestTagId}",
+        "definition": {
+          "entityName": "InterestTag",
+          "schema": {
+            "$ref": "#/backend/entities/InterestTag"
+          },
+          "description": "Stores interest tags that users can select for their profiles.",
+          "params": [
+            {
+              "name": "interestTagId",
+              "description": "The unique identifier of the interest tag."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/subscriptions/{subscriptionId}",
+        "definition": {
+          "entityName": "Subscription",
+          "schema": {
+            "$ref": "#/backend/entities/Subscription"
+          },
+          "description": "Stores subscription information from users.",
+          "params": [
+            {
+              "name": "subscriptionId",
+              "description": "The unique identifier of the subscription."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore data structure is designed to support user accounts, interest tags, and subscription information for the SOL Theory Reimagined application. It prioritizes security, scalability, and debuggability by adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure uses path-based ownership for user accounts and a dedicated collection for globally available interest tags.\n\n**Authorization Independence:** UserAccount data is stored under `/users/{userId}` using the Firebase Authentication UID as the document ID. This structure inherently enforces ownership and avoids the need for complex `get()` calls in security rules.  Access control is based directly on the `request.auth.uid` matching the `{userId}` in the path.\n\n**QAPs Support:**\n*   **User Account Data:**  Storing user data in `/users/{userId}` ensures that listing user accounts is not generally possible (only accessible via direct ID lookup or, potentially, administrative functions secured with more complex rules that are outside the scope of this design). User data is segregated, preventing unauthorized access through listing.\n*   **Interest Tags:** Interest tags are stored in a flat `/interest_tags` collection.  This allows for easy listing of all available tags, which is necessary for the profile setup dialog.  Security rules can limit creation/modification of these tags to administrators.\n*   **Subscriptions:** Subscriptions are stored in a `/subscriptions` collection. While this allows listing, it's assumed this collection is for internal use (e.g., by a cloud function) and not directly exposed to end-user `list` operations. If end-user listing is required, security rules can be configured to limit access based on authentication or other criteria.\n\n**Denormalization:** The `UserAccount` includes `interestTagIds`, which references the selected interest tags. In a more complex scenario, where displaying tag names within the user profile is crucial and requires high read performance, we could denormalize the `name` field of the `InterestTag` directly into the `UserAccount` document as an array of objects `[{id: "
+  }
+}
