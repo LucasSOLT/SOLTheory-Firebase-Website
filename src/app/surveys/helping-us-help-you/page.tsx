@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 const surveySchema = z.object({
   copyPasteTest: z.string().optional(),
@@ -390,5 +391,5 @@ function HelpingUsHelpYouForm() {
 
 
 export default function HelpingUsHelpYouSurveyPage() {
-  return <HelpingUsHelpYouForm />;
+  return <AuthGuard><HelpingUsHelpYouForm /></AuthGuard>;
 }

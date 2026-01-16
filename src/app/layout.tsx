@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import Image from 'next/image';
-import { SurveyGate } from '@/components/survey-gate';
 import { FirebaseClientProvider } from '@/firebase';
 import { AuthDialog } from '@/components/auth/AuthDialog';
 import { ProfileSetupDialog } from '@/components/auth/ProfileSetupDialog';
@@ -30,7 +29,6 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
-          <SurveyGate />
           <AuthDialog />
           <ProfileSetupDialog />
           <div className="fixed inset-0 z-[-1]">

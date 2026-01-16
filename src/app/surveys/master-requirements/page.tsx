@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 const surveySchema = z.object({
   // Section 1
@@ -95,7 +96,7 @@ const surveySchema = z.object({
 
 type SurveyFormValues = z.infer<typeof surveySchema>;
 
-export default function MasterRequirementsSurveyPage() {
+function MasterRequirementsForm() {
   const { toast } = useToast();
 
   const form = useForm<SurveyFormValues>({
@@ -318,4 +319,8 @@ export default function MasterRequirementsSurveyPage() {
       </Card>
     </div>
   );
+}
+
+export default function MasterRequirementsSurveyPage() {
+    return <AuthGuard><MasterRequirementsForm /></AuthGuard>;
 }

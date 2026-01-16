@@ -27,7 +27,7 @@ const dropdownMenuItems = [
     { href: '#qualifies', label: 'About' },
     { href: '#subscribe', label: "What's New" },
     { type: 'separator' as const },
-    { href: '#', label: 'NXT Chapter' },
+    { href: '/surveys', label: 'NXT Chapter' },
     { href: 'https://www.lifenavigation.ai', label: 'LifeNavigationU', target: '_blank' },
     { href: 'https://www.thrivecoaching.ai', label: 'Thrive Coaching', target: '_blank' },
     { href: 'https://www.21games.ai', label: 'Twenty-One Games', target: '_blank' },

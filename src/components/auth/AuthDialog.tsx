@@ -157,7 +157,7 @@ export function AuthDialog() {
             <DialogHeader>
               <DialogTitle>Create Account</DialogTitle>
               <DialogDescription>
-                Join SOL Theory to start your journey of self-improvement.
+                To access surveys, please register using your company email address (UPN).
               </DialogDescription>
             </DialogHeader>
             <Form {...createAccountForm}>
