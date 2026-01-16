@@ -218,7 +218,7 @@ export default function MasterRequirementsSurveyPage() {
               <div>
                 <h2 className="font-headline text-3xl mb-6 text-foreground">Section 1: Database & Architecture</h2>
                 <div className="space-y-8">
-                  {renderQuestion('databaseOrigin', '1. Are we building a new database from scratch, or do we need to integrate with an existing one?', ['From Scratch', 'Integrate with Existing', 'Unsure'], undefined, 'databaseOriginOther', "If integrating, please name the existing system.")}
+                  {renderQuestion('databaseOrigin', '1. Are we building a new database from scratch, or do we need to integrate with an existing one?', ['From Scratch', 'Integrate with Existing', 'Unsure', 'Unsure, but I know someone who might know'], undefined, 'databaseOriginOther', "If integrating, please name the existing system.")}
                   {renderTextarea('primaryEntities', '2. Primary \'Nouns\' (Entities): Please list the core \'nouns\' your organization tracks.', 'e.g., Clients, Donors, Staff, Classes, Parole Officers, Volunteers, Job Placements')}
                   {renderTextarea('userRoles', '3. User Roles & Access: Who will be using this system? List the primary job roles and what they should be able to do.', 'e.g., "Case Managers can see client files but not financial data."')}
                   {renderQuestion('technicalAptitude', '4. What is the general technical comfort level of the staff who will be using this system?', ['Very comfortable, little training needed', 'Average, will need some training', 'Not comfortable, will require significant training'], undefined, 'technicalAptitudeOther')}
