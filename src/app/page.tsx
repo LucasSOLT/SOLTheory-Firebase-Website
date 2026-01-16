@@ -1,5 +1,4 @@
 
-
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Header } from '@/components/sections/header';
@@ -131,14 +130,14 @@ export default function Home() {
         <section id="qualifies" className="py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">What Qualifies to be on SOL Theory</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               {whatQualifies.map((item) => (
-                <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-8 text-left transition-all duration-300 hover:border-primary hover:scale-105">
+                <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-6 text-left transition-all duration-300 hover:border-primary hover:scale-105">
                   <CardHeader>
                     <CardTitle className="font-headline text-3xl text-foreground mb-4 font-bold">{item.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-muted-foreground text-lg">{item.description}</p>
+                    <p className="text-muted-foreground text-xl">{item.description}</p>
                   </CardContent>
                 </Card>
               ))}
