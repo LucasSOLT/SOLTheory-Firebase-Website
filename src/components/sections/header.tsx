@@ -43,13 +43,13 @@ export function Header() {
 
   return (
     <header className="absolute top-0 left-0 right-0 z-20 py-4">
-      <div className="container mx-auto px-4 flex items-center">
+      <div className="container mx-auto px-4 flex items-center justify-between relative">
         <Link href="/" className="flex items-center gap-3 group">
           <Logo className="h-10 w-10" />
           <SolTheoryLogoText />
         </Link>
         
-        <nav className="hidden md:flex ml-16">
+        <nav className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           <ul className="flex items-center gap-8">
             {navLinks.map((link) => (
               <li key={link.href}>
@@ -61,7 +61,7 @@ export function Header() {
           </ul>
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
             {!isUserLoading && !user && (
               <Button onClick={openAuthDialog}>Login</Button>
             )}
