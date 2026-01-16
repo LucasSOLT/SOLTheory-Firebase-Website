@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,24 +23,43 @@ export function SurveyGate() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
 
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'm') {
-      // The rest of the sequence will be handled by a subsequent listener
-    }
-    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'k') {
-        // The rest of the sequence will be handled by a subsequent listener
-    }
-    if (event.ctrlKey && event.shiftKey && event.key === '8') {
-        setIsOpen(true);
-    }
-  }, []);
-
   useEffect(() => {
+    let keySequence = '';
+    let sequenceTimer: ReturnType<typeof setTimeout>;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey) {
+        clearTimeout(sequenceTimer);
+
+        const key = event.key.toLowerCase();
+        
+        if (key === 'm') {
+          keySequence = 'm';
+        } else if (keySequence === 'm' && key === 'k') {
+          setIsOpen(true);
+          keySequence = ''; // Reset sequence
+        } else {
+          keySequence = ''; // Reset on wrong key
+        }
+
+        sequenceTimer = setTimeout(() => {
+          keySequence = '';
+        }, 1500); // 1.5-second window to complete the sequence
+      } else {
+        // Reset if modifier keys are not held down
+        if (keySequence !== '') {
+            keySequence = '';
+        }
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(sequenceTimer);
     };
-  }, [handleKeyDown]);
+  }, []); // The empty dependency array ensures this effect runs only once.
 
   const copyToClipboard = (url: string) => {
     const fullUrl = `${window.location.origin}${url}`;
@@ -84,3 +104,4 @@ export function SurveyGate() {
     </Dialog>
   );
 }
+    
