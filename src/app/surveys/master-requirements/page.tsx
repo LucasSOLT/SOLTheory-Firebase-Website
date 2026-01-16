@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import * as z from 'zod';
 import React, { useEffect, useRef, useCallback } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 import { debounce } from 'lodash';
 
@@ -158,12 +159,12 @@ function MasterRequirementsForm() {
     [surveyDocRef]
   );
   
-  const watchedValues = form.watch();
   useEffect(() => {
-    if (form.formState.isDirty) {
-      debouncedSave(watchedValues);
-    }
-  }, [watchedValues, debouncedSave, form.formState.isDirty]);
+    const subscription = form.watch((value) => {
+      debouncedSave(value as SurveyFormValues);
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch, debouncedSave]);
 
   const onSubmit = (data: SurveyFormValues) => {
     if (surveyDocRef) {
@@ -457,5 +458,3 @@ function MasterRequirementsForm() {
 export default function MasterRequirementsSurveyPage() {
     return <AuthGuard><MasterRequirementsForm /></AuthGuard>;
 }
-
-    

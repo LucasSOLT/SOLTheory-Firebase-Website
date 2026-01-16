@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import * as z from 'zod';
 import React, { useEffect, useRef, useCallback } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 import { debounce } from 'lodash';
 
@@ -24,7 +25,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -96,8 +96,6 @@ function HelpingUsHelpYouForm() {
     defaultValues: {},
   });
 
-  const { formState: { errors } } = form;
-
   useEffect(() => {
     if (initialData) {
       form.reset(initialData);
@@ -113,12 +111,17 @@ function HelpingUsHelpYouForm() {
     [surveyDocRef]
   );
 
-  const watchedValues = form.watch();
   useEffect(() => {
-    if (form.formState.isDirty) {
-      debouncedSave(watchedValues);
-    }
-  }, [watchedValues, debouncedSave, form.formState.isDirty]);
+    const subscription = form.watch((value) => {
+      // The `isDirty` flag inside the watcher can be unreliable.
+      // We rely on the `debounce` to prevent excessive writes.
+      // The `useDoc` listener will reset the form with new data, which
+      // will correctly set `isDirty` to false. Any subsequent user input
+      // will make it dirty and trigger this watcher.
+      debouncedSave(value as SurveyFormValues);
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch, debouncedSave]);
 
   const onSubmit = (data: SurveyFormValues) => {
     if (surveyDocRef) {
@@ -437,5 +440,3 @@ function HelpingUsHelpYouForm() {
 export default function HelpingUsHelpYouSurveyPage() {
   return <AuthGuard><HelpingUsHelpYouForm /></AuthGuard>;
 }
-
-    
