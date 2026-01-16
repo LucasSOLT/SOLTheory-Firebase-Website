@@ -18,7 +18,7 @@ const whatQualifies = [
     description: "Our methods are rooted in research and designed for tangible progress. We break down complex concepts into actionable steps.",
   },
   {
-    title: "Nobody plays alone",
+    title: "Nobody plays alone here",
     description: "Community is at our core. Connect with like-minded individuals, share your journey, and grow together in a supportive environment.",
   },
   {
@@ -130,14 +130,14 @@ export default function Home() {
         <section id="qualifies" className="py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">What Qualifies to be on SOL Theory</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
               {whatQualifies.map((item) => (
-                <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-6 text-left transition-all duration-300 hover:border-primary hover:scale-105">
+                <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-4 text-left transition-all duration-300 hover:border-primary hover:scale-105 flex flex-col">
                   <CardHeader>
-                    <CardTitle className="font-headline text-3xl text-foreground mb-4 font-bold">{item.title}</CardTitle>
+                    <CardTitle className="font-headline text-2xl text-foreground mb-2 font-bold">{item.title}</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-xl">{item.description}</p>
+                  <CardContent className="flex-grow">
+                    <p className="text-muted-foreground text-lg">{item.description}</p>
                   </CardContent>
                 </Card>
               ))}
