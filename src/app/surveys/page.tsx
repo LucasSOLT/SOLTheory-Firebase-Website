@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Lock, Copy } from 'lucide-react';
+import { ArrowRight, Lock, Copy, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/hooks/use-auth-store';
 
@@ -43,6 +43,14 @@ export default function SurveysPage() {
   return (
     <div className="min-h-screen w-full py-12 px-4">
       <div className="max-w-5xl mx-auto">
+        <div className="flex justify-start mb-8">
+            <Link href="/" passHref>
+              <Button variant="outline">
+                <Home className="mr-2 h-4 w-4" />
+                Home
+              </Button>
+            </Link>
+        </div>
         <div className="text-center mb-12">
           <h1 className="font-headline text-5xl md:text-6xl font-bold text-white">
             NXT Chapter Diagnostics
