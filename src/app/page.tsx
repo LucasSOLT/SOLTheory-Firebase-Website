@@ -108,7 +108,7 @@ export default function Home() {
                   <Link href={project.url} key={project.id} target="_blank" rel="noopener noreferrer" className="block group">
                     <Card className="bg-card/80 border-border/50 backdrop-blur-sm overflow-hidden h-full flex flex-col transition-all duration-300 group-hover:border-primary group-hover:scale-105">
                       {projectImage && (
-                        <div className={cn("relative h-48 w-full", project.id === '21-games' && 'bg-white')}>
+                        <div className={cn("relative h-48 w-full opacity-75 group-hover:opacity-100 transition-opacity duration-300", project.id === '21-games' && 'bg-white')}>
                           <Image
                             src={projectImage.imageUrl}
                             alt={projectImage.description}
