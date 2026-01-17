@@ -11,6 +11,10 @@ const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7
 export const metadata: Metadata = {
   title: 'SOL Theory Reimagined',
   description: 'Unlock Your Potential. Redefine Your Reality.',
+  icons: {
+    icon: iconUrl,
+    apple: iconUrl,
+  }
 };
 
 export default function RootLayout({
@@ -21,8 +25,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        <link rel="icon" href={iconUrl} type="image/png" sizes="any" />
-        <link rel="apple-touch-icon" href={iconUrl} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Questrial&display=swap" rel="stylesheet" />
