@@ -79,6 +79,31 @@ type SurveyFormValues = z.infer<typeof surveySchema>;
 
 const SURVEY_ID = 'helping-us-help-you';
 
+const defaultFormValues: SurveyFormValues = {
+  name: '',
+  position: '',
+  willingnessToAI: '',
+  technicalKnowledge: '',
+  canReachOut: '',
+  email: '',
+  copyPasteTest: '',
+  copyPasteOffenders: '',
+  treasureHunt: '',
+  reminderTreadmill: '',
+  signatureChase: '',
+  signatureChaseWho: '',
+  didntKnowProblem: '',
+  grantReporting: '',
+  cheatSheet: '',
+  paperTrail: '',
+  workaround: '',
+  magicWand: '',
+  missionMultiplier: '',
+  missionMultiplierOther: '',
+  clientJourney: '',
+  finalThoughts: '',
+};
+
 function HelpingUsHelpYouForm() {
   const { toast } = useToast();
   const { user } = useUser();
@@ -94,7 +119,7 @@ function HelpingUsHelpYouForm() {
 
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveySchema),
-    defaultValues: {},
+    defaultValues: defaultFormValues,
   });
 
   useEffect(() => {
@@ -160,7 +185,7 @@ function HelpingUsHelpYouForm() {
   }
 
   const handleReset = () => {
-    form.reset({});
+    form.reset(defaultFormValues);
     if(surveyDocRef) {
         setDocumentNonBlocking(surveyDocRef, {}, { merge: false });
     }

@@ -127,6 +127,77 @@ type SurveyFormValues = z.infer<typeof surveySchema>;
 
 const SURVEY_ID = 'master-requirements';
 
+const defaultFormValues: SurveyFormValues = {
+  name: '',
+  position: '',
+  willingnessToAI: '',
+  technicalKnowledge: '',
+  canReachOut: '',
+  email: '',
+  databaseOrigin: '',
+  databaseOriginOther: '',
+  primaryEntities: '',
+  userRoles: '',
+  technicalAptitude: '',
+  technicalAptitudeOther: '',
+  dataInputMethod: '',
+  revenueBarrier: '',
+  revenueBarrierOther: '',
+  missedOpportunities: '',
+  missedOpportunitiesOther: '',
+  cashflowVisibility: '',
+  cashflowVisibilityOther: '',
+  staffRetention: '',
+  staffRetentionOther: '',
+  uselessTools: '',
+  uselessToolsOther: '',
+  sourceOfChaos: '',
+  sourceOfChaosOther: '',
+  approvalBottlenecks: '',
+  shadowSystems: '',
+  grantReportingEffort: '',
+  onboardingEfficiency: '',
+  paperProcesses: '',
+  busFactor: '',
+  taskToAutomate: '',
+  meetingPreparedness: '',
+  repetitiveDataEntry: '',
+  clientIntakeExperience: '',
+  clientIntakeExperienceOther: '',
+  timeOnReminders: '',
+  manualWorkarounds: '',
+  manualWorkaroundsOther: '',
+  auditConfidence: '',
+  dataTrust: '',
+  desiredMetrics: '',
+  reportingSpeed: '',
+  legalDocTracking: '',
+  mandatoryReporting: '',
+  dataPrivacy: '',
+  securityIncident: '',
+  clientFeedbackLoop: '',
+  inventoryManagement: '',
+  serviceEligibility: '',
+  clientAgingOut: '',
+  caseManagerAssignment: '',
+  employerDatabase: '',
+  postPlacementTracking: '',
+  telehealthUsability: '',
+  externalAccess: '',
+  magicButtonMetric: '',
+  launchSuccess: '',
+  launchSuccessOther: '',
+  projectFear: '',
+  automationAnxiety: '',
+  automationAnxietyOther: '',
+  legacyGoal: '',
+  dreamFeature: '',
+  departmentCommunication: '',
+  volunteerDataPolicy: '',
+  immediatePriorities: '',
+  finalThoughts: '',
+};
+
 function MasterRequirementsForm() {
   const { toast } = useToast();
   const { user } = useUser();
@@ -142,7 +213,7 @@ function MasterRequirementsForm() {
 
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveySchema),
-    defaultValues: {},
+    defaultValues: defaultFormValues,
   });
 
   useEffect(() => {
@@ -203,7 +274,7 @@ function MasterRequirementsForm() {
   }
 
   const handleReset = () => {
-    form.reset({});
+    form.reset(defaultFormValues);
     if(surveyDocRef) {
         setDocumentNonBlocking(surveyDocRef, {}, { merge: false });
     }
