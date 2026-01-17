@@ -15,7 +15,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuthStore } from '@/hooks/use-auth-store';
 import { useAuth } from '@/firebase';
-import { initiateEmailSignIn, initiateEmailSignUp } from '@/firebase/non-blocking-login';
+import { initiateEmailSignIn, initiateEmailSignUp, initiatePasswordReset } from '@/firebase/non-blocking-login';
 import { useToast } from '@/hooks/use-toast';
 import {
   Form,
@@ -82,6 +82,33 @@ export function AuthDialog() {
       title: 'Authentication Failed',
       description: message,
     });
+  };
+
+  const handlePasswordReset = () => {
+    const email = loginForm.getValues('email');
+    if (!email || !z.string().email().safeParse(email).success) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Email',
+        description: 'Please enter a valid email address to reset your password.',
+      });
+      return;
+    }
+
+    initiatePasswordReset(auth, email)
+      .then(() => {
+        toast({
+          title: 'Check Your Email',
+          description: `If an account exists for ${email}, a password reset link has been sent.`,
+        });
+      })
+      .catch((error: AuthError) => {
+        // Even on error, we show a generic message to prevent email enumeration.
+        toast({
+          title: 'Check Your Email',
+          description: `If an account exists for ${email}, a password reset link has been sent.`,
+        });
+      });
   };
 
   const onLoginSuccess = () => {
@@ -165,6 +192,11 @@ export function AuthDialog() {
                     </FormItem>
                   )}
                 />
+                <div className="flex justify-end -mt-2">
+                  <Button variant="link" type="button" onClick={handlePasswordReset} className="p-0 h-auto text-sm font-normal">
+                    Forgot Password?
+                  </Button>
+                </div>
                 <Button type="submit" className="w-full" disabled={loginForm.formState.isSubmitting}>
                   {loginForm.formState.isSubmitting ? 'Logging in...' : 'Log In'}
                 </Button>
