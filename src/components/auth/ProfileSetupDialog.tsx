@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import type { WithId } from '@/firebase/firestore/use-collection';
 import React from 'react';
 import { Label } from '../ui/label';
+import { useRouter } from 'next/navigation';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters.'),
@@ -43,10 +44,11 @@ interface InterestTag {
 }
 
 export function ProfileSetupDialog() {
-  const { isProfileSetupDialogOpen, closeProfileSetupDialog } = useAuthStore();
+  const { isProfileSetupDialogOpen, closeProfileSetupDialog, redirectPath, setRedirectPath } = useAuthStore();
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
 
   const interestTagsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -108,6 +110,11 @@ export function ProfileSetupDialog() {
     
     toast({ title: 'Profile Updated!' });
     closeProfileSetupDialog();
+    
+    if (redirectPath) {
+      router.push(redirectPath);
+      setRedirectPath(null);
+    }
   };
 
   const onDialogOpenChange = (open: boolean) => {

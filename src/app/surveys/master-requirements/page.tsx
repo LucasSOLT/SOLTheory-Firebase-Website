@@ -26,7 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info, Loader2, Trash2 } from 'lucide-react';
+import { Info, Loader2, Trash2, ArrowLeft } from 'lucide-react';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import {
   AlertDialog,
@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import Link from 'next/link';
 
 const requiredString = z.string().min(1, 'Please select an option.');
 
@@ -269,31 +270,41 @@ function MasterRequirementsForm() {
       `}</style>
       <div className="min-h-screen w-full py-12 px-4">
         <Card className="bg-card/80 backdrop-blur-sm border-border/50 max-w-4xl mx-auto">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="font-headline text-4xl text-primary">
-                Master Specification Survey
-              </CardTitle>
-               <CardDescription className="text-muted-foreground text-lg pt-2">
-                This is a detailed survey. Your progress is saved automatically.
-              </CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between">
+            <div className="flex items-start gap-4">
+              <Link href="/surveys" passHref>
+                <Button variant="ghost" size="icon" className="mt-1">
+                  <ArrowLeft className="h-6 w-6" />
+                  <span className="sr-only">Back to Surveys</span>
+                </Button>
+              </Link>
+              <div>
+                <CardTitle className="font-headline text-4xl text-primary">
+                  Master Specification Survey
+                </CardTitle>
+                <CardDescription className="text-muted-foreground text-lg pt-2">
+                  This is a detailed survey. Your progress is saved automatically.
+                </CardDescription>
+              </div>
             </div>
             <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="icon"><Trash2 /></Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This will permanently delete your current survey responses. This action cannot be undone.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReset}>Yes, Reset</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon">
+                  <Trash2 />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete your current survey responses. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReset}>Yes, Reset</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
             </AlertDialog>
           </CardHeader>
           <CardContent>

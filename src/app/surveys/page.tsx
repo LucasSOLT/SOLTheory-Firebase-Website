@@ -12,9 +12,11 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Lock, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/hooks/use-auth-store';
 
 export default function SurveysPage() {
   const { toast } = useToast();
+  const { openAuthDialog } = useAuthStore();
 
   const handleCopyLink = (path: string) => {
     const url = `${window.location.origin}${path}`;
@@ -32,6 +34,10 @@ export default function SurveysPage() {
       });
     });
   };
+
+  const handleBeginSurvey = (path: string) => {
+    openAuthDialog(path);
+  }
 
   return (
     <div className="min-h-screen w-full py-12 px-4">
@@ -59,11 +65,9 @@ export default function SurveysPage() {
               time-consuming tasks. Your feedback is crucial for automation.
             </CardDescription>
             <CardFooter className="mt-4 flex items-center gap-2">
-              <Link href="/surveys/helping-us-help-you" className="flex-grow">
-                <Button className="w-full">
-                  Begin Survey <ArrowRight className="ml-2" />
-                </Button>
-              </Link>
+              <Button className="w-full flex-grow" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you')}>
+                Begin Survey <ArrowRight className="ml-2" />
+              </Button>
               <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/helping-us-help-you')}>
                   <Copy />
                   <span className="sr-only">Copy Link</span>
@@ -91,6 +95,9 @@ export default function SurveysPage() {
                     <Lock className="mr-2 h-4 w-4" />
                     <span>Reserved for Upper Management or a SME</span>
                 </div>
+                 <Button className="w-full flex-grow" onClick={() => handleBeginSurvey('/surveys/master-requirements')}>
+                    Begin Survey <ArrowRight className="ml-2" />
+                </Button>
                  <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/master-requirements')}>
                     <Copy />
                     <span className="sr-only">Copy Link</span>

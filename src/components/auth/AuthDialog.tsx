@@ -26,6 +26,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { AuthError } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 const allowedDomains = ['@advancepathways.org', '@nxtchapter.org', '@soltheory.org'];
 
@@ -43,9 +44,10 @@ const loginSchema = z.object({
 });
 
 export function AuthDialog() {
-  const { isAuthDialogOpen, closeAuthDialog, openProfileSetupDialog } = useAuthStore();
+  const { isAuthDialogOpen, closeAuthDialog, openProfileSetupDialog, redirectPath, setRedirectPath } = useAuthStore();
   const auth = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const createAccountForm = useForm<z.infer<typeof createAccountSchema>>({
     resolver: zodResolver(createAccountSchema),
@@ -82,21 +84,31 @@ export function AuthDialog() {
     });
   };
 
+  const onLoginSuccess = () => {
+    closeAuthDialog();
+    if (redirectPath) {
+        router.push(redirectPath);
+        setRedirectPath(null); // Reset path
+    } else {
+        toast({ title: 'Logged in successfully!' });
+    }
+  };
+
+  const onCreateSuccess = () => {
+      closeAuthDialog();
+      // On creation, we first open profile setup. The redirect will be handled there.
+      openProfileSetupDialog();
+  };
+
   const handleCreateAccount = (values: z.infer<typeof createAccountSchema>) => {
     initiateEmailSignUp(auth, values.email, values.password)
-        .then(() => {
-            closeAuthDialog();
-            openProfileSetupDialog();
-        })
+        .then(onCreateSuccess)
         .catch(handleAuthError);
   };
 
   const handleLogin = (values: z.infer<typeof loginSchema>) => {
     initiateEmailSignIn(auth, values.email, values.password)
-      .then(() => {
-        closeAuthDialog();
-        toast({ title: 'Logged in successfully!' });
-      })
+      .then(onLoginSuccess)
       .catch(handleAuthError);
   };
   
@@ -111,7 +123,7 @@ export function AuthDialog() {
   return (
     <Dialog open={isAuthDialogOpen} onOpenChange={onDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <Tabs defaultValue="login" className="w-full">
+        <Tabs defaultValue="create" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Log In</TabsTrigger>
             <TabsTrigger value="create">Create Account</TabsTrigger>
