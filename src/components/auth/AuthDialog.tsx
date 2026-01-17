@@ -68,7 +68,7 @@ export function AuthDialog() {
         message = 'Invalid email or password.';
         break;
       case 'auth/email-already-in-use':
-        message = 'This email address is already in use.';
+        message = 'An account with this email already exists. Please log in instead.';
         break;
       case 'auth/weak-password':
         message = 'The password is too weak.';
