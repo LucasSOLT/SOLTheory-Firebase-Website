@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/form';
 import { AuthError } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import React from 'react';
 
 const allowedDomains = ['@advancepathways.org', '@nxtchapter.org', '@soltheory.com'];
 
@@ -49,6 +50,17 @@ export function AuthDialog() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // State to control the active tab
+  const [activeTab, setActiveTab] = React.useState(defaultToRegister ? 'create' : 'login');
+
+  // Effect to sync active tab with the global store's preference
+  React.useEffect(() => {
+    if (isAuthDialogOpen) {
+      setActiveTab(defaultToRegister ? 'create' : 'login');
+    }
+  }, [defaultToRegister, isAuthDialogOpen]);
+
+
   const createAccountForm = useForm<z.infer<typeof createAccountSchema>>({
     resolver: zodResolver(createAccountSchema),
     defaultValues: { email: '', password: '' },
@@ -69,6 +81,10 @@ export function AuthDialog() {
         break;
       case 'auth/email-already-in-use':
         message = 'An account with this email already exists. Please log in instead.';
+        // When email exists, switch to the login tab and pre-fill the email
+        const email = createAccountForm.getValues('email');
+        loginForm.setValue('email', email);
+        setActiveTab('login');
         break;
       case 'auth/weak-password':
         message = 'The password is too weak.';
@@ -151,7 +167,7 @@ export function AuthDialog() {
   return (
     <Dialog open={isAuthDialogOpen} onOpenChange={onDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <Tabs defaultValue={defaultToRegister ? 'create' : 'login'} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Log In</TabsTrigger>
             <TabsTrigger value="create">Create Account</TabsTrigger>
