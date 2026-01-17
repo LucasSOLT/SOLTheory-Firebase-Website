@@ -36,7 +36,8 @@ export default function SurveysPage() {
   };
 
   const handleBeginSurvey = (path: string) => {
-    openAuthDialog(path);
+    // Always open the auth dialog, and default it to the register tab.
+    openAuthDialog(path, true);
   }
 
   return (
@@ -64,13 +65,13 @@ export default function SurveysPage() {
               A survey for team members to identify daily pain points and
               time-consuming tasks. Your feedback is crucial for automation.
             </CardDescription>
-            <CardFooter className="mt-4 flex items-center gap-2">
-              <Button className="w-full flex-grow" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you')}>
+            <CardFooter className="mt-4 flex flex-col gap-4">
+              <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you')}>
                 Begin Survey <ArrowRight className="ml-2" />
               </Button>
-              <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/helping-us-help-you')}>
+              <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/helping-us-help-you')}>
                   <Copy />
-                  <span className="sr-only">Copy Link</span>
+                  <span>Copy Link</span>
               </Button>
             </CardFooter>
           </Card>
@@ -90,17 +91,17 @@ export default function SurveysPage() {
                     <Badge variant="secondary">Reserved</Badge>
                 </div>
             </CardHeader>
-            <CardFooter className="mt-auto pt-4 flex items-center justify-between">
-                <div className="flex items-center text-sm text-muted-foreground/60">
+            <CardFooter className="mt-auto pt-4 flex flex-col gap-4">
+                 <div className="flex items-center text-sm text-muted-foreground/60 w-full">
                     <Lock className="mr-2 h-4 w-4" />
                     <span>Reserved for Upper Management or a SME</span>
                 </div>
-                 <Button className="w-full flex-grow" onClick={() => handleBeginSurvey('/surveys/master-requirements')}>
+                 <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/master-requirements')}>
                     Begin Survey <ArrowRight className="ml-2" />
                 </Button>
-                 <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/master-requirements')}>
+                 <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/master-requirements')}>
                     <Copy />
-                    <span className="sr-only">Copy Link</span>
+                    <span>Copy Link</span>
                 </Button>
             </CardFooter>
           </Card>
@@ -119,14 +120,14 @@ export default function SurveysPage() {
                     <Badge variant="secondary">Reserved</Badge>
                 </div>
             </CardHeader>
-            <CardFooter className="mt-auto pt-4 flex items-center justify-between">
+            <CardFooter className="mt-auto pt-4 flex flex-col gap-4">
                  <div className="flex items-center text-sm text-muted-foreground/60 w-full">
                     <Lock className="mr-2 h-4 w-4" />
                      <span>Reserved for Upper Management or a SME</span>
                 </div>
-                <Button variant="outline" size="icon" onClick={() => handleCopyLink('/surveys/technical-requirements')}>
+                <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/technical-requirements')}>
                     <Copy />
-                    <span className="sr-only">Copy Link</span>
+                    <span>Copy Link</span>
                 </Button>
             </CardFooter>
           </Card>

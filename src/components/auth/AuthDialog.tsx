@@ -44,7 +44,7 @@ const loginSchema = z.object({
 });
 
 export function AuthDialog() {
-  const { isAuthDialogOpen, closeAuthDialog, openProfileSetupDialog, redirectPath, setRedirectPath } = useAuthStore();
+  const { isAuthDialogOpen, closeAuthDialog, openProfileSetupDialog, redirectPath, setRedirectPath, defaultToRegister, setDefaultToRegister } = useAuthStore();
   const auth = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -117,13 +117,14 @@ export function AuthDialog() {
       createAccountForm.reset();
       loginForm.reset();
       closeAuthDialog();
+      setDefaultToRegister(false); // Reset default tab
     }
   }
 
   return (
     <Dialog open={isAuthDialogOpen} onOpenChange={onDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <Tabs defaultValue="create" className="w-full">
+        <Tabs defaultValue={defaultToRegister ? 'create' : 'login'} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Log In</TabsTrigger>
             <TabsTrigger value="create">Create Account</TabsTrigger>
@@ -175,7 +176,7 @@ export function AuthDialog() {
             <DialogHeader>
               <DialogTitle>Create Account</DialogTitle>
               <DialogDescription>
-                To access surveys, you must register with a valid organization email address (UPN). Please use your company email to create an account.
+                To access surveys, you must register with a valid organization email address. Please use your company email to create an account.
               </DialogDescription>
             </DialogHeader>
             <Form {...createAccountForm}>
