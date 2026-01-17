@@ -13,10 +13,14 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Lock, Copy, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/hooks/use-auth-store';
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
 
 export default function SurveysPage() {
   const { toast } = useToast();
   const { openAuthDialog } = useAuthStore();
+  const { user } = useUser();
+  const router = useRouter();
 
   const handleCopyLink = (path: string) => {
     const url = `${window.location.origin}${path}`;
@@ -36,8 +40,12 @@ export default function SurveysPage() {
   };
 
   const handleBeginSurvey = (path: string) => {
-    // Always open the auth dialog, and default it to the register tab.
-    openAuthDialog(path, true);
+    if (user) {
+      router.push(path);
+    } else {
+      // If not logged in, open the auth dialog, and default it to the register tab.
+      openAuthDialog(path, true);
+    }
   }
 
   return (

@@ -15,7 +15,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (!isUserLoading && !user) {
-      openAuthDialog();
+      // Open dialog, default to register, and set redirect path
+      openAuthDialog(window.location.pathname, true);
     }
   }, [isUserLoading, user, openAuthDialog]);
 
