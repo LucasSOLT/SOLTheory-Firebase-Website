@@ -18,7 +18,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isProfileSetupDialogOpen: false,
   redirectPath: null,
   defaultToRegister: false,
-  openAuthDialog: (redirectPath, defaultToRegister = false) => set({ isAuthDialogOpen: true, redirectPath: redirectPath || null, defaultToRegister }),
+  openAuthDialog: (redirectPath, defaultToRegister = false) => set({ 
+    isAuthDialogOpen: true, 
+    redirectPath: typeof redirectPath === 'string' ? redirectPath : null, 
+    defaultToRegister 
+  }),
   closeAuthDialog: () => set({ isAuthDialogOpen: false }),
   openProfileSetupDialog: () => set({ isProfileSetupDialogOpen: true }),
   closeProfileSetupDialog: () => set({ isProfileSetupDialogOpen: false }),
