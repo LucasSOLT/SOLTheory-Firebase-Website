@@ -28,12 +28,12 @@ import {
 import { AuthError } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
-const allowedDomains = ['@advancepathways.org', '@nxtchapter.org', '@soltheory.org'];
+const allowedDomains = ['@advancepathways.org', '@nxtchapter.org', '@soltheory.com'];
 
 const createAccountSchema = z.object({
   email: z.string().email({ message: "Invalid email address." })
     .refine(email => allowedDomains.some(domain => email.toLowerCase().endsWith(domain)), {
-        message: "Please use an organization email: @advancepathways.org, @nxtchapter.org, or @soltheory.org."
+        message: "Please use a valid organization email."
     }),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
@@ -175,7 +175,7 @@ export function AuthDialog() {
             <DialogHeader>
               <DialogTitle>Create Account</DialogTitle>
               <DialogDescription>
-                To access surveys, you must register with an organization email (UPN). Accepted domains are @advancepathways.org, @nxtchapter.org, and @soltheory.org.
+                To access surveys, you must register with a valid organization email address (UPN). Please use your company email to create an account.
               </DialogDescription>
             </DialogHeader>
             <Form {...createAccountForm}>
