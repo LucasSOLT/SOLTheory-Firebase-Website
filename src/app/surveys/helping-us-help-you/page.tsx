@@ -266,7 +266,7 @@ function HelpingUsHelpYouForm() {
                 <Card className="bg-background/50 p-6">
                     <CardHeader>
                         <CardTitle>Your Information</CardTitle>
-                        <CardDescription>This information helps us categorize feedback. All submissions are 100% anonymous.</CardDescription>
+                        <CardDescription>This information helps us categorize feedback.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-8">
                          <div className="grid md:grid-cols-2 gap-8">
