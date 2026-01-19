@@ -7,7 +7,7 @@ import * as z from 'zod';
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc, collection } from 'firebase/firestore';
+import { doc, collection, type DocumentReference } from 'firebase/firestore';
 import { debounce } from 'lodash';
 
 import { Button } from '@/components/ui/button';
@@ -217,7 +217,7 @@ function MasterRequirementsForm() {
     return doc(firestore, 'users', user.uid, 'survey_responses', SURVEY_ID);
   }, [user, firestore]);
   
-  const { data: initialData, isLoading: isDataLoading } = useDoc<SurveyFormValues>(surveyDocRef);
+  const { data: initialData, isLoading: isDataLoading } = useDoc<SurveyFormValues>(surveyDocRef as DocumentReference<SurveyFormValues> | null);
 
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveySchema),
@@ -457,17 +457,17 @@ function MasterRequirementsForm() {
                            )} />
                            <FormField control={form.control} name="willingnessToAI" render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-lg">Willingness to integrate AI into your workflow?</FormLabel>
+                                <FormLabel className="text-lg">Openness to integrate AI into your workflow?</FormLabel>
                                 <FormControl>
                                     <div className="flex items-center gap-4">
-                                        <span className="text-sm text-muted-foreground">None</span>
+                                        <span className="text-sm text-muted-foreground">Very closed</span>
                                         <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2 py-2">
                                             {Array.from({length: 10}, (_, i) => i + 1).map(n => <FormItem key={n} className="flex items-center space-x-1 space-y-0">
                                                 <FormControl><RadioGroupItem value={String(n)} id={`willingness-${n}`} /></FormControl>
                                                 <FormLabel htmlFor={`willingness-${n}`} className="font-normal">{n}</FormLabel>
                                             </FormItem>)}
                                         </RadioGroup>
-                                        <span className="text-sm text-muted-foreground">A lot</span>
+                                        <span className="text-sm text-muted-foreground">Very open</span>
                                     </div>
                                 </FormControl>
                                 <FormMessage />
