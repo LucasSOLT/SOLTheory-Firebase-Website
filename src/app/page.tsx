@@ -81,7 +81,7 @@ export default function Home() {
         <section className="py-20 relative overflow-hidden">
           <div className="absolute -inset-1/4 -z-10 opacity-20">
             <div className="absolute top-0 left-0 w-1/2 h-full bg-primary rounded-full blur-[150px] animate-mist-flow"></div>
-            <div className="absolute bottom-0 right-0 w-1/2 h-full bg-accent rounded-full blur-[150px] animate-mist-flow [animation-delay:-15s] [animation-direction:alternate-reverse]"></div>
+            <div className="absolute bottom-0 right-0 w-1/2 h-full bg-accent rounded-full blur-[150px] animate-mist-flow [animation-delay:-15s]"></div>
           </div>
           <div className="container mx-auto px-4">
             <div className="text-center max-w-3xl mx-auto">
