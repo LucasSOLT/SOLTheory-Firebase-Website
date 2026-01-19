@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -391,7 +392,7 @@ function MasterRequirementsForm() {
                     <CardContent className="space-y-8">
                          <div className="grid md:grid-cols-2 gap-8">
                             <FormField control={form.control} name="name" render={({ field }) => (
-                                <FormItem><FormLabel className="text-lg">Name (Optional)</FormLabel><FormControl><Input placeholder="Jane Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-lg">Name</FormLabel><FormControl><Input placeholder="Jane Doe" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="position" render={({ field }) => (
                                 <FormItem><FormLabel className="text-lg">Position/Role</FormLabel><FormControl><Input placeholder="Case Manager" {...field} /></FormControl><FormMessage /></FormItem>
