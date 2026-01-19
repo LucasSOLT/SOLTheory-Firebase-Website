@@ -47,6 +47,8 @@ const requiredString = z.string().min(1, 'Please select an option.');
 const surveySchema = z.object({
   name: z.string().optional(),
   position: z.string().optional(),
+  manager: z.string().optional(),
+  selfContext: z.string().optional(),
   willingnessToAI: z.string().optional(),
   technicalKnowledge: z.string().optional(),
   canReachOut: z.string().optional(),
@@ -131,6 +133,8 @@ const SURVEY_ID = 'master-requirements';
 const defaultFormValues: SurveyFormValues = {
   name: '',
   position: '',
+  manager: '',
+  selfContext: '',
   willingnessToAI: '',
   technicalKnowledge: '',
   canReachOut: '',
@@ -398,6 +402,12 @@ function MasterRequirementsForm() {
                                 <FormItem><FormLabel className="text-lg">Position/Role</FormLabel><FormControl><Input placeholder="Case Manager" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                          </div>
+                         <FormField control={form.control} name="manager" render={({ field }) => (
+                            <FormItem><FormLabel className="text-lg">Your manager/Supervisor</FormLabel><FormControl><Input placeholder="Manager's Name" {...field} /></FormControl><FormMessage /></FormItem>
+                         )} />
+                         <FormField control={form.control} name="selfContext" render={({ field }) => (
+                            <FormItem><FormLabel className="text-lg">Any context about yourself you think we'd need to know</FormLabel><FormControl><Textarea placeholder="e.g., I'm the head of department, I oversee Y..." {...field} /></FormControl><FormMessage /></FormItem>
+                         )} />
                          <FormField control={form.control} name="willingnessToAI" render={({ field }) => (
                             <FormItem><FormLabel className="text-lg">Willingness to integrate AI into your workflow?</FormLabel>
                                 <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2 pt-2">
@@ -428,7 +438,7 @@ function MasterRequirementsForm() {
                                 </FormItem>
                             )} />
                             <FormField control={form.control} name="email" render={({ field }) => (
-                                <FormItem><FormLabel className="text-lg">Email (Optional, unless you said yes!)</FormLabel><FormControl><Input placeholder="jane.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-lg">Email (if you said yes!)</FormLabel><FormControl><Input placeholder="jane.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
                     </CardContent>
@@ -541,3 +551,5 @@ function MasterRequirementsForm() {
 export default function MasterRequirementsSurveyPage() {
     return <AuthGuard><MasterRequirementsForm /></AuthGuard>;
 }
+
+    
