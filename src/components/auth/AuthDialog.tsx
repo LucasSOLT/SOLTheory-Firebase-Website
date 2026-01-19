@@ -167,7 +167,7 @@ export function AuthDialog() {
   return (
     <Dialog open={isAuthDialogOpen} onOpenChange={onDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
           <TabsList className="grid w-full grid-cols-2 bg-transparent p-0 mb-6">
             <TabsTrigger 
               value="login"
