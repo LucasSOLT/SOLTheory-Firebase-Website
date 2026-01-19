@@ -226,13 +226,14 @@ function MasterRequirementsForm() {
 
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData);
+      form.reset({ ...defaultFormValues, ...initialData });
        if (initialData.submitted) {
         setIsSubmitted(true);
       } else {
         setIsSubmitted(false);
       }
     } else {
+      form.reset(defaultFormValues);
       setIsSubmitted(false);
     }
   }, [initialData, form]);
@@ -567,5 +568,3 @@ function MasterRequirementsForm() {
 export default function MasterRequirementsSurveyPage() {
     return <AuthGuard><MasterRequirementsForm /></AuthGuard>;
 }
-
-    
