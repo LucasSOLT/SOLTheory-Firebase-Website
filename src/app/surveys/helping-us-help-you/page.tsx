@@ -282,7 +282,7 @@ function HelpingUsHelpYouForm() {
                             )} />
                          </div>
                          <FormField control={form.control} name="manager" render={({ field }) => (
-                            <FormItem><FormLabel className="text-lg">Your manager/Supervisor</FormLabel><FormControl><Input placeholder="Manager's Name" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel className="text-lg">Your manager/supervisor</FormLabel><FormControl><Input placeholder="Manager's Name" {...field} /></FormControl><FormMessage /></FormItem>
                          )} />
                          <FormField control={form.control} name="selfContext" render={({ field }) => (
                             <FormItem><FormLabel className="text-lg">Any context about yourself you think we'd need to know</FormLabel><FormControl><Textarea placeholder="e.g., I'm new to the team, I'm responsible for X..." {...field} /></FormControl><FormMessage /></FormItem>
@@ -489,5 +489,3 @@ function HelpingUsHelpYouForm() {
 export default function HelpingUsHelpYouSurveyPage() {
   return <AuthGuard><HelpingUsHelpYouForm /></AuthGuard>;
 }
-
-    

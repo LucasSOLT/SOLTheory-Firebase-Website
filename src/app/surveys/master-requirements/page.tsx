@@ -403,7 +403,7 @@ function MasterRequirementsForm() {
                             )} />
                          </div>
                          <FormField control={form.control} name="manager" render={({ field }) => (
-                            <FormItem><FormLabel className="text-lg">Your manager/Supervisor</FormLabel><FormControl><Input placeholder="Manager's Name" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel className="text-lg">Your manager/supervisor</FormLabel><FormControl><Input placeholder="Manager's Name" {...field} /></FormControl><FormMessage /></FormItem>
                          )} />
                          <FormField control={form.control} name="selfContext" render={({ field }) => (
                             <FormItem><FormLabel className="text-lg">Any context about yourself you think we'd need to know</FormLabel><FormControl><Textarea placeholder="e.g., I'm the head of department, I oversee Y..." {...field} /></FormControl><FormMessage /></FormItem>
@@ -551,5 +551,3 @@ function MasterRequirementsForm() {
 export default function MasterRequirementsSurveyPage() {
     return <AuthGuard><MasterRequirementsForm /></AuthGuard>;
 }
-
-    
