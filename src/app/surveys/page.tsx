@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Lock, Copy, Home } from 'lucide-react';
+import { ArrowRight, Lock, Copy, Home, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/hooks/use-auth-store';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -99,7 +99,14 @@ export default function SurveysPage() {
             </CardDescription>
             <CardFooter className="mt-4 flex flex-col gap-4">
               <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you')}>
-                {showResumeHelping ? 'Resume Survey' : 'Begin Survey'} <ArrowRight className="ml-2" />
+                {helpingUsHelpYouData?.submitted
+                  ? 'Redo survey?'
+                  : showResumeHelping
+                  ? 'Resume Survey'
+                  : 'Begin Survey'}
+                {helpingUsHelpYouData?.submitted
+                  ? <RefreshCw className="ml-2 h-4 w-4" />
+                  : <ArrowRight className="ml-2" />}
               </Button>
               <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/helping-us-help-you')}>
                   <Copy />
@@ -129,7 +136,14 @@ export default function SurveysPage() {
                     <span>Reserved for Upper Management or a SME</span>
                 </div>
                  <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/master-requirements')}>
-                    {showResumeMaster ? 'Resume Survey' : 'Begin Survey'} <ArrowRight className="ml-2" />
+                    {masterRequirementsData?.submitted
+                      ? 'Redo survey?'
+                      : showResumeMaster
+                      ? 'Resume Survey'
+                      : 'Begin Survey'}
+                    {masterRequirementsData?.submitted
+                      ? <RefreshCw className="ml-2 h-4 w-4" />
+                      : <ArrowRight className="ml-2" />}
                 </Button>
                  <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/master-requirements')}>
                     <Copy />
@@ -169,5 +183,3 @@ export default function SurveysPage() {
     </div>
   );
 }
-
-    
