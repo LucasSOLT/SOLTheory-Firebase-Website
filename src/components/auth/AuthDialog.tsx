@@ -168,9 +168,19 @@ export function AuthDialog() {
     <Dialog open={isAuthDialogOpen} onOpenChange={onDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Log In</TabsTrigger>
-            <TabsTrigger value="create">Create Account</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 bg-white p-1">
+            <TabsTrigger 
+              value="login"
+              className="text-lg text-black data-[state=active]:bg-black data-[state=active]:text-white"
+            >
+              Log In
+            </TabsTrigger>
+            <TabsTrigger 
+              value="create"
+              className="text-lg text-black data-[state=active]:bg-black data-[state=active]:text-white"
+            >
+              Create Account
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="login">
