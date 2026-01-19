@@ -13,14 +13,31 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Lock, Copy, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/hooks/use-auth-store';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
+import { doc } from 'firebase/firestore';
 
 export default function SurveysPage() {
   const { toast } = useToast();
   const { openAuthDialog } = useAuthStore();
   const { user } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
+
+  const helpingUsHelpYouDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid, 'survey_responses', 'helping-us-help-you');
+  }, [user, firestore]);
+  const { data: helpingUsHelpYouData } = useDoc(helpingUsHelpYouDocRef);
+
+  const masterRequirementsDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid, 'survey_responses', 'master-requirements');
+  }, [user, firestore]);
+  const { data: masterRequirementsData } = useDoc(masterRequirementsDocRef);
+  
+  const showResumeHelping = user && helpingUsHelpYouData && Object.keys(helpingUsHelpYouData).length > 1 && !helpingUsHelpYouData.submitted;
+  const showResumeMaster = user && masterRequirementsData && Object.keys(masterRequirementsData).length > 1 && !masterRequirementsData.submitted;
 
   const handleCopyLink = (path: string) => {
     const url = `${window.location.origin}${path}`;
@@ -43,7 +60,6 @@ export default function SurveysPage() {
     if (user) {
       router.push(path);
     } else {
-      // If not logged in, open the auth dialog, and default it to the register tab.
       openAuthDialog(path, true);
     }
   }
@@ -83,7 +99,7 @@ export default function SurveysPage() {
             </CardDescription>
             <CardFooter className="mt-4 flex flex-col gap-4">
               <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you')}>
-                Begin Survey <ArrowRight className="ml-2" />
+                {showResumeHelping ? 'Resume Survey' : 'Begin Survey'} <ArrowRight className="ml-2" />
               </Button>
               <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/helping-us-help-you')}>
                   <Copy />
@@ -113,7 +129,7 @@ export default function SurveysPage() {
                     <span>Reserved for Upper Management or a SME</span>
                 </div>
                  <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/master-requirements')}>
-                    Begin Survey <ArrowRight className="ml-2" />
+                    {showResumeMaster ? 'Resume Survey' : 'Begin Survey'} <ArrowRight className="ml-2" />
                 </Button>
                  <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/master-requirements')}>
                     <Copy />
@@ -153,3 +169,5 @@ export default function SurveysPage() {
     </div>
   );
 }
+
+    
