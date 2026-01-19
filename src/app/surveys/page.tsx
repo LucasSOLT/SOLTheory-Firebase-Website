@@ -13,9 +13,9 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Lock, Copy, Home, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/hooks/use-auth-store';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc } from 'firebase/firestore';
+import { doc, type DocumentReference } from 'firebase/firestore';
 import React, { useState, useEffect } from 'react';
 
 export default function SurveysPage() {
@@ -62,12 +62,23 @@ export default function SurveysPage() {
     });
   };
 
-  const handleBeginSurvey = (path: string) => {
-    if (user) {
-      router.push(path);
-    } else {
+  const handleBeginSurvey = (path: string, surveyDocRef: DocumentReference | null, isSubmitted?: boolean) => {
+    if (!user) {
       openAuthDialog(path, true);
+      return;
     }
+
+    // If the survey has been submitted and the user wants to "redo" it,
+    // clear the previous submission data before navigating.
+    if (isSubmitted && surveyDocRef) {
+      setDocumentNonBlocking(surveyDocRef, {}, { merge: false });
+      toast({
+        title: 'Survey Reset',
+        description: 'You can now fill out the survey again.',
+      });
+    }
+    
+    router.push(path);
   }
 
   return (
@@ -104,15 +115,19 @@ export default function SurveysPage() {
               time-consuming tasks. Your feedback is crucial for automation.
             </CardDescription>
             <CardFooter className="mt-4 flex flex-col gap-4">
-              <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you')}>
+              <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you', helpingUsHelpYouDocRef, helpingUsHelpYouData?.submitted)}>
                 {isClient && helpingUsHelpYouData?.submitted
                   ? 'Redo survey?'
                   : isClient && showResumeHelping
                   ? 'Resume Survey'
                   : 'Begin Survey'}
-                {isClient && helpingUsHelpYouData?.submitted
-                  ? <RefreshCw className="ml-2 h-4 w-4" />
-                  : <ArrowRight className="ml-2" />}
+                {isClient && (
+                  helpingUsHelpYouData?.submitted ? (
+                    <RefreshCw className="ml-2 h-4 w-4" />
+                  ) : (
+                    <ArrowRight className="ml-2" />
+                  )
+                )}
               </Button>
               <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/helping-us-help-you')}>
                   <Copy />
@@ -141,15 +156,19 @@ export default function SurveysPage() {
                     <Lock className="mr-2 h-4 w-4" />
                     <span>Reserved for Upper Management or a SME</span>
                 </div>
-                 <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/master-requirements')}>
+                 <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/master-requirements', masterRequirementsDocRef, masterRequirementsData?.submitted)}>
                     {isClient && masterRequirementsData?.submitted
                       ? 'Redo survey?'
                       : isClient && showResumeMaster
                       ? 'Resume Survey'
                       : 'Begin Survey'}
-                    {isClient && masterRequirementsData?.submitted
-                      ? <RefreshCw className="ml-2 h-4 w-4" />
-                      : <ArrowRight className="ml-2" />}
+                    {isClient && (
+                      masterRequirementsData?.submitted ? (
+                        <RefreshCw className="ml-2 h-4 w-4" />
+                      ) : (
+                        <ArrowRight className="ml-2" />
+                      )
+                    )}
                 </Button>
                  <Button variant="outline" className="w-full" onClick={() => handleCopyLink('/surveys/master-requirements')}>
                     <Copy />
