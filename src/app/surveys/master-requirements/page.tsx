@@ -241,7 +241,7 @@ function MasterRequirementsForm() {
   const debouncedSave = useCallback(
     debounce((data: SurveyFormValues) => {
       if (surveyDocRef) {
-        setDocumentNonBlocking(surveyDocRef, data, { merge: true });
+        setDocumentNonBlocking(surveyDocRef, { ...defaultFormValues, ...data }, { merge: true });
       }
     }, 1500),
     [surveyDocRef]
@@ -334,10 +334,18 @@ function MasterRequirementsForm() {
                   <FormLabel className="font-normal text-lg text-muted-foreground">{option}</FormLabel>
                 </FormItem>
               ))}
+              <FormItem key="n-a" className="flex items-center space-x-3 space-y-0">
+                  <FormControl><RadioGroupItem value="Non-applicable/I don't know" /></FormControl>
+                  <FormLabel className="font-normal text-lg text-muted-foreground">Non-applicable/I don't know</FormLabel>
+              </FormItem>
           </RadioGroup></div></FormControl>
           {otherName && (
              <FormField control={form.control} name={otherName} render={({ field }) => (
-                <FormItem><FormControl><Textarea placeholder={otherPlaceholder || "Please specify..."} {...field} className="bg-background/80 mt-2"/></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormControl><Textarea placeholder={otherPlaceholder || "Please specify..."} {...field} className="bg-background/80 mt-2"/></FormControl>
+                  <FormDescription className="text-sm italic mt-1">Skip if you are unsure.</FormDescription>
+                  <FormMessage />
+                </FormItem>
             )} />
           )}
           <FormMessage />
@@ -351,6 +359,7 @@ function MasterRequirementsForm() {
             <FormLabel className="text-xl text-foreground">{label}</FormLabel>
             {description && <FormDescription className="text-base">{description}</FormDescription>}
             <FormControl><Textarea placeholder={placeholder} {...field} className="bg-background/80 mt-2"/></FormControl>
+            <FormDescription className="text-sm italic mt-1">Skip if you are unsure.</FormDescription>
             <FormMessage />
         </FormItem>
     )} />
@@ -439,7 +448,12 @@ function MasterRequirementsForm() {
                               <FormItem><FormLabel className="text-lg">Your manager/supervisor</FormLabel><FormControl><Input placeholder="Manager's Name" {...field} /></FormControl><FormMessage /></FormItem>
                            )} />
                            <FormField control={form.control} name="selfContext" render={({ field }) => (
-                              <FormItem><FormLabel className="text-lg">Any context about yourself you think we'd need to know</FormLabel><FormControl><Textarea placeholder="e.g., I'm the head of department, I oversee Y..." {...field} /></FormControl><FormMessage /></FormItem>
+                              <FormItem>
+                                <FormLabel className="text-lg">Any context about yourself you think we'd need to know</FormLabel>
+                                <FormControl><Textarea placeholder="e.g., I'm the head of department, I oversee Y..." {...field} /></FormControl>
+                                <FormDescription className="text-sm italic mt-1">Skip if you are unsure.</FormDescription>
+                                <FormMessage />
+                              </FormItem>
                            )} />
                            <FormField control={form.control} name="willingnessToAI" render={({ field }) => (
                               <FormItem><FormLabel className="text-lg">Willingness to integrate AI into your workflow?</FormLabel>
