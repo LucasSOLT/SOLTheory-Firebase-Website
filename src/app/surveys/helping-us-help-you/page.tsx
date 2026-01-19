@@ -231,8 +231,10 @@ function HelpingUsHelpYouForm() {
                 <CardTitle className="font-headline text-4xl text-primary">
                   Helping Us Help You
                 </CardTitle>
-                <CardDescription className="text-muted-foreground text-lg pt-2">
-                  Your brutally honest feedback helps us build tools to make your job easier.
+                <CardDescription className="text-muted-foreground text-lg pt-2 space-y-2">
+                  <p>NXT Chapter is embarking on a new adventure: a project to automate administrative tasks, making your job easier and more effective.</p>
+                  <p>We are using AI in a responsible, equitable, and safe way, guided by our ARISE Framework. This journey starts with information gathering, and that’s where we need your help.</p>
+                  <p>Your honest feedback is critical to the project's success.</p>
                 </CardDescription>
               </div>
             </div>
