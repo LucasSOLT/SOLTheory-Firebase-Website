@@ -14,6 +14,8 @@
  *   the user's identity and their data.
  * - /users/{userId}/survey_responses/{surveyId}: Stores a user's private responses
  *   to a specific survey. Access is restricted to the owner.
+ * - /survey_submissions/{submissionId}: A central collection of all submitted surveys,
+ *   intended for admin access only. Client writes are allowed, but reads are blocked.
  * - /interest_tags/{interestTagId}: A top-level collection for tags that are publicly
  *   readable by all users for profile creation, but are not writable by clients.
  * - /subscriptions/{subscriptionId}: A collection for subscription data, which is
@@ -23,6 +25,9 @@
  * - User Isolation: Users can only read and write their own documents within the /users
  *   collection and its subcollections. Listing of the entire /users collection is
  *   explicitly disallowed to prevent enumeration of all users in the system.
+ * - Admin-Only Collection: The `/survey_submissions` collection is write-only for clients.
+ *   This allows users to submit their data, but prevents them from reading other users'
+ *   submissions. Admins can access this data via the Firebase Console.
  * - Public Read-Only Data: The `/interest_tags` collection is globally readable to
  *   populate UI elements, but write access is denied to prevent unauthorized modification.
  *   Writes should be handled by a trusted server environment or admin role.
@@ -37,10 +42,9 @@
  * which must match the path UID, ensuring relational integrity.
  *
  * @section Structural Segregation
- * Private user data (`/users`) and public application data (`/interest_tags`) are stored
- * in separate top-level collections. This provides a clear, secure, and performant
- * separation of concerns, making it easy to apply broad security rules (e.g., public list
- * vs. owner-only list) without complex field-based checks.
+ * Private user data (`/users`), public application data (`/interest_tags`), and admin-only
+ * data (`/survey_submissions`) are stored in separate top-level collections. This provides
+ * a clear, secure, and performant separation of concerns.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -116,7 +120,7 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
 
       /**
-       * @description Manages a user's individual survey responses.
+       * @description Manages a user's individual survey responses (drafts).
        * @path /users/{userId}/survey_responses/{surveyId}
        * @allow (read, create, update, delete) A user can manage their own survey responses.
        * @principle Restricts survey data to the user who created it.
@@ -125,6 +129,18 @@ service cloud.firestore {
         allow read, create, update: if isOwner(userId);
         allow delete: if isOwner(userId); // Allows user to reset their survey
       }
+    }
+
+    /**
+     * @description Stores all submitted survey responses for admin review.
+     * @path /survey_submissions/{submissionId}
+     * @allow (create) A signed-in user can create a submission linked to their own UID.
+     * @deny (read, update, delete) All other client access is denied for security.
+     * @principle Submissions are write-once and immutable from the client, and can only be read by backend processes or via the Firebase Console.
+     */
+    match /survey_submissions/{submissionId} {
+      allow read, update, delete: if false;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
     /**

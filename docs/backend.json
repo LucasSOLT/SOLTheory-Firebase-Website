@@ -72,6 +72,15 @@
           "type": "boolean",
           "description": "Indicates if the survey has been formally submitted."
         },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who submitted the response."
+        },
+        "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when the survey was submitted."
+        },
         "name": { "type": "string" },
         "position": { "type": "string" },
         "manager": { "type": "string", "description": "The user's manager or supervisor." },
@@ -205,6 +214,22 @@
         }
       },
       {
+        "path": "/survey_submissions/{submissionId}",
+        "definition": {
+          "entityName": "SurveyResponse",
+          "schema": {
+            "$ref": "#/backend/entities/SurveyResponse"
+          },
+          "description": "Stores all submitted survey responses from all users for admin review. The document ID is auto-generated.",
+          "params": [
+            {
+              "name": "submissionId",
+              "description": "The unique auto-generated ID for the survey submission."
+            }
+          ]
+        }
+      },
+      {
         "path": "/interest_tags/{interestTagId}",
         "definition": {
           "entityName": "InterestTag",
@@ -240,6 +265,8 @@
     "reasoning": "This Firestore data structure is designed to support user accounts, interest tags, and subscription information for the SOL Theory Reimagined application. It prioritizes security, scalability, and debuggability by adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure uses path-based ownership for user accounts and a dedicated collection for globally available interest tags.\n\n**Authorization Independence:** UserAccount data is stored under `/users/{userId}` using the Firebase Authentication UID as the document ID. This structure inherently enforces ownership and avoids the need for complex `get()` calls in security rules.  Access control is based directly on the `request.auth.uid` matching the `{userId}` in the path.\n\n**QAPs Support:**\n*   **User Account Data:**  Storing user data in `/users/{userId}` ensures that listing user accounts is not generally possible (only accessible via direct ID lookup or, potentially, administrative functions secured with more complex rules that are outside the scope of this design). User data is segregated, preventing unauthorized access through listing.\n*   **Interest Tags:** Interest tags are stored in a flat `/interest_tags` collection.  This allows for easy listing of all available tags, which is necessary for the profile setup dialog.  Security rules can limit creation/modification of these tags to administrators.\n*   **Subscriptions:** Subscriptions are stored in a `/subscriptions` collection. While this allows listing, it's assumed this is for internal use (e.g., by a cloud function) and not directly exposed to end-user `list` operations. If end-user listing is required, security rules can be configured to limit access based on authentication or other criteria.\n\n**Denormalization:** The `UserAccount` includes `interestTagIds`, which references the selected interest tags. In a more complex scenario, where displaying tag names within the user profile is crucial and requires high read performance, we could denormalize the `name` field of the `InterestTag` directly into the `UserAccount` document as an array of objects `[{id: \"`\n  }
 }
     
+    
+
     
 
     

@@ -6,8 +6,8 @@ import { useForm, type FieldErrors } from 'react-hook-form';
 import * as z from 'zod';
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc, collection } from 'firebase/firestore';
 import { debounce } from 'lodash';
 
 import { Button } from '@/components/ui/button';
@@ -162,10 +162,28 @@ function HelpingUsHelpYouForm() {
   }, [form.watch, debouncedSave, isSubmitted]);
 
   const onSubmit = (data: SurveyFormValues) => {
+    if (!firestore || !user) {
+        toast({ variant: "destructive", title: "Error", description: "You must be logged in to submit." });
+        return;
+    }
+
+    // 1. Mark the local draft as submitted
     if (surveyDocRef) {
         const dataWithSubmission = { ...data, submitted: true };
         setDocumentNonBlocking(surveyDocRef, dataWithSubmission, { merge: true });
     }
+
+    // 2. Create a new document in the public submissions collection
+    const submissionsColRef = collection(firestore, 'survey_submissions');
+    const submissionData = {
+        ...data,
+        userId: user.uid,
+        surveyId: SURVEY_ID,
+        submittedAt: new Date().toISOString(),
+        submitted: true,
+    };
+    addDocumentNonBlocking(submissionsColRef, submissionData);
+    
     toast({
       title: 'Survey Submitted!',
       description: 'Thank you for your valuable feedback. Your responses have been saved.',
@@ -501,3 +519,5 @@ function HelpingUsHelpYouForm() {
 export default function HelpingUsHelpYouSurveyPage() {
   return <AuthGuard><HelpingUsHelpYouForm /></AuthGuard>;
 }
+
+    
