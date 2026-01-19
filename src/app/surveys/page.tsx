@@ -16,6 +16,7 @@ import { useAuthStore } from '@/hooks/use-auth-store';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
 
 export default function SurveysPage() {
   const { toast } = useToast();
@@ -23,6 +24,11 @@ export default function SurveysPage() {
   const { user } = useUser();
   const router = useRouter();
   const firestore = useFirestore();
+
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const helpingUsHelpYouDocRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -99,12 +105,12 @@ export default function SurveysPage() {
             </CardDescription>
             <CardFooter className="mt-4 flex flex-col gap-4">
               <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/helping-us-help-you')}>
-                {helpingUsHelpYouData?.submitted
+                {isClient && helpingUsHelpYouData?.submitted
                   ? 'Redo survey?'
-                  : showResumeHelping
+                  : isClient && showResumeHelping
                   ? 'Resume Survey'
                   : 'Begin Survey'}
-                {helpingUsHelpYouData?.submitted
+                {isClient && helpingUsHelpYouData?.submitted
                   ? <RefreshCw className="ml-2 h-4 w-4" />
                   : <ArrowRight className="ml-2" />}
               </Button>
@@ -136,12 +142,12 @@ export default function SurveysPage() {
                     <span>Reserved for Upper Management or a SME</span>
                 </div>
                  <Button className="w-full" onClick={() => handleBeginSurvey('/surveys/master-requirements')}>
-                    {masterRequirementsData?.submitted
+                    {isClient && masterRequirementsData?.submitted
                       ? 'Redo survey?'
-                      : showResumeMaster
+                      : isClient && showResumeMaster
                       ? 'Resume Survey'
                       : 'Begin Survey'}
-                    {masterRequirementsData?.submitted
+                    {isClient && masterRequirementsData?.submitted
                       ? <RefreshCw className="ml-2 h-4 w-4" />
                       : <ArrowRight className="ml-2" />}
                 </Button>
