@@ -456,23 +456,39 @@ function MasterRequirementsForm() {
                               </FormItem>
                            )} />
                            <FormField control={form.control} name="willingnessToAI" render={({ field }) => (
-                              <FormItem><FormLabel className="text-lg">Willingness to integrate AI into your workflow?</FormLabel>
-                                  <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2 pt-2">
-                                      {Array.from({length: 10}, (_, i) => i + 1).map(n => <FormItem key={n} className="flex items-center space-x-1 space-y-0">
-                                          <FormControl><RadioGroupItem value={String(n)} id={`willingness-${n}`} /></FormControl>
-                                          <FormLabel htmlFor={`willingness-${n}`} className="font-normal">{n}</FormLabel>
-                                      </FormItem>)}
-                                  </RadioGroup></FormControl><FormMessage />
+                              <FormItem>
+                                <FormLabel className="text-lg">Willingness to integrate AI into your workflow?</FormLabel>
+                                <FormControl>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-sm text-muted-foreground">None</span>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2 py-2">
+                                            {Array.from({length: 10}, (_, i) => i + 1).map(n => <FormItem key={n} className="flex items-center space-x-1 space-y-0">
+                                                <FormControl><RadioGroupItem value={String(n)} id={`willingness-${n}`} /></FormControl>
+                                                <FormLabel htmlFor={`willingness-${n}`} className="font-normal">{n}</FormLabel>
+                                            </FormItem>)}
+                                        </RadioGroup>
+                                        <span className="text-sm text-muted-foreground">A lot</span>
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
                               </FormItem>
                            )} />
                            <FormField control={form.control} name="technicalKnowledge" render={({ field }) => (
-                              <FormItem><FormLabel className="text-lg">Rate your technical knowledge (hardware, software, concepts)</FormLabel>
-                                  <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2 pt-2">
-                                      {Array.from({length: 10}, (_, i) => i + 1).map(n => <FormItem key={n} className="flex items-center space-x-1 space-y-0">
-                                          <FormControl><RadioGroupItem value={String(n)} id={`tech-${n}`} /></FormControl>
-                                          <FormLabel htmlFor={`tech-${n}`} className="font-normal">{n}</FormLabel>
-                                      </FormItem>)}
-                                  </RadioGroup></FormControl><FormMessage />
+                              <FormItem>
+                                <FormLabel className="text-lg">Rate your technical knowledge (hardware, software, concepts)</FormLabel>
+                                <FormControl>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-sm text-muted-foreground">None</span>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2 py-2">
+                                            {Array.from({length: 10}, (_, i) => i + 1).map(n => <FormItem key={n} className="flex items-center space-x-1 space-y-0">
+                                                <FormControl><RadioGroupItem value={String(n)} id={`tech-${n}`} /></FormControl>
+                                                <FormLabel htmlFor={`tech-${n}`} className="font-normal">{n}</FormLabel>
+                                            </FormItem>)}
+                                        </RadioGroup>
+                                        <span className="text-sm text-muted-foreground">A lot</span>
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
                               </FormItem>
                            )} />
                           <div className="grid md:grid-cols-2 gap-8 items-start">
