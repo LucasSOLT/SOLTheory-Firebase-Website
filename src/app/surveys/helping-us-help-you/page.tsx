@@ -307,7 +307,7 @@ function HelpingUsHelpYouForm() {
                                 </FormItem>
                             )} />
                             <FormField control={form.control} name="email" render={({ field }) => (
-                                <FormItem><FormLabel className="text-lg">Email (Optional, unless you said yes!)</FormLabel><FormControl><Input placeholder="jane.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-lg">Email (if you said yes!)</FormLabel><FormControl><Input placeholder="jane.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
                     </CardContent>
