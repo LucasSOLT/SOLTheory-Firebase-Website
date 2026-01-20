@@ -17,8 +17,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['Questrial', 'sans-serif'],
-        headline: ['Nunito', 'sans-serif'],
+        body: ['var(--font-questrial)', 'sans-serif'],
+        headline: ['var(--font-nunito)', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
