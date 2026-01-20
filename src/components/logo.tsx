@@ -10,7 +10,7 @@ export function Logo({className, ...props}: HTMLAttributes<HTMLDivElement>) {
         alt="SOL Theory Logo"
         width={100}
         height={100}
-        className={cn("h-full w-full brightness-0 invert", className)}
+        className={cn("h-full w-full", className)}
       />
     </div>
   );
