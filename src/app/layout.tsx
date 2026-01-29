@@ -14,9 +14,20 @@ export const metadata: Metadata = {
   title: 'SOL Theory',
   description: 'Unlock Your Potential. Redefine Your Reality.',
   icons: {
-    icon: iconUrl,
-    apple: iconUrl,
-  }
+    icon: {
+      url: iconUrl,
+      type: 'image/png',
+    },
+    shortcut: {
+      url: iconUrl,
+      type: 'image/png',
+    },
+    apple: {
+      url: iconUrl,
+      type: 'image/png',
+      sizes: '180x180',
+    },
+  },
 };
 
 const questrialFont = Questrial({
