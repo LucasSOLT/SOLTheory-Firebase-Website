@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { FirebaseClientProvider } from '@/firebase';
 import { AuthDialog } from '@/components/auth/AuthDialog';
 import { ProfileSetupDialog } from '@/components/auth/ProfileSetupDialog';
-import { Nunito, Questrial } from 'next/font/google';
+import { Playfair_Display, PT_Sans } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
 const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440";
@@ -30,18 +30,17 @@ export const metadata: Metadata = {
   },
 };
 
-const questrialFont = Questrial({
+const playfair = Playfair_Display({
   subsets: ['latin'],
   display: 'swap',
-  weight: '400',
-  variable: '--font-questrial',
+  variable: '--font-playfair',
 });
 
-const nunitoFont = Nunito({
+const ptSans = PT_Sans({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '700'],
-  variable: '--font-nunito',
+  variable: '--font-pt-sans',
 });
 
 
@@ -51,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("dark", questrialFont.variable, nunitoFont.variable)}>
+    <html lang="en" className={cn("dark", playfair.variable, ptSans.variable)}>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           <AuthDialog />
