@@ -23,9 +23,7 @@ const navLinks = [
 ];
 
 const dropdownMenuItems = [
-    { href: '/', label: 'Home' },
-    { href: '#qualifies', label: 'About' },
-    { href: '#subscribe', label: "What's New" },
+    { href: '/portal/login', label: 'Client Portal' },
     { type: 'separator' as const },
     { href: '/surveys', label: 'NXT Chapter' },
     { href: 'https://www.lifenavigation.ai', label: 'LifeNavigationU', target: '_blank' },
@@ -37,16 +35,24 @@ const dropdownMenuItems = [
 ];
 
 
+import { usePathname } from 'next/navigation';
+
 export function Header() {
   const { user, isUserLoading } = useUser();
   const { openAuthDialog } = useAuthStore();
+  const pathname = usePathname();
+  const isNxtChapter = pathname?.startsWith('/portal/dashboard/nxtchapter');
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-20 py-4">
+    <header className="absolute top-0 left-0 right-0 z-20 py-2">
       <div className="container mx-auto px-4 flex items-center justify-between relative">
-        <Link href="/" className="flex items-center gap-3 group">
-          <Logo className="h-10 w-10" />
-          <SolTheoryLogoText />
+        <Link href="/" className="flex items-center gap-2 group">
+          <Logo className="h-6 w-6" />
+          {isNxtChapter ? (
+            <span className="font-bold text-lg text-white">NXT Chapter</span>
+          ) : (
+            <SolTheoryLogoText />
+          )}
         </Link>
         
         <nav className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -63,7 +69,7 @@ export function Header() {
 
         <div className="flex items-center gap-2">
             {!isUserLoading && !user && (
-              <Button onClick={openAuthDialog}>Login</Button>
+              <Button onClick={() => openAuthDialog()}>Login</Button>
             )}
             
             {user && <UserNav />}

@@ -10,10 +10,10 @@ const socialLinks = [
 
 export function Footer() {
     return (
-        <footer className="bg-card/50 border-t border-border/50 py-8">
+        <footer className="bg-card/50 border-t border-border/50 py-4">
             <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-3">
-                    <Logo className="h-8 w-8" />
+                    <Logo className="h-5 w-5" />
                     <span className="text-sm text-muted-foreground">&copy; {new Date().getFullYear()} SOL Theory. All Rights Reserved.</span>
                 </div>
                 <div className="flex items-center gap-4">
