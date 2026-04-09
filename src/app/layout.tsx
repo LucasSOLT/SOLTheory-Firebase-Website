@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { FirebaseClientProvider } from '@/firebase';
 import { AuthDialog } from '@/components/auth/AuthDialog';
 import { ProfileSetupDialog } from '@/components/auth/ProfileSetupDialog';
-import { Playfair_Display, PT_Sans } from 'next/font/google';
+import { Playfair_Display, PT_Sans, Nunito } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
 const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440";
@@ -43,6 +43,12 @@ const ptSans = PT_Sans({
   variable: '--font-pt-sans',
 });
 
+const nunito = Nunito({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-nunito',
+});
+
 
 export default function RootLayout({
   children,
@@ -50,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("dark", playfair.variable, ptSans.variable)}>
+    <html lang="en" className={cn("dark", playfair.variable, ptSans.variable, nunito.variable)}>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           <AuthDialog />

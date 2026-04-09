@@ -83,7 +83,7 @@ export default function CommunicationsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0a0c10] text-slate-200">
+    <div className="flex flex-col h-full overflow-y-auto bg-slate-900 text-slate-200">
       <Header />
       <main className="flex-grow py-8 pt-24 px-4 md:px-8 relative">
         <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -96,7 +96,7 @@ export default function CommunicationsPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             <div className="lg:col-span-1 xl:col-span-2 space-y-6">
-              <Card className="bg-slate-900/50 border-slate-800">
+              <Card className="bg-slate-800/60 border-slate-800">
                 <CardHeader>
                   <CardTitle className="text-lg text-white flex items-center gap-2">
                     <Activity className="w-5 h-5 text-blue-400" />
@@ -131,7 +131,7 @@ export default function CommunicationsPage() {
             </div>
 
             <div className="lg:col-span-1 xl:col-span-1 space-y-6">
-              <Card className="bg-slate-900/50 border-slate-800 h-full flex flex-col min-h-[500px]">
+              <Card className="bg-slate-800/60 border-slate-800 h-full flex flex-col min-h-[500px]">
                 <CardHeader>
                   <CardTitle className="text-lg text-white flex items-center gap-2">
                     <Users className="w-5 h-5 text-emerald-400" />
@@ -172,7 +172,7 @@ export default function CommunicationsPage() {
       {/* Basic Report Modal */}
       {selectedFeedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <Card className="w-full max-w-md bg-slate-800 border-slate-700 shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-slate-800/80 px-4 py-3 flex justify-between items-center border-b border-slate-700">
               <div className="flex items-center gap-2 text-white font-medium">
                 <FileText className="w-4 h-4 text-blue-400" />

@@ -1,0 +1,38 @@
+import { NextResponse } from "next/server";
+import { google } from "googleapis";
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`
+);
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const uid = url.searchParams.get("uid");
+  const agentId = url.searchParams.get("agentId") || "email";
+  const origin = url.searchParams.get("origin") || "nxtchapter";
+
+  if (!uid) {
+    return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+  }
+
+  const statePayload = Buffer.from(JSON.stringify({ uid, agentId, origin })).toString('base64');
+
+  // Generate a url that asks permissions for Gmail scopes
+  const scopes = [
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.settings.basic'
+  ];
+
+  const authorizationUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline', // getting a refresh token
+    prompt: 'consent', // force prompt to ensure refresh token is returned
+    scope: scopes,
+    state: statePayload // pass the config map explicitly
+  });
+
+  return NextResponse.redirect(authorizationUrl);
+}

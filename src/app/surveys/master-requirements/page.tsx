@@ -327,7 +327,7 @@ function MasterRequirementsForm() {
         <FormItem className="space-y-3 p-4 rounded-lg bg-background/50 form-item-container">
           <FormLabel className="text-xl text-foreground">{label}</FormLabel>
           {description && <FormDescription>{description}</FormDescription>}
-          <FormControl><div className="radio-group-container"><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-2 pt-2">
+          <FormControl><div className="radio-group-container"><RadioGroup onValueChange={field.onChange} value={field.value as string | undefined} className="flex flex-col space-y-2 pt-2">
               {options.map((option) => (
                 <FormItem key={option} className="flex items-center space-x-3 space-y-0">
                   <FormControl><RadioGroupItem value={option} /></FormControl>
@@ -342,7 +342,7 @@ function MasterRequirementsForm() {
           {otherName && (
              <FormField control={form.control} name={otherName} render={({ field }) => (
                 <FormItem>
-                  <FormControl><Textarea placeholder={otherPlaceholder || "Please specify..."} {...field} className="bg-background/80 mt-2"/></FormControl>
+                  <FormControl><Textarea placeholder={otherPlaceholder || "Please specify..."} {...field} value={field.value as string | undefined} className="bg-background/80 mt-2"/></FormControl>
                   <FormDescription className="text-sm italic mt-1">Skip if you are unsure.</FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -358,7 +358,7 @@ function MasterRequirementsForm() {
         <FormItem className="p-4 rounded-lg bg-background/50">
             <FormLabel className="text-xl text-foreground">{label}</FormLabel>
             {description && <FormDescription className="text-base">{description}</FormDescription>}
-            <FormControl><Textarea placeholder={placeholder} {...field} className="bg-background/80 mt-2"/></FormControl>
+            <FormControl><Textarea placeholder={placeholder} {...field} value={field.value as string | undefined} className="bg-background/80 mt-2"/></FormControl>
             <FormDescription className="text-sm italic mt-1">Skip if you are unsure.</FormDescription>
             <FormMessage />
         </FormItem>

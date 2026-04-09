@@ -1,3 +1,4 @@
+'use client';
 
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -5,12 +6,11 @@ import { Header } from '@/components/sections/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
-import { Logo } from '@/components/logo';
 import Link from 'next/link';
-
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
+import { BlobHero } from '@/components/ui/blob-hero';
+import { motion } from 'framer-motion';
 
 const whatQualifies = [
   {
@@ -37,156 +37,195 @@ const featuredProjects = [
     id: "life-navigation",
     title: "Life Navigation University",
     url: "https://www.lifenavigation.ai",
-  },
-  {
-    id: "21-games",
-    title: "21 Games",
-    url: "https://www.21games.ai",
-  },
+  }
 ];
 
-
 export default function Home() {
-  const etsyImage = PlaceHolderImages.find(img => img.id === 'etsy-laptop');
-  const brainImage = PlaceHolderImages.find(img => img.id === 'brain-diagram');
-
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-grow">
-        {/* Hero Section */}
-        <section className="relative flex items-center justify-center h-screen overflow-hidden">
-            <div className="relative z-10 container mx-auto px-4">
-                <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
-                    <div className="flex-shrink-0">
-                        <Logo className="w-40 h-40 md:w-52 md:h-52" />
-                    </div>
-                    <div className="text-center md:text-left md:-translate-x-16">
-                        <h1 className="font-headline text-6xl md:text-8xl font-bold tracking-tight text-white">
-                            SOL Theory
-                        </h1>
-                        <p className="mt-2 text-2xl md:text-3xl text-primary">The Evolution of Self Improvement</p>
-                    </div>
-                </div>
+    <div className="flex flex-col min-h-screen bg-[#0A0A0B] text-slate-200 selection:bg-fuchsia-500/30 overflow-x-hidden">
+      <div className="absolute top-0 w-full z-50 fixed">
+        <Header />
+      </div>
+
+      <main className="flex-grow z-10 w-full relative">
+        
+        {/* SECTION 1: Dynamic Abstract 3D Hero */}
+        <section className="relative min-h-[100dvh] w-full flex items-center justify-center overflow-hidden z-10">
+          <BlobHero />
+          <div className="relative z-10 container mx-auto px-4 pointer-events-none mt-20">
+            <div className="flex flex-col items-center justify-center text-center gap-6">
+              
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 text-sm font-semibold tracking-widest backdrop-blur-md">
+                <Sparkles className="w-4 h-4" /> THE APP ECOSYSTEM
+              </div>
+
+              <h1 className="font-nunito text-6xl md:text-[8rem] font-semibold tracking-tight text-white drop-shadow-2xl leading-none">
+                SOL Theory
+              </h1>
+
+              <p className="mt-4 text-2xl md:text-5xl font-light text-slate-300 drop-shadow-lg max-w-4xl">
+                The Evolution of <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400">Self Improvement</span>
+              </p>
             </div>
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10">
-                <Link href="#projects" className="flex flex-col items-center gap-2 text-primary hover:text-white transition-colors animate-fade-in [animation-delay:1s] animation-fill-mode-backwards">
-                    <span className="font-headline tracking-widest">EXPLORE MORE</span>
-                    <ArrowDown className="w-6 h-6 animate-bounce" />
-                </Link>
-            </div>
+          </div>
+
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 pointer-events-auto cursor-pointer flex flex-col items-center gap-3 text-fuchsia-500 hover:text-fuchsia-400 transition-colors" onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}>
+            <span className="font-headline tracking-[0.3em] text-[10px] md:text-sm font-bold uppercase">Scroll to Descend</span>
+            <ArrowDown className="w-5 h-5 animate-bounce" />
+          </div>
         </section>
 
-        {/* SOL Theory The Etsy of Self Improvement */}
-        <section className="py-20 relative overflow-hidden">
-          <div className="absolute -inset-1/4 -z-10 opacity-20">
-            <div className="absolute top-0 left-0 w-1/2 h-full bg-primary rounded-full blur-[150px] animate-mist-flow"></div>
-            <div className="absolute bottom-0 right-0 w-1/2 h-full bg-accent rounded-full blur-[150px] animate-mist-flow [animation-delay:-15s]"></div>
-          </div>
+        {/* SECTION 2: SOL Theory The Etsy of Self Improvement */}
+        <section className="relative py-32 md:py-48 w-full flex flex-col items-center justify-center bg-[#0A0A0B] z-20 shadow-2xl">
           <div className="container mx-auto px-4">
-            <div className="text-center max-w-3xl mx-auto">
-              <h2 className="font-headline text-5xl md:text-6xl font-bold">SOL Theory</h2>
-              <h3 className="text-primary text-2xl md:text-3xl mt-2 mb-6">The Etsy of Self Improvement</h3>
-              <p className="text-muted-foreground mb-4 text-lg">
+            <div className="text-center max-w-4xl mx-auto space-y-6">
+              <h2 className="font-nunito text-5xl md:text-7xl font-bold text-white tracking-tight drop-shadow-xl">The Etsy of Self Improvement</h2>
+              <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-24 mb-6" />
+              
+              <p className="text-slate-300 text-xl md:text-2xl leading-relaxed font-light">
                 SOL Theory is a curated community of creators and an ecosystem of apps where members can discover and share their products, services, and knowledge.
               </p>
-              <p className="text-muted-foreground text-lg">
-                We provide a platform for A-Hope, B-Tools, C-Practice. Every product must be able to demonstrate and have a SPF (Simple, Practical and Fun) rating for its products and life.
+              <p className="text-slate-400 text-lg leading-relaxed max-w-3xl mx-auto border-t border-white/10 pt-6 mt-6">
+                We provide a platform for A-Hope, B-Tools, C-Practice. Every product must be able to demonstrate and have a <span className="text-fuchsia-400 font-bold px-1 bg-fuchsia-500/10 rounded-md py-0.5 border border-fuchsia-500/20">SPF (Simple, Practical and Fun)</span> rating for its products and life.
               </p>
             </div>
           </div>
         </section>
         
-        {/* Featured Projects Section */}
-        <section id="projects" className="py-20 bg-card/20 backdrop-blur-sm">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">Featured Projects</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {featuredProjects.map((project) => {
+        {/* SECTION 3: Featured Projects */}
+        <section id="projects" className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-[#0d0d10] z-30 shadow-2xl">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-16">
+              <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white mb-4">Featured Projects</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-lg">Explore high-fidelity applications designed directly within the SOL Theory network.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-5xl mx-auto mt-4 px-4 w-full h-[60vh] max-h-[500px]">
+              {featuredProjects.map((project, idx) => {
                 const projectImage = PlaceHolderImages.find(img => img.id === project.id);
                 return (
-                  <Link href={project.url} key={project.id} target="_blank" rel="noopener noreferrer" className="block group">
-                    <Card className="bg-card/80 border-border/50 backdrop-blur-sm overflow-hidden h-full flex flex-col transition-all duration-300 group-hover:border-primary group-hover:scale-105">
-                      {projectImage && (
-                        <div className={cn("relative h-48 w-full opacity-75 group-hover:opacity-100 transition-opacity duration-300", project.id === '21-games' && 'bg-white')}>
-                          <Image
-                            src={projectImage.imageUrl}
-                            alt={projectImage.description}
-                            fill
-                            className={project.id === '21-games' ? 'object-contain' : 'object-cover'}
-                            data-ai-hint={projectImage.imageHint}
-                          />
-                        </div>
-                      )}
-                      <CardHeader>
-                        <CardTitle className="font-headline text-2xl text-primary">{project.title}</CardTitle>
-                      </CardHeader>
-                    </Card>
-                  </Link>
+                  <div key={project.id} className="h-full w-full">
+                    <Link href={project.url} target="_blank" rel="noopener noreferrer" className="block group h-full w-full">
+                      <Card className="bg-white/5 border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-700 group-hover:border-fuchsia-500/50 group-hover:bg-white/10 group-hover:-translate-y-2 group-hover:shadow-[0_0_50px_-10px_rgba(192,38,211,0.3)] relative rounded-3xl">
+                        
+                        {projectImage && (
+                          <div className={cn("relative h-full w-full opacity-80 group-hover:opacity-100 transition-all duration-700 z-10 overflow-hidden flex-grow")}>
+                            <Image
+                              src={projectImage.imageUrl}
+                              alt={projectImage.description || project.title}
+                              fill
+                              className="group-hover:scale-105 transition-transform duration-1000 object-cover"
+                              data-ai-hint={projectImage.imageHint}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d10] via-[#0d0d10]/20 to-transparent" />
+                          </div>
+                        )}
+                        <CardHeader className="absolute bottom-0 left-0 right-0 z-20 pb-8 text-center pt-24 bg-gradient-to-t from-[#0d0d10] to-transparent">
+                          <CardTitle className="font-headline text-3xl md:text-4xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 drop-shadow-2xl">
+                            {project.title}
+                          </CardTitle>
+                        </CardHeader>
+                      </Card>
+                    </Link>
+                  </div>
                 )
               })}
             </div>
           </div>
         </section>
 
-
-        {/* What Qualifies */}
-        <section id="qualifies" className="py-20">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12">What Qualifies to be on SOL Theory</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
-              {whatQualifies.map((item) => (
-                <Card key={item.title} className="bg-card/80 border-border/50 backdrop-blur-sm p-4 text-left transition-all duration-300 hover:border-primary hover:scale-105 flex flex-col">
-                  <CardHeader>
-                    <CardTitle className="font-headline text-2xl text-foreground mb-2 font-bold">{item.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="text-muted-foreground text-lg">{item.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
+        {/* SECTION 4 & 5 Combined: Dense Protocol Overview */}
+        <section id="qualifies" className="relative py-32 md:py-48 w-full flex flex-col items-center justify-center bg-[#0A0A0B] z-40 shadow-2xl overflow-hidden">
+          <div className="container mx-auto px-4 w-full flex flex-col justify-center">
+            <div className="text-center mb-10 md:mb-16 mt-6 md:mt-10">
+              <h2 className="font-nunito text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-xl">The SOL Protocol</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-lg pt-2 md:pt-0">Network qualifications and absolute directives for our premium ecosystem.</p>
             </div>
-          </div>
-        </section>
 
-        
-
-        {/* Vision & Goals */}
-        <section className="py-20 md:py-32 bg-card/20 backdrop-blur-sm">
-          <div className="container mx-auto px-4">
-            <h2 className="font-headline text-4xl md:text-5xl font-bold mb-12 text-center">Why, Mission, Vision & Goals</h2>
-            <div className="max-w-2xl mx-auto bg-card/80 border-border/50 backdrop-blur-sm p-8 rounded-lg text-left transition-all duration-300 hover:border-primary hover:scale-105">
-                <div className="space-y-6">
-                    <div>
-                        <h3 className="text-foreground font-bold text-xl mb-2">Why</h3>
-                        <p className="text-muted-foreground">To empower everyone to look for what is possible.</p>
-                    </div>
-                      <div>
-                        <h3 className="text-foreground font-bold text-xl mb-2">Mission</h3>
-                        <p className="text-muted-foreground">To create a platform, ecosystem and community for people to improve their lives, and share knowledge.</p>
-                    </div>
-                      <div>
-                        <h3 className="text-foreground font-bold text-xl mb-2">Vision</h3>
-                        <p className="text-muted-foreground">To be the #1 place for self improvement.</p>
-                    </div>
-                      <div>
-                        <h3 className="text-foreground font-bold text-xl mb-2">Goals</h3>
-                        <ul className="list-disc list-inside text-muted-foreground space-y-2">
-                            <li>Build a community of creators that can make an impact for humankind.</li>
-                            <li>Be a creative and innovative place for creators.</li>
-                            <li>Measure everything based on data and science.</li>
-                        </ul>
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16 max-w-7xl mx-auto w-full">
+              
+              {/* Left Column: Qualifications */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
+                    <Sparkles className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <h3 className="text-2xl font-headline font-bold text-white">Qualifications</h3>
                 </div>
+                
+                <div className="space-y-4">
+                  {whatQualifies.map((item, idx) => (
+                    <div key={item.title} className="p-5 md:p-6 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
+                      <div className="relative z-10 flex gap-4 md:gap-6">
+                        <span className="text-indigo-400 font-black text-3xl md:text-4xl opacity-50 shrink-0">0{idx + 1}</span>
+                        <div>
+                          <h4 className="font-headline text-lg md:text-xl font-bold text-white mb-2">{item.title}</h4>
+                          <p className="text-slate-400 text-sm leading-relaxed">{item.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Column: Mission Matrix */}
+              <div className="relative">
+                  <div className="flex items-center gap-3 mb-6 relative z-10">
+                    <div className="p-2 bg-fuchsia-500/20 rounded-lg border border-fuchsia-500/30">
+                      <Sparkles className="w-5 h-5 text-fuchsia-400" />
+                    </div>
+                    <h3 className="text-2xl font-headline font-bold text-white">Mission Directives</h3>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-3xl p-6 md:p-8 relative z-10 h-[calc(100%-4rem)] flex flex-col justify-between hover:border-fuchsia-500/30 transition-all">
+                      <div className="space-y-6 md:space-y-8">
+                        <div>
+                          <h4 className="text-fuchsia-400 font-bold text-sm uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-fuchsia-400 shadow-[0_0_10px_rgba(232,121,249,0.8)]" /> Why
+                          </h4>
+                          <p className="text-slate-300 text-base md:text-lg">To empower everyone to look for what is absolutely possible.</p>
+                        </div>
+                        <div>
+                          <h4 className="text-indigo-400 font-bold text-sm uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]" /> Mission
+                          </h4>
+                          <p className="text-slate-300 text-base md:text-lg">To create a platform, ecosystem and community to systematically improve structural life.</p>
+                        </div>
+                        <div>
+                          <h4 className="text-emerald-400 font-bold text-sm uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" /> Vision
+                          </h4>
+                          <p className="text-slate-300 text-base md:text-lg">The world's apex layer for self improvement and cognitive elevation.</p>
+                        </div>
+                        <div>
+                          <h4 className="text-amber-400 font-bold text-sm uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.8)]" /> Architectural Goals
+                          </h4>
+                          <ul className="text-slate-300 text-sm md:text-base space-y-2">
+                            <li className="flex gap-2"><span className="text-amber-400">-</span> Build an impact-driven community.</li>
+                            <li className="flex gap-2"><span className="text-amber-400">-</span> Innovate creative frontiers.</li>
+                            <li className="flex gap-2"><span className="text-amber-400">-</span> Measure strictly by data and scientific method.</li>
+                          </ul>
+                        </div>
+                      </div>
+                  </div>
+              </div>
+
             </div>
           </div>
         </section>
 
-
-        <SubscriptionSection />
+        {/* SECTION 6: Subscription & Footer Context */}
+        <section className="relative w-full flex flex-col justify-between bg-[#0A0A0B] z-50">
+          <div className="flex-grow flex items-center justify-center border-t border-white/5 bg-[#0a0a0b]">
+            <SubscriptionSection />
+          </div>
+          <div className="relative z-60 border-t border-white/10 bg-black/90 pt-8">
+            <Footer />
+          </div>
+        </section>
 
       </main>
-      <Footer />
     </div>
   );
 }

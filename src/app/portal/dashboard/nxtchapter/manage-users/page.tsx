@@ -17,7 +17,7 @@ export default function ManageUsersPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0a0c10] text-slate-200">
+    <div className="flex flex-col h-full overflow-y-auto bg-slate-900 text-slate-200">
       <Header />
       <main className="flex-grow py-8 px-4 md:px-8">
         <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -28,7 +28,7 @@ export default function ManageUsersPage() {
             <h1 className="text-3xl font-bold text-white">Manage Users</h1>
           </div>
 
-          <Card className="bg-slate-900/50 border-slate-800">
+          <Card className="bg-slate-800/60 border-slate-800">
             <CardHeader className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4">
               <div className="relative flex-grow max-w-md w-full">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />

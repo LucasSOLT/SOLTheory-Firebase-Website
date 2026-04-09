@@ -1,0 +1,16 @@
+﻿.next/types/app/portal/dashboard/nxtchapter/ai-agents/[agentId]/page.ts(34,29): error TS2344: Type '{ params: { agentId: string; }; }' does not satisfy the constraint 'PageProps'.
+  Types of property 'params' are incompatible.
+    Type '{ agentId: string; }' is missing the following properties from type 'Promise<any>': then, catch, finally, [Symbol.toStringTag]
+src/app/surveys/master-requirements/page.tsx(330,106): error TS2322: Type 'string | boolean | undefined' is not assignable to type 'string | undefined'.
+  Type 'boolean' is not assignable to type 'string'.
+src/app/surveys/master-requirements/page.tsx(345,33): error TS2322: Type '{ className: string; onChange: (...event: any[]) => void; onBlur: Noop; value: string | boolean | undefined; disabled?: boolean | undefined; name: requiredKeys<baseObjectOutputType<{ name: ZodOptional<ZodString>; ... 69 more ...; submitted: ZodOptional<...>; }>> | optionalKeys<...>; ref: RefCallBack; placeholder: st...' is not assignable to type 'Omit<DetailedHTMLProps<TextareaHTMLAttributes<HTMLTextAreaElement>, HTMLTextAreaElement>, "ref">'.
+  Types of property 'value' are incompatible.
+    Type 'string | boolean | undefined' is not assignable to type 'string | number | readonly string[] | undefined'.
+      Type 'false' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/app/surveys/master-requirements/page.tsx(361,27): error TS2322: Type '{ className: string; onChange: (...event: any[]) => void; onBlur: Noop; value: string | boolean | undefined; disabled?: boolean | undefined; name: requiredKeys<baseObjectOutputType<{ name: ZodOptional<ZodString>; ... 69 more ...; submitted: ZodOptional<...>; }>> | optionalKeys<...>; ref: RefCallBack; placeholder: st...' is not assignable to type 'Omit<DetailedHTMLProps<TextareaHTMLAttributes<HTMLTextAreaElement>, HTMLTextAreaElement>, "ref">'.
+  Types of property 'value' are incompatible.
+    Type 'string | boolean | undefined' is not assignable to type 'string | number | readonly string[] | undefined'.
+      Type 'false' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/ui/calendar.tsx(57,9): error TS2353: Object literal may only specify known properties, and 'IconLeft' does not exist in type 'Partial<CustomComponents>'.
+src/components/ui/calendar.tsx(57,22): error TS7031: Binding element 'className' implicitly has an 'any' type.
+src/components/ui/calendar.tsx(60,23): error TS7031: Binding element 'className' implicitly has an 'any' type.

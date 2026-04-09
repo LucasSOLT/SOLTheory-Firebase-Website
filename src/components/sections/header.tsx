@@ -25,10 +25,8 @@ const navLinks = [
 const dropdownMenuItems = [
     { href: '/portal/login', label: 'Client Portal' },
     { type: 'separator' as const },
-    { href: '/surveys', label: 'NXT Chapter' },
     { href: 'https://www.lifenavigation.ai', label: 'LifeNavigationU', target: '_blank' },
     { href: 'https://www.thrivecoaching.ai', label: 'Thrive Coaching', target: '_blank' },
-    { href: 'https://www.21games.ai', label: 'Twenty-One Games', target: '_blank' },
     { type: 'separator' as const },
     { href: '#', label: 'Help' },
     { href: '#', label: 'Contact' },
@@ -44,10 +42,10 @@ export function Header() {
   const isNxtChapter = pathname?.startsWith('/portal/dashboard/nxtchapter');
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-20 py-2">
+    <header className="fixed top-0 left-0 right-0 z-50 py-3 bg-black/50 backdrop-blur-xl border-b border-white/5">
       <div className="container mx-auto px-4 flex items-center justify-between relative">
         <Link href="/" className="flex items-center gap-2 group">
-          <Logo className="h-6 w-6" />
+          {!isNxtChapter && <Logo className="h-6 w-6" />}
           {isNxtChapter ? (
             <span className="font-bold text-lg text-white">NXT Chapter</span>
           ) : (
@@ -96,6 +94,12 @@ export function Header() {
                     })}
                 </DropdownMenuContent>
             </DropdownMenu>
+
+            <Button asChild variant="default" className="ml-2">
+                <Link href="/portal/login">
+                    Client Portal
+                </Link>
+            </Button>
         </div>
       </div>
     </header>

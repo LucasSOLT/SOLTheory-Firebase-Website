@@ -1,173 +1,182 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Header } from "@/components/sections/header";
-import { Footer } from "@/components/sections/footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Activity, Calendar, Bot, BarChart, MessageSquare, FileText } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { 
+  Building2, Users, Activity, Sparkles, Server, ArrowUpRight
+} from "lucide-react";
 import Link from "next/link";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
+import { useFirestore, useUser } from "@/firebase";
+import { collection, onSnapshot, query, orderBy, limit, addDoc, serverTimestamp, getDocs, doc } from "firebase/firestore";
 
-const ACTIVITIES = [
-  "New participant registered from local shelter",
-  "Completed module: Transition Planning",
-  "Attended weekly group counseling session",
-  "Secured housing placement interview",
-  "Achieved 30-day sobriety milestone",
-  "Resume building workshop completed",
-];
-
-const EVENTS = [
-  "Job Fair Prep Workshop - Tomorrow, 2:00 PM",
-  "Community Support Circle - Thursday, 6:00 PM",
-  "Housing Assistance Q&A - Friday, 10:00 AM",
-  "Financial Literacy Seminar - Next Monday",
-  "Mock Interviews Session - Next Wednesday",
-];
-
-const REPORTS = [
-  "Q3 Recidivism Reduction Metrics vs Baseline",
-  "Monthly Shelter Outreach Engagement Summary",
-  "Weekly Participant Progress Overview",
-  "Housing Stability Outcome Analysis - October",
-  "Employment Integration Success Rates",
-];
+type TrafficData = { time: string; users: number };
 
 export default function NxtChapterDashboard() {
-  const [activity, setActivity] = useState("--");
-  const [event, setEvent] = useState("--");
-  const [report1, setReport1] = useState("--");
-  const [report2, setReport2] = useState("--");
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const [activeUsers, setActiveUsers] = useState(0);
+  const [activeOrgs, setActiveOrgs] = useState(0);
+  const [analyticsData, setAnalyticsData] = useState<TrafficData[]>([]);
 
   useEffect(() => {
-    // Randomize on client-side to avoid hydration mismatch
-    setActivity(ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)]);
-    setEvent(EVENTS[Math.floor(Math.random() * EVENTS.length)]);
-    
-    // Pick two random distinct reports
-    const shuffledReports = [...REPORTS].sort(() => 0.5 - Math.random());
-    setReport1(shuffledReports[0]);
-    setReport2(shuffledReports[1]);
+    if (!firestore) return;
 
-    // Optional: Make it change every once in a while (e.g., every 30 seconds)
-    const interval = setInterval(() => {
-      setActivity(ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)]);
-      setEvent(EVENTS[Math.floor(Math.random() * EVENTS.length)]);
-      const newShuffled = [...REPORTS].sort(() => 0.5 - Math.random());
-      setReport1(newShuffled[0]);
-      setReport2(newShuffled[1]);
-    }, 30000);
+    const fetchCounts = async () => {
+      try {
+        const uSnap = await getDocs(collection(firestore, "users"));
+        setActiveUsers(uSnap.size);
+        const oSnap = await getDocs(collection(firestore, "organizations"));
+        setActiveOrgs(oSnap.size);
+      } catch (err) {
+        console.error("Count fetch error:", err);
+      }
+    };
+    fetchCounts();
 
-    return () => clearInterval(interval);
-  }, []);
+    const unsubAnalytics = onSnapshot(doc(firestore, "platform_analytics", "traffic"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().history) {
+        setAnalyticsData(docSnap.data().history);
+      }
+    });
+
+    return () => {
+      unsubAnalytics();
+    };
+  }, [firestore]);
+
+
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0a0c10] text-slate-200">
-      <Header />
-      <main className="flex-grow flex items-center justify-center py-8 px-4 md:px-8">
-        <div className="w-full max-w-6xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-white">NXT Chapter Dashboard</h1>
-            <div className="px-4 py-2 bg-slate-800 rounded-md text-sm font-medium text-slate-300">
-              Client Portal
-            </div>
+    <div className="w-full max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
+      
+      {/* Dashboard Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-bold uppercase tracking-widest mb-2">
+            <Sparkles className="w-3 h-3" /> Master Control
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link href="/portal/dashboard/nxtchapter/ai-agents" className="block">
-              <div className="bg-slate-900/50 hover:bg-slate-800 transition-colors p-6 rounded-xl border border-slate-800 flex flex-col items-center justify-center gap-3 text-center h-full shadow-sm">
-                <Bot className="w-8 h-8 text-blue-400" />
-                <span className="font-semibold text-lg text-slate-200">AI Agents</span>
-              </div>
-            </Link>
-            <Link href="/portal/dashboard/nxtchapter/statistics" className="block">
-              <div className="bg-slate-900/50 hover:bg-slate-800 transition-colors p-6 rounded-xl border border-slate-800 flex flex-col items-center justify-center gap-3 text-center h-full shadow-sm">
-                <BarChart className="w-8 h-8 text-blue-400" />
-                <span className="font-semibold text-lg text-slate-200">Statistics and Analysis</span>
-              </div>
-            </Link>
-            <Link href="/portal/dashboard/nxtchapter/communications" className="block">
-              <div className="bg-slate-900/50 hover:bg-slate-800 transition-colors p-6 rounded-xl border border-slate-800 flex flex-col items-center justify-center gap-3 text-center h-full shadow-sm">
-                <MessageSquare className="w-8 h-8 text-blue-400" />
-                <span className="font-semibold text-lg text-slate-200">Communications</span>
-              </div>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-slate-900/50 border-slate-800">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">Total Members</CardTitle>
-                <Users className="w-4 h-4 text-slate-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-white">326</div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-slate-900/50 border-slate-800">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">Recent Activity</CardTitle>
-                <Activity className="w-4 h-4 text-slate-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm font-medium text-white">{activity}</div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-slate-900/50 border-slate-800">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">Upcoming Events</CardTitle>
-                <Calendar className="w-4 h-4 text-slate-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm font-medium text-white">{event}</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            <Card className="min-h-[300px] bg-slate-900/50 border-slate-800">
-              <CardHeader>
-                <CardTitle className="text-white">Recent Reports</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/50">
-                  <FileText className="w-5 h-5 text-blue-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-200">{report1}</p>
-                    <p className="text-xs text-slate-500">Generated today</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/50">
-                  <FileText className="w-5 h-5 text-blue-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-200">{report2}</p>
-                    <p className="text-xs text-slate-500">Generated yesterday</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="min-h-[300px] bg-slate-900/50 border-slate-800">
-              <CardHeader>
-                <CardTitle className="text-white">Quick Links</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <Link href="/portal/dashboard/nxtchapter/manage-users" className="block text-slate-300 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800">
-                  Manage Users
-                </Link>
-                <Link href="/portal/dashboard/nxtchapter/settings" className="block text-slate-300 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800">
-                  Settings
-                </Link>
-                <Link href="/portal/dashboard/nxtchapter/support-tickets" className="block text-slate-300 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800">
-                  Support Tickets
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+            NXT Chapter <span className="text-indigo-600">Hub</span>
+          </h1>
+          <p className="text-slate-500 text-base max-w-2xl font-medium">
+            Global administrative nervous system. Monitor cross-organization analytics, AI agent health, and internal communications.
+          </p>
         </div>
-      </main>
-      <Footer />
+      </div>
+
+      {/* Top Metrics Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden relative transition-all hover:shadow-md rounded-2xl">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wide">
+              Active Organizations
+            </CardTitle>
+            <div className="p-2 bg-indigo-50 rounded-lg">
+              <Building2 className="w-4 h-4 text-indigo-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-slate-900 mt-2">{activeOrgs}</div>
+            <p className="text-xs text-emerald-600 flex items-center mt-3 font-semibold bg-emerald-50 w-fit px-2 py-1 rounded-md">
+              <ArrowUpRight className="w-3 h-3 mr-1" /> Bound to live DB
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden relative transition-all hover:shadow-md rounded-2xl">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wide">
+              Target Clients
+            </CardTitle>
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Users className="w-4 h-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-slate-900 mt-2 flex items-baseline gap-2">
+              {activeUsers.toLocaleString()}
+            </div>
+            <p className="text-xs text-blue-600 flex items-center mt-3 font-semibold bg-blue-50 w-fit px-2 py-1 rounded-md">
+              <ArrowUpRight className="w-3 h-3 mr-1" /> Verified Accounts
+            </p>
+          </CardContent>
+        </Card>
+
+        <Link href="/portal/dashboard/nxtchapter/ai-agents" className="block relative group h-full">
+          <Card className="bg-slate-900 border-0 shadow-lg overflow-hidden h-full flex flex-col items-center justify-center transition-transform group-hover:-translate-y-1 rounded-2xl relative">
+            <div className="absolute top-0 right-0 p-4">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+            </div>
+            <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-3 m-0">
+              <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md">
+                <Server className="w-8 h-8 text-white" />
+              </div>
+              <div className="text-xl font-bold text-white tracking-widest uppercase mt-4">Agent Manager</div>
+              <p className="text-slate-400 text-xs font-medium">Manage active AI protocols</p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 gap-6">
+        
+        {/* Analytics Chart */}
+        <Card className="w-full bg-white border-0 shadow-sm ring-1 ring-slate-100 flex flex-col min-h-[400px] rounded-2xl">
+          <CardHeader className="border-b border-slate-50 pb-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-slate-900 text-lg font-extrabold flex items-center gap-3">
+                  Platform Traffic Analytics
+                  {analyticsData.length === 0 && <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse inline-block" />Awaiting data</span>}
+                </CardTitle>
+                <CardDescription className="text-slate-500 font-medium mt-1">Live active tracking streaming from database.</CardDescription>
+              </div>
+              <div className="px-3 py-1 bg-slate-100 rounded-md text-xs font-bold text-slate-600">
+                Today
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-grow pt-6 p-6">
+            {analyticsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    itemStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                  />
+                  <Area type="monotone" dataKey="users" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-3">
+                <Activity className="w-8 h-8 opacity-50" />
+                <span className="font-medium text-sm">Establishing Database Connection...</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

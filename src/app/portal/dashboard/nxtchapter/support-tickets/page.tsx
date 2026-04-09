@@ -34,7 +34,7 @@ export default function SupportTicketsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0a0c10] text-slate-200">
+    <div className="flex flex-col h-full overflow-y-auto bg-slate-900 text-slate-200">
       <Header />
       <main className="flex-grow py-8 px-4 md:px-8">
         <div className="w-full max-w-5xl mx-auto space-y-6">
@@ -51,28 +51,28 @@ export default function SupportTicketsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-             <Card className="bg-slate-900/50 border-slate-800">
+             <Card className="bg-slate-800/60 border-slate-800">
               <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
                 <Ticket className="w-8 h-8 text-blue-400" />
                 <span className="text-2xl font-bold text-white">4</span>
                 <span className="text-sm text-slate-400">Total Tickets</span>
               </CardContent>
             </Card>
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
                 <AlertCircle className="w-8 h-8 text-amber-500" />
                 <span className="text-2xl font-bold text-white">1</span>
                 <span className="text-sm text-slate-400">Open Tickets</span>
               </CardContent>
             </Card>
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                 <span className="text-2xl font-bold text-white">2</span>
                 <span className="text-sm text-slate-400">Resolved</span>
               </CardContent>
             </Card>
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
                 <Clock className="w-8 h-8 text-slate-400" />
                 <span className="text-2xl font-bold text-white">1.2h</span>
@@ -81,7 +81,7 @@ export default function SupportTicketsPage() {
             </Card>
           </div>
 
-          <Card className="bg-slate-900/50 border-slate-800">
+          <Card className="bg-slate-800/60 border-slate-800">
             <CardHeader>
               <CardTitle className="text-lg text-white">Recent Tickets</CardTitle>
             </CardHeader>

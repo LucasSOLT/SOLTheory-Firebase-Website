@@ -17,7 +17,7 @@ export function SolTheoryLogoText() {
 
   return (
     <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="relative">
-      <span className="font-headline text-2xl tracking-wider text-foreground font-bold">
+      <span className="font-nunito text-2xl tracking-wider text-foreground font-bold">
         {isExpanded ? 'SOL Theory' : 'SOL'}
       </span>
     </div>

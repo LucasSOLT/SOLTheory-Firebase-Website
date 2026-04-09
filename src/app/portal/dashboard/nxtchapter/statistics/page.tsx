@@ -18,7 +18,7 @@ export default function StatisticsPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0a0c10] text-slate-200">
+    <div className="flex flex-col h-full overflow-y-auto bg-slate-900 text-slate-200">
       <Header />
       <main className="flex-grow py-8 pt-24 px-4 md:px-8">
         <div className="w-full max-w-6xl mx-auto space-y-6 pb-12">
@@ -31,7 +31,7 @@ export default function StatisticsPage() {
 
           {/* Top KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-400">Total Participants</CardTitle>
                 <Users className="w-4 h-4 text-emerald-400" />
@@ -44,7 +44,7 @@ export default function StatisticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-400">Housing Placements</CardTitle>
                 <Home className="w-4 h-4 text-blue-400" />
@@ -57,7 +57,7 @@ export default function StatisticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-400">Recidivism Rate</CardTitle>
                 <Activity className="w-4 h-4 text-purple-400" />
@@ -70,7 +70,7 @@ export default function StatisticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-400">Avg Job Retention</CardTitle>
                 <Clock className="w-4 h-4 text-amber-400" />
@@ -86,7 +86,7 @@ export default function StatisticsPage() {
 
           {/* Middle Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-slate-900/50 border-slate-800 min-h-[400px]">
+            <Card className="bg-slate-800/60 border-slate-800 min-h-[400px]">
               <CardHeader>
                 <CardTitle className="text-lg text-white">Monthly Intake vs Graduation</CardTitle>
               </CardHeader>
@@ -111,7 +111,7 @@ export default function StatisticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900/50 border-slate-800 min-h-[400px]">
+            <Card className="bg-slate-800/60 border-slate-800 min-h-[400px]">
               <CardHeader>
                 <CardTitle className="text-lg text-white">Demographics Distribution</CardTitle>
               </CardHeader>
@@ -121,7 +121,7 @@ export default function StatisticsPage() {
                      style={{
                        background: 'conic-gradient(from 0deg, #3b82f6 0% 40%, #10b981 40% 70%, #8b5cf6 70% 90%, #f59e0b 90% 100%)'
                      }}>
-                  <div className="absolute inset-0 m-auto w-36 h-36 bg-[#0a0c10] rounded-full flex items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+                  <div className="absolute inset-0 m-auto w-36 h-36 bg-slate-900 rounded-full flex items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
                     <div className="text-center mt-2">
                       <span className="block text-3xl font-bold text-white">842</span>
                       <span className="block text-xs text-slate-400 uppercase tracking-wider mt-1">Total Active</span>
@@ -134,7 +134,7 @@ export default function StatisticsPage() {
 
           {/* Bottom Section (Scrollable expansion) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="bg-slate-900/50 border-slate-800 lg:col-span-2">
+            <Card className="bg-slate-800/60 border-slate-800 lg:col-span-2">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg text-white">Recent Placements</CardTitle>
                 <button className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1">
@@ -173,7 +173,7 @@ export default function StatisticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900/50 border-slate-800">
+            <Card className="bg-slate-800/60 border-slate-800">
               <CardHeader>
                 <CardTitle className="text-lg text-white">Monthly Engagement Focus</CardTitle>
               </CardHeader>
