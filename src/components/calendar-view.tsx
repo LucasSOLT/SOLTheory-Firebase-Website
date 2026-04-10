@@ -70,13 +70,25 @@ export function CalendarView() {
   // Detect which org the user is in based on the URL path
   const origin = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
 
-  // Helper: fetch calendar events from backend
-  const fetchCalendarEvents = async (uid: string) => {
+  // Helper: read refresh token from Firestore
+  const getRefreshToken = async (uid: string): Promise<string | null> => {
+    if (!firestore) return null;
+    const docSnap = await getDoc(doc(firestore, "users", uid));
+    const data = docSnap.data();
+    return data?.gmailOAuth_morpheus?.refreshToken
+      || data?.gmailOAuth_email?.refreshToken
+      || data?.["gmailOAuth_inbound-email"]?.refreshToken
+      || data?.gmailOAuth?.refreshToken
+      || null;
+  };
+
+  // Helper: fetch calendar events from backend using the refresh token
+  const fetchCalendarEvents = async (refreshToken: string) => {
     try {
       const res = await fetch("/api/calendar/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid })
+        body: JSON.stringify({ refreshToken })
       });
       if (res.ok) {
         const data = await res.json();
@@ -90,7 +102,7 @@ export function CalendarView() {
     }
   };
 
-  // Step 1: Intercept OAuth redirect token, save it, then fetch events
+  // Main effect: intercept OAuth redirect, or just load events
   React.useEffect(() => {
     if (!user?.uid || !firestore) return;
 
@@ -107,15 +119,21 @@ export function CalendarView() {
         // Clean the URL so the token isn't hanging around
         window.history.replaceState({}, document.title, window.location.pathname);
         // Now fetch the calendar with the freshly saved token
-        fetchCalendarEvents(user.uid).finally(() => setIsConnecting(false));
+        fetchCalendarEvents(rt).finally(() => setIsConnecting(false));
       }).catch(err => {
         console.error("Failed to save OAuth token:", err);
         setIsFetched(true);
         setIsConnecting(false);
       });
     } else {
-      // Normal page load — just try fetching events
-      fetchCalendarEvents(user.uid);
+      // Normal page load — read token from Firestore, then fetch events
+      getRefreshToken(user.uid).then(token => {
+        if (token) {
+          fetchCalendarEvents(token);
+        } else {
+          setIsFetched(true);
+        }
+      });
     }
   }, [user, firestore, searchParams]);
 
