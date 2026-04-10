@@ -28,13 +28,12 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return setError("Please fill in all fields.");
+    if (!auth) return setError("Authentication is still loading. Please try again.");
     setIsLoading(true);
     setError("");
-
+      
     try {
-      if (auth) {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
       
       const emailLower = email.toLowerCase();
       if (emailLower.endsWith("@soltheory.com")) {
@@ -137,7 +136,7 @@ export default function LoginPage() {
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors focus:outline-none"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10 text-slate-400 hover:text-slate-200 transition-colors focus:outline-none"
                           >
                             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                           </button>
