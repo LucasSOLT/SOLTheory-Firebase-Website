@@ -169,7 +169,7 @@ function SettingsContent() {
     const rt = searchParams.get("rt");
     const isConnectedParam = searchParams.get("gmail_connected") === "true";
     const errorParam = searchParams.get("error");
-    const agent = searchParams.get("agent") || "inbound-email";
+    const agent = searchParams.get("agent") || "morpheus";
 
     if (rt && user?.uid && firestore) {
       setDoc(doc(firestore, "users", user.uid), {
@@ -221,7 +221,7 @@ function SettingsContent() {
       }
     }
     if (!uid) return;
-    window.location.href = `/api/auth/google?uid=${uid}`;
+    window.location.href = `/api/auth/google?uid=${uid}&agentId=morpheus&origin=nxtchapter`;
   };
 
   const handleSyncInbox = async () => {
@@ -230,7 +230,7 @@ function SettingsContent() {
     setSyncMessage("");
     try {
       const userDoc = await getDoc(doc(firestore, "users", user.uid));
-      const agent = searchParams.get("agent") || "inbound-email";
+      const agent = searchParams.get("agent") || "morpheus";
       const docData = userDoc.data();
       const refreshToken = docData?.[`gmailOAuth_${agent}`]?.refreshToken || 
                            docData?.gmailOAuth_morpheus?.refreshToken ||

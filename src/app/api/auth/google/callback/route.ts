@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   }
 
   const redirectBase = origin === "soltheory"
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/soltheory/ai-agents/${agentId}`
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/soltheory/settings`
     : `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/nxtchapter/settings`;
 
   try {
