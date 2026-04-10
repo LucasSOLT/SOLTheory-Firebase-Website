@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { useUser } from '@/firebase';
-import { useAuthStore } from '@/hooks/use-auth-store';
+
 import { UserNav } from '@/components/auth/UserNav';
 
 const navLinks = [
@@ -37,7 +37,7 @@ import { usePathname } from 'next/navigation';
 
 export function Header() {
   const { user, isUserLoading } = useUser();
-  const { openAuthDialog } = useAuthStore();
+
   const pathname = usePathname();
   const isNxtChapter = pathname?.startsWith('/portal/dashboard/nxtchapter');
 
@@ -66,10 +66,6 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-            {!isUserLoading && !user && (
-              <Button onClick={() => openAuthDialog()}>Login</Button>
-            )}
-            
             {user && <UserNav />}
 
             <DropdownMenu>
