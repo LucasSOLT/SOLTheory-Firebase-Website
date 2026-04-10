@@ -74,12 +74,12 @@ const tools: any = [
     type: "function",
     function: {
       name: "list_calendar_events",
-      description: "List the user's scheduled calendar events for the upcoming or specified days. Provides event summary, start/end time.",
+      description: "List the user's Google Calendar events within a date range. Defaults to the next 7 days if no range is specified. Use this to check schedule availability, find conflicts, or answer questions about upcoming events.",
       parameters: {
         type: "object",
         properties: { 
-          timeMin: { type: "string", description: "ISO string, e.g., 2026-04-10T00:00:00Z" },
-          timeMax: { type: "string", description: "ISO string, e.g., 2026-04-12T00:00:00Z" }
+          timeMin: { type: "string", description: "Start of search window, ISO string, e.g., 2026-04-10T00:00:00-06:00" },
+          timeMax: { type: "string", description: "End of search window, ISO string, e.g., 2026-04-17T23:59:59-06:00" }
         },
         required: []
       }
@@ -89,16 +89,48 @@ const tools: any = [
     type: "function",
     function: {
       name: "create_calendar_event",
-      description: "Create a new event on the user's Google Calendar.",
+      description: "Create a new event on the user's Google Calendar. If the user says 'schedule a meeting at 4pm today', compute the correct ISO times for the user.",
       parameters: {
         type: "object",
         properties: { 
-          summary: { type: "string" },
-          description: { type: "string" },
-          startDateTime: { type: "string", description: "ISO string, e.g., 2026-04-10T10:00:00-06:00" },
-          endDateTime: { type: "string", description: "ISO string, e.g., 2026-04-10T11:00:00-06:00" }
+          summary: { type: "string", description: "Title of the event, e.g., 'Meeting with John Smith'" },
+          description: { type: "string", description: "Optional longer description or notes for the event" },
+          startDateTime: { type: "string", description: "ISO 8601 with timezone, e.g., 2026-04-10T16:00:00-06:00" },
+          endDateTime: { type: "string", description: "ISO 8601 with timezone, e.g., 2026-04-10T17:00:00-06:00" }
         },
         required: ["summary", "startDateTime", "endDateTime"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_calendar_event",
+      description: "Delete/cancel a specific calendar event by its eventId. Use list_calendar_events first to find the event ID.",
+      parameters: {
+        type: "object",
+        properties: { 
+          eventId: { type: "string", description: "The Google Calendar event ID" }
+        },
+        required: ["eventId"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_calendar_event",
+      description: "Update/reschedule an existing calendar event. Use list_calendar_events first to find the event ID. Only provide fields you want to change.",
+      parameters: {
+        type: "object",
+        properties: { 
+          eventId: { type: "string", description: "The Google Calendar event ID" },
+          summary: { type: "string", description: "New title for the event" },
+          description: { type: "string", description: "New description" },
+          startDateTime: { type: "string", description: "New start time, ISO 8601" },
+          endDateTime: { type: "string", description: "New end time, ISO 8601" }
+        },
+        required: ["eventId"]
       }
     }
   }
@@ -155,7 +187,7 @@ export async function POST(req: Request) {
     const isEmailAgent = agentId === "morpheus";
     
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You have active Gmail API Tools available. You are a fully authorized Inbox Administrator. YOU MUST USE YOUR TOOLS for email operations. If the user asks you to read, search, delete, block, folder, or draft an EMAIL, YOU ABSOLUTELY MUST execute the appropriate tool function.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your email tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools AND Google Calendar API Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
@@ -220,7 +252,7 @@ export async function POST(req: Request) {
 
     groqMessages.push(...messages);
 
-    const useTools = !!(gmail);
+    const useTools = !!(gmail || calendar);
 
     // PASS 1: Generate Standard Response OR Tool Target
     let completion: any = await createCompletionWithRetry(groqMessages, useTools);
@@ -229,14 +261,14 @@ export async function POST(req: Request) {
     let loopCount = 0;
     const MAX_LOOPS = 5;
 
-    // If LLM generated tool_calls but gmail isn't available, re-call without tools
-    if (responseMessage?.tool_calls && !gmail) {
+    // If LLM generated tool_calls but no APIs are available, re-call without tools
+    if (responseMessage?.tool_calls && !gmail && !calendar) {
       completion = await createCompletionWithRetry(groqMessages, false);
       responseMessage = completion.choices[0]?.message;
     }
 
     // Execute Tool Loop if Triggered
-    while (responseMessage?.tool_calls && gmail && loopCount < MAX_LOOPS) {
+    while (responseMessage?.tool_calls && (gmail || calendar) && loopCount < MAX_LOOPS) {
       groqMessages.push(responseMessage);
       
       for (const toolCall of responseMessage.tool_calls) {
@@ -295,23 +327,48 @@ export async function POST(req: Request) {
               orderBy: 'startTime'
             });
             const formatted = (res.data.items || []).map((e: any) => ({
+              eventId: e.id,
               summary: e.summary,
               startTime: e.start.dateTime || e.start.date,
               endTime: e.end.dateTime || e.end.date,
+              location: e.location || '',
               link: e.htmlLink
             }));
-            functionResult = JSON.stringify({ result: formatted });
+            functionResult = JSON.stringify({ result: formatted.length > 0 ? formatted : "No events found in the specified time range." });
           } else if (functionName === "create_calendar_event") {
             const res = await calendar.events.insert({
               calendarId: 'primary',
               requestBody: {
                 summary: args.summary,
-                description: args.description,
+                description: args.description || '',
                 start: { dateTime: args.startDateTime },
                 end: { dateTime: args.endDateTime }
               }
             });
-            functionResult = JSON.stringify({ result: `Event created successfully: ${res.data.htmlLink}` });
+            functionResult = JSON.stringify({ result: `Event '${args.summary}' created successfully. Link: ${res.data.htmlLink}` });
+          } else if (functionName === "delete_calendar_event") {
+            await calendar.events.delete({
+              calendarId: 'primary',
+              eventId: args.eventId
+            });
+            functionResult = JSON.stringify({ result: `Event successfully deleted/cancelled.` });
+          } else if (functionName === "update_calendar_event") {
+            // First fetch the existing event
+            const existing = await calendar.events.get({
+              calendarId: 'primary',
+              eventId: args.eventId
+            });
+            const updateBody: any = { ...existing.data };
+            if (args.summary) updateBody.summary = args.summary;
+            if (args.description) updateBody.description = args.description;
+            if (args.startDateTime) updateBody.start = { dateTime: args.startDateTime };
+            if (args.endDateTime) updateBody.end = { dateTime: args.endDateTime };
+            const res = await calendar.events.update({
+              calendarId: 'primary',
+              eventId: args.eventId,
+              requestBody: updateBody
+            });
+            functionResult = JSON.stringify({ result: `Event updated successfully. Link: ${res.data.htmlLink}` });
           } else if (functionName === "draft_outbound_email") {
             const emailLines = [
               `To: ${args.to}`,

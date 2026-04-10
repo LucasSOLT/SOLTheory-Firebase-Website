@@ -72,7 +72,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent?: string }> = {
     "morpheus": { 
-      name: "Morpheus (Email Agent)", 
+      name: "Morpheus (Executive Agent)", 
       greeting: "Hello. I am Morpheus, your dedicated AI assistant for NXT Chapter. How can I assist you today?", 
       theme: "border-blue-200 text-blue-600 bg-blue-50", 
       chatBg: "bg-white border-slate-200 shadow-sm",

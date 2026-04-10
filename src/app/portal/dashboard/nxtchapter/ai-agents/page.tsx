@@ -61,7 +61,7 @@ export default function NxtChapterAIAgentsPage() {
     {
       id: "morpheus",
       name: "Morpheus",
-      role: "Email Agent",
+      role: "Executive Agent",
       href: "/portal/dashboard/nxtchapter/ai-agents/morpheus",
       Robot: MorpheusRobot,
       color: "border-slate-200 group-hover:border-blue-400 group-hover:ring-1 group-hover:ring-blue-400",
@@ -91,9 +91,9 @@ export default function NxtChapterAIAgentsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="flex justify-center">
         {agents.map(({ id, name, role, href, Robot, color, glow, accent, badge }) => (
-          <Link key={id} href={href} className="block group">
+          <Link key={id} href={href} className="block group w-full max-w-xs">
             <div className={`h-full rounded-2xl transition-all duration-500 border hover:-translate-y-2 ${glow} overflow-hidden bg-white shadow-sm ${color} relative`}>
               <div className="relative z-10 flex flex-col items-center p-8 pt-10">
                 {/* Robot Avatar */}
