@@ -129,7 +129,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     if (params.agentId !== "morpheus" || !user?.uid || !firestore) return;
     getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
       const data = docSnap.data();
-      const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken || (params.agentId === "morpheus" && !!data?.gmailOAuth_email?.refreshToken);
+      const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken 
+        || !!data?.gmailOAuth_morpheus?.refreshToken
+        || !!data?.gmailOAuth_email?.refreshToken
+        || !!data?.["gmailOAuth_inbound-email"]?.refreshToken;
       setIsGmailConnected(connected);
     });
   }, [user, firestore, params.agentId]);
@@ -182,10 +185,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         setIsPolling(true);
         const userDoc = await getDoc(doc(firestore, "users", user.uid));
         const userData = userDoc.data();
-        let refreshToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!refreshToken && params.agentId === "morpheus") {
-          refreshToken = userData?.gmailOAuth_email?.refreshToken;
-        }
+        let refreshToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken
+          || userData?.gmailOAuth_morpheus?.refreshToken
+          || userData?.gmailOAuth_email?.refreshToken
+          || userData?.["gmailOAuth_inbound-email"]?.refreshToken;
         if (!refreshToken) {
            setIsPolling(false);
            return;

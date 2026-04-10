@@ -176,7 +176,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
     getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
       const data = docSnap.data();
-      const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken || (params.agentId === "morpheus" && !!data?.gmailOAuth_email?.refreshToken);
+      const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken 
+        || !!data?.gmailOAuth_morpheus?.refreshToken
+        || !!data?.gmailOAuth_email?.refreshToken
+        || !!data?.["gmailOAuth_inbound-email"]?.refreshToken;
       setIsGmailConnected(connected);
     });
   }, [user, firestore, params.agentId, isEmailAgent, searchParams]);
@@ -384,10 +387,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     try {
       const docSnap = await getDoc(doc(firestore, "users", user.uid));
       const userData = docSnap.data();
-      let rToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-      if (!rToken && params.agentId === "morpheus") {
-        rToken = userData?.gmailOAuth_email?.refreshToken;
-      }
+      let rToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken
+        || userData?.gmailOAuth_morpheus?.refreshToken
+        || userData?.gmailOAuth_email?.refreshToken
+        || userData?.["gmailOAuth_inbound-email"]?.refreshToken;
       if (!rToken) throw new Error("Missing Refresh Token");
 
       const res = await fetch("/api/webhooks/gmail/list", {
