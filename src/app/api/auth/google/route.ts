@@ -12,19 +12,21 @@ export async function GET(req: Request) {
   const uid = url.searchParams.get("uid");
   const agentId = url.searchParams.get("agentId") || "email";
   const origin = url.searchParams.get("origin") || "nxtchapter";
+  const returnTo = url.searchParams.get("returnTo") || "settings";
 
   if (!uid) {
     return NextResponse.json({ error: "User ID is required" }, { status: 400 });
   }
 
-  const statePayload = Buffer.from(JSON.stringify({ uid, agentId, origin })).toString('base64');
+  const statePayload = Buffer.from(JSON.stringify({ uid, agentId, origin, returnTo })).toString('base64');
 
   // Generate a url that asks permissions for Gmail scopes
   const scopes = [
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.settings.basic'
+    'https://www.googleapis.com/auth/gmail.settings.basic',
+    'https://www.googleapis.com/auth/calendar'
   ];
 
   const authorizationUrl = oauth2Client.generateAuthUrl({

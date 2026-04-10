@@ -132,7 +132,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken 
         || !!data?.gmailOAuth_morpheus?.refreshToken
         || !!data?.gmailOAuth_email?.refreshToken
-        || !!data?.["gmailOAuth_inbound-email"]?.refreshToken;
+        || !!data?.["gmailOAuth_inbound-email"]?.refreshToken
+        || !!data?.gmailOAuth?.refreshToken;
       setIsGmailConnected(connected);
     });
   }, [user, firestore, params.agentId]);
@@ -188,7 +189,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         let refreshToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken
           || userData?.gmailOAuth_morpheus?.refreshToken
           || userData?.gmailOAuth_email?.refreshToken
-          || userData?.["gmailOAuth_inbound-email"]?.refreshToken;
+          || userData?.["gmailOAuth_inbound-email"]?.refreshToken
+          || userData?.gmailOAuth?.refreshToken;
         if (!refreshToken) {
            setIsPolling(false);
            return;
@@ -312,9 +314,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!rToken && params.agentId === "morpheus") {
-          rToken = docData?.gmailOAuth_email?.refreshToken;
-        }
+        if (!rToken) rToken = docData?.gmailOAuth_morpheus?.refreshToken;
+        if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
+        if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
+        if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
       }
 
       const apiMessages = newMessages.map(m => ({
@@ -375,6 +378,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       if (!refreshToken && params.agentId === "morpheus") {
         refreshToken = userData?.gmailOAuth_email?.refreshToken;
       }
+      if (!refreshToken) refreshToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!refreshToken) refreshToken = userData?.gmailOAuth?.refreshToken;
       
       const res = await fetch("/api/webhooks/gmail/sync", {
         method: "POST",

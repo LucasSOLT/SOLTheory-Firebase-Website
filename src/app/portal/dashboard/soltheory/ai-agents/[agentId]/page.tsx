@@ -179,7 +179,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken 
         || !!data?.gmailOAuth_morpheus?.refreshToken
         || !!data?.gmailOAuth_email?.refreshToken
-        || !!data?.["gmailOAuth_inbound-email"]?.refreshToken;
+        || !!data?.["gmailOAuth_inbound-email"]?.refreshToken
+        || !!data?.gmailOAuth?.refreshToken;
       setIsGmailConnected(connected);
     });
   }, [user, firestore, params.agentId, isEmailAgent, searchParams]);
@@ -293,9 +294,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!rToken && params.agentId === "morpheus") {
-          rToken = docData?.gmailOAuth_email?.refreshToken;
-        }
+        if (!rToken) rToken = docData?.gmailOAuth_morpheus?.refreshToken;
+        if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
+        if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
+        if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
       }
 
       // Fetch knowledge base text from client-side Firestore
@@ -347,9 +349,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!rToken && params.agentId === "morpheus") {
-          rToken = docData?.gmailOAuth_email?.refreshToken;
-        }
+        if (!rToken) rToken = docData?.gmailOAuth_morpheus?.refreshToken;
+        if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
+        if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
+        if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
       }
 
       const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
@@ -390,7 +393,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       let rToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken
         || userData?.gmailOAuth_morpheus?.refreshToken
         || userData?.gmailOAuth_email?.refreshToken
-        || userData?.["gmailOAuth_inbound-email"]?.refreshToken;
+        || userData?.["gmailOAuth_inbound-email"]?.refreshToken
+        || userData?.gmailOAuth?.refreshToken;
       if (!rToken) throw new Error("Missing Refresh Token");
 
       const res = await fetch("/api/webhooks/gmail/list", {
@@ -429,6 +433,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (!rToken && params.agentId === "morpheus") {
         rToken = userData?.gmailOAuth_email?.refreshToken;
       }
+      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
+      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
       const res = await fetch("/api/webhooks/gmail/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -460,6 +468,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (!rToken && params.agentId === "morpheus") {
         rToken = userData?.gmailOAuth_email?.refreshToken;
       }
+      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
+      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
       
       const kbText = await getKnowledgeBaseText();
       const res = await fetch("/api/webhooks/gmail/sync", {
@@ -821,9 +833,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <Button onClick={() => setIsKnowledgeBaseOpen(true)} variant="ghost" size="sm" className="pointer-events-auto h-8 px-4 text-xs font-bold text-slate-700  hover:text-slate-900  bg-slate-200/50  border border-slate-300  hover:bg-slate-300/50  rounded-full shadow-lg backdrop-blur-md transition-all">
                           <Sparkles className="w-3.5 h-3.5 mr-2 text-fuchsia-400" /> Settings
                         </Button>
-                        {isEmailAgent && isGmailConnected && (
+                        {isEmailAgent && (
                           <Button onClick={() => setIsObserverOpen(!isObserverOpen)} variant="ghost" size="sm" className={`pointer-events-auto h-8 px-4 text-xs font-bold transition-all rounded-full shadow-lg backdrop-blur-md ${isObserverOpen ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-700  hover:text-slate-900  bg-slate-200/50  border border-slate-300  hover:bg-slate-300/50 '}`}>
-                            <Eye className="w-3.5 h-3.5 mr-2" /> Observer Panel
+                            <Eye className="w-3.5 h-3.5 mr-2" /> Observer Panel {!isGmailConnected && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />}
                           </Button>
                         )}
                       </div>
@@ -900,7 +912,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                      </Button>
                    </div>
                  </div>
-               ) : (
+               ) : isGmailConnected ? (
                  <>
                    <div className="p-4 bg-slate-200/50  border-b border-slate-300  flex flex-col gap-3">
                  <div className="flex items-center justify-between text-sm">
@@ -979,6 +991,32 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                  </Button>
                </div>
                </>
+             ) : (
+               /* Gmail Disconnected State */
+               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-5">
+                 <div className="relative">
+                   <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center border border-amber-500/20 shadow-inner">
+                     <Mail className="w-9 h-9 text-amber-400" />
+                   </div>
+                   <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                     <X className="w-3 h-3 text-white" />
+                   </div>
+                 </div>
+                 <div>
+                   <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">Gmail Disconnected</h3>
+                   <p className="text-sm text-slate-500 mt-2 max-w-[280px] leading-relaxed">
+                     Connect a Gmail account to enable real-time inbox monitoring and autonomous email drafting.
+                   </p>
+                 </div>
+                 <Button 
+                   onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid}&agentId=${params.agentId}&origin=soltheory`} 
+                   disabled={!user?.uid}
+                   className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-xl shadow-emerald-500/20 px-8 h-12 rounded-full font-bold transition-all transform hover:scale-105 active:scale-95 gap-2 border-0"
+                 >
+                   <Mail className="w-4 h-4" /> Connect Gmail Account
+                 </Button>
+                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Requires Google OAuth Authorization</p>
+               </div>
              )}
             </div>
           )}

@@ -68,6 +68,39 @@ const tools: any = [
         required: ["to", "subject", "body"]
       }
     }
+  },
+
+  {
+    type: "function",
+    function: {
+      name: "list_calendar_events",
+      description: "List the user's scheduled calendar events for the upcoming or specified days. Provides event summary, start/end time.",
+      parameters: {
+        type: "object",
+        properties: { 
+          timeMin: { type: "string", description: "ISO string, e.g., 2026-04-10T00:00:00Z" },
+          timeMax: { type: "string", description: "ISO string, e.g., 2026-04-12T00:00:00Z" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_calendar_event",
+      description: "Create a new event on the user's Google Calendar.",
+      parameters: {
+        type: "object",
+        properties: { 
+          summary: { type: "string" },
+          description: { type: "string" },
+          startDateTime: { type: "string", description: "ISO string, e.g., 2026-04-10T10:00:00-06:00" },
+          endDateTime: { type: "string", description: "ISO string, e.g., 2026-04-10T11:00:00-06:00" }
+        },
+        required: ["summary", "startDateTime", "endDateTime"]
+      }
+    }
   }
 ];
 
@@ -125,7 +158,9 @@ export async function POST(req: Request) {
       agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You have active Gmail API Tools available. You are a fully authorized Inbox Administrator. YOU MUST USE YOUR TOOLS for email operations. If the user asks you to read, search, delete, block, folder, or draft an EMAIL, YOU ABSOLUTELY MUST execute the appropriate tool function.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your email tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
+
     let gmail: any = null;
+    let calendar: any = null;
 
     if (isEmailAgent && refreshToken) {
       const oauth2Client = new google.auth.OAuth2(
@@ -134,7 +169,9 @@ export async function POST(req: Request) {
       );
       oauth2Client.setCredentials({ refresh_token: refreshToken });
       gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     }
+
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -247,6 +284,34 @@ export async function POST(req: Request) {
               }
             });
             functionResult = JSON.stringify({ result: `Sender '${args.senderEmail}' blocked.` });
+          } else if (functionName === "list_calendar_events") {
+            const timeMin = args.timeMin || new Date().toISOString();
+            const timeMax = args.timeMax || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+            const res = await calendar.events.list({
+              calendarId: 'primary',
+              timeMin: timeMin,
+              timeMax: timeMax,
+              singleEvents: true,
+              orderBy: 'startTime'
+            });
+            const formatted = (res.data.items || []).map((e: any) => ({
+              summary: e.summary,
+              startTime: e.start.dateTime || e.start.date,
+              endTime: e.end.dateTime || e.end.date,
+              link: e.htmlLink
+            }));
+            functionResult = JSON.stringify({ result: formatted });
+          } else if (functionName === "create_calendar_event") {
+            const res = await calendar.events.insert({
+              calendarId: 'primary',
+              requestBody: {
+                summary: args.summary,
+                description: args.description,
+                start: { dateTime: args.startDateTime },
+                end: { dateTime: args.endDateTime }
+              }
+            });
+            functionResult = JSON.stringify({ result: `Event created successfully: ${res.data.htmlLink}` });
           } else if (functionName === "draft_outbound_email") {
             const emailLines = [
               `To: ${args.to}`,
