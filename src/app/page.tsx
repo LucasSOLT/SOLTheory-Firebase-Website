@@ -75,6 +75,121 @@ export default function Home() {
           </div>
         </section>
 
+        {/* SECTION 1.5: Products & Services */}
+        <section className="relative py-28 md:py-40 w-full bg-[#08080a] z-15 overflow-hidden">
+          {/* Subtle ambient glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-fuchsia-600/5 rounded-full blur-[120px] pointer-events-none" />
+
+          <div className="container mx-auto px-4 relative z-10">
+            <div className="text-center mb-16 md:mb-20">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-[0.2em] mb-5">
+                What We Build
+              </div>
+              <h2 className="font-nunito text-4xl md:text-6xl font-bold text-white tracking-tight mb-4">Products &amp; Services</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-lg">Enterprise-grade AI tooling, delivered at a fraction of enterprise cost.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+
+              {/* Card 1: AI Email Agents */}
+              <div className="group relative flex flex-col bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-blue-500/40 hover:bg-white/[0.06] transition-all duration-500 hover:-translate-y-1">
+                <div className="relative h-52 overflow-hidden">
+                  <Image src="/product_email_agents.png" alt="AI Email Agents" fill className="object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#08080a] via-transparent to-transparent" />
+                </div>
+                <div className="p-6 flex flex-col flex-grow">
+                  <h3 className="font-nunito text-xl font-bold text-white mb-1">AI Email Agents</h3>
+                  <p className="text-blue-400 text-xs font-semibold uppercase tracking-widest mb-3">(Inbound &amp; Outbound)</p>
+                  <p className="text-slate-400 text-sm leading-relaxed flex-grow">
+                    Stop writing emails. Our executive agent &quot;Morpheus&quot; drafts professional, human-sounding correspondence on your behalf. Manage your entire inbox through conversation: reply, organize, delete, and send outreach without ever touching your keyboard. Includes a pre-built dashboard, full analytics, and access to the SOL Theory network.
+                  </p>
+                  <div className="mt-5 pt-4 border-t border-white/10">
+                    <div className="flex items-baseline gap-2 mb-3">
+                      <span className="text-2xl font-bold text-white">$50</span>
+                      <span className="text-slate-500 text-sm">lifetime</span>
+                      <span className="text-slate-600 text-sm mx-1">or</span>
+                      <span className="text-lg font-semibold text-white">$3</span>
+                      <span className="text-slate-500 text-sm">/month</span>
+                    </div>
+                    <Link href="/portal/login" className="block w-full text-center py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors">
+                      Get Started
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Google Workspace Automation */}
+              <div className="group relative flex flex-col bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-indigo-500/40 hover:bg-white/[0.06] transition-all duration-500 hover:-translate-y-1">
+                <div className="relative h-52 overflow-hidden">
+                  <Image src="/product_google_suite.png" alt="Google Workspace Automation" fill className="object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#08080a] via-transparent to-transparent" />
+                </div>
+                <div className="p-6 flex flex-col flex-grow">
+                  <h3 className="font-nunito text-xl font-bold text-white mb-1">Google Workspace Automation</h3>
+                  <p className="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">Full Suite Integration</p>
+                  <p className="text-slate-400 text-sm leading-relaxed flex-grow">
+                    Connect your entire Google ecosystem to our AI. Create and manage Calendar events, draft and respond to Gmail, generate Docs and Sheets, build Slides presentations, organize Drive files, and more. Your agent operates across every Google product so you can focus on the decisions that actually matter.
+                  </p>
+                  <div className="mt-5 pt-4 border-t border-white/10">
+                    <div className="flex items-baseline gap-2 mb-3">
+                      <span className="text-2xl font-bold text-white">$200</span>
+                      <span className="text-slate-500 text-sm">lifetime</span>
+                      <span className="text-slate-600 text-sm mx-1">or</span>
+                      <span className="text-lg font-semibold text-white">$9</span>
+                      <span className="text-slate-500 text-sm">/month</span>
+                    </div>
+                    <Link href="/portal/login" className="block w-full text-center py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors">
+                      Get Started
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Custom Dashboard */}
+              <div className="group relative flex flex-col bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-fuchsia-500/40 hover:bg-white/[0.06] transition-all duration-500 hover:-translate-y-1">
+                <div className="relative h-52 overflow-hidden">
+                  <Image src="/product_custom_dashboard.png" alt="Personalized Dashboard" fill className="object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#08080a] via-transparent to-transparent" />
+                </div>
+                <div className="p-6 flex flex-col flex-grow">
+                  <h3 className="font-nunito text-xl font-bold text-white mb-1">Personalized Dashboard</h3>
+                  <p className="text-fuchsia-400 text-xs font-semibold uppercase tracking-widest mb-3">Re-imagined</p>
+                  <p className="text-slate-400 text-sm leading-relaxed flex-grow">
+                    We architect fully custom dashboards engineered to the exact specifications of your operation. AI model costs stay accessible and are bundled into your service price. We have yet to encounter a challenge our team cannot solve through determination and ingenuity. The sky is genuinely the limit.
+                  </p>
+                  <div className="mt-5 pt-4 border-t border-white/10">
+                    <p className="text-slate-500 text-xs uppercase tracking-widest mb-3">Pricing varies by scope</p>
+                    <a href="mailto:teams@soltheory.com?subject=Free%20Consultation%20Request&body=Hello%20SOL%20Theory%20team%2C%0A%0AI%27m%20interested%20in%20learning%20more%20about%20a%20custom%20dashboard%20solution.%0A%0AThank%20you!" className="block w-full text-center py-2.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-semibold transition-colors">
+                      Contact for a <em>free</em> consultation
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: Partnership & Community */}
+              <div className="group relative flex flex-col bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-amber-500/40 hover:bg-white/[0.06] transition-all duration-500 hover:-translate-y-1">
+                <div className="relative h-52 overflow-hidden">
+                  <Image src="/product_partnership.png" alt="Partnership & Community" fill className="object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#08080a] via-transparent to-transparent" />
+                </div>
+                <div className="p-6 flex flex-col flex-grow">
+                  <h3 className="font-nunito text-xl font-bold text-white mb-1">Partner with SOL Theory</h3>
+                  <p className="text-amber-400 text-xs font-semibold uppercase tracking-widest mb-3">Community &amp; Collaboration</p>
+                  <p className="text-slate-400 text-sm leading-relaxed flex-grow">
+                    Join our growing self-development community or explore strategic partnership opportunities. Whether you are looking to host your own products and services on our platform, establish mutually beneficial business collaborations, or simply connect with driven individuals pushing the boundaries of personal growth, we welcome the conversation.
+                  </p>
+                  <div className="mt-5 pt-4 border-t border-white/10">
+                    <a href="mailto:teams@soltheory.com?subject=Partnership%20Inquiry&body=Hello%20SOL%20Theory%20team%2C%0A%0AI%27m%20interested%20in%20exploring%20partnership%20or%20community%20opportunities.%0A%0AThank%20you!" className="block w-full text-center py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors">
+                      Start a Conversation
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
         {/* SECTION 2: SOL Theory The Etsy of Self Improvement */}
         <section className="relative py-32 md:py-48 w-full flex flex-col items-center justify-center bg-[#0A0A0B] z-20 shadow-2xl">
           <div className="container mx-auto px-4">
