@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getFirestore } from "@/firebase/admin";
 
-const adminDb = getFirestore();
-const adminAuth = {} as any; // Mocking adminAuth temporarily as it's missing from admin.ts
-
 export async function POST() {
   try {
+    const adminDb = getFirestore();
+    const adminAuth = {} as any; // Mocking adminAuth temporarily as it's missing from admin.ts
     // 1. Create Organizations exactly as specified
     const orgs = ["soltheory", "nxtchapter", "lnu"];
     for (const org of orgs) {

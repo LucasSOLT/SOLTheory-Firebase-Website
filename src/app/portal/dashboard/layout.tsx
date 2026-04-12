@@ -101,18 +101,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
 
            <div className="space-y-1 mb-2">
-             <a href="https://docs.google.com/document/u/0/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-indigo-900 hover:bg-slate-50 cursor-pointer transition-colors mb-1">
+             <Link href={`${dashboardHome}/docs`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/docs') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                <FileText className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleDocs}</span>
-             </a>
-             <a href="https://docs.google.com/presentation/u/0/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-indigo-900 hover:bg-slate-50 cursor-pointer transition-colors mb-1">
+             </Link>
+             <Link href={`${dashboardHome}/slides`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/slides') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                <Presentation className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleSlides}</span>
-             </a>
-             <a href="https://docs.google.com/spreadsheets/u/0/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-indigo-900 hover:bg-slate-50 cursor-pointer transition-colors mb-1">
+             </Link>
+             <Link href={`${dashboardHome}/sheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/sheets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                <Table className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleSheets}</span>
-             </a>
+             </Link>
 
              {/* Disabled Integrations */}
              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">

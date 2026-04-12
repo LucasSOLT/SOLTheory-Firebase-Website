@@ -133,6 +133,74 @@ const tools: any = [
         required: ["eventId"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_google_document",
+      description: "Create a new Google Docs document in the user's Google Drive. Populates it with the provided text content. Use this when the user asks you to create a document, write a report, draft meeting notes, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "The title/name of the Google Doc" },
+          body: { type: "string", description: "The full text content to insert into the document. Use newlines for paragraphs." }
+        },
+        required: ["title", "body"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_google_slide_deck",
+      description: "Create a new Google Slides presentation in the user's Google Drive. Each slide should have a title and body text. Use this when the user asks you to create a presentation, pitch deck, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "The title/name of the presentation" },
+          slides: {
+            type: "array",
+            description: "Array of slide objects, each with a title and body",
+            items: {
+              type: "object",
+              properties: {
+                slideTitle: { type: "string" },
+                slideBody: { type: "string" }
+              },
+              required: ["slideTitle", "slideBody"]
+            }
+          }
+        },
+        required: ["title", "slides"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_google_sheet",
+      description: "Create a new Google Sheets spreadsheet in the user's Google Drive with the given data. Use this when the user asks you to create a spreadsheet, tracker, data table, budget, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "The title/name of the spreadsheet" },
+          headers: {
+            type: "array",
+            description: "Column header labels for the first row",
+            items: { type: "string" }
+          },
+          rows: {
+            type: "array",
+            description: "Array of arrays, each inner array is a row of cell values",
+            items: {
+              type: "array",
+              items: { type: "string" }
+            }
+          }
+        },
+        required: ["title"]
+      }
+    }
   }
 ];
 
@@ -187,12 +255,16 @@ export async function POST(req: Request) {
     const isEmailAgent = agentId === "morpheus";
     
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools AND Google Calendar API Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
     let gmail: any = null;
     let calendar: any = null;
+    let docsApi: any = null;
+    let slidesApi: any = null;
+    let sheetsApi: any = null;
+    let driveApi: any = null;
 
     if (isEmailAgent && refreshToken) {
       const oauth2Client = new google.auth.OAuth2(
@@ -202,6 +274,10 @@ export async function POST(req: Request) {
       oauth2Client.setCredentials({ refresh_token: refreshToken });
       gmail = google.gmail({ version: 'v1', auth: oauth2Client });
       calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+      docsApi = google.docs({ version: 'v1', auth: oauth2Client });
+      slidesApi = google.slides({ version: 'v1', auth: oauth2Client });
+      sheetsApi = google.sheets({ version: 'v4', auth: oauth2Client });
+      driveApi = google.drive({ version: 'v3', auth: oauth2Client });
     }
 
 
@@ -252,7 +328,7 @@ export async function POST(req: Request) {
 
     groqMessages.push(...messages);
 
-    const useTools = !!(gmail || calendar);
+    const useTools = !!(gmail || calendar || docsApi);
 
     // PASS 1: Generate Standard Response OR Tool Target
     let completion: any = await createCompletionWithRetry(groqMessages, useTools);
@@ -262,13 +338,13 @@ export async function POST(req: Request) {
     const MAX_LOOPS = 5;
 
     // If LLM generated tool_calls but no APIs are available, re-call without tools
-    if (responseMessage?.tool_calls && !gmail && !calendar) {
+    if (responseMessage?.tool_calls && !gmail && !calendar && !docsApi) {
       completion = await createCompletionWithRetry(groqMessages, false);
       responseMessage = completion.choices[0]?.message;
     }
 
     // Execute Tool Loop if Triggered
-    while (responseMessage?.tool_calls && (gmail || calendar) && loopCount < MAX_LOOPS) {
+    while (responseMessage?.tool_calls && (gmail || calendar || docsApi) && loopCount < MAX_LOOPS) {
       groqMessages.push(responseMessage);
       
       for (const toolCall of responseMessage.tool_calls) {
@@ -383,8 +459,130 @@ export async function POST(req: Request) {
               requestBody: { message: { raw } }
             });
             functionResult = JSON.stringify({ result: `Draft to ${args.to} successfully created.` });
+          } else if (functionName === "create_google_document" && docsApi && driveApi) {
+            // Create a blank Google Doc
+            const createRes = await docsApi.documents.create({
+              requestBody: { title: args.title }
+            });
+            const docId = createRes.data.documentId;
+
+            // Insert the body text
+            if (args.body) {
+              await docsApi.documents.batchUpdate({
+                documentId: docId,
+                requestBody: {
+                  requests: [{
+                    insertText: {
+                      location: { index: 1 },
+                      text: args.body
+                    }
+                  }]
+                }
+              });
+            }
+
+            // Tag the file as AI-created so the dashboard can find it
+            await driveApi.files.update({
+              fileId: docId,
+              requestBody: { properties: { createdByAI: 'true' } }
+            });
+
+            functionResult = JSON.stringify({ result: `Google Doc '${args.title}' created successfully. Link: https://docs.google.com/document/d/${docId}/edit` });
+
+          } else if (functionName === "create_google_slide_deck" && slidesApi && driveApi) {
+            // Create a blank presentation
+            const createRes = await slidesApi.presentations.create({
+              requestBody: { title: args.title }
+            });
+            const presentationId = createRes.data.presentationId;
+            const existingSlides = createRes.data.slides || [];
+
+            // Build requests: delete the default blank slide, then create user slides
+            const requests: any[] = [];
+
+            // Delete the default first slide
+            if (existingSlides.length > 0) {
+              requests.push({ deleteObject: { objectId: existingSlides[0].objectId } });
+            }
+
+            // Create each slide from the LLM's array
+            if (args.slides && Array.isArray(args.slides)) {
+              args.slides.forEach((slide: any, idx: number) => {
+                const slideId = `slide_${idx}`;
+                const titleId = `title_${idx}`;
+                const bodyId = `body_${idx}`;
+                requests.push({
+                  createSlide: {
+                    objectId: slideId,
+                    insertionIndex: idx,
+                    slideLayoutReference: { predefinedLayout: 'TITLE_AND_BODY' },
+                    placeholderIdMappings: [
+                      { layoutPlaceholder: { type: 'TITLE', index: 0 }, objectId: titleId },
+                      { layoutPlaceholder: { type: 'BODY', index: 0 }, objectId: bodyId }
+                    ]
+                  }
+                });
+                requests.push({
+                  insertText: { objectId: titleId, text: slide.slideTitle || `Slide ${idx + 1}` }
+                });
+                requests.push({
+                  insertText: { objectId: bodyId, text: slide.slideBody || '' }
+                });
+              });
+            }
+
+            if (requests.length > 0) {
+              await slidesApi.presentations.batchUpdate({
+                presentationId,
+                requestBody: { requests }
+              });
+            }
+
+            // Tag as AI-created
+            await driveApi.files.update({
+              fileId: presentationId,
+              requestBody: { properties: { createdByAI: 'true' } }
+            });
+
+            functionResult = JSON.stringify({ result: `Google Slides '${args.title}' created with ${(args.slides || []).length} slides. Link: https://docs.google.com/presentation/d/${presentationId}/edit` });
+
+          } else if (functionName === "create_google_sheet" && sheetsApi && driveApi) {
+            // Create a blank spreadsheet
+            const createRes = await sheetsApi.spreadsheets.create({
+              requestBody: {
+                properties: { title: args.title }
+              }
+            });
+            const spreadsheetId = createRes.data.spreadsheetId;
+
+            // Build data rows: headers first, then data
+            const values: string[][] = [];
+            if (args.headers && Array.isArray(args.headers)) {
+              values.push(args.headers);
+            }
+            if (args.rows && Array.isArray(args.rows)) {
+              values.push(...args.rows);
+            }
+
+            if (values.length > 0) {
+              await sheetsApi.spreadsheets.values.update({
+                spreadsheetId,
+                range: 'Sheet1!A1',
+                valueInputOption: 'RAW',
+                requestBody: { values }
+              });
+            }
+
+            // Tag as AI-created
+            await driveApi.files.update({
+              fileId: spreadsheetId,
+              requestBody: { properties: { createdByAI: 'true' } }
+            });
+
+            functionResult = JSON.stringify({ result: `Google Sheet '${args.title}' created successfully. Link: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
+
           } else {
-            functionResult = JSON.stringify({ error: "Unknown function" });
+            functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
           }
         } catch (err: any) {
           functionResult = JSON.stringify({ error: err.message });
