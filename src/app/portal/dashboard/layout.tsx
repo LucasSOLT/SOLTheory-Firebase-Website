@@ -135,10 +135,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <Globe className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Earth</span>
              </div>
-             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-               <HardDrive className="w-4 h-4 ml-1" />
-               <span className="text-sm">Google Drive</span>
-             </div>
+              <Link href={`${dashboardHome}/drive`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/drive') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+                <HardDrive className="w-4 h-4 ml-1 text-slate-500" />
+                <span className="text-sm font-medium">Google Drive</span>
+              </Link>
              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
                <Sparkles className="w-4 h-4 ml-1" />
                <span className="text-sm">Gemini AI</span>

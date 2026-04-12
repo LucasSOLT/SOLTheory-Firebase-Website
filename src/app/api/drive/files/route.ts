@@ -3,7 +3,7 @@ import { google } from "googleapis";
 
 export async function POST(req: Request) {
   try {
-    const { refreshToken, mimeTypePrefix } = await req.json();
+    const { refreshToken, mimeTypePrefix, fetchAll } = await req.json();
 
     if (!refreshToken) {
       return NextResponse.json({ error: "Refresh token is required" }, { status: 400 });
@@ -19,8 +19,12 @@ export async function POST(req: Request) {
 
     // Use appProperties or properties. We will use standard 'properties' since it's easier to view if needed.
     // Query conditionally by mimeType if passed
-    let q = "properties has { key='createdByAI' and value='true' } and trashed = false";
+    let q = "trashed = false";
     
+    if (!fetchAll) {
+      q += " and properties has { key='createdByAI' and value='true' }";
+    }
+
     if (mimeTypePrefix) {
       q += ` and mimeType = '${mimeTypePrefix}'`;
     }

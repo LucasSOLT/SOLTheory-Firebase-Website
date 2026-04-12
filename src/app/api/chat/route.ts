@@ -96,7 +96,8 @@ const tools: any = [
           summary: { type: "string", description: "Title of the event, e.g., 'Meeting with John Smith'" },
           description: { type: "string", description: "Optional longer description or notes for the event" },
           startDateTime: { type: "string", description: "ISO 8601 with timezone, e.g., 2026-04-10T16:00:00-06:00" },
-          endDateTime: { type: "string", description: "ISO 8601 with timezone, e.g., 2026-04-10T17:00:00-06:00" }
+          endDateTime: { type: "string", description: "ISO 8601 with timezone, e.g., 2026-04-10T17:00:00-06:00" },
+          addGoogleMeetLink: { type: "boolean", description: "Set to true if the event requires a Google Meet virtual video conference link." }
         },
         required: ["summary", "startDateTime", "endDateTime"]
       }
@@ -201,6 +202,34 @@ const tools: any = [
         required: ["title"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_google_drive",
+      description: "Search the user's Google Drive for files matching a keyword. Use this when the user asks you to find a file on their drive.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The keyword to search for, e.g., 'marketing plan'" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_drive_document",
+      description: "Read the text content of a Google Doc. You MUST use search_google_drive first to find the fileId.",
+      parameters: {
+        type: "object",
+        properties: {
+          fileId: { type: "string", description: "The ID of the document to read." }
+        },
+        required: ["fileId"]
+      }
+    }
   }
 ];
 
@@ -255,7 +284,7 @@ export async function POST(req: Request) {
     const isEmailAgent = agentId === "morpheus";
     
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
@@ -412,16 +441,29 @@ export async function POST(req: Request) {
             }));
             functionResult = JSON.stringify({ result: formatted.length > 0 ? formatted : "No events found in the specified time range." });
           } else if (functionName === "create_calendar_event") {
+            const requestBody: any = {
+              summary: args.summary,
+              description: args.description || '',
+              start: { dateTime: args.startDateTime },
+              end: { dateTime: args.endDateTime }
+            };
+
+            if (args.addGoogleMeetLink) {
+              requestBody.conferenceData = {
+                createRequest: {
+                  requestId: `meet_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                  conferenceSolutionKey: { type: "hangoutsMeet" }
+                }
+              };
+            }
+
             const res = await calendar.events.insert({
               calendarId: 'primary',
-              requestBody: {
-                summary: args.summary,
-                description: args.description || '',
-                start: { dateTime: args.startDateTime },
-                end: { dateTime: args.endDateTime }
-              }
+              conferenceDataVersion: 1,
+              requestBody
             });
-            functionResult = JSON.stringify({ result: `Event '${args.summary}' created successfully. Link: ${res.data.htmlLink}` });
+            const meetLink = res.data.hangoutLink ? ` Meet Link: ${res.data.hangoutLink}` : '';
+            functionResult = JSON.stringify({ result: `Event '${args.summary}' created successfully. Link: ${res.data.htmlLink}${meetLink}` });
           } else if (functionName === "delete_calendar_event") {
             await calendar.events.delete({
               calendarId: 'primary',
@@ -581,6 +623,31 @@ export async function POST(req: Request) {
 
             functionResult = JSON.stringify({ result: `Google Sheet '${args.title}' created successfully. Link: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
 
+          } else if (functionName === "search_google_drive" && driveApi) {
+            const res = await driveApi.files.list({
+              q: `name contains '${args.query}' and trashed = false`,
+              fields: "files(id, name, mimeType, webViewLink)",
+              pageSize: 10
+            });
+            const files = res.data.files || [];
+            functionResult = JSON.stringify({ result: files.length > 0 ? files : "No files found." });
+
+          } else if (functionName === "read_drive_document" && docsApi) {
+            try {
+              const res = await docsApi.documents.get({ documentId: args.fileId });
+              const content = res.data.body?.content || [];
+              let text = "";
+              content.forEach((el: any) => {
+                if (el.paragraph && el.paragraph.elements) {
+                  el.paragraph.elements.forEach((elem: any) => {
+                    if (elem.textRun && elem.textRun.content) text += elem.textRun.content;
+                  });
+                }
+              });
+              functionResult = JSON.stringify({ result: text || "Document is empty or cannot be read as text." });
+            } catch (err: any) {
+              functionResult = JSON.stringify({ error: "Failed to read document. Make sure it is a Google Doc. " + err.message });
+            }
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
           }

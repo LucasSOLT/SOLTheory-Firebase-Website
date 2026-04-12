@@ -19,7 +19,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { usePathname } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 
-type DriveFileType = "docs" | "slides" | "sheets";
+type DriveFileType = "docs" | "slides" | "sheets" | "drive";
 
 interface DriveFile {
   id: string;
@@ -59,6 +59,15 @@ const CONFIG: Record<DriveFileType, { title: string; mimeType: string; icon: typ
     borderColor: "border-green-200",
     headerBg: "bg-green-50",
   },
+  drive: {
+    title: "Google Drive",
+    mimeType: "", // empty means fetch all
+    icon: FolderOpen,
+    color: "text-purple-600",
+    bgColor: "bg-purple-600",
+    borderColor: "border-purple-200",
+    headerBg: "bg-purple-50",
+  },
 };
 
 export function DriveMockupView({ type }: { type: DriveFileType }) {
@@ -71,6 +80,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [fetchAll, setFetchAll] = useState(type === "drive");
 
   const origin = pathname.includes("/nxtchapter") ? "nxtchapter" : "soltheory";
   const config = CONFIG[type];
@@ -96,7 +106,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
       const res = await fetch("/api/drive/files", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken, mimeTypePrefix: config.mimeType }),
+        body: JSON.stringify({ refreshToken, mimeTypePrefix: config.mimeType, fetchAll }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -120,7 +130,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
         setIsFetched(true);
       }
     });
-  }, [user, firestore]);
+  }, [user, firestore, fetchAll]);
 
   const handleRefresh = () => {
     if (!user?.uid || !firestore) return;
@@ -208,11 +218,17 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-2 mb-3">
               AI Created Files
             </div>
-            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${config.headerBg} ${config.color} font-medium text-sm`}>
+            <div 
+              onClick={() => setFetchAll(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer font-medium text-sm transition-colors ${!fetchAll ? config.headerBg + ' ' + config.color : 'text-slate-500 hover:bg-slate-50'}`}
+            >
               <Sparkles className="w-4 h-4" />
               <span>Morpheus Documents</span>
             </div>
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-500 text-sm hover:bg-slate-50 cursor-pointer transition-colors">
+            <div 
+              onClick={() => setFetchAll(true)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer font-medium text-sm transition-colors ${fetchAll ? config.headerBg + ' ' + config.color : 'text-slate-500 hover:bg-slate-50'}`}
+            >
               <FolderOpen className="w-4 h-4" />
               <span>All Files</span>
             </div>
