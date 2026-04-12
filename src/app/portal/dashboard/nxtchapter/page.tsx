@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
-  Building2, Users, Activity, Sparkles, Server, ArrowUpRight
+  Building2, Users, Activity, Sparkles, Server, ArrowUpRight, Settings
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "@/lib/i18n";
 import {
   AreaChart,
   Area,
@@ -23,6 +24,7 @@ import { collection, onSnapshot, query, orderBy, limit, addDoc, serverTimestamp,
 type TrafficData = { time: string; users: number };
 
 export default function NxtChapterDashboard() {
+  const { t } = useTranslation();
   const { user } = useUser();
   const firestore = useFirestore();
   const [activeUsers, setActiveUsers] = useState(0);
@@ -64,14 +66,20 @@ export default function NxtChapterDashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-bold uppercase tracking-widest mb-2">
-            <Sparkles className="w-3 h-3" /> Master Control
+            <Sparkles className="w-3 h-3" /> {t.masterControl}
           </div>
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
-            NXT Chapter <span className="text-indigo-600">Hub</span>
+            {t.nxtChapterHub}
           </h1>
           <p className="text-slate-500 text-base max-w-2xl font-medium">
-            Global administrative nervous system. Monitor cross-organization analytics, AI agent health, and internal communications.
+            {t.nxtChapterHubDesc}
           </p>
+        </div>
+        
+        <div className="flex items-center shrink-0">
+          <Link href="/portal/dashboard/nxtchapter/settings" className="w-14 h-14 rounded-2xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 shadow-sm transition-all group">
+            <Settings className="w-7 h-7 group-hover:rotate-90 transition-transform duration-500" />
+          </Link>
         </div>
       </div>
 
@@ -80,7 +88,7 @@ export default function NxtChapterDashboard() {
         <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden relative transition-all hover:shadow-md rounded-2xl">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wide">
-              Active Organizations
+              {t.activeOrganizations}
             </CardTitle>
             <div className="p-2 bg-indigo-50 rounded-lg">
               <Building2 className="w-4 h-4 text-indigo-600" />
@@ -89,7 +97,7 @@ export default function NxtChapterDashboard() {
           <CardContent>
             <div className="text-4xl font-black text-slate-900 mt-2">{activeOrgs}</div>
             <p className="text-xs text-emerald-600 flex items-center mt-3 font-semibold bg-emerald-50 w-fit px-2 py-1 rounded-md">
-              <ArrowUpRight className="w-3 h-3 mr-1" /> Bound to live DB
+              <ArrowUpRight className="w-3 h-3 mr-1" /> {t.boundToLiveDB}
             </p>
           </CardContent>
         </Card>
@@ -97,7 +105,7 @@ export default function NxtChapterDashboard() {
         <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden relative transition-all hover:shadow-md rounded-2xl">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wide">
-              Target Clients
+              {t.targetClients}
             </CardTitle>
             <div className="p-2 bg-blue-50 rounded-lg">
               <Users className="w-4 h-4 text-blue-600" />
@@ -108,7 +116,7 @@ export default function NxtChapterDashboard() {
               {activeUsers.toLocaleString()}
             </div>
             <p className="text-xs text-blue-600 flex items-center mt-3 font-semibold bg-blue-50 w-fit px-2 py-1 rounded-md">
-              <ArrowUpRight className="w-3 h-3 mr-1" /> Verified Accounts
+              <ArrowUpRight className="w-3 h-3 mr-1" /> {t.verifiedAccounts}
             </p>
           </CardContent>
         </Card>
@@ -122,8 +130,8 @@ export default function NxtChapterDashboard() {
               <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md">
                 <Server className="w-8 h-8 text-white" />
               </div>
-              <div className="text-xl font-bold text-white tracking-widest uppercase mt-4">Agent Manager</div>
-              <p className="text-slate-400 text-xs font-medium">Manage active AI protocols</p>
+              <div className="text-xl font-bold text-white tracking-widest uppercase mt-4">{t.agentManager}</div>
+              <p className="text-slate-400 text-xs font-medium">{t.manageActiveProtocols}</p>
             </CardContent>
           </Card>
         </Link>
@@ -138,13 +146,13 @@ export default function NxtChapterDashboard() {
             <div className="flex justify-between items-center">
               <div>
                 <CardTitle className="text-slate-900 text-lg font-extrabold flex items-center gap-3">
-                  Platform Traffic Analytics
-                  {analyticsData.length === 0 && <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse inline-block" />Awaiting data</span>}
+                  {t.platformTrafficAnalytics}
+                  {analyticsData.length === 0 && <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse inline-block" />{t.awaitingData}</span>}
                 </CardTitle>
-                <CardDescription className="text-slate-500 font-medium mt-1">Live active tracking streaming from database.</CardDescription>
+                <CardDescription className="text-slate-500 font-medium mt-1">{t.liveTracking}</CardDescription>
               </div>
               <div className="px-3 py-1 bg-slate-100 rounded-md text-xs font-bold text-slate-600">
-                Today
+                {t.today}
               </div>
             </div>
           </CardHeader>
@@ -171,7 +179,7 @@ export default function NxtChapterDashboard() {
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-3">
                 <Activity className="w-8 h-8 opacity-50" />
-                <span className="font-medium text-sm">Establishing Database Connection...</span>
+                <span className="font-medium text-sm">{t.establishingDBConnection}</span>
               </div>
             )}
           </CardContent>

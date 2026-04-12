@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users } from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
@@ -578,7 +578,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         <div className="flex-1 flex relative overflow-hidden">
           
           {/* Chat / Settings Wrapper */}
-          <div className="flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-hidden">
+          <div className="flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-hidden h-full">
             {isKnowledgeBaseOpen ? (
               // Enhanced RAG Dashboard Screen
               <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -686,7 +686,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                       
                       <div className="md:col-span-2 flex justify-center mt-6">
-                        <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-slate-900 hover:bg-slate-800  :bg-slate-200 text-white  px-12 h-12 rounded-full font-bold shadow-xl transition-all transform hover:scale-105 active:scale-95 gap-2">
+                        <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-black hover:bg-slate-900 text-white px-12 h-12 rounded-full font-bold shadow-xl transition-all transform hover:scale-105 active:scale-95 gap-2">
                           <CheckCircle2 className="w-5 h-5" /> Compile Rules & Return
                         </Button>
                       </div>
@@ -833,11 +833,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <Button onClick={() => setIsKnowledgeBaseOpen(true)} variant="ghost" size="sm" className="pointer-events-auto h-8 px-4 text-xs font-bold text-slate-700  hover:text-slate-900  bg-slate-200/50  border border-slate-300  hover:bg-slate-300/50  rounded-full shadow-lg backdrop-blur-md transition-all">
                           <Sparkles className="w-3.5 h-3.5 mr-2 text-fuchsia-400" /> Settings
                         </Button>
-                        {isEmailAgent && (
-                          <Button onClick={() => setIsObserverOpen(!isObserverOpen)} variant="ghost" size="sm" className={`pointer-events-auto h-8 px-4 text-xs font-bold transition-all rounded-full shadow-lg backdrop-blur-md ${isObserverOpen ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-700  hover:text-slate-900  bg-slate-200/50  border border-slate-300  hover:bg-slate-300/50 '}`}>
-                            <Eye className="w-3.5 h-3.5 mr-2" /> Observer Panel {!isGmailConnected && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />}
-                          </Button>
-                        )}
                       </div>
                     </div>
 
@@ -859,6 +854,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           </div>
           
 
+
+          {/* RIGHT OBSERVER PANEL Ribbon Button */}
+          {params.agentId === "morpheus" && !isObserverOpen && (
+            <button 
+              onClick={() => setIsObserverOpen(true)} 
+              className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300 transition-all duration-200"
+              title="Open Observer Panel"
+            >
+              <Mail className="w-5 h-5" />
+            </button>
+          )}
 
           {/* THE OBSERVER PANEL SLIDE-OUT */}
           {isObserverOpen && (

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { adminDb, adminAuth } from "@/firebase/admin";
+import { getFirestore } from "@/firebase/admin";
+
+const adminDb = getFirestore();
+const adminAuth = {} as any; // Mocking adminAuth temporarily as it's missing from admin.ts
 
 export async function POST() {
   try {

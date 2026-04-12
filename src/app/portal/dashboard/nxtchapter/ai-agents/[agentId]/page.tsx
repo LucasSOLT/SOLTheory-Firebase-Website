@@ -489,7 +489,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       </div>
 
       {/* Main Content Chat Area */}
-      <div className="flex-1 flex flex-col h-full relative bg-white  text-slate-800  transition-colors duration-300 min-w-0">
+      <div className="flex-1 flex flex-col h-full relative bg-white  text-slate-800  transition-colors duration-300 min-w-0 overflow-hidden">
         {/* Top Nav (Mobile toggle + Exit button) */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-slate-200  shrink-0 z-10 bg-white/80  backdrop-blur-sm">
           <div className="md:hidden flex items-center gap-2 text-slate-800 ">
@@ -595,7 +595,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                </div>
 
                <div className="pt-8 flex justify-center">
-                  <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-slate-900 hover:bg-slate-800  :bg-slate-200 text-white  px-12 h-12 rounded-full font-bold shadow-xl transition-all transform hover:scale-105 active:scale-95 gap-2">
+                  <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-black hover:bg-slate-900 text-white  px-12 h-12 rounded-full font-bold shadow-xl transition-all transform hover:scale-105 active:scale-95 gap-2">
                     <CheckCircle2 className="w-5 h-5" /> Compile Settings & Return
                   </Button>
                </div>
