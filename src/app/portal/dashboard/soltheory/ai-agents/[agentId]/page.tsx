@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud } from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
@@ -40,6 +41,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [ignoredEmails, setIgnoredEmails] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isObserverOpen, setIsObserverOpen] = useState(false);
   const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
   const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
@@ -880,6 +882,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       />
 
+                      <Button 
+                        onClick={() => setIsVoiceModalOpen(true)}
+                        variant="ghost" 
+                        size="icon"
+                        className="absolute right-14 top-1/2 -translate-y-1/2 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors w-8 h-8"
+                        title="Start Voice Session"
+                      >
+                        <Mic className="w-5 h-5" />
+                      </Button>
+
                       <Button size="icon" onClick={handleSendMessage} disabled={!inputValue.trim() || isTyping} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white text-black hover:bg-slate-200 w-10 h-10 disabled:opacity-30">
                         {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
                       </Button>
@@ -1065,6 +1077,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           )}
         </div>
       </div>
+
+      {/* Voice Modals */}
+      <VoiceAgentModal 
+        isOpen={isVoiceModalOpen} 
+        onClose={() => setIsVoiceModalOpen(false)} 
+        agentName={agent.name}
+      />
+
     </div>
   );
 }

@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, Settings, LogOut, MessageSquare, Send, Menu, Loader2, Sun, Moon, Mail, Brain, Trash2, MoreVertical, X, CheckCircle2, Paperclip, Cloud } from "lucide-react";
+import { Bot, User, Plus, Search, Settings, LogOut, MessageSquare, Send, Menu, Loader2, Sun, Moon, Mail, Brain, Trash2, MoreVertical, X, CheckCircle2, Paperclip, Cloud, Mic } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { useUser, useFirestore } from "@/firebase";
@@ -59,6 +60,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const [openEmailDropdown, setOpenEmailDropdown] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isObserverOpen, setIsObserverOpen] = useState(false);
   const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
   const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
@@ -716,6 +718,16 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
               />
 
               <Button 
+                onClick={() => setIsVoiceModalOpen(true)}
+                variant="ghost" 
+                size="icon"
+                className="absolute right-12 top-1/2 -translate-y-1/2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors w-8 h-8"
+                title="Start Voice Session"
+              >
+                <Mic className="w-5 h-5" />
+              </Button>
+
+              <Button 
                 size="icon" 
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isTyping}
@@ -837,6 +849,13 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           )}
         </div>
       )}
+
+      {/* Voice Modals */}
+      <VoiceAgentModal 
+        isOpen={isVoiceModalOpen} 
+        onClose={() => setIsVoiceModalOpen(false)} 
+        agentName={agent.name}
+      />
 
     </div>
   );
