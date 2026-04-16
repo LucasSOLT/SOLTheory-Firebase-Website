@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table } from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
@@ -14,7 +14,7 @@ import ReactMarkdown from "react-markdown";
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
-type Message = { id: string; text: string; isSelf: boolean; };
+type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; date: string; internalDate?: number; };
 type AgentContact = { id: string; email: string; aliases: string; ignore: boolean; };
@@ -303,7 +303,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       // Fetch knowledge base text from client-side Firestore
       const kbText = await getKnowledgeBaseText();
 
-      const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
+      const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text }));
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -355,7 +355,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
       }
 
-      const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
+      const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text }));
       const kbText = await getKnowledgeBaseText();
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -836,10 +836,47 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                     </div>
 
-                    <div className="relative w-full border border-slate-300  rounded-3xl overflow-hidden bg-white/80  shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl">
+                    <div className="relative w-full border border-slate-300  rounded-3xl overflow-hidden bg-white/80  shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
+                       <div className="flex items-center pl-4 gap-2 shrink-0">
+                         <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=soltheory`} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
+                           <Cloud className="w-5 h-5" />
+                         </button>
+                         <label className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer" title="Upload File">
+                           <Paperclip className="w-5 h-5" />
+                           <input type="file" className="hidden" onChange={async (e) => {
+                             if(e.target.files?.length) {
+                               const file = e.target.files[0];
+                               setIsTyping(true);
+                               try {
+                                 const formData = new FormData();
+                                 formData.append("file", file);
+                                 const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
+                                 const data = await res.json();
+                                 if (res.ok && data.chunks) {
+                                   const fullText = data.chunks.map((c: any) => c.text).join(" ");
+                                   const sysMsg: Message = { 
+                                     id: uid(), 
+                                     text: `Attached file: ${file.name}`, 
+                                     isSelf: true,
+                                     hiddenContext: `The user has attached a file named ${file.name}. Here are the extracted contents:\n\n${fullText}`
+                                   };
+                                   setMessages(prev => [...prev, sysMsg]);
+                                 } else {
+                                   throw new Error(data.error || "Failed to parse file");
+                                 }
+                               } catch (err: any) {
+                                 setMessages(prev => [...prev, { id: uid(), text: `Failed to attach file: ${err.message}`, isSelf: false }]);
+                               } finally {
+                                 setIsTyping(false);
+                                 e.target.value = "";
+                               }
+                             }
+                           }} />
+                         </label>
+                       </div>
                       <Input 
                         placeholder="Instruct the agent..." 
-                        className="border-0 focus-visible:ring-0 shadow-none pl-6 pr-24 min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-base" 
+                        className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 pr-24 min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0" 
                         value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       />
 

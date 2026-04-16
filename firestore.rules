@@ -188,7 +188,44 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+    /**
+     * @description Realtime Direct Messages Platform.
+     * @path /dms/{dmId}
+     */
+    match /dms/{dmId} {
+      allow read, update: if isSignedIn() && request.auth.token.email in resource.data.participants;
+      allow create: if isSignedIn() && request.auth.token.email in request.resource.data.participants;
+
+      match /messages/{msgId} {
+        allow read: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+        allow create: if isSignedIn() && request.auth.token.email == request.resource.data.senderEmail && request.auth.token.email in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+      }
+    }
+
+    /**
+     * @description Realtime Organization Thread Platform.
+     * @path /org_channels/{channelId}
+     */
+    match /org_channels/{channelId} {
+      allow read, update, delete: if isSignedIn() && request.auth.token.email.split('@')[1] == resource.data.domain;
+      allow create: if isSignedIn() && request.auth.token.email.split('@')[1] == request.resource.data.domain;
+
+      match /messages/{msgId} {
+        allow read: if isSignedIn() && request.auth.token.email.split('@')[1] == get(/databases/$(database)/documents/org_channels/$(channelId)).data.domain;
+        allow create, update: if isSignedIn() && request.auth.token.email.split('@')[1] == get(/databases/$(database)/documents/org_channels/$(channelId)).data.domain;
+      }
+    }
+
+    /**
+     * @description Realtime Support Tickets.
+     * @path /support_tickets/{ticketId}
+     */
+    match /support_tickets/{ticketId} {
+      allow read: if isSignedIn() && (request.auth.token.email == resource.data.fromEmail || request.auth.token.email == resource.data.toEmail);
+      allow create: if isSignedIn() && request.auth.token.email == request.resource.data.fromEmail;
+      allow update: if isSignedIn() && (request.auth.token.email == resource.data.fromEmail || request.auth.token.email == resource.data.toEmail);
+      allow delete: if false;
+    }
   }
 }
-
     

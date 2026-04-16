@@ -84,7 +84,7 @@ export default function Home() {
             <section className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-20 border-t border-white/5">
               <div className="container mx-auto px-4">
                 <div className="text-center max-w-4xl mx-auto space-y-6 mb-16">
-                  <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Affordable Solutions, Built to Scale</h2>
+                  <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Agentic Affordable Agentic Solutions, Built to Scale</h2>
                   <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-24 mb-6" />
                   <p className="text-slate-300 text-xl font-light">
                     Discover our curated selection of premium products and services designed for your evolution.

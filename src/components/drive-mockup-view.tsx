@@ -13,11 +13,20 @@ import {
   Settings,
   Menu,
   Plus,
+  MessageSquare,
+  X,
+  Send,
+  Bot,
+  User,
   Sparkles,
 } from "lucide-react";
 import { useUser, useFirestore } from "@/firebase";
 import { usePathname } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc } from "firebase/firestore";
+import ReactMarkdown from "react-markdown";
+
+let _msgCounter = 0;
+const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
 type DriveFileType = "docs" | "slides" | "sheets" | "drive";
 
@@ -81,6 +90,63 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
   const [isConnected, setIsConnected] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [fetchAll, setFetchAll] = useState(type === "drive");
+
+  // Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [messages, setMessages] = useState<{id: string, text: string, isSelf: boolean}[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const chatBottomRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  }, [messages, isTyping, isChatOpen]);
+
+  const handleSendMessage = async () => {
+    if (!chatMessage.trim() || isTyping) return;
+
+    const userMsg = { id: uid(), text: chatMessage, isSelf: true };
+    setMessages(prev => [...prev, userMsg]);
+    setIsTyping(true);
+    setChatMessage("");
+
+    try {
+      let rToken = null;
+      if (user?.uid && firestore) {
+        const docSnap = await getDoc(doc(firestore, "users", user.uid));
+        const docData = docSnap.data();
+        rToken = docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken || null;
+      }
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          messages: [...messages, userMsg].map(m => ({
+            role: m.isSelf ? "user" : "assistant",
+            content: m.text
+          })), 
+          agentId: `nxtchapter_drive_assistant`,
+          soul: `You are the Google Drive Assistant for this dashboard. You have the ability to draft Google Docs natively using your function tools. If the user asks you to draft a document, draft a presentation, or draft a spreadsheet, USE YOUR \`create_google_document\`, \`create_google_slide_deck\`, or \`create_google_sheet\` functions respectively. Provide detailed, well-written text. Do not pretend, actually use your tools to make the drive files! Keep your direct conversational replies short since you live in a popup window.`,
+          brain: "",
+          uid: user?.uid,
+          refreshToken: rToken,
+          contacts: [],
+          knowledgeBaseText: ""
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to get response");
+      
+      setMessages(prev => [...prev, { id: uid(), text: data.response || "No response generated.", isSelf: false }]);
+      handleRefresh(); // Try to auto-refresh the files list in case a new one was created!
+    } catch (error: any) {
+       setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}`, isSelf: false }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   const origin = pathname.includes("/nxtchapter") ? "nxtchapter" : "soltheory";
   const config = CONFIG[type];
@@ -370,6 +436,103 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
             )}
           </div>
         </div>
+      </div>
+      {/* Floating AI Assistant Chat Widget */}
+      <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end">
+         {/* Chat Interface Window */}
+         {isChatOpen && (
+           <div className="w-[340px] h-[450px] bg-white rounded-2xl shadow-2xl border border-slate-200 mb-4 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-300">
+             <div className="bg-slate-900 text-white p-4 flex items-center justify-between shrink-0">
+               <div className="flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                   <Bot className={`w-4 h-4 ${config.color.replace('text-', 'text-').replace('600', '300')}`} />
+                 </div>
+                 <div>
+                   <p className="text-sm font-semibold">Drive Assistant</p>
+                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Authorized
+                   </p>
+                 </div>
+               </div>
+               <button onClick={() => setIsChatOpen(false)} className="p-1 hover:bg-white/10 rounded-md transition-colors text-slate-400 hover:text-white">
+                 <X className="w-4 h-4" />
+               </button>
+             </div>
+             
+             {/* Chat History Area */}
+             <div className="flex-1 overflow-y-auto p-4 bg-slate-50 flex flex-col gap-4">
+                <div className="flex gap-3">
+                   <div className={`w-8 h-8 rounded-full ${config.headerBg} flex items-center justify-center shrink-0`}>
+                     <Sparkles className={`w-4 h-4 ${config.color}`} />
+                   </div>
+                   <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
+                      <p className="text-sm text-slate-700 leading-relaxed">
+                        Hey there! I'm integrated directly into your {config.title}. Would you like me to draft a new document or presentation for you?
+                      </p>
+                   </div>
+                </div>
+
+                {messages.map(msg => (
+                  <div key={msg.id} className={`flex gap-3 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
+                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.isSelf ? 'bg-slate-200 text-slate-600' : `${config.headerBg} ${config.color}`}`}>
+                       {msg.isSelf ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                     </div>
+                     <div className={`border rounded-2xl p-3 shadow-sm max-w-[85%] ${msg.isSelf ? 'bg-slate-100 border-slate-200 rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
+                        <div className={`text-sm text-slate-700 leading-relaxed ${!msg.isSelf ? '[&>p]:mb-2 [&>p:last-child]:mb-0' : ''}`}>
+                          {msg.isSelf ? msg.text : <ReactMarkdown>{msg.text}</ReactMarkdown>}
+                        </div>
+                     </div>
+                  </div>
+                ))}
+                
+                {isTyping && (
+                  <div className="flex gap-3">
+                     <div className={`w-8 h-8 rounded-full ${config.headerBg} flex items-center justify-center shrink-0`}>
+                       <Sparkles className={`w-4 h-4 ${config.color}`} />
+                     </div>
+                     <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                        <span className="text-sm text-slate-500">Writing...</span>
+                     </div>
+                  </div>
+                )}
+                <div ref={chatBottomRef} />
+             </div>
+
+             {/* Input Area */}
+             <div className="p-3 border-t border-slate-100 bg-white">
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
+                    placeholder="Ask the Assistant..."
+                    className={`w-full pl-4 pr-10 py-2.5 bg-slate-100 border-transparent focus:bg-white border focus:${config.borderColor} focus:ring-2 focus:ring-opacity-50 rounded-xl text-sm transition-all outline-none text-slate-700`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && chatMessage.trim()) {
+                        handleSendMessage();
+                      }
+                    }}
+                  />
+                  <button 
+                    onClick={handleSendMessage}
+                    disabled={!chatMessage.trim() || isTyping}
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 ${config.bgColor} disabled:bg-slate-300 text-white rounded-lg transition-colors`}
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+             </div>
+           </div>
+         )}
+
+         {/* Chat Toggle Button */}
+         <button 
+           onClick={() => setIsChatOpen(!isChatOpen)}
+           className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-105 ${isChatOpen ? 'bg-slate-800 text-white' : `${config.bgColor} text-white`}`}
+         >
+           {isChatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+         </button>
       </div>
     </div>
   );

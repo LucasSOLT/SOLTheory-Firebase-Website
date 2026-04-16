@@ -8,7 +8,7 @@ import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -41,7 +41,8 @@ export default function LoginPage() {
       } else if (emailLower.endsWith("@nxtchapter.org")) {
         router.push("/portal/dashboard/nxtchapter");
       } else {
-        router.push("/portal/dashboard/nxtchapter");
+        await signOut(auth);
+        throw new Error("Unauthorized organization");
       }
     } catch (err: any) {
       console.error(err);

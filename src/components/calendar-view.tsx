@@ -14,12 +14,22 @@ import {
   MoreVertical,
   Users,
   ChevronDown,
-  Loader2
+  Loader2,
+  Sparkles,
+  MessageSquare,
+  X,
+  Send,
+  Bot,
+  User
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, useFirestore } from "@/firebase";
 import { useSearchParams, usePathname } from "next/navigation";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import ReactMarkdown from "react-markdown";
+
+let _msgCounter = 0;
+const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
 export function CalendarView() {
   const { user } = useUser();
@@ -57,6 +67,63 @@ export function CalendarView() {
   for (let i = 1; i <= remainingCells; i++) {
     gridDays.push({ day: i, isCurrentMonth: false });
   }
+
+  // Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [messages, setMessages] = useState<{id: string, text: string, isSelf: boolean}[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const chatBottomRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  }, [messages, isTyping, isChatOpen]);
+
+  const handleSendMessage = async () => {
+    if (!chatMessage.trim() || isTyping) return;
+
+    const userMsg = { id: uid(), text: chatMessage, isSelf: true };
+    setMessages(prev => [...prev, userMsg]);
+    setIsTyping(true);
+    setChatMessage("");
+
+    try {
+      let rToken = null;
+      if (user?.uid && firestore) {
+        const docSnap = await getDoc(doc(firestore, "users", user.uid));
+        const docData = docSnap.data();
+        rToken = docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken || null;
+      }
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          messages: [...messages, userMsg].map(m => ({
+            role: m.isSelf ? "user" : "assistant",
+            content: m.text
+          })), 
+          agentId: `nxtchapter_calendar_assistant`,
+          soul: `You are the Google Calendar Assistant for this dashboard. You have direct authorization to manage the user's schedule. If the user asks you to schedule an event or check their calendar, USE your \`list_calendar_events\`, \`create_calendar_event\`, \`update_calendar_event\`, and \`delete_calendar_event\` function tools respectively. Do not pretend. Keep conversational replies extremely brief and to the point since you live in a popup window.`,
+          brain: "",
+          uid: user?.uid,
+          refreshToken: rToken,
+          contacts: [],
+          knowledgeBaseText: ""
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to get response");
+      
+      setMessages(prev => [...prev, { id: uid(), text: data.response || "No response generated.", isSelf: false }]);
+      if (rToken) fetchCalendarEvents(rToken);
+    } catch (error: any) {
+       setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}`, isSelf: false }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   const firestore = useFirestore();
   const searchParams = useSearchParams();
@@ -352,6 +419,105 @@ export function CalendarView() {
           </div>
         </div>
       </div>
+
+      {/* Floating AI Assistant Chat Widget */}
+      <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end">
+         {/* Chat Interface Window */}
+         {isChatOpen && (
+           <div className="w-[340px] h-[450px] bg-white rounded-2xl shadow-2xl border border-slate-200 mb-4 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-300">
+             <div className="bg-slate-900 text-white p-4 flex items-center justify-between shrink-0">
+               <div className="flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                   <Bot className="w-4 h-4 text-blue-300" />
+                 </div>
+                 <div>
+                   <p className="text-sm font-semibold">Calendar Assistant</p>
+                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Authorized
+                   </p>
+                 </div>
+               </div>
+               <button onClick={() => setIsChatOpen(false)} className="p-1 hover:bg-white/10 rounded-md transition-colors text-slate-400 hover:text-white">
+                 <X className="w-4 h-4" />
+               </button>
+             </div>
+             
+             {/* Chat History Area */}
+             <div className="flex-1 overflow-y-auto p-4 bg-slate-50 flex flex-col gap-4">
+                <div className="flex gap-3">
+                   <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                     <Sparkles className="w-4 h-4 text-blue-600" />
+                   </div>
+                   <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
+                      <p className="text-sm text-slate-700 leading-relaxed">
+                        Hey there! I'm your Calendar Assistant. Would you like me to schedule a meeting or check your availability?
+                      </p>
+                   </div>
+                </div>
+
+                {messages.map(msg => (
+                  <div key={msg.id} className={`flex gap-3 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
+                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.isSelf ? 'bg-slate-200 text-slate-600' : 'bg-blue-50 text-blue-600'}`}>
+                       {msg.isSelf ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                     </div>
+                     <div className={`border rounded-2xl p-3 shadow-sm max-w-[85%] ${msg.isSelf ? 'bg-slate-100 border-slate-200 rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
+                        <div className={`text-sm text-slate-700 leading-relaxed ${!msg.isSelf ? '[&>p]:mb-2 [&>p:last-child]:mb-0' : ''}`}>
+                          {msg.isSelf ? msg.text : <ReactMarkdown>{msg.text}</ReactMarkdown>}
+                        </div>
+                     </div>
+                  </div>
+                ))}
+                
+                {isTyping && (
+                  <div className="flex gap-3">
+                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                       <Sparkles className="w-4 h-4 text-blue-600" />
+                     </div>
+                     <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                        <span className="text-sm text-slate-500">Checking schedule...</span>
+                     </div>
+                  </div>
+                )}
+                <div ref={chatBottomRef} />
+             </div>
+
+             {/* Input Area */}
+             <div className="p-3 border-t border-slate-100 bg-white">
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
+                    placeholder="Ask the Assistant..."
+                    className="w-full pl-4 pr-10 py-2.5 bg-slate-100 border-transparent focus:bg-white border focus:border-blue-200 focus:ring-2 focus:ring-opacity-50 rounded-xl text-sm transition-all outline-none text-slate-700"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && chatMessage.trim()) {
+                        handleSendMessage();
+                      }
+                    }}
+                  />
+                  <button 
+                    onClick={handleSendMessage}
+                    disabled={!chatMessage.trim() || isTyping}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 disabled:bg-slate-300 text-white rounded-lg transition-colors"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+             </div>
+           </div>
+         )}
+
+         {/* Chat Toggle Button */}
+         <button 
+           onClick={() => setIsChatOpen(!isChatOpen)}
+           className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-105 ${isChatOpen ? 'bg-slate-800 text-white' : 'bg-blue-600 text-white'}`}
+         >
+           {isChatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+         </button>
+      </div>
+
     </div>
   );
 }

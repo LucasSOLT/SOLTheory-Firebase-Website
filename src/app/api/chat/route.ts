@@ -63,7 +63,7 @@ const tools: any = [
         properties: { 
           to: { type: "string" },
           subject: { type: "string" },
-          body: { type: "string", description: "The plaintext or HTML body of the email." }
+          body: { type: "string", description: "The plaintext or HTML body of the email. CRITICAL: If the user asks you to paste an entire large uploaded document, DO NOT output the full document text here, or the system will crash! Instead, type exactly '[INSERT_DOCUMENT_CONTEXT]' where the document should go in the body, and the system will automatically inject the last uploaded document invisibly." }
         },
         required: ["to", "subject", "body"]
       }
@@ -144,7 +144,7 @@ const tools: any = [
         type: "object",
         properties: {
           title: { type: "string", description: "The title/name of the Google Doc" },
-          body: { type: "string", description: "The full text content to insert into the document. Use newlines for paragraphs." }
+          body: { type: "string", description: "The full text content to insert. Use newlines for paragraphs. CRITICAL: If you need to paste an entire large uploaded document, DO NOT output the full document text here! Use '[INSERT_DOCUMENT_CONTEXT]' instead and the system will replace it." }
         },
         required: ["title", "body"]
       }
@@ -267,9 +267,9 @@ export async function POST(req: Request) {
     if (brain) agentRole += `\n\nStrict operational instructions and persistent knowledge (Brain): ${brain}`;
     
     if (contacts && Array.isArray(contacts) && contacts.length > 0) {
-      agentRole += `\n\n[CONTACT GLOSSARY]\nYou have an address book mapping nicknames to emails. When drafting emails to these nicknames, MUST use the associated email address. Do not generate fake emails for these people. \n`;
+      agentRole += `\n\n[CONTACT GLOSSARY / ADDRESS BOOK]\nYou possess an address book that maps nicknames/aliases to real email addresses. Whenever the user asks you to email someone by name or nickname, you MUST look up their email address in this glossary and use the EXACT email address for the 'to' parameter. DO NOT use placeholder emails.\n`;
       contacts.forEach(c => {
-        if (!c.ignore) agentRole += `- ${c.email} (Aliases: ${c.aliases})\n`;
+        if (!c.ignore) agentRole += `- NAME/ALIASES: ${c.aliases} => EMAIL ADDRESS: ${c.email}\n`;
       });
     }
 
@@ -488,12 +488,21 @@ export async function POST(req: Request) {
             });
             functionResult = JSON.stringify({ result: `Event updated successfully. Link: ${res.data.htmlLink}` });
           } else if (functionName === "draft_outbound_email") {
+            let finalBody = args.body;
+            if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
+              const lastContextMsg = messages.slice().reverse().find((m:any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
+              if (lastContextMsg) {
+                const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
+                finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
+              }
+            }
+
             const emailLines = [
               `To: ${args.to}`,
               `Subject: ${args.subject}`,
               `Content-Type: text/html; charset=utf-8`,
               ``,
-              args.body
+              finalBody
             ];
             const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
             await gmail.users.drafts.create({
@@ -510,13 +519,22 @@ export async function POST(req: Request) {
 
             // Insert the body text
             if (args.body) {
+              let finalBody = args.body;
+              if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
+                const lastContextMsg = messages.slice().reverse().find((m:any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
+                if (lastContextMsg) {
+                  const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
+                  finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
+                }
+              }
+
               await docsApi.documents.batchUpdate({
                 documentId: docId,
                 requestBody: {
                   requests: [{
                     insertText: {
                       location: { index: 1 },
-                      text: args.body
+                      text: finalBody
                     }
                   }]
                 }

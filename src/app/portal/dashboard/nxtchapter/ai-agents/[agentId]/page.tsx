@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, Settings, LogOut, MessageSquare, Send, Menu, Loader2, Sun, Moon, Mail, Brain, Trash2, MoreVertical, X, CheckCircle2 } from "lucide-react";
+import { Bot, User, Plus, Search, Settings, LogOut, MessageSquare, Send, Menu, Loader2, Sun, Moon, Mail, Brain, Trash2, MoreVertical, X, CheckCircle2, Paperclip, Cloud } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { useUser, useFirestore } from "@/firebase";
@@ -18,6 +18,7 @@ type Message = {
   id: string;
   text: string;
   isSelf: boolean;
+  hiddenContext?: string;
 };
 
 type Session = {
@@ -322,7 +323,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
       const apiMessages = newMessages.map(m => ({
         role: m.isSelf ? "user" : "assistant",
-        content: m.text
+        content: m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text
       }));
 
       const kbText = await getKnowledgeBaseText();
@@ -668,10 +669,47 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
               </Button>
             </div>
 
-            <div className="relative w-full border border-slate-300  rounded-2xl overflow-hidden bg-white/80  shadow-lg focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all">
+            <div className="relative w-full border border-slate-300  rounded-2xl overflow-hidden bg-white/80  shadow-lg focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all flex items-center">
+              <div className="flex items-center pl-3 gap-1 shrink-0">
+                 <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=nxtchapter`} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer" title="Connect Google Drive">
+                   <Cloud className="w-5 h-5" />
+                 </button>
+                 <label className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Upload File">
+                   <Paperclip className="w-5 h-5" />
+                   <input type="file" className="hidden" onChange={async (e) => {
+                     if(e.target.files?.length) {
+                       const file = e.target.files[0];
+                       setIsTyping(true);
+                       try {
+                         const formData = new FormData();
+                         formData.append("file", file);
+                         const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
+                         const data = await res.json();
+                         if (res.ok && data.chunks) {
+                           const fullText = data.chunks.map((c: any) => c.text).join(" ");
+                           const sysMsg: Message = { 
+                             id: uid(), 
+                             text: `Attached file: ${file.name}`, 
+                             isSelf: true,
+                             hiddenContext: `The user has attached a file named ${file.name}. Here are the extracted contents:\n\n${fullText}`
+                           };
+                           setMessages(prev => [...prev, sysMsg]);
+                         } else {
+                           throw new Error(data.error || "Failed to parse file");
+                         }
+                       } catch (err: any) {
+                         setMessages(prev => [...prev, { id: uid(), text: `Failed to attach file: ${err.message}`, isSelf: false }]);
+                       } finally {
+                         setIsTyping(false);
+                         e.target.value = "";
+                       }
+                     }
+                   }} />
+                 </label>
+              </div>
               <Input 
                 placeholder={`Message ${agent.name}...`} 
-                className="border-0 focus-visible:ring-0 shadow-none pr-24 min-h-[56px] py-4 bg-transparent resize-none overflow-hidden text-slate-800  placeholder:text-slate-500" 
+                className="border-0 focus-visible:ring-0 shadow-none flex-1 pr-14 min-h-[56px] py-4 bg-transparent resize-none overflow-hidden text-slate-800  placeholder:text-slate-500 focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0" 
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useUser } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -37,10 +37,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside className="w-64 bg-white flex flex-col h-full flex-shrink-0 relative z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
-           <div className="bg-black text-white p-1.5 rounded-lg">
-             <Logo className="w-5 h-5 text-white" />
-           </div>
-           <span className="font-bold text-lg text-slate-900">{t.dashboard}</span>
+           {pathname.includes('/nxtchapter') ? (
+             <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain" />
+           ) : (
+             <>
+               <div className="bg-black text-white p-1.5 rounded-lg shrink-0">
+                 <Logo className="w-5 h-5 text-white" />
+               </div>
+               <span className="font-bold text-lg text-slate-900">{t.dashboard}</span>
+             </>
+           )}
         </Link>
 
         <div className="flex-grow overflow-y-auto px-4 space-y-6">
@@ -66,27 +72,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               
               {isMessagesOpen && (
                 <div className="pl-12 pr-3 py-1 space-y-1 animate-in slide-in-from-top-1 fade-in duration-200">
-                  <div className="flex items-center gap-2 py-2 px-2 hover:bg-slate-50 cursor-pointer rounded-lg text-slate-600 hover:text-slate-900 transition-colors">
-                    <UserSquare className="w-3.5 h-3.5" />
+                  <Link href={`${dashboardHome}/communications/dm`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/dm') ? 'bg-indigo-50 text-indigo-900 font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}>
+                    <UserSquare className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/dm') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.dm}</span>
-                  </div>
-                  <div className="flex items-center gap-2 py-2 px-2 hover:bg-slate-50 cursor-pointer rounded-lg text-slate-600 hover:text-slate-900 transition-colors">
-                    <Hash className="w-3.5 h-3.5" />
+                  </Link>
+                  <Link href={`${dashboardHome}/communications/org-thread`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/org-thread') ? 'bg-indigo-50 text-indigo-900 font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}>
+                    <Hash className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.orgThread}</span>
-                  </div>
-                  <div className="flex items-center gap-2 py-2 px-2 hover:bg-slate-50 cursor-pointer rounded-lg text-slate-600 hover:text-slate-900 transition-colors">
-                    <Ticket className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">{t.submitTicket}</span>
-                  </div>
+                  </Link>
                 </div>
               )}
             </div>
           </div>
           
           {/* Section 2 */}
-          <div>
+          <div className="mb-2">
             <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.reports}</div>
-            {renderSkeletonBoxes(2)}
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold hover:bg-slate-50 text-slate-700 hover:text-indigo-900">
+                <Activity className="w-4 h-4 ml-1 text-slate-500" />
+                <span className="text-sm font-medium">Analytics</span>
+              </div>
+              <Link href={`${dashboardHome}/support-tickets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/support-tickets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/support-tickets') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                  <Ticket className="w-4 h-4 ml-1" />
+                </div>
+                <span className="text-sm font-medium">Submit a support ticket</span>
+              </Link>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold hover:bg-slate-50 text-slate-700 hover:text-indigo-900">
+                <Lightbulb className="w-4 h-4 ml-1 text-slate-500" />
+                <span className="text-sm font-medium">Suggestion box</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold hover:bg-slate-50 text-slate-700 hover:text-indigo-900">
+                <ClipboardList className="w-4 h-4 ml-1 text-slate-500" />
+                <span className="text-sm font-medium">Surveys</span>
+              </div>
+            </div>
           </div>
 
           {/* Section 3 */}
@@ -119,14 +141,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <Video className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Meet</span>
              </div>
-             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-               <Youtube className="w-4 h-4 ml-1" />
+             <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-fuchsia-900'}`}>
+               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/youtube') ? 'bg-fuchsia-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-fuchsia-600'}`}>
+                 <Youtube className="w-4 h-4 ml-1" />
+               </div>
                <span className="text-sm">YouTube</span>
-             </div>
-             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-               <Megaphone className="w-4 h-4 ml-1" />
+             </Link>
+             <Link href={`${dashboardHome}/google-ads`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/google-ads') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/google-ads') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                 <Megaphone className="w-4 h-4 ml-1" />
+               </div>
                <span className="text-sm">Google Ads</span>
-             </div>
+             </Link>
              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
                <MapPin className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Maps</span>
