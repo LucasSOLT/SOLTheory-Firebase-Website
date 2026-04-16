@@ -413,7 +413,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           </div>
         </div>
         <div className="px-3 py-2 space-y-1">
-          <Button variant="outline" className="w-full justify-start gap-2 h-10 bg-white  border-slate-300  hover:bg-slate-100 :bg-slate-800 text-slate-900  shadow-sm" onClick={startNewSession}>
+          <Button variant="outline" className="w-full justify-start gap-2 h-10 bg-white  border-slate-300  hover:bg-slate-100 text-slate-900  shadow-sm" onClick={startNewSession}>
             <Plus className="w-4 h-4" /> New chat
           </Button>
           
@@ -427,17 +427,17 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                 placeholder="Search chats..."
                 className="w-full bg-transparent border-none outline-none text-sm text-slate-800  placeholder:text-slate-400"
               />
-              <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }} className="text-slate-400 hover:text-slate-600 :text-slate-200 p-1">
+              <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-4 h-4" />
               </button>
             </div>
           ) : (
-            <Button variant="ghost" onClick={() => setIsSearchOpen(true)} className="w-full justify-start gap-2 h-10 text-slate-500 hover:text-slate-800  :text-white :bg-slate-800">
+            <Button variant="ghost" onClick={() => setIsSearchOpen(true)} className="w-full justify-start gap-2 h-10 text-slate-500 hover:text-slate-800 ">
               <Search className="w-4 h-4" /> Search chats
             </Button>
           )}
 
-          <Button variant="ghost" asChild className="w-full justify-start gap-2 h-10 text-slate-500 hover:text-slate-800  :text-white :bg-slate-800">
+          <Button variant="ghost" asChild className="w-full justify-start gap-2 h-10 text-slate-500 hover:text-slate-800 ">
             <Link href="/portal/dashboard/nxtchapter/settings">
               <Settings className="w-4 h-4" /> Settings
             </Link>
@@ -452,7 +452,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
             return (
               <div 
                 key={session.id} 
-                className={`group flex items-center w-full px-2 mt-1 h-9 rounded-md transition-colors ${activeSessionId === session.id ? 'bg-slate-200  text-slate-900 ' : 'text-slate-600 hover:text-slate-900  :text-white hover:bg-slate-100 :bg-slate-800'} ${isMatch ? 'ring-2 ring-primary/50 bg-primary/10 ' : ''}`}
+                className={`group flex items-center w-full px-2 mt-1 h-9 rounded-md transition-colors ${activeSessionId === session.id ? 'bg-slate-200  text-slate-900 ' : 'text-slate-600 hover:text-slate-900  hover:bg-slate-100'} ${isMatch ? 'ring-2 ring-primary/50 bg-primary/10 ' : ''}`}
               >
                 <button 
                   onClick={() => loadSession(session.id)}
@@ -461,7 +461,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                   <MessageSquare className="w-4 h-4 mr-2 shrink-0" />
                   <span className="truncate">{session.title}</span>
                 </button>
-                <button onClick={(e) => deleteSession(e, session.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-opacity ml-1 rounded hover:bg-slate-200 :bg-slate-700">
+                <button onClick={(e) => deleteSession(e, session.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-opacity ml-1 rounded hover:bg-slate-200">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -470,7 +470,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         </div>
         <div className="p-3 border-t border-slate-200 ">
           {user ? (
-            <div className="flex items-center gap-3 px-2 py-2 hover:bg-slate-100 :bg-slate-800 rounded-md cursor-pointer transition-colors">
+            <div className="flex items-center gap-3 px-2 py-2 hover:bg-slate-100 rounded-md cursor-pointer transition-colors">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden shrink-0 border border-primary/30">
                 {user.photoURL ? <img src={user.photoURL} alt="profile" /> : (user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()}
               </div>
@@ -494,13 +494,13 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         {/* Top Nav (Mobile toggle + Exit button) */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-slate-200  shrink-0 z-10 bg-white/80  backdrop-blur-sm">
           <div className="md:hidden flex items-center gap-2 text-slate-800 ">
-            <Button variant="ghost" size="icon" className="hover:bg-slate-200 :bg-slate-800">
+            <Button variant="ghost" size="icon" className="hover:bg-slate-200">
               <Menu className="w-5 h-5" />
             </Button>
             <span className="font-semibold text-sm truncate">{agent.name}</span>
           </div>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" asChild className="gap-2 bg-white  border-slate-300  text-slate-900  hover:text-slate-900 :text-white hover:bg-slate-100 :bg-slate-800 shadow-sm">
+          <Button variant="outline" size="sm" asChild className="gap-2 bg-white  border-slate-300  text-slate-900  hover:text-slate-900 hover:bg-slate-100 shadow-sm">
             <Link href="/portal/dashboard/nxtchapter/ai-agents">
               <LogOut className="w-4 h-4" />
               Dashboard
@@ -520,7 +520,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                    </h2>
                    <p className="text-slate-500  mt-2 text-sm">Inject the specific identity and operational directives for {agent.name.split(' ')[0]}.</p>
                  </div>
-                 <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100 :bg-white/10 text-slate-500 hover:text-slate-900  :text-white">
+                 <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100/10 text-slate-500 hover:text-slate-900 ">
                    <X className="w-6 h-6" />
                  </Button>
                </div>
@@ -663,7 +663,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           <div className="max-w-3xl mx-auto relative flex flex-col items-center">
             
             <div className="w-full flex justify-start items-center mb-2 px-1 gap-2">
-              <Button onClick={() => setIsKnowledgeBaseOpen(true)} variant="ghost" size="sm" className="h-7 text-xs gap-1.5 font-semibold text-slate-600  hover:text-slate-900 :text-white rounded-full bg-slate-200/50  hover:bg-slate-200 :bg-slate-800 transition-colors pointer-events-auto">
+              <Button onClick={() => setIsKnowledgeBaseOpen(true)} variant="ghost" size="sm" className="h-7 text-xs gap-1.5 font-semibold text-slate-600  hover:text-slate-900 rounded-full bg-slate-200/50  hover:bg-slate-200 transition-colors pointer-events-auto">
                  <Brain className="w-3.5 h-3.5" />
                  Knowledge Base (Soul, Brain, Heartbeat)
               </Button>
@@ -736,7 +736,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       {params.agentId === "morpheus" && !isObserverOpen && (
         <button 
           onClick={() => setIsObserverOpen(true)} 
-          className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200  hover:bg-slate-300 :bg-slate-700 text-slate-700  p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300  transition-all duration-200"
+          className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200  hover:bg-slate-300 text-slate-700  p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300  transition-all duration-200"
           title="Open Observer Panel"
         >
           <Mail className="w-5 h-5" />
@@ -757,7 +757,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
               ) : (
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" title="Polling active" />
               )}
-              <Button variant="ghost" size="icon" onClick={() => setIsObserverOpen(false)} className="h-8 w-8 text-slate-500 hover:text-slate-800  :text-white">
+              <Button variant="ghost" size="icon" onClick={() => setIsObserverOpen(false)} className="h-8 w-8 text-slate-500 hover:text-slate-800 ">
                 <X className="w-4 h-4" />
               </Button>
             </div>
@@ -783,15 +783,15 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                         
                         {/* Three dots menu */}
                         <div className="absolute right-2 top-2 z-10">
-                           <button onClick={() => setOpenEmailDropdown(openEmailDropdown === email.id ? null : email.id)} className="p-1 text-slate-400 hover:text-slate-600 :text-slate-200 rounded-full hover:bg-slate-100 :bg-slate-800/80 transition-colors">
+                           <button onClick={() => setOpenEmailDropdown(openEmailDropdown === email.id ? null : email.id)} className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100/80 transition-colors">
                              <MoreVertical className="w-4 h-4" />
                            </button>
                            {openEmailDropdown === email.id && (
                              <div className="absolute right-0 top-full mt-1 w-[220px] bg-white  border border-slate-200  rounded-md shadow-lg py-1">
-                               <button onClick={() => handleIgnoreEmail(email)} className="w-full text-left px-3 py-2 text-xs text-red-600  hover:bg-red-50 :bg-red-900/20 transition-colors">
+                               <button onClick={() => handleIgnoreEmail(email)} className="w-full text-left px-3 py-2 text-xs text-red-600  hover:bg-red-50/20 transition-colors">
                                  Stop replying to this email address
                                </button>
-                               <button onClick={() => setOpenEmailDropdown(null)} className="w-full text-left px-3 py-2 text-xs text-slate-600  hover:bg-slate-100 :bg-slate-700 transition-colors">
+                               <button onClick={() => setOpenEmailDropdown(null)} className="w-full text-left px-3 py-2 text-xs text-slate-600  hover:bg-slate-100 transition-colors">
                                  Cancel
                                </button>
                              </div>

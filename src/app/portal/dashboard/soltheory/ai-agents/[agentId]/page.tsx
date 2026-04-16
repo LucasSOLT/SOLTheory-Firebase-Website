@@ -594,7 +594,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         Design {agent.name.split(' ')[0]}'s core identity rules, and upload infinite factual data (PDFs/Text) to form its vector-based Knowledge Base.
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100 :bg-white/10 text-slate-500">
+                    <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100/10 text-slate-500">
                       <X className="w-6 h-6" />
                     </Button>
                   </div>
@@ -603,13 +603,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <div className="flex items-center gap-6 mt-6 border-b border-slate-200/50 ">
                     <button 
                       onClick={() => setActiveSettingsTab("identity")}
-                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors ${activeSettingsTab === "identity" ? "border-fuchsia-500 text-fuchsia-600 " : "border-transparent text-slate-500 hover:text-slate-700 :text-slate-300"}`}
+                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors ${activeSettingsTab === "identity" ? "border-fuchsia-500 text-fuchsia-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
                     >
                       Identity & Rules
                     </button>
                     <button 
                       onClick={() => setActiveSettingsTab("data")}
-                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 ${activeSettingsTab === "data" ? "border-indigo-500 text-indigo-600 " : "border-transparent text-slate-500 hover:text-slate-700 :text-slate-300"}`}
+                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 ${activeSettingsTab === "data" ? "border-indigo-500 text-indigo-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
                     >
                       Knowledge Base (RAG)
                     </button>
