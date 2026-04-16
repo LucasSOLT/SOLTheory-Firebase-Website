@@ -24,6 +24,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { usePathname } from "next/navigation";
 import { doc, getDoc, collection, addDoc } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -478,8 +479,18 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
                        {msg.isSelf ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
                      </div>
                      <div className={`border rounded-2xl p-3 shadow-sm max-w-[85%] ${msg.isSelf ? 'bg-slate-100 border-slate-200 rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
-                        <div className={`text-sm text-slate-700 leading-relaxed ${!msg.isSelf ? '[&>p]:mb-2 [&>p:last-child]:mb-0' : ''}`}>
-                          {msg.isSelf ? msg.text : <ReactMarkdown>{msg.text}</ReactMarkdown>}
+                        <div className={`text-sm text-slate-700 leading-relaxed`}>
+                          {msg.isSelf ? msg.text : (
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                a: ({node, ...props}) => <a {...props} className="text-blue-600 hover:text-blue-800 hover:underline font-medium break-all" target="_blank" rel="noopener noreferrer" />,
+                                p: ({node, ...props}) => <p {...props} className="mb-2 last:mb-0" />
+                              }}
+                            >
+                              {msg.text}
+                            </ReactMarkdown>
+                          )}
                         </div>
                      </div>
                   </div>

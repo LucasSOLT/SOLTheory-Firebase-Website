@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useUser } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -57,9 +57,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             
             {/* @Messages Collapsible */}
             <div className="mt-2">
-              <div 
+              <button 
                 onClick={() => setIsMessagesOpen(!isMessagesOpen)}
-                className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors cursor-pointer mb-1 group"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors cursor-pointer mb-1 group"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
@@ -68,7 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-900 transition-colors">{t.messages}</span>
                 </div>
                 {isMessagesOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-              </div>
+              </button>
               
               {isMessagesOpen && (
                 <div className="pl-12 pr-3 py-1 space-y-1 animate-in slide-in-from-top-1 fade-in duration-200">
@@ -80,6 +80,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Hash className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.orgThread}</span>
                   </Link>
+                  <Link href={`${dashboardHome}/communications/contacts`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/contacts') ? 'bg-indigo-50 text-indigo-900 font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}>
+                    <BookUser className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/contacts') ? 'text-indigo-600' : ''}`} />
+                    <span className="text-xs font-medium">Contacts</span>
+                  </Link>
                 </div>
               )}
             </div>
@@ -90,24 +94,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.reports}</div>
             
             <div className="space-y-1">
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold hover:bg-slate-50 text-slate-700 hover:text-indigo-900">
-                <Activity className="w-4 h-4 ml-1 text-slate-500" />
+              <Link href={`${dashboardHome}/analytics`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/analytics') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/analytics') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                  <Activity className="w-4 h-4 ml-1" />
+                </div>
                 <span className="text-sm font-medium">Analytics</span>
-              </div>
+              </Link>
               <Link href={`${dashboardHome}/support-tickets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/support-tickets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/support-tickets') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
                   <Ticket className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm font-medium">Submit a support ticket</span>
               </Link>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold hover:bg-slate-50 text-slate-700 hover:text-indigo-900">
-                <Lightbulb className="w-4 h-4 ml-1 text-slate-500" />
+              <Link href={`${dashboardHome}/suggestion-box`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/suggestion-box') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/suggestion-box') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                  <Lightbulb className="w-4 h-4 ml-1" />
+                </div>
                 <span className="text-sm font-medium">Suggestion box</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold hover:bg-slate-50 text-slate-700 hover:text-indigo-900">
-                <ClipboardList className="w-4 h-4 ml-1 text-slate-500" />
+              </Link>
+              <Link href={`${dashboardHome}/surveys`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/surveys') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/surveys') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                  <ClipboardList className="w-4 h-4 ml-1" />
+                </div>
                 <span className="text-sm font-medium">Surveys</span>
-              </div>
+              </Link>
             </div>
           </div>
 

@@ -145,6 +145,10 @@ service cloud.firestore {
           allow read, write: if isOwner(userId);
         }
       }
+
+      match /contacts/{contactId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     /**
