@@ -773,6 +773,16 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
               </button>
 
               <Button 
+                onClick={() => setIsVoiceModalOpen(true)}
+                variant="ghost" 
+                size="icon"
+                className="absolute right-12 top-1/2 -translate-y-1/2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors w-8 h-8"
+                title="Start Voice Session"
+              >
+                <Mic className="w-5 h-5" />
+              </Button>
+
+              <Button 
                 size="icon" 
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isTyping}
