@@ -101,7 +101,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                finishUserTurnRef.current();
             }
           }
-        }, 2000); // Wait 2 seconds of true silence (no new words) before responding
+        }, 500); // Drastically reduced to 500ms to mimic Gemini's instant conversational speed
       }
     };
 

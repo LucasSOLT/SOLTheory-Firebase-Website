@@ -8,7 +8,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
 
-    const voiceId = "2kFou2vyyhRzfNBSrLnp";
+    const voiceId = "mZ8K1MPRiT5wDQaasg3i";
     const apiKey = "sk_c75325e8b9cfb1e4f2b73ad59419653c2ca59013f889267c";
 
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         text,
-        model_id: "eleven_turbo_v2", // Optimized for real-time low latency
+        model_id: "eleven_turbo_v2_5", // Extreme ultra-low latency model
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.75
