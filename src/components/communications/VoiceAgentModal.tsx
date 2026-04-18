@@ -39,10 +39,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const lastTimerTextRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPausedRef = useRef(isPaused);
+  const [responseDelay, setResponseDelay] = useState(1500);
+  const responseDelayRef = useRef(1500);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+  useEffect(() => { responseDelayRef.current = responseDelay; }, [responseDelay]);
 
   // Auto-scroll
   useEffect(() => {
@@ -103,7 +106,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                finishUserTurnRef.current();
             }
           }
-        }, 1500); // Increased to 1.5s to prevent cutting users off during natural conversational pauses
+        }, responseDelayRef.current); // Use customizable delay
       }
     };
 
@@ -425,12 +428,27 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           <X className="w-5 h-5" />
         </button>
 
-        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 border ${g.badge[ac]}`}>
+        <div className={`inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 border ${g.badge[ac]} relative`}>
           <span className="relative flex h-1.5 w-1.5">
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${g.dot[ac]}`} />
             <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${g.dotS[ac]}`} />
           </span>
-          {isPaused ? "Paused" : "Live Voice Session"}
+          {isPaused ? (
+            <span className="pr-1">Paused</span>
+          ) : (
+            <select
+              value={responseDelay}
+              onChange={(e) => setResponseDelay(Number(e.target.value))}
+              disabled={phase !== "listening"}
+              className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed font-bold tracking-widest"
+              title="Adjust how long Jarvis waits before responding"
+            >
+              <option value={500} className="text-slate-900">Fast (0.5s pause)</option>
+              <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
+              <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
+            </select>
+          )}
+          {!isPaused && <ChevronDown className="w-3 h-3 opacity-50 -ml-1 pointer-events-none" />}
         </div>
         <h2 className="text-xl font-black text-slate-900 tracking-tight">{agentName}</h2>
         <p className="text-slate-400 text-xs font-medium mt-0.5">{formatTime(elapsed)}</p>
