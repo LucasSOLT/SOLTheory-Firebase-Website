@@ -138,16 +138,21 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     }
   }, [isMicMuted, isOpen, isPaused, startRecognition, stopRecognition]);
 
-  // ── Pause: fully stop/start recognition ──
+  // ── Pause: fully stop/start recognition + pause audio ──
   useEffect(() => {
     if (!isOpen) return;
     if (isPaused) {
       stopRecognition();
       setLiveText("");
       accumulatedTextRef.current = "";
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     } else {
       if (phaseRef.current === "listening" && !isMicMuted) {
         startRecognition();
+      } else if (phaseRef.current === "speaking" && audioRef.current && audioRef.current.paused) {
+        audioRef.current.play().catch(console.error);
       }
     }
   }, [isPaused, isOpen, isMicMuted, startRecognition, stopRecognition]);
