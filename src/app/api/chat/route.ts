@@ -57,13 +57,13 @@ const tools: any = [
     type: "function",
     function: {
       name: "draft_outbound_email",
-      description: "Draft an outbound email. This places it in the user's Drafts folder for review. CRITICAL RULE: If the user asks you to include a Google Meet link in the email, you MUST execute the create_calendar_event tool FIRST with addGoogleMeetLink=true to generate a real URL. Do not use placeholders like [INSERT_LINK].",
+      description: "Draft an outbound email. This places it in the user's Drafts folder for review. If the user wants a Google Meet link, you may call create_calendar_event simultaneously — the system will auto-inject the generated link into the email body.",
       parameters: {
         type: "object",
         properties: { 
           to: { type: "string" },
           subject: { type: "string" },
-          body: { type: "string", description: "The body of the email. CRITICAL RULE 1: You must format the email beautifully using standard line breaks (\\n\\n). The greeting ('Hello Steve,') must be separated from the body, and the sign-off must be at the absolute bottom separated by two breaks (e.g. 'Cheers,\\nLucas'). CRITICAL RULE 2: If the user asks for a Google Meet link, you CANNOT use placeholders like [INSERT_LINK]. You MUST actually run create_calendar_event first, extract the generated URL, and paste it here." }
+          body: { type: "string", description: "The full email body text. Write a complete, well-structured email. Use \\n for line breaks. Format: Greeting\\n\\nBody paragraphs\\n\\nSign-off,\\nName. If a Google Meet link is needed, write [MEET_LINK] as a placeholder — the system will replace it automatically." }
         },
         required: ["to", "subject", "body"]
       }
@@ -364,6 +364,7 @@ export async function POST(req: Request) {
 
     let responseMessage = completion.choices[0]?.message;
     let loopCount = 0;
+    let lastMeetLink: string | null = null;
     const MAX_LOOPS = 5;
 
     // If LLM generated tool_calls but no APIs are available, re-call without tools
@@ -376,7 +377,12 @@ export async function POST(req: Request) {
     while (responseMessage?.tool_calls && (gmail || calendar || docsApi) && loopCount < MAX_LOOPS) {
       groqMessages.push(responseMessage);
       
-      for (const toolCall of responseMessage.tool_calls) {
+      // Sort tool calls: process calendar events BEFORE email drafts so Meet links are available
+      const sortedToolCalls = [...responseMessage.tool_calls].sort((a: any, b: any) => {
+        const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'draft_outbound_email' ? 2 : 1;
+        return order(a.function.name) - order(b.function.name);
+      });
+      for (const toolCall of sortedToolCalls) {
         const functionName = toolCall.function.name;
         
         let functionResult = "";
@@ -462,6 +468,9 @@ export async function POST(req: Request) {
               conferenceDataVersion: 1,
               requestBody
             });
+            if (res.data.hangoutLink) {
+              lastMeetLink = res.data.hangoutLink;
+            }
             const meetLink = res.data.hangoutLink ? ` Meet Link: ${res.data.hangoutLink}` : '';
             functionResult = JSON.stringify({ result: `Event '${args.summary}' created successfully. Link: ${res.data.htmlLink}${meetLink}` });
           } else if (functionName === "delete_calendar_event") {
@@ -497,11 +506,17 @@ export async function POST(req: Request) {
               }
             }
 
-            if (finalBody.match(/\[INSERT_.*?LINK\]/i)) {
-              throw new Error("You attempted to insert a placeholder for a Google Meet link. You MUST execute create_calendar_event first (with addGoogleMeetLink=true), wait for the success response, and then use the generated real URL. Start over and do it correctly.");
+            // Auto-inject real Google Meet link if one was generated in this batch
+            if (lastMeetLink) {
+              finalBody = finalBody.replace(/\[MEET_LINK\]/gi, lastMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, lastMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, lastMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, lastMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, lastMeetLink);
+              finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, lastMeetLink);
             }
 
-            // Ensure newlines are converted to HTML breaks so it doesn't render as one giant block
+            // Convert newlines to HTML line breaks for proper Gmail rendering
             finalBody = finalBody.replace(/\n/g, '<br>');
 
             const emailLines = [
