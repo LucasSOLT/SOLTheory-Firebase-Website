@@ -226,7 +226,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </div>
-            </div>
           </div>
         </aside>
       </div>
