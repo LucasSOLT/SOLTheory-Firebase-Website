@@ -36,10 +36,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen bg-white overflow-hidden text-slate-900 font-sans">
       {/* Sidebar Wrapper */}
-      <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-[88px]" : "w-64"}`}>
+      <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-3 top-10 w-6 h-6 bg-white border border-slate-200 shadow-sm rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 z-50 transition-all cursor-pointer"
+          className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-slate-200 shadow-sm rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 z-50 transition-all cursor-pointer"
           title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-300 ${isSidebarCollapsed ? "" : "rotate-180"}`} />
@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
            )}
         </Link>
 
-        <div className="flex-grow overflow-y-auto px-4 space-y-6">
+        <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Section 1 */}
           <div>
             <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.menu}</div>

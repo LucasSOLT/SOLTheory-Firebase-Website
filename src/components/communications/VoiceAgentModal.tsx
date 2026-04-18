@@ -439,13 +439,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             <select
               value={responseDelay}
               onChange={(e) => setResponseDelay(Number(e.target.value))}
-              disabled={phase !== "listening"}
-              className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed font-bold tracking-widest"
+              className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity font-bold tracking-widest"
               title="Adjust how long Jarvis waits before responding"
             >
               <option value={500} className="text-slate-900">Fast (0.5s pause)</option>
               <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
               <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
+              <option value={5000} className="text-slate-900">Very Slow (5.0s pause)</option>
             </select>
           )}
           {!isPaused && <ChevronDown className="w-3 h-3 opacity-50 -ml-1 pointer-events-none" />}
