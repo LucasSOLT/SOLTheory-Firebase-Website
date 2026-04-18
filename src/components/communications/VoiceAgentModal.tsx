@@ -45,7 +45,18 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
-  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+  useEffect(() => { 
+    isPausedRef.current = isPaused; 
+    
+    // Relay pause/play immediately to active AI audio stream
+    if (audioRef.current) {
+      if (isPaused) {
+        audioRef.current.pause();
+      } else if (phase === "speaking") {
+        audioRef.current.play().catch(e => console.warn(e));
+      }
+    }
+  }, [isPaused, phase]);
   useEffect(() => { responseDelayRef.current = responseDelay; }, [responseDelay]);
 
   // Auto-scroll
@@ -430,13 +441,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
       {/* ─── TOP ─── */}
       <div className={`flex flex-col items-center pt-6 pb-4 px-6 relative transition-all duration-500 ease-in-out ${showTranscript ? "shrink-0 border-b border-slate-100" : "flex-1 justify-center bg-slate-50"}`}>
-        {/* Toggle Transcript Button */}
-        <button 
-          onClick={() => setShowTranscript(!showTranscript)} 
-          className="absolute top-4 left-6 px-4 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 text-xs font-bold"
-        >
-          <MessageSquareText className="w-4 h-4" /> {showTranscript ? "Hide Chat" : "Show Chat"}
-        </button>
 
         <button onClick={onClose} className="absolute top-4 right-6 w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
           <X className="w-5 h-5" />
@@ -491,7 +495,15 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-6 mt-8">
+        <div className="flex items-center gap-4 mt-8">
+          <button 
+            onClick={() => setShowTranscript(!showTranscript)} 
+            className="h-10 rounded-xl px-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 text-xs font-bold"
+            title="Toggle Live Transcript"
+          >
+            <MessageSquareText className="w-4 h-4" /> {showTranscript ? "Hide Chat" : "Show Chat"}
+          </button>
+
           <button onClick={() => setIsMicMuted(!isMicMuted)}
             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
           >
