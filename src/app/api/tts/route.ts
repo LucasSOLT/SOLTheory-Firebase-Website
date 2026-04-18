@@ -8,7 +8,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
 
-    const voiceId = "wDsJlOXPqcvIUKdLXjDs";
+    const voiceId = "2kFou2vyyhRzfNBSrLnp";
     const apiKey = "sk_c75325e8b9cfb1e4f2b73ad59419653c2ca59013f889267c";
 
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {

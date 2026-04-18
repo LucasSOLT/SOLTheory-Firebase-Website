@@ -36,6 +36,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const cancelledRef = useRef(false);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTimerTextRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPausedRef = useRef(isPaused);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
@@ -85,18 +86,23 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         setLiveText(accumulatedTextRef.current + (accumulatedTextRef.current ? " " : "") + interim);
       }
 
+      const newText = (accumulatedTextRef.current + (interim ? " " + interim : "")).trim();
+      
       // Voice Auto-Submit Logic
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
-      }
-      silenceTimeoutRef.current = setTimeout(() => {
-        if (phaseRef.current === "listening" && !isPausedRef.current) {
-          const currentText = accumulatedTextRef.current.trim() || interim.trim();
-          if (currentText && currentText.length > 2) {
-             finishUserTurnRef.current();
+      // Only reset the silence timer if actual new text was registered
+      if (newText !== lastTimerTextRef.current) {
+        lastTimerTextRef.current = newText;
+        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        
+        silenceTimeoutRef.current = setTimeout(() => {
+          if (phaseRef.current === "listening" && !isPausedRef.current) {
+            const currentText = newText;
+            if (currentText && currentText.length > 2) {
+               finishUserTurnRef.current();
+            }
           }
-        }
-      }, 1000); // Reduced to 1000ms as requested
+        }, 2000); // Wait 2 seconds of true silence (no new words) before responding
+      }
     };
 
     recognition.onerror = (event: any) => {
@@ -164,7 +170,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     const initMic = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+        });
         if (cancelledRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
 
         streamRef.current = stream;
@@ -189,7 +197,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
             let avg = sum / dataArray.length;
 
-            if (avg > 40) { // STRONG SIGNAL THRESHOLD
+            if (avg > 75) { // STRONG SIGNAL THRESHOLD (increased to ignore static)
               if (speakingTimeoutRef.current) {
                 clearTimeout(speakingTimeoutRef.current);
                 speakingTimeoutRef.current = null;
