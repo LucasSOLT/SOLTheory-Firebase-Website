@@ -57,13 +57,16 @@ const tools: any = [
     type: "function",
     function: {
       name: "draft_outbound_email",
-      description: "Draft an outbound email. This places it in the user's Drafts folder for review. If the user wants a Google Meet link, you may call create_calendar_event simultaneously — the system will auto-inject the generated link into the email body.",
+      description: "Draft an outbound email and place it in the user's Gmail Drafts folder. If the user wants a Google Meet link in the email, set includeGoogleMeetLink to true and the system will automatically create a calendar event, generate the Meet URL, and embed it into the email body for you.",
       parameters: {
         type: "object",
         properties: { 
-          to: { type: "string" },
-          subject: { type: "string" },
-          body: { type: "string", description: "The full email body text. Write a complete, well-structured email. Use \\n for line breaks. Format: Greeting\\n\\nBody paragraphs\\n\\nSign-off,\\nName. If a Google Meet link is needed, write [MEET_LINK] as a placeholder — the system will replace it automatically." }
+          to: { type: "string", description: "Recipient email address" },
+          subject: { type: "string", description: "Email subject line" },
+          body: { type: "string", description: "The full email body. Use \\n for line breaks. Format: Greeting\\n\\nBody paragraphs\\n\\nSign-off,\\nName. Do NOT write any placeholder text for meeting links — the system handles that automatically when includeGoogleMeetLink is true." },
+          includeGoogleMeetLink: { type: "boolean", description: "Set to true if the user wants a Google Meet video call link in this email. The system will auto-generate a calendar event + Meet URL and append it to the email." },
+          meetingSummary: { type: "string", description: "Title for the auto-created calendar event (e.g. 'Catch-up with Steve'). Required when includeGoogleMeetLink is true." },
+          meetingDateTime: { type: "string", description: "ISO 8601 datetime for the meeting start (e.g. '2026-04-21T19:00:00-06:00'). Required when includeGoogleMeetLink is true." }
         },
         required: ["to", "subject", "body"]
       }
@@ -506,14 +509,50 @@ export async function POST(req: Request) {
               }
             }
 
-            // Auto-inject real Google Meet link if one was generated in this batch
-            if (lastMeetLink) {
-              finalBody = finalBody.replace(/\[MEET_LINK\]/gi, lastMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, lastMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, lastMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, lastMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, lastMeetLink);
-              finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, lastMeetLink);
+            // ── AUTO-CREATE Google Meet link if requested ──
+            let generatedMeetLink: string | null = lastMeetLink; // Use one from earlier in this batch if available
+            if (args.includeGoogleMeetLink && calendar && !generatedMeetLink) {
+              try {
+                const meetStart = args.meetingDateTime || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                const meetEnd = new Date(new Date(meetStart).getTime() + 60 * 60 * 1000).toISOString();
+                const calRes = await calendar.events.insert({
+                  calendarId: 'primary',
+                  conferenceDataVersion: 1,
+                  requestBody: {
+                    summary: args.meetingSummary || `Meeting with ${args.to}`,
+                    start: { dateTime: meetStart },
+                    end: { dateTime: meetEnd },
+                    conferenceData: {
+                      createRequest: {
+                        requestId: `meet_auto_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                        conferenceSolutionKey: { type: "hangoutsMeet" }
+                      }
+                    }
+                  }
+                });
+                generatedMeetLink = calRes.data.hangoutLink || null;
+                console.log('[MEET LINK AUTO-GENERATED]', generatedMeetLink);
+              } catch (meetErr: any) {
+                console.error('[MEET LINK AUTO-CREATE FAILED]', meetErr.message);
+              }
+            }
+
+            // Replace any placeholder the LLM might have written (catch-all patterns)
+            if (generatedMeetLink) {
+              // Specific known patterns
+              finalBody = finalBody.replace(/\[MEET_LINK\]/gi, generatedMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, generatedMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, generatedMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
+              finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, generatedMeetLink);
+              finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
+              // Catch-all: any [...] or {...} containing 'meet' or 'link' (case insensitive)
+              finalBody = finalBody.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, generatedMeetLink);
+            }
+
+            // If includeGoogleMeetLink was requested and we got a link, append it to the body if no placeholder was replaced
+            if (args.includeGoogleMeetLink && generatedMeetLink && !finalBody.includes(generatedMeetLink)) {
+              finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
             }
 
             // Convert newlines to HTML line breaks for proper Gmail rendering
@@ -531,7 +570,8 @@ export async function POST(req: Request) {
               userId: 'me',
               requestBody: { message: { raw } }
             });
-            functionResult = JSON.stringify({ result: `Draft to ${args.to} successfully created.` });
+            const meetNote = generatedMeetLink ? ` A Google Meet link (${generatedMeetLink}) was embedded.` : '';
+            functionResult = JSON.stringify({ result: `Draft to ${args.to} successfully created.${meetNote}` });
           } else if (functionName === "create_google_document" && docsApi && driveApi) {
             // Create a blank Google Doc
             const createRes = await docsApi.documents.create({
