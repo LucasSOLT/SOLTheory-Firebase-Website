@@ -57,7 +57,7 @@ const tools: any = [
     type: "function",
     function: {
       name: "draft_outbound_email",
-      description: "Draft an outbound email. This places it in the user's Drafts folder for review.",
+      description: "Draft an outbound email. This places it in the user's Drafts folder for review. CRITICAL RULE: If the user asks you to include a Google Meet link in the email, you MUST execute the create_calendar_event tool FIRST with addGoogleMeetLink=true to generate a real URL. Do not use placeholders like [INSERT_LINK].",
       parameters: {
         type: "object",
         properties: { 
