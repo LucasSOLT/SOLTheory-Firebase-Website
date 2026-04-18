@@ -54,7 +54,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     if (recognitionRef.current) {
       const r = recognitionRef.current;
       recognitionRef.current = null; // prevent auto-restart in onend
-      try { r.stop(); } catch {}
+      try { r.abort(); } catch {} // Use abort() to instantly kill without trailing onresult events
     }
   }, []);
 
@@ -72,6 +72,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     recognition.lang = "en-US";
 
     recognition.onresult = (event: any) => {
+      if (phaseRef.current !== "listening") return; // Completely ignore late audio buffers
+
       let interim = "";
       let final = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
