@@ -39,10 +39,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-slate-200 shadow-sm rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 z-50 transition-all cursor-pointer"
+          className="absolute -right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border-2 border-slate-200 shadow-md rounded-full flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 z-50 transition-all cursor-pointer"
           title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-300 ${isSidebarCollapsed ? "" : "rotate-180"}`} />
+          <ChevronRight className={`w-6 h-6 transition-transform duration-300 ${isSidebarCollapsed ? "" : "rotate-180"}`} />
         </button>
 
         <aside className="w-full bg-white flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
