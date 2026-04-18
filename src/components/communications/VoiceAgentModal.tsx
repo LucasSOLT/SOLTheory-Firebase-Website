@@ -474,9 +474,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
       {/* ─── TOP ─── */}
-      <div className={`flex flex-col items-center pt-6 pb-4 px-6 relative transition-all duration-500 ease-in-out ${showTranscript ? "shrink-0 border-b border-slate-100" : "flex-1 justify-center bg-slate-50"}`}>
+      <div className={`flex flex-col items-center pt-4 sm:pt-6 pb-4 px-4 sm:px-6 relative transition-all duration-500 ease-in-out ${showTranscript ? "shrink-0 border-b border-slate-100" : "flex-1 justify-center bg-slate-50"}`}>
 
-        <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-4 right-16 px-4 h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 flex items-center gap-2 max-w-fit shadow-sm cursor-pointer transition-colors z-50">
+        <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-3 sm:top-4 right-14 sm:right-16 px-2 sm:px-4 h-8 sm:h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 flex items-center gap-1.5 sm:gap-2 max-w-fit shadow-sm cursor-pointer transition-colors z-50">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
           <span className="text-[11px] font-black tracking-wider text-slate-500 whitespace-nowrap">
             ${( (groqTokens * 0.00000006) + (elevenLabsChars * 0.000167) ).toFixed(4)}
@@ -484,7 +484,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         </button>
 
         {showCostBreakdown && (
-          <div className="absolute top-16 right-16 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-14 sm:top-16 right-4 sm:right-16 z-[200] w-[calc(100%-2rem)] sm:w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black text-slate-900 tracking-tight">Session Cost Breakdown</h3>
               <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -534,7 +534,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
         )}
 
-        <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+        <button onClick={onClose} className="absolute top-3 sm:top-4 right-3 sm:right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
           <X className="w-5 h-5" />
         </button>
 
@@ -564,16 +564,16 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         <p className="text-slate-400 text-xs font-medium mt-0.5">{formatTime(elapsed)}</p>
 
         {/* Waveform */}
-        <div className="w-full max-w-lg mt-8 relative">
-          <div className="relative h-32 flex items-center justify-center">
+        <div className="w-full max-w-[280px] sm:max-w-lg mt-4 sm:mt-8 relative">
+          <div className="relative h-20 sm:h-32 flex items-center justify-center">
             {/* Ambient Background Glow */}
             <div className={`absolute inset-0 rounded-full blur-[60px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
             
-            <div className="relative flex items-center justify-center gap-1.5 h-full w-full">
+            <div className="relative flex items-center justify-center gap-[3px] sm:gap-1.5 h-full w-full">
               {bars.map((h, i) => (
                 <div key={i} className={`rounded-full transition-[height,background-color] duration-[120ms] ease-out bg-gradient-to-t shadow-sm ${g.bar[ac]}`}
                   style={{ 
-                    width: "8px", 
+                    width: "5px", 
                     height: `${Math.max(4, isMicMuted || isPaused ? 8 : h)}%`, 
                     opacity: isMicMuted || isPaused ? 0.3 : 0.8 + (h / 100) * 0.2 
                   }}
@@ -587,10 +587,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-4 mt-8">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-4 sm:mt-8 px-4">
           <button 
             onClick={() => setShowTranscript(!showTranscript)} 
-            className="h-10 rounded-xl px-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 text-xs font-bold"
+            className="h-9 sm:h-10 rounded-xl px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 text-xs font-bold"
             title="Toggle Live Transcript"
           >
             <MessageSquareText className="w-4 h-4" /> {showTranscript ? "Hide Chat" : "Show Chat"}
@@ -603,11 +603,11 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </button>
 
           <button onClick={finishUserTurn} disabled={phase !== "listening" || isMicMuted || isPaused}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
               phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
             }`}
           >
-            {phase === "processing" ? <><Loader2 className="w-4 h-4 animate-spin" /> Thinking...</> : <><Hand className="w-4 h-4" /> I&apos;m Done Speaking</>}
+            {phase === "processing" ? <><Loader2 className="w-4 h-4 animate-spin" /> Thinking...</> : <><Hand className="w-4 h-4" /> <span className="hidden sm:inline">I&apos;m Done Speaking</span><span className="sm:hidden">Done</span></>}
           </button>
 
           <button onClick={() => setIsPaused(!isPaused)}
@@ -623,12 +623,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       </div>
 
       {/* ─── BOTTOM: Transcript ─── */}
-      <div className={`flex flex-col bg-white transition-all duration-500 ease-in-out overflow-hidden ${showTranscript ? "flex-1 min-h-[300px] opacity-100" : "h-0 min-h-0 opacity-0"}`}>
-        <div className="px-8 pt-4 pb-2 flex items-center gap-2 shrink-0">
+      <div className={`flex flex-col bg-white transition-all duration-500 ease-in-out overflow-hidden ${showTranscript ? "flex-1 min-h-[200px] sm:min-h-[300px] opacity-100" : "h-0 min-h-0 opacity-0"}`}>
+        <div className="px-4 sm:px-8 pt-4 pb-2 flex items-center gap-2 shrink-0">
           <MessageSquareText className="w-4 h-4 text-slate-400" />
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Transcript</span>
         </div>
-        <div className="flex-1 overflow-y-auto px-8 pb-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-6">
           <div className="max-w-2xl mx-auto space-y-4">
             {transcriptLines.length === 0 && !liveText ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">

@@ -15,7 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user } = useUser();
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
 
   // Detect which org the user is in based on the current path
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
@@ -39,7 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border-2 border-slate-200 shadow-md rounded-full flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 z-50 transition-all cursor-pointer"
+          className="absolute -right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 bg-white border-2 border-slate-200 shadow-md rounded-full flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 z-50 transition-all cursor-pointer"
           title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <ChevronRight className={`w-6 h-6 transition-transform duration-300 ${isSidebarCollapsed ? "" : "rotate-180"}`} />

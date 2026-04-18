@@ -965,8 +965,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
 
                     <div className="relative w-full border border-slate-300 rounded-[24px] overflow-hidden bg-white/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
-                      <div className="flex items-center pl-4 gap-2 shrink-0">
-                        <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=soltheory`} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
+                      <div className="flex items-center pl-2 sm:pl-4 gap-1 sm:gap-2 shrink-0">
+                        <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=soltheory`} className="hidden sm:flex p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
                           <Cloud className="w-5 h-5" />
                         </button>
                         <label className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer" title="Upload File">
@@ -981,7 +981,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                       <Input
                         placeholder="Instruct the agent..."
-                        className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 pr-24 min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
+                        className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 pr-20 sm:pr-24 min-h-[48px] sm:min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-sm sm:text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
                         value={inputValue} onChange={e => setInputValue(e.target.value)} onPaste={handlePaste} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       />
 
