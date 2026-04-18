@@ -240,11 +240,22 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           for (let i = 0; i < barCount; i++) {
             let binVal = 0;
             if (phaseRef.current === "speaking" || phaseRef.current === "processing") {
-              // AI speaking fluid pulse animation
-              const time = Date.now() / 150;
+              // Advanced AI speaking waveform animation (mimics syllables and natural speech patterns)
+              const time = Date.now() / 1000; // seconds
+              
+              // Simulated speech envelope (pauses and bursts of volume)
+              const envelope = Math.max(0, Math.sin(time * 12) * Math.sin(time * 7) * Math.cos(time * 19));
+              const amplitude = phaseRef.current === "processing" ? 30 : 40 + (envelope * 60);
+
+              // Gaussian curve to shape the center larger than edges
               const center = barCount / 2;
-              const dist = 1 - Math.abs(i - center) / center;
-              binVal = dist * 70 + Math.sin(time + i * 0.5) * 40 + Math.random() * 20;
+              const dist = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(barCount / 4, 2)));
+              
+              // Individual bar flutter to mimic frequency bands
+              const flutter = Math.sin(time * (15 + i % 3) + i) * Math.cos(time * 8 - i) * 20;
+              const jitter = Math.random() * 10;
+
+              binVal = (dist * amplitude) + flutter + jitter;
             } else {
               // Real Mic Input
               for (let j = 0; j < binStep; j++) binVal += dataArray[i * binStep + j] || 0;
