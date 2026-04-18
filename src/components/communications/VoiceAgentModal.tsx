@@ -41,6 +41,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const isPausedRef = useRef(isPaused);
   const [responseDelay, setResponseDelay] = useState(1500);
   const responseDelayRef = useRef(1500);
+  const [showTranscript, setShowTranscript] = useState(true);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -194,44 +195,49 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
         const tick = () => {
           if (cancelledRef.current) return;
-          analyser.getByteFrequencyData(dataArray);
+          const barCount = 32;
+          const newBars: number[] = [];
+          
+          if (analyserRef.current) {
+            analyserRef.current.getByteFrequencyData(dataArray);
+            
+            // INTERRUPT LOGIC
+            if (phaseRef.current === "speaking" && !isPausedRef.current) {
+              let sum = 0;
+              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+              let avg = sum / dataArray.length;
 
-          // INTERRUPT LOGIC
-          if (phaseRef.current === "speaking" && !isPausedRef.current) {
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-            let avg = sum / dataArray.length;
-
-            if (avg > 75) { // STRONG SIGNAL THRESHOLD (increased to ignore static)
-              if (speakingTimeoutRef.current) {
-                clearTimeout(speakingTimeoutRef.current);
-                speakingTimeoutRef.current = null;
+              if (avg > 75) { // STRONG SIGNAL THRESHOLD (increased to ignore static)
+                if (speakingTimeoutRef.current) {
+                  clearTimeout(speakingTimeoutRef.current);
+                  speakingTimeoutRef.current = null;
+                }
+                if (audioRef.current) {
+                  audioRef.current.pause();
+                  audioRef.current.src = "";
+                  audioRef.current = null;
+                }
+                phaseRef.current = "listening"; // Synchronous lock
+                setPhase("listening");
+                startRecognition();
               }
-              if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.src = "";
-                audioRef.current = null;
-              }
-              phaseRef.current = "listening"; // Synchronous lock against `tick` loop
-              setPhase("listening");
-              startRecognition();
             }
           }
 
-          const barCount = 32;
-          const newBars: number[] = [];
           const binStep = Math.floor(dataArray.length / barCount);
 
           for (let i = 0; i < barCount; i++) {
             let binVal = 0;
-            for (let j = 0; j < binStep; j++) binVal += dataArray[i * binStep + j] || 0;
-            binVal = binVal / binStep;
-
             if (phaseRef.current === "speaking" || phaseRef.current === "processing") {
+              // AI speaking fluid pulse animation
+              const time = Date.now() / 150;
               const center = barCount / 2;
               const dist = 1 - Math.abs(i - center) / center;
-              binVal = dist * 65 * (0.4 + Math.random() * 0.8);
+              binVal = dist * 70 + Math.sin(time + i * 0.5) * 40 + Math.random() * 20;
             } else {
+              // Real Mic Input
+              for (let j = 0; j < binStep; j++) binVal += dataArray[i * binStep + j] || 0;
+              binVal = binVal / binStep;
               binVal = (binVal / 255) * 95;
             }
             newBars.push(Math.max(3, binVal));
@@ -409,13 +415,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     "Listening — speak naturally";
 
   const g: Record<string, Record<string, string>> = {
-    grad: { rose: "from-rose-400 via-rose-500 to-pink-500", indigo: "from-indigo-400 via-indigo-500 to-violet-500", amber: "from-amber-400 via-amber-500 to-orange-500", emerald: "from-emerald-400 via-emerald-500 to-teal-500", slate: "from-slate-300 via-slate-400 to-slate-500" },
-    bar: { rose: "from-rose-500 to-rose-300", indigo: "from-indigo-600 to-indigo-300", amber: "from-amber-500 to-amber-300", emerald: "from-emerald-500 to-emerald-300", slate: "from-slate-400 to-slate-200" },
-    badge: { rose: "bg-rose-50 text-rose-600 border-rose-200", indigo: "bg-indigo-50 text-indigo-600 border-indigo-200", amber: "bg-amber-50 text-amber-600 border-amber-200", emerald: "bg-emerald-50 text-emerald-600 border-emerald-200", slate: "bg-slate-100 text-slate-500 border-slate-200" },
-    dot: { rose: "bg-rose-400", indigo: "bg-indigo-400", amber: "bg-amber-400", emerald: "bg-emerald-400", slate: "bg-slate-400" },
-    dotS: { rose: "bg-rose-500", indigo: "bg-indigo-500", amber: "bg-amber-500", emerald: "bg-emerald-500", slate: "bg-slate-500" },
-    text: { rose: "text-rose-500", indigo: "text-indigo-500", amber: "text-amber-500", emerald: "text-emerald-500", slate: "text-slate-400" },
-    glow: { rose: "bg-rose-300", indigo: "bg-indigo-300", amber: "bg-amber-300", emerald: "bg-emerald-300", slate: "bg-slate-200" },
+    grad: { rose: "from-rose-400 via-rose-500 to-pink-500", indigo: "from-purple-400 via-fuchsia-500 to-pink-500", amber: "from-indigo-400 via-blue-500 to-cyan-400", emerald: "from-blue-400 via-cyan-500 to-teal-400", slate: "from-slate-300 via-slate-400 to-slate-500" },
+    bar: { rose: "from-rose-500 to-rose-300", indigo: "from-purple-500 to-pink-400", amber: "from-indigo-500 to-cyan-400", emerald: "from-blue-500 to-cyan-300", slate: "from-slate-400 to-slate-200" },
+    badge: { rose: "bg-rose-50 text-rose-600 border-rose-200", indigo: "bg-purple-50 text-purple-600 border-purple-200", amber: "bg-indigo-50 text-indigo-600 border-indigo-200", emerald: "bg-blue-50 text-blue-600 border-blue-200", slate: "bg-slate-100 text-slate-500 border-slate-200" },
+    dot: { rose: "bg-rose-400", indigo: "bg-purple-400", amber: "bg-indigo-400", emerald: "bg-blue-400", slate: "bg-slate-400" },
+    dotS: { rose: "bg-rose-500", indigo: "bg-purple-500", amber: "bg-indigo-500", emerald: "bg-blue-500", slate: "bg-slate-500" },
+    text: { rose: "text-rose-500", indigo: "text-purple-600", amber: "text-indigo-500", emerald: "text-blue-500", slate: "text-slate-400" },
+    glow: { rose: "bg-rose-400", indigo: "bg-purple-500", amber: "bg-indigo-400", emerald: "bg-cyan-400", slate: "bg-slate-300" },
   };
 
   return (
@@ -423,7 +429,15 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
       {/* ─── TOP ─── */}
-      <div className="shrink-0 flex flex-col items-center pt-6 pb-4 px-6 border-b border-slate-100 relative">
+      <div className={`flex flex-col items-center pt-6 pb-4 px-6 relative transition-all duration-500 ease-in-out ${showTranscript ? "shrink-0 border-b border-slate-100" : "flex-1 justify-center bg-slate-50"}`}>
+        {/* Toggle Transcript Button */}
+        <button 
+          onClick={() => setShowTranscript(!showTranscript)} 
+          className="absolute top-4 left-6 px-4 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 text-xs font-bold"
+        >
+          <MessageSquareText className="w-4 h-4" /> {showTranscript ? "Hide Chat" : "Show Chat"}
+        </button>
+
         <button onClick={onClose} className="absolute top-4 right-6 w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
           <X className="w-5 h-5" />
         </button>
@@ -454,24 +468,30 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         <p className="text-slate-400 text-xs font-medium mt-0.5">{formatTime(elapsed)}</p>
 
         {/* Waveform */}
-        <div className="w-full max-w-md mt-5 relative">
-          <div className="relative h-20 flex items-center justify-center">
-            <div className={`absolute inset-0 rounded-3xl blur-3xl opacity-15 transition-colors duration-500 ${g.glow[ac]}`} />
-            <div className="relative flex items-center justify-center gap-[3px] h-full w-full">
+        <div className="w-full max-w-lg mt-8 relative">
+          <div className="relative h-32 flex items-center justify-center">
+            {/* Ambient Background Glow */}
+            <div className={`absolute inset-0 rounded-full blur-[60px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
+            
+            <div className="relative flex items-center justify-center gap-1.5 h-full w-full">
               {bars.map((h, i) => (
-                <div key={i} className={`rounded-full transition-[height] duration-75 ease-out bg-gradient-to-t ${g.bar[ac]}`}
-                  style={{ width: "3.5px", height: `${Math.max(3, isMicMuted || isPaused ? 4 : h)}%`, opacity: isMicMuted || isPaused ? 0.3 : 0.5 + (h / 100) * 0.5 }}
+                <div key={i} className={`rounded-full transition-[height,background-color] duration-[120ms] ease-out bg-gradient-to-t shadow-sm ${g.bar[ac]}`}
+                  style={{ 
+                    width: "8px", 
+                    height: `${Math.max(4, isMicMuted || isPaused ? 8 : h)}%`, 
+                    opacity: isMicMuted || isPaused ? 0.3 : 0.8 + (h / 100) * 0.2 
+                  }}
                 />
               ))}
             </div>
           </div>
-          <div className="flex flex-col items-center gap-2 mt-3">
-            <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${g.text[ac]}`}>{statusLabel}</span>
+          <div className="flex flex-col items-center gap-2 mt-8">
+            <span className={`text-[11px] font-black uppercase tracking-[0.25em] ${g.text[ac]} transition-colors duration-500`}>{statusLabel}</span>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-4 mt-4">
+        <div className="flex items-center gap-6 mt-8">
           <button onClick={() => setIsMicMuted(!isMicMuted)}
             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
           >
@@ -499,7 +519,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       </div>
 
       {/* ─── BOTTOM: Transcript ─── */}
-      <div className="flex-1 flex flex-col min-h-0 bg-slate-50">
+      <div className={`flex flex-col bg-white transition-all duration-500 ease-in-out overflow-hidden ${showTranscript ? "flex-1 min-h-[300px] opacity-100" : "h-0 min-h-0 opacity-0"}`}>
         <div className="px-8 pt-4 pb-2 flex items-center gap-2 shrink-0">
           <MessageSquareText className="w-4 h-4 text-slate-400" />
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Transcript</span>
