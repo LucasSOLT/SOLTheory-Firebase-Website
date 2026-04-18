@@ -207,6 +207,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 audioRef.current.src = "";
                 audioRef.current = null;
               }
+              phaseRef.current = "listening"; // Synchronous lock against `tick` loop
               setPhase("listening");
               startRecognition();
             }
@@ -321,6 +322,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     const spokenText = accumulatedTextRef.current.trim() || liveText.trim();
     if (!spokenText) {
       phaseRef.current = "listening"; // unlock if empty
+      setPhase("listening");
       return;
     }
 
