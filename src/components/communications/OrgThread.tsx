@@ -134,16 +134,31 @@ const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: 
         if (!(isUnchecked || isChecked || isBullet)) return <span key={i} className="block text-slate-700">{line}</span>;
         const content = getContent(line);
         return (
-          <div key={i} className="flex items-center gap-2 group">
+          <div key={i} className="flex items-start gap-2 group">
             {isBullet ? (
-              <span className="w-4 h-4 flex items-center justify-center text-slate-500 opacity-60 text-lg leading-none shrink-0">•</span>
+              <span className="w-4 h-4 mt-0.5 flex items-center justify-center text-slate-500 opacity-60 text-lg leading-none shrink-0">•</span>
             ) : (
-              <input type="checkbox" checked={isChecked} onChange={() => handleCheckToggle(i)} onClick={e => e.stopPropagation()} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer bg-white shrink-0" />
+              <input type="checkbox" checked={isChecked} onChange={() => handleCheckToggle(i)} onClick={e => e.stopPropagation()} className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer bg-white shrink-0" />
             )}
             {isMe ? (
-              <input type="text" value={content} onChange={e => handleTextChange(i, e.target.value)} className={`flex-1 bg-transparent border-none outline-none focus:ring-0 p-0 m-0 text-[15px] ${isChecked ? 'line-through opacity-60' : 'text-slate-800 placeholder-slate-400'}`} placeholder="Type a task..." />
+              <textarea
+                value={content}
+                onChange={e => handleTextChange(i, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.preventDefault();
+                }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = `${el.scrollHeight}px`;
+                  }
+                }}
+                rows={1}
+                className={`flex-1 bg-transparent border-none outline-none focus:ring-0 p-0 m-0 text-[15px] resize-none overflow-hidden leading-snug ${isChecked ? 'line-through opacity-60' : 'text-slate-800 placeholder-slate-400'}`}
+                placeholder="Type a task..."
+              />
             ) : (
-              <span className={`flex-1 text-[15px] ${isChecked ? 'line-through opacity-60' : 'text-slate-800'}`}>{content || <span className="opacity-40 italic">Empty</span>}</span>
+              <span className={`flex-1 text-[15px] leading-snug ${isChecked ? 'line-through opacity-60' : 'text-slate-800'}`}>{content || <span className="opacity-40 italic">Empty</span>}</span>
             )}
           </div>
         );
