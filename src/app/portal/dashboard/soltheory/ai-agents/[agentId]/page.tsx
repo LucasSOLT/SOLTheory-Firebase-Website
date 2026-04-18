@@ -930,7 +930,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                     </div>
 
-                    <div className="relative w-full border border-slate-300  rounded-3xl overflow-hidden bg-white/80  shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
+                    <div className="relative w-full border border-slate-300 rounded-[24px] overflow-hidden bg-white/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
                       <div className="flex items-center pl-4 gap-2 shrink-0">
                         <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=soltheory`} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
                           <Cloud className="w-5 h-5" />

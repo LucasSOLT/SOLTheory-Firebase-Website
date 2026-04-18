@@ -41,7 +41,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const isPausedRef = useRef(isPaused);
   const [responseDelay, setResponseDelay] = useState(1500);
   const responseDelayRef = useRef(1500);
-  const [showTranscript, setShowTranscript] = useState(true);
+  const [showTranscript, setShowTranscript] = useState(false);
   const [groqTokens, setGroqTokens] = useState(0);
   const [elevenLabsChars, setElevenLabsChars] = useState(0);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
