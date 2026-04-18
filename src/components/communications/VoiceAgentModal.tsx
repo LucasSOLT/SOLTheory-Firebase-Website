@@ -36,6 +36,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const cancelledRef = useRef(false);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const interruptFrameCount = useRef(0);
   const lastTimerTextRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPausedRef = useRef(isPaused);
@@ -215,25 +216,32 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           if (analyserRef.current) {
             analyserRef.current.getByteFrequencyData(dataArray);
             
-            // INTERRUPT LOGIC
+            // INTERRUPT LOGIC — require sustained loud input, not just a spike from laughter
             if (phaseRef.current === "speaking" && !isPausedRef.current) {
               let sum = 0;
               for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
               let avg = sum / dataArray.length;
 
-              if (avg > 75) { // STRONG SIGNAL THRESHOLD (increased to ignore static)
-                if (speakingTimeoutRef.current) {
-                  clearTimeout(speakingTimeoutRef.current);
-                  speakingTimeoutRef.current = null;
+              if (avg > 120) { // HIGH threshold: only clear, sustained speech
+                if (!interruptFrameCount.current) interruptFrameCount.current = 0;
+                interruptFrameCount.current++;
+                if (interruptFrameCount.current >= 4) { // Must be loud for 4+ consecutive frames
+                  interruptFrameCount.current = 0;
+                  if (speakingTimeoutRef.current) {
+                    clearTimeout(speakingTimeoutRef.current);
+                    speakingTimeoutRef.current = null;
+                  }
+                  if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current.src = "";
+                    audioRef.current = null;
+                  }
+                  phaseRef.current = "listening";
+                  setPhase("listening");
+                  startRecognition();
                 }
-                if (audioRef.current) {
-                  audioRef.current.pause();
-                  audioRef.current.src = "";
-                  audioRef.current = null;
-                }
-                phaseRef.current = "listening"; // Synchronous lock
-                setPhase("listening");
-                startRecognition();
+              } else {
+                interruptFrameCount.current = 0; // Reset if signal drops
               }
             }
           }
@@ -243,22 +251,26 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           for (let i = 0; i < barCount; i++) {
             let binVal = 0;
             if (phaseRef.current === "speaking" || phaseRef.current === "processing") {
-              // Advanced AI speaking waveform animation (mimics syllables and natural speech patterns)
-              const time = Date.now() / 1000; // seconds
-              
-              // Simulated speech envelope (pauses and bursts of volume)
-              const envelope = Math.max(0, Math.sin(time * 12) * Math.sin(time * 7) * Math.cos(time * 19));
-              const amplitude = phaseRef.current === "processing" ? 30 : 40 + (envelope * 60);
-
-              // Gaussian curve to shape the center larger than edges
+              // Rich AI speaking visualizer with layered sine waves
+              const t = Date.now() / 1000;
               const center = barCount / 2;
-              const dist = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(barCount / 4, 2)));
               
-              // Individual bar flutter to mimic frequency bands
-              const flutter = Math.sin(time * (15 + i % 3) + i) * Math.cos(time * 8 - i) * 20;
-              const jitter = Math.random() * 10;
-
-              binVal = (dist * amplitude) + flutter + jitter;
+              // Bell curve: center bars are taller
+              const gaussian = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(barCount / 3.5, 2)));
+              
+              // Multiple overlapping "syllable" waves at different frequencies
+              const wave1 = Math.sin(t * 3.7 + i * 0.4) * 0.5 + 0.5; // slow roll
+              const wave2 = Math.sin(t * 8.3 + i * 0.7) * 0.3 + 0.5; // mid pulse
+              const wave3 = Math.sin(t * 14.1 - i * 0.9) * 0.2 + 0.5; // fast shimmer
+              
+              // Combine waves into a composite envelope (always positive, 0.2 to 1.0 range)
+              const composite = (wave1 * 0.5 + wave2 * 0.3 + wave3 * 0.2);
+              
+              // Per-bar jitter for organic feel
+              const jitter = (Math.random() * 8) + (Math.sin(t * 20 + i * 2.5) * 6);
+              
+              const baseAmplitude = phaseRef.current === "processing" ? 25 : 70;
+              binVal = (gaussian * baseAmplitude * composite) + jitter + 8;
             } else {
               // Real Mic Input
               for (let j = 0; j < binStep; j++) binVal += dataArray[i * binStep + j] || 0;
