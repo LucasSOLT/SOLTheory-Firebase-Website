@@ -350,35 +350,24 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     setTranscriptLines(prev => [...prev, { text: aiReply, isUser: false }]);
 
     try {
-      const ttsRes = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: aiReply })
-      });
-
-      if (ttsRes.ok) {
-        const audioBlob = await ttsRes.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        // Ensure absolutely no overlap if multiple processes resolved simultaneously
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.src = "";
-        }
-        
-        audioRef.current = audio;
-        
-        audio.onended = () => {
-          setPhase("listening");
-          audioRef.current = null;
-          if (!isMicMuted && !isPaused) startRecognition();
-        };
-        
-        await audio.play();
-      } else {
-        throw new Error("TTS stream failed");
+      const audioUrl = `/api/tts?text=${encodeURIComponent(aiReply)}`;
+      const audio = new Audio(audioUrl);
+      
+      // Ensure absolutely no overlap if multiple processes resolved simultaneously
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
       }
+      
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setPhase("listening");
+        audioRef.current = null;
+        if (!isMicMuted && !isPaused) startRecognition();
+      };
+      
+      await audio.play();
     } catch(err) {
       console.error(err);
       // Fallback

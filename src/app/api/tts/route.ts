@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   try {
-    const { text } = await req.json();
+    const { searchParams } = new URL(req.url);
+    const text = searchParams.get("text");
 
     if (!text) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
@@ -34,11 +35,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Voice generation failed" }, { status: response.status });
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-
-    return new NextResponse(arrayBuffer, {
+    // Stream the raw response directly from ElevenLabs without buffering it into memory
+    return new NextResponse(response.body, {
       headers: {
-        "Content-Type": "audio/mpeg"
+        "Content-Type": "audio/mpeg",
+        "Cache-Control": "no-cache",
       }
     });
 
