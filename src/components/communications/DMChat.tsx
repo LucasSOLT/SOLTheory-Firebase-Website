@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
-import { Send, UserCircle, Plus, Search, MessageSquareX, Paperclip, X } from "lucide-react";
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, updateDoc, doc, deleteDoc, arrayUnion } from "firebase/firestore";
+import { Send, UserCircle, Plus, Search, MessageSquareX, Paperclip, X, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +19,132 @@ interface Message {
   senderEmail: string;
   createdAt: any;
   imageUrl?: string;
+  hiddenFor?: string[];
 }
+
+const ChatToolsMenu = ({ onInsertList }: { onInsertList: (rows: number, isCheckbox: boolean) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [view, setView] = useState<'menu' | 'listForm'>('menu');
+  const [rows, setRows] = useState(5);
+  const [isCheckbox, setIsCheckbox] = useState(false);
+
+  return (
+    <div className="relative">
+      <button onClick={() => setIsOpen(!isOpen)} className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Tools">
+        <Wrench className="w-5 h-5 text-slate-500" />
+      </button>
+      {isOpen && (
+        <div className="absolute bottom-16 left-0 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50">
+          {view === 'menu' ? (
+            <div className="flex flex-col gap-1">
+              <button onClick={() => setView('listForm')} className="text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md">Create List</button>
+              <button disabled className="text-left px-3 py-2 text-sm font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Poll</button>
+              <button disabled className="text-left px-3 py-2 text-sm font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Thread</button>
+            </div>
+          ) : (
+            <div className="p-2 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-slate-700">New List</span>
+                <button onClick={() => { setView('menu'); setIsOpen(false); }}><X className="w-4 h-4 text-slate-400 hover:text-slate-600" /></button>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 font-medium">Rows (Max 50)</label>
+                <input type="number" min="1" max="50" value={rows} onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} className="w-full mt-1 border border-slate-200 bg-slate-50 rounded-md p-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer mt-3">
+                <input type="checkbox" checked={isCheckbox} onChange={e => setIsCheckbox(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer" />
+                <span className="text-sm text-slate-700 font-medium">Add Checkboxes</span>
+              </label>
+              <Button size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 mt-2 text-white font-medium" onClick={() => {
+                onInsertList(rows, isCheckbox);
+                setIsOpen(false);
+                setView('menu');
+              }}>Send List</Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: boolean, onUpdate: (text: string) => void }) => {
+  const [localLines, setLocalLines] = useState<string[]>(text.split('\n'));
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedRef = useRef(text);
+
+  // Sync from Firestore prop ONLY when text changes from an external source
+  useEffect(() => {
+    if (text !== lastSavedRef.current) {
+      setLocalLines(text.split('\n'));
+      lastSavedRef.current = text;
+    }
+  }, [text]);
+
+  const saveToFirestore = useCallback((newLines: string[]) => {
+    const joined = newLines.join('\n');
+    lastSavedRef.current = joined;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { onUpdate(joined); }, 500);
+  }, [onUpdate]);
+
+  const isListMessage = localLines.some(l => /^- \[[ x]\]/.test(l.trimStart()) || l.trimStart().startsWith('- •'));
+  if (!isListMessage) {
+    return <p className="text-sm leading-relaxed whitespace-pre-wrap">{text}</p>;
+  }
+
+  const handleCheckToggle = (idx: number) => {
+    const newLines = [...localLines];
+    const ln = newLines[idx];
+    if (/^\s*- \[ \]/.test(ln)) newLines[idx] = ln.replace('- [ ]', '- [x]');
+    else if (/^\s*- \[x\]/.test(ln)) newLines[idx] = ln.replace('- [x]', '- [ ]');
+    setLocalLines(newLines);
+    const joined = newLines.join('\n');
+    lastSavedRef.current = joined;
+    onUpdate(joined);
+  };
+
+  const handleTextChange = (idx: number, val: string) => {
+    const newLines = [...localLines];
+    const m = newLines[idx].trimStart().match(/^(- \[[ x]\]\s?|- •\s?)/);
+    const pfx = m ? (m[1].endsWith(' ') ? m[1] : m[1] + ' ') : '- • ';
+    newLines[idx] = pfx + val;
+    setLocalLines(newLines);
+    saveToFirestore(newLines);
+  };
+
+  const getContent = (line: string) => {
+    const m = line.trimStart().match(/^(- \[[ x]\]\s?|- •\s?)/);
+    return m ? line.trimStart().substring(m[1].length) : line.trimStart();
+  };
+
+  return (
+    <div className="space-y-1 mt-0.5 text-sm leading-relaxed flex flex-col">
+      {localLines.map((line, i) => {
+        const t = line.trimStart();
+        const isUnchecked = /^- \[ \]/.test(t);
+        const isChecked = /^- \[x\]/.test(t);
+        const isBullet = t.startsWith('- •');
+        if (!(isUnchecked || isChecked || isBullet)) return <span key={i} className="block">{line}</span>;
+        const content = getContent(line);
+        return (
+          <div key={i} className="flex items-center gap-2 group">
+            {isBullet ? (
+              <span className="w-4 h-4 flex items-center justify-center text-current opacity-60 text-lg leading-none shrink-0">•</span>
+            ) : (
+              <input type="checkbox" checked={isChecked} onChange={() => handleCheckToggle(i)} onClick={e => e.stopPropagation()} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer bg-white shrink-0" />
+            )}
+            {isMe ? (
+              <input type="text" value={content} onChange={e => handleTextChange(i, e.target.value)} className={`flex-1 bg-transparent border-none outline-none focus:ring-0 p-0 m-0 text-sm ${isChecked ? 'line-through opacity-60' : 'text-current placeholder-white/50'}`} placeholder="Type a task..." />
+            ) : (
+              <span className={`flex-1 text-sm ${isChecked ? 'line-through opacity-60' : ''}`}>{content || <span className="opacity-40 italic">Empty</span>}</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 interface Contact {
   id: string;
@@ -34,10 +159,12 @@ export function DMChat() {
   const firestore = useFirestore();
 
   const [chats, setChats] = useState<Chat[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") return sessionStorage.getItem("st_active_dm") || null;
-    return null;
-  });
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("st_active_dm");
+    if (saved) setActiveChatId(saved);
+  }, []);
 
   useEffect(() => {
     if (activeChatId) sessionStorage.setItem("st_active_dm", activeChatId);
@@ -49,6 +176,7 @@ export function DMChat() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showContactsDropdown, setShowContactsDropdown] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{url: string, name: string} | null>(null);
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number, msgId: string, isMe: boolean} | null>(null);
   
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -172,9 +300,7 @@ export function DMChat() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processImageFile = (file: File) => {
     if (file.type === "image/jpeg" || file.type === "image/png") {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -183,20 +309,63 @@ export function DMChat() {
           const canvas = document.createElement("canvas");
           let width = img.width;
           let height = img.height;
-          const MAX = 800; // max size to keep base64 under reasonable limits for firestore
+          const MAX = 800;
           if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
           else if (height > MAX) { width *= MAX / height; height = MAX; }
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
           const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          handleSendMessage(dataUrl, file.name);
+          handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
         };
         img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleToggleCheckbox = async (msgId: string, newText: string) => {
+    if (!firestore || !activeChatId) return;
+    try {
+      await updateDoc(doc(firestore, `dms/${activeChatId}/messages`, msgId), { text: newText });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteForMe = async (msgId: string) => {
+    if (!firestore || !activeChatId || !user?.email) return;
+    try {
+      await updateDoc(doc(firestore, `dms/${activeChatId}/messages`, msgId), { hiddenFor: arrayUnion(user.email) });
+    } catch (e) { console.error(e); }
+    setContextMenu(null);
+  };
+
+  const handleDeleteForEveryone = async (msgId: string) => {
+    if (!firestore || !activeChatId) return;
+    try {
+      await deleteDoc(doc(firestore, `dms/${activeChatId}/messages`, msgId));
+    } catch (e) { console.error(e); }
+    setContextMenu(null);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
     e.target.value = "";
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) processImageFile(file);
+        break;
+      }
+    }
   };
 
   const activeChat = chats.find(c => c.id === activeChatId);
@@ -309,11 +478,13 @@ export function DMChat() {
             </div>
 
             {/* Messages Feed */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {messages.map((msg, idx) => {
+            <div className="flex-1 overflow-y-auto p-6 space-y-6" onClick={() => setContextMenu(null)}>
+              {messages.filter(m => !(m.hiddenFor || []).includes(user?.email || '')).map((msg, idx) => {
                 const isMe = msg.senderEmail === user?.email;
                 return (
-                  <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                    onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isMe }); }}
+                  >
                     <div className={`max-w-[75%] rounded-3xl px-5 py-3 shadow-sm ${
                       isMe 
                         ? 'bg-indigo-600 text-white rounded-br-sm' 
@@ -330,7 +501,7 @@ export function DMChat() {
                           />
                         </div>
                       ) : (
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                        <InteractiveMessageBody text={msg.text} isMe={isMe} onUpdate={(t) => handleToggleCheckbox(msg.id, t)} />
                       )}
                     </div>
                   </div>
@@ -339,9 +510,27 @@ export function DMChat() {
               <div ref={bottomRef} className="h-1" />
             </div>
 
+            {/* Right-click Context Menu */}
+            {contextMenu && (
+              <div className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-slate-200 py-1 w-48 overflow-hidden" style={{ left: contextMenu.x, top: contextMenu.y }}>
+                <button onClick={() => handleDeleteForMe(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Delete for me</button>
+                {contextMenu.isMe && <button onClick={() => handleDeleteForEveryone(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium">Delete for everyone</button>}
+              </div>
+            )}
+
             {/* Input Footer */}
             <div className="p-4 bg-white border-t border-slate-200 shrink-0">
                <div className="flex items-center gap-2 max-w-4xl mx-auto relative">
+                 <ChatToolsMenu onInsertList={async (rows, isCheckbox) => {
+                   const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
+                   const msgData = {
+                     text: payload,
+                     senderEmail: user?.email,
+                     createdAt: serverTimestamp()
+                   };
+                   await addDoc(collection(firestore!, `dms/${activeChatId}/messages`), msgData);
+                   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                 }} />
                  <label className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Upload Photo">
                    <Paperclip className="w-5 h-5 text-slate-500" />
                    <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
@@ -349,6 +538,7 @@ export function DMChat() {
                  <Input 
                    value={inputText}
                    onChange={e => setInputText(e.target.value)}
+                   onPaste={handlePaste}
                    placeholder={`Message ${contactDisplayName}...`}
                    className="flex-1 bg-slate-100 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none"
                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && inputText.trim() && handleSendMessage()}

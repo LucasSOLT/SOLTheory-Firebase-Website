@@ -108,9 +108,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string }> = {
-    "morpheus": {
-      name: "Morpheus (Executive Agent)",
-      greeting: "Hello. I am Morpheus. How can I assist you today?",
+    "jarvis": {
+      name: "Jarvis (Executive Agent)",
+      greeting: "Hello. I am Jarvis. How can I assist you today?",
       theme: "border-blue-200 text-blue-600 bg-blue-50",
       chatBg: "bg-white border-slate-200 shadow-sm",
       accent: "text-blue-600"
@@ -120,7 +120,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const agent = agents[params.agentId as string];
   if (!agent) notFound();
 
-  const isEmailAgent = params.agentId === "morpheus";
+  const isEmailAgent = params.agentId === "jarvis";
 
   // Initialize
   useEffect(() => {
@@ -182,7 +182,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
       const data = docSnap.data();
       const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken
-        || !!data?.gmailOAuth_morpheus?.refreshToken
+        || !!(data?.gmailOAuth_jarvis?.refreshToken || data?.gmailOAuth_morpheus?.refreshToken)
         || !!data?.gmailOAuth_email?.refreshToken
         || !!data?.["gmailOAuth_inbound-email"]?.refreshToken
         || !!data?.gmailOAuth?.refreshToken;
@@ -253,7 +253,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         `soltheory_${params.agentId}`,
         `nxtchapter_${params.agentId}`
       ];
-      if (params.agentId === "morpheus") {
+      if (params.agentId === "jarvis") {
         possibleAgentIds.push("email", "soltheory_email", "nxtchapter_email");
       }
 
@@ -299,7 +299,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!rToken) rToken = docData?.gmailOAuth_morpheus?.refreshToken;
+        if (!rToken) rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken);
         if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
         if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
         if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
@@ -354,7 +354,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!rToken) rToken = docData?.gmailOAuth_morpheus?.refreshToken;
+        if (!rToken) rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken);
         if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
         if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
         if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
@@ -388,6 +388,74 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   };
 
+  const processAgentFile = async (file: File) => {
+    if (file.type === "image/jpeg" || file.type === "image/png") {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const MAX = 400;
+          if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+          else if (height > MAX) { width *= MAX / height; height = MAX; }
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+          const sysMsg: Message = {
+            id: uid(),
+            text: `Uploaded image: ${file.name || "pasted-image.jpg"}`,
+            isSelf: true,
+            imageUrl: dataUrl
+          };
+          setMessages(prev => [...prev, sysMsg]);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    setIsTyping(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok && data.chunks) {
+        const fullText = data.chunks.map((c: any) => c.text).join(" ");
+        const sysMsg: Message = {
+          id: uid(),
+          text: `Attached file: ${file.name || "pasted-file"}`,
+          isSelf: true,
+          hiddenContext: `The user has attached a file named ${file.name || "pasted-file"}. Here are the extracted contents:\n\n${fullText}`
+        };
+        setMessages(prev => [...prev, sysMsg]);
+      } else {
+        throw new Error(data.error || "Failed to parse file");
+      }
+    } catch (err: any) {
+      setMessages(prev => [...prev, { id: uid(), text: `Failed to attach file: ${err.message}`, isSelf: false }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) processAgentFile(file);
+        break;
+      }
+    }
+  };
+
   // OBSERVER PIPELINE
   const fetchPulse = async () => {
     if (!user?.uid || !firestore) return;
@@ -396,7 +464,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const docSnap = await getDoc(doc(firestore, "users", user.uid));
       const userData = docSnap.data();
       let rToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken
-        || userData?.gmailOAuth_morpheus?.refreshToken
+        || (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken)
         || userData?.gmailOAuth_email?.refreshToken
         || userData?.["gmailOAuth_inbound-email"]?.refreshToken
         || userData?.gmailOAuth?.refreshToken;
@@ -435,12 +503,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const docSnap = await getDoc(doc(firestore, "users", user.uid));
       const userData = docSnap.data();
       let rToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-      if (!rToken && params.agentId === "morpheus") {
+      if (!rToken && params.agentId === "jarvis") {
         rToken = userData?.gmailOAuth_email?.refreshToken;
       }
-      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken);
       if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
-      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken);
       if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
       const res = await fetch("/api/webhooks/gmail/delete", {
         method: "POST",
@@ -470,12 +538,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const docSnap = await getDoc(doc(firestore, "users", user.uid));
       const userData = docSnap.data();
       let rToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-      if (!rToken && params.agentId === "morpheus") {
+      if (!rToken && params.agentId === "jarvis") {
         rToken = userData?.gmailOAuth_email?.refreshToken;
       }
-      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken);
       if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
-      if (!rToken) rToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!rToken) rToken = (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken);
       if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
 
       const kbText = await getKnowledgeBaseText();
@@ -859,65 +927,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </button>
                         <label className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer" title="Upload File">
                           <Paperclip className="w-5 h-5" />
-                          <input type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={async (e) => {
+                          <input type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={(e) => {
                             if (e.target.files?.length) {
-                              const file = e.target.files[0];
-
-                              // If it's an image, optimize it and send as preview
-                              if (file.type === "image/jpeg" || file.type === "image/png") {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  const img = new Image();
-                                  img.onload = () => {
-                                    const canvas = document.createElement("canvas");
-                                    let width = img.width;
-                                    let height = img.height;
-                                    const MAX = 400; // Compress enough to fit easily in localStorage limits
-                                    if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
-                                    else if (height > MAX) { width *= MAX / height; height = MAX; }
-                                    canvas.width = width; canvas.height = height;
-                                    const ctx = canvas.getContext("2d");
-                                    ctx?.drawImage(img, 0, 0, width, height);
-                                    const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
-                                    
-                                    const sysMsg: Message = {
-                                      id: uid(),
-                                      text: `Uploaded image: ${file.name}`,
-                                      isSelf: true,
-                                      imageUrl: dataUrl
-                                    };
-                                    setMessages(prev => [...prev, sysMsg]);
-                                  };
-                                  img.src = event.target?.result as string;
-                                };
-                                reader.readAsDataURL(file);
-                                return;
-                              }
-
-                              setIsTyping(true);
-                              try {
-                                const formData = new FormData();
-                                formData.append("file", file);
-                                const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
-                                const data = await res.json();
-                                if (res.ok && data.chunks) {
-                                  const fullText = data.chunks.map((c: any) => c.text).join(" ");
-                                  const sysMsg: Message = {
-                                    id: uid(),
-                                    text: `Attached file: ${file.name}`,
-                                    isSelf: true,
-                                    hiddenContext: `The user has attached a file named ${file.name}. Here are the extracted contents:\n\n${fullText}`
-                                  };
-                                  setMessages(prev => [...prev, sysMsg]);
-                                } else {
-                                  throw new Error(data.error || "Failed to parse file");
-                                }
-                              } catch (err: any) {
-                                setMessages(prev => [...prev, { id: uid(), text: `Failed to attach file: ${err.message}`, isSelf: false }]);
-                              } finally {
-                                setIsTyping(false);
-                                e.target.value = "";
-                              }
+                              processAgentFile(e.target.files[0]);
+                              e.target.value = "";
                             }
                           }} />
                         </label>
@@ -925,7 +938,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       <Input
                         placeholder="Instruct the agent..."
                         className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 pr-24 min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
-                        value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                        value={inputValue} onChange={e => setInputValue(e.target.value)} onPaste={handlePaste} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       />
 
                       <button
@@ -949,7 +962,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
 
           {/* RIGHT OBSERVER PANEL Ribbon Button */}
-          {params.agentId === "morpheus" && !isObserverOpen && (
+          {params.agentId === "jarvis" && !isObserverOpen && (
             <button
               onClick={() => setIsObserverOpen(true)}
               className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300 transition-all duration-200"
@@ -1083,6 +1096,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       className="pl-10 pr-10 bg-slate-200/50  border-slate-300  text-sm h-11 text-slate-900  placeholder:text-slate-500 focus-visible:ring-emerald-500"
                       value={observerInputValue}
                       onChange={e => setObserverInputValue(e.target.value)}
+                      onPaste={handlePaste}
                       onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleObserverChat()}
                     />
                     <Button size="icon" onClick={handleObserverChat} disabled={!observerInputValue.trim() || isTyping} className="absolute right-6 top-1/2 -translate-y-1/2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-slate-900  w-7 h-7 disabled:opacity-30">
@@ -1134,7 +1148,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             const docSnap = await getDoc(doc(firestore, "users", user.uid));
             const docData = docSnap.data();
             rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-            if (!rToken) rToken = docData?.gmailOAuth_morpheus?.refreshToken;
+            if (!rToken) rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken);
             if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
             if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
             if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;

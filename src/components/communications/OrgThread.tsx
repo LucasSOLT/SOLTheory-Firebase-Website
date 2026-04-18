@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove, updateDoc, doc, deleteDoc, getDocs, setDoc } from "firebase/firestore";
-import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, ChevronDown, Pencil, Check, Paperclip } from "lucide-react";
+import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, ChevronDown, Pencil, Check, Paperclip, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -24,9 +24,133 @@ interface ThreadMessage {
   senderEmail: string;
   createdAt: any;
   imageUrl?: string;
+  hiddenFor?: string[];
 }
 
 type Role = "admin" | "executive" | "member";
+
+const ChatToolsMenu = ({ onInsertList }: { onInsertList: (rows: number, isCheckbox: boolean) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [view, setView] = useState<'menu' | 'listForm'>('menu');
+  const [rows, setRows] = useState(5);
+  const [isCheckbox, setIsCheckbox] = useState(false);
+
+  return (
+    <div className="absolute left-12 top-1/2 -translate-y-1/2 z-20">
+      <button onClick={() => setIsOpen(!isOpen)} className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors flex items-center justify-center cursor-pointer" title="Tools">
+        <Wrench className="w-4 h-4 text-slate-600" />
+      </button>
+      {isOpen && (
+        <div className="absolute bottom-12 left-0 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50">
+          {view === 'menu' ? (
+            <div className="flex flex-col gap-1">
+              <button onClick={() => setView('listForm')} className="text-left px-3 py-2 text-[15px] font-medium text-slate-700 hover:bg-slate-100 rounded-md">Create List</button>
+              <button disabled className="text-left px-3 py-2 text-[15px] font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Poll</button>
+              <button disabled className="text-left px-3 py-2 text-[15px] font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Thread</button>
+            </div>
+          ) : (
+            <div className="p-2 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-slate-700">New List</span>
+                <button onClick={() => { setView('menu'); setIsOpen(false); }} className="hover:text-slate-600"><X className="w-4 h-4 text-slate-400" /></button>
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Rows (Max 50)</label>
+                <input type="number" min="1" max="50" value={rows} onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} className="w-full mt-1 border border-slate-200 bg-slate-50 rounded-md p-1.5 text-[15px] outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer mt-3 mb-1">
+                <input type="checkbox" checked={isCheckbox} onChange={e => setIsCheckbox(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer" />
+                <span className="text-[13px] font-medium text-slate-700">Add Checkboxes</span>
+              </label>
+              <Button size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium h-9" onClick={() => {
+                onInsertList(rows, isCheckbox);
+                setIsOpen(false);
+                setView('menu');
+              }}>Send List</Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: boolean, onUpdate: (text: string) => void }) => {
+  const [localLines, setLocalLines] = useState<string[]>(text.split('\n'));
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedRef = useRef(text);
+
+  useEffect(() => {
+    if (text !== lastSavedRef.current) {
+      setLocalLines(text.split('\n'));
+      lastSavedRef.current = text;
+    }
+  }, [text]);
+
+  const saveToFirestore = useCallback((newLines: string[]) => {
+    const joined = newLines.join('\n');
+    lastSavedRef.current = joined;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { onUpdate(joined); }, 500);
+  }, [onUpdate]);
+
+  const isListMessage = localLines.some(l => /^- \[[ x]\]/.test(l.trimStart()) || l.trimStart().startsWith('- •'));
+  if (!isListMessage) {
+    return <p className="text-slate-700 text-[15px] leading-relaxed mt-0.5 whitespace-pre-wrap">{text}</p>;
+  }
+
+  const handleCheckToggle = (idx: number) => {
+    const newLines = [...localLines];
+    const ln = newLines[idx];
+    if (/^\s*- \[ \]/.test(ln)) newLines[idx] = ln.replace('- [ ]', '- [x]');
+    else if (/^\s*- \[x\]/.test(ln)) newLines[idx] = ln.replace('- [x]', '- [ ]');
+    setLocalLines(newLines);
+    const joined = newLines.join('\n');
+    lastSavedRef.current = joined;
+    onUpdate(joined);
+  };
+
+  const handleTextChange = (idx: number, val: string) => {
+    const newLines = [...localLines];
+    const m = newLines[idx].trimStart().match(/^(- \[[ x]\]\s?|- •\s?)/);
+    const pfx = m ? (m[1].endsWith(' ') ? m[1] : m[1] + ' ') : '- • ';
+    newLines[idx] = pfx + val;
+    setLocalLines(newLines);
+    saveToFirestore(newLines);
+  };
+
+  const getContent = (line: string) => {
+    const m = line.trimStart().match(/^(- \[[ x]\]\s?|- •\s?)/);
+    return m ? line.trimStart().substring(m[1].length) : line.trimStart();
+  };
+
+  return (
+    <div className="space-y-1 mt-0.5 text-[15px] leading-relaxed flex flex-col">
+      {localLines.map((line, i) => {
+        const t = line.trimStart();
+        const isUnchecked = /^- \[ \]/.test(t);
+        const isChecked = /^- \[x\]/.test(t);
+        const isBullet = t.startsWith('- •');
+        if (!(isUnchecked || isChecked || isBullet)) return <span key={i} className="block text-slate-700">{line}</span>;
+        const content = getContent(line);
+        return (
+          <div key={i} className="flex items-center gap-2 group">
+            {isBullet ? (
+              <span className="w-4 h-4 flex items-center justify-center text-slate-500 opacity-60 text-lg leading-none shrink-0">•</span>
+            ) : (
+              <input type="checkbox" checked={isChecked} onChange={() => handleCheckToggle(i)} onClick={e => e.stopPropagation()} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer bg-white shrink-0" />
+            )}
+            {isMe ? (
+              <input type="text" value={content} onChange={e => handleTextChange(i, e.target.value)} className={`flex-1 bg-transparent border-none outline-none focus:ring-0 p-0 m-0 text-[15px] ${isChecked ? 'line-through opacity-60' : 'text-slate-800 placeholder-slate-400'}`} placeholder="Type a task..." />
+            ) : (
+              <span className={`flex-1 text-[15px] ${isChecked ? 'line-through opacity-60' : 'text-slate-800'}`}>{content || <span className="opacity-40 italic">Empty</span>}</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const ROLE_COLORS: Record<Role, string> = {
   admin: "text-red-600 bg-red-50 border-red-200",
@@ -40,10 +164,12 @@ export function OrgThread() {
 
   const [internalChannels, setInternalChannels] = useState<Channel[]>([]);
   const [guestChannels, setGuestChannels] = useState<Channel[]>([]);
-  const [activeChannelId, setActiveChannelId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") return sessionStorage.getItem("st_active_channel") || null;
-    return null;
-  });
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("st_active_channel");
+    if (saved) setActiveChannelId(saved);
+  }, []);
 
   useEffect(() => {
     if (activeChannelId) sessionStorage.setItem("st_active_channel", activeChannelId);
@@ -66,6 +192,7 @@ export function OrgThread() {
   const [rolePopupEmail, setRolePopupEmail] = useState<string | null>(null);
 
   const [lightboxImage, setLightboxImage] = useState<{url: string, name: string} | null>(null);
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number, msgId: string, isMe: boolean} | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -314,9 +441,7 @@ export function OrgThread() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processImageFile = (file: File) => {
     if (file.type === "image/jpeg" || file.type === "image/png") {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -332,13 +457,56 @@ export function OrgThread() {
           const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
           const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          handleSendMessage(dataUrl, file.name);
+          handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
         };
         img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleToggleCheckbox = async (msgId: string, newText: string) => {
+    if (!firestore || !activeChannelId) return;
+    try {
+      await updateDoc(doc(firestore, `org_channels/${activeChannelId}/messages`, msgId), { text: newText });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteForMe = async (msgId: string) => {
+    if (!firestore || !activeChannelId || !user?.email) return;
+    try {
+      await updateDoc(doc(firestore, `org_channels/${activeChannelId}/messages`, msgId), { hiddenFor: arrayUnion(user.email) });
+    } catch (e) { console.error(e); }
+    setContextMenu(null);
+  };
+
+  const handleDeleteForEveryone = async (msgId: string) => {
+    if (!firestore || !activeChannelId) return;
+    try {
+      await deleteDoc(doc(firestore, `org_channels/${activeChannelId}/messages`, msgId));
+    } catch (e) { console.error(e); }
+    setContextMenu(null);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
     e.target.value = "";
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) processImageFile(file);
+        break;
+      }
+    }
   };
 
   const channels = [...internalChannels, ...guestChannels];
@@ -555,8 +723,12 @@ export function OrgThread() {
                     </p>
                   </div>
                   <div className="h-px bg-slate-100 w-full mb-6"></div>
-                  {messages.map((msg, idx) => (
-                    <div key={msg.id || idx} className="group hover:bg-slate-50/80 rounded-lg transition-colors flex gap-4 pr-4 py-1">
+                  {messages.filter(m => !(m.hiddenFor || []).includes(user?.email || '')).map((msg, idx) => {
+                    const isMe = msg.senderEmail === user?.email;
+                    return (
+                    <div key={msg.id || idx} className="group hover:bg-slate-50/80 rounded-lg transition-colors flex gap-4 pr-4 py-1"
+                      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isMe }); }}
+                    >
                       <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5">
                         <span className="font-bold text-indigo-600 text-sm">{msg.senderEmail.charAt(0).toUpperCase()}</span>
                       </div>
@@ -578,12 +750,21 @@ export function OrgThread() {
                             />
                           </div>
                         ) : (
-                          <p className="text-slate-700 text-[15px] leading-relaxed mt-0.5 whitespace-pre-wrap">{msg.text}</p>
+                          <InteractiveMessageBody text={msg.text} isMe={isMe} onUpdate={(t) => handleToggleCheckbox(msg.id, t)} />
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   <div ref={bottomRef} className="h-4" />
+
+                  {/* Right-click Context Menu */}
+                  {contextMenu && (
+                    <div className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-slate-200 py-1 w-48 overflow-hidden" style={{ left: contextMenu.x, top: contextMenu.y }}>
+                      <button onClick={() => handleDeleteForMe(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Delete for me</button>
+                      {contextMenu.isMe && <button onClick={() => handleDeleteForEveryone(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium">Delete for everyone</button>}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -729,11 +910,22 @@ export function OrgThread() {
                   <Paperclip className="w-4 h-4 text-slate-600" />
                   <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
                 </label>
+                <ChatToolsMenu onInsertList={async (rows, isCheckbox) => {
+                   const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
+                   const msgData = {
+                     text: payload,
+                     senderEmail: user?.email,
+                     createdAt: serverTimestamp()
+                   };
+                   await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
+                   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                 }} />
                 <Input
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
+                  onPaste={handlePaste}
                   placeholder={`Message #${activeChannel.name}`}
-                  className="w-full bg-slate-100 border-transparent focus-visible:ring-0 rounded-xl h-12 pl-12 pr-12 shadow-none text-[15px] text-slate-800 placeholder:text-slate-500"
+                  className="w-full bg-slate-100 border-transparent focus-visible:ring-0 rounded-xl h-12 pl-[5.5rem] pr-12 shadow-none text-[15px] text-slate-800 placeholder:text-slate-500"
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
                 />
               </div>

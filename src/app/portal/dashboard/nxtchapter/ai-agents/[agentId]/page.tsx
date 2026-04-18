@@ -76,9 +76,9 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent?: string }> = {
-    "morpheus": { 
-      name: "Morpheus (Executive Agent)", 
-      greeting: "Hello. I am Morpheus, your dedicated AI assistant for NXT Chapter. How can I assist you today?", 
+    "jarvis": { 
+      name: "Jarvis (Executive Agent)", 
+      greeting: "Hello. I am Jarvis, your dedicated AI assistant for NXT Chapter. How can I assist you today?", 
       theme: "border-blue-200 text-blue-600 bg-blue-50", 
       chatBg: "bg-white border-slate-200 shadow-sm",
       accent: "text-blue-600"
@@ -133,11 +133,11 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   }, [agentConfig, params.agentId]);
 
   useEffect(() => {
-    if (params.agentId !== "morpheus" || !user?.uid || !firestore) return;
+    if (params.agentId !== "jarvis" || !user?.uid || !firestore) return;
     getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
       const data = docSnap.data();
       const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken 
-        || !!data?.gmailOAuth_morpheus?.refreshToken
+        || !!(data?.gmailOAuth_jarvis?.refreshToken || data?.gmailOAuth_morpheus?.refreshToken)
         || !!data?.gmailOAuth_email?.refreshToken
         || !!data?.["gmailOAuth_inbound-email"]?.refreshToken
         || !!data?.gmailOAuth?.refreshToken;
@@ -186,7 +186,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
   // Observer Polling Effect
   useEffect(() => {
-    if (params.agentId !== "morpheus" || !user?.uid || !firestore) return;
+    if (params.agentId !== "jarvis" || !user?.uid || !firestore) return;
 
     const pollInbox = async () => {
       try {
@@ -194,7 +194,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         const userDoc = await getDoc(doc(firestore, "users", user.uid));
         const userData = userDoc.data();
         let refreshToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken
-          || userData?.gmailOAuth_morpheus?.refreshToken
+          || (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken)
           || userData?.gmailOAuth_email?.refreshToken
           || userData?.["gmailOAuth_inbound-email"]?.refreshToken
           || userData?.gmailOAuth?.refreshToken;
@@ -274,7 +274,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         `soltheory_${params.agentId}`,
         `nxtchapter_${params.agentId}`
       ];
-      if (params.agentId === "morpheus") {
+      if (params.agentId === "jarvis") {
         possibleAgentIds.push("email", "soltheory_email", "nxtchapter_email");
       }
 
@@ -321,7 +321,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!rToken) rToken = docData?.gmailOAuth_morpheus?.refreshToken;
+        if (!rToken) rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken);
         if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
         if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
         if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
@@ -382,10 +382,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       const userDoc = await getDoc(doc(firestore, "users", user.uid));
       const userData = userDoc.data();
       let refreshToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-      if (!refreshToken && params.agentId === "morpheus") {
+      if (!refreshToken && params.agentId === "jarvis") {
         refreshToken = userData?.gmailOAuth_email?.refreshToken;
       }
-      if (!refreshToken) refreshToken = userData?.gmailOAuth_morpheus?.refreshToken;
+      if (!refreshToken) refreshToken = (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken);
       if (!refreshToken) refreshToken = userData?.gmailOAuth?.refreshToken;
       
       const res = await fetch("/api/webhooks/gmail/sync", {
@@ -800,7 +800,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       </div>
 
       {/* RIGHT OBSERVER PANEL Ribbon Button */}
-      {params.agentId === "morpheus" && !isObserverOpen && (
+      {params.agentId === "jarvis" && !isObserverOpen && (
         <button 
           onClick={() => setIsObserverOpen(true)} 
           className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200  hover:bg-slate-300 text-slate-700  p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300  transition-all duration-200"
@@ -811,7 +811,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       )}
 
       {/* RIGHT OBSERVER PANEL (Shown for email agents) */}
-      {params.agentId === "morpheus" && (
+      {params.agentId === "jarvis" && (
         <div className={`transition-all duration-300 ease-in-out shrink-0 border-slate-200  bg-slate-50  overflow-hidden relative ${isObserverOpen ? 'w-full md:w-[380px] border-l opacity-100 flex flex-col z-20' : 'w-0 opacity-0 border-l-0 border-none'}`}>
           <div className="h-14 flex items-center justify-between px-5 border-b border-slate-200  shrink-0 bg-white ">
             <div className="font-semibold text-[15px] flex items-center gap-2 text-slate-800 ">

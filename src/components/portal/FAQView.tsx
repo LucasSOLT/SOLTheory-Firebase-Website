@@ -29,7 +29,7 @@ const FAQ_LIST = [
     answer: "The knowledge ingestion engine currently only parses specific file types to protect security. Make sure your upload is formatted as a PNG, JPEG, PDF, or Standard Text (TXT) file, and keep sizes reasonable."
   },
   {
-    question: "Morpheus Voice Integration is completely silent or grayed out.",
+    question: "Jarvis Voice Integration is completely silent or grayed out.",
     answer: "Voice processing requires explicit hardware permissions. Check the 'Lock' icon next to your URL bar and ensure that Microphone access is toggled 'Allow' for this dashboard. Re-click the microphone icon after granting access."
   },
   {

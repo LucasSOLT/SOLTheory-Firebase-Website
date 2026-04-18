@@ -203,6 +203,8 @@ service cloud.firestore {
       match /messages/{msgId} {
         allow read: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
         allow create: if isSignedIn() && request.auth.token.email == request.resource.data.senderEmail && request.auth.token.email in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+        allow update: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+        allow delete: if isSignedIn() && request.auth.token.email == resource.data.senderEmail;
       }
     }
 
@@ -229,11 +231,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.auth.token.email.split('@')[1] == request.resource.data.domain;
 
       match /messages/{msgId} {
-        allow read, create: if isSignedIn() && isNotBanned(get(/databases/$(database)/documents/org_channels/$(channelId)).data) && (
+        allow read, create, update: if isSignedIn() && isNotBanned(get(/databases/$(database)/documents/org_channels/$(channelId)).data) && (
           request.auth.token.email.split('@')[1] == get(/databases/$(database)/documents/org_channels/$(channelId)).data.domain ||
           request.auth.token.email in get(/databases/$(database)/documents/org_channels/$(channelId)).data.get('invitedUsers', [])
         );
-        allow update, delete: if isSignedIn() && request.auth.token.email == resource.data.senderEmail;
+        allow delete: if isSignedIn() && request.auth.token.email == resource.data.senderEmail;
       }
     }
 

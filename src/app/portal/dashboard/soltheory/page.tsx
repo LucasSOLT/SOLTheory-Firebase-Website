@@ -201,7 +201,7 @@ export default function SolTheoryDashboard() {
           </CardContent>
         </Card>
 
-        <Link href="/portal/dashboard/soltheory/ai-agents/morpheus" className="block relative group h-full">
+        <Link href="/portal/dashboard/soltheory/ai-agents/jarvis" className="block relative group h-full">
           <Card className="bg-slate-100 border-0 shadow-lg overflow-hidden h-full flex flex-col items-center justify-center transition-transform group-hover:-translate-y-1 rounded-2xl relative">
             <div className="absolute top-0 right-0 p-4">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>

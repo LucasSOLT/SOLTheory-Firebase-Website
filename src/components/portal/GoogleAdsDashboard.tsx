@@ -73,7 +73,7 @@ export function GoogleAdsDashboard() {
       if (user?.uid && firestore) {
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
-        rToken = docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken || null;
+        rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken) || docData?.gmailOAuth?.refreshToken || null;
       }
 
       const res = await fetch("/api/chat", {
@@ -85,7 +85,7 @@ export function GoogleAdsDashboard() {
             content: m.text
           })), 
           agentId: `nxtchapter_ads_assistant`,
-          soul: `You are the Campaign Assistant, acting as a specialized Morpheus unit exclusively for Google Ads. You operate within a dashboard popup and have full authorization to 'manage' ads. Do not try to search google drive or use email tools. Do not break character. 
+          soul: `You are the Campaign Assistant, acting as a specialized Jarvis unit exclusively for Google Ads. You operate within a dashboard popup and have full authorization to 'manage' ads. Do not try to search google drive or use email tools. Do not break character. 
           
 The user's CURRENT daily budget limit is set to: $${budget}.
 
@@ -344,7 +344,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
                    </div>
                    <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
                       <p className="text-sm text-slate-700 leading-relaxed">
-                        Hello! I am your Morpheus Ads Agent. Would you like me to analyze today's click-through rates or schedule a new campaign task?
+                        Hello! I am your Jarvis Ads Agent. Would you like me to analyze today's click-through rates or schedule a new campaign task?
                       </p>
                    </div>
                 </div>

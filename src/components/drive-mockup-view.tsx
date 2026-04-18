@@ -116,7 +116,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
       if (user?.uid && firestore) {
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
-        rToken = docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken || null;
+        rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken) || docData?.gmailOAuth?.refreshToken || null;
       }
 
       const res = await fetch("/api/chat", {
@@ -159,7 +159,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
     const docSnap = await getDoc(doc(firestore, "users", uid));
     const data = docSnap.data();
     return (
-      data?.gmailOAuth_morpheus?.refreshToken ||
+      (data?.gmailOAuth_jarvis?.refreshToken || data?.gmailOAuth_morpheus?.refreshToken) ||
       data?.gmailOAuth_email?.refreshToken ||
       data?.["gmailOAuth_inbound-email"]?.refreshToken ||
       data?.gmailOAuth?.refreshToken ||
@@ -277,7 +277,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
           <div className="p-4">
             <button className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all font-medium text-slate-700">
               <Plus className="w-5 h-5 text-slate-500" />
-              New (via Morpheus)
+              New (via Jarvis)
             </button>
           </div>
 
@@ -290,7 +290,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
               className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer font-medium text-sm transition-colors ${!fetchAll ? config.headerBg + ' ' + config.color : 'text-slate-500 hover:bg-slate-50'}`}
             >
               <Sparkles className="w-4 h-4" />
-              <span>Morpheus Documents</span>
+              <span>Jarvis Documents</span>
             </div>
             <div 
               onClick={() => setFetchAll(true)}
@@ -310,7 +310,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
                 </span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Ask Morpheus to create documents for you! Try: &ldquo;Create a Google Doc called Meeting Notes with a summary of today&rsquo;s agenda.&rdquo;
+                Ask Jarvis to create documents for you! Try: &ldquo;Create a Google Doc called Meeting Notes with a summary of today&rsquo;s agenda.&rdquo;
               </p>
             </div>
           </div>
@@ -329,7 +329,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
               </div>
               <button
                 onClick={() => {
-                  window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=morpheus&origin=${origin}&returnTo=settings`;
+                  window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=jarvis&origin=${origin}&returnTo=settings`;
                 }}
                 className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg transition-colors whitespace-nowrap shadow-sm"
               >
@@ -369,7 +369,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
                   Connect Google to Get Started
                 </h3>
                 <p className="text-sm text-slate-400 max-w-md">
-                  Link your Google account through Settings to view documents created by your AI agent Morpheus.
+                  Link your Google account through Settings to view documents created by your AI agent Jarvis.
                 </p>
               </div>
             ) : filteredFiles.length === 0 ? (
@@ -383,7 +383,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
                 <p className="text-sm text-slate-400 max-w-md">
                   {searchQuery
                     ? "Try a different search term."
-                    : `Ask Morpheus to create a ${config.title.replace("Google ", "")} document in the AI Agent chat and it will appear here.`}
+                    : `Ask Jarvis to create a ${config.title.replace("Google ", "")} document in the AI Agent chat and it will appear here.`}
                 </p>
               </div>
             ) : (

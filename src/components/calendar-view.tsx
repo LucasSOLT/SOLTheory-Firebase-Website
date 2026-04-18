@@ -93,7 +93,7 @@ export function CalendarView() {
       if (user?.uid && firestore) {
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
-        rToken = docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken || null;
+        rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken) || docData?.gmailOAuth?.refreshToken || null;
       }
 
       const res = await fetch("/api/chat", {
@@ -143,7 +143,7 @@ export function CalendarView() {
     if (!firestore) return null;
     const docSnap = await getDoc(doc(firestore, "users", uid));
     const data = docSnap.data();
-    return data?.gmailOAuth_morpheus?.refreshToken
+    return (data?.gmailOAuth_jarvis?.refreshToken || data?.gmailOAuth_morpheus?.refreshToken)
       || data?.gmailOAuth_email?.refreshToken
       || data?.["gmailOAuth_inbound-email"]?.refreshToken
       || data?.gmailOAuth?.refreshToken
@@ -175,7 +175,7 @@ export function CalendarView() {
     if (!user?.uid || !firestore) return;
 
     const rt = searchParams.get("rt");
-    const agent = searchParams.get("agent") || "morpheus";
+    const agent = searchParams.get("agent") || "jarvis";
 
     if (rt) {
       // We just came back from OAuth — save the token to Firestore
@@ -354,7 +354,7 @@ export function CalendarView() {
               <span>Connect your Google Account to view and edit real events.</span>
             </div>
             <button 
-              onClick={() => {window.location.href=`/api/auth/google?uid=${user?.uid || ""}&agentId=morpheus&origin=${origin}&returnTo=calendar`}} 
+              onClick={() => {window.location.href=`/api/auth/google?uid=${user?.uid || ""}&agentId=jarvis&origin=${origin}&returnTo=calendar`}} 
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg transition-colors whitespace-nowrap shadow-sm"
             >
               Connect Google

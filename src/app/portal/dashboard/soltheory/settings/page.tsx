@@ -169,7 +169,7 @@ function SettingsContent() {
     const rt = searchParams.get("rt");
     const isConnectedParam = searchParams.get("gmail_connected") === "true";
     const errorParam = searchParams.get("error");
-    const agent = searchParams.get("agent") || "morpheus";
+    const agent = searchParams.get("agent") || "jarvis";
 
     if (rt && user?.uid && firestore) {
       setDoc(doc(firestore, "users", user.uid), {
@@ -221,7 +221,7 @@ function SettingsContent() {
       }
     }
     if (!uid) return;
-    window.location.href = `/api/auth/google?uid=${uid}&agentId=morpheus&origin=soltheory`;
+    window.location.href = `/api/auth/google?uid=${uid}&agentId=jarvis&origin=soltheory`;
   };
 
   const handleSyncInbox = async () => {
@@ -230,10 +230,10 @@ function SettingsContent() {
     setSyncMessage("");
     try {
       const userDoc = await getDoc(doc(firestore, "users", user.uid));
-      const agent = searchParams.get("agent") || "morpheus";
+      const agent = searchParams.get("agent") || "jarvis";
       const docData = userDoc.data();
       const refreshToken = docData?.[`gmailOAuth_${agent}`]?.refreshToken || 
-                           docData?.gmailOAuth_morpheus?.refreshToken ||
+                           (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken) ||
                            docData?.gmailOAuth_email?.refreshToken ||
                            docData?.gmailOAuth?.refreshToken;
                            
@@ -261,7 +261,7 @@ function SettingsContent() {
       <main className="flex-grow py-8 px-4 md:px-8 relative">
         <div className="w-full max-w-5xl mx-auto space-y-6">
           <div className="flex items-center gap-4 relative z-20">
-            <Link href="/portal/dashboard/soltheory/ai-agents/morpheus" className="p-2 bg-white/50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 shadow-sm backdrop-blur-md relative z-20">
+            <Link href="/portal/dashboard/soltheory/ai-agents/jarvis" className="p-2 bg-white/50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 shadow-sm backdrop-blur-md relative z-20">
               <ArrowLeft className="w-5 h-5 text-slate-700" />
             </Link>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{dict.settings}</h1>

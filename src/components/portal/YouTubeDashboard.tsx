@@ -73,7 +73,7 @@ export function YouTubeDashboard() {
       if (user?.uid && firestore) {
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
-        rToken = docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken || null;
+        rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken) || docData?.gmailOAuth?.refreshToken || null;
       }
 
       const res = await fetch("/api/chat", {
@@ -333,7 +333,7 @@ Example: I have refocused our strategy. [DEMOGRAPHIC_UPDATED: Teenagers interest
                    </div>
                    <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
                       <p className="text-sm text-slate-700 leading-relaxed">
-                        Hey there! I'm your Morpheus YouTube Director. Do you want to brainstorm some viral video concepts based on your current demographic strategy?
+                        Hey there! I'm your Jarvis YouTube Director. Do you want to brainstorm some viral video concepts based on your current demographic strategy?
                       </p>
                    </div>
                 </div>
