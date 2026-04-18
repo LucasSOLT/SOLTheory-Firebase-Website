@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, Settings, LogOut, MessageSquare, Send, Menu, Loader2, Sun, Moon, Mail, Brain, Trash2, MoreVertical, X, CheckCircle2, Paperclip, Cloud } from "lucide-react";
+import { Bot, User, Plus, Search, Settings, LogOut, MessageSquare, Send, Menu, Loader2, Sun, Moon, Mail, Brain, Trash2, MoreVertical, X, CheckCircle2, Paperclip, Cloud, Mic } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { useUser, useFirestore } from "@/firebase";
@@ -19,6 +20,7 @@ type Message = {
   text: string;
   isSelf: boolean;
   hiddenContext?: string;
+  imageUrl?: string;
 };
 
 type Session = {
@@ -50,6 +52,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{url: string, name: string} | null>(null);
 
 
   
@@ -59,6 +62,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const [openEmailDropdown, setOpenEmailDropdown] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isObserverOpen, setIsObserverOpen] = useState(false);
   const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
   const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
@@ -94,14 +98,16 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     if (savedSessionsStr) {
       try {
         const parsed: Session[] = JSON.parse(savedSessionsStr);
-        // Deduplicate message IDs (purges stale voice-agent duplicates from localStorage)
-        const deduped = parsed.map(s => {
+        const uniqueSessions = new Map<string, Session>();
+        parsed.forEach(s => {
           const seen = new Set<string>();
-          return { ...s, messages: s.messages.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; }) };
+          s.messages = s.messages.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
+          if (!uniqueSessions.has(s.id)) uniqueSessions.set(s.id, s);
         });
-        setSessions(deduped);
-        if (deduped.length > 0) {
-          const mostRecent = deduped.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        const dedupedSessions = Array.from(uniqueSessions.values());
+        setSessions(dedupedSessions);
+        if (dedupedSessions.length > 0) {
+          const mostRecent = dedupedSessions.sort((a, b) => b.updatedAt - a.updatedAt)[0];
           setActiveSessionId(mostRecent.id);
           setMessages(mostRecent.messages);
         } else {
@@ -221,7 +227,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
   const startNewSession = () => {
     const newSession: Session = {
-      id: Date.now().toString(),
+      id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       title: "New Chat",
       updatedAt: Date.now(),
       messages: []
@@ -632,7 +638,18 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                 <div className={`flex-1 space-y-2 pt-1 ${msg.isSelf ? 'text-right' : ''}`}>
                   <div className="font-semibold text-sm text-slate-700 ">{msg.isSelf ? 'You' : agent.name.split(' ')[0]}</div>
                   <div className={`text-slate-700  leading-relaxed inline-block p-4 rounded-2xl shadow-sm text-left ${msg.isSelf ? 'bg-slate-100  rounded-tr-sm border border-slate-200  whitespace-pre-wrap' : `${agent.chatBg} rounded-tl-sm border [&>p]:mb-4 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold`}`}>
-                    {msg.isSelf ? msg.text : <ReactMarkdown>{msg.text}</ReactMarkdown>}
+                    {msg.imageUrl ? (
+                      <div className="flex flex-col mb-2">
+                        <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">{msg.text.replace('Uploaded image: ', '')}</span>
+                        <img 
+                          src={msg.imageUrl} 
+                          alt="Uploaded Preview" 
+                          className="max-w-[200px] max-h-[200px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity" 
+                          onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.replace('Uploaded image: ', '') })}
+                        />
+                      </div>
+                    ) : null}
+                    {msg.isSelf && !msg.imageUrl ? msg.text : (!msg.imageUrl && <ReactMarkdown>{msg.text}</ReactMarkdown>)}
                   </div>
                 </div>
               </div>
@@ -676,9 +693,41 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                  </button>
                  <label className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Upload File">
                    <Paperclip className="w-5 h-5" />
-                   <input type="file" className="hidden" onChange={async (e) => {
+                   <input type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={async (e) => {
                      if(e.target.files?.length) {
                        const file = e.target.files[0];
+
+                       // If it's an image, optimize it and send as preview
+                       if (file.type === "image/jpeg" || file.type === "image/png") {
+                         const reader = new FileReader();
+                         reader.onload = (event) => {
+                           const img = new Image();
+                           img.onload = () => {
+                             const canvas = document.createElement("canvas");
+                             let width = img.width;
+                             let height = img.height;
+                             const MAX = 400; // Compress enough to fit easily in localStorage limits
+                             if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+                             else if (height > MAX) { width *= MAX / height; height = MAX; }
+                             canvas.width = width; canvas.height = height;
+                             const ctx = canvas.getContext("2d");
+                             ctx?.drawImage(img, 0, 0, width, height);
+                             const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+                             
+                             const sysMsg: Message = {
+                               id: uid(),
+                               text: `Uploaded image: ${file.name}`,
+                               isSelf: true,
+                               imageUrl: dataUrl
+                             };
+                             setMessages(prev => [...prev, sysMsg]);
+                           };
+                           img.src = event.target?.result as string;
+                         };
+                         reader.readAsDataURL(file);
+                         return;
+                       }
+
                        setIsTyping(true);
                        try {
                          const formData = new FormData();
@@ -714,6 +763,14 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
               />
+
+              <button
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="absolute right-12 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
+                title="Start Voice Session"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
 
               <Button 
                 size="icon" 
@@ -835,6 +892,28 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                </Button>
             </div>
           )}
+        </div>
+      )}
+
+      <VoiceAgentModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        agentName={agent.name}
+        agentId={params.agentId as string}
+        orgPrefix="nxtchapter"
+      />
+
+      {lightboxImage && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={() => setLightboxImage(null)}>
+          <div className="relative max-w-full max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <div className="w-full flex justify-between items-center mb-4">
+              <span className="text-white text-lg font-semibold drop-shadow-md">{lightboxImage.name}</span>
+            </div>
+            <img src={lightboxImage.url} alt="Expanded Preview" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+          </div>
+          <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white hover:bg-white/20" onClick={() => setLightboxImage(null)}>
+            <X className="w-6 h-6" />
+          </Button>
         </div>
       )}
 

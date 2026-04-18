@@ -12,9 +12,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
-import { useUser } from '@/firebase';
-
-import { UserNav } from '@/components/auth/UserNav';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -36,8 +33,6 @@ const dropdownMenuItems = [
 import { usePathname } from 'next/navigation';
 
 export function Header() {
-  const { user, isUserLoading } = useUser();
-
   const pathname = usePathname();
   const isNxtChapter = pathname?.startsWith('/portal/dashboard/nxtchapter');
 
@@ -66,7 +61,6 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-            {user && <UserNav />}
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>

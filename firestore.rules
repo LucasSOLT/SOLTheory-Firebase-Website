@@ -114,7 +114,7 @@ service cloud.firestore {
        * @deny (update) A user cannot update another user's account document.
        */
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isSignedIn();
       allow create: if isCreatingOwnValidUserDocument(userId);
       allow update: if isUpdatingOwnValidUserDocument(userId);
       allow delete: if isExistingOwner(userId);
@@ -211,12 +211,29 @@ service cloud.firestore {
      * @path /org_channels/{channelId}
      */
     match /org_channels/{channelId} {
-      allow read, update, delete: if isSignedIn() && request.auth.token.email.split('@')[1] == resource.data.domain;
+      function isNotBanned(rData) {
+        return !(request.auth.token.email in rData.get('bannedUsers', []));
+      }
+      function isChannelAdmin(rData) {
+        return request.auth.token.email == 'lucas@soltheory.com'
+          || request.auth.token.email == rData.createdBy
+          || rData.get('roles', {}).get(request.auth.token.email, 'member') == 'admin';
+      }
+
+      allow read: if isSignedIn() && isNotBanned(resource.data) && (
+        request.auth.token.email.split('@')[1] == resource.data.domain ||
+        request.auth.token.email in resource.data.get('invitedUsers', [])
+      );
+      allow update: if isSignedIn() && isNotBanned(resource.data) && request.auth.token.email.split('@')[1] == resource.data.domain;
+      allow delete: if isSignedIn() && isChannelAdmin(resource.data);
       allow create: if isSignedIn() && request.auth.token.email.split('@')[1] == request.resource.data.domain;
 
       match /messages/{msgId} {
-        allow read: if isSignedIn() && request.auth.token.email.split('@')[1] == get(/databases/$(database)/documents/org_channels/$(channelId)).data.domain;
-        allow create, update: if isSignedIn() && request.auth.token.email.split('@')[1] == get(/databases/$(database)/documents/org_channels/$(channelId)).data.domain;
+        allow read, create: if isSignedIn() && isNotBanned(get(/databases/$(database)/documents/org_channels/$(channelId)).data) && (
+          request.auth.token.email.split('@')[1] == get(/databases/$(database)/documents/org_channels/$(channelId)).data.domain ||
+          request.auth.token.email in get(/databases/$(database)/documents/org_channels/$(channelId)).data.get('invitedUsers', [])
+        );
+        allow update, delete: if isSignedIn() && request.auth.token.email == resource.data.senderEmail;
       }
     }
 

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
-import Image from 'next/image';
 import { FirebaseClientProvider } from '@/firebase';
 
 import { Playfair_Display, PT_Sans, Nunito } from 'next/font/google';
@@ -58,19 +57,7 @@ export default function RootLayout({
     <html lang="en" className={cn("dark", playfair.variable, ptSans.variable, nunito.variable)}>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
-
-          <div className="fixed inset-0 z-[-1]">
-              <Image
-                  src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/About%20SOL%20Theory%20Page%20(1).png?alt=media&token=fd7b3e2d-309d-4462-a736-7e51e80456d0"
-                  alt="Galaxy background"
-                  fill
-                  className="object-cover"
-              />
-              <div className="absolute inset-0 bg-black/30" />
-          </div>
-          <div className="relative z-10">
-            {children}
-          </div>
+          {children}
           <Toaster />
         </FirebaseClientProvider>
       </body>

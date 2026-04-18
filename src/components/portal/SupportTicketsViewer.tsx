@@ -2,15 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import { useUser, useFirestore } from "@/firebase";
-import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, arrayUnion, getDoc, serverTimestamp, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, arrayUnion, getDoc, serverTimestamp } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Ticket, Plus, CheckCircle2, AlertCircle, Loader2, Inbox, Send } from "lucide-react";
+import { Ticket, Plus, CheckCircle2, AlertCircle, Loader2, Inbox, Send, Archive, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Label } from "@/components/ui/label";
+
+type TicketComment = {
+  text: string;
+  senderEmail: string;
+  createdAt: any;
+};
 
 type TicketData = {
   id: string;
@@ -20,6 +26,8 @@ type TicketData = {
   message: string;
   status: "Unanswered" | "Answered";
   createdAt: any;
+  isArchived?: boolean;
+  comments?: TicketComment[];
 };
 
 export function SupportTicketsViewer({ dashboardName }: { dashboardName: string }) {
@@ -32,9 +40,12 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   
-  // "sent" = we sent it to someone else (fromEmail === user.email)
-  // "inbox" = someone sent it to us (toEmail === user.email)
-  const [viewMode, setViewMode] = useState<"sent" | "inbox">("sent");
+  // "sent" = we sent it to someone else
+  // "inbox" = someone sent it to us
+  // "archived" = answered tickets that were archived
+  const [viewMode, setViewMode] = useState<"sent" | "inbox" | "archived">("sent");
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
 
   // Form State
   const [toEmail, setToEmail] = useState("");
@@ -84,17 +95,17 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
 
     setSubmitting(true);
     try {
-      // 1. Create the ticket
       await addDoc(collection(firestore, "support_tickets"), {
         fromEmail: user.email,
         toEmail,
         subject,
         message,
         status: "Unanswered",
+        isArchived: false,
+        comments: [],
         createdAt: serverTimestamp(),
       });
 
-      // 2. Save the toEmail to user's suggestions if not present
       if (!savedEmails.includes(toEmail)) {
         const userRef = doc(firestore, "users", user.uid);
         await updateDoc(userRef, {
@@ -103,19 +114,17 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
         setSavedEmails(prev => [...prev, toEmail]);
       }
 
-      // Reset form
       setToEmail("");
       setSubject("");
       setMessage("");
       
-      // Delay closing to give visual feedback, then show success modal
       await new Promise(resolve => setTimeout(resolve, 800));
       setIsModalOpen(false);
       
       setTimeout(() => {
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 2500);
-      }, 300); // 300ms delay while the old modal animation closes
+      }, 300);
 
     } catch (error) {
       console.error("Error submitting ticket", error);
@@ -124,27 +133,69 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const handleAddComment = async (ticketId: string) => {
+    if (!firestore || !user?.email) return;
+    const text = commentInputs[ticketId]?.trim();
+    if (!text) return;
+
+    try {
+      const ticketRef = doc(firestore, "support_tickets", ticketId);
+      const newComment = {
+        text,
+        senderEmail: user.email,
+        createdAt: new Date().getTime(), // Fallback local time for instant UI feel
+      };
+      // We will also update status to Answered automatically if the receiver replies!
+      // In practice, any comment can mark it answered to keep things moving.
+      await updateDoc(ticketRef, {
+        comments: arrayUnion(newComment),
+        status: "Answered"
+      });
+      setCommentInputs(prev => ({...prev, [ticketId]: ""}));
+    } catch(e) {
+      console.error(e);
+      alert("Failed to post comment.");
+    }
+  };
+
+  const handleArchive = async (ticket: TicketData, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!firestore) return;
+    try {
+      await updateDoc(doc(firestore, "support_tickets", ticket.id), {
+        isArchived: true
+      });
+      if(expandedTicketId === ticket.id) setExpandedTicketId(null);
+    } catch(e) {
+      console.error(e);
+      alert("Failed to archive ticket.");
+    }
+  };
+
+  const getStatusBadge = (status: string, isArchived?: boolean) => {
+    if (isArchived) {
+      return <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200">Archived</Badge>;
+    }
     if (status === "Unanswered") {
       return <Badge variant="destructive" className="bg-red-50 text-red-600 border-red-200">Unanswered</Badge>;
     }
     return <Badge variant="secondary" className="bg-green-50 text-green-600 border-green-200">Answered</Badge>;
   };
 
-  const filteredTickets = tickets.filter(t => 
-    viewMode === "sent" ? t.fromEmail === user?.email : t.toEmail === user?.email
-  );
+  const filteredTickets = tickets.filter(t => {
+    if (viewMode === "archived") return t.isArchived;
+    if (t.isArchived) return false;
+    return viewMode === "sent" ? t.fromEmail === user?.email : t.toEmail === user?.email;
+  });
 
   const stats = {
     total: filteredTickets.length,
-    open: filteredTickets.filter(t => t.status === "Unanswered").length,
-    resolved: filteredTickets.filter(t => t.status === "Answered").length,
+    open: filteredTickets.filter(t => t.status === "Unanswered" && !t.isArchived).length,
+    resolved: filteredTickets.filter(t => t.status === "Answered" && !t.isArchived).length,
   };
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6 animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
-      
-      {/* Success Popup */}
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
         <DialogContent className="sm:max-w-[400px] border-slate-200 shadow-2xl rounded-2xl bg-white text-center flex flex-col items-center justify-center p-8 [&>button]:hidden">
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
@@ -165,22 +216,34 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <Button 
-            variant="outline"
-            onClick={() => setViewMode(viewMode === "sent" ? "inbox" : "sent")}
-            className="bg-white hover:bg-slate-50 text-slate-700 font-semibold border-slate-200 shadow-sm"
-          >
-            {viewMode === "sent" ? (
-              <><Inbox className="w-4 h-4 mr-2 text-indigo-500" /> View Inbox</>
-            ) : (
-              <><Send className="w-4 h-4 mr-2 text-indigo-500" /> View Sent Tickets</>
-            )}
-          </Button>
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <Button 
+              variant="ghost" size="sm"
+              onClick={() => setViewMode("inbox")}
+              className={`rounded-lg ${viewMode === "inbox" ? "bg-white shadow-sm text-indigo-600" : "text-slate-500"}`}
+            >
+              <Inbox className="w-4 h-4 mr-2" /> Inbox
+            </Button>
+            <Button 
+              variant="ghost" size="sm"
+              onClick={() => setViewMode("sent")}
+              className={`rounded-lg ${viewMode === "sent" ? "bg-white shadow-sm text-indigo-600" : "text-slate-500"}`}
+            >
+              <Send className="w-4 h-4 mr-2" /> Sent
+            </Button>
+            <Button 
+              variant="ghost" size="sm"
+              onClick={() => setViewMode("archived")}
+              className={`rounded-lg ${viewMode === "archived" ? "bg-white shadow-sm text-indigo-600" : "text-slate-500"}`}
+            >
+              <Archive className="w-4 h-4 mr-2" /> Archived
+            </Button>
+          </div>
 
           <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold shadow-sm">
+              <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold shadow-sm rounded-xl ml-2">
                 <Plus className="w-4 h-4 mr-2" /> New Ticket
               </Button>
             </DialogTrigger>
@@ -236,10 +299,10 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                   />
                 </div>
                 <DialogFooter className="pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="font-semibold text-slate-600 border-slate-300 bg-white hover:bg-slate-50">
+                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="font-semibold text-slate-600 border-slate-300 bg-white hover:bg-slate-50 rounded-xl">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={submitting} className="bg-green-600 hover:bg-green-700 font-semibold text-white">
+                  <Button type="submit" disabled={submitting} className="bg-green-600 hover:bg-green-700 font-semibold text-white rounded-xl">
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Submit Ticket
                   </Button>
@@ -251,21 +314,23 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
             <Ticket className="w-8 h-8 text-indigo-500" />
             <span className="text-3xl font-black text-slate-900">{stats.total}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total {viewMode === "sent" ? "Sent" : "Inbox"}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {viewMode === "sent" ? "Total Sent" : viewMode === "inbox" ? "Total Inbox" : "Archived Tickets"}
+            </span>
           </CardContent>
         </Card>
-        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl opacity-80">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
             <AlertCircle className="w-8 h-8 text-red-500" />
             <span className="text-3xl font-black text-slate-900">{stats.open}</span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unanswered</span>
           </CardContent>
         </Card>
-        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl opacity-80">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
             <CheckCircle2 className="w-8 h-8 text-green-500" />
             <span className="text-3xl font-black text-slate-900">{stats.resolved}</span>
@@ -277,7 +342,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
       <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
           <CardTitle className="text-sm font-bold text-slate-700 uppercase tracking-wide">
-            {viewMode === "sent" ? "Sent Tickets" : "Tickets Received"}
+            {viewMode === "sent" ? "Sent Tickets" : viewMode === "inbox" ? "Tickets Received" : "Archived Tickets"}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -291,44 +356,131 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                 <Ticket className="w-8 h-8 text-slate-300" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">No tickets found</h3>
-              <p className="text-slate-500 text-sm mt-1 max-w-sm">When you send or receive support tickets, they will appear here.</p>
+              <p className="text-slate-500 text-sm mt-1 max-w-sm">When you send, receive, or archive support tickets, they will appear here.</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {filteredTickets.map((ticket) => {
                 const isSentByMe = ticket.fromEmail === user?.email;
                 const isUnanswered = ticket.status === "Unanswered";
+                const isExpanded = expandedTicketId === ticket.id;
                 
                 return (
-                <div key={ticket.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 transition-colors hover:bg-slate-50 gap-4
-                  ${isUnanswered ? 'bg-red-50/30' : 'bg-green-50/30'}
-                `}>
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1">
-                      {isUnanswered ? <AlertCircle className="w-5 h-5 text-red-500" /> : <CheckCircle2 className="w-5 h-5 text-green-600" />}
+                <div key={ticket.id} className={`flex flex-col p-5 transition-colors cursor-pointer
+                  ${isUnanswered && !ticket.isArchived ? 'bg-red-50/20 hover:bg-red-50/50' : !ticket.isArchived ? 'bg-green-50/10 hover:bg-green-50/30' : 'bg-white hover:bg-slate-50'}
+                `} onClick={() => setExpandedTicketId(isExpanded ? null : ticket.id)}>
+                  
+                  {/* Ticket Header Row */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+                    <div className="flex items-start gap-4">
+                      <div className="mt-1">
+                        {ticket.isArchived ? <Archive className="w-5 h-5 text-slate-400" /> : isUnanswered ? <AlertCircle className="w-5 h-5 text-red-500" /> : <CheckCircle2 className="w-5 h-5 text-green-600" />}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                          {ticket.subject} 
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 font-medium">
+                          {isSentByMe ? (
+                            <>To: <span className="text-slate-700">{ticket.toEmail}</span></>
+                          ) : (
+                            <>From: <span className="text-slate-700">{ticket.fromEmail}</span></>
+                          )}
+                          <span className="mx-2 text-slate-300">•</span>
+                          {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString() : "Just now"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                        {ticket.subject} 
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1 font-medium">
-                        {isSentByMe ? (
-                          <>To: <span className="text-slate-700">{ticket.toEmail}</span></>
+                    <div className="flex items-center gap-3 shrink-0 ml-9 sm:ml-0">
+                      {ticket.status === "Answered" && !ticket.isArchived && (
+                        <Button 
+                          variant="outline" size="sm" 
+                          onClick={(e) => handleArchive(ticket, e)}
+                          className="h-7 text-xs bg-white text-slate-600 hover:text-slate-900 border-slate-200"
+                        >
+                          <Archive className="w-3 h-3 mr-1" /> Archive
+                        </Button>
+                      )}
+                      <div className="flex flex-col items-end gap-1">
+                         {getStatusBadge(ticket.status, ticket.isArchived)}
+                         <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">ID: {ticket.id.slice(0, 8)}</span>
+                      </div>
+                      {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                    </div>
+                  </div>
+
+                  {/* Expanded Ticket Body & Comments */}
+                  {isExpanded && (
+                    <div className="mt-5 ml-9 border-t border-slate-100 pt-5 animate-in slide-in-from-top-2 fade-in" onClick={e => e.stopPropagation()}>
+                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 block">Original Request</span>
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {ticket.message}
+                        </p>
+                      </div>
+
+                      {/* Comments Feed */}
+                      <div className="space-y-4 mb-6">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                          <MessageSquare className="w-3.5 h-3.5" /> Comments ({ticket.comments?.length || 0})
+                        </h4>
+                        
+                        {(ticket.comments || []).length === 0 ? (
+                          <div className="text-sm text-slate-500 italic p-4 bg-white border border-slate-100 border-dashed rounded-xl text-center">
+                            No comments yet. Start the conversation!
+                          </div>
                         ) : (
-                          <>From: <span className="text-slate-700">{ticket.fromEmail}</span></>
+                          ticket.comments?.map((comment, idx) => (
+                            <div key={idx} className="flex gap-3 items-start">
+                              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 text-xs">
+                                {comment.senderEmail.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1 bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-xs font-bold text-slate-800">{comment.senderEmail}</span>
+                                  <span className="text-[10px] font-semibold text-slate-400">
+                                    {new Date(comment.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+                              </div>
+                            </div>
+                          ))
                         )}
-                        <span className="mx-2 text-slate-300">•</span>
-                        {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString() : "Just now"}
-                      </p>
-                      <p className="text-sm text-slate-600 mt-3 line-clamp-2 leading-relaxed">
-                        {ticket.message}
-                      </p>
+                      </div>
+
+                      {/* Add Comment Box */}
+                      {!ticket.isArchived && (
+                        <div className="flex gap-3 items-start mt-2 border-t border-slate-100 pt-5">
+                          <div className="w-8 h-8 rounded-full bg-slate-800 text-white font-bold flex items-center justify-center shrink-0 text-xs">
+                            {user?.email?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 flex gap-2">
+                            <Input 
+                              value={commentInputs[ticket.id] || ""}
+                              onChange={(e) => setCommentInputs(prev => ({...prev, [ticket.id]: e.target.value}))}
+                              placeholder="Type a response... (marks ticket as Answered automatically)"
+                              className="bg-white border-slate-200 text-slate-900 focus-visible:ring-indigo-500 rounded-xl"
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddComment(ticket.id);
+                                }
+                              }}
+                            />
+                            <Button 
+                              onClick={() => handleAddComment(ticket.id)}
+                              disabled={!commentInputs[ticket.id]?.trim()}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm rounded-xl px-6"
+                            >
+                              Reply
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center sm:items-end gap-3 w-full sm:w-auto shrink-0 flex-col">
-                    {getStatusBadge(ticket.status)}
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-2">ID: {ticket.id.slice(0, 8)}</span>
-                  </div>
+                  )}
+
                 </div>
               )})}
             </div>

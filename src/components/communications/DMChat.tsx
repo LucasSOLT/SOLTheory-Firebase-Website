@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
-import { Send, UserCircle, Plus, Search, MessageSquareX } from "lucide-react";
+import { Send, UserCircle, Plus, Search, MessageSquareX, Paperclip, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -18,6 +18,15 @@ interface Message {
   text: string;
   senderEmail: string;
   createdAt: any;
+  imageUrl?: string;
+}
+
+interface Contact {
+  id: string;
+  name: string;
+  aliases: string;
+  email: string;
+  ignore: boolean;
 }
 
 export function DMChat() {
@@ -25,12 +34,44 @@ export function DMChat() {
   const firestore = useFirestore();
 
   const [chats, setChats] = useState<Chat[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") return sessionStorage.getItem("st_active_dm") || null;
+    return null;
+  });
+
+  useEffect(() => {
+    if (activeChatId) sessionStorage.setItem("st_active_dm", activeChatId);
+    else sessionStorage.removeItem("st_active_dm");
+  }, [activeChatId]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [newContactEmail, setNewContactEmail] = useState("");
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [showContactsDropdown, setShowContactsDropdown] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{url: string, name: string} | null>(null);
   
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Fetch contacts
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+
+    const q = query(collection(firestore, `users/${user.uid}/contacts`));
+    const unsub = onSnapshot(q, (snap) => {
+      const fetched: Contact[] = [];
+      snap.forEach(doc => {
+         fetched.push({ id: doc.id, ...doc.data() } as Contact);
+      });
+      setContacts(fetched);
+    });
+
+    return () => unsub();
+  }, [firestore, user?.uid]);
+
+  const getContactName = (email: string) => {
+    const contact = contacts.find(c => c.email === email);
+    return contact ? contact.name : email;
+  };
 
   // Auto scroll to bottom of messages
   useEffect(() => {
@@ -110,26 +151,57 @@ export function DMChat() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!firestore || !user?.email || !activeChatId || !inputText.trim()) return;
+  const handleSendMessage = async (customImageUrl?: string, customFileName?: string) => {
+    if (!firestore || !user?.email || !activeChatId) return;
     
-    const textToSend = inputText.trim();
+    const textToSend = customImageUrl ? `Uploaded image: ${customFileName}` : inputText.trim();
+    if (!textToSend && !customImageUrl) return;
     setInputText("");
 
     try {
-      await addDoc(collection(firestore, `dms/${activeChatId}/messages`), {
+      const payload: any = {
         text: textToSend,
         senderEmail: user.email,
         createdAt: serverTimestamp()
-      });
+      };
+      if (customImageUrl) payload.imageUrl = customImageUrl;
+      await addDoc(collection(firestore, `dms/${activeChatId}/messages`), payload);
     } catch(e) {
       console.error(e);
       alert("Failed to send message.");
     }
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type === "image/jpeg" || file.type === "image/png") {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const MAX = 800; // max size to keep base64 under reasonable limits for firestore
+          if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+          else if (height > MAX) { width *= MAX / height; height = MAX; }
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          handleSendMessage(dataUrl, file.name);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = "";
+  };
+
   const activeChat = chats.find(c => c.id === activeChatId);
   const contactEmail = activeChat?.participants.find(p => p !== user?.email) || "Unknown User";
+  const contactDisplayName = getContactName(contactEmail);
 
   return (
     <div className="flex h-full w-full bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm">
@@ -138,23 +210,49 @@ export function DMChat() {
         <div className="p-4 border-b border-slate-100 space-y-4 bg-white/50 backdrop-blur-sm">
           <h2 className="text-sm font-bold text-slate-800 tracking-wide uppercase px-2">Contacts</h2>
           
-          <div className="flex items-center gap-2">
-            <Input 
-              placeholder="Enter email to DM..." 
-              value={newContactEmail}
-              onChange={e => setNewContactEmail(e.target.value)}
-              className="h-9 text-xs flex-1 rounded-xl focus-visible:ring-indigo-100"
-              onKeyDown={e => e.key === 'Enter' && handleStartChat()}
-            />
-            <Button size="icon" onClick={handleStartChat} className="w-9 h-9 rounded-xl bg-indigo-500 hover:bg-indigo-600 shadow-sm shrink-0">
-              <Plus className="w-4 h-4" />
-            </Button>
+          <div className="flex flex-col gap-2 relative">
+            <div className="flex items-center gap-2">
+              <Input 
+                placeholder="Search contact or enter email..." 
+                value={newContactEmail}
+                onChange={e => {
+                  setNewContactEmail(e.target.value);
+                  setShowContactsDropdown(true);
+                }}
+                onFocus={() => setShowContactsDropdown(true)}
+                onBlur={() => setTimeout(() => setShowContactsDropdown(false), 200)}
+                className="h-9 text-xs flex-1 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl focus-visible:ring-indigo-100"
+                onKeyDown={e => e.key === 'Enter' && handleStartChat()}
+              />
+              <Button size="icon" onClick={handleStartChat} className="w-9 h-9 rounded-xl bg-indigo-500 hover:bg-indigo-600 shadow-sm shrink-0">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {showContactsDropdown && contacts.length > 0 && (
+              <div className="absolute top-10 left-0 right-10 bg-white border border-slate-200 shadow-lg rounded-xl z-50 max-h-48 overflow-y-auto">
+                {contacts.filter(c => c.name.toLowerCase().includes(newContactEmail.toLowerCase()) || c.email.includes(newContactEmail.toLowerCase())).map(contact => (
+                  <div 
+                    key={contact.id} 
+                    className="p-2 hover:bg-indigo-50 cursor-pointer flex flex-col"
+                    onMouseDown={() => {
+                      setNewContactEmail(contact.email);
+                      setShowContactsDropdown(false);
+                    }}
+                  >
+                    <span className="text-xs font-bold text-slate-800">{contact.name}</span>
+                    <span className="text-[10px] text-slate-500">{contact.email}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
           {chats.map(chat => {
             const otherEmail = chat.participants.find(p => p !== user?.email) || "Unknown";
+            const displayName = getContactName(otherEmail);
             const isActive = chat.id === activeChatId;
             return (
               <div 
@@ -163,11 +261,11 @@ export function DMChat() {
                 className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors ${isActive ? 'bg-indigo-50 border border-indigo-100 shadow-sm shadow-indigo-100/50' : 'hover:bg-slate-100 border border-transparent'}`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-indigo-200 text-indigo-700' : 'bg-slate-200 text-slate-500'}`}>
-                  {otherEmail.charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className={`text-sm font-semibold truncate ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
-                    {otherEmail}
+                    {displayName}
                   </span>
                   <span className="text-xs text-slate-400 truncate">Direct Message</span>
                 </div>
@@ -205,7 +303,7 @@ export function DMChat() {
                   <UserCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">{contactEmail}</h3>
+                  <h3 className="text-sm font-bold text-slate-800">{contactDisplayName}</h3>
                 </div>
               </div>
             </div>
@@ -221,7 +319,19 @@ export function DMChat() {
                         ? 'bg-indigo-600 text-white rounded-br-sm' 
                         : 'bg-white border border-slate-100 text-slate-800 rounded-bl-sm'
                     }`}>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      {msg.imageUrl ? (
+                        <div className="flex flex-col mt-2 mb-2">
+                          <span className={`text-xs font-semibold mb-2 truncate max-w-[200px] ${isMe ? 'text-indigo-200' : 'text-slate-500'}`}>{msg.text.replace('Uploaded image: ', '')}</span>
+                          <img 
+                            src={msg.imageUrl} 
+                            alt="Uploaded Preview" 
+                            className="max-w-[250px] max-h-[250px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity" 
+                            onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.replace('Uploaded image: ', '') })}
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      )}
                     </div>
                   </div>
                 );
@@ -231,13 +341,17 @@ export function DMChat() {
 
             {/* Input Footer */}
             <div className="p-4 bg-white border-t border-slate-200 shrink-0">
-               <div className="flex items-center gap-2 max-w-4xl mx-auto">
+               <div className="flex items-center gap-2 max-w-4xl mx-auto relative">
+                 <label className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Upload Photo">
+                   <Paperclip className="w-5 h-5 text-slate-500" />
+                   <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
+                 </label>
                  <Input 
                    value={inputText}
                    onChange={e => setInputText(e.target.value)}
-                   placeholder={`Message ${contactEmail}...`}
+                   placeholder={`Message ${contactDisplayName}...`}
                    className="flex-1 bg-slate-100 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none"
-                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && inputText.trim() && handleSendMessage()}
                  />
                  <Button onClick={handleSendMessage} disabled={!inputText.trim()} size="icon" className="h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md shrink-0">
                    <Send className="w-5 h-5 ml-0.5" />
@@ -257,6 +371,21 @@ export function DMChat() {
           </div>
         )}
       </div>
+
+      {lightboxImage && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={() => setLightboxImage(null)}>
+          <div className="relative max-w-full max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <div className="w-full flex justify-between items-center mb-4">
+              <span className="text-white text-lg font-semibold drop-shadow-md">{lightboxImage.name}</span>
+            </div>
+            <img src={lightboxImage.url} alt="Expanded Preview" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+          </div>
+          <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white hover:bg-white/20" onClick={() => setLightboxImage(null)}>
+            <X className="w-6 h-6" />
+          </Button>
+        </div>
+      )}
+
     </div>
   );
 }
