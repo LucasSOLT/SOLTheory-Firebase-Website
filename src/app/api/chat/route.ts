@@ -690,7 +690,10 @@ export async function POST(req: Request) {
     }
 
     // Default Raw Response
-    return NextResponse.json({ response: responseMessage?.content || "" });
+    return NextResponse.json({ 
+      response: responseMessage?.content || "",
+      usage: completion.usage?.total_tokens || 0
+    });
   } catch (error: any) {
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
     

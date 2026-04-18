@@ -29,6 +29,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       response: completion.choices[0]?.message?.content || "I couldn't process that.",
+      usage: completion.usage?.total_tokens || 0
     });
   } catch (error: any) {
     console.error("[Voice API Error]", error?.message);

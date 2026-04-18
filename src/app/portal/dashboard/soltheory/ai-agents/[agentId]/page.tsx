@@ -43,6 +43,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [groqTokens, setGroqTokens] = useState(0);
   const [isObserverOpen, setIsObserverOpen] = useState(false);
   const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
   const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
@@ -326,6 +327,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
+      setGroqTokens(p => p + (data.usage || 0));
     } catch (error: any) {
       setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}.`, isSelf: false }]);
     } finally {
@@ -865,6 +867,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             ) : (
               // Chat Screen
               <div className="flex-1 flex flex-col relative">
+                {/* GROQ Token Tracking Pill */}
+                <div className="absolute top-6 right-6 z-50 px-3 h-8 rounded-[4px] bg-white border border-slate-200 flex items-center gap-2 shadow-sm pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
+                  <span className="text-[10px] font-black tracking-wider text-slate-500 uppercase">
+                    {groqTokens}T / ${(groqTokens * 0.00000008).toFixed(3)}
+                  </span>
+                </div>
+                
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-56">
                   <div className="max-w-3xl mx-auto space-y-8">
                     <div className="flex justify-center mb-10 pt-10">
@@ -1171,7 +1181,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
-          return data.response;
+          return data;
         }}
       />
       {lightboxImage && (

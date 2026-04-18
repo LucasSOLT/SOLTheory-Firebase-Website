@@ -42,6 +42,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [responseDelay, setResponseDelay] = useState(1500);
   const responseDelayRef = useRef(1500);
   const [showTranscript, setShowTranscript] = useState(true);
+  const [groqTokens, setGroqTokens] = useState(0);
+  const [elevenLabsChars, setElevenLabsChars] = useState(0);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -325,8 +327,11 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     conversationRef.current.push({ role: "user", content: userText });
     try {
       let reply = "";
+      let usageNum = 0;
       if (onCallAI) {
-        reply = await onCallAI([...conversationRef.current]);
+        const payload: any = await onCallAI([...conversationRef.current]);
+        reply = payload.response || "I couldn't process that.";
+        usageNum = payload.usage || 0;
       } else {
         const res = await fetch("/api/voice-chat", {
           method: "POST",
@@ -338,7 +343,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         });
         const data = await res.json();
         reply = data.response || "I couldn't process that.";
+        usageNum = data.usage || 0;
       }
+      
+      setGroqTokens(p => p + usageNum);
+      setElevenLabsChars(p => p + reply.length);
+      
       conversationRef.current.push({ role: "assistant", content: reply });
       return reply;
     } catch {
@@ -453,7 +463,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       {/* ─── TOP ─── */}
       <div className={`flex flex-col items-center pt-6 pb-4 px-6 relative transition-all duration-500 ease-in-out ${showTranscript ? "shrink-0 border-b border-slate-100" : "flex-1 justify-center bg-slate-50"}`}>
 
-        <button onClick={onClose} className="absolute top-4 right-6 w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+        <div className="absolute top-4 right-16 px-4 h-10 rounded-[4px] bg-slate-100 flex items-center gap-2 max-w-fit shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
+          <span className="text-[11px] font-black tracking-wider text-slate-500 whitespace-nowrap">
+            {groqTokens}T · {elevenLabsChars}C / ${( (groqTokens * 0.00000008) + (elevenLabsChars * 0.0003) ).toFixed(3)}
+          </span>
+        </div>
+
+        <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
           <X className="w-5 h-5" />
         </button>
 
