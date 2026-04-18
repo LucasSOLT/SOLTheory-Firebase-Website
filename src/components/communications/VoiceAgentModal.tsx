@@ -103,7 +103,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                finishUserTurnRef.current();
             }
           }
-        }, 500); // Drastically reduced to 500ms to mimic Gemini's instant conversational speed
+        }, 1500); // Increased to 1.5s to prevent cutting users off during natural conversational pauses
       }
     };
 

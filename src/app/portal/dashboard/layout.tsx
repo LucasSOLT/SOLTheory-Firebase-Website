@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user } = useUser();
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Detect which org the user is in based on the current path
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
@@ -34,12 +35,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-white overflow-hidden text-slate-900 font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white flex flex-col h-full flex-shrink-0 relative z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
-           {pathname.includes('/nxtchapter') ? (
-             <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain" />
-           ) : (
+      {/* Sidebar Wrapper */}
+      <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-[88px]" : "w-64"}`}>
+        <button 
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="absolute -right-3 top-10 w-6 h-6 bg-white border border-slate-200 shadow-sm rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 z-50 opacity-0 group-hover/sidebar:opacity-100 transition-opacity"
+        >
+          <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-300 ${isSidebarCollapsed ? "" : "rotate-180"}`} />
+        </button>
+
+        <aside className="w-full bg-white flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
+          <div className="w-64 flex flex-col h-full"> {/* Inner fixed width container */}
+            <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
+              {pathname.includes('/nxtchapter') ? (
+                <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain" />
+              ) : (
              <>
                <div className="bg-black text-white p-1.5 rounded-lg shrink-0">
                  <Logo className="w-5 h-5 text-white" />
@@ -215,7 +225,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </div>
-      </aside>
+            </div>
+          </div>
+        </aside>
+      </div>
 
       {/* Main Content Area */}
       <div className="flex-grow flex flex-col h-full overflow-hidden w-full relative z-10">
