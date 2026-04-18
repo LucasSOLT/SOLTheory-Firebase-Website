@@ -63,7 +63,7 @@ const tools: any = [
         properties: { 
           to: { type: "string" },
           subject: { type: "string" },
-          body: { type: "string", description: "The plaintext or HTML body of the email. CRITICAL: If the user asks you to paste an entire large uploaded document, DO NOT output the full document text here, or the system will crash! Instead, type exactly '[INSERT_DOCUMENT_CONTEXT]' where the document should go in the body, and the system will automatically inject the last uploaded document invisibly." }
+          body: { type: "string", description: "The body of the email. CRITICAL RULE 1: You must format the email beautifully using standard line breaks (\\n\\n). The greeting ('Hello Steve,') must be separated from the body, and the sign-off must be at the absolute bottom separated by two breaks (e.g. 'Cheers,\\nLucas'). CRITICAL RULE 2: If the user asks for a Google Meet link, you CANNOT use placeholders like [INSERT_LINK]. You MUST actually run create_calendar_event first, extract the generated URL, and paste it here." }
         },
         required: ["to", "subject", "body"]
       }
@@ -496,6 +496,13 @@ export async function POST(req: Request) {
                 finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
               }
             }
+
+            if (finalBody.match(/\[INSERT_.*?LINK\]/i)) {
+              throw new Error("You attempted to insert a placeholder for a Google Meet link. You MUST execute create_calendar_event first (with addGoogleMeetLink=true), wait for the success response, and then use the generated real URL. Start over and do it correctly.");
+            }
+
+            // Ensure newlines are converted to HTML breaks so it doesn't render as one giant block
+            finalBody = finalBody.replace(/\n/g, '<br>');
 
             const emailLines = [
               `To: ${args.to}`,
