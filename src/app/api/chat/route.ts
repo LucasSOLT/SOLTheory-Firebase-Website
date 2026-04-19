@@ -555,15 +555,72 @@ export async function POST(req: Request) {
               finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
             }
 
-            // Convert newlines to HTML line breaks for proper Gmail rendering
-            finalBody = finalBody.replace(/\n/g, '<br>');
+            // ── SERVER-SIDE EMAIL FORMATTING ──
+            // First: normalize literal escaped newlines that LLM sometimes outputs as two chars
+            finalBody = finalBody.replace(/\\n/g, '\n');
+
+            // Split body into lines (by real newlines)
+            let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+
+            // If still just one big block (LLM didn't use newlines), try to smart-split
+            if (lines.length === 1) {
+              const text = lines[0];
+              // Detect greeting pattern at start: "Hello Steve," or "Hi Steve," or "Dear Steve,"
+              const greetingMatch = text.match(/^((?:Hello|Hi|Hey|Dear|Good\s+(?:morning|afternoon|evening))[^.!?\n]*?[,.])\s*/i);
+              // Detect sign-off pattern at end: "Best, Lucas" or "Cheers, Lucas" or "Thanks, Lucas"
+              const signoffMatch = text.match(/\s*((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.]?\s*.{1,30})$/i);
+
+              if (greetingMatch || signoffMatch) {
+                let bodyMiddle = text;
+                let greeting = '';
+                let signoff = '';
+
+                if (greetingMatch) {
+                  greeting = greetingMatch[1];
+                  bodyMiddle = bodyMiddle.slice(greetingMatch[0].length).trim();
+                }
+                if (signoffMatch) {
+                  signoff = signoffMatch[1];
+                  bodyMiddle = bodyMiddle.slice(0, bodyMiddle.length - signoffMatch[0].length).trim();
+                }
+
+                lines = [];
+                if (greeting) lines.push(greeting);
+                if (bodyMiddle) lines.push(bodyMiddle);
+                if (signoff) {
+                  // Split sign-off into "Cheers," and "Lucas" on separate lines
+                  const signoffParts = signoff.split(/,\s*/);
+                  if (signoffParts.length === 2) {
+                    lines.push(signoffParts[0] + ',');
+                    lines.push(signoffParts[1]);
+                  } else {
+                    lines.push(signoff);
+                  }
+                }
+              }
+            } else {
+              // LLM used newlines — still enforce sign-off splitting
+              const lastLine = lines[lines.length - 1];
+              const signoffSplitMatch = lastLine.match(/^((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.])\s+(.+)$/i);
+              if (signoffSplitMatch) {
+                lines[lines.length - 1] = signoffSplitMatch[1];
+                lines.push(signoffSplitMatch[2]);
+              }
+            }
+
+            // Build HTML with proper paragraph spacing
+            const htmlBody = lines.map((line: string, idx: number) => {
+              // First line (greeting) and last two lines (sign-off) get single breaks
+              // Body paragraphs get double breaks (paragraph spacing)
+              return `<p style="margin:0 0 12px 0;">${line}</p>`;
+            }).join('');
 
             const emailLines = [
               `To: ${args.to}`,
               `Subject: ${args.subject}`,
               `Content-Type: text/html; charset=utf-8`,
               ``,
-              finalBody
+              htmlBody
             ];
             const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
             await gmail.users.drafts.create({
