@@ -12,14 +12,13 @@ import { useTranslation } from "@/lib/i18n";
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer
 } from "recharts";
+import MonthlyUsersChart from "@/components/ui/monthly-users-chart";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 
@@ -259,37 +258,7 @@ export default function SolTheoryDashboard() {
         </Card>
 
         {/* Monthly Unique Users Chart */}
-        <Card className="w-full bg-white border-0 shadow-sm ring-1 ring-slate-100 flex flex-col min-h-[400px] rounded-2xl">
-          <CardHeader className="border-b border-slate-50 pb-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-slate-900 text-lg font-extrabold flex items-center gap-3">
-                  <Users className="w-5 h-5 text-emerald-600" />
-                  Monthly Unique Users
-                </CardTitle>
-                <CardDescription className="text-slate-500 font-medium mt-1">Aggregated platform log-ins</CardDescription>
-              </div>
-              <div className="px-3 py-1 bg-slate-100 rounded-md text-xs font-bold text-slate-600">
-                LTM
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-grow pt-6 p-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={32}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip 
-                  cursor={{fill: '#f8fafc'}}
-                  contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  itemStyle={{ color: '#0f172a', fontWeight: 'bold' }}
-                />
-                <Bar dataKey="users" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <MonthlyUsersChart data={monthlyData} accentColor="emerald" />
       </div>
     </div>
   );

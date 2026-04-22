@@ -131,6 +131,7 @@ export function CalendarView() {
   const pathname = usePathname();
 
   const [events, setEvents] = useState<any[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isFetched, setIsFetched] = useState(false);
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -373,20 +374,17 @@ export function CalendarView() {
           <div className="flex-1 grid grid-cols-7 grid-rows-5 md:grid-rows-6">
             {gridDays.map((dateObj, i) => {
               const todayFlag = isToday(dateObj.day, dateObj.isCurrentMonth);
-              let event = null;
+              let dayEvents: any[] = [];
               if (dateObj.isCurrentMonth) {
-                // Find event mapping to this day
+                // Find all events mapping to this day
                 const currentDayFormatted = `${year}-${String(month + 1).padStart(2, '0')}-${String(dateObj.day).padStart(2, '0')}`;
-                event = events.find(e => e.start && e.start.startsWith(currentDayFormatted));
-                if (event) {
-                  // Reformat for the UI
-                  const dObj = new Date(event.start);
-                  event = {
-                    title: event.title,
-                    color: event.color,
-                    time: event.allDay ? "All Day" : dObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase().replace(' ', '')
+                dayEvents = events.filter(e => e.start && e.start.startsWith(currentDayFormatted)).map(e => {
+                  const dObj = new Date(e.start);
+                  return {
+                    ...e,
+                    time: e.allDay ? "All Day" : dObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase().replace(' ', '')
                   };
-                }
+                });
               }
               
               return (
@@ -406,13 +404,13 @@ export function CalendarView() {
                     </span>
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto space-y-1 px-1 scrollbar-thin">
-                    {event && (
-                      <div className={`text-[11px] truncate px-2 py-0.5 rounded-md text-white font-medium shadow-sm cursor-pointer ${event.color}`}>
-                        {event.time !== "All Day" ? <span className="font-bold opacity-80 mr-1">{event.time}</span> : ""} 
-                        {event.title}
+                  <div className="flex-1 overflow-y-auto space-y-1 px-1 scrollbar-thin pb-1">
+                    {dayEvents.map((evt, idx) => (
+                      <div key={idx} onClick={() => setSelectedEvent(evt)} className={`text-[11px] truncate px-1.5 py-0.5 rounded bg-blue-500 text-white font-medium shadow-sm cursor-pointer ${evt.color || 'bg-blue-500'} hover:opacity-90`}>
+                        {evt.time !== "All Day" ? <span className="font-bold opacity-80 mr-1">{evt.time}</span> : ""} 
+                        {evt.title}
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               );
@@ -420,6 +418,46 @@ export function CalendarView() {
           </div>
         </div>
       </div>
+
+      {/* Event Details Modal */}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className={`p-4 ${selectedEvent.color || 'bg-blue-500'} flex items-center justify-between text-white`}>
+              <h3 className="font-medium text-lg truncate flex-1">{selectedEvent.title}</h3>
+              <button onClick={() => setSelectedEvent(null)} className="p-1 hover:bg-white/20 rounded-md transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-5">
+               <div>
+                 <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Time</p>
+                 <p className="text-slate-800 text-sm font-medium">{selectedEvent.time}</p>
+               </div>
+               {selectedEvent.location && (
+                 <div>
+                   <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Location</p>
+                   <p className="text-slate-800 text-sm whitespace-pre-wrap">{selectedEvent.location}</p>
+                 </div>
+               )}
+               {selectedEvent.link && (
+                 <div>
+                   <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Meeting Link</p>
+                   <a href={selectedEvent.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-sm font-medium break-all underline flex items-center gap-1.5 mt-1">
+                     Join Video Call <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                   </a>
+                 </div>
+               )}
+               {selectedEvent.description && (
+                 <div>
+                   <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Notes / Description</p>
+                   <div className="text-slate-700 text-sm bg-slate-50 border border-slate-100 rounded-xl p-4 whitespace-pre-wrap max-h-56 overflow-y-auto my-1">
+                     {selectedEvent.description.replace(/<[^>]*>?/gm, '')}
+                   </div>
+                 </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating AI Assistant Chat Widget */}
       <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end">

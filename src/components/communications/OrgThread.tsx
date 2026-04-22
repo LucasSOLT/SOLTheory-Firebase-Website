@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove, updateDoc, doc, deleteDoc, getDocs, setDoc } from "firebase/firestore";
-import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, ChevronDown, Pencil, Check, Paperclip, Wrench } from "lucide-react";
+import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, ChevronDown, Pencil, Check, Paperclip, Wrench, CornerDownRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { playMessageSendSound } from "@/lib/send-sound";
 
 interface Channel {
   id: string;
@@ -15,6 +16,7 @@ interface Channel {
   invitedUsers?: string[];
   bannedUsers?: string[];
   roles?: Record<string, "admin" | "executive" | "member">;
+  parentId?: string;
   createdAt: any;
 }
 
@@ -442,6 +444,7 @@ export function OrgThread() {
     const textToSend = customImageUrl ? `Uploaded image: ${customFileName}` : inputText.trim();
     if (!textToSend && !customImageUrl) return;
     setInputText("");
+    playMessageSendSound();
     try {
       const payload: any = {
         text: textToSend,
@@ -450,9 +453,34 @@ export function OrgThread() {
       };
       if (customImageUrl) payload.imageUrl = customImageUrl;
       await addDoc(collection(firestore, `org_channels/${activeChannelId}/messages`), payload);
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (e) {
       console.error(e);
       alert("Failed to send message.");
+    }
+  };
+
+  const handleCreateSubthread = async (msg: ThreadMessage) => {
+    if (!firestore || !userDomain || !activeChannelId) return;
+    const baseText = msg.text ? msg.text.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 3).join('-').toLowerCase() : "thread";
+    const threadName = `${baseText || 'thread'}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    try {
+      const docRef = await addDoc(collection(firestore, "org_channels"), {
+        name: threadName,
+        domain: userDomain,
+        createdBy: user?.email,
+        parentId: activeChannelId,
+        invitedUsers: activeChannel?.invitedUsers || [],
+        bannedUsers: activeChannel?.bannedUsers || [],
+        roles: activeChannel?.roles || { [user?.email || ""]: "admin" },
+        createdAt: serverTimestamp(),
+      });
+      setActiveChannelId(docRef.id);
+      setContextMenu(null);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to create subthread.");
     }
   };
 
@@ -572,7 +600,7 @@ export function OrgThread() {
   };
 
   // ---- Sidebar channel item ----
-  const ChannelItem = ({ channel }: { channel: Channel }) => {
+  const ChannelItem = ({ channel, isSubthread }: { channel: Channel, isSubthread?: boolean }) => {
     const isActive = channel.id === activeChannelId;
     const isChAdmin = getUserRole(channel, user?.email || "") === "admin";
     return (
@@ -581,13 +609,17 @@ export function OrgThread() {
           setActiveChannelId(channel.id);
           setRolePopupEmail(null);
         }}
-        className={`flex items-center justify-between gap-1 py-1.5 px-2 rounded-md cursor-pointer transition-colors group ${
+        className={`flex items-center justify-between gap-1 py-1 px-2 rounded-md cursor-pointer transition-colors group ${
           isActive ? "bg-indigo-100 text-indigo-900" : "hover:bg-slate-200/50 text-slate-600"
-        }`}
+        } ${isSubthread ? "ml-4 my-0.5" : "my-0.5 py-1.5"}`}
       >
         <div className="flex items-center gap-2 overflow-hidden flex-1">
-          <Hash className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
-          <span className={`text-[13px] font-medium truncate ${isActive ? "font-bold" : ""}`}>{channel.name}</span>
+          {isSubthread ? (
+             <CornerDownRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+          ) : (
+             <Hash className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+          )}
+          <span className={`font-medium truncate ${isActive ? "font-bold" : ""} ${isSubthread ? "text-[11.5px]" : "text-[13px]"}`}>{channel.name}</span>
         </div>
         <Trash2
           className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all shrink-0 z-10"
@@ -669,8 +701,13 @@ export function OrgThread() {
             </div>
           )}
 
-          {internalChannels.map((channel) => (
-            <ChannelItem key={channel.id} channel={channel} />
+          {internalChannels.filter(c => !c.parentId).map((channel) => (
+            <React.Fragment key={channel.id}>
+              <ChannelItem channel={channel} />
+              {internalChannels.filter(s => s.parentId === channel.id).map(sub => (
+                <ChannelItem key={sub.id} channel={sub} isSubthread={true} />
+              ))}
+            </React.Fragment>
           ))}
 
           {Object.keys(guestChannelsByDomain).length > 0 && (
@@ -685,8 +722,13 @@ export function OrgThread() {
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{domain}</div>
                     <div className="h-px bg-slate-200 flex-1"></div>
                   </div>
-                  {domainChannels.map((channel) => (
-                    <ChannelItem key={channel.id} channel={channel} />
+                  {domainChannels.filter(c => !c.parentId).map((channel) => (
+                    <React.Fragment key={channel.id}>
+                      <ChannelItem channel={channel} />
+                      {domainChannels.filter(s => s.parentId === channel.id).map(sub => (
+                        <ChannelItem key={sub.id} channel={sub} isSubthread={true} />
+                      ))}
+                    </React.Fragment>
                   ))}
                 </div>
               ))}
@@ -724,7 +766,7 @@ export function OrgThread() {
               </div>
             </div>
 
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden" onClick={() => setContextMenu(null)}>
               {/* Main Chat Stream */}
               <div className="flex-1 overflow-y-auto p-0 flex flex-col relative min-w-0">
                 <div className="mt-auto px-6 pt-10 pb-4 space-y-6">
@@ -741,15 +783,22 @@ export function OrgThread() {
                   {messages.filter(m => !(m.hiddenFor || []).includes(user?.email || '')).map((msg, idx) => {
                     const isMe = msg.senderEmail === user?.email;
                     return (
-                    <div key={msg.id || idx} className="group hover:bg-slate-50/80 rounded-lg transition-colors flex gap-4 pr-4 py-1"
-                      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isMe }); }}
+                    <div key={msg.id || idx} className={`group hover:bg-[#F4F7FF] rounded-lg transition-colors flex gap-4 pr-4 py-2 ${isMe ? "bg-[#F8FAFF]" : ""}`}
+                      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: 0, y: 0, msgId: msg.id, isMe }); }}
                     >
                       <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5">
                         <span className="font-bold text-indigo-600 text-sm">{msg.senderEmail.charAt(0).toUpperCase()}</span>
                       </div>
-                      <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex flex-col min-w-0 flex-1 relative">
+                        {contextMenu?.msgId === msg.id && (
+                            <div className="absolute top-6 left-0 z-[9999] bg-white rounded-xl shadow-lg border border-slate-200 py-1 w-48 overflow-hidden pointer-events-auto">
+                               <button onClick={(e) => { e.stopPropagation(); handleCreateSubthread(msg); }} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Create a subthread</button>
+                               <button onClick={(e) => { e.stopPropagation(); handleDeleteForMe(contextMenu.msgId); }} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Delete for me</button>
+                               {contextMenu.isMe && <button onClick={(e) => { e.stopPropagation(); handleDeleteForEveryone(contextMenu.msgId); }} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium">Delete for everyone</button>}
+                            </div>
+                        )}
                         <div className="flex items-baseline gap-2">
-                          <span className="font-bold text-[15px] text-slate-900 truncate max-w-[200px]">{msg.senderEmail.split("@")[0]}</span>
+                          <span className="font-bold text-[15px] text-slate-900 truncate max-w-[200px] capitalize">{msg.senderEmail.split("@")[0]}</span>
                           <span className="text-xs font-medium text-slate-400">
                             {msg.createdAt ? new Date(msg.createdAt.toMillis?.() || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now"}
                           </span>
@@ -772,14 +821,6 @@ export function OrgThread() {
                     );
                   })}
                   <div ref={bottomRef} className="h-4" />
-
-                  {/* Right-click Context Menu */}
-                  {contextMenu && (
-                    <div className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-slate-200 py-1 w-48 overflow-hidden" style={{ left: contextMenu.x, top: contextMenu.y }}>
-                      <button onClick={() => handleDeleteForMe(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Delete for me</button>
-                      {contextMenu.isMe && <button onClick={() => handleDeleteForEveryone(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium">Delete for everyone</button>}
-                    </div>
-                  )}
                 </div>
               </div>
 

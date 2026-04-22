@@ -6,6 +6,7 @@ import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy,
 import { Send, UserCircle, Plus, Search, MessageSquareX, Paperclip, X, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { playMessageSendSound } from "@/lib/send-sound";
 
 interface Chat {
   id: string;
@@ -194,6 +195,7 @@ export function DMChat() {
   const [contextMenu, setContextMenu] = useState<{x: number, y: number, msgId: string, isMe: boolean} | null>(null);
   
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [justSentIds, setJustSentIds] = useState<Set<string>>(new Set());
 
   // Fetch contacts
   useEffect(() => {
@@ -301,6 +303,9 @@ export function DMChat() {
     if (!textToSend && !customImageUrl) return;
     setInputText("");
 
+    // Play send sound
+    playMessageSendSound();
+
     try {
       const payload: any = {
         text: textToSend,
@@ -308,7 +313,12 @@ export function DMChat() {
         createdAt: serverTimestamp()
       };
       if (customImageUrl) payload.imageUrl = customImageUrl;
-      await addDoc(collection(firestore, `dms/${activeChatId}/messages`), payload);
+      const docRef = await addDoc(collection(firestore, `dms/${activeChatId}/messages`), payload);
+      // Track sent message for animation
+      setJustSentIds(prev => new Set(prev).add(docRef.id));
+      setTimeout(() => {
+        setJustSentIds(prev => { const next = new Set(prev); next.delete(docRef.id); return next; });
+      }, 500);
     } catch(e) {
       console.error(e);
       alert("Failed to send message.");
@@ -496,18 +506,22 @@ export function DMChat() {
             <div className="flex-1 overflow-y-auto p-6 space-y-6" onClick={() => setContextMenu(null)}>
               {messages.filter(m => !(m.hiddenFor || []).includes(user?.email || '')).map((msg, idx) => {
                 const isMe = msg.senderEmail === user?.email;
+                const isJustSent = justSentIds.has(msg.id);
                 return (
                   <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                     onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isMe }); }}
+                    style={isJustSent ? {
+                      animation: 'dm-bubble-rise 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+                    } : undefined}
                   >
                     <div className={`max-w-[75%] rounded-3xl px-5 py-3 shadow-sm ${
                       isMe 
-                        ? 'bg-indigo-600 text-white rounded-br-sm' 
-                        : 'bg-white border border-slate-100 text-slate-800 rounded-bl-sm'
+                        ? 'bg-green-500 text-white rounded-br-sm' 
+                        : 'bg-slate-200 text-slate-800 rounded-bl-sm'
                     }`}>
                       {msg.imageUrl ? (
                         <div className="flex flex-col mt-2 mb-2">
-                          <span className={`text-xs font-semibold mb-2 truncate max-w-[200px] ${isMe ? 'text-indigo-200' : 'text-slate-500'}`}>{msg.text.replace('Uploaded image: ', '')}</span>
+                          <span className={`text-xs font-semibold mb-2 truncate max-w-[200px] ${isMe ? 'text-green-100' : 'text-slate-500'}`}>{msg.text.replace('Uploaded image: ', '')}</span>
                           <img 
                             src={msg.imageUrl} 
                             alt="Uploaded Preview" 
@@ -558,7 +572,7 @@ export function DMChat() {
                    className="flex-1 bg-slate-100 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none"
                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && inputText.trim() && handleSendMessage()}
                  />
-                 <Button onClick={handleSendMessage} disabled={!inputText.trim()} size="icon" className="h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md shrink-0">
+                 <Button onClick={handleSendMessage} disabled={!inputText.trim()} size="icon" className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-md shrink-0">
                    <Send className="w-5 h-5 ml-0.5" />
                  </Button>
                </div>

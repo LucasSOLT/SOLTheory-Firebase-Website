@@ -30,7 +30,9 @@ export async function GET(req: Request) {
     'https://www.googleapis.com/auth/documents',
     'https://www.googleapis.com/auth/presentations',
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive.file'
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube'
   ];
 
   const authorizationUrl = oauth2Client.generateAuthUrl({

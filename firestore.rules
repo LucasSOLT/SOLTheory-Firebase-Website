@@ -149,6 +149,30 @@ service cloud.firestore {
       match /contacts/{contactId} {
         allow read, write: if isOwner(userId);
       }
+
+      /**
+       * @description YouTube video draft concepts created by the AI Creative Director.
+       * @path /users/{userId}/youtube_drafts/{draftId}
+       */
+      match /youtube_drafts/{draftId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      /**
+       * @description Google Ads cron job data.
+       * @path /users/{userId}/google_ads_cronjobs/{jobId}
+       */
+      match /google_ads_cronjobs/{jobId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      /**
+       * @description User settings for dashboard components (e.g. YouTube director demographic).
+       * @path /users/{userId}/settings/{settingId}
+       */
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     /**
@@ -159,7 +183,8 @@ service cloud.firestore {
      * @principle Submissions are write-once and immutable from the client, and can only be read by backend processes or via the Firebase Console.
      */
     match /survey_submissions/{submissionId} {
-      allow read, update, delete: if false;
+      allow read: if isSignedIn() && request.auth.token.email == 'lucas@soltheory.com';
+      allow update, delete: if false;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 

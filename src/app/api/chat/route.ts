@@ -233,12 +233,29 @@ const tools: any = [
         required: ["fileId"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "draft_youtube_video",
+      description: "Prepare and store a drafted YouTube video onto the user's YouTube Studio. This automatically creates a Google Doc script, generates a dummy private draft video to hold the data, and links the script in the YouTube description. Use this whenever the user wants to draft a YouTube video and script.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "The YouTube video title." },
+          description: { type: "string", description: "The YouTube description including hashtags." },
+          tags: { type: "array", items: { type: "string" }, description: "Array of comma-separated string tags" },
+          script: { type: "string", description: "The full script for the YouTube video. DO NOT output the script in your conversational reply, just pass it here." }
+        },
+        required: ["title", "description", "tags", "script"]
+      }
+    }
   }
 ];
 
 export async function POST(req: Request) {
   try {
-    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText } = await req.json();
+    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl } = await req.json();
     
     // Parse out scope prefixes for logic, but keep raw for database
     const agentId = (rawAgentId || "").replace("soltheory_", "").replace("nxtchapter_", "");
@@ -258,6 +275,9 @@ export async function POST(req: Request) {
         } else {
           agentRole = "You are Jarvis, the primary AI agent for SOL Theory. You are a highly organized executive assistant and persuasive sales expert combined into one. You handle ALL inbound email management (replies, drafts, organization, deletions) AND outbound campaigns (cold outreach, follow-ups, high-converting sales emails). Embody our core values: keep your advice Simple, Practical, and Fun (SPF). Focus on excellent customer satisfaction, swift resolution, and high engagement on outbound prospects. If the user asks you to perform inbox actions (delete, draft, folder, block), use your tools autonomously. IMPORTANT: Do NOT automatically draft emails when the user is simply chatting or discussing topics. ONLY draft emails when explicitly commanded to do so.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
         }
+        break;
+      case "youtube_director":
+        agentRole = "You are the YouTube Creative Director, a highly specialized AI agent for video content strategy and production. You have FULL ACTIVE ACCESS to YouTube API tools. When the user asks you to draft, create, or brainstorm a video, you MUST USE the `draft_youtube_video` tool to physically push the draft to their YouTube Studio. Do NOT just describe the video concept in text — actually call the tool. After successfully calling the tool, confirm that the draft was pushed to YouTube Studio.";
         break;
       default:
         agentRole = isNxtChapter
@@ -284,10 +304,10 @@ export async function POST(req: Request) {
 
 
     // Gmail Auth Hook Configuration
-    const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant";
+    const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
     
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool AT ALL TIMES when the user asks you to draft a video, create a video concept, or store a YouTube video! Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
@@ -297,6 +317,7 @@ export async function POST(req: Request) {
     let slidesApi: any = null;
     let sheetsApi: any = null;
     let driveApi: any = null;
+    let youtubeApi: any = null;
 
     if (isEmailAgent && refreshToken) {
       const oauth2Client = new google.auth.OAuth2(
@@ -310,6 +331,7 @@ export async function POST(req: Request) {
       slidesApi = google.slides({ version: 'v1', auth: oauth2Client });
       sheetsApi = google.sheets({ version: 'v4', auth: oauth2Client });
       driveApi = google.drive({ version: 'v3', auth: oauth2Client });
+      youtubeApi = google.youtube({ version: 'v3', auth: oauth2Client });
     }
 
 
@@ -360,24 +382,32 @@ export async function POST(req: Request) {
 
     groqMessages.push(...messages);
 
-    const useTools = !!(gmail || calendar || docsApi);
+    const useTools = !!(gmail || calendar || docsApi || youtubeApi);
+    
+    console.log(`[DEBUG] agentId="${agentId}" rawAgentId="${rawAgentId}" isEmailAgent=${isEmailAgent} refreshToken=${refreshToken ? "YES" : "NO"}`);
+    console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools}`);
 
     // PASS 1: Generate Standard Response OR Tool Target
     let completion: any = await createCompletionWithRetry(groqMessages, useTools);
 
     let responseMessage = completion.choices[0]?.message;
+    console.log(`[DEBUG] LLM response: tool_calls=${responseMessage?.tool_calls?.length || 0} content_length=${responseMessage?.content?.length || 0}`);
+    if (responseMessage?.tool_calls) {
+      responseMessage.tool_calls.forEach((tc: any) => console.log(`[DEBUG] Tool requested: ${tc.function.name}`));
+    }
     let loopCount = 0;
     let lastMeetLink: string | null = null;
     const MAX_LOOPS = 5;
 
     // If LLM generated tool_calls but no APIs are available, re-call without tools
-    if (responseMessage?.tool_calls && !gmail && !calendar && !docsApi) {
+    if (responseMessage?.tool_calls && !gmail && !calendar && !docsApi && !youtubeApi) {
+      console.log(`[DEBUG] LLM called tools but no APIs available — re-calling without tools`);
       completion = await createCompletionWithRetry(groqMessages, false);
       responseMessage = completion.choices[0]?.message;
     }
 
     // Execute Tool Loop if Triggered
-    while (responseMessage?.tool_calls && (gmail || calendar || docsApi) && loopCount < MAX_LOOPS) {
+    while (responseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi) && loopCount < MAX_LOOPS) {
       groqMessages.push(responseMessage);
       
       // Sort tool calls: process calendar events BEFORE email drafts so Meet links are available
@@ -387,6 +417,7 @@ export async function POST(req: Request) {
       });
       for (const toolCall of sortedToolCalls) {
         const functionName = toolCall.function.name;
+        console.log(`[TOOL CALL] LLM requested tool: ${functionName} | args: ${toolCall.function.arguments?.substring(0, 200)}`);
         
         let functionResult = "";
         try {
@@ -784,6 +815,111 @@ export async function POST(req: Request) {
               functionResult = JSON.stringify({ result: text || "Document is empty or cannot be read as text." });
             } catch (err: any) {
               functionResult = JSON.stringify({ error: "Failed to read document. Make sure it is a Google Doc. " + err.message });
+            }
+          } else if (functionName === "draft_youtube_video" && docsApi && driveApi) {
+            console.log("[YOUTUBE TOOL] draft_youtube_video triggered! Args:", JSON.stringify(args));
+            console.log("[YOUTUBE TOOL] videoUrl available:", !!videoUrl);
+            try {
+              // 1. Create the Script Doc in Google Drive
+              console.log("[YOUTUBE TOOL] Creating Google Doc script...");
+              const docRes = await docsApi.documents.create({
+                requestBody: { title: `Script: ${args.title}` }
+              });
+              const docId = docRes.data.documentId;
+              
+              const scriptContent = args.script || "Script content will be added here.";
+              await docsApi.documents.batchUpdate({
+                documentId: docId,
+                requestBody: { requests: [{ insertText: { location: { index: 1 }, text: scriptContent } }] }
+              });
+              
+              await driveApi.files.update({
+                fileId: docId,
+                requestBody: { properties: { createdByAI: 'true' } }
+              });
+
+              const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
+              const tagsString = Array.isArray(args.tags) ? args.tags.join(', ') : (args.tags || '');
+              const fullDescription = `${args.description}\n\nTags: ${tagsString}\n\n🎥 Full Script: ${docUrl}`;
+              console.log("[YOUTUBE TOOL] Script doc created:", docUrl);
+
+              // 2. If user uploaded a video file, upload it to YouTube as a REAL video draft
+              if (videoUrl && youtubeApi) {
+                try {
+                  console.log("[YOUTUBE TOOL] Downloading video from Firebase Storage...");
+                  const videoFetchRes = await fetch(videoUrl);
+                  if (!videoFetchRes.ok) throw new Error(`Failed to download video: ${videoFetchRes.status}`);
+                  const videoBuffer = Buffer.from(await videoFetchRes.arrayBuffer());
+                  console.log(`[YOUTUBE TOOL] Video downloaded: ${videoBuffer.length} bytes`);
+                  
+                  const { Readable } = require('stream');
+                  const videoStream = new Readable();
+                  videoStream.push(videoBuffer);
+                  videoStream.push(null);
+
+                  console.log("[YOUTUBE TOOL] Uploading video to YouTube...");
+                  const ytRes = await youtubeApi.videos.insert({
+                    part: ['snippet', 'status'],
+                    requestBody: {
+                      snippet: {
+                        title: args.title,
+                        description: fullDescription,
+                        tags: args.tags || [],
+                        categoryId: '27'
+                      },
+                      status: {
+                        privacyStatus: 'private',
+                        selfDeclaredMadeForKids: false
+                      }
+                    },
+                    media: { body: videoStream }
+                  });
+
+                  const videoId = ytRes.data.id;
+                  console.log("[YOUTUBE TOOL] Video uploaded! ID:", videoId);
+                  functionResult = JSON.stringify({ 
+                    result: `Video draft uploaded to YouTube!\n- YouTube Video: https://studio.youtube.com/video/${videoId}/edit (Private)\n- Script Doc: ${docUrl}\n\nYour video "${args.title}" is now in YouTube Studio as a private draft. Review and publish when ready!\n\n[YOUTUBE_METADATA: ID=${videoId}, TYPE=video]` 
+                  });
+                } catch (uploadErr: any) {
+                  console.error("[YOUTUBE TOOL] Video upload failed:", uploadErr.message);
+                  // Fall back to playlist if upload fails
+                  functionResult = JSON.stringify({ 
+                    result: `Video upload failed (${uploadErr.message}), but your Script Doc was created: ${docUrl}. Try re-uploading the video file.` 
+                  });
+                }
+              } else {
+                // No video file — create a YouTube Playlist as the draft container
+                let playlistUrl = "";
+                let playlistIdStr = "";
+                if (youtubeApi) {
+                  try {
+                    console.log("[YOUTUBE TOOL] No video file — creating YouTube playlist...");
+                    const playlistRes = await youtubeApi.playlists.insert({
+                      part: ['snippet', 'status'],
+                      requestBody: {
+                        snippet: {
+                          title: `[DRAFT] ${args.title}`,
+                          description: fullDescription,
+                          tags: args.tags || []
+                        },
+                        status: { privacyStatus: 'private' }
+                      }
+                    });
+                    const playlistId = playlistRes.data.id;
+                    playlistIdStr = playlistId;
+                    playlistUrl = `https://www.youtube.com/playlist?list=${playlistId}`;
+                    console.log("[YOUTUBE TOOL] Playlist created:", playlistId);
+                  } catch (playlistErr: any) {
+                    console.error("[YOUTUBE TOOL] Playlist creation failed:", playlistErr.message);
+                  }
+                }
+                functionResult = JSON.stringify({ 
+                  result: `Video concept created (no video file attached)!\n- YouTube Draft Playlist: ${playlistUrl || "unavailable"}\n- Script Doc: ${docUrl}\n\nUpload a video file on the dashboard to create a full YouTube video draft next time.\n\n[YOUTUBE_METADATA: ID=${playlistIdStr}, TYPE=playlist]` 
+                });
+              }
+            } catch (err: any) {
+              console.error("[YOUTUBE TOOL] Error:", err.message);
+              functionResult = JSON.stringify({ error: "Failed to create video concept: " + err.message });
             }
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });

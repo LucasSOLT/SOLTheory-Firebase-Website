@@ -69,24 +69,38 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
     const qFrom = query(collection(firestore, "support_tickets"), where("fromEmail", "==", user.email));
     const qTo = query(collection(firestore, "support_tickets"), where("toEmail", "==", user.email));
 
-    const unsubscribeFrom = onSnapshot(qFrom, (snap1) => {
-      onSnapshot(qTo, (snap2) => {
-        const merged = new Map<string, TicketData>();
-        snap1.forEach(d => merged.set(d.id, { id: d.id, ...d.data() } as TicketData));
-        snap2.forEach(d => merged.set(d.id, { id: d.id, ...d.data() } as TicketData));
-        
-        const sortedTickets = Array.from(merged.values()).sort((a, b) => {
-          const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-          const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-          return tB - tA;
-        });
+    let fromDocs: any[] = [];
+    let toDocs: any[] = [];
 
-        setTickets(sortedTickets);
-        setLoading(false);
+    const updateTickets = () => {
+      const merged = new Map<string, TicketData>();
+      fromDocs.forEach(d => merged.set(d.id, { id: d.id, ...d.data() } as TicketData));
+      toDocs.forEach(d => merged.set(d.id, { id: d.id, ...d.data() } as TicketData));
+      
+      const sortedTickets = Array.from(merged.values()).sort((a, b) => {
+        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return tB - tA;
       });
+
+      setTickets(sortedTickets);
+      setLoading(false);
+    };
+
+    const unsubscribeFrom = onSnapshot(qFrom, (snap) => {
+      fromDocs = snap.docs;
+      updateTickets();
     });
 
-    return () => unsubscribeFrom();
+    const unsubscribeTo = onSnapshot(qTo, (snap) => {
+      toDocs = snap.docs;
+      updateTickets();
+    });
+
+    return () => {
+      unsubscribeFrom();
+      unsubscribeTo();
+    };
   }, [firestore, user?.email, user?.uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {

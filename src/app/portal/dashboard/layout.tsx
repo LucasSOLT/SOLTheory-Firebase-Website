@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useUser } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -146,6 +146,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
+          {/* Social Media Integrations */}
+          <div className="mb-2">
+            <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.socialMediaIntegrations}</div>
+            <div className="space-y-1">
+              <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-fuchsia-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/youtube') ? 'bg-fuchsia-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-fuchsia-600'}`}>
+                  <Youtube className="w-4 h-4 ml-1" />
+                </div>
+                <span className="text-sm">YouTube</span>
+              </Link>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-transparent">
+                  <Instagram className="w-4 h-4 ml-1" />
+                </div>
+                <span className="text-sm">Instagram</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-transparent">
+                  <Facebook className="w-4 h-4 ml-1" />
+                </div>
+                <span className="text-sm">Facebook</span>
+              </div>
+            </div>
+          </div>
+
           {/* Section 3 */}
           <div>
             <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.googleIntegrations}</div>
@@ -176,12 +201,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <Video className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Meet</span>
              </div>
-             <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-fuchsia-900'}`}>
-               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/youtube') ? 'bg-fuchsia-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-fuchsia-600'}`}>
-                 <Youtube className="w-4 h-4 ml-1" />
-               </div>
-               <span className="text-sm">YouTube</span>
-             </Link>
              <Link href={`${dashboardHome}/google-ads`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/google-ads') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/google-ads') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
                  <Megaphone className="w-4 h-4 ml-1" />

@@ -1,14 +1,13 @@
 'use client';
 
-import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+
 import { Header } from '@/components/sections/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
 import Link from 'next/link';
 import { ArrowDown, Sparkles, Mail, Layers, LayoutDashboard, Settings } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 import { BlobHero } from '@/components/ui/blob-hero';
 import { motion } from 'framer-motion';
 import { StarBackground } from '@/components/ui/star-background';
@@ -27,18 +26,7 @@ const whatQualifies = [
   }
 ];
 
-const featuredProjects = [
-  {
-    id: "thrive-coaching",
-    title: "THRiVE Coaching",
-    url: "https://www.thrivecoaching.ai",
-  },
-  {
-    id: "life-navigation",
-    title: "Life Navigation University",
-    url: "https://www.lifenavigation.ai",
-  }
-];
+
 
 export default function Home() {
   return (
@@ -206,47 +194,7 @@ export default function Home() {
               </div>
             </section>
             
-            {/* SECTION 3: Featured Projects */}
-            <section id="projects" className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-30 shadow-2xl">
-              <div className="container mx-auto px-4">
-                <div className="text-center mb-16">
-                  <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white mb-4">Featured Projects</h2>
-                  <p className="text-slate-400 max-w-2xl mx-auto text-lg">Explore high-fidelity applications designed directly within the SOL Theory network.</p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-5xl mx-auto mt-4 px-4 w-full h-[60vh] max-h-[500px]">
-                  {featuredProjects.map((project, idx) => {
-                    const projectImage = PlaceHolderImages.find(img => img.id === project.id);
-                    return (
-                      <div key={project.id} className="h-full w-full">
-                        <Link href={project.url} target="_blank" rel="noopener noreferrer" className="block group h-full w-full">
-                          <Card className="bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-700 group-hover:border-fuchsia-500/50 group-hover:bg-white/10 group-hover:-translate-y-2 group-hover:shadow-[0_0_50px_-10px_rgba(192,38,211,0.3)] relative rounded-3xl">
-                            
-                            {projectImage && (
-                              <div className={cn("relative h-full w-full opacity-80 group-hover:opacity-100 transition-all duration-700 z-10 overflow-hidden flex-grow")}>
-                                <Image
-                                  src={projectImage.imageUrl}
-                                  alt={projectImage.description || project.title}
-                                  fill
-                                  className="group-hover:scale-105 transition-transform duration-1000 object-cover"
-                                  data-ai-hint={projectImage.imageHint}
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d10] via-black/40 to-transparent" />
-                              </div>
-                            )}
-                            <CardHeader className="absolute bottom-0 left-0 right-0 z-20 pb-8 text-center pt-24 bg-gradient-to-t from-[#0d0d10] to-transparent">
-                              <CardTitle className="font-headline text-3xl md:text-4xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 drop-shadow-2xl">
-                                {project.title}
-                              </CardTitle>
-                            </CardHeader>
-                          </Card>
-                        </Link>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </section>
+
 
             {/* SECTION 4 & 5 Combined: Dense Protocol Overview */}
             <section id="qualifies" className="relative py-32 md:py-48 w-full flex flex-col items-center justify-center bg-transparent z-40 shadow-2xl overflow-hidden">

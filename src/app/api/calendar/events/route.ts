@@ -25,24 +25,75 @@ export async function POST(req: Request) {
     defaultMax.setMonth(defaultMax.getMonth() + 2);
     defaultMax.setDate(0);
     
-    const res = await calendar.events.list({
-      calendarId: 'primary',
-      timeMin: timeMin || defaultMin.toISOString(),
-      timeMax: timeMax || defaultMax.toISOString(),
-      singleEvents: true,
-      orderBy: 'startTime',
-      maxResults: 250
+    // 1. Fetch all calendars the user has access to
+    const calendarListRes = await calendar.calendarList.list();
+    const calendars = calendarListRes.data.items || [];
+
+    // 2. Fetch events concurrently from all calendars
+    const fetchPromises = calendars.map(async (cal) => {
+      try {
+        const eventsRes = await calendar.events.list({
+          calendarId: cal.id as string,
+          timeMin: timeMin || defaultMin.toISOString(),
+          timeMax: timeMax || defaultMax.toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: 250 // per calendar
+        });
+        return eventsRes.data.items || [];
+      } catch (err) {
+        console.warn(`Could not fetch events for calendar ${cal.summary}:`, err);
+        return [];
+      }
     });
 
-    const parsedEvents = (res.data.items || []).map((e: any) => ({
-      id: e.id,
-      title: e.summary,
-      start: e.start.dateTime || e.start.date,
-      end: e.end.dateTime || e.end.date,
-      link: e.htmlLink,
-      color: "bg-blue-500",
-      allDay: !e.start.dateTime
-    }));
+    const results = await Promise.all(fetchPromises);
+    const allEvents = results.flat();
+
+    // Deduplicate just in case
+    const uniqueEventsMap = new Map();
+    allEvents.forEach((e: any) => {
+      uniqueEventsMap.set(e.id, e);
+    });
+
+    const parsedEvents = Array.from(uniqueEventsMap.values()).map((e: any) => {
+      // Apply color coding rules based on user request
+      let eventColor = "bg-blue-500";
+      const titleLower = (e.summary || "").toLowerCase();
+      
+      if (titleLower.includes("lucas - out of office")) {
+        eventColor = "bg-green-600";
+      } else if (titleLower.includes("sol meeting room")) {
+         eventColor = "bg-purple-600";
+      } else {
+        // Hash the title to get a consistent unique color
+        const colors = [
+          "bg-blue-500", "bg-indigo-500", "bg-rose-500", "bg-orange-500", 
+          "bg-cyan-600", "bg-teal-500", "bg-pink-500", "bg-amber-600", 
+          "bg-fuchsia-600", "bg-sky-500", "bg-violet-500"
+        ];
+        let hash = 0;
+        for (let i = 0; i < titleLower.length; i++) {
+          hash = titleLower.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        eventColor = colors[Math.abs(hash) % colors.length];
+      }
+
+      return {
+        id: e.id,
+        title: e.summary || "Untitled Event",
+        start: e.start?.dateTime || e.start?.date,
+        end: e.end?.dateTime || e.end?.date,
+        link: e.htmlLink || e.hangoutLink,
+        description: e.description || "",
+        location: e.location || "",
+        color: eventColor,
+        allDay: !(e.start && e.start.dateTime)
+      };
+    });
+
+    // Sort globally by start time
+    parsedEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
     return NextResponse.json({ status: "success", events: parsedEvents });
 

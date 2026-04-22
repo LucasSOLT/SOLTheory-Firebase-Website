@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { HelpCircle, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from "lucide-react";
 
-const FAQ_LIST = [
+export const FAQ_LIST = [
   {
     question: "Why does my Gmail sync disconnect or say 'Auth Error'?",
     answer: "This happens when Google's security revokes your token or if you block popups. To fix this, click the 'Reconnect Gmail Account' button inside the Observer Panel and ensure you grant full permissions during the Google SignIn popup."
