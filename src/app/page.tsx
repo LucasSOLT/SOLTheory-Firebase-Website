@@ -130,9 +130,9 @@ export default function Home() {
                           </p>
                         </CardHeader>
                         <div className="p-6 pt-0 mt-auto">
-                          <a href="mailto:team@soltheory.com" className="block w-full text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
+                          <Link href="/contact" className="block w-full text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
                             Contact Team
-                          </a>
+                          </Link>
                         </div>
                       </Card>
                     </div>
