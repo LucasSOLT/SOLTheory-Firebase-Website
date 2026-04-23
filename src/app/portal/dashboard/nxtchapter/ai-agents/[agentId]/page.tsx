@@ -443,11 +443,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
             </Button>
           )}
 
-          <Button variant="ghost" asChild className="w-full justify-start gap-2 h-10 text-slate-500 hover:text-slate-800 ">
-            <Link href="/portal/dashboard/nxtchapter/settings">
-              <Settings className="w-4 h-4" /> Settings
-            </Link>
-          </Button>
+
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-thin">
           <div className="text-xs font-semibold text-muted-foreground mb-2 px-2 mt-4 flex items-center justify-between">
@@ -680,10 +676,6 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           <div className="max-w-3xl mx-auto relative flex flex-col items-center">
             
             <div className="w-full flex justify-start items-center mb-2 px-1 gap-2">
-              <Button onClick={() => setIsKnowledgeBaseOpen(true)} variant="ghost" size="sm" className="h-7 text-xs gap-1.5 font-semibold text-slate-600  hover:text-slate-900 rounded-full bg-slate-200/50  hover:bg-slate-200 transition-colors pointer-events-auto">
-                 <Brain className="w-3.5 h-3.5" />
-                 Knowledge Base (Soul, Brain, Heartbeat)
-              </Button>
             </div>
 
             <div className="relative w-full border border-slate-300  rounded-2xl overflow-hidden bg-white/80  shadow-lg focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all flex items-center">

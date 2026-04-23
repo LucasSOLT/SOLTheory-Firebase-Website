@@ -618,11 +618,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           <Button variant="outline" className="w-full justify-start gap-2 h-10 bg-slate-200/50  hover:bg-slate-300/50  border-slate-300  text-slate-900  mb-2" onClick={startNewSession}>
             <Plus className="w-4 h-4" /> New Session
           </Button>
-          <Button variant="ghost" asChild className="w-full justify-start gap-2 h-10 text-slate-500  hover:text-slate-900  hover:bg-slate-200/50  mb-4">
-            <Link href="/portal/dashboard/soltheory/settings">
-              <Settings className="w-4 h-4" /> Settings
-            </Link>
-          </Button>
+
           <div className="text-xs font-semibold text-slate-900  mb-2 px-1 uppercase tracking-widest mt-4">Chat History</div>
           {sessions.map(s => (
             <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 h-10 rounded-lg transition-all ${activeSessionId === s.id ? 'bg-slate-300/50  text-slate-900  border border-slate-200 ' : 'text-slate-500  hover:text-slate-900  hover:bg-slate-200/50 '}`}>
@@ -957,11 +953,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
-                      <div className="flex gap-2">
-                        <Button onClick={() => setIsKnowledgeBaseOpen(true)} variant="ghost" size="sm" className="pointer-events-auto h-8 px-4 text-xs font-bold text-slate-700  hover:text-slate-900  bg-slate-200/50  border border-slate-300  hover:bg-slate-300/50  rounded-full shadow-lg backdrop-blur-md transition-all">
-                          <Sparkles className="w-3.5 h-3.5 mr-2 text-fuchsia-400" /> Settings
-                        </Button>
-                      </div>
                     </div>
 
                     <div className="relative w-full border border-slate-300 rounded-[24px] overflow-hidden bg-white/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">

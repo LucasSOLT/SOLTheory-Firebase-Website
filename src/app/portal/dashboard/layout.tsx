@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useUser } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Detect which org the user is in based on the current path
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
@@ -47,18 +48,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <aside className="w-full bg-white flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
           <div className="w-64 flex flex-col h-full"> {/* Inner fixed width container */}
-            <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
+            <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
               {pathname.includes('/nxtchapter') ? (
-                <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain" />
+                <>
+                  <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain object-left" />
+                  <span className="font-bold text-2xl text-slate-900 tracking-tight">NXT Chapter</span>
+                </>
               ) : (
-             <>
-               <div className="bg-black text-white p-1.5 rounded-lg shrink-0">
-                 <Logo className="w-5 h-5 text-white" />
-               </div>
-               <span className="font-bold text-lg text-slate-900">{t.dashboard}</span>
-             </>
-           )}
-        </Link>
+                <>
+                  <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
+                    <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-16 h-16 object-contain" />
+                  </div>
+                  <span className="font-bold text-2xl text-slate-900 tracking-tight">SOL Theory</span>
+                </>
+              )}
+            </Link>
 
         <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Section 1 */}
@@ -231,19 +235,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* User Footer Profile */}
         <div className="p-4 mt-auto mb-4 flex items-center gap-2">
-          <Link href={`${dashboardHome}/settings`} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors shrink-0 text-slate-400 hover:text-slate-900 bg-white border border-slate-100 shadow-sm">
+          <Link href={`${dashboardHome}/settings?tab=general`} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors shrink-0 text-slate-400 hover:text-slate-900 bg-white border border-slate-100 shadow-sm">
              <Settings className="w-5 h-5" />
           </Link>
-          <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-            <Avatar className="h-8 w-8 shrink-0">
+          <Link href={`${dashboardHome}/settings?tab=profile`} className="flex-1 flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden hover:bg-slate-50 transition-colors cursor-pointer group">
+            <Avatar className="h-8 w-8 shrink-0 group-hover:scale-105 transition-transform">
               <AvatarImage src={user?.photoURL || ""} />
               <AvatarFallback className="bg-slate-100 font-bold text-sm text-slate-600">{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-bold truncate text-slate-900">{user?.displayName || "User"}</span>
+              <span className="text-sm font-bold truncate text-slate-900 group-hover:text-indigo-600 transition-colors">{user?.displayName || "User"}</span>
               <span className="text-[10px] text-slate-500 truncate">{user?.email || ""}</span>
             </div>
-          </div>
+          </Link>
         </div>
           </div>
         </aside>
@@ -265,15 +269,108 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <LogOut className="h-3.5 w-3.5" />
                 {t.exitDashboard}
               </Link>
-              <button className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-white transition-colors bg-white shadow-sm border border-slate-100 rounded-full flex items-center justify-center relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-             </button>
+              <div className="relative">
+                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-white transition-colors bg-white shadow-sm border border-slate-100 rounded-full flex items-center justify-center relative">
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                </button>
+
+                {/* Notifications Popup */}
+                {isNotificationsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-[380px] bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
+                          <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">3 New</span>
+                        </div>
+                        <button onClick={() => setIsNotificationsOpen(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="max-h-[400px] overflow-y-auto">
+                        {/* Notification Items */}
+                        <div className="px-4 py-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-2">Today</p>
+
+                          <div className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-100/50 mb-1.5 cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <Bot className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800">Jarvis drafted 3 email replies</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Your AI agent has new drafts ready for review in Gmail.</p>
+                              <p className="text-[10px] text-indigo-500 font-medium mt-1">2 minutes ago</p>
+                            </div>
+                            <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-2"></div>
+                          </div>
+
+                          <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100/50 mb-1.5 cursor-pointer hover:bg-emerald-50 transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <CalendarDays className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800">Meeting in 30 minutes</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Weekly sync with the team at 10:00 AM.</p>
+                              <p className="text-[10px] text-emerald-500 font-medium mt-1">28 minutes ago</p>
+                            </div>
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-2"></div>
+                          </div>
+
+                          <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer">
+                            <div className="w-8 h-8 rounded-lg bg-fuchsia-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <Mail className="w-4 h-4 text-fuchsia-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800">New support ticket submitted</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">A client submitted ticket #1042 regarding billing.</p>
+                              <p className="text-[10px] text-slate-400 font-medium mt-1">1 hour ago</p>
+                            </div>
+                            <div className="w-2 h-2 rounded-full bg-fuchsia-500 shrink-0 mt-2"></div>
+                          </div>
+
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-2 mt-2">Earlier</p>
+
+                          <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <ShieldCheck className="w-4 h-4 text-slate-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-600">Security scan complete</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">No vulnerabilities detected. System is secure.</p>
+                              <p className="text-[10px] text-slate-400 font-medium mt-1">Yesterday</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <Activity className="w-4 h-4 text-slate-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-600">Analytics report ready</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">Your weekly performance report has been generated.</p>
+                              <p className="text-[10px] text-slate-400 font-medium mt-1">2 days ago</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+                        <button className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors py-1">
+                          View All Notifications
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
              <div className="h-8 w-px bg-slate-200 mx-2"></div>
-             <Avatar className="h-10 w-10 cursor-pointer ring-2 ring-white shadow-sm">
-              <AvatarImage src={user?.photoURL || ""} />
-              <AvatarFallback className="bg-slate-800 text-white font-bold">{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
-            </Avatar>
+             <div className="flex flex-col items-end justify-center cursor-pointer select-none">
+                <span className="text-2xl font-black text-slate-800 leading-none tracking-tight" style={{ fontFamily: "'Sofia Soft Pro', 'Sofia Pro', sans-serif" }}>SOL</span>
+                <span className="text-[11px] font-bold text-slate-500 leading-none tracking-[0.2em] mt-0.5" style={{ fontFamily: "'Sofia Soft Pro', 'Sofia Pro', sans-serif" }}>INSiGHT</span>
+             </div>
           </div>
         </header>
 

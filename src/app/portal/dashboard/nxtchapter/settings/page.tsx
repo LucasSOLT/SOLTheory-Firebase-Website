@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings } from "lucide-react";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { signInAnonymously, updateProfile } from "firebase/auth";
@@ -107,7 +107,7 @@ const t = {
 };
 
 type Lang = 'en' | 'es';
-type Tab = 'profile' | 'notifications' | 'security' | 'language';
+type Tab = 'general' | 'profile' | 'notifications' | 'security' | 'language';
 
 export default function SettingsPage() {
   return (
@@ -142,7 +142,13 @@ function SettingsContent() {
     // Load local language
     const savedLang = localStorage.getItem('agent_language') as Lang;
     if (savedLang === 'en' || savedLang === 'es') setLang(savedLang);
-  }, []);
+    
+    // Read tab from query params
+    const tabParam = searchParams.get('tab') as Tab;
+    if (tabParam && ['general', 'profile', 'notifications', 'security', 'language'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const changeLang = (l: Lang) => {
     setLang(l);
@@ -261,45 +267,80 @@ function SettingsContent() {
       <main className="flex-grow py-8 px-4 md:px-8 relative">
         <div className="w-full max-w-5xl mx-auto space-y-6">
           <div className="flex items-center gap-4 relative z-20">
-            <Link href="/portal/dashboard/nxtchapter/ai-agents/jarvis" className="p-2 bg-white/50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 shadow-sm backdrop-blur-md relative z-20">
-              <ArrowLeft className="w-5 h-5 text-slate-700" />
-            </Link>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{dict.settings}</h1>
           </div>
 
           <div className="flex flex-col md:flex-row gap-8 pt-4">
             
             {/* Sidebar Navigation */}
-            <div className="w-full md:w-64 space-y-2 shrink-0">
-              <button 
-                onClick={() => setActiveTab('profile')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'profile' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
-              >
-                <User className="w-5 h-5" /> {dict.profile}
-              </button>
-              <button 
-                onClick={() => setActiveTab('notifications')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'notifications' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
-              >
-                <Bell className="w-5 h-5" /> {dict.notifications}
-              </button>
-              <button 
-                onClick={() => setActiveTab('security')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'security' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
-              >
-                <Lock className="w-5 h-5" /> {dict.security}
-              </button>
-              <button 
-                onClick={() => setActiveTab('language')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'language' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
-              >
-                <Globe className="w-5 h-5" /> {dict.regionLanguage}
-              </button>
+            <div className="w-full md:w-64 flex flex-col gap-6 shrink-0">
+              
+              {/* User Profile Box */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col items-center text-center">
+                <div className="w-20 h-20 rounded-full bg-slate-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center text-2xl font-bold text-slate-700 mb-3">
+                  {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : (user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+                </div>
+                <h3 className="font-bold text-slate-900 text-lg line-clamp-1">{user?.displayName || "User"}</h3>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">User Profile</p>
+              </div>
+
+              <div className="space-y-2">
+                <button 
+                  onClick={() => setActiveTab('general')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'general' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                >
+                  <Settings className="w-5 h-5" /> General
+                </button>
+                <button 
+                  onClick={() => setActiveTab('profile')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'profile' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                >
+                  <User className="w-5 h-5" /> {dict.profile}
+                </button>
+                <button 
+                  onClick={() => setActiveTab('notifications')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'notifications' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                >
+                  <Bell className="w-5 h-5" /> {dict.notifications}
+                </button>
+                <button 
+                  onClick={() => setActiveTab('security')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'security' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                >
+                  <Lock className="w-5 h-5" /> {dict.security}
+                </button>
+                <button 
+                  onClick={() => setActiveTab('language')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'language' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                >
+                  <Globe className="w-5 h-5" /> {dict.regionLanguage}
+                </button>
+              </div>
             </div>
 
             {/* Content Area */}
             <div className="flex-1 space-y-6">
               
+              {activeTab === 'general' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <Card className="bg-white border-slate-200 shadow-xl">
+                    <CardHeader className="px-8 pt-8">
+                      <CardTitle className="text-xl text-slate-900">General Settings</CardTitle>
+                      <CardDescription>Manage your overarching platform preferences here.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-8 pb-8 space-y-6">
+                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="space-y-1">
+                          <Label className="text-base font-bold text-slate-800">Compact Mode</Label>
+                          <p className="text-sm text-slate-500">Reduce spacing and padding across the dashboard interface.</p>
+                        </div>
+                        <Switch />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
               {activeTab === 'profile' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <Card className="bg-white border-slate-200 overflow-hidden shadow-2xl relative">
@@ -397,14 +438,6 @@ function SettingsContent() {
                       <CardTitle className="text-xl text-slate-900">{dict.notifications}</CardTitle>
                     </CardHeader>
                     <CardContent className="px-8 pb-8 space-y-8">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-base text-slate-800">{dict.dailyDigest}</Label>
-                          <p className="text-sm text-slate-500">{dict.dailyDigestDesc}</p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="w-full h-px bg-slate-100/50" />
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <Label className="text-base text-slate-800">{dict.systemAlerts}</Label>

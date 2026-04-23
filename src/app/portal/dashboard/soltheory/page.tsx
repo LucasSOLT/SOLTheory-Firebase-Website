@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { IntegrationColumn } from "@/components/portal/IntegrationPicker";
+import { DailyDigest } from "@/components/portal/DailyDigest";
+import { RecentPlaces } from "@/components/portal/RecentPlaces";
+import { RadialGraphs } from "@/components/portal/RadialGraphs";
 import { useTranslation } from "@/lib/i18n";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 import {
   Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
-  Settings, CalendarDays, ChevronDown, Download
+  Settings, CalendarDays, ChevronDown, Download,
+  Zap, MessageSquare, Globe, FileText, BarChart3, Users, HardDrive, Youtube, Bot, Clock
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
@@ -64,10 +69,13 @@ export default function SolTheoryDashboard() {
 
   return (
     <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
-      <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-5 items-stretch">
         {/* Left Integration Slots */}
-        <div className="hidden xl:block">
+        <div className="hidden xl:flex flex-col gap-5 h-full">
           <IntegrationColumn side="left" />
+          <div className="flex-1 flex flex-col min-h-0">
+            <RecentPlaces />
+          </div>
         </div>
 
         {/* Center Dashboard Content */}
@@ -322,11 +330,95 @@ export default function SolTheoryDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ─── Row 4: Mock Box + Daily Digest ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Team Activity (mock) */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-sm font-semibold text-slate-700">Team Activity</h3>
+            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+              This Week <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="space-y-4">
+            {[
+              { name: "Lucas M.", role: "Admin", status: "Active", color: "bg-emerald-500" },
+              { name: "Jarvis AI", role: "Agent", status: "Online", color: "bg-indigo-500" },
+              { name: "Morpheus AI", role: "Agent", status: "Standby", color: "bg-amber-400" },
+            ].map((m) => (
+              <div key={m.name} className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">{m.name.charAt(0)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-700 truncate">{m.name}</p>
+                  <p className="text-[10px] text-slate-400 font-medium">{m.role}</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${m.color}`} />
+                  <span className="text-[10px] text-slate-500 font-medium">{m.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Daily Digest */}
+        <DailyDigest />
+      </div>
+
+      {/* ─── Row 5: Two more mock boxes ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Upcoming Events (mock) */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-sm font-semibold text-slate-700">Upcoming Events</h3>
+            <button className="text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors">View Calendar</button>
+          </div>
+          <div className="space-y-3">
+            {[
+              { title: "Weekly Team Sync", time: "10:00 AM", day: "Today", accent: "border-l-indigo-500 bg-indigo-50/30" },
+              { title: "Client Strategy Call", time: "2:30 PM", day: "Today", accent: "border-l-emerald-500 bg-emerald-50/30" },
+              { title: "Sprint Review", time: "9:00 AM", day: "Tomorrow", accent: "border-l-fuchsia-500 bg-fuchsia-50/30" },
+            ].map((e) => (
+              <div key={e.title} className={`flex items-center gap-3 p-3 rounded-xl border-l-[3px] ${e.accent}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-700">{e.title}</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">{e.day} · {e.time}</p>
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Actions (mock) */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-sm font-semibold text-slate-700">Quick Actions</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Compose Email", icon: "✉️", bg: "bg-blue-50 hover:bg-blue-100" },
+              { label: "New Document", icon: "📄", bg: "bg-green-50 hover:bg-green-100" },
+              { label: "Schedule Meeting", icon: "📅", bg: "bg-purple-50 hover:bg-purple-100" },
+              { label: "Ask Jarvis", icon: "🤖", bg: "bg-amber-50 hover:bg-amber-100" },
+            ].map((a) => (
+              <button key={a.label} className={`flex items-center gap-2.5 p-3.5 rounded-xl text-left transition-colors cursor-pointer ${a.bg} border border-transparent`}>
+                <span className="text-lg">{a.icon}</span>
+                <span className="text-xs font-semibold text-slate-700">{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
         </div>
 
         {/* Right Integration Slots */}
-        <div className="hidden xl:block">
+        <div className="hidden xl:flex flex-col gap-5 h-full">
           <IntegrationColumn side="right" />
+          <div className="flex-1 flex flex-col min-h-0">
+            <RadialGraphs />
+          </div>
         </div>
       </div>
     </div>

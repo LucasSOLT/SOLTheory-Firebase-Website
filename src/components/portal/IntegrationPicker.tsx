@@ -355,8 +355,8 @@ export function IntegrationWidget({
    Integration Sidebar Column (6 slots)
    ═══════════════════════════════════════════════════════════════ */
 
-export function IntegrationColumn({ side }: { side: "left" | "right" }) {
-  const [slots, setSlots] = useState<(Integration | null)[]>([null, null, null, null, null, null]);
+export function IntegrationColumn({ side, limit = 6 }: { side: "left" | "right", limit?: number }) {
+  const [slots, setSlots] = useState<(Integration | null)[]>(Array(limit).fill(null));
   const [pickerOpen, setPickerOpen] = useState<number | null>(null);
 
   const selectedIds = slots.filter(Boolean).map(s => s!.id);
