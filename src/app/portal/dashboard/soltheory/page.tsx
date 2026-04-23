@@ -1,264 +1,333 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { 
-  Building2, Users, Activity, Sparkles, Server, ArrowUpRight, Settings, MessageSquare, Coins
-} from "lucide-react";
-import Link from "next/link";
+import { IntegrationColumn } from "@/components/portal/IntegrationPicker";
 import { useTranslation } from "@/lib/i18n";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from "recharts";
-import MonthlyUsersChart from "@/components/ui/monthly-users-chart";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
+import {
+  Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
+  Settings, CalendarDays, ChevronDown, Download
+} from "lucide-react";
+import Link from "next/link";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+} from "recharts";
 
-type TrafficData = { time: string; users: number };
+/* ───── static mock data to match the reference design ───── */
+const salesData = [
+  { month: "Oct", china: 2988, uk: 1200, usa: 900, canada: 600, other: 400 },
+  { month: "Nov", china: 1765, uk: 1400, usa: 800, canada: 700, other: 350 },
+  { month: "Dec", china: 4005, uk: 1600, usa: 1100, canada: 500, other: 500 },
+];
 
+const subscriberData = [
+  { day: "Sun", value: 1800 },
+  { day: "Mon", value: 2200 },
+  { day: "Tue", value: 3874 },
+  { day: "Wed", value: 2400 },
+  { day: "Thu", value: 2800 },
+  { day: "Fri", value: 1900 },
+  { day: "Sat", value: 2100 },
+];
+
+const distributionData = [
+  { label: "Website", value: 374.82, pct: 55 },
+  { label: "Mobile App", value: 241.60, pct: 35 },
+  { label: "Other", value: 213.42, pct: 10 },
+];
+
+const integrations = [
+  { app: "Stripe", type: "Finance", rate: 40, profit: "$650.00" },
+  { app: "Zapier", type: "CRM", rate: 80, profit: "$720.56" },
+  { app: "Shopify", type: "Marketplace", rate: 20, profit: "$432.25" },
+];
+
+/* ───── component ───── */
 export default function SolTheoryDashboard() {
   const { t } = useTranslation();
   const { user } = useUser();
   const firestore = useFirestore();
-  const [activeUsers, setActiveUsers] = useState(0);
-  const [activeOrgs, setActiveOrgs] = useState(0);
-  const [analyticsData, setAnalyticsData] = useState<TrafficData[]>([]);
-  const [estimatedCost, setEstimatedCost] = useState<number>(0);
-  const [unreadMessages, setUnreadMessages] = useState<number>(0);
-  const [monthlyData, setMonthlyData] = useState<{month: string; users: number}[]>([]);
-  
-  const [liveOccupancy, setLiveOccupancy] = useState(0);
-  const liveOccupancyRef = useRef(0);
 
-  useEffect(() => {
-    liveOccupancyRef.current = liveOccupancy;
-  }, [liveOccupancy]);
-
+  /* presence tracking (keep existing logic) */
   useEffect(() => {
     if (!firestore || !user?.uid) return;
     const userRef = doc(firestore, "users", user.uid);
     updateDoc(userRef, { currentDashboard: "soltheory" }).catch(() => {});
-
-    const handleBeforeUnload = () => {
-      updateDoc(userRef, { currentDashboard: null }).catch(() => {});
-    };
+    const handleBeforeUnload = () => updateDoc(userRef, { currentDashboard: null }).catch(() => {});
     window.addEventListener("beforeunload", handleBeforeUnload);
-
     return () => {
       updateDoc(userRef, { currentDashboard: null }).catch(() => {});
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [firestore, user?.uid]);
 
-  useEffect(() => {
-    if (!firestore) return;
-
-    const fetchCounts = async () => {
-      try {
-        const uSnap = await getDocs(collection(firestore, "users"));
-        setActiveUsers(uSnap.size);
-        const oSnap = await getDocs(collection(firestore, "organizations"));
-        setActiveOrgs(oSnap.size);
-
-        const monthlyCounts: Record<string, number> = {};
-        uSnap.forEach(doc => {
-          const data = doc.data();
-          if (data.createdAt) {
-             let date;
-             if (data.createdAt.toDate) date = data.createdAt.toDate();
-             else date = new Date(data.createdAt);
-             const month = date.toLocaleString('default', { month: 'short' });
-             monthlyCounts[month] = (monthlyCounts[month] || 0) + 1;
-          }
-        });
-        
-        if (Object.keys(monthlyCounts).length > 0) {
-           const formatData = Object.keys(monthlyCounts).map(m => ({ month: m, users: monthlyCounts[m] }));
-           setMonthlyData(formatData);
-        } else {
-           setMonthlyData([]);
-        }
-      } catch (err) {
-        console.error("Count fetch error:", err);
-      }
-    };
-    fetchCounts();
-
-    try {
-      let totalChars = 0;
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('st_agent_sessions_') || key.startsWith('agent_sessions_'))) {
-          const sessions = JSON.parse(localStorage.getItem(key) || '[]');
-          sessions.forEach((s: any) => {
-            s.messages?.forEach((m: any) => {
-              if (m.text) totalChars += m.text.length;
-              if (m.hiddenContext) totalChars += m.hiddenContext.length;
-            });
-          });
-        }
-      }
-      const tokens = Math.floor(totalChars / 4);
-      setEstimatedCost((tokens / 1_000_000) * 0.70);
-    } catch(e) {}
-
-    const q = query(collection(firestore, "users"), where("currentDashboard", "==", "soltheory"));
-    const unsubPresence = onSnapshot(q, (snap) => {
-      setLiveOccupancy(snap.size);
-    });
-
-    return () => unsubPresence();
-  }, [firestore]);
-
-  useEffect(() => {
-    const defaultData = Array.from({length: 20}, (_, i) => ({
-      time: new Date(Date.now() - (19 - i) * 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      users: 0
-    }));
-    setAnalyticsData(defaultData);
-
-    const interval = setInterval(() => {
-      setAnalyticsData(prev => {
-        const next = [...prev.slice(1)];
-        next.push({
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          users: liveOccupancyRef.current
-        });
-        return next;
-      });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
-      
-      {/* Dashboard Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2">
-        <div className="space-y-1">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
-            {t.solTheoryHub} <span className="text-indigo-600">Hub</span>
-          </h1>
-          <p className="text-slate-500 text-base max-w-2xl font-medium">
-            {t.solTheoryHubDesc}
-          </p>
+    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
+      <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-5 items-start">
+        {/* Left Integration Slots */}
+        <div className="hidden xl:block">
+          <IntegrationColumn side="left" />
         </div>
-        
-        <div className="flex items-center shrink-0">
-          <Link href="/portal/dashboard/soltheory/settings" className="w-14 h-14 rounded-2xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 shadow-sm transition-all group">
-            <Settings className="w-7 h-7 group-hover:rotate-90 transition-transform duration-500" />
-          </Link>
+
+        {/* Center Dashboard Content */}
+        <div className="space-y-6 min-w-0">
+
+      {/* ─── Dashboard Header ─── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
+            <CalendarDays className="w-3.5 h-3.5" /> Oct 18 – Nov 18
+          </button>
+          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
+            Monthly <ChevronDown className="w-3 h-3" />
+          </button>
+          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
+            <Filter className="w-3.5 h-3.5" /> Filter
+          </button>
+          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
+            <Download className="w-3.5 h-3.5" /> Export
+          </button>
         </div>
       </div>
 
-      {/* Top Metrics Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden relative transition-all hover:shadow-md rounded-2xl">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wide">
-              Estimated Token Cost
-            </CardTitle>
-            <div className="p-2 bg-emerald-50 rounded-lg">
-              <Coins className="w-4 h-4 text-emerald-600" />
+      {/* ─── Top 3 Metric Cards ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Page Views */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+              <Eye className="w-4 h-4" /> Page Views
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-black text-slate-900 mt-2">
-              ${estimatedCost.toFixed(4)}
+            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
             </div>
-            <p className="text-xs text-emerald-600 flex items-center mt-3 font-semibold bg-emerald-50 w-fit px-2 py-1 rounded-md">
-              <ArrowUpRight className="w-3 h-3 mr-1" /> Groq API Equivalency
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-slate-800 tracking-tight">12,450</span>
+            <span className="text-xs font-semibold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded">15.8% ↑</span>
+          </div>
+        </div>
 
-        <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden relative transition-all hover:shadow-md rounded-2xl">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wide">
-              Unread Messages
-            </CardTitle>
-            <div className="p-2 bg-indigo-50 rounded-lg">
-              <MessageSquare className="w-4 h-4 text-indigo-600" />
+        {/* Total Revenue */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+              <DollarSign className="w-4 h-4" /> Total Revenue
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-black text-slate-900 mt-2 flex items-baseline gap-2">
-              {unreadMessages}
+            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
             </div>
-            <p className="text-xs text-indigo-600 flex items-center mt-3 font-semibold bg-indigo-50 w-fit px-2 py-1 rounded-md">
-              <ArrowUpRight className="w-3 h-3 mr-1" /> @Messages Feature
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-slate-800 tracking-tight">$ 363.95</span>
+            <span className="text-xs font-semibold text-red-400 bg-red-50 px-1.5 py-0.5 rounded">34.0% ↓</span>
+          </div>
+        </div>
 
-        <Link href="/portal/dashboard/soltheory/ai-agents/jarvis" className="block relative group h-full">
-          <Card className="bg-slate-100 border-0 shadow-lg overflow-hidden h-full flex flex-col items-center justify-center transition-transform group-hover:-translate-y-1 rounded-2xl relative">
-            <div className="absolute top-0 right-0 p-4">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+        {/* Bounce Rate */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+              <TrendingDown className="w-4 h-4" /> Bounce Rate
             </div>
-            <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-3 m-0">
-              <div className="p-4 bg-white rounded-2xl backdrop-blur-md border border-slate-200">
-                <Server className="w-8 h-8 text-slate-700" />
-              </div>
-              <div className="text-xl font-bold text-slate-900 tracking-widest uppercase mt-4">{t.agentManager}</div>
-              <p className="text-slate-500 text-xs font-medium">{t.manageActiveProtocols}</p>
-            </CardContent>
-          </Card>
-        </Link>
+            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-slate-800 tracking-tight">86.5%</span>
+            <span className="text-xs font-semibold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded">24.2% ↑</span>
+          </div>
+        </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Analytics Chart */}
-        <Card className="w-full bg-white border-0 shadow-sm ring-1 ring-slate-100 flex flex-col min-h-[400px] rounded-2xl">
-          <CardHeader className="border-b border-slate-50 pb-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-slate-900 text-lg font-extrabold flex items-center gap-3">
-                  <Activity className="w-5 h-5 text-indigo-500" />
-                  {t.platformTrafficAnalytics}
-                </CardTitle>
-                <CardDescription className="text-slate-500 font-medium mt-1">Live dashboard occupancy</CardDescription>
-              </div>
-              <div className="px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-xs font-bold text-indigo-600 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" /> {liveOccupancy} Connected
-              </div>
+      {/* ─── Middle Row: Sales Overview + Total Subscribers ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* Sales Overview — 3 cols */}
+        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-sm font-semibold text-slate-700">Sales Overview</h3>
+            <div className="flex items-center gap-2">
+              <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+                <Filter className="w-3 h-3" /> Filter
+              </button>
+              <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+                <ArrowDownUp className="w-3 h-3" /> Sort
+              </button>
+              <button className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
+                •••
+              </button>
             </div>
-          </CardHeader>
-          <CardContent className="flex-grow pt-6 p-6">
+          </div>
+          <div className="flex items-baseline gap-3 mb-1">
+            <span className="text-3xl font-bold text-slate-800">$ 9,257.51</span>
+          </div>
+          <div className="flex items-center gap-4 mb-5 text-xs text-slate-400 font-medium">
+            <span className="text-emerald-500">15.6% ↑</span>
+            <span>+ $143.50 increased</span>
+          </div>
+
+          <div className="flex-1 min-h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+              <BarChart data={salesData} barCategoryGap="20%" barGap={2}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  itemStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#94a3b8' }} />
+                <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                  cursor={{ fill: 'rgba(99,102,241,0.04)' }}
                 />
-                <Area type="monotone" dataKey="users" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" isAnimationActive={false} />
-              </AreaChart>
+                <Bar dataKey="china" stackId="a" fill="#c7d2fe" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="uk" stackId="a" fill="#a5b4fc" />
+                <Bar dataKey="usa" stackId="a" fill="#818cf8" />
+                <Bar dataKey="canada" stackId="a" fill="#6366f1" />
+                <Bar dataKey="other" stackId="a" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Monthly Unique Users Chart */}
-        <MonthlyUsersChart data={monthlyData} accentColor="emerald" />
+          {/* Legend */}
+          <div className="flex items-center gap-4 mt-4 flex-wrap">
+            {[
+              { label: "China", color: "#c7d2fe" },
+              { label: "UK", color: "#a5b4fc" },
+              { label: "USA", color: "#818cf8" },
+              { label: "Canada", color: "#6366f1" },
+              { label: "Other", color: "#4f46e5" },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
+                <span className="text-xs text-slate-400 font-medium">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Total Subscribers — 2 cols */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-sm font-semibold text-slate-700">Total Subscriber</h3>
+            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+              Weekly <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="flex items-baseline gap-3 mb-1">
+            <span className="text-3xl font-bold text-slate-800">24,473</span>
+          </div>
+          <div className="flex items-center gap-3 mb-5 text-xs text-slate-400 font-medium">
+            <span className="text-emerald-500">8.3% ↑</span>
+            <span>+ 749 increased</span>
+          </div>
+
+          <div className="flex-1 min-h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={subscriberData} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#94a3b8' }} />
+                <YAxis hide />
+                <Tooltip
+                  contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                  cursor={{ fill: 'rgba(99,102,241,0.04)' }}
+                />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {subscriberData.map((entry, index) => (
+                    <Cell key={index} fill={entry.day === "Tue" ? "#6366f1" : "#e0e7ff"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Bottom Row: Sales Distribution + List of Integration ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Sales Distribution */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-semibold text-slate-700">Sales Distribution</h3>
+            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+              Monthly <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* Summary Row */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {distributionData.map((d) => (
+              <div key={d.label} className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{d.label}</span>
+                <span className="text-lg font-bold text-slate-800">$ {d.value.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Horizontal Bars */}
+          <div className="space-y-4">
+            {distributionData.map((d) => (
+              <div key={d.label} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">{d.label}</span>
+                  <span className="text-slate-400">{d.pct}%</span>
+                </div>
+                <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${d.pct}%`, background: "linear-gradient(90deg, #c7d2fe, #818cf8)" }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* List of Integration */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-semibold text-slate-700">List of Integration</h3>
+            <button className="text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors">
+              See All
+            </button>
+          </div>
+
+          {/* Table Header */}
+          <div className="grid grid-cols-4 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">
+            <span>Application</span>
+            <span>Type</span>
+            <span>Rate</span>
+            <span className="text-right">Profit</span>
+          </div>
+
+          {/* Table Rows */}
+          <div className="space-y-4">
+            {integrations.map((item) => (
+              <div key={item.app} className="grid grid-cols-4 gap-4 items-center px-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <span className="text-xs font-bold text-slate-500">{item.app.charAt(0)}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">{item.app}</span>
+                </div>
+                <span className="text-xs text-slate-500 font-medium">{item.type}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-300 rounded-full" style={{ width: `${item.rate}%` }} />
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">{item.rate}%</span>
+                </div>
+                <span className="text-sm font-semibold text-slate-700 text-right">{item.profit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+        </div>
+
+        {/* Right Integration Slots */}
+        <div className="hidden xl:block">
+          <IntegrationColumn side="right" />
+        </div>
       </div>
     </div>
   );
