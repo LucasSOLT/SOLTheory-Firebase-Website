@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useFirestore } from "@/firebase";
 import { getAuth } from "firebase/auth";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AISurveyCreator from "@/components/portal/surveys/AISurveyCreator";
@@ -73,13 +73,18 @@ export default function SolTheorySurveysPage() {
       const customSnap = await getDocs(
         query(
           collection(firestore, "custom_surveys"),
-          where("userId", "==", auth.currentUser.uid),
-          orderBy("createdAt", "desc")
+          where("userId", "==", auth.currentUser.uid)
         )
       );
       const customItems: CustomSurvey[] = [];
       customSnap.forEach((doc) => {
         customItems.push({ id: doc.id, ...doc.data() } as CustomSurvey);
+      });
+      // Sort newest-first client-side
+      customItems.sort((a, b) => {
+        const aTime = a.createdAt?.toDate?.() || new Date(0);
+        const bTime = b.createdAt?.toDate?.() || new Date(0);
+        return bTime.getTime() - aTime.getTime();
       });
       setCustomSurveys(customItems);
 
