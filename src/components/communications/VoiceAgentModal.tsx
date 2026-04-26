@@ -452,6 +452,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   type ActionType = "email" | "calendar" | "doc" | "slide" | "sheet" | "survey" | "ticket" | "youtube" | null;
 
   function detectAction(text: string): { type: ActionType; data: Record<string, string> } {
+    console.log("detectAction called with text:", text);
     const lower = text.toLowerCase();
 
     // Email detection
@@ -568,8 +569,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return <>{displayed}<span className="inline-block w-0.5 h-3.5 bg-slate-400 rounded-full ml-0.5 animate-pulse align-middle" /></>;
   }
 
-  // ── Action Preview Card ──
   function ActionPreviewCard({ type, data }: { type: ActionType; data: Record<string, string> }) {
+    console.log("ActionPreviewCard rendering with type:", type, "data:", data);
     if (!type) return null;
 
     const configs: Record<string, { icon: any; label: string; color: string; bg: string; border: string }> = {
@@ -584,7 +585,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     };
 
     const config = configs[type];
-    if (!config) return null;
+    if (!config) {
+      console.log("No config found for type:", type);
+      return null;
+    }
     const Icon = config.icon;
 
     return (
@@ -897,6 +901,15 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                         )}
                       </div>
                       {!line.isUser && action.type && <ActionPreviewCard type={action.type} data={action.data} />}
+                      {!line.isUser && !action.type && (
+                        <div className="mt-2 p-2 bg-rose-100 text-rose-800 text-xs rounded border border-rose-200">
+                          Debug: No action detected for preceding user message.
+                          <br />
+                          <span className="opacity-50">Searched backwards and found: {
+                            transcriptLines.slice(0, i).reverse().find(l => l.isUser)?.text || "none"
+                          }</span>
+                        </div>
+                      )}
                     </React.Fragment>
                   );
                 })}
