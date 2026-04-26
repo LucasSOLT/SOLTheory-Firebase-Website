@@ -673,6 +673,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   return (
     <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in fade-in duration-300">
+      <TopLeftPreviewCard type={currentAction.type} data={currentAction.data} />
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
       {/* ─── TOP ─── */}
