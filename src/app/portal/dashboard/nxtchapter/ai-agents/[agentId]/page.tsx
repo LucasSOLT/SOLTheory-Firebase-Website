@@ -48,14 +48,14 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  
+
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState<{url: string, name: string} | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string, name: string } | null>(null);
 
 
-  
+
   // Observer Panel States
   const [incomingEmails, setIncomingEmails] = useState<EmailMeta[]>([]);
   const [ignoredEmails, setIgnoredEmails] = useState<string[]>([]);
@@ -79,10 +79,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent?: string }> = {
-    "jarvis": { 
-      name: "Jarvis (Executive Agent)", 
-      greeting: "Hello. I am Jarvis, your dedicated AI assistant for NXT Chapter. How can I assist you today?", 
-      theme: "border-blue-200 text-blue-600 bg-blue-50", 
+    "jarvis": {
+      name: "Jarvis (Executive Agent)",
+      greeting: "Hello. I am Jarvis, your dedicated AI assistant for NXT Chapter. How can I assist you today?",
+      theme: "border-blue-200 text-blue-600 bg-blue-50",
       chatBg: "bg-white border-slate-200 shadow-sm",
       accent: "text-blue-600"
     }
@@ -116,8 +116,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         } else {
           startNewSession();
         }
-      } catch(e) { 
-        startNewSession(); 
+      } catch (e) {
+        startNewSession();
       }
     } else {
       startNewSession();
@@ -127,7 +127,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   useEffect(() => {
     const savedConfig = localStorage.getItem(`agent_config_${params.agentId}`);
     if (savedConfig) {
-      try { setAgentConfig(JSON.parse(savedConfig)); } catch (e) {}
+      try { setAgentConfig(JSON.parse(savedConfig)); } catch (e) { }
     }
   }, [params.agentId]);
 
@@ -139,7 +139,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     if (params.agentId !== "jarvis" || !user?.uid || !firestore) return;
     getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
       const data = docSnap.data();
-      const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken 
+      const connected = !!data?.[`gmailOAuth_${params.agentId}`]?.refreshToken
         || !!(data?.gmailOAuth_jarvis?.refreshToken || data?.gmailOAuth_morpheus?.refreshToken)
         || !!data?.gmailOAuth_email?.refreshToken
         || !!data?.["gmailOAuth_inbound-email"]?.refreshToken
@@ -169,7 +169,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   useEffect(() => {
     const savedIgnored = localStorage.getItem('agent_ignored_emails');
     if (savedIgnored) {
-      try { setIgnoredEmails(JSON.parse(savedIgnored)); } catch(e) {}
+      try { setIgnoredEmails(JSON.parse(savedIgnored)); } catch (e) { }
     }
   }, []);
 
@@ -182,7 +182,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       setSessions(prev => {
         const updated = prev.map(s => {
           if (s.id === activeSessionId) {
-            const title = s.title === "New Chat" && messages.filter(m => m.isSelf).length > 0 
+            const title = s.title === "New Chat" && messages.filter(m => m.isSelf).length > 0
               ? messages.filter(m => m.isSelf)[0].text.substring(0, 30) + "..."
               : s.title;
             return { ...s, messages, title };
@@ -217,8 +217,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           || userData?.["gmailOAuth_inbound-email"]?.refreshToken
           || userData?.gmailOAuth?.refreshToken;
         if (!refreshToken) {
-           setIsPolling(false);
-           return;
+          setIsPolling(false);
+          return;
         }
 
         const res = await fetch("/api/webhooks/gmail/list", {
@@ -269,10 +269,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
     localStorage.setItem(`agent_sessions_${params.agentId}`, JSON.stringify(updated));
-    
+
     if (activeSessionId === id) {
       if (updated.length > 0) {
-        const mostRecent = updated.sort((a,b) => b.updatedAt - a.updatedAt)[0];
+        const mostRecent = updated.sort((a, b) => b.updatedAt - a.updatedAt)[0];
         setActiveSessionId(mostRecent.id);
         setMessages(mostRecent.messages);
       } else {
@@ -286,7 +286,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     if (!user?.uid || !firestore) return "";
     try {
       const { collection, getDocs } = await import("firebase/firestore");
-      
+
       const possibleAgentIds = [
         params.agentId,
         `soltheory_${params.agentId}`,
@@ -297,7 +297,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       }
 
       const texts: string[] = [];
-      
+
       for (const searchId of possibleAgentIds) {
         try {
           const chunksSnap = await getDocs(collection(firestore, "users", user.uid, "agents", searchId, "knowledge_chunks"));
@@ -309,7 +309,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           // ignore error for missing collections
         }
       }
-      
+
       // Cap at 30 chunks to stay within context limits
       return texts.slice(0, 30).join("\n\n");
     } catch (err) {
@@ -355,8 +355,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          messages: apiMessages, 
+        body: JSON.stringify({
+          messages: apiMessages,
           agentId: `nxtchapter_${params.agentId}`,
           soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
@@ -373,14 +373,14 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         throw new Error(data.error || "Failed to get response");
       }
 
-      const aiMsg: Message = { 
-        id: uid(), 
-        text: data.response || "No response generated.", 
-        isSelf: false 
+      const aiMsg: Message = {
+        id: uid(),
+        text: data.response || "No response generated.",
+        isSelf: false
       };
-      
+
       setMessages(prev => [...prev, aiMsg]);
-      
+
       const usage = data.usage || 0;
       if (usage > 0 && user?.uid && firestore) {
         import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
@@ -389,10 +389,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       }
     } catch (error: any) {
       console.error(error);
-      const errorMsg: Message = { 
-        id: uid(), 
-        text: `Error: ${error.message}. Please check your terminal or .env.local keys.`, 
-        isSelf: false 
+      const errorMsg: Message = {
+        id: uid(),
+        text: `Error: ${error.message}. Please check your terminal or .env.local keys.`,
+        isSelf: false
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
@@ -412,7 +412,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       }
       if (!refreshToken) refreshToken = (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken);
       if (!refreshToken) refreshToken = userData?.gmailOAuth?.refreshToken;
-      
+
       const res = await fetch("/api/webhooks/gmail/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -447,11 +447,11 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           <Button variant="outline" className="w-full justify-start gap-2 h-10 bg-white  border-slate-300  hover:bg-slate-100 text-slate-900  shadow-sm" onClick={startNewSession}>
             <Plus className="w-4 h-4" /> New chat
           </Button>
-          
+
           {isSearchOpen ? (
             <div className="flex items-center gap-2 px-2 h-10 border border-slate-300  rounded-md bg-white  shadow-sm transition-all focus-within:ring-1 focus-within:ring-primary">
               <Search className="w-4 h-4 text-slate-400 shrink-0" />
-              <input 
+              <input
                 autoFocus
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -477,11 +477,11 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           {sessions.sort((a, b) => b.updatedAt - a.updatedAt).map((session) => {
             const isMatch = searchQuery.trim() !== "" && session.title.toLowerCase().includes(searchQuery.toLowerCase());
             return (
-              <div 
-                key={session.id} 
+              <div
+                key={session.id}
                 className={`group flex items-center w-full px-2 mt-1 h-9 rounded-md transition-colors ${activeSessionId === session.id ? 'bg-slate-200  text-slate-900 ' : 'text-slate-600 hover:text-slate-900  hover:bg-slate-100'} ${isMatch ? 'ring-2 ring-primary/50 bg-primary/10 ' : ''}`}
               >
-                <button 
+                <button
                   onClick={() => loadSession(session.id)}
                   className="flex-1 flex items-center justify-start font-normal h-full text-sm outline-none bg-transparent overflow-hidden"
                 >
@@ -537,342 +537,342 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
         {/* Chat Area */}
         {isKnowledgeBaseOpen ? (
-<div className="flex-1 overflow-y-auto p-4 md:p-8">
-                 <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-200 pb-56">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-200 pb-56">
 
-               <div className="flex items-center justify-between border-b border-slate-200/70  pb-6">
-                 <div>
-                   <h2 className="text-3xl font-extrabold flex items-center gap-3 text-slate-900  tracking-tight">
-                     <Brain className="w-8 h-8 text-primary" /> Core Programming Logic
-                   </h2>
-                   <p className="text-slate-500  mt-2 text-sm">Inject the specific identity and operational directives for {agent.name.split(' ')[0]}.</p>
-                 </div>
-                 <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100/10 text-slate-500 hover:text-slate-900 ">
-                   <X className="w-6 h-6" />
-                 </Button>
-               </div>
-               
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                 {/* Soul Card */}
-                 <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-fuchsia-500/30 backdrop-blur-xl">
-                   <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                   <div className="relative">
-                     <div className="w-10 h-10 rounded-xl bg-fuchsia-500/10 flex items-center justify-center mb-4 border border-fuchsia-500/20 shadow-inner">
-                       <User className="w-5 h-5 text-fuchsia-500 " />
-                     </div>
-                     <h3 className="text-lg font-bold text-slate-900  mb-2">The Soul (Personality)</h3>
-                     <p className="text-xs text-slate-500  mb-4 line-clamp-2">Describe exactly how the agent should speak, format its answers, and behave.</p>
-                     <textarea
-                       className="w-full h-32 p-4 bg-white/80  border border-slate-200  rounded-2xl resize-none focus:ring-1 focus:ring-fuchsia-500 outline-none transition-shadow text-sm text-slate-900  placeholder:text-slate-400 shadow-inner"
-                       placeholder="e.g., You are incredibly enthusiastic, use heavy slang, and always sign off with 'Cheers!'."
-                       value={agentConfig.soul}
-                       onChange={e => setAgentConfig({ ...agentConfig, soul: e.target.value })}
-                     />
-                   </div>
-                 </div>
+              <div className="flex items-center justify-between border-b border-slate-200/70  pb-6">
+                <div>
+                  <h2 className="text-3xl font-extrabold flex items-center gap-3 text-slate-900  tracking-tight">
+                    <Brain className="w-8 h-8 text-primary" /> Core Programming Logic
+                  </h2>
+                  <p className="text-slate-500  mt-2 text-sm">Inject the specific identity and operational directives for {agent.name.split(' ')[0]}.</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100/10 text-slate-500 hover:text-slate-900 ">
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
 
-                 {/* Brain Card */}
-                 <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-indigo-500/30 backdrop-blur-xl">
-                   <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                   <div className="relative">
-                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center mb-4 border border-indigo-500/20 shadow-inner">
-                       <Brain className="w-5 h-5 text-indigo-500 " />
-                     </div>
-                     <h3 className="text-lg font-bold text-slate-900  mb-2">The Brain (Directives)</h3>
-                     <p className="text-xs text-slate-500  mb-4 line-clamp-2">Provide strict operational directives or knowledge context that the agent must absolutely adhere to.</p>
-                     <textarea
-                       className="w-full h-32 p-4 bg-white/80  border border-slate-200  rounded-2xl resize-none focus:ring-1 focus:ring-indigo-500 outline-none transition-shadow text-sm text-slate-900  placeholder:text-slate-400 shadow-inner"
-                       placeholder="e.g., Never disclose internal API keys. Base pricing logic on $50/hr."
-                       value={agentConfig.brain}
-                       onChange={e => setAgentConfig({ ...agentConfig, brain: e.target.value })}
-                     />
-                   </div>
-                 </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                {/* Soul Card */}
+                <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-fuchsia-500/30 backdrop-blur-xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-xl bg-fuchsia-500/10 flex items-center justify-center mb-4 border border-fuchsia-500/20 shadow-inner">
+                      <User className="w-5 h-5 text-fuchsia-500 " />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900  mb-2">The Soul (Personality)</h3>
+                    <p className="text-xs text-slate-500  mb-4 line-clamp-2">Describe exactly how the agent should speak, format its answers, and behave.</p>
+                    <textarea
+                      className="w-full h-32 p-4 bg-white/80  border border-slate-200  rounded-2xl resize-none focus:ring-1 focus:ring-fuchsia-500 outline-none transition-shadow text-sm text-slate-900  placeholder:text-slate-400 shadow-inner"
+                      placeholder="e.g., You are incredibly enthusiastic, use heavy slang, and always sign off with 'Cheers!'."
+                      value={agentConfig.soul}
+                      onChange={e => setAgentConfig({ ...agentConfig, soul: e.target.value })}
+                    />
+                  </div>
+                </div>
 
-                 {/* Heartbeat Card (Full Width) */}
-                 <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-emerald-500/30 backdrop-blur-xl md:col-span-2 flex flex-col md:flex-row gap-6 items-center">
-                   <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                   
-                   <div className="relative flex items-center gap-4 flex-1">
-                     <div className="w-12 h-12 shrink-0 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-inner">
-                       <Bot className="w-6 h-6 text-emerald-500 " />
-                     </div>
-                     <div>
-                       <h3 className="text-lg font-bold text-slate-900  flex items-center gap-2">
-                         The Heartbeat (Autonomous Engine)
-                       </h3>
-                       <p className="text-xs text-slate-500  mt-1 max-w-md">
-                         Determine how frequently the agent performs automated background sweeps.
-                       </p>
-                     </div>
-                   </div>
+                {/* Brain Card */}
+                <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-indigo-500/30 backdrop-blur-xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center mb-4 border border-indigo-500/20 shadow-inner">
+                      <Brain className="w-5 h-5 text-indigo-500 " />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900  mb-2">The Brain (Directives)</h3>
+                    <p className="text-xs text-slate-500  mb-4 line-clamp-2">Provide strict operational directives or knowledge context that the agent must absolutely adhere to.</p>
+                    <textarea
+                      className="w-full h-32 p-4 bg-white/80  border border-slate-200  rounded-2xl resize-none focus:ring-1 focus:ring-indigo-500 outline-none transition-shadow text-sm text-slate-900  placeholder:text-slate-400 shadow-inner"
+                      placeholder="e.g., Never disclose internal API keys. Base pricing logic on $50/hr."
+                      value={agentConfig.brain}
+                      onChange={e => setAgentConfig({ ...agentConfig, brain: e.target.value })}
+                    />
+                  </div>
+                </div>
 
-                   <div className="relative shrink-0 w-full md:w-64">
-                     <select
-                       className="w-full p-4 bg-white  border border-slate-200  rounded-2xl focus:ring-2 focus:ring-emerald-500/50 outline-none text-sm font-bold text-slate-900  shadow-inner transition-shadow hover:border-emerald-500/30 cursor-pointer appearance-none"
-                       value={agentConfig.heartbeat}
-                       onChange={e => setAgentConfig({ ...agentConfig, heartbeat: e.target.value })}
-                     >
-                       <option value="manual">Manual Execution Only</option>
-                       <option value="30s">Autopilot: Every 30 Seconds</option>
-                       <option value="1m">Autopilot: Every 1 Minute</option>
-                     </select>
-                     <div className="absolute right-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 animate-pulse pointer-events-none shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                   </div>
-                 </div>
-               </div>
+                {/* Heartbeat Card (Full Width) */}
+                <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-emerald-500/30 backdrop-blur-xl md:col-span-2 flex flex-col md:flex-row gap-6 items-center">
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
 
-               <div className="pt-8 flex justify-center">
-                  <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-black hover:bg-slate-900 text-white  px-12 h-12 rounded-full font-bold shadow-xl transition-all transform hover:scale-105 active:scale-95 gap-2">
-                    <CheckCircle2 className="w-5 h-5" /> Compile Settings & Return
-                  </Button>
-               </div>
-             </div>
-           </div>
+                  <div className="relative flex items-center gap-4 flex-1">
+                    <div className="w-12 h-12 shrink-0 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-inner">
+                      <Bot className="w-6 h-6 text-emerald-500 " />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900  flex items-center gap-2">
+                        The Heartbeat (Autonomous Engine)
+                      </h3>
+                      <p className="text-xs text-slate-500  mt-1 max-w-md">
+                        Determine how frequently the agent performs automated background sweeps.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="relative shrink-0 w-full md:w-64">
+                    <select
+                      className="w-full p-4 bg-white  border border-slate-200  rounded-2xl focus:ring-2 focus:ring-emerald-500/50 outline-none text-sm font-bold text-slate-900  shadow-inner transition-shadow hover:border-emerald-500/30 cursor-pointer appearance-none"
+                      value={agentConfig.heartbeat}
+                      onChange={e => setAgentConfig({ ...agentConfig, heartbeat: e.target.value })}
+                    >
+                      <option value="manual">Manual Execution Only</option>
+                      <option value="30s">Autopilot: Every 30 Seconds</option>
+                      <option value="1m">Autopilot: Every 1 Minute</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 animate-pulse pointer-events-none shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-8 flex justify-center">
+                <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-black hover:bg-slate-900 text-white  px-12 h-12 rounded-full font-bold shadow-xl transition-all transform hover:scale-105 active:scale-95 gap-2">
+                  <CheckCircle2 className="w-5 h-5" /> Compile Settings & Return
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : (
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin relative">
-          {/* Unified Token Tracking Pill */}
-          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-4 h-9 rounded-full bg-white border border-slate-200 flex items-center gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
-            <Bot className="w-4 h-4 text-emerald-500" />
-            <span className="text-[10px] font-black tracking-wider text-slate-600 uppercase">
-              {totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span> ≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
-            </span>
-          </button>
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin relative">
+            {/* Unified Token Tracking Pill */}
+            <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-4 h-9 rounded-full bg-white border border-slate-200 flex items-center gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+              <Bot className="w-4 h-4 text-emerald-500" />
+              <span className="text-[10px] font-black tracking-wider text-slate-600 uppercase">
+                {totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span> ≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
+              </span>
+            </button>
 
-          {showCostBreakdown && (
-            <div className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
-                <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
-              </div>
-              <div className="space-y-4">
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
+            {showCostBreakdown && (
+              <div className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
+                  <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="space-y-4">
+                  <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
+                    </div>
+                    <div className="text-xs text-slate-500 space-y-1">
+                      <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
+                      <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{totalGroqTokens.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
+                      <div className="h-px bg-slate-200 my-1" />
+                      <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalGroqTokens * 0.00000006).toFixed(6)}</span></div>
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-500 space-y-1">
-                    <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
-                    <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{totalGroqTokens.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
-                    <div className="h-px bg-slate-200 my-1" />
-                    <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalGroqTokens * 0.00000006).toFixed(6)}</span></div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Voice</span>
+                    </div>
+                    <div className="text-xs text-slate-500 space-y-1">
+                      <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
+                      <div className="flex justify-between"><span>Chars Used</span><span className="font-bold text-slate-700">{totalElevenLabsChars.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
+                      <div className="h-px bg-slate-200 my-1" />
+                      <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalElevenLabsChars * 0.000167).toFixed(6)}</span></div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Voice</span>
-                  </div>
-                  <div className="text-xs text-slate-500 space-y-1">
-                    <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
-                    <div className="flex justify-between"><span>Chars Used</span><span className="font-bold text-slate-700">{totalElevenLabsChars.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
-                    <div className="h-px bg-slate-200 my-1" />
-                    <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalElevenLabsChars * 0.000167).toFixed(6)}</span></div>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-900 rounded-[4px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
-                    <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="max-w-3xl mx-auto space-y-8 pb-56">
-            
-            {/* Model Title */}
-            <div className="flex justify-center mb-12 pt-8">
-              <div className="text-3xl font-bold opacity-30 text-slate-600  tracking-widest uppercase">{agent.name}</div>
-            </div>
-
-            {/* Agent Greeting (Always visible first) */}
-            <div className="flex gap-4 group animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-white  shadow-sm ${agent.theme}`}>
-                <Bot className="w-5 h-5" />
-              </div>
-              <div className="flex-1 space-y-2 pt-1">
-                <div className="font-semibold text-sm text-slate-700 ">{agent.name.split(' ')[0]}</div>
-                <div className={`text-slate-700  leading-relaxed inline-block p-4 rounded-2xl rounded-tl-sm border shadow-sm whitespace-pre-wrap ${agent.chatBg}`}>
-                  {agent.greeting}
-                </div>
-              </div>
-            </div>
-
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex gap-4 group animate-in fade-in slide-in-from-bottom-2 duration-300 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-slate-200  border-slate-300  text-slate-600 ' : `bg-white  shadow-sm ${agent.theme}`}`}>
-                  {msg.isSelf ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
-                </div>
-                <div className={`flex-1 space-y-2 pt-1 ${msg.isSelf ? 'text-right' : ''}`}>
-                  <div className="font-semibold text-sm text-slate-700 ">{msg.isSelf ? 'You' : agent.name.split(' ')[0]}</div>
-                  <div className={`text-slate-700  leading-relaxed inline-block p-4 rounded-2xl shadow-sm text-left ${msg.isSelf ? 'bg-slate-100  rounded-tr-sm border border-slate-200  whitespace-pre-wrap' : `${agent.chatBg} rounded-tl-sm border [&>p]:mb-4 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold`}`}>
-                    {msg.imageUrl ? (
-                      <div className="flex flex-col mb-2">
-                        <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">{msg.text.replace('Uploaded image: ', '')}</span>
-                        <img 
-                          src={msg.imageUrl} 
-                          alt="Uploaded Preview" 
-                          className="max-w-[200px] max-h-[200px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity" 
-                          onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.replace('Uploaded image: ', '') })}
-                        />
-                      </div>
-                    ) : null}
-                    {msg.isSelf && !msg.imageUrl ? msg.text : (!msg.imageUrl && <ReactMarkdown>{msg.text}</ReactMarkdown>)}
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {isTyping && (
-              <div className="flex gap-4 group animate-in fade-in duration-300">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-white  shadow-sm ${agent.theme}`}>
-                  <Bot className="w-5 h-5" />
-                </div>
-                <div className="flex-1 space-y-2 pt-1">
-                  <div className="font-semibold text-sm text-slate-700 ">{agent.name.split(' ')[0]}</div>
-                  <div className={`text-slate-500  inline-block p-4 rounded-xl rounded-tl-sm border shadow-sm flex items-center gap-2 h-14 ${agent.chatBg}`}>
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-500" /> Thinking...
+                  <div className="p-3 bg-slate-900 rounded-[4px]">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
+                      <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <div ref={bottomRef} className="h-32" />
+            <div className="max-w-3xl mx-auto space-y-8 pb-56">
+
+              {/* Model Title */}
+              <div className="flex justify-center mb-12 pt-8">
+                <div className="text-3xl font-bold opacity-30 text-slate-600  tracking-widest uppercase">{agent.name}</div>
+              </div>
+
+              {/* Agent Greeting (Always visible first) */}
+              <div className="flex gap-4 group animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-white  shadow-sm ${agent.theme}`}>
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div className="flex-1 space-y-2 pt-1">
+                  <div className="font-semibold text-sm text-slate-700 ">{agent.name.split(' ')[0]}</div>
+                  <div className={`text-slate-700  leading-relaxed inline-block p-4 rounded-2xl rounded-tl-sm border shadow-sm whitespace-pre-wrap ${agent.chatBg}`}>
+                    {agent.greeting}
+                  </div>
+                </div>
+              </div>
+
+              {messages.map((msg) => (
+                <div key={msg.id} className={`flex gap-4 group animate-in fade-in slide-in-from-bottom-2 duration-300 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-slate-200  border-slate-300  text-slate-600 ' : `bg-white  shadow-sm ${agent.theme}`}`}>
+                    {msg.isSelf ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+                  </div>
+                  <div className={`flex-1 space-y-2 pt-1 ${msg.isSelf ? 'text-right' : ''}`}>
+                    <div className="font-semibold text-sm text-slate-700 ">{msg.isSelf ? 'You' : agent.name.split(' ')[0]}</div>
+                    <div className={`text-slate-700  leading-relaxed inline-block p-4 rounded-2xl shadow-sm text-left ${msg.isSelf ? 'bg-slate-100  rounded-tr-sm border border-slate-200  whitespace-pre-wrap' : `${agent.chatBg} rounded-tl-sm border [&>p]:mb-4 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold`}`}>
+                      {msg.imageUrl ? (
+                        <div className="flex flex-col mb-2">
+                          <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">{msg.text.replace('Uploaded image: ', '')}</span>
+                          <img
+                            src={msg.imageUrl}
+                            alt="Uploaded Preview"
+                            className="max-w-[200px] max-h-[200px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.replace('Uploaded image: ', '') })}
+                          />
+                        </div>
+                      ) : null}
+                      {msg.isSelf && !msg.imageUrl ? msg.text : (!msg.imageUrl && <ReactMarkdown>{msg.text}</ReactMarkdown>)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {isTyping && (
+                <div className="flex gap-4 group animate-in fade-in duration-300">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-white  shadow-sm ${agent.theme}`}>
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="font-semibold text-sm text-slate-700 ">{agent.name.split(' ')[0]}</div>
+                    <div className={`text-slate-500  inline-block p-4 rounded-xl rounded-tl-sm border shadow-sm flex items-center gap-2 h-14 ${agent.chatBg}`}>
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-500" /> Thinking...
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={bottomRef} className="h-32" />
+            </div>
           </div>
-        </div>
         )}
 
         {/* Input Area */}
         {!isKnowledgeBaseOpen && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 via-slate-50/95   to-transparent pt-10">
-          <div className="max-w-3xl mx-auto relative flex flex-col items-center">
-            
-            <div className="w-full flex justify-start items-center mb-2 px-1 gap-2">
-            </div>
+          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 via-slate-50/95   to-transparent pt-10">
+            <div className="max-w-3xl mx-auto relative flex flex-col items-center">
 
-            <div className="relative w-full border border-slate-300  rounded-2xl overflow-hidden bg-white/80  shadow-lg focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all flex items-center">
-              <div className="flex items-center pl-3 gap-1 shrink-0">
-                 <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=nxtchapter`} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer" title="Connect Google Drive">
-                   <Cloud className="w-5 h-5" />
-                 </button>
-                 <label className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Upload File">
-                   <Paperclip className="w-5 h-5" />
-                   <input type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={async (e) => {
-                     if(e.target.files?.length) {
-                       const file = e.target.files[0];
-
-                       // If it's an image, optimize it and send as preview
-                       if (file.type === "image/jpeg" || file.type === "image/png") {
-                         const reader = new FileReader();
-                         reader.onload = (event) => {
-                           const img = new Image();
-                           img.onload = () => {
-                             const canvas = document.createElement("canvas");
-                             let width = img.width;
-                             let height = img.height;
-                             const MAX = 400; // Compress enough to fit easily in localStorage limits
-                             if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
-                             else if (height > MAX) { width *= MAX / height; height = MAX; }
-                             canvas.width = width; canvas.height = height;
-                             const ctx = canvas.getContext("2d");
-                             ctx?.drawImage(img, 0, 0, width, height);
-                             const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
-                             
-                             const sysMsg: Message = {
-                               id: uid(),
-                               text: `Uploaded image: ${file.name}`,
-                               isSelf: true,
-                               imageUrl: dataUrl
-                             };
-                             setMessages(prev => [...prev, sysMsg]);
-                           };
-                           img.src = event.target?.result as string;
-                         };
-                         reader.readAsDataURL(file);
-                         return;
-                       }
-
-                       setIsTyping(true);
-                       try {
-                         const formData = new FormData();
-                         formData.append("file", file);
-                         const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
-                         const data = await res.json();
-                         if (res.ok && data.chunks) {
-                           const fullText = data.chunks.map((c: any) => c.text).join(" ");
-                           const sysMsg: Message = { 
-                             id: uid(), 
-                             text: `Attached file: ${file.name}`, 
-                             isSelf: true,
-                             hiddenContext: `The user has attached a file named ${file.name}. Here are the extracted contents:\n\n${fullText}`
-                           };
-                           setMessages(prev => [...prev, sysMsg]);
-                         } else {
-                           throw new Error(data.error || "Failed to parse file");
-                         }
-                       } catch (err: any) {
-                         setMessages(prev => [...prev, { id: uid(), text: `Failed to attach file: ${err.message}`, isSelf: false }]);
-                       } finally {
-                         setIsTyping(false);
-                         e.target.value = "";
-                       }
-                     }
-                   }} />
-                 </label>
+              <div className="w-full flex justify-start items-center mb-2 px-1 gap-2">
               </div>
-              <Input 
-                placeholder={`Message ${agent.name}...`} 
-                className="border-0 focus-visible:ring-0 shadow-none flex-1 pr-14 min-h-[56px] py-4 bg-transparent resize-none overflow-hidden text-slate-800  placeholder:text-slate-500 focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0" 
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-              />
 
-              <button
-                onClick={() => setIsVoiceModalOpen(true)}
-                className="absolute right-12 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
-                title="Start Voice Session"
-              >
-                <Mic className="w-4 h-4" />
-              </button>
+              <div className="relative w-full border border-slate-300  rounded-2xl overflow-hidden bg-white/80  shadow-lg focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all flex items-center">
+                <div className="flex items-center pl-3 gap-1 shrink-0">
+                  <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=nxtchapter`} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer" title="Connect Google Drive">
+                    <Cloud className="w-5 h-5" />
+                  </button>
+                  <label className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Upload File">
+                    <Paperclip className="w-5 h-5" />
+                    <input type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={async (e) => {
+                      if (e.target.files?.length) {
+                        const file = e.target.files[0];
 
-              <Button 
-                onClick={() => setIsVoiceModalOpen(true)}
-                variant="ghost" 
-                size="icon"
-                className="absolute right-12 top-1/2 -translate-y-1/2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors w-8 h-8"
-                title="Start Voice Session"
-              >
-                <Mic className="w-5 h-5" />
-              </Button>
+                        // If it's an image, optimize it and send as preview
+                        if (file.type === "image/jpeg" || file.type === "image/png") {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const img = new Image();
+                            img.onload = () => {
+                              const canvas = document.createElement("canvas");
+                              let width = img.width;
+                              let height = img.height;
+                              const MAX = 400; // Compress enough to fit easily in localStorage limits
+                              if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+                              else if (height > MAX) { width *= MAX / height; height = MAX; }
+                              canvas.width = width; canvas.height = height;
+                              const ctx = canvas.getContext("2d");
+                              ctx?.drawImage(img, 0, 0, width, height);
+                              const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
 
-              <Button 
-                size="icon" 
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isTyping}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground w-8 h-8 transition-opacity disabled:opacity-50"
-              >
-                {isTyping ? <Loader2 className="w-4 h-4 ml-0.5 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
-              </Button>
-            </div>
-            <div className="text-xs text-center text-slate-500 mt-3 flex justify-center gap-1 font-medium w-full">
-              NXT Chapter AI • AI responses are generated via Groq integration.
+                              const sysMsg: Message = {
+                                id: uid(),
+                                text: `Uploaded image: ${file.name}`,
+                                isSelf: true,
+                                imageUrl: dataUrl
+                              };
+                              setMessages(prev => [...prev, sysMsg]);
+                            };
+                            img.src = event.target?.result as string;
+                          };
+                          reader.readAsDataURL(file);
+                          return;
+                        }
+
+                        setIsTyping(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append("file", file);
+                          const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
+                          const data = await res.json();
+                          if (res.ok && data.chunks) {
+                            const fullText = data.chunks.map((c: any) => c.text).join(" ");
+                            const sysMsg: Message = {
+                              id: uid(),
+                              text: `Attached file: ${file.name}`,
+                              isSelf: true,
+                              hiddenContext: `The user has attached a file named ${file.name}. Here are the extracted contents:\n\n${fullText}`
+                            };
+                            setMessages(prev => [...prev, sysMsg]);
+                          } else {
+                            throw new Error(data.error || "Failed to parse file");
+                          }
+                        } catch (err: any) {
+                          setMessages(prev => [...prev, { id: uid(), text: `Failed to attach file: ${err.message}`, isSelf: false }]);
+                        } finally {
+                          setIsTyping(false);
+                          e.target.value = "";
+                        }
+                      }
+                    }} />
+                  </label>
+                </div>
+                <Input
+                  placeholder={`Message ${agent.name}...`}
+                  className="border-0 focus-visible:ring-0 shadow-none flex-1 pr-14 min-h-[56px] py-4 bg-transparent resize-none overflow-hidden text-slate-800  placeholder:text-slate-500 focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                />
+
+                <button
+                  onClick={() => setIsVoiceModalOpen(true)}
+                  className="absolute right-12 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
+                  title="Start Voice Session"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+
+                <Button
+                  onClick={() => setIsVoiceModalOpen(true)}
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-12 top-1/2 -translate-y-1/2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors w-8 h-8"
+                  title="Start Voice Session"
+                >
+                  <Mic className="w-5 h-5" />
+                </Button>
+
+                <Button
+                  size="icon"
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isTyping}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground w-8 h-8 transition-opacity disabled:opacity-50"
+                >
+                  {isTyping ? <Loader2 className="w-4 h-4 ml-0.5 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                </Button>
+              </div>
+              <div className="text-xs text-center text-slate-500 mt-3 flex justify-center gap-1 font-medium w-full">
+                NXT Chapter AI • AI responses are generated via Groq integration.
+              </div>
             </div>
           </div>
-        </div>
         )}
       </div>
 
       {/* RIGHT OBSERVER PANEL Ribbon Button */}
       {params.agentId === "jarvis" && !isObserverOpen && (
-        <button 
-          onClick={() => setIsObserverOpen(true)} 
+        <button
+          onClick={() => setIsObserverOpen(true)}
           className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200  hover:bg-slate-300 text-slate-700  p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300  transition-all duration-200"
           title="Open Observer Panel"
         >
@@ -908,45 +908,45 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                     <div className="w-12 h-12 rounded-full bg-slate-200  flex items-center justify-center">
                       <Mail className="w-5 h-5 text-slate-400" />
                     </div>
-                    <span>No valid unread emails detected.<br/>Polling in background...</span>
+                    <span>No valid unread emails detected.<br />Polling in background...</span>
                   </div>
                 ) : (
                   incomingEmails
                     .filter(email => !ignoredEmails.includes(email.from))
                     .map(email => (
-                    <div key={email.id} className="bg-white  border border-slate-200  rounded-lg p-3.5 text-sm flex flex-col gap-1.5 shadow-sm hover:shadow-md transition-shadow relative group">
-                      <div className="flex items-start justify-between">
-                        <div className="font-semibold text-slate-800  truncate pr-6">{email.from.replace(/"/g, '')}</div>
-                        
-                        {/* Three dots menu */}
-                        <div className="absolute right-2 top-2 z-10">
-                           <button onClick={() => setOpenEmailDropdown(openEmailDropdown === email.id ? null : email.id)} className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100/80 transition-colors">
-                             <MoreVertical className="w-4 h-4" />
-                           </button>
-                           {openEmailDropdown === email.id && (
-                             <div className="absolute right-0 top-full mt-1 w-[220px] bg-white  border border-slate-200  rounded-md shadow-lg py-1">
-                               <button onClick={() => handleIgnoreEmail(email)} className="w-full text-left px-3 py-2 text-xs text-red-600  hover:bg-red-50/20 transition-colors">
-                                 Stop replying to this email address
-                               </button>
-                               <button onClick={() => setOpenEmailDropdown(null)} className="w-full text-left px-3 py-2 text-xs text-slate-600  hover:bg-slate-100 transition-colors">
-                                 Cancel
-                               </button>
-                             </div>
-                           )}
+                      <div key={email.id} className="bg-white  border border-slate-200  rounded-lg p-3.5 text-sm flex flex-col gap-1.5 shadow-sm hover:shadow-md transition-shadow relative group">
+                        <div className="flex items-start justify-between">
+                          <div className="font-semibold text-slate-800  truncate pr-6">{email.from.replace(/"/g, '')}</div>
+
+                          {/* Three dots menu */}
+                          <div className="absolute right-2 top-2 z-10">
+                            <button onClick={() => setOpenEmailDropdown(openEmailDropdown === email.id ? null : email.id)} className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100/80 transition-colors">
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                            {openEmailDropdown === email.id && (
+                              <div className="absolute right-0 top-full mt-1 w-[220px] bg-white  border border-slate-200  rounded-md shadow-lg py-1">
+                                <button onClick={() => handleIgnoreEmail(email)} className="w-full text-left px-3 py-2 text-xs text-red-600  hover:bg-red-50/20 transition-colors">
+                                  Stop replying to this email address
+                                </button>
+                                <button onClick={() => setOpenEmailDropdown(null)} className="w-full text-left px-3 py-2 text-xs text-slate-600  hover:bg-slate-100 transition-colors">
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
+                        <div className="text-slate-700  font-medium truncate text-[13px]">{email.subject}</div>
+                        <div className="text-xs text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{email.snippet.replace(/&#39;/g, "'")}</div>
+                        <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">{new Date(email.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
-                      <div className="text-slate-700  font-medium truncate text-[13px]">{email.subject}</div>
-                      <div className="text-xs text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{email.snippet.replace(/&#39;/g, "'")}</div>
-                      <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">{new Date(email.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                    </div>
-                  ))
+                    ))
                 )}
               </div>
-              
+
               <div className="p-4 border-t border-slate-200  shrink-0 bg-white ">
-                <Button 
-                  onClick={handleBatchSync} 
-                  disabled={isBatchSyncing || incomingEmails.length === 0} 
+                <Button
+                  onClick={handleBatchSync}
+                  disabled={isBatchSyncing || incomingEmails.length === 0}
                   className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 shadow-sm h-11 disabled:bg-slate-300 disabled: disabled:text-slate-500"
                 >
                   {isBatchSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -962,14 +962,14 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-               <div className="bg-slate-200  rounded-full p-4 mb-2">
-                 <Mail className="w-8 h-8 text-slate-400" />
-               </div>
-               <h3 className="text-lg font-bold text-slate-800 ">Gmail Disconnected</h3>
-               <p className="text-sm text-slate-500 ">Connect a dedicated Gmail account for this agent to enable real-time tracking.</p>
-               <Button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid}&agentId=${params.agentId}`} className="mt-4 bg-primary text-primary-foreground shadow-sm w-full font-semibold">
-                 Connect Gmail
-               </Button>
+              <div className="bg-slate-200  rounded-full p-4 mb-2">
+                <Mail className="w-8 h-8 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 ">Gmail Disconnected</h3>
+              <p className="text-sm text-slate-500 ">Connect a dedicated Gmail account for this agent to enable real-time tracking.</p>
+              <Button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid}&agentId=${params.agentId}`} className="mt-4 bg-primary text-primary-foreground shadow-sm w-full font-semibold">
+                Connect Gmail
+              </Button>
             </div>
           )}
         </div>
@@ -984,7 +984,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
             import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
-              updateDoc(doc(firestore, "users", user.uid), { 
+              updateDoc(doc(firestore, "users", user.uid), {
                 groqTokens: increment(groqUsage),
                 elevenLabsChars: increment(elevenLabsUsage)
               }).catch(console.error);
@@ -1004,7 +1004,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
             if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
           }
           const kbText = await getKnowledgeBaseText();
-          
+
           const res = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

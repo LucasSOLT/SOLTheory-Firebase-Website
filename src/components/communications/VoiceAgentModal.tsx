@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Mail, Calendar, FileText, Presentation, Table, ClipboardList, Ticket, Youtube } from "lucide-react";
 
 interface VoiceAgentModalProps {
@@ -451,6 +451,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   // ── Action Preview Detection (parses USER's natural speech) ──
   type ActionType = "email" | "calendar" | "doc" | "slide" | "sheet" | "survey" | "ticket" | "youtube" | null;
 
+  // Derive current action preview globally based on live text or the latest user message
+  const currentAction = useMemo(() => {
+    const latestUserText = transcriptLines.filter(l => l.isUser).map(l => l.text).pop() || "";
+    const currentTextToAnalyze = (liveText || latestUserText);
+    return detectAction(currentTextToAnalyze);
+  }, [transcriptLines, liveText]);
+
   function detectAction(text: string): { type: ActionType; data: Record<string, string> } {
     console.log("detectAction called with text:", text);
     const lower = text.toLowerCase();
@@ -569,8 +576,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return <>{displayed}<span className="inline-block w-0.5 h-3.5 bg-slate-400 rounded-full ml-0.5 animate-pulse align-middle" /></>;
   }
 
-  function ActionPreviewCard({ type, data }: { type: ActionType; data: Record<string, string> }) {
-    console.log("ActionPreviewCard rendering with type:", type, "data:", data);
+  function TopLeftPreviewCard({ type, data }: { type: ActionType; data: Record<string, string> }) {
     if (!type) return null;
 
     const configs: Record<string, { icon: any; label: string; color: string; bg: string; border: string }> = {
@@ -585,85 +591,52 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     };
 
     const config = configs[type];
-    if (!config) {
-      console.log("No config found for type:", type);
-      return null;
-    }
+    if (!config) return null;
     const Icon = config.icon;
 
     return (
-      <div className="flex justify-center my-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
-        <div className={`w-full max-w-md rounded-2xl border-2 ${config.border} ${config.bg} overflow-hidden shadow-lg`}>
-          {/* Header */}
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-current/10">
-            <Icon className={`w-4 h-4 ${config.color}`} />
-            <span className={`text-xs font-black uppercase tracking-widest ${config.color}`}>{config.label}</span>
+      <div className="absolute top-4 left-4 z-[100] animate-in fade-in slide-in-from-left-4 duration-500 w-[240px] pointer-events-none">
+        <div className={`w-full rounded-xl border border-white/40 ${config.bg} shadow-2xl overflow-hidden backdrop-blur-md`}>
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/30 bg-white/40">
+            <Icon className={`w-3.5 h-3.5 ${config.color}`} />
+            <span className={`text-[9px] font-black uppercase tracking-widest ${config.color}`}>{config.label}</span>
           </div>
 
-          {/* Email Preview */}
           {type === "email" && (
-            <div className="p-4 bg-white/80 space-y-3">
+            <div className="p-3 space-y-2 bg-white/60">
               {data.to && (
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase w-12 shrink-0">To</span>
-                  <span className="text-sm font-medium text-slate-700 truncate">{data.to}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase w-10 shrink-0">To</span>
+                  <span className="text-xs font-semibold text-slate-700 truncate">{data.to}</span>
                 </div>
               )}
               {data.subject && (
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase w-12 shrink-0">Subject</span>
-                  <span className="text-sm font-bold text-slate-900">{data.subject}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase w-10 shrink-0">Subj</span>
+                  <span className="text-xs font-bold text-slate-900 truncate">{data.subject}</span>
                 </div>
               )}
-              <div className="h-px bg-slate-200" />
-              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line min-h-[60px]">
-                {data.greeting && (
-                  <p className="font-medium mb-2"><TypewriterText text={data.greeting} speed={15} /></p>
-                )}
-                {data.body && (
-                  <p className="mb-2"><TypewriterText text={data.body} speed={10} /></p>
-                )}
-                {data.closing && (
-                  <>
-                    <p className="mt-3 font-medium"><TypewriterText text={data.closing} speed={15} /></p>
-                    {data.senderName && <p className="font-bold text-slate-900"><TypewriterText text={data.senderName} speed={20} /></p>}
-                  </>
-                )}
-                {!data.greeting && !data.body && !data.closing && (
-                  <p className="text-slate-400 italic">Composing email...</p>
-                )}
+              <div className="text-[10px] text-slate-700 leading-relaxed whitespace-pre-line mt-2 line-clamp-4">
+                {data.greeting && <p className="font-semibold mb-1"><TypewriterText text={data.greeting} speed={15} /></p>}
+                {data.body && <p><TypewriterText text={data.body} speed={10} /></p>}
               </div>
             </div>
           )}
 
-          {/* Calendar Preview */}
           {type === "calendar" && (
-            <div className="p-4 bg-white/80 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex flex-col items-center justify-center">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase leading-none">Event</span>
-                  <Calendar className="w-5 h-5 text-emerald-600 mt-0.5" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900"><TypewriterText text={data.title || "New Event"} speed={20} /></p>
-                  {data.date && <p className="text-xs text-slate-500 font-medium">{data.date} {data.time && `at ${data.time}`}</p>}
-                </div>
-              </div>
+            <div className="p-3 bg-white/60">
+              <p className="text-xs font-bold text-slate-900 line-clamp-1"><TypewriterText text={data.title || "New Event"} speed={20} /></p>
+              {data.date && <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{data.date} {data.time && `at ${data.time}`}</p>}
             </div>
           )}
 
-          {/* Generic Preview for doc/slide/sheet/survey/ticket/youtube */}
           {["doc", "slide", "sheet", "survey", "ticket", "youtube"].includes(type) && (
-            <div className="p-4 bg-white/80 flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl ${config.bg} flex items-center justify-center`}>
-                <Icon className={`w-6 h-6 ${config.color}`} />
-              </div>
+            <div className="p-3 bg-white/60 flex items-center gap-3">
               <div>
-                <p className="text-sm font-bold text-slate-900"><TypewriterText text={`Creating ${config.label}...`} speed={25} /></p>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">Generating content</p>
+                <p className="text-xs font-bold text-slate-900"><TypewriterText text={`Creating ${config.label}...`} speed={25} /></p>
               </div>
               <div className="ml-auto">
-                <Loader2 className={`w-5 h-5 animate-spin ${config.color} opacity-50`} />
+                <Loader2 className={`w-4 h-4 animate-spin ${config.color} opacity-50`} />
               </div>
             </div>
           )}
@@ -763,7 +736,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
         )}
 
-        <button onClick={onClose} className="absolute top-3 sm:top-4 right-3 sm:right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+        <button onClick={onClose} className="absolute top-3 sm:top-4 right-3 sm:right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95 z-[101]">
           <X className="w-5 h-5" />
         </button>
 
@@ -869,50 +842,27 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               </div>
             ) : (
               <>
-                {transcriptLines.map((line, i) => {
-                  // For bot messages, check the PRECEDING user message to detect action type
-                  let action: { type: ActionType; data: Record<string, string> } = { type: null, data: {} };
-                  if (!line.isUser && i > 0) {
-                    // Find the most recent user message before this bot message
-                    for (let j = i - 1; j >= 0; j--) {
-                      if (transcriptLines[j].isUser) {
-                        action = detectAction(transcriptLines[j].text);
-                        break;
-                      }
-                    }
-                  }
-                  return (
-                    <React.Fragment key={i}>
-                      <div className={`flex gap-3 ${line.isUser ? "justify-end" : "justify-start"}`}>
-                        {!line.isUser && (
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-sm mt-1">
-                            <Bot className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                        <div className={`rounded-2xl px-4 py-3 text-sm max-w-[75%] leading-relaxed shadow-sm ${
-                          line.isUser ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm"
-                        }`}>
-                          {line.text}
-                        </div>
-                        {line.isUser && (
-                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0 mt-1">
-                            <User className="w-4 h-4 text-slate-500" />
-                          </div>
-                        )}
-                      </div>
-                      {!line.isUser && action.type && <ActionPreviewCard type={action.type} data={action.data} />}
-                      {!line.isUser && !action.type && (
-                        <div className="mt-2 p-2 bg-rose-100 text-rose-800 text-xs rounded border border-rose-200">
-                          Debug: No action detected for preceding user message.
-                          <br />
-                          <span className="opacity-50">Searched backwards and found: {
-                            transcriptLines.slice(0, i).reverse().find(l => l.isUser)?.text || "none"
-                          }</span>
+                {transcriptLines.map((line, i) => (
+                  <React.Fragment key={i}>
+                    <div className={`flex gap-3 ${line.isUser ? "justify-end" : "justify-start"}`}>
+                      {!line.isUser && (
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-sm mt-1">
+                          <Bot className="w-4 h-4 text-white" />
                         </div>
                       )}
-                    </React.Fragment>
-                  );
-                })}
+                      <div className={`rounded-2xl px-4 py-3 text-sm max-w-[75%] leading-relaxed shadow-sm ${
+                        line.isUser ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm"
+                      }`}>
+                        {line.text}
+                      </div>
+                      {line.isUser && (
+                        <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0 mt-1">
+                          <User className="w-4 h-4 text-slate-500" />
+                        </div>
+                      )}
+                    </div>
+                  </React.Fragment>
+                ))}
                 {liveText && !isMicMuted && !isPaused && (
                   <div className="flex gap-3 justify-end">
                     <div className="rounded-2xl rounded-tr-sm px-4 py-3 text-sm max-w-[75%] leading-relaxed bg-indigo-100 border border-indigo-200 text-indigo-800 shadow-sm">
