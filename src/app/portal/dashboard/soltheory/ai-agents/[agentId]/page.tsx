@@ -43,7 +43,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [groqTokens, setGroqTokens] = useState(0);
+  const [totalGroqTokens, setTotalGroqTokens] = useState(0);
+  const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [isObserverOpen, setIsObserverOpen] = useState(false);
   const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
@@ -160,6 +161,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     localStorage.setItem(`st_agent_config_${params.agentId}`, JSON.stringify(agentConfig));
     localStorage.setItem(`st_agent_contacts_${params.agentId}`, JSON.stringify(agentContacts));
   }, [agentConfig, agentContacts, params.agentId]);
+
+  // Load Lifetime Usage
+  useEffect(() => {
+    if (!user?.uid || !firestore) return;
+    import("firebase/firestore").then(({ doc, onSnapshot }) => {
+      const unsub = onSnapshot(doc(firestore, "users", user.uid), (docSnap) => {
+        const data = docSnap.data();
+        if (data) {
+          setTotalGroqTokens(data.groqTokens || 0);
+          setTotalElevenLabsChars(data.elevenLabsChars || 0);
+        }
+      });
+      return () => unsub();
+    });
+  }, [user, firestore]);
 
   // Auth Binding Verification Map
   useEffect(() => {
@@ -328,7 +344,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
-      setGroqTokens(p => p + (data.usage || 0));
+      
+      const usage = data.usage || 0;
+      if (usage > 0 && user?.uid && firestore) {
+        import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
+          updateDoc(doc(firestore, "users", user.uid), { groqTokens: increment(usage) }).catch(console.error);
+        });
+      }
     } catch (error: any) {
       setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}.`, isSelf: false }]);
     } finally {
@@ -382,6 +404,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
+      
+      const usage = data.usage || 0;
+      if (usage > 0 && user?.uid && firestore) {
+        import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
+          updateDoc(doc(firestore, "users", user.uid), { groqTokens: increment(usage) }).catch(console.error);
+        });
+      }
+      
       // refresh inbox just in case
       fetchPulse();
     } catch (error: any) {
@@ -864,18 +894,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             ) : (
               // Chat Screen
               <div className="flex-1 flex flex-col relative">
-                {/* GROQ Token Tracking Pill */}
-                <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-3 h-8 rounded-[4px] bg-white border border-slate-200 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
-                  <span className="text-[10px] font-black tracking-wider text-slate-500 uppercase">
-                    ${(groqTokens * 0.00000006).toFixed(4)}
+                {/* Unified Token Tracking Pill */}
+                <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-4 h-9 rounded-full bg-white border border-slate-200 flex items-center gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+                  <Bot className="w-4 h-4 text-emerald-500" />
+                  <span className="text-[10px] font-black tracking-wider text-slate-600 uppercase">
+                    {totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span> ≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
                   </span>
                 </button>
 
                 {showCostBreakdown && (
                   <div className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-black text-slate-900 tracking-tight">Session Cost Breakdown</h3>
+                      <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
                       <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
                     </div>
                     <div className="space-y-4">
@@ -885,22 +915,34 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
                         </div>
                         <div className="text-xs text-slate-500 space-y-1">
-                          <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.3 70B Versatile</span></div>
-                          <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{groqTokens.toLocaleString()}</span></div>
-                          <div className="flex justify-between"><span>Input Rate</span><span className="font-bold text-slate-700">$0.05 / 1M tokens</span></div>
-                          <div className="flex justify-between"><span>Output Rate</span><span className="font-bold text-slate-700">$0.08 / 1M tokens</span></div>
-                          <div className="flex justify-between"><span>Blended Avg</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
+                          <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
+                          <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{totalGroqTokens.toLocaleString()}</span></div>
+                          <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
                           <div className="h-px bg-slate-200 my-1" />
-                          <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(groqTokens * 0.00000006).toFixed(6)}</span></div>
+                          <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalGroqTokens * 0.00000006).toFixed(6)}</span></div>
                         </div>
                       </div>
+
+                      <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Voice</span>
+                        </div>
+                        <div className="text-xs text-slate-500 space-y-1">
+                          <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
+                          <div className="flex justify-between"><span>Chars Used</span><span className="font-bold text-slate-700">{totalElevenLabsChars.toLocaleString()}</span></div>
+                          <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
+                          <div className="h-px bg-slate-200 my-1" />
+                          <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalElevenLabsChars * 0.000167).toFixed(6)}</span></div>
+                        </div>
+                      </div>
+
                       <div className="p-3 bg-slate-900 rounded-[4px]">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Session Cost</span>
-                          <span className="text-lg font-black text-white">${(groqTokens * 0.00000006).toFixed(4)}</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
+                          <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
                         </div>
                       </div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Groq on-demand pricing as of April 2026. Llama 3.3 70B: $0.05/M input, $0.08/M output. Blended average ~$0.06/M total tokens. Text chat does not use ElevenLabs TTS. Costs are estimates for this session only.</p>
                     </div>
                   </div>
                 )}
@@ -1176,6 +1218,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         agentName={agent.name}
         agentId={params.agentId as string}
         orgPrefix="soltheory"
+        onUsageUpdate={(groqUsage, elevenLabsUsage) => {
+          if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
+            import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
+              updateDoc(doc(firestore, "users", user.uid), { 
+                groqTokens: increment(groqUsage),
+                elevenLabsChars: increment(elevenLabsUsage)
+              }).catch(console.error);
+            });
+          }
+        }}
         onCallAI={async (apiMessages) => {
           let rToken = null;
           if (user && firestore) {

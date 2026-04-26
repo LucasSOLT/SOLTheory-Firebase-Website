@@ -2,166 +2,231 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useFirestore } from "@/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { getAuth } from "firebase/auth";
+import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import AISurveyCreator from "@/components/portal/surveys/AISurveyCreator";
 import {
   ClipboardList,
   Star,
+  Clock,
+  Globe,
+  Lock,
+  Copy,
+  Inbox,
+  Plus,
+  ArrowUpRight,
   ChevronDown,
   ChevronRight,
-  Mail,
-  Clock,
-  BarChart3,
   Users,
-  TrendingUp,
-  FileText,
+  BarChart3,
+  UserCircle,
+  MessageSquare,
 } from "lucide-react";
 
-interface SurveySubmission {
+interface CustomSurvey {
   id: string;
-  surveyType: string;
+  title: string;
+  description: string;
+  questions: any[];
   userId: string;
-  userEmail: string;
-  userName: string;
-  answers: Record<string, string | number>;
-  submittedAt: any;
-  dashboard: string;
+  creatorEmail: string;
+  authorName: string;
+  visibility: "organization" | "specific";
+  domain: string;
+  invitedEmails: string[];
+  createdAt: any;
 }
 
-// Question id -> friendly label
-const QUESTION_LABELS: Record<string, string> = {
-  overall_satisfaction: "Overall Satisfaction",
-  visual_design: "Visual Design Rating",
-  ease_of_learning: "Ease of Learning",
-  navigation_clarity: "Navigation Clarity",
-  most_valuable_feature: "Most Valuable Feature",
-  missing_feature: "Missing Feature Request",
-  ai_agent_usefulness: "AI Agent Usefulness",
-  mobile_experience: "Mobile Experience",
-  loading_speed: "Loading Speed & Performance",
-  communication_tools: "Communication Tools",
-  recommend_likelihood: "Recommend Likelihood (NPS)",
-  additional_feedback: "Additional Feedback",
-};
-
-const RATING_QUESTIONS = [
-  "overall_satisfaction",
-  "visual_design",
-  "ease_of_learning",
-  "ai_agent_usefulness",
-  "loading_speed",
-  "recommend_likelihood",
-];
+interface SurveyResponse {
+  id: string;
+  surveyId: string;
+  surveyTitle: string;
+  participantName: string;
+  participantOrg: string;
+  answers: Record<string, any>;
+  submittedAt: any;
+}
 
 export default function SolTheorySurveysPage() {
   const firestore = useFirestore();
-  const [submissions, setSubmissions] = useState<SurveySubmission[]>([]);
+  const auth = getAuth();
+
+  const [customSurveys, setCustomSurveys] = useState<CustomSurvey[]>([]);
+  const [invitedSurveys, setInvitedSurveys] = useState<CustomSurvey[]>([]);
+  const [allResponses, setAllResponses] = useState<SurveyResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<"manager" | "custom">("custom");
+  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
+  const [expandedSurveyId, setExpandedSurveyId] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    if (!firestore || !auth.currentUser) return;
+    setLoading(true);
+    try {
+      const userEmail = auth.currentUser.email || "";
+      const userDomain = userEmail.split("@")[1] || "";
+
+      // 1) Fetch surveys the user created
+      const customSnap = await getDocs(
+        query(
+          collection(firestore, "custom_surveys"),
+          where("userId", "==", auth.currentUser.uid),
+          orderBy("createdAt", "desc")
+        )
+      );
+      const customItems: CustomSurvey[] = [];
+      customSnap.forEach((doc) => {
+        customItems.push({ id: doc.id, ...doc.data() } as CustomSurvey);
+      });
+      setCustomSurveys(customItems);
+
+      // 2) Fetch ALL responses for surveys the user created
+      const surveyIds = customItems.map(s => s.id);
+      const responses: SurveyResponse[] = [];
+      // Firestore "in" query limited to 30 at a time
+      for (let i = 0; i < surveyIds.length; i += 30) {
+        const batch = surveyIds.slice(i, i + 30);
+        if (batch.length === 0) continue;
+        try {
+          const respSnap = await getDocs(
+            query(
+              collection(firestore, "custom_survey_responses"),
+              where("surveyId", "in", batch)
+            )
+          );
+          respSnap.forEach((doc) => {
+            responses.push({ id: doc.id, ...doc.data() } as SurveyResponse);
+          });
+        } catch (e) {
+          console.error("Response fetch error:", e);
+        }
+      }
+      // Sort responses newest-first client-side
+      responses.sort((a, b) => {
+        const aTime = a.submittedAt?.toDate?.() || new Date(0);
+        const bTime = b.submittedAt?.toDate?.() || new Date(0);
+        return bTime.getTime() - aTime.getTime();
+      });
+      setAllResponses(responses);
+
+      // 3) Fetch surveys the user has been invited to
+      const invited: CustomSurvey[] = [];
+      try {
+        const orgSnap = await getDocs(
+          query(
+            collection(firestore, "custom_surveys"),
+            where("visibility", "==", "organization"),
+            where("domain", "==", userDomain)
+          )
+        );
+        orgSnap.forEach((doc) => {
+          const data = doc.data();
+          if (data.userId !== auth.currentUser!.uid) {
+            invited.push({ id: doc.id, ...data } as CustomSurvey);
+          }
+        });
+      } catch (e) {
+        console.error("Org survey fetch error:", e);
+      }
+
+      try {
+        const specificSnap = await getDocs(
+          query(
+            collection(firestore, "custom_surveys"),
+            where("invitedEmails", "array-contains", userEmail)
+          )
+        );
+        specificSnap.forEach((doc) => {
+          const data = doc.data();
+          if (data.userId !== auth.currentUser!.uid && !invited.find(s => s.id === doc.id)) {
+            invited.push({ id: doc.id, ...data } as CustomSurvey);
+          }
+        });
+      } catch (e) {
+        console.error("Specific survey fetch error:", e);
+      }
+
+      setInvitedSurveys(invited);
+    } catch (err) {
+      console.error("Failed to fetch surveys:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!firestore) return;
-    const fetchSubmissions = async () => {
-      try {
-        const snap = await getDocs(
-          query(collection(firestore, "survey_submissions"), orderBy("submittedAt", "desc"))
-        );
-        const items: SurveySubmission[] = [];
-        snap.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() } as SurveySubmission);
-        });
-        setSubmissions(items);
-      } catch (err) {
-        console.error("Failed to fetch survey submissions:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSubmissions();
-  }, [firestore]);
+    fetchData();
+  }, [firestore, auth.currentUser]);
 
-  // Aggregate stats
-  const stats = useMemo(() => {
-    if (submissions.length === 0) return null;
-
-    // Average ratings per question
-    const ratingTotals: Record<string, { sum: number; count: number }> = {};
-    RATING_QUESTIONS.forEach((q) => {
-      ratingTotals[q] = { sum: 0, count: 0 };
+  // Group responses by surveyId
+  const responsesBySurvey = useMemo(() => {
+    const map: Record<string, SurveyResponse[]> = {};
+    allResponses.forEach(r => {
+      if (!map[r.surveyId]) map[r.surveyId] = [];
+      map[r.surveyId].push(r);
     });
-
-    // Feature votes
-    const featureVotes: Record<string, number> = {};
-
-    submissions.forEach((sub) => {
-      RATING_QUESTIONS.forEach((q) => {
-        const val = sub.answers[q];
-        if (typeof val === "number" && val > 0) {
-          ratingTotals[q].sum += val;
-          ratingTotals[q].count += 1;
-        }
-      });
-
-      const feat = sub.answers.most_valuable_feature;
-      if (typeof feat === "string" && feat) {
-        featureVotes[feat] = (featureVotes[feat] || 0) + 1;
-      }
-    });
-
-    const ratingAverages: Record<string, number> = {};
-    Object.entries(ratingTotals).forEach(([k, v]) => {
-      ratingAverages[k] = v.count > 0 ? +(v.sum / v.count).toFixed(1) : 0;
-    });
-
-    const topFeature =
-      Object.entries(featureVotes).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
-
-    const overallAvg =
-      Object.values(ratingAverages).reduce((s, v) => s + v, 0) /
-      Object.values(ratingAverages).filter((v) => v > 0).length;
-
-    return {
-      total: submissions.length,
-      ratingAverages,
-      topFeature,
-      overallAvg: isNaN(overallAvg) ? 0 : +overallAvg.toFixed(1),
-    };
-  }, [submissions]);
+    return map;
+  }, [allResponses]);
 
   function formatDate(ts: any) {
-    if (!ts) return "—";
+    if (!ts) return "";
     try {
       const d = ts.toDate ? ts.toDate() : new Date(ts);
       return d.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
+      });
+    } catch {
+      return "";
+    }
+  }
+
+  function formatDateTime(ts: any) {
+    if (!ts) return "";
+    try {
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
       });
     } catch {
-      return "—";
+      return "";
     }
   }
 
-  function renderStars(val: number) {
-    return (
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((s) => (
-          <Star
-            key={s}
-            className={`w-4 h-4 ${
-              s <= val
-                ? "fill-amber-400 text-amber-400"
-                : "fill-transparent text-slate-200"
-            }`}
-          />
-        ))}
-        <span className="text-xs font-bold text-slate-500 ml-1.5 tabular-nums">
-          {val}
-        </span>
-      </div>
-    );
+  // Build analytics for a given survey
+  function buildAnalytics(survey: CustomSurvey, responses: SurveyResponse[]) {
+    if (!survey.questions || responses.length === 0) return null;
+
+    const analytics: { questionId: string; prompt: string; type: string; avg?: number; distribution?: Record<string, number>; textAnswers?: string[] }[] = [];
+
+    survey.questions.forEach((q: any) => {
+      const qId = q.id;
+      const vals = responses.map(r => r.answers?.[qId]).filter(v => v !== undefined && v !== null && v !== "");
+
+      if (q.type === "rating") {
+        const nums = vals.filter(v => typeof v === "number") as number[];
+        const avg = nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+        analytics.push({ questionId: qId, prompt: q.prompt, type: "rating", avg: +avg.toFixed(1) });
+      } else if (q.type === "choice") {
+        const dist: Record<string, number> = {};
+        vals.forEach(v => {
+          const s = String(v);
+          dist[s] = (dist[s] || 0) + 1;
+        });
+        analytics.push({ questionId: qId, prompt: q.prompt, type: "choice", distribution: dist });
+      } else {
+        analytics.push({ questionId: qId, prompt: q.prompt, type: "text", textAnswers: vals.map(String).slice(0, 10) });
+      }
+    });
+
+    return analytics;
   }
 
   // ---- LOADING ----
@@ -170,261 +235,337 @@ export default function SolTheorySurveysPage() {
       <div className="flex-1 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-semibold text-slate-400">
-            Loading survey submissions...
+          <p className="text-sm font-semibold text-slate-400">Loading surveys...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Expanded survey detail view ----
+  const renderExpandedSurvey = (survey: CustomSurvey) => {
+    const responses = responsesBySurvey[survey.id] || [];
+    const analytics = buildAnalytics(survey, responses);
+
+    return (
+      <div className="mt-4 space-y-6 animate-in slide-in-from-top-2 fade-in duration-200">
+        {/* Survey Questions Preview */}
+        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+          <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Survey Questions</h4>
+          <div className="space-y-3">
+            {survey.questions?.map((q: any, i: number) => (
+              <div key={q.id || i} className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-xs shrink-0 mt-0.5">{i + 1}</span>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{q.prompt}</p>
+                  <span className="text-xs font-medium text-slate-400 capitalize">{q.type}{q.type === "choice" && q.options ? ` — ${q.options.length} options` : ""}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Responses & Analytics */}
+        {responses.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
+            <Inbox className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+            <p className="text-sm font-bold text-slate-400">No responses yet</p>
+            <p className="text-xs font-medium text-slate-300 mt-1">Share the survey link to start collecting responses.</p>
+          </div>
+        ) : (
+          <>
+            {/* Analytics Section */}
+            {analytics && analytics.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-100 p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <BarChart3 className="w-4 h-4 text-indigo-600" />
+                  <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest">
+                    Analytics — {responses.length} Response{responses.length !== 1 ? "s" : ""}
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {analytics.map(a => (
+                    <div key={a.questionId} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                      <p className="text-xs font-bold text-slate-600 mb-3 line-clamp-2">{a.prompt}</p>
+
+                      {a.type === "rating" && (
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map(s => (
+                              <Star key={s} className={`w-4 h-4 ${s <= Math.round(a.avg || 0) ? "fill-amber-400 text-amber-400" : "fill-transparent text-slate-200"}`} />
+                            ))}
+                          </div>
+                          <span className="text-lg font-black text-slate-900">{a.avg}</span>
+                          <span className="text-xs font-medium text-slate-400">/ 5 avg</span>
+                        </div>
+                      )}
+
+                      {a.type === "choice" && a.distribution && (
+                        <div className="space-y-2">
+                          {Object.entries(a.distribution).sort((a, b) => b[1] - a[1]).map(([opt, count]) => {
+                            const pct = Math.round((count / responses.length) * 100);
+                            return (
+                              <div key={opt}>
+                                <div className="flex items-center justify-between text-xs mb-1">
+                                  <span className="font-medium text-slate-600 truncate max-w-[70%]">{opt}</span>
+                                  <span className="font-black text-slate-800">{pct}%</span>
+                                </div>
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {a.type === "text" && a.textAnswers && (
+                        <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                          {a.textAnswers.map((txt, i) => (
+                            <p key={i} className="text-xs font-medium text-slate-500 bg-white rounded-lg px-3 py-2 border border-slate-100 line-clamp-2">{txt}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Individual Responses */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <Users className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest">Individual Responses</h4>
+              </div>
+              <div className="space-y-3">
+                {responses.map(resp => (
+                  <details key={resp.id} className="group bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+                    <summary className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0">
+                          {(resp.participantName || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-800 truncate">{resp.participantName || "Anonymous"}</p>
+                          <p className="text-xs text-slate-400 font-medium">{resp.participantOrg || "—"} · {formatDateTime(resp.submittedAt)}</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-open:rotate-90 transition-transform" />
+                    </summary>
+                    <div className="px-5 pb-4 pt-2 border-t border-slate-100">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {survey.questions?.map((q: any) => {
+                          const val = resp.answers?.[q.id];
+                          return (
+                            <div key={q.id} className="bg-white rounded-lg p-3 border border-slate-100">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{q.prompt}</p>
+                              {typeof val === "number" ? (
+                                <div className="flex items-center gap-0.5">
+                                  {[1, 2, 3, 4, 5].map(s => (
+                                    <Star key={s} className={`w-3.5 h-3.5 ${s <= val ? "fill-amber-400 text-amber-400" : "fill-transparent text-slate-200"}`} />
+                                  ))}
+                                  <span className="text-xs font-bold text-slate-500 ml-1">{val}</span>
+                                </div>
+                              ) : (
+                                <p className="text-sm font-medium text-slate-700">{val || "—"}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderEmptyState = (tab: "manager" | "custom") => {
+    if (tab === "manager") {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-white rounded-3xl border border-slate-200 shadow-sm py-20 mt-6">
+          <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-[2rem] shadow-sm flex items-center justify-center mb-6 rotate-12 transition-transform hover:rotate-0 duration-300">
+            <Inbox className="w-10 h-10 text-indigo-500" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800">No Surveys Available</h2>
+          <p className="text-slate-500 mt-2 max-w-sm font-medium">
+            When someone in your organization or someone who invites you creates a survey, it will appear here for you to take.
           </p>
         </div>
-      </div>
-    );
-  }
-
-  // ---- EMPTY STATE ----
-  if (submissions.length === 0) {
+      );
+    }
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-white rounded-3xl border border-slate-200 shadow-sm">
-        <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-[2rem] shadow-sm flex items-center justify-center text-slate-300 mb-6 rotate-12 transition-transform hover:rotate-0 duration-300">
-          <ClipboardList className="w-10 h-10 text-indigo-500" />
+      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-white rounded-3xl border border-slate-200 shadow-sm py-20 mt-6">
+        <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-[2rem] shadow-sm flex items-center justify-center mb-6 rotate-12 transition-transform hover:rotate-0 duration-300">
+          <Star className="w-10 h-10 text-indigo-500" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800">
-          No Survey Submissions Yet
-        </h2>
-        <p className="text-slate-500 mt-2 max-w-sm font-medium">
-          When NXT Chapter users complete the Client Use Case Survey, their
-          responses will appear here for review.
+        <h2 className="text-2xl font-black text-slate-800">No Created Surveys</h2>
+        <p className="text-slate-500 mt-2 max-w-sm font-medium mb-6">
+          Create your first AI-powered survey to start collecting feedback.
         </p>
+        <Button onClick={() => setIsCreatorOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-12 px-8">
+          Create AI Survey
+        </Button>
       </div>
     );
-  }
+  };
 
-  // ---- MAIN VIEW ----
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 h-full overflow-y-auto pb-10">
-      {/* Page Header */}
-      <div className="space-y-1 pt-6">
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-50 rounded-2xl">
-            <ClipboardList className="w-6 h-6 text-indigo-600" />
-          </div>
-          Survey Results
-        </h1>
-        <p className="text-slate-500 font-medium ml-[52px]">
-          NXT Chapter Client Use Case Survey — all submissions from
-          dashboard users.
-        </p>
-      </div>
-
-      {/* Aggregate Stats */}
-      {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-50 rounded-xl">
-                  <Users className="w-4 h-4 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Total Responses
-                  </p>
-                  <p className="text-2xl font-black text-slate-900">
-                    {stats.total}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-50 rounded-xl">
-                  <Star className="w-4 h-4 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Overall Avg
-                  </p>
-                  <p className="text-2xl font-black text-slate-900">
-                    {stats.overallAvg}
-                    <span className="text-sm text-slate-400 font-semibold">
-                      {" "}
-                      / 5
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-50 rounded-xl">
-                  <TrendingUp className="w-4 h-4 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    NPS Score
-                  </p>
-                  <p className="text-2xl font-black text-slate-900">
-                    {stats.ratingAverages.recommend_likelihood || "—"}
-                    <span className="text-sm text-slate-400 font-semibold">
-                      {" "}
-                      / 5
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-violet-50 rounded-xl">
-                  <BarChart3 className="w-4 h-4 text-violet-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Top Feature
-                  </p>
-                  <p className="text-sm font-black text-slate-900 leading-tight mt-0.5">
-                    {stats.topFeature}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+    <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 h-full overflow-y-auto pb-10 pr-4">
+      {isCreatorOpen && (
+        <AISurveyCreator
+          onClose={() => setIsCreatorOpen(false)}
+          onSurveyCreated={() => {
+            fetchData();
+          }}
+        />
       )}
 
-      {/* Rating Breakdown */}
-      {stats && (
-        <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-extrabold text-slate-800">
-              Average Ratings by Category
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-400 font-medium">
-              Across all {stats.total} submission{stats.total !== 1 ? "s" : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-              {RATING_QUESTIONS.map((q) => {
-                const avg = stats.ratingAverages[q] || 0;
-                const pct = (avg / 5) * 100;
+      {/* Page Header */}
+      <div className="flex items-center justify-between pt-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-50 rounded-2xl">
+              <ClipboardList className="w-6 h-6 text-indigo-600" />
+            </div>
+            Surveys
+          </h1>
+          <p className="text-slate-500 font-medium ml-[52px]">
+            Manage and take surveys across your organization.
+          </p>
+        </div>
+        {activeTab === "custom" && (
+          <Button onClick={() => setIsCreatorOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-11 px-6 gap-2">
+            <Plus className="w-4 h-4" /> New Survey
+          </Button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-px">
+        <button
+          onClick={() => setActiveTab("manager")}
+          className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${activeTab === "manager" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+        >
+          Survey Manager ({invitedSurveys.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("custom")}
+          className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${activeTab === "custom" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+        >
+          My Created Surveys ({customSurveys.length})
+        </button>
+      </div>
+
+      {/* Survey Manager Tab */}
+      {activeTab === "manager" && (
+        <>
+          {invitedSurveys.length === 0 ? (
+            renderEmptyState("manager")
+          ) : (
+            <div className="grid grid-cols-1 gap-4 mt-2">
+              {invitedSurveys.map(survey => {
+                const dateStr = formatDate(survey.createdAt);
                 return (
-                  <div key={q} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-600">
-                        {QUESTION_LABELS[q] || q}
-                      </span>
-                      <span className="text-xs font-black text-slate-800 tabular-nums">
-                        {avg} / 5
-                      </span>
+                  <Card key={survey.id} className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl p-6 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-lg font-black text-slate-900 mb-1 truncate">{survey.title}</h3>
+                        <p className="text-sm font-medium text-slate-500 line-clamp-2 mb-4">{survey.description}</p>
+                        <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-400">
+                          <span className="flex items-center gap-1"><ClipboardList className="w-3.5 h-3.5" />{survey.questions?.length || 0} Questions</span>
+                          {dateStr && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{dateStr}</span>}
+                          {survey.authorName && <span className="flex items-center gap-1"><UserCircle className="w-3.5 h-3.5" />by {survey.authorName}</span>}
+                        </div>
+                      </div>
+                      <a href={`/survey/${survey.id}`} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg gap-1.5 h-9">
+                          Take Survey <ArrowUpRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </a>
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          avg >= 4
-                            ? "bg-emerald-500"
-                            : avg >= 3
-                            ? "bg-amber-400"
-                            : "bg-red-400"
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </>
       )}
 
-      {/* Individual Submissions */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-slate-500" />
-          Individual Submissions
-        </h2>
+      {/* My Created Surveys Tab */}
+      {activeTab === "custom" && (
+        <>
+          {customSurveys.length === 0 ? (
+            renderEmptyState("custom")
+          ) : (
+            <div className="space-y-4 mt-2">
+              {customSurveys.map(survey => {
+                const dateStr = formatDate(survey.createdAt);
+                const isExpanded = expandedSurveyId === survey.id;
+                const responseCount = (responsesBySurvey[survey.id] || []).length;
 
-        {submissions.map((sub) => {
-          const isExpanded = expandedId === sub.id;
-          return (
-            <Card
-              key={sub.id}
-              className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl overflow-hidden"
-            >
-              <button
-                onClick={() =>
-                  setExpandedId(isExpanded ? null : sub.id)
-                }
-                className="w-full text-left px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-sm shrink-0">
-                    {(sub.userName || sub.userEmail || "?").charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-900 truncate">
-                      {sub.userName || "Anonymous User"}
-                    </p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {sub.userEmail || "—"}
-                      </span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDate(sub.submittedAt)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  {typeof sub.answers.overall_satisfaction === "number" && (
-                    <div className="hidden sm:flex">
-                      {renderStars(sub.answers.overall_satisfaction as number)}
-                    </div>
-                  )}
-                  {isExpanded ? (
-                    <ChevronDown className="w-5 h-5 text-slate-400" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-slate-400" />
-                  )}
-                </div>
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-slate-100 px-6 py-5 bg-slate-50/50 animate-in slide-in-from-top-1 fade-in duration-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(sub.answers).map(([key, val]) => (
-                      <div
-                        key={key}
-                        className="bg-white rounded-xl p-4 border border-slate-100"
-                      >
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
-                          {QUESTION_LABELS[key] || key}
-                        </p>
-                        {typeof val === "number" ? (
-                          renderStars(val)
-                        ) : (
-                          <p className="text-sm font-medium text-slate-800 leading-relaxed">
-                            {val || "—"}
-                          </p>
-                        )}
+                return (
+                  <Card key={survey.id} className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl overflow-hidden">
+                    <div
+                      onClick={() => setExpandedSurveyId(isExpanded ? null : survey.id)}
+                      role="button"
+                      tabIndex={0}
+                      className="w-full text-left p-6 hover:bg-slate-50/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-black text-slate-900 mb-1 truncate">{survey.title}</h3>
+                          <p className="text-sm font-medium text-slate-500 line-clamp-2 mb-4">{survey.description}</p>
+                          <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-400">
+                            <span className="flex items-center gap-1"><ClipboardList className="w-3.5 h-3.5" />{survey.questions?.length || 0} Questions</span>
+                            {dateStr && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{dateStr}</span>}
+                            <span className="flex items-center gap-1">
+                              {survey.visibility === "organization" ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                              {survey.visibility === "organization" ? "Organization" : "Invite Only"}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              {responseCount} Response{responseCount !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(`${window.location.origin}/survey/${survey.id}`);
+                            }}
+                            className="font-bold text-white bg-slate-800 hover:bg-slate-700 border-slate-800 rounded-lg gap-1.5 h-9"
+                          >
+                            <Copy className="w-3.5 h-3.5" /> Copy Link
+                          </Button>
+                          {isExpanded ? (
+                            <ChevronDown className="w-5 h-5 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-slate-400" />
+                          )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="px-6 pb-6 border-t border-slate-100">
+                        {renderExpandedSurvey(survey)}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

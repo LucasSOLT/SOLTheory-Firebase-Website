@@ -9,13 +9,14 @@ interface VoiceAgentModalProps {
   agentName: string;
   agentId: string;
   orgPrefix: "soltheory" | "nxtchapter";
-  onCallAI?: (messages: any[]) => Promise<string>;
+  onCallAI?: (messages: any[]) => Promise<any>;
+  onUsageUpdate?: (groqTokens: number, elevenLabsChars: number) => void;
 }
 
 type Phase = "listening" | "processing" | "speaking";
 type TranscriptLine = { text: string; isUser: boolean };
 
-export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI }: VoiceAgentModalProps) {
+export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate }: VoiceAgentModalProps) {
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState<Phase>("listening");
@@ -361,6 +362,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       
       setGroqTokens(p => p + usageNum);
       setElevenLabsChars(p => p + reply.length);
+      
+      if (onUsageUpdate) {
+        onUsageUpdate(usageNum, reply.length);
+      }
       
       conversationRef.current.push({ role: "assistant", content: reply });
       return reply;

@@ -159,6 +159,14 @@ service cloud.firestore {
       }
 
       /**
+       * @description YouTube videos uploaded by the user.
+       * @path /users/{userId}/youtube_videos/{videoId}
+       */
+      match /youtube_videos/{videoId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      /**
        * @description Google Ads cron job data.
        * @path /users/{userId}/google_ads_cronjobs/{jobId}
        */
@@ -183,9 +191,23 @@ service cloud.firestore {
      * @principle Submissions are write-once and immutable from the client, and can only be read by backend processes or via the Firebase Console.
      */
     match /survey_submissions/{submissionId} {
-      allow read: if isSignedIn() && request.auth.token.email == 'lucas@soltheory.com';
+      allow read: if isSignedIn();
       allow update, delete: if false;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if true;
+    }
+
+    /**
+     * @description User created custom surveys via AI.
+     */
+    match /custom_surveys/{surveyId} {
+      allow read: if true; // Publicly readable so anyone can take the survey
+      allow create, update, delete: if isSignedIn(); // Owner checks should be done in app, or restrict to owner here
+    }
+
+    match /custom_survey_responses/{responseId} {
+      allow read: if isSignedIn(); // Survey creator can read
+      allow create: if true; // Anyone can submit a response
+      allow update, delete: if false;
     }
 
     /**

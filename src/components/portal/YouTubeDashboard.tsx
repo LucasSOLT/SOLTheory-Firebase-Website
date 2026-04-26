@@ -39,7 +39,8 @@ export function YouTubeDashboard() {
   const [isFetchingDrafts, setIsFetchingDrafts] = useState(false);
 
   // Video upload state
-  const [uploadedVideo, setUploadedVideo] = useState<{ name: string; url: string; storagePath: string } | null>(null);
+  const [uploadedVideo, setUploadedVideo] = useState<{ id?: string; name: string; url: string; storagePath: string } | null>(null);
+  const [persistentVideos, setPersistentVideos] = useState<any[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null);
@@ -73,6 +74,19 @@ export function YouTubeDashboard() {
       }
     );
     return () => { clearTimeout(timeout); unsub(); };
+  }, [user, firestore]);
+
+  useEffect(() => {
+    if (!user || !firestore) return;
+    const unsub = onSnapshot(
+      collection(firestore, "users", user.uid, "youtube_videos"),
+      (snap) => {
+        const vids: any[] = [];
+        snap.forEach(doc => vids.push({ id: doc.id, ...doc.data() }));
+        setPersistentVideos(vids.sort((a,b) => b.createdAt - a.createdAt));
+      }
+    );
+    return () => unsub();
   }, [user, firestore]);
 
   useEffect(() => {
@@ -219,18 +233,28 @@ export function YouTubeDashboard() {
       },
       async () => {
         const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-        setUploadedVideo({ name: file.name, url: downloadUrl, storagePath });
+        const docRef = await addDoc(collection(firestore, "users", user.uid, "youtube_videos"), {
+          name: file.name,
+          url: downloadUrl,
+          storagePath,
+          createdAt: new Date().getTime()
+        });
+        setUploadedVideo({ id: docRef.id, name: file.name, url: downloadUrl, storagePath });
         setUploadProgress(null);
       }
     );
   };
 
-  const handleRemoveVideo = async () => {
-    if (!uploadedVideo || !storage) return;
+  const handleRemovePersistentVideo = async (vid: any) => {
+    if (!user || !firestore) return;
+    if (!confirm("Are you sure you want to permanently delete this video?")) return;
     try {
-      await deleteObject(ref(storage, uploadedVideo.storagePath));
+      if (storage) await deleteObject(ref(storage, vid.storagePath));
     } catch (e) { console.error('Failed to delete from storage:', e); }
-    setUploadedVideo(null);
+    try {
+      await deleteDoc(doc(firestore, "users", user.uid, "youtube_videos", vid.id));
+    } catch(e) { console.error('Failed to delete from Firestore:', e); }
+    if (uploadedVideo?.id === vid.id) setUploadedVideo(null);
   };
 
   const handleDeleteDraft = async (draftId: string, youtubeId?: string, youtubeType?: string) => {
@@ -351,23 +375,46 @@ The user's CURRENT Strategy Configuration is:
 
 Tailor all ideas, descriptions, and tags to strictly align with this strategy.
 
-${uploadedVideo ? `[VIDEO FILE AVAILABLE]: The user has uploaded a video file named "${uploadedVideo.name}". When they ask you to create/draft a video, the system will AUTOMATICALLY attach this video file to the YouTube upload. A REAL video draft will appear in their YouTube Studio Videos tab.` : `[NO VIDEO FILE]: The user has not uploaded a video file yet. When they ask to create a video, the system will create a Draft Playlist on YouTube with the metadata. Suggest they upload a video file on the dashboard for a full YouTube video draft.`}
+${uploadedVideo ? `[VIDEO FILE AVAILABLE]: The user has uploaded a video file named "${uploadedVideo.name}". A REAL video draft will appear in their YouTube Studio Videos tab.
+CRITICAL: When the user requests to make a VIDEO with an attached file, DO NOT call the tool immediately. First, you MUST ask them these 5 questions sequentially (ONE BY ONE) to gather description info. Do NOT ask them all at once. Start with question 1, wait for their response, then ask question 2, and so on. Number each question clearly:
+1. What content should be displayed in the description? (You can just word vomit and I will organize it)
+2. Should the description include the "permanent description text" provided in your strategy settings?
+3. How should the timestamps (beginning of sections) be organized in the description? (ex: 0:15 Dicing the carrots, 0:45 seasoning the carrots, 1:15 Baking the carrots, 2:00 final touches).
+4. Video sections (Y/N), if Yes, Please provide start and end time stamps for each of the sections and named for the sections.
+5. Anything else you think the AI should know before proceeding? Should this video be private? public? should it be monetized or non-monetized? (like is there copyrighted content used), etc.` 
+: `[NO VIDEO FILE]: The user has not uploaded a video file yet. When they ask to create a video, the system will create a Draft Playlist on YouTube with the metadata. Suggest they upload a video file on the dashboard for a full YouTube video draft.`}
 
 [ABSOLUTE RULES - YOU MUST FOLLOW THESE]:
 
-RULE 1 — BREVITY: Your chat responses must be 1-2 sentences MAX. You live in a tiny popup. NEVER output scripts, JSON, descriptions, hashtags, or any video metadata in your chat reply. The dashboard handles displaying that data separately.
+RULE 1 — DESCRIPTION FORMATTING: When generating the final description for the tool, format it dynamically based on this structure:
+Video Title: [Title]
+[1-2 sentences hooked based on user input]
+🎯 [Optional CTA link]
+In this video, you will learn:
+🥕 [Bullet 1]
+🥕 [Bullet 2]
+🥕 [Bullet 3]
+⏰ Timestamps:
+[User provided timestamps]
+📱 Connect with me:
+${strategy.socialLinks || "Instagram/TikTok: @YourChannelName"}
+☕ Support the Channel:
+[Include permanent description/support links if user said yes to Q2]
+[Hashtags]
 
-RULE 2 — TOOL USAGE: When the user asks to draft, create, brainstorm, or make a video, you MUST call the \`draft_youtube_video\` tool. Pass the title, description, tags, and full script ONLY through the tool parameters. Do NOT write ANY of that content in your chat message.
+RULE 2 — BREVITY: Your chat responses must be concise. You live in a tiny popup. NEVER output scripts, JSON, final descriptions, hashtags, or any video metadata in your chat reply. Ask the 5 questions clearly and wait for their answers. The dashboard handles displaying the final drafted data separately.
 
-RULE 3 — RESPONSE FORMAT: After calling the tool, your ENTIRE chat reply must be ONLY a brief confirmation like: "Done! I've pushed your draft to YouTube Studio and your Concept Board." Then append the tracking marker at the very end.
+RULE 3 — TOOL USAGE: When the user asks to draft or make a video AND has provided the answers to your 5 questions (if a video file is attached), you MUST call the \`draft_youtube_video\` tool. Pass the title, description, tags, and full script ONLY through the tool parameters. Do NOT write ANY of that content in your chat message.
 
-RULE 4 — TRACKING MARKER: You MUST extract the ID and TYPE from the [YOUTUBE_METADATA] tag in the tool result, and append this marker to the very end of your brief confirmation: [DRAFT_CREATED: <Title> | <Description> | <Tags> | <YouTubeId> | <Type>]
+RULE 4 — RESPONSE FORMAT: After calling the tool, your ENTIRE chat reply must be ONLY a brief confirmation like: "Done! I've pushed your draft to YouTube Studio and your Concept Board." Then append the tracking marker at the very end.
+
+RULE 5 — TRACKING MARKER: You MUST extract the ID and TYPE from the [YOUTUBE_METADATA] tag in the tool result, and append this marker to the very end of your brief confirmation: [DRAFT_CREATED: <Title> | <Description> | <Tags> | <YouTubeId> | <Type>]
 Full example of a correct response: "Done! Your video draft has been pushed to YouTube Studio — check your Concept Board! [DRAFT_CREATED: How To Start A Business | A beginner guide to entrepreneurship | business, startup, entrepreneur | ABC123XYZ | video]"
 
-RULE 5 — DEMOGRAPHIC UPDATES: If the user asks to change their target audience, confirm briefly and append: [DEMOGRAPHIC_UPDATED: <New Audience>]
+RULE 6 — DEMOGRAPHIC UPDATES: If the user asks to change their target audience, confirm briefly and append: [DEMOGRAPHIC_UPDATED: <New Audience>]
 
 NEVER output the script content, video metadata, JSON objects, or any long-form content in the chat.`,
-          brain: `You have real API tools. ALWAYS use draft_youtube_video tool when asked to make a video. Your chat reply must be MAX 1-2 sentences. NEVER output scripts or metadata in chat. ${uploadedVideo ? 'A VIDEO FILE IS READY — the system will upload it to YouTube when you call the tool.' : 'No video file uploaded yet.'}`,
+          brain: `You have real API tools. ALWAYS use draft_youtube_video tool when asked to make a video AND all requirements are met. Your chat reply must be concise. NEVER output scripts or metadata in chat. ${uploadedVideo ? 'A VIDEO FILE IS READY — Ask the 5 required questions FIRST before calling the tool. Once answered, call the tool.' : 'No video file uploaded yet.'}`,
           uid: user?.uid,
           refreshToken: rToken,
           contacts: [],
@@ -529,62 +576,72 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
               </div>
             )}
 
-            {/* Video Upload Zone */}
-            <div 
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={(e) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) handleVideoUpload(file); }}
-              className={`rounded-2xl border-2 border-dashed transition-all ${
-                uploadedVideo 
-                  ? 'border-emerald-300 bg-emerald-50/50' 
-                  : isDragging 
+            {/* Video Upload & Persistent Videos Zone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div 
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) handleVideoUpload(file); }}
+                className={`rounded-2xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center p-6 h-32 ${
+                  isDragging 
                     ? 'border-fuchsia-400 bg-fuchsia-50/50 scale-[1.01]' 
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-              } p-4`}
-            >
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
-                className="hidden"
-                onChange={(e) => { const file = e.target.files?.[0]; if (file) handleVideoUpload(file); }}
-              />
-              {uploadProgress !== null ? (
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-5 h-5 animate-spin text-fuchsia-500" />
-                  <div className="flex-1">
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-fuchsia-500 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                }`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input 
+                  ref={fileInputRef}
+                  type="file" 
+                  accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
+                  className="hidden"
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleVideoUpload(file); }}
+                />
+                {uploadProgress !== null ? (
+                  <div className="flex flex-col items-center w-full">
+                    <Loader2 className="w-6 h-6 animate-spin text-fuchsia-500 mb-2" />
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-fuchsia-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">Uploading... {uploadProgress}%</p>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                    <p className="text-sm font-medium text-slate-700">Upload a video</p>
+                  </>
+                )}
+              </div>
+
+              {/* Persistent Videos List */}
+              {persistentVideos.map(vid => (
+                <div 
+                  key={vid.id}
+                  onClick={() => setUploadedVideo(vid)}
+                  className={`rounded-2xl border p-4 transition-all duration-300 cursor-pointer flex flex-col justify-center h-32 group hover:shadow-lg hover:shadow-fuchsia-500/20 hover:border-fuchsia-300 hover:scale-[1.02] active:scale-95 relative overflow-hidden ${
+                    uploadedVideo?.id === vid.id 
+                      ? 'border-fuchsia-500 bg-fuchsia-50 ring-2 ring-fuchsia-500/50 ring-offset-2' 
+                      : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="flex items-start justify-between relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-100 group-hover:bg-fuchsia-100 rounded-xl flex items-center justify-center transition-colors">
+                        <Video className="w-5 h-5 text-slate-500 group-hover:text-fuchsia-600 transition-colors" />
+                      </div>
+                      <div className="min-w-0 pr-2">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{vid.name}</p>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">{uploadedVideo?.id === vid.id ? "Selected" : "Click to use"}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleRemovePersistentVideo(vid); }} 
+                      className="p-1.5 hover:bg-red-100 rounded-lg transition-colors text-slate-400 hover:text-red-500 shrink-0 opacity-0 group-hover:opacity-100 z-20"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-              ) : uploadedVideo ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                      <CheckCircle className="w-5 h-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{uploadedVideo.name}</p>
-                      <p className="text-xs text-emerald-600 font-medium">Ready for YouTube upload</p>
-                    </div>
-                  </div>
-                  <button onClick={handleRemoveVideo} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-500">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 py-3 cursor-pointer">
-                  <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-slate-700">Upload a video file</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Drag & drop or click · MP4, WebM, MOV · Max 5GB</p>
-                  </div>
-                </button>
-              )}
+              ))}
             </div>
 
             <div className="flex items-center justify-between">
@@ -900,8 +957,19 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                        </div>
                        <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
                           <p className="text-sm text-slate-700 leading-relaxed">
-                            Hey there! I'm your Jarvis YouTube Director. Do you want to brainstorm some viral video concepts based on your current demographic strategy?
+                            Select a video file on the left to begin preparing an upload.
                           </p>
+                          {uploadedVideo && (
+                            <div className="mt-3 p-3 bg-fuchsia-50 border border-fuchsia-100 rounded-xl flex items-center gap-3 animate-in slide-in-from-left-8 fade-in duration-500">
+                              <div className="w-8 h-8 bg-fuchsia-200 rounded-lg flex items-center justify-center shrink-0">
+                                <FileVideo className="w-4 h-4 text-fuchsia-700" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-slate-800 truncate">{uploadedVideo.name}</p>
+                                <p className="text-[10px] text-fuchsia-600 font-semibold uppercase tracking-wider mt-0.5">Selected & Ready</p>
+                              </div>
+                            </div>
+                          )}
                        </div>
                     </div>
 

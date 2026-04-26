@@ -24,7 +24,7 @@ type TicketData = {
   toEmail: string;
   subject: string;
   message: string;
-  status: "Unanswered" | "Answered";
+  status: "Unanswered" | "Under review" | "Denial of service" | "Completed";
   createdAt: any;
   isArchived?: boolean;
   comments?: TicketComment[];
@@ -159,11 +159,8 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
         senderEmail: user.email,
         createdAt: new Date().getTime(), // Fallback local time for instant UI feel
       };
-      // We will also update status to Answered automatically if the receiver replies!
-      // In practice, any comment can mark it answered to keep things moving.
       await updateDoc(ticketRef, {
-        comments: arrayUnion(newComment),
-        status: "Answered"
+        comments: arrayUnion(newComment)
       });
       setCommentInputs(prev => ({...prev, [ticketId]: ""}));
     } catch(e) {
@@ -186,14 +183,26 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
     }
   };
 
-  const getStatusBadge = (status: string, isArchived?: boolean) => {
-    if (isArchived) {
-      return <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200">Archived</Badge>;
+  const handleStatusChange = async (ticketId: string, newStatus: string, e?: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e) e.stopPropagation();
+    if (!firestore) return;
+    try {
+      await updateDoc(doc(firestore, "support_tickets", ticketId), {
+        status: newStatus
+      });
+    } catch(e) {
+      console.error(e);
+      alert("Failed to update status.");
     }
-    if (status === "Unanswered") {
-      return <Badge variant="destructive" className="bg-red-50 text-red-600 border-red-200">Unanswered</Badge>;
-    }
-    return <Badge variant="secondary" className="bg-green-50 text-green-600 border-green-200">Answered</Badge>;
+  };
+
+  const getStatusColorClass = (status: string, isArchived?: boolean) => {
+    if (isArchived) return "bg-slate-100 text-slate-500 border-slate-200";
+    if (status === "Unanswered") return "bg-red-50 text-red-600 border-red-200";
+    if (status === "Under review") return "bg-amber-50 text-amber-600 border-amber-200";
+    if (status === "Denial of service") return "bg-slate-100 text-slate-600 border-slate-200";
+    if (status === "Completed") return "bg-green-50 text-green-600 border-green-200";
+    return "bg-slate-100 text-slate-500 border-slate-200";
   };
 
   const filteredTickets = tickets.filter(t => {
@@ -204,8 +213,8 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
 
   const stats = {
     total: filteredTickets.length,
-    open: filteredTickets.filter(t => t.status === "Unanswered" && !t.isArchived).length,
-    resolved: filteredTickets.filter(t => t.status === "Answered" && !t.isArchived).length,
+    open: filteredTickets.filter(t => (t.status === "Unanswered" || t.status === "Under review") && !t.isArchived).length,
+    resolved: filteredTickets.filter(t => (t.status === "Completed" || t.status === "Denial of service") && !t.isArchived).length,
   };
 
   return (
@@ -339,16 +348,16 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
         </Card>
         <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl opacity-80">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
-            <AlertCircle className="w-8 h-8 text-red-500" />
+            <AlertCircle className="w-8 h-8 text-amber-500" />
             <span className="text-3xl font-black text-slate-900">{stats.open}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unanswered</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Open / Review</span>
           </CardContent>
         </Card>
         <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl opacity-80">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
             <CheckCircle2 className="w-8 h-8 text-green-500" />
             <span className="text-3xl font-black text-slate-900">{stats.resolved}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Answered</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Resolved</span>
           </CardContent>
         </Card>
       </div>
@@ -377,18 +386,19 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
               {filteredTickets.map((ticket) => {
                 const isSentByMe = ticket.fromEmail === user?.email;
                 const isUnanswered = ticket.status === "Unanswered";
+                const isUnderReview = ticket.status === "Under review";
                 const isExpanded = expandedTicketId === ticket.id;
                 
                 return (
                 <div key={ticket.id} className={`flex flex-col p-5 transition-colors cursor-pointer
-                  ${isUnanswered && !ticket.isArchived ? 'bg-red-50/20 hover:bg-red-50/50' : !ticket.isArchived ? 'bg-green-50/10 hover:bg-green-50/30' : 'bg-white hover:bg-slate-50'}
+                  ${(isUnanswered || isUnderReview) && !ticket.isArchived ? 'bg-amber-50/10 hover:bg-amber-50/30' : !ticket.isArchived ? 'bg-green-50/10 hover:bg-green-50/30' : 'bg-white hover:bg-slate-50'}
                 `} onClick={() => setExpandedTicketId(isExpanded ? null : ticket.id)}>
                   
                   {/* Ticket Header Row */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
                     <div className="flex items-start gap-4">
                       <div className="mt-1">
-                        {ticket.isArchived ? <Archive className="w-5 h-5 text-slate-400" /> : isUnanswered ? <AlertCircle className="w-5 h-5 text-red-500" /> : <CheckCircle2 className="w-5 h-5 text-green-600" />}
+                        {ticket.isArchived ? <Archive className="w-5 h-5 text-slate-400" /> : ticket.status === "Completed" ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : ticket.status === "Denial of service" ? <AlertCircle className="w-5 h-5 text-slate-400" /> : <AlertCircle className="w-5 h-5 text-amber-500" />}
                       </div>
                       <div>
                         <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -406,7 +416,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-9 sm:ml-0">
-                      {ticket.status === "Answered" && !ticket.isArchived && (
+                      {ticket.status === "Completed" && !ticket.isArchived && (
                         <Button 
                           variant="outline" size="sm" 
                           onClick={(e) => handleArchive(ticket, e)}
@@ -416,7 +426,18 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                         </Button>
                       )}
                       <div className="flex flex-col items-end gap-1">
-                         {getStatusBadge(ticket.status, ticket.isArchived)}
+                         <select 
+                           value={ticket.status}
+                           onClick={(e) => e.stopPropagation()}
+                           onChange={(e) => handleStatusChange(ticket.id, e.target.value, e)}
+                           className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer transition-colors ${getStatusColorClass(ticket.status, ticket.isArchived)}`}
+                           disabled={ticket.isArchived}
+                         >
+                           <option value="Unanswered">Unanswered</option>
+                           <option value="Under review">Under review</option>
+                           <option value="Denial of service">Denial of service</option>
+                           <option value="Completed">Completed</option>
+                         </select>
                          <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">ID: {ticket.id.slice(0, 8)}</span>
                       </div>
                       {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
@@ -473,7 +494,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                             <Input 
                               value={commentInputs[ticket.id] || ""}
                               onChange={(e) => setCommentInputs(prev => ({...prev, [ticket.id]: e.target.value}))}
-                              placeholder="Type a response... (marks ticket as Answered automatically)"
+                              placeholder="Type a response..."
                               className="bg-white border-slate-200 text-slate-900 focus-visible:ring-indigo-500 rounded-xl"
                               onKeyDown={e => {
                                 if (e.key === 'Enter') {

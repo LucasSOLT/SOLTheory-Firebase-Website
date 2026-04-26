@@ -82,11 +82,12 @@ export async function POST(req: Request) {
         // Get total via about
         const about = await drive.about.get({ fields: "storageQuota" });
         const usedBytes = parseInt(about.data.storageQuota?.usage || "0");
-        const usedGB = (usedBytes / (1024 * 1024 * 1024)).toFixed(1);
+        const limitBytes = parseInt(about.data.storageQuota?.limit || "16106127360");
+        const leftGB = ((limitBytes - usedBytes) / (1024 * 1024 * 1024)).toFixed(1);
         return NextResponse.json({
           success: true,
-          value: `${usedGB} GB`,
-          label: "storage used",
+          value: `${leftGB} GB`,
+          label: "storage left",
         });
       }
 

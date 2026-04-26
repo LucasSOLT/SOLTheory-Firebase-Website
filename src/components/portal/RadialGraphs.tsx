@@ -2,20 +2,21 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Activity } from "lucide-react";
+import { CollapsibleTile } from "@/components/ui/collapsible-tile";
 
 const mockData1 = [
-  { name: "Completed", value: 75, color: "#6366f1" },
-  { name: "Remaining", value: 25, color: "#e0e7ff" },
+  { name: "Completed", value: 0, color: "#6366f1" },
+  { name: "Remaining", value: 100, color: "#e0e7ff" },
 ];
 
 const mockData2 = [
-  { name: "Active", value: 60, color: "#10b981" },
-  { name: "Inactive", value: 40, color: "#d1fae5" },
+  { name: "Active", value: 0, color: "#10b981" },
+  { name: "Inactive", value: 100, color: "#d1fae5" },
 ];
 
 const mockData3 = [
-  { name: "Positive", value: 85, color: "#d946ef" },
-  { name: "Negative", value: 15, color: "#fae8ff" },
+  { name: "Positive", value: 0, color: "#d946ef" },
+  { name: "Negative", value: 100, color: "#fae8ff" },
 ];
 
 function RadialItem({ title, value, label, data, color }: { title: string, value: string, label: string, data: any[], color: string }) {
@@ -58,7 +59,7 @@ function RadialItem({ title, value, label, data, color }: { title: string, value
 
 export function RadialGraphs() {
   return (
-    <div className="w-full h-full min-h-[300px] rounded-2xl bg-white border border-slate-100 shadow-sm p-5 flex flex-col hover:shadow-md transition-shadow">
+    <CollapsibleTile id="radial-graphs" title="Performance" icon={<Activity className="w-4 h-4" />} className="w-full h-full min-h-[300px] p-5 flex flex-col">
       <div className="flex items-center gap-2 mb-4">
         <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
           <Activity className="w-4 h-4 text-emerald-500" />
@@ -72,7 +73,7 @@ export function RadialGraphs() {
       <div className="flex-1 flex flex-col justify-around gap-2">
         <RadialItem 
           title="Task Completion" 
-          value="1,240" 
+          value="0" 
           label="Automated actions today" 
           data={mockData1} 
           color="#6366f1" 
@@ -80,7 +81,7 @@ export function RadialGraphs() {
         <div className="h-px w-full bg-slate-50" />
         <RadialItem 
           title="Agent Activity" 
-          value="8.5 hrs" 
+          value="0 hrs" 
           label="Total active time" 
           data={mockData2} 
           color="#10b981" 
@@ -88,12 +89,12 @@ export function RadialGraphs() {
         <div className="h-px w-full bg-slate-50" />
         <RadialItem 
           title="Client Sentiment" 
-          value="Excellent" 
+          value="N/A" 
           label="Based on latest interactions" 
           data={mockData3} 
           color="#d946ef" 
         />
       </div>
-    </div>
+    </CollapsibleTile>
   );
 }

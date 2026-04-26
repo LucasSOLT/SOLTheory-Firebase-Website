@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Zap, MessageSquare, Globe, FileText, Users, HardDrive, Youtube, Bot, Clock, BarChart3, CalendarDays, Settings, Mail, Presentation, Table, HelpCircle } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { CollapsibleTile } from "@/components/ui/collapsible-tile";
 
 type DigestEntry = {
   id: string;
@@ -11,6 +12,7 @@ type DigestEntry = {
   detail?: string;
   timestamp: number;
   icon: string;
+  path?: string;
 };
 
 const STORAGE_KEY = "soltheory_daily_digest";
@@ -82,7 +84,7 @@ export function DailyDigest() {
   useEffect(() => {
     if (!pathname || pathname.endsWith("/soltheory") || pathname.endsWith("/nxtchapter")) return;
     const { icon, label } = getIconForPath(pathname);
-    logDigestEntry({ type: "navigation", label: `Visited ${label}`, icon });
+    logDigestEntry({ type: "navigation", label: `Visited ${label}`, icon, path: pathname });
   }, [pathname]);
 
   // Listen for updates
@@ -100,7 +102,7 @@ export function DailyDigest() {
   }, []);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+    <CollapsibleTile id="daily-digest" title="Daily Digest" icon={<Zap className="w-4 h-4" />} className="p-6 h-full flex flex-col">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-sm">
@@ -149,6 +151,6 @@ export function DailyDigest() {
           })}
         </div>
       )}
-    </div>
+    </CollapsibleTile>
   );
 }

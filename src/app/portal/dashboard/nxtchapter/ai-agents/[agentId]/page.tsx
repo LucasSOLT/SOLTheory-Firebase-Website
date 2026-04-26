@@ -63,6 +63,9 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [totalGroqTokens, setTotalGroqTokens] = useState(0);
+  const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
+  const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [isObserverOpen, setIsObserverOpen] = useState(false);
   const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
   const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
@@ -144,6 +147,21 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       setIsGmailConnected(connected);
     });
   }, [user, firestore, params.agentId]);
+
+  // Load Lifetime Usage
+  useEffect(() => {
+    if (!user?.uid || !firestore) return;
+    import("firebase/firestore").then(({ doc, onSnapshot }) => {
+      const unsub = onSnapshot(doc(firestore, "users", user.uid), (docSnap) => {
+        const data = docSnap.data();
+        if (data) {
+          setTotalGroqTokens(data.groqTokens || 0);
+          setTotalElevenLabsChars(data.elevenLabsChars || 0);
+        }
+      });
+      return () => unsub();
+    });
+  }, [user, firestore]);
 
 
 
@@ -362,6 +380,13 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       };
       
       setMessages(prev => [...prev, aiMsg]);
+      
+      const usage = data.usage || 0;
+      if (usage > 0 && user?.uid && firestore) {
+        import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
+          updateDoc(doc(firestore, "users", user.uid), { groqTokens: increment(usage) }).catch(console.error);
+        });
+      }
     } catch (error: any) {
       console.error(error);
       const errorMsg: Message = { 
@@ -605,7 +630,60 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
              </div>
            </div>
         ) : (
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin relative">
+          {/* Unified Token Tracking Pill */}
+          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-4 h-9 rounded-full bg-white border border-slate-200 flex items-center gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+            <Bot className="w-4 h-4 text-emerald-500" />
+            <span className="text-[10px] font-black tracking-wider text-slate-600 uppercase">
+              {totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span> ≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
+            </span>
+          </button>
+
+          {showCostBreakdown && (
+            <div className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
+                <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
+                  </div>
+                  <div className="text-xs text-slate-500 space-y-1">
+                    <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
+                    <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{totalGroqTokens.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
+                    <div className="h-px bg-slate-200 my-1" />
+                    <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalGroqTokens * 0.00000006).toFixed(6)}</span></div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Voice</span>
+                  </div>
+                  <div className="text-xs text-slate-500 space-y-1">
+                    <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
+                    <div className="flex justify-between"><span>Chars Used</span><span className="font-bold text-slate-700">{totalElevenLabsChars.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
+                    <div className="h-px bg-slate-200 my-1" />
+                    <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalElevenLabsChars * 0.000167).toFixed(6)}</span></div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-900 rounded-[4px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
+                    <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="max-w-3xl mx-auto space-y-8 pb-56">
             
             {/* Model Title */}
@@ -903,6 +981,48 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         agentName={agent.name}
         agentId={params.agentId as string}
         orgPrefix="nxtchapter"
+        onUsageUpdate={(groqUsage, elevenLabsUsage) => {
+          if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
+            import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
+              updateDoc(doc(firestore, "users", user.uid), { 
+                groqTokens: increment(groqUsage),
+                elevenLabsChars: increment(elevenLabsUsage)
+              }).catch(console.error);
+            });
+          }
+        }}
+        onCallAI={async (apiMessages) => {
+          let rToken = null;
+          if (user && firestore) {
+            const { getDoc, doc } = await import("firebase/firestore");
+            const docSnap = await getDoc(doc(firestore, "users", user.uid));
+            const docData = docSnap.data();
+            rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
+            if (!rToken) rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken);
+            if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
+            if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
+            if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
+          }
+          const kbText = await getKnowledgeBaseText();
+          
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: apiMessages,
+              agentId: `nxtchapter_${params.agentId}`,
+              soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+              brain: agentConfig.brain,
+              uid: user?.uid,
+              refreshToken: rToken,
+              contacts: [],
+              knowledgeBaseText: kbText
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data;
+        }}
       />
 
       {lightboxImage && (

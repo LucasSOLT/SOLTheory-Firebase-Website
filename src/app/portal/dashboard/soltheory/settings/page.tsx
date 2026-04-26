@@ -33,12 +33,12 @@ const t = {
     saveChanges: "Save Changes",
     saving: "Saving...",
     integrations: "Integrations",
-    gmailConnection: "Gmail Connection",
-    gmailDesc: "Connect your Gmail to let the AI agent read and reply to your inbound emails automatically.",
-    gmailConnected: "✓ Gmail Connected Successfully",
-    connectGmail: "Connect Gmail",
+    gmailConnection: "Google Account Connection",
+    gmailDesc: "Connect your Google account to let the AI agent read and reply to your inbound emails automatically.",
+    gmailConnected: "✓ Google Account Connected Successfully",
+    connectGmail: "Connect Google Account",
     connected: "Connected",
-    syncInbox: "Sync Inbox",
+    syncInbox: "Refresh Account",
     syncing: "Syncing...",
     dailyDigest: "Daily Digest",
     dailyDigestDesc: "Receive a daily summary of organization metrics.",
@@ -77,10 +77,10 @@ const t = {
     saveChanges: "Guardar Cambios",
     saving: "Guardando...",
     integrations: "Integraciones",
-    gmailConnection: "Conexión de Gmail",
-    gmailDesc: "Conecta tu Gmail para permitir que el agente de IA lea y responda tus correos entrantes automáticamente.",
-    gmailConnected: "✓ Gmail Conectado Exitosamente",
-    connectGmail: "Conectar Gmail",
+    gmailConnection: "Conexión de Google",
+    gmailDesc: "Conecta tu cuenta de Google para permitir que el agente de IA lea y responda tus correos entrantes automáticamente.",
+    gmailConnected: "✓ Google Conectado Exitosamente",
+    connectGmail: "Conectar Google",
     connected: "Conectado",
     syncInbox: "Sincronizar Bandeja",
     syncing: "Sincronizando...",
@@ -417,6 +417,47 @@ function SettingsContent() {
                           )}
                         </div>
                       </div>
+
+                      {/* --- Mock QuickBooks --- */}
+                      <div className="w-full h-px bg-slate-100/50" />
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-1.5 max-w-sm">
+                          <Label className="text-base text-slate-800">QuickBooks Connection</Label>
+                          <p className="text-sm text-slate-500 leading-relaxed">Connect your QuickBooks account to sync sales and revenue data into your dashboard.</p>
+                        </div>
+                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect QuickBooks</Button>
+                      </div>
+
+                      {/* --- Mock Slack --- */}
+                      <div className="w-full h-px bg-slate-100/50" />
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-1.5 max-w-sm">
+                          <Label className="text-base text-slate-800">Slack Connection</Label>
+                          <p className="text-sm text-slate-500 leading-relaxed">Connect your Slack workspace to receive system alerts and daily digests in a channel.</p>
+                        </div>
+                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect Slack</Button>
+                      </div>
+
+                      {/* --- Mock Whatsapp --- */}
+                      <div className="w-full h-px bg-slate-100/50" />
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-1.5 max-w-sm">
+                          <Label className="text-base text-slate-800">WhatsApp Connection</Label>
+                          <p className="text-sm text-slate-500 leading-relaxed">Connect your WhatsApp Business account to handle customer communications.</p>
+                        </div>
+                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect WhatsApp</Button>
+                      </div>
+
+                      {/* --- Mock Apple Account --- */}
+                      <div className="w-full h-px bg-slate-100/50" />
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-1.5 max-w-sm">
+                          <Label className="text-base text-slate-800">Apple Account Connection</Label>
+                          <p className="text-sm text-slate-500 leading-relaxed">Link your Apple Developer account to manage app store analytics and metadata.</p>
+                        </div>
+                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect Apple Account</Button>
+                      </div>
+
                     </CardContent>
                   </Card>
 

@@ -22,7 +22,7 @@ function ShinyBlackBlob() {
   return (
     <Float speed={1.5} rotationIntensity={1.5} floatIntensity={2}>
       <mesh ref={meshRef} scale={1.8}>
-        <icosahedronGeometry args={[1, 64]} />
+        <icosahedronGeometry args={[1, 256]} />
         <MeshDistortMaterial
           color="#0a0a0b"
           envMapIntensity={2}
@@ -41,7 +41,7 @@ function ShinyBlackBlob() {
 export function BlobHero() {
   return (
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-none">
-      <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 45 }} dpr={[1, 2]}>
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 5]} intensity={1} color="#c026d3" />
         <directionalLight position={[-10, -10, -5]} intensity={1} color="#4f46e5" />

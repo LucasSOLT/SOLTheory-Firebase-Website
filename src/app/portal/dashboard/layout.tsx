@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore } from "@/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
 import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const firestore = useFirestore();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const router = useRouter();
+  const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
+  const [latestNotifId, setLatestNotifId] = useState<string | null>(null);
+
+  const playNotificationSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
+      
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.05); // Quiet volume (0.05)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+  };
 
   // Detect which org the user is in based on the current path
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
@@ -24,6 +54,101 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   React.useEffect(() => {
     document.documentElement.classList.remove('dark');
   }, []);
+
+  React.useEffect(() => {
+    if (user?.uid) {
+      const stored = localStorage.getItem(`read_notifications_${user.uid}`);
+      if (stored) {
+        try { setReadNotifIds(JSON.parse(stored)); } catch (e) {}
+      }
+    }
+  }, [user?.uid]);
+
+  React.useEffect(() => {
+    if (isNotificationsOpen && notifications.length > 0) {
+      const allIds = notifications.map(n => n.id);
+      if (allIds.some(id => !readNotifIds.includes(id))) {
+        const newReadIds = Array.from(new Set([...readNotifIds, ...allIds]));
+        setReadNotifIds(newReadIds);
+        if (user?.uid) {
+          localStorage.setItem(`read_notifications_${user.uid}`, JSON.stringify(newReadIds));
+        }
+      }
+    }
+  }, [isNotificationsOpen, notifications, readNotifIds, user?.uid]);
+
+  React.useEffect(() => {
+    if (notifications.length > 0) {
+      const topNotif = notifications[0];
+      // Only play sound if this is a new top notification and it hasn't been read yet
+      if (latestNotifId && topNotif.id !== latestNotifId && !readNotifIds.includes(topNotif.id)) {
+        playNotificationSound();
+      }
+      setLatestNotifId(topNotif.id);
+    }
+  }, [notifications, latestNotifId, readNotifIds]);
+
+  React.useEffect(() => {
+    if (!firestore || !user?.email) return;
+
+    const processTickets = (docs: any[], role: 'sender' | 'receiver') => {
+      let newNotifs: any[] = [];
+      docs.forEach(doc => {
+        const data = doc.data();
+        const updatedAt = data.updatedAt?.toMillis() || data.createdAt?.toMillis() || Date.now();
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        
+        if (data.comments && data.comments.length > 0) {
+          const lastComment = data.comments[data.comments.length - 1];
+          if (lastComment.senderEmail !== user.email && (Date.now() - lastComment.createdAt < SEVEN_DAYS)) {
+            newNotifs.push({
+              id: `ticket-msg-${doc.id}-${lastComment.createdAt}`,
+              title: 'New support ticket message',
+              desc: `Reply on ticket: ${data.subject}`,
+              time: lastComment.createdAt,
+              icon: <MessageSquare className="w-4 h-4 text-fuchsia-600" />,
+              bg: 'bg-fuchsia-100',
+              link: `${dashboardHome}/support-tickets`
+            });
+          }
+        }
+        
+        if (role === 'sender' && data.status !== 'Unanswered' && (Date.now() - updatedAt < SEVEN_DAYS)) {
+          newNotifs.push({
+            id: `ticket-status-${doc.id}-${data.status}`,
+            title: 'Ticket status updated',
+            desc: `${data.subject} is now ${data.status}`,
+            time: updatedAt,
+            icon: <Ticket className="w-4 h-4 text-blue-600" />,
+            bg: 'bg-blue-100',
+            link: `${dashboardHome}/support-tickets`
+          });
+        }
+      });
+      return newNotifs;
+    };
+
+    const unsubFrom = onSnapshot(query(collection(firestore, "support_tickets"), where("fromEmail", "==", user.email)), snap => {
+      const notifs = processTickets(snap.docs, 'sender');
+      setNotifications(prev => {
+        const filtered = prev.filter(n => !n.id.startsWith('ticket-status-') && !n.id.startsWith('ticket-msg-'));
+        return [...filtered, ...notifs].sort((a,b) => b.time - a.time);
+      });
+    });
+
+    const unsubTo = onSnapshot(query(collection(firestore, "support_tickets"), where("toEmail", "==", user.email)), snap => {
+      const notifs = processTickets(snap.docs, 'receiver');
+      setNotifications(prev => {
+        const existing = prev.filter(n => !notifs.find(nn => nn.id === n.id));
+        return [...existing, ...notifs].sort((a,b) => b.time - a.time);
+      });
+    });
+
+    return () => {
+      unsubFrom();
+      unsubTo();
+    };
+  }, [firestore, user?.email]);
 
   const renderSkeletonBoxes = (count: number) => {
     return Array.from({ length: count }).map((_, i) => (
@@ -272,7 +397,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="relative">
                 <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-white transition-colors bg-white shadow-sm border border-slate-100 rounded-full flex items-center justify-center relative">
                   <Bell className="h-4 w-4" />
-                  <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                  {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
+                    <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                  )}
                 </button>
 
                 {/* Notifications Popup */}
@@ -283,7 +410,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
-                          <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">3 New</span>
+                          {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
+                            <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{notifications.filter(n => !readNotifIds.includes(n.id)).length} New</span>
+                          )}
                         </div>
                         <button onClick={() => setIsNotificationsOpen(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600">
                           <X className="w-4 h-4" />
@@ -291,69 +420,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       </div>
 
                       <div className="max-h-[400px] overflow-y-auto">
-                        {/* Notification Items */}
                         <div className="px-4 py-2">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-2">Today</p>
-
-                          <div className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-100/50 mb-1.5 cursor-pointer hover:bg-indigo-50 transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                              <Bot className="w-4 h-4 text-indigo-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-800">Jarvis drafted 3 email replies</p>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Your AI agent has new drafts ready for review in Gmail.</p>
-                              <p className="text-[10px] text-indigo-500 font-medium mt-1">2 minutes ago</p>
-                            </div>
-                            <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-2"></div>
-                          </div>
-
-                          <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100/50 mb-1.5 cursor-pointer hover:bg-emerald-50 transition-colors">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                              <CalendarDays className="w-4 h-4 text-emerald-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-800">Meeting in 30 minutes</p>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Weekly sync with the team at 10:00 AM.</p>
-                              <p className="text-[10px] text-emerald-500 font-medium mt-1">28 minutes ago</p>
-                            </div>
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-2"></div>
-                          </div>
-
-                          <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer">
-                            <div className="w-8 h-8 rounded-lg bg-fuchsia-100 flex items-center justify-center shrink-0 mt-0.5">
-                              <Mail className="w-4 h-4 text-fuchsia-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-800">New support ticket submitted</p>
-                              <p className="text-[11px] text-slate-500 mt-0.5">A client submitted ticket #1042 regarding billing.</p>
-                              <p className="text-[10px] text-slate-400 font-medium mt-1">1 hour ago</p>
-                            </div>
-                            <div className="w-2 h-2 rounded-full bg-fuchsia-500 shrink-0 mt-2"></div>
-                          </div>
-
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-2 mt-2">Earlier</p>
-
-                          <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer">
-                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-                              <ShieldCheck className="w-4 h-4 text-slate-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-600">Security scan complete</p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">No vulnerabilities detected. System is secure.</p>
-                              <p className="text-[10px] text-slate-400 font-medium mt-1">Yesterday</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer">
-                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-                              <Activity className="w-4 h-4 text-slate-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-600">Analytics report ready</p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">Your weekly performance report has been generated.</p>
-                              <p className="text-[10px] text-slate-400 font-medium mt-1">2 days ago</p>
-                            </div>
-                          </div>
+                          {notifications.length === 0 ? (
+                            <div className="py-8 text-center text-slate-500 text-sm font-medium">No new notifications</div>
+                          ) : (
+                            notifications.slice(0, 10).map(n => {
+                              const isUnread = !readNotifIds.includes(n.id);
+                              return (
+                              <div 
+                                key={n.id} 
+                                onClick={() => {
+                                  setIsNotificationsOpen(false);
+                                  if (n.link) router.push(n.link);
+                                }}
+                                className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer border border-transparent hover:border-slate-100"
+                              >
+                                <div className={`w-8 h-8 rounded-lg ${n.bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                                  {n.icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-slate-800">{n.title}</p>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">{n.desc}</p>
+                                  <p className="text-[10px] text-indigo-500 font-medium mt-1">
+                                    {new Date(n.time).toLocaleString()}
+                                  </p>
+                                </div>
+                                {isUnread && <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-2"></div>}
+                              </div>
+                            )})
+                          )}
                         </div>
                       </div>
 

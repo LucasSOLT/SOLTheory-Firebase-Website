@@ -4,6 +4,7 @@ import { google } from "googleapis";
 
 
 import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
+import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 const tools: any = [
   {
     type: "function",
@@ -277,7 +278,7 @@ export async function POST(req: Request) {
         }
         break;
       case "youtube_director":
-        agentRole = "You are the YouTube Creative Director, a highly specialized AI agent for video content strategy and production. You have FULL ACTIVE ACCESS to YouTube API tools. When the user asks you to draft, create, or brainstorm a video, you MUST USE the `draft_youtube_video` tool to physically push the draft to their YouTube Studio. Do NOT just describe the video concept in text — actually call the tool. After successfully calling the tool, confirm that the draft was pushed to YouTube Studio.";
+        agentRole = "You are the YouTube Creative Director, a highly specialized AI agent for video content strategy and production. You have FULL ACTIVE ACCESS to YouTube API tools. When the user asks you to draft, create, or brainstorm a video, you will use the `draft_youtube_video` tool to physically push the draft to their YouTube Studio. However, follow your specific soul/brain instructions regarding when to ask questions FIRST before calling the tool. After successfully calling the tool, confirm that the draft was pushed to YouTube Studio.";
         break;
       default:
         agentRole = isNxtChapter
@@ -307,7 +308,7 @@ export async function POST(req: Request) {
     const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
     
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool AT ALL TIMES when the user asks you to draft a video, create a video concept, or store a YouTube video! Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
@@ -370,6 +371,10 @@ export async function POST(req: Request) {
 
     if (rawAgentId && rawAgentId.includes("nxtchapter")) {
       combinedKnowledge += "\n\n[HARDCODED ORGANIZATIONAL KNOWLEDGE BASE]\n" + nxtChapterKnowledge;
+    }
+
+    if (rawAgentId && rawAgentId.includes("soltheory")) {
+      combinedKnowledge += "\n\n[HARDCODED ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
     }
 
     if (combinedKnowledge.trim().length > 0) {

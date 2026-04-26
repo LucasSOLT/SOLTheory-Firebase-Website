@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Clock, Globe, FileText, Users, HardDrive, Youtube, Bot, BarChart3, CalendarDays, Settings, Mail, MessageSquare, Presentation, Table, HelpCircle, Zap, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CollapsibleTile } from "@/components/ui/collapsible-tile";
 
 const STORAGE_KEY = "soltheory_daily_digest";
 
@@ -64,7 +65,7 @@ export function RecentPlaces() {
   }, [pathname]);
 
   return (
-    <div className="w-full h-full min-h-[300px] rounded-2xl bg-white border border-slate-100 shadow-sm p-5 flex flex-col hover:shadow-md transition-shadow">
+    <CollapsibleTile id="recent-places" title="Recent Places" icon={<Clock className="w-4 h-4" />} className="w-full h-full min-h-[300px] p-5 flex flex-col">
       <div className="flex items-center gap-2 mb-6">
         <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
           <Clock className="w-4 h-4 text-indigo-500" />
@@ -104,6 +105,6 @@ export function RecentPlaces() {
           })
         )}
       </div>
-    </div>
+    </CollapsibleTile>
   );
 }
