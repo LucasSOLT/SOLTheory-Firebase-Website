@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown } from "lucide-react";
+import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Mail, Calendar, FileText, Presentation, Table, ClipboardList, Ticket, Youtube } from "lucide-react";
 
 interface VoiceAgentModalProps {
   isOpen: boolean;
@@ -43,7 +43,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const isPausedRef = useRef(isPaused);
   const [responseDelay, setResponseDelay] = useState(1500);
   const responseDelayRef = useRef(1500);
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
   const [groqTokens, setGroqTokens] = useState(0);
   const [elevenLabsChars, setElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
@@ -448,6 +448,223 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
+  // ── Action Preview Detection ──
+  type ActionType = "email" | "calendar" | "doc" | "slide" | "sheet" | "survey" | "ticket" | "youtube" | null;
+
+  function detectAction(text: string): { type: ActionType; data: Record<string, string> } {
+    const lower = text.toLowerCase();
+
+    // Email detection
+    if (lower.includes("email") || lower.includes("draft") || lower.includes("subject:") || lower.includes("dear ") || lower.includes("hello,")) {
+      const toMatch = text.match(/(?:to|To|TO)[:\s]+([^\n,]+)/i);
+      const subjectMatch = text.match(/(?:subject|Subject|SUBJECT)[:\s]+([^\n]+)/i);
+      // Try to extract greeting, body, and closing
+      const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+      let greeting = "";
+      let body = "";
+      let closing = "";
+      let senderName = "";
+      
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/^(hello|hi|hey|dear|good morning|good afternoon|good evening)/i.test(l) && !greeting) {
+          greeting = l;
+        } else if (/^(thanks|thank you|sincerely|best regards|regards|best|cheers|warm regards)/i.test(l)) {
+          closing = l;
+          if (i + 1 < lines.length) senderName = lines[i + 1];
+        } else if (greeting && !closing) {
+          body += (body ? "\n" : "") + l;
+        }
+      }
+      
+      // If no structured body found, use a portion of the text
+      if (!body && !greeting) {
+        body = text.length > 200 ? text.substring(0, 200) + "..." : text;
+      }
+
+      return {
+        type: "email",
+        data: {
+          to: toMatch?.[1]?.trim() || "",
+          subject: subjectMatch?.[1]?.trim() || "",
+          greeting: greeting,
+          body: body,
+          closing: closing,
+          senderName: senderName,
+        }
+      };
+    }
+
+    // Calendar event detection
+    if (lower.includes("calendar") || lower.includes("meeting") || lower.includes("event") || lower.includes("scheduled") || lower.includes("appointment")) {
+      const titleMatch = text.match(/(?:title|event|meeting)[:\s]+([^\n]+)/i);
+      const dateMatch = text.match(/(?:date|when|on)[:\s]+([^\n]+)/i);
+      const timeMatch = text.match(/(?:time|at)[:\s]+([^\n]+)/i);
+      return {
+        type: "calendar",
+        data: {
+          title: titleMatch?.[1]?.trim() || "New Event",
+          date: dateMatch?.[1]?.trim() || "",
+          time: timeMatch?.[1]?.trim() || "",
+        }
+      };
+    }
+
+    // Google Slides
+    if (lower.includes("slide") || lower.includes("presentation") || lower.includes("deck")) {
+      return { type: "slide", data: { title: "Presentation" } };
+    }
+
+    // Google Docs
+    if (lower.includes("document") || lower.includes("google doc") || lower.includes("write a doc")) {
+      return { type: "doc", data: { title: "Document" } };
+    }
+
+    // Google Sheets
+    if (lower.includes("spreadsheet") || lower.includes("google sheet") || lower.includes("sheet")) {
+      return { type: "sheet", data: { title: "Spreadsheet" } };
+    }
+
+    // Survey
+    if (lower.includes("survey")) {
+      return { type: "survey", data: { title: "Survey" } };
+    }
+
+    // Support ticket
+    if (lower.includes("ticket") || lower.includes("support request")) {
+      return { type: "ticket", data: { title: "Support Ticket" } };
+    }
+
+    // YouTube
+    if (lower.includes("youtube") || lower.includes("video")) {
+      return { type: "youtube", data: { title: "YouTube Video" } };
+    }
+
+    return { type: null, data: {} };
+  }
+
+  // ── Typewriter text component ──
+  function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) {
+    const [displayed, setDisplayed] = useState("");
+    const indexRef = useRef(0);
+
+    useEffect(() => {
+      setDisplayed("");
+      indexRef.current = 0;
+      const interval = setInterval(() => {
+        if (indexRef.current < text.length) {
+          setDisplayed(text.substring(0, indexRef.current + 1));
+          indexRef.current++;
+        } else {
+          clearInterval(interval);
+        }
+      }, speed);
+      return () => clearInterval(interval);
+    }, [text, speed]);
+
+    return <>{displayed}<span className="inline-block w-0.5 h-3.5 bg-slate-400 rounded-full ml-0.5 animate-pulse align-middle" /></>;
+  }
+
+  // ── Action Preview Card ──
+  function ActionPreviewCard({ type, data }: { type: ActionType; data: Record<string, string> }) {
+    if (!type) return null;
+
+    const configs: Record<string, { icon: any; label: string; color: string; bg: string; border: string }> = {
+      email:    { icon: Mail,          label: "Email Draft",      color: "text-blue-600",   bg: "bg-blue-50",   border: "border-blue-200" },
+      calendar: { icon: Calendar,      label: "Calendar Event",   color: "text-emerald-600",bg: "bg-emerald-50",border: "border-emerald-200" },
+      doc:      { icon: FileText,      label: "Google Doc",       color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
+      slide:    { icon: Presentation,  label: "Google Slides",    color: "text-amber-600",  bg: "bg-amber-50",  border: "border-amber-200" },
+      sheet:    { icon: Table,         label: "Google Sheets",    color: "text-green-600",  bg: "bg-green-50",  border: "border-green-200" },
+      survey:   { icon: ClipboardList, label: "Survey",           color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200" },
+      ticket:   { icon: Ticket,        label: "Support Ticket",   color: "text-rose-600",   bg: "bg-rose-50",   border: "border-rose-200" },
+      youtube:  { icon: Youtube,       label: "YouTube Video",    color: "text-red-600",    bg: "bg-red-50",    border: "border-red-200" },
+    };
+
+    const config = configs[type];
+    if (!config) return null;
+    const Icon = config.icon;
+
+    return (
+      <div className="flex justify-center my-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
+        <div className={`w-full max-w-md rounded-2xl border-2 ${config.border} ${config.bg} overflow-hidden shadow-lg`}>
+          {/* Header */}
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-current/10">
+            <Icon className={`w-4 h-4 ${config.color}`} />
+            <span className={`text-xs font-black uppercase tracking-widest ${config.color}`}>{config.label}</span>
+          </div>
+
+          {/* Email Preview */}
+          {type === "email" && (
+            <div className="p-4 bg-white/80 space-y-3">
+              {data.to && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase w-12 shrink-0">To</span>
+                  <span className="text-sm font-medium text-slate-700 truncate">{data.to}</span>
+                </div>
+              )}
+              {data.subject && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase w-12 shrink-0">Subject</span>
+                  <span className="text-sm font-bold text-slate-900">{data.subject}</span>
+                </div>
+              )}
+              <div className="h-px bg-slate-200" />
+              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line min-h-[60px]">
+                {data.greeting && (
+                  <p className="font-medium mb-2"><TypewriterText text={data.greeting} speed={15} /></p>
+                )}
+                {data.body && (
+                  <p className="mb-2"><TypewriterText text={data.body} speed={10} /></p>
+                )}
+                {data.closing && (
+                  <>
+                    <p className="mt-3 font-medium"><TypewriterText text={data.closing} speed={15} /></p>
+                    {data.senderName && <p className="font-bold text-slate-900"><TypewriterText text={data.senderName} speed={20} /></p>}
+                  </>
+                )}
+                {!data.greeting && !data.body && !data.closing && (
+                  <p className="text-slate-400 italic">Composing email...</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Calendar Preview */}
+          {type === "calendar" && (
+            <div className="p-4 bg-white/80 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase leading-none">Event</span>
+                  <Calendar className="w-5 h-5 text-emerald-600 mt-0.5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900"><TypewriterText text={data.title || "New Event"} speed={20} /></p>
+                  {data.date && <p className="text-xs text-slate-500 font-medium">{data.date} {data.time && `at ${data.time}`}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Generic Preview for doc/slide/sheet/survey/ticket/youtube */}
+          {["doc", "slide", "sheet", "survey", "ticket", "youtube"].includes(type) && (
+            <div className="p-4 bg-white/80 flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl ${config.bg} flex items-center justify-center`}>
+                <Icon className={`w-6 h-6 ${config.color}`} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900"><TypewriterText text={`Creating ${config.label}...`} speed={25} /></p>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Generating content</p>
+              </div>
+              <div className="ml-auto">
+                <Loader2 className={`w-5 h-5 animate-spin ${config.color} opacity-50`} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (!isOpen) return null;
 
   const ac =
@@ -645,25 +862,31 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               </div>
             ) : (
               <>
-                {transcriptLines.map((line, i) => (
-                  <div key={i} className={`flex gap-3 ${line.isUser ? "justify-end" : "justify-start"}`}>
-                    {!line.isUser && (
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-sm mt-1">
-                        <Bot className="w-4 h-4 text-white" />
+                {transcriptLines.map((line, i) => {
+                  const action = !line.isUser ? detectAction(line.text) : { type: null as ActionType, data: {} };
+                  return (
+                    <React.Fragment key={i}>
+                      <div className={`flex gap-3 ${line.isUser ? "justify-end" : "justify-start"}`}>
+                        {!line.isUser && (
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-sm mt-1">
+                            <Bot className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                        <div className={`rounded-2xl px-4 py-3 text-sm max-w-[75%] leading-relaxed shadow-sm ${
+                          line.isUser ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm"
+                        }`}>
+                          {line.text}
+                        </div>
+                        {line.isUser && (
+                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0 mt-1">
+                            <User className="w-4 h-4 text-slate-500" />
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div className={`rounded-2xl px-4 py-3 text-sm max-w-[75%] leading-relaxed shadow-sm ${
-                      line.isUser ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm"
-                    }`}>
-                      {line.text}
-                    </div>
-                    {line.isUser && (
-                      <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0 mt-1">
-                        <User className="w-4 h-4 text-slate-500" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      {action.type && <ActionPreviewCard type={action.type} data={action.data} />}
+                    </React.Fragment>
+                  );
+                })}
                 {liveText && !isMicMuted && !isPaused && (
                   <div className="flex gap-3 justify-end">
                     <div className="rounded-2xl rounded-tr-sm px-4 py-3 text-sm max-w-[75%] leading-relaxed bg-indigo-100 border border-indigo-200 text-indigo-800 shadow-sm">
