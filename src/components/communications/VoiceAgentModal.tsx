@@ -448,64 +448,66 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
-  // ── Action Preview Detection ──
+  // ── Action Preview Detection (parses USER's natural speech) ──
   type ActionType = "email" | "calendar" | "doc" | "slide" | "sheet" | "survey" | "ticket" | "youtube" | null;
 
   function detectAction(text: string): { type: ActionType; data: Record<string, string> } {
     const lower = text.toLowerCase();
 
     // Email detection
-    if (lower.includes("email") || lower.includes("draft") || lower.includes("subject:") || lower.includes("dear ") || lower.includes("hello,")) {
-      const toMatch = text.match(/(?:to|To|TO)[:\s]+([^\n,]+)/i);
-      const subjectMatch = text.match(/(?:subject|Subject|SUBJECT)[:\s]+([^\n]+)/i);
-      // Try to extract greeting, body, and closing
-      const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
-      let greeting = "";
-      let body = "";
-      let closing = "";
-      let senderName = "";
-      
-      for (let i = 0; i < lines.length; i++) {
-        const l = lines[i];
-        if (/^(hello|hi|hey|dear|good morning|good afternoon|good evening)/i.test(l) && !greeting) {
-          greeting = l;
-        } else if (/^(thanks|thank you|sincerely|best regards|regards|best|cheers|warm regards)/i.test(l)) {
-          closing = l;
-          if (i + 1 < lines.length) senderName = lines[i + 1];
-        } else if (greeting && !closing) {
-          body += (body ? "\n" : "") + l;
-        }
+    if (lower.includes("email") || lower.includes("write a letter") || lower.includes("send a message to")) {
+      let recipientName = "";
+      const namePatterns = [
+        /(?:his|her|their) name is ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
+        /(?:named|name is) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
+        /email (?:to|for) (?:my \w+[,.]?\s*(?:and )?)?(?:(?:his|her|their) name is )?([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
+        /email (?:to|for) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
+      ];
+      for (const p of namePatterns) {
+        const m = text.match(p);
+        if (m?.[1]) { recipientName = m[1].trim(); break; }
       }
-      
-      // If no structured body found, use a portion of the text
-      if (!body && !greeting) {
-        body = text.length > 200 ? text.substring(0, 200) + "..." : text;
-      }
+      const timeMatch = text.match(/(?:at|for|tomorrow at|today at) (\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
+      const meetLinkMentioned = lower.includes("meet link") || lower.includes("google meet") || lower.includes("meeting link");
 
       return {
         type: "email",
         data: {
-          to: toMatch?.[1]?.trim() || "",
-          subject: subjectMatch?.[1]?.trim() || "",
-          greeting: greeting,
-          body: body,
-          closing: closing,
-          senderName: senderName,
+          to: recipientName,
+          subject: meetLinkMentioned ? `Meeting with ${recipientName || "Participant"}` : "",
+          greeting: recipientName ? `Hello ${recipientName.split(" ")[0]},` : "Hello,",
+          body: meetLinkMentioned
+            ? `I'd like to invite you to a meeting${timeMatch ? ` at ${timeMatch[1]}` : ""}. Please find the Google Meet link below.`
+            : `Composing your email${recipientName ? ` to ${recipientName}` : ""}...`,
+          closing: "Thanks,",
+          senderName: "",
         }
       };
     }
 
-    // Calendar event detection
-    if (lower.includes("calendar") || lower.includes("meeting") || lower.includes("event") || lower.includes("scheduled") || lower.includes("appointment")) {
-      const titleMatch = text.match(/(?:title|event|meeting)[:\s]+([^\n]+)/i);
-      const dateMatch = text.match(/(?:date|when|on)[:\s]+([^\n]+)/i);
-      const timeMatch = text.match(/(?:time|at)[:\s]+([^\n]+)/i);
+    // Calendar / Schedule
+    if (lower.includes("calendar") || lower.includes("schedule") || lower.includes("set up a meeting") || lower.includes("book a") || lower.includes("appointment")) {
+      const timeMatch = text.match(/(?:at|for) (\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
+      const dateMatch = text.match(/(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week)/i);
+      const withMatch = text.match(/(?:with|for) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i);
       return {
         type: "calendar",
         data: {
-          title: titleMatch?.[1]?.trim() || "New Event",
-          date: dateMatch?.[1]?.trim() || "",
-          time: timeMatch?.[1]?.trim() || "",
+          title: withMatch ? `Meeting with ${withMatch[1]}` : "New Event",
+          date: dateMatch?.[1] || "",
+          time: timeMatch?.[1] || "",
+        }
+      };
+    }
+
+    // Google Meet
+    if (lower.includes("google meet") || lower.includes("meet link") || lower.includes("video call")) {
+      const withMatch = text.match(/(?:with|for|to) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i);
+      return {
+        type: "calendar",
+        data: {
+          title: withMatch ? `Video Call with ${withMatch[1]}` : "Video Call",
+          date: "", time: "",
         }
       };
     }
@@ -521,7 +523,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     }
 
     // Google Sheets
-    if (lower.includes("spreadsheet") || lower.includes("google sheet") || lower.includes("sheet")) {
+    if (lower.includes("spreadsheet") || lower.includes("google sheet")) {
       return { type: "sheet", data: { title: "Spreadsheet" } };
     }
 
@@ -536,12 +538,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     }
 
     // YouTube
-    if (lower.includes("youtube") || lower.includes("video")) {
+    if (lower.includes("youtube") || lower.includes("video draft")) {
       return { type: "youtube", data: { title: "YouTube Video" } };
     }
 
     return { type: null, data: {} };
   }
+
 
   // ── Typewriter text component ──
   function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) {
@@ -863,7 +866,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             ) : (
               <>
                 {transcriptLines.map((line, i) => {
-                  const action = !line.isUser ? detectAction(line.text) : { type: null as ActionType, data: {} };
+                  // For bot messages, check the PRECEDING user message to detect action type
+                  let action: { type: ActionType; data: Record<string, string> } = { type: null, data: {} };
+                  if (!line.isUser && i > 0) {
+                    // Find the most recent user message before this bot message
+                    for (let j = i - 1; j >= 0; j--) {
+                      if (transcriptLines[j].isUser) {
+                        action = detectAction(transcriptLines[j].text);
+                        break;
+                      }
+                    }
+                  }
                   return (
                     <React.Fragment key={i}>
                       <div className={`flex gap-3 ${line.isUser ? "justify-end" : "justify-start"}`}>
@@ -883,7 +896,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                           </div>
                         )}
                       </div>
-                      {action.type && <ActionPreviewCard type={action.type} data={action.data} />}
+                      {!line.isUser && action.type && <ActionPreviewCard type={action.type} data={action.data} />}
                     </React.Fragment>
                   );
                 })}
