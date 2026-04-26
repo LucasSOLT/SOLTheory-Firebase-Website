@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Mail, Calendar, FileText, Presentation, Table, ClipboardList, Ticket, Youtube } from "lucide-react";
 
 interface VoiceAgentModalProps {
@@ -47,6 +47,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [groqTokens, setGroqTokens] = useState(0);
   const [elevenLabsChars, setElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
+  const [activePreview, setActivePreview] = useState<{ type: string; data: any } | null>(null);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -324,6 +325,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       setBars(Array(32).fill(4));
       accumulatedTextRef.current = "";
       conversationRef.current = [];
+      setActivePreview(null);
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
@@ -342,10 +344,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     try {
       let reply = "";
       let usageNum = 0;
+      let tools: any[] | undefined;
       if (onCallAI) {
         const payload: any = await onCallAI([...conversationRef.current]);
         reply = payload.response || "I couldn't process that.";
         usageNum = payload.usage || 0;
+        tools = payload.executedTools;
       } else {
         const res = await fetch("/api/voice-chat", {
           method: "POST",
@@ -358,6 +362,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         const data = await res.json();
         reply = data.response || "I couldn't process that.";
         usageNum = data.usage || 0;
+        tools = data.executedTools;
       }
       
       setGroqTokens(p => p + usageNum);
@@ -365,6 +370,27 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       
       if (onUsageUpdate) {
         onUsageUpdate(usageNum, reply.length);
+      }
+
+      // Set preview based on actual tool calls from the server
+      if (tools && tools.length > 0) {
+        const tool = tools[0]; // show the primary tool
+        const toolTypeMap: Record<string, string> = {
+          draft_outbound_email: "email",
+          search_emails: "email",
+          create_calendar_event: "calendar",
+          list_calendar_events: "calendar",
+          delete_calendar_event: "calendar",
+          update_calendar_event: "calendar",
+          create_google_document: "doc",
+          create_google_slide_deck: "slide",
+          create_google_sheet: "sheet",
+          draft_youtube_video: "youtube",
+        };
+        const previewType = toolTypeMap[tool.name];
+        if (previewType) {
+          setActivePreview({ type: previewType, data: tool.args });
+        }
       }
       
       conversationRef.current.push({ role: "assistant", content: reply });
@@ -448,110 +474,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
-  // ── Action Preview Detection (parses USER's natural speech) ──
-  type ActionType = "email" | "calendar" | "doc" | "slide" | "sheet" | "survey" | "ticket" | "youtube" | null;
 
-  // Derive current action preview globally based on live text or the latest user message
-  const currentAction = useMemo(() => {
-    const latestUserText = transcriptLines.filter(l => l.isUser).map(l => l.text).pop() || "";
-    const currentTextToAnalyze = (liveText || latestUserText);
-    return detectAction(currentTextToAnalyze);
-  }, [transcriptLines, liveText]);
-
-  function detectAction(text: string): { type: ActionType; data: Record<string, string> } {
-    console.log("detectAction called with text:", text);
-    const lower = text.toLowerCase();
-
-    // Email detection
-    if (lower.includes("email") || lower.includes("write a letter") || lower.includes("send a message to")) {
-      let recipientName = "";
-      const namePatterns = [
-        /(?:his|her|their) name is ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
-        /(?:named|name is) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
-        /email (?:to|for) (?:my \w+[,.]?\s*(?:and )?)?(?:(?:his|her|their) name is )?([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
-        /email (?:to|for) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i,
-      ];
-      for (const p of namePatterns) {
-        const m = text.match(p);
-        if (m?.[1]) { recipientName = m[1].trim(); break; }
-      }
-      const timeMatch = text.match(/(?:at|for|tomorrow at|today at) (\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
-      const meetLinkMentioned = lower.includes("meet link") || lower.includes("google meet") || lower.includes("meeting link");
-
-      return {
-        type: "email",
-        data: {
-          to: recipientName,
-          subject: meetLinkMentioned ? `Meeting with ${recipientName || "Participant"}` : "",
-          greeting: recipientName ? `Hello ${recipientName.split(" ")[0]},` : "Hello,",
-          body: meetLinkMentioned
-            ? `I'd like to invite you to a meeting${timeMatch ? ` at ${timeMatch[1]}` : ""}. Please find the Google Meet link below.`
-            : `Composing your email${recipientName ? ` to ${recipientName}` : ""}...`,
-          closing: "Thanks,",
-          senderName: "",
-        }
-      };
-    }
-
-    // Calendar / Schedule
-    if (lower.includes("calendar") || lower.includes("schedule") || lower.includes("set up a meeting") || lower.includes("book a") || lower.includes("appointment")) {
-      const timeMatch = text.match(/(?:at|for) (\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
-      const dateMatch = text.match(/(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week)/i);
-      const withMatch = text.match(/(?:with|for) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i);
-      return {
-        type: "calendar",
-        data: {
-          title: withMatch ? `Meeting with ${withMatch[1]}` : "New Event",
-          date: dateMatch?.[1] || "",
-          time: timeMatch?.[1] || "",
-        }
-      };
-    }
-
-    // Google Meet
-    if (lower.includes("google meet") || lower.includes("meet link") || lower.includes("video call")) {
-      const withMatch = text.match(/(?:with|for|to) ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i);
-      return {
-        type: "calendar",
-        data: {
-          title: withMatch ? `Video Call with ${withMatch[1]}` : "Video Call",
-          date: "", time: "",
-        }
-      };
-    }
-
-    // Google Slides
-    if (lower.includes("slide") || lower.includes("presentation") || lower.includes("deck")) {
-      return { type: "slide", data: { title: "Presentation" } };
-    }
-
-    // Google Docs
-    if (lower.includes("document") || lower.includes("google doc") || lower.includes("write a doc")) {
-      return { type: "doc", data: { title: "Document" } };
-    }
-
-    // Google Sheets
-    if (lower.includes("spreadsheet") || lower.includes("google sheet")) {
-      return { type: "sheet", data: { title: "Spreadsheet" } };
-    }
-
-    // Survey
-    if (lower.includes("survey")) {
-      return { type: "survey", data: { title: "Survey" } };
-    }
-
-    // Support ticket
-    if (lower.includes("ticket") || lower.includes("support request")) {
-      return { type: "ticket", data: { title: "Support Ticket" } };
-    }
-
-    // YouTube
-    if (lower.includes("youtube") || lower.includes("video draft")) {
-      return { type: "youtube", data: { title: "YouTube Video" } };
-    }
-
-    return { type: null, data: {} };
-  }
 
 
   // ── Typewriter text component ──
@@ -576,18 +499,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return <>{displayed}<span className="inline-block w-0.5 h-3.5 bg-slate-400 rounded-full ml-0.5 animate-pulse align-middle" /></>;
   }
 
-  function TopLeftPreviewCard({ type, data }: { type: ActionType; data: Record<string, string> }) {
-    if (!type) return null;
+  function TopLeftPreviewCard({ preview }: { preview: { type: string; data: any } | null }) {
+    if (!preview) return null;
+    const { type, data } = preview;
 
-    const configs: Record<string, { icon: any; label: string; color: string; bg: string; border: string }> = {
-      email:    { icon: Mail,          label: "Email Draft",      color: "text-blue-600",   bg: "bg-blue-50",   border: "border-blue-200" },
-      calendar: { icon: Calendar,      label: "Calendar Event",   color: "text-emerald-600",bg: "bg-emerald-50",border: "border-emerald-200" },
-      doc:      { icon: FileText,      label: "Google Doc",       color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
-      slide:    { icon: Presentation,  label: "Google Slides",    color: "text-amber-600",  bg: "bg-amber-50",  border: "border-amber-200" },
-      sheet:    { icon: Table,         label: "Google Sheets",    color: "text-green-600",  bg: "bg-green-50",  border: "border-green-200" },
-      survey:   { icon: ClipboardList, label: "Survey",           color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200" },
-      ticket:   { icon: Ticket,        label: "Support Ticket",   color: "text-rose-600",   bg: "bg-rose-50",   border: "border-rose-200" },
-      youtube:  { icon: Youtube,       label: "YouTube Video",    color: "text-red-600",    bg: "bg-red-50",    border: "border-red-200" },
+    const configs: Record<string, { icon: any; label: string; color: string; bg: string }> = {
+      email:    { icon: Mail,          label: "Email Draft",      color: "text-blue-600",   bg: "bg-blue-50" },
+      calendar: { icon: Calendar,      label: "Calendar Event",   color: "text-emerald-600",bg: "bg-emerald-50" },
+      doc:      { icon: FileText,      label: "Google Doc",       color: "text-indigo-600", bg: "bg-indigo-50" },
+      slide:    { icon: Presentation,  label: "Google Slides",    color: "text-amber-600",  bg: "bg-amber-50" },
+      sheet:    { icon: Table,         label: "Google Sheets",    color: "text-green-600",  bg: "bg-green-50" },
+      youtube:  { icon: Youtube,       label: "YouTube Video",    color: "text-red-600",    bg: "bg-red-50" },
     };
 
     const config = configs[type];
@@ -595,49 +517,59 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     const Icon = config.icon;
 
     return (
-      <div className="absolute top-4 left-4 z-[100] animate-in fade-in slide-in-from-left-4 duration-500 w-[240px] pointer-events-none">
-        <div className={`w-full rounded-xl border border-white/40 ${config.bg} shadow-2xl overflow-hidden backdrop-blur-md`}>
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/30 bg-white/40">
-            <Icon className={`w-3.5 h-3.5 ${config.color}`} />
-            <span className={`text-[9px] font-black uppercase tracking-widest ${config.color}`}>{config.label}</span>
+      <div className="absolute top-14 left-4 z-[200] animate-in fade-in slide-in-from-left-4 duration-500 w-[280px]">
+        <div className={`w-full rounded-xl border border-slate-200 ${config.bg} shadow-2xl overflow-hidden`}>
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-200/60 bg-white/60">
+            <div className="flex items-center gap-2">
+              <Icon className={`w-3.5 h-3.5 ${config.color}`} />
+              <span className={`text-[9px] font-black uppercase tracking-widest ${config.color}`}>{config.label}</span>
+            </div>
+            <button onClick={() => setActivePreview(null)} className="text-slate-400 hover:text-slate-600 pointer-events-auto">
+              <X className="w-3 h-3" />
+            </button>
           </div>
 
+          {/* Email Preview — uses real API data */}
           {type === "email" && (
-            <div className="p-3 space-y-2 bg-white/60">
+            <div className="p-3 space-y-1.5 bg-white/70 text-[10px]">
               {data.to && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase w-10 shrink-0">To</span>
-                  <span className="text-xs font-semibold text-slate-700 truncate">{data.to}</span>
+                <div className="flex gap-2">
+                  <span className="font-bold text-slate-400 uppercase w-8 shrink-0">To</span>
+                  <span className="font-semibold text-slate-700 truncate">{data.to}</span>
                 </div>
               )}
               {data.subject && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase w-10 shrink-0">Subj</span>
-                  <span className="text-xs font-bold text-slate-900 truncate">{data.subject}</span>
+                <div className="flex gap-2">
+                  <span className="font-bold text-slate-400 uppercase w-8 shrink-0">Subj</span>
+                  <span className="font-bold text-slate-900 truncate">{data.subject}</span>
                 </div>
               )}
-              <div className="text-[10px] text-slate-700 leading-relaxed whitespace-pre-line mt-2 line-clamp-4">
-                {data.greeting && <p className="font-semibold mb-1"><TypewriterText text={data.greeting} speed={15} /></p>}
-                {data.body && <p><TypewriterText text={data.body} speed={10} /></p>}
-              </div>
+              {data.body && (
+                <div className="mt-2 text-slate-600 leading-relaxed whitespace-pre-line line-clamp-5 border-t border-slate-200/50 pt-2">
+                  <TypewriterText text={data.body} speed={8} />
+                </div>
+              )}
             </div>
           )}
 
+          {/* Calendar Preview */}
           {type === "calendar" && (
-            <div className="p-3 bg-white/60">
-              <p className="text-xs font-bold text-slate-900 line-clamp-1"><TypewriterText text={data.title || "New Event"} speed={20} /></p>
-              {data.date && <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{data.date} {data.time && `at ${data.time}`}</p>}
+            <div className="p-3 bg-white/70 text-[10px] space-y-1">
+              <p className="font-bold text-slate-900 text-xs"><TypewriterText text={data.summary || data.title || "New Event"} speed={20} /></p>
+              {data.startTime && <p className="text-slate-500 font-semibold">{data.startTime}</p>}
+              {data.attendees && <p className="text-slate-400">with {data.attendees}</p>}
             </div>
           )}
 
-          {["doc", "slide", "sheet", "survey", "ticket", "youtube"].includes(type) && (
-            <div className="p-3 bg-white/60 flex items-center gap-3">
-              <div>
-                <p className="text-xs font-bold text-slate-900"><TypewriterText text={`Creating ${config.label}...`} speed={25} /></p>
+          {/* Doc/Slide/Sheet/YouTube Preview */}
+          {["doc", "slide", "sheet", "youtube"].includes(type) && (
+            <div className="p-3 bg-white/70 flex items-center gap-3 text-[10px]">
+              <div className="flex-1">
+                <p className="font-bold text-slate-900"><TypewriterText text={data.title || `Creating ${config.label}...`} speed={20} /></p>
+                {data.content && <p className="text-slate-500 line-clamp-2 mt-1">{data.content.substring(0, 80)}...</p>}
               </div>
-              <div className="ml-auto">
-                <Loader2 className={`w-4 h-4 animate-spin ${config.color} opacity-50`} />
-              </div>
+              <Loader2 className={`w-4 h-4 animate-spin ${config.color} opacity-50 shrink-0`} />
             </div>
           )}
         </div>
@@ -673,7 +605,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   return (
     <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in fade-in duration-300">
-      <TopLeftPreviewCard type={currentAction.type} data={currentAction.data} />
+      <TopLeftPreviewCard preview={activePreview} />
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
       {/* ─── TOP ─── */}

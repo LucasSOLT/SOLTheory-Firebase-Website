@@ -403,6 +403,7 @@ export async function POST(req: Request) {
     let loopCount = 0;
     let lastMeetLink: string | null = null;
     const MAX_LOOPS = 5;
+    const executedTools: { name: string; args: any }[] = [];
 
     // If LLM generated tool_calls but no APIs are available, re-call without tools
     if (responseMessage?.tool_calls && !gmail && !calendar && !docsApi && !youtubeApi) {
@@ -427,6 +428,7 @@ export async function POST(req: Request) {
         let functionResult = "";
         try {
           const args = JSON.parse(toolCall.function.arguments);
+          executedTools.push({ name: functionName, args });
           
           if (functionName === "search_emails") {
             const res = await gmail.users.messages.list({ userId: 'me', q: args.query, maxResults: 10 });
@@ -952,7 +954,8 @@ export async function POST(req: Request) {
     // Default Raw Response
     return NextResponse.json({ 
       response: responseMessage?.content || "",
-      usage: completion.usage?.total_tokens || 0
+      usage: completion.usage?.total_tokens || 0,
+      executedTools: executedTools.length > 0 ? executedTools : undefined
     });
   } catch (error: any) {
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
