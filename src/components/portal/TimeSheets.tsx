@@ -1,0 +1,293 @@
+"use client";
+
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useFirestore, useUser } from "@/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { Clock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
+} from "recharts";
+
+/* ── helpers ── */
+function getWeekRange(offset: number) {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - dayOfWeek + offset * 7);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+  return { start: startOfWeek, end: endOfWeek };
+}
+
+function formatDate(d: Date) {
+  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+}
+
+function formatShortDate(d: Date) {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const EMPLOYEE_COLORS: Record<string, string> = {
+  Steve: "#6366f1",   // indigo-500
+  Gerard: "#f59e0b",  // amber-500
+};
+
+function getColor(name: string) {
+  const key = Object.keys(EMPLOYEE_COLORS).find(k => name.toLowerCase().includes(k.toLowerCase()));
+  return key ? EMPLOYEE_COLORS[key] : "#94a3b8";
+}
+
+/* ── custom tooltip ── */
+function TimesheetTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-slate-200 p-3 text-xs">
+      <p className="font-bold text-slate-700 mb-1.5">{label}</p>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ background: p.fill || p.color }} />
+          <span className="text-slate-600">{p.name}:</span>
+          <span className="font-bold text-slate-800">{p.value.toFixed(1)}h</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════ Main Component ═══════ */
+export function TimeSheets() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [timeData, setTimeData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { start, end } = useMemo(() => getWeekRange(weekOffset), [weekOffset]);
+
+  const fetchTimesheets = useCallback(async () => {
+    if (!firestore || !user?.uid) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const userDoc = await getDoc(doc(firestore, "users", user.uid));
+      if (!userDoc.exists()) return;
+      const qb = userDoc.data()?.quickbooksOAuth;
+      if (!qb?.refreshToken) {
+        setError("QuickBooks not connected");
+        return;
+      }
+
+      const res = await fetch("/api/quickbooks/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          realmId: qb.realmId,
+          accessToken: qb.accessToken,
+          refreshToken: qb.refreshToken,
+          endpoint: "timesheets_range",
+          startDate: formatDate(start),
+          endDate: formatDate(end),
+        }),
+      });
+
+      const json = await res.json();
+      if (json.error) {
+        setError(json.error);
+        return;
+      }
+
+      setTimeData(json.data?.QueryResponse?.TimeActivity || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [firestore, user?.uid, start, end]);
+
+  useEffect(() => {
+    fetchTimesheets();
+  }, [fetchTimesheets]);
+
+  /* ── Parse into chart-ready data ── */
+  const { chartData, employees, totalByEmployee } = useMemo(() => {
+    // Build a map: { dayIndex: { employeeName: hours } }
+    const dayMap: Record<number, Record<string, number>> = {};
+    for (let i = 0; i < 7; i++) dayMap[i] = {};
+
+    const employeeSet = new Set<string>();
+
+    timeData.forEach((ta: any) => {
+      const name = ta.EmployeeRef?.name || ta.VendorRef?.name || "Unknown";
+      employeeSet.add(name);
+
+      const txnDate = new Date(ta.TxnDate + "T00:00:00");
+      const dayIdx = txnDate.getDay();
+      const hours = (ta.Hours || 0) + (ta.Minutes || 0) / 60;
+
+      if (!dayMap[dayIdx]) dayMap[dayIdx] = {};
+      dayMap[dayIdx][name] = (dayMap[dayIdx][name] || 0) + hours;
+    });
+
+    const employees = Array.from(employeeSet).sort();
+
+    // Build chart data
+    const chartData = DAY_LABELS.map((label, i) => {
+      const row: any = { day: label };
+      employees.forEach(emp => {
+        row[emp] = dayMap[i]?.[emp] || 0;
+      });
+      return row;
+    });
+
+    // Total by employee
+    const totalByEmployee: Record<string, number> = {};
+    employees.forEach(emp => {
+      totalByEmployee[emp] = chartData.reduce((sum, d) => sum + (d[emp] || 0), 0);
+    });
+
+    return { chartData, employees, totalByEmployee };
+  }, [timeData]);
+
+  const weekTotal = Object.values(totalByEmployee).reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
+            <Clock className="w-3.5 h-3.5" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-700 leading-none">Time Sheets</h3>
+        </div>
+
+        {/* Week navigator */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setWeekOffset(w => w - 1)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 transition-colors"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setWeekOffset(0)}
+            className="px-3 py-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+          >
+            {weekOffset === 0 ? "This Week" : `${formatShortDate(start)} – ${formatShortDate(end)}`}
+          </button>
+          <button
+            onClick={() => setWeekOffset(w => w + 1)}
+            disabled={weekOffset >= 0}
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Week label */}
+      <div className="text-[10px] text-slate-400 font-medium mb-3">
+        {formatShortDate(start)} – {formatShortDate(end)}, {start.getFullYear()}
+      </div>
+
+      {/* Loading / Error */}
+      {loading && (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+        </div>
+      )}
+      {error && (
+        <div className="text-xs text-red-500 text-center py-6 border border-dashed border-red-200 rounded-xl bg-red-50/50">
+          {error}
+        </div>
+      )}
+
+      {/* Chart */}
+      {!loading && !error && (
+        <>
+          {employees.length === 0 ? (
+            <div className="text-xs text-center text-slate-400 py-8 border border-dashed border-slate-200 rounded-xl">
+              No time entries for this week.
+            </div>
+          ) : (
+            <>
+              <div className="w-full h-[220px] -ml-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} barCategoryGap="20%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis
+                      dataKey="day"
+                      tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "#94a3b8" }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={28}
+                      tickFormatter={(v) => `${v}h`}
+                    />
+                    <Tooltip content={<TimesheetTooltip />} cursor={{ fill: "rgba(99,102,241,0.05)" }} />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: "10px", fontWeight: 600, color: "#64748b" }}
+                    />
+                    {employees.map((emp) => (
+                      <Bar
+                        key={emp}
+                        dataKey={emp}
+                        name={emp}
+                        fill={getColor(emp)}
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={32}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {employees.map(emp => (
+                  <div key={emp} className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-slate-50">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                      style={{ background: getColor(emp) }}
+                    >
+                      {emp.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-700 truncate">{emp}</p>
+                      <p className="text-[10px] text-slate-400">This week</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-slate-800">
+                        {Math.floor(totalByEmployee[emp])}h {Math.round((totalByEmployee[emp] % 1) * 60)}m
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Week total */}
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Week Total</span>
+                <span className="text-sm font-bold text-slate-800">
+                  {Math.floor(weekTotal)}h {Math.round((weekTotal % 1) * 60)}m
+                </span>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

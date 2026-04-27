@@ -6,6 +6,7 @@ import { CollapsibleTile } from "@/components/ui/collapsible-tile";
 import { DailyDigest } from "@/components/portal/DailyDigest";
 import { RecentPlaces } from "@/components/portal/RecentPlaces";
 import { RadialGraphs } from "@/components/portal/RadialGraphs";
+import { TimeSheets } from "@/components/portal/TimeSheets";
 import { useTranslation } from "@/lib/i18n";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
@@ -515,37 +516,9 @@ export default function SolTheoryDashboard() {
           </div>
         </CollapsibleTile>
 
-        {/* Team Member Time Cards */}
-        <CollapsibleTile id="st-time-cards" title="Team Member Time Cards" icon={<Clock className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
-                <Clock className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Team Member Time Cards</h3>
-            </div>
-            <div className="flex items-center gap-2">
-               <input type="date" className="px-2 py-1.5 text-[10px] font-medium text-slate-500 bg-slate-50 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-indigo-500" defaultValue={new Date(new Date().setDate(new Date().getDate() - new Date().getDay())).toISOString().split('T')[0]} />
-               <span className="text-xs text-slate-400">-</span>
-               <input type="date" className="px-2 py-1.5 text-[10px] font-medium text-slate-500 bg-slate-50 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-indigo-500" defaultValue={new Date().toISOString().split('T')[0]} />
-            </div>
-          </div>
-          <div className="space-y-4">
-             <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50">
-                <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">{(user?.displayName || "U")[0]}</div>
-                   <div>
-                      <p className="text-sm font-semibold text-slate-700">{user?.displayName || "You"}</p>
-                      <p className="text-[10px] text-slate-500">Admin</p>
-                   </div>
-                </div>
-                <div className="text-right">
-                   <p className="text-sm font-bold text-slate-800">0h 0m</p>
-                   <p className="text-[10px] text-slate-500">This period</p>
-                </div>
-             </div>
-             {/* Other members would map here */}
-          </div>
+        {/* Time Sheets */}
+        <CollapsibleTile id="st-time-sheets" title="Time Sheets" icon={<Clock className="w-4 h-4 text-slate-500" />} className="p-6">
+          <TimeSheets />
         </CollapsibleTile>
         {/* Upcoming Events (mock) */}
         <CollapsibleTile id="st-upcoming" title="Upcoming Events" icon={<CalendarDays className="w-4 h-4 text-slate-500" />} className="p-6">

@@ -86,6 +86,17 @@ export async function POST(req: Request) {
       timesheets: "query?query=" + encodeURIComponent("SELECT * FROM TimeActivity ORDERBY TxnDate DESC MAXRESULTS 50"),
     };
 
+    // Support date-range filtered timesheets
+    if (endpoint === "timesheets_range") {
+      const { startDate, endDate } = body;
+      if (!startDate || !endDate) {
+        return NextResponse.json({ error: "startDate and endDate required for timesheets_range" }, { status: 400 });
+      }
+      endpointMap["timesheets_range"] = "query?query=" + encodeURIComponent(
+        `SELECT * FROM TimeActivity WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}' MAXRESULTS 200`
+      );
+    }
+
     const path = endpointMap[endpoint];
     if (!path) {
       return NextResponse.json({ error: `Unknown endpoint: ${endpoint}` }, { status: 400 });
