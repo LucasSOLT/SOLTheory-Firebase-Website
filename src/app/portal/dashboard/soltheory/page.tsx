@@ -171,8 +171,12 @@ export default function SolTheoryDashboard() {
       if (plNet === 0) plNet = plIncome - plExpenses;
     }
 
-    // Bank Accounts
-    const accounts = qbData.accounts?.data?.QueryResponse?.Account || [];
+    // Bank Accounts — filter to real bank accounts (non-zero balance), sort by balance descending
+    const allAccounts = qbData.accounts?.data?.QueryResponse?.Account || [];
+    const accounts = allAccounts
+      .filter((a: any) => Math.abs(a.CurrentBalance || 0) > 0 || a.AccountType === 'Bank')
+      .filter((a: any) => !['Inventory', 'Inventory Asset', 'Goodwill', 'Intangibles', 'Deferred tax assets', 'Prepaid expenses', 'Uncategorized Asset', 'Undeposited Funds', 'Allowance for bad debt', 'Assets held for sale', 'Available for sale assets (short-term)', 'Long-Term Investments'].includes(a.Name))
+      .sort((a: any, b: any) => Math.abs(b.CurrentBalance || 0) - Math.abs(a.CurrentBalance || 0));
     const totalBalance = accounts.reduce((sum: number, a: any) => sum + (a.CurrentBalance || 0), 0);
 
     // Invoices
@@ -538,7 +542,7 @@ export default function SolTheoryDashboard() {
               </div>
 
               {/* Individual accounts */}
-              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-4">
+              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-4 max-h-[300px] overflow-y-auto scrollbar-thin">
                 {qbParsed && qbParsed.accounts.length > 0 ? qbParsed.accounts.map((a: any, i: number) => {
                   // Parse last updated time
                   const lastUpdated = a.MetaData?.LastUpdatedTime;

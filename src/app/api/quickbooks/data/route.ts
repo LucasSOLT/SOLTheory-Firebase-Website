@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     // Map friendly endpoint names to QBO API paths
     const endpointMap: Record<string, string> = {
       company: "companyinfo/" + realmId,
-      accounts: "query?query=" + encodeURIComponent("SELECT * FROM Account WHERE AccountType IN ('Bank', 'Other Current Asset', 'Credit Card', 'Other Asset') MAXRESULTS 50"),
+      accounts: "query?query=" + encodeURIComponent("SELECT * FROM Account WHERE AccountType IN ('Bank', 'Other Current Asset') MAXRESULTS 50"),
       profit_loss: "reports/ProfitAndLoss?date_macro=This Month",
       expenses: "query?query=" + encodeURIComponent("SELECT * FROM Purchase ORDERBY TxnDate DESC MAXRESULTS 20"),
       transactions: "query?query=" + encodeURIComponent("SELECT * FROM Purchase ORDERBY TxnDate DESC MAXRESULTS 10"),
