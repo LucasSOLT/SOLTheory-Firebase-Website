@@ -505,12 +505,12 @@ export default function SolTheoryDashboard() {
 
         {/* Bank Accounts */}
         <CollapsibleTile id="st-bank-accounts" title="Bank Accounts" icon={<Landmark className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
                 <Landmark className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Bank Accounts</h3>
+              <h3 className="text-sm font-bold text-slate-700 leading-none uppercase tracking-wide">Bank Accounts</h3>
             </div>
             <span className="text-xs font-medium text-slate-500">As of today</span>
           </div>
@@ -525,27 +525,55 @@ export default function SolTheoryDashboard() {
                </div>
              </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              <div className="text-xs text-slate-500">
-                Today&apos;s bank balance
+            <div className="flex flex-col">
+              {/* Total balance header */}
+              <div className="mb-1">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[10px] font-medium text-emerald-600">Just updated</span>
+                  <RefreshCw className="w-2.5 h-2.5 text-emerald-500" />
+                </div>
+                <div className="text-2xl font-bold text-slate-800">
+                  ${qbParsed ? qbParsed.totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                </div>
               </div>
-              <div className="text-3xl font-bold text-slate-800">${qbParsed ? qbParsed.totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</div>
-              
-              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-3">
-                {qbParsed && qbParsed.accounts.length > 0 ? qbParsed.accounts.map((a: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
-                        <Landmark className="w-3.5 h-3.5" />
+
+              {/* Individual accounts */}
+              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-4">
+                {qbParsed && qbParsed.accounts.length > 0 ? qbParsed.accounts.map((a: any, i: number) => {
+                  // Parse last updated time
+                  const lastUpdated = a.MetaData?.LastUpdatedTime;
+                  let updatedLabel = "";
+                  if (lastUpdated) {
+                    const diff = Date.now() - new Date(lastUpdated).getTime();
+                    const hours = Math.floor(diff / 3600000);
+                    const days = Math.floor(hours / 24);
+                    if (days > 0) updatedLabel = `Updated ${days} day${days !== 1 ? 's' : ''} ago`;
+                    else if (hours > 0) updatedLabel = `Updated ${hours} hour${hours !== 1 ? 's' : ''} ago`;
+                    else updatedLabel = "Just updated";
+                  }
+
+                  return (
+                    <div key={i} className="flex items-start gap-3 pb-4 border-b border-slate-50 last:border-0 last:pb-0">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0 mt-0.5">
+                        <Landmark className="w-4 h-4" />
                       </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-700">{a.Name}</p>
-                        <p className="text-[10px] text-slate-400">{a.AccountSubType || a.AccountType}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 mb-1.5">{a.Name}</p>
+                        <div className="flex items-center justify-between text-xs mb-0.5">
+                          <span className="text-slate-500">Bank balance</span>
+                          <span className="font-bold text-slate-800">${(a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs mb-0.5">
+                          <span className="text-slate-500">In QuickBooks</span>
+                          <span className="font-bold text-slate-800">${(a.CurrentBalanceWithSubAccounts || a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        {updatedLabel && (
+                          <span className="text-[10px] text-slate-400 font-medium">{updatedLabel}</span>
+                        )}
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-slate-800">${(a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )) : (
+                  );
+                }) : (
                   <div className="text-sm text-slate-500 text-center py-4">No bank accounts linked.</div>
                 )}
               </div>
