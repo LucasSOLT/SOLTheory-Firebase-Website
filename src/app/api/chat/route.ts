@@ -2,7 +2,7 @@ import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
-
+import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 const tools: any = [
@@ -239,7 +239,7 @@ const tools: any = [
     type: "function",
     function: {
       name: "draft_youtube_video",
-      description: "Prepare and store a drafted YouTube video onto the user's YouTube Studio. This automatically creates a Google Doc script, generates a dummy private draft video to hold the data, and links the script in the YouTube description. Use this whenever the user wants to draft a YouTube video and script.",
+      description: "Prepare and store a drafted YouTube video onto the user's YouTube Studio. This automatically creates a Google Doc script, generates a dummy private draft video to hold the data, and links the script in the YouTube description. Use this whenever the user wants to draft a video.",
       parameters: {
         type: "object",
         properties: {
@@ -249,6 +249,24 @@ const tools: any = [
           script: { type: "string", description: "The full script for the YouTube video. DO NOT output the script in your conversational reply, just pass it here." }
         },
         required: ["title", "description", "tags", "script"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_and_send_survey",
+      description: "Create an AI-generated survey and optionally email invitation links to specified recipients. The survey is saved to Firestore and a public link is generated. Use this when the user wants to create a survey, feedback form, or questionnaire and send it to people. You MUST look up recipient email addresses from the Contact Glossary when the user refers to people by name.",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: { type: "string", description: "A detailed description of the survey topic/purpose. Be specific about what questions should cover." },
+          questionCount: { type: "number", description: "Number of questions to generate. Default 10 if not specified." },
+          recipientEmails: { type: "array", items: { type: "string" }, description: "Array of email addresses to send the survey invitation to. Look these up from the Contact Glossary." },
+          recipientNames: { type: "array", items: { type: "string" }, description: "Array of display names corresponding to each recipient email, for personalized email greetings." },
+          authorName: { type: "string", description: "The name of the survey creator/author to display on the survey. Use the user's name." }
+        },
+        required: ["topic", "recipientEmails"]
       }
     }
   }
@@ -308,7 +326,7 @@ export async function POST(req: Request) {
     const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
     
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, AND Google Workspace Document Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, Google Workspace Document Creation Tools, AND Survey Creation Tools.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[SURVEY TOOLS]: You MUST USE your create_and_send_survey tool when the user asks you to create a survey, questionnaire, or feedback form. When the user says to send it to people by name, you MUST look up the email addresses in the Contact Glossary above and pass them as recipientEmails. Include a good detailed topic description so the AI generates high-quality questions. If the user specifies a number of questions, pass it as questionCount.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
@@ -927,6 +945,108 @@ export async function POST(req: Request) {
             } catch (err: any) {
               console.error("[YOUTUBE TOOL] Error:", err.message);
               functionResult = JSON.stringify({ error: "Failed to create video concept: " + err.message });
+            }
+          } else if (functionName === "create_and_send_survey") {
+            try {
+              console.log("[SURVEY TOOL] Creating survey:", args.topic);
+              
+              // Step 1: Generate survey questions using Groq
+              const surveyGroq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+              const surveyCompletion = await surveyGroq.chat.completions.create({
+                messages: [
+                  {
+                    role: "system",
+                    content: `You are an expert survey designer. The user will give you a description of what they want to survey. 
+You must return a valid JSON object representing the survey. DO NOT wrap it in markdown blockquotes like \`\`\`json. Just return raw JSON.
+The JSON must have this exact structure:
+{
+  "title": "Survey Title",
+  "description": "A brief description of the survey's purpose",
+  "questions": [
+    { "id": "q1", "type": "text", "prompt": "Question text" },
+    { "id": "q2", "type": "choice", "prompt": "Question text", "options": ["Option 1", "Option 2", "Option 3"] },
+    { "id": "q3", "type": "rating", "prompt": "Rate something from 1 to 5" }
+  ]
+}
+Allowed types for questions are: "text", "choice", "rating".
+Generate exactly ${args.questionCount || 10} questions. Make the survey professional and perfectly tailored to their request. Use a good mix of text, choice, and rating question types.`
+                  },
+                  { role: "user", content: args.topic }
+                ],
+                model: "llama-3.3-70b-versatile",
+                temperature: 0.7,
+                response_format: { type: "json_object" }
+              });
+              
+              let surveyJson = surveyCompletion.choices[0]?.message?.content || "";
+              surveyJson = surveyJson.trim().replace(/^```json/, "").replace(/^```/, "").replace(/```$/, "").trim();
+              const surveyData = JSON.parse(surveyJson);
+              console.log("[SURVEY TOOL] Generated survey:", surveyData.title, "with", surveyData.questions?.length, "questions");
+              
+              // Step 2: Save to Firestore using Admin SDK
+              initAdmin();
+              const adminDb = getAdminFirestore();
+              
+              // Extract user email from soul context
+              const userEmailMatch = soul?.match(/email address is: ([^\s.]+@[^\s.]+\.[^\s]+)/);
+              const userEmail = userEmailMatch?.[1] || "unknown@soltheory.com";
+              const userDomain = userEmail.split("@")[1] || "soltheory.com";
+              
+              const surveyDoc = await adminDb.collection("custom_surveys").add({
+                ...surveyData,
+                userId: uid || "unknown",
+                creatorEmail: userEmail,
+                authorName: args.authorName || "",
+                visibility: "specific",
+                domain: userDomain,
+                invitedEmails: args.recipientEmails || [],
+                createdAt: new Date()
+              });
+              
+              const surveyUrl = `https://soltheory.com/survey/${surveyDoc.id}`;
+              console.log("[SURVEY TOOL] Survey saved:", surveyDoc.id, "URL:", surveyUrl);
+              
+              // Step 3: Send email invitations via Gmail API
+              let emailResults: string[] = [];
+              if (gmail && args.recipientEmails && args.recipientEmails.length > 0) {
+                for (let i = 0; i < args.recipientEmails.length; i++) {
+                  const recipientEmail = args.recipientEmails[i];
+                  const recipientName = args.recipientNames?.[i] || recipientEmail.split("@")[0];
+                  
+                  const emailBody = `Hello ${recipientName},\n\nYou've been invited to take a survey: "${surveyData.title}"\n\n${surveyData.description || ""}\n\nPlease click the link below to participate:\n${surveyUrl}\n\nThank you for your time and feedback!\n\nBest regards`;
+                  
+                  const emailSubject = `Survey Invitation: ${surveyData.title}`;
+                  
+                  const rawEmail = [
+                    `To: ${recipientEmail}`,
+                    `Subject: ${emailSubject}`,
+                    `Content-Type: text/plain; charset="UTF-8"`,
+                    "",
+                    emailBody
+                  ].join("\n");
+                  
+                  const encodedEmail = Buffer.from(rawEmail).toString("base64url");
+                  
+                  try {
+                    await gmail.users.messages.send({
+                      userId: "me",
+                      requestBody: { raw: encodedEmail }
+                    });
+                    emailResults.push(`✅ Sent to ${recipientName} (${recipientEmail})`);
+                    console.log("[SURVEY TOOL] Email sent to:", recipientEmail);
+                  } catch (emailErr: any) {
+                    emailResults.push(`❌ Failed to send to ${recipientEmail}: ${emailErr.message}`);
+                    console.error("[SURVEY TOOL] Email send error:", emailErr.message);
+                  }
+                }
+              }
+              
+              functionResult = JSON.stringify({
+                result: `Survey "${surveyData.title}" created successfully with ${surveyData.questions?.length || 0} questions!\n\nSurvey Link: ${surveyUrl}\n\nEmail Status:\n${emailResults.length > 0 ? emailResults.join("\n") : "No emails sent (no recipients specified)"}`
+              });
+            } catch (surveyErr: any) {
+              console.error("[SURVEY TOOL] Error:", surveyErr.message);
+              functionResult = JSON.stringify({ error: "Failed to create survey: " + surveyErr.message });
             }
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
