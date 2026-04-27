@@ -83,7 +83,10 @@ export async function POST(req: Request) {
       expenses: "query?query=" + encodeURIComponent("SELECT * FROM Purchase ORDERBY TxnDate DESC MAXRESULTS 20"),
       transactions: "query?query=" + encodeURIComponent("SELECT * FROM Purchase ORDERBY TxnDate DESC MAXRESULTS 10"),
       invoices: "query?query=" + encodeURIComponent("SELECT * FROM Invoice WHERE Balance != '0' ORDERBY DueDate DESC MAXRESULTS 20"),
+      invoices_all: "query?query=" + encodeURIComponent("SELECT * FROM Invoice ORDERBY TxnDate DESC MAXRESULTS 50"),
       timesheets: "query?query=" + encodeURIComponent("SELECT * FROM TimeActivity ORDERBY TxnDate DESC MAXRESULTS 50"),
+      aged_receivables: "reports/AgedReceivableDetail?report_date=" + new Date().toISOString().split("T")[0],
+      aged_receivables_summary: "reports/AgedReceivable?report_date=" + new Date().toISOString().split("T")[0],
     };
 
     // Support date-range filtered timesheets
