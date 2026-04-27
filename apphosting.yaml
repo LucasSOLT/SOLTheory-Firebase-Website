@@ -5,14 +5,3 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
-
-env:
-  - variable: QUICKBOOKS_ENVIRONMENT
-    value: production
-  - variable: NEXT_PUBLIC_APP_URL
-    value: https://www.soltheory.com
-  - variable: QUICKBOOKS_CLIENT_ID
-    value: ABtvw9RyXl0kkOCqMA0L62l7A47RaaOhq88xj8VqgKOH1lu2ld
-  - variable: QUICKBOOKS_CLIENT_SECRET
-    value: uvDHLix9pVKktutkNdcvS9qHCMftn2qrsyWBK1Es
-
