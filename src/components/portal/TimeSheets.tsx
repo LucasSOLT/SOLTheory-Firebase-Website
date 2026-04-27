@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { Clock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, Loader2, CalendarDays } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
 } from "recharts";
@@ -27,6 +27,23 @@ function formatDate(d: Date) {
 
 function formatShortDate(d: Date) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Get all day labels between two dates */
+function getDayLabelsBetween(start: Date, end: Date) {
+  const labels: { label: string; date: Date }[] = [];
+  const cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const endDate = new Date(end);
+  endDate.setHours(23, 59, 59, 999);
+  while (cur <= endDate) {
+    labels.push({
+      label: cur.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      date: new Date(cur),
+    });
+    cur.setDate(cur.getDate() + 1);
+  }
+  return labels;
 }
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -62,12 +79,35 @@ function TimesheetTooltip({ active, payload, label }: any) {
 export function TimeSheets() {
   const { user } = useUser();
   const firestore = useFirestore();
+
+  // Mode: "week" for week-by-week nav, "range" for custom date range
+  const [mode, setMode] = useState<"week" | "range">("week");
   const [weekOffset, setWeekOffset] = useState(0);
+
+  // Custom date range
+  const [customStart, setCustomStart] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return formatDate(d);
+  });
+  const [customEnd, setCustomEnd] = useState(() => formatDate(new Date()));
+
   const [timeData, setTimeData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { start, end } = useMemo(() => getWeekRange(weekOffset), [weekOffset]);
+  const weekRange = useMemo(() => getWeekRange(weekOffset), [weekOffset]);
+
+  // Active date range based on mode
+  const activeStart = useMemo(() => {
+    if (mode === "week") return weekRange.start;
+    return new Date(customStart + "T00:00:00");
+  }, [mode, weekRange.start, customStart]);
+
+  const activeEnd = useMemo(() => {
+    if (mode === "week") return weekRange.end;
+    return new Date(customEnd + "T23:59:59");
+  }, [mode, weekRange.end, customEnd]);
 
   const fetchTimesheets = useCallback(async () => {
     if (!firestore || !user?.uid) return;
@@ -91,8 +131,8 @@ export function TimeSheets() {
           accessToken: qb.accessToken,
           refreshToken: qb.refreshToken,
           endpoint: "timesheets_range",
-          startDate: formatDate(start),
-          endDate: formatDate(end),
+          startDate: formatDate(activeStart),
+          endDate: formatDate(activeEnd),
         }),
       });
 
@@ -108,7 +148,7 @@ export function TimeSheets() {
     } finally {
       setLoading(false);
     }
-  }, [firestore, user?.uid, start, end]);
+  }, [firestore, user?.uid, activeStart, activeEnd]);
 
   useEffect(() => {
     fetchTimesheets();
@@ -116,50 +156,74 @@ export function TimeSheets() {
 
   /* ── Parse into chart-ready data ── */
   const { chartData, employees, totalByEmployee } = useMemo(() => {
-    // Build a map: { dayIndex: { employeeName: hours } }
-    const dayMap: Record<number, Record<string, number>> = {};
-    for (let i = 0; i < 7; i++) dayMap[i] = {};
-
     const employeeSet = new Set<string>();
 
-    timeData.forEach((ta: any) => {
-      const name = ta.EmployeeRef?.name || ta.VendorRef?.name || "Unknown";
-      employeeSet.add(name);
+    if (mode === "week") {
+      // Weekly mode: group by day of week
+      const dayMap: Record<number, Record<string, number>> = {};
+      for (let i = 0; i < 7; i++) dayMap[i] = {};
 
-      const txnDate = new Date(ta.TxnDate + "T00:00:00");
-      const dayIdx = txnDate.getDay();
-      const hours = (ta.Hours || 0) + (ta.Minutes || 0) / 60;
-
-      if (!dayMap[dayIdx]) dayMap[dayIdx] = {};
-      dayMap[dayIdx][name] = (dayMap[dayIdx][name] || 0) + hours;
-    });
-
-    const employees = Array.from(employeeSet).sort();
-
-    // Build chart data
-    const chartData = DAY_LABELS.map((label, i) => {
-      const row: any = { day: label };
-      employees.forEach(emp => {
-        row[emp] = dayMap[i]?.[emp] || 0;
+      timeData.forEach((ta: any) => {
+        const name = ta.EmployeeRef?.name || ta.VendorRef?.name || "Unknown";
+        employeeSet.add(name);
+        const txnDate = new Date(ta.TxnDate + "T00:00:00");
+        const dayIdx = txnDate.getDay();
+        const hours = (ta.Hours || 0) + (ta.Minutes || 0) / 60;
+        if (!dayMap[dayIdx]) dayMap[dayIdx] = {};
+        dayMap[dayIdx][name] = (dayMap[dayIdx][name] || 0) + hours;
       });
-      return row;
-    });
 
-    // Total by employee
-    const totalByEmployee: Record<string, number> = {};
-    employees.forEach(emp => {
-      totalByEmployee[emp] = chartData.reduce((sum, d) => sum + (d[emp] || 0), 0);
-    });
+      const employees = Array.from(employeeSet).sort();
+      const chartData = DAY_LABELS.map((label, i) => {
+        const row: any = { day: label };
+        employees.forEach(emp => { row[emp] = dayMap[i]?.[emp] || 0; });
+        return row;
+      });
 
-    return { chartData, employees, totalByEmployee };
-  }, [timeData]);
+      const totalByEmployee: Record<string, number> = {};
+      employees.forEach(emp => {
+        totalByEmployee[emp] = chartData.reduce((sum, d) => sum + (d[emp] || 0), 0);
+      });
+
+      return { chartData, employees, totalByEmployee };
+    } else {
+      // Custom range mode: group by date
+      const dateMap: Record<string, Record<string, number>> = {};
+
+      timeData.forEach((ta: any) => {
+        const name = ta.EmployeeRef?.name || ta.VendorRef?.name || "Unknown";
+        employeeSet.add(name);
+        const dateKey = ta.TxnDate; // YYYY-MM-DD
+        const hours = (ta.Hours || 0) + (ta.Minutes || 0) / 60;
+        if (!dateMap[dateKey]) dateMap[dateKey] = {};
+        dateMap[dateKey][name] = (dateMap[dateKey][name] || 0) + hours;
+      });
+
+      const employees = Array.from(employeeSet).sort();
+      const dayLabels = getDayLabelsBetween(activeStart, activeEnd);
+
+      const chartData = dayLabels.map(({ label, date }) => {
+        const dateKey = formatDate(date);
+        const row: any = { day: label };
+        employees.forEach(emp => { row[emp] = dateMap[dateKey]?.[emp] || 0; });
+        return row;
+      });
+
+      const totalByEmployee: Record<string, number> = {};
+      employees.forEach(emp => {
+        totalByEmployee[emp] = chartData.reduce((sum, d) => sum + (d[emp] || 0), 0);
+      });
+
+      return { chartData, employees, totalByEmployee };
+    }
+  }, [timeData, mode, activeStart, activeEnd]);
 
   const weekTotal = Object.values(totalByEmployee).reduce((a, b) => a + b, 0);
 
   return (
     <div className="flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
             <Clock className="w-3.5 h-3.5" />
@@ -167,8 +231,26 @@ export function TimeSheets() {
           <h3 className="text-sm font-semibold text-slate-700 leading-none">Time Sheets</h3>
         </div>
 
-        {/* Week navigator */}
-        <div className="flex items-center gap-1.5">
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+          <button
+            onClick={() => setMode("week")}
+            className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${mode === "week" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            Weekly
+          </button>
+          <button
+            onClick={() => setMode("range")}
+            className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1 ${mode === "range" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            <CalendarDays className="w-3 h-3" /> Custom
+          </button>
+        </div>
+      </div>
+
+      {/* Week navigator (week mode) */}
+      {mode === "week" && (
+        <div className="flex items-center gap-1.5 mb-3">
           <button
             onClick={() => setWeekOffset(w => w - 1)}
             className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 transition-colors"
@@ -179,7 +261,7 @@ export function TimeSheets() {
             onClick={() => setWeekOffset(0)}
             className="px-3 py-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
           >
-            {weekOffset === 0 ? "This Week" : `${formatShortDate(start)} – ${formatShortDate(end)}`}
+            {weekOffset === 0 ? "This Week" : `${formatShortDate(weekRange.start)} – ${formatShortDate(weekRange.end)}`}
           </button>
           <button
             onClick={() => setWeekOffset(w => w + 1)}
@@ -188,13 +270,36 @@ export function TimeSheets() {
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
+          <span className="text-[10px] text-slate-400 font-medium ml-2">
+            {formatShortDate(weekRange.start)} – {formatShortDate(weekRange.end)}, {weekRange.start.getFullYear()}
+          </span>
         </div>
-      </div>
+      )}
 
-      {/* Week label */}
-      <div className="text-[10px] text-slate-400 font-medium mb-3">
-        {formatShortDate(start)} – {formatShortDate(end)}, {start.getFullYear()}
-      </div>
+      {/* Custom date range picker */}
+      {mode === "range" && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">From</label>
+            <input
+              type="date"
+              value={customStart}
+              onChange={e => setCustomStart(e.target.value)}
+              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            />
+          </div>
+          <span className="text-slate-300 font-bold">→</span>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">To</label>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={e => setCustomEnd(e.target.value)}
+              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Loading / Error */}
       {loading && (
@@ -213,7 +318,7 @@ export function TimeSheets() {
         <>
           {employees.length === 0 ? (
             <div className="text-xs text-center text-slate-400 py-8 border border-dashed border-slate-200 rounded-xl">
-              No time entries for this week.
+              No time entries for this {mode === "week" ? "week" : "period"}.
             </div>
           ) : (
             <>
@@ -223,9 +328,10 @@ export function TimeSheets() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis
                       dataKey="day"
-                      tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 600 }}
+                      tick={{ fontSize: 9, fill: "#94a3b8", fontWeight: 600 }}
                       axisLine={false}
                       tickLine={false}
+                      interval={mode === "range" && chartData.length > 14 ? Math.floor(chartData.length / 10) : 0}
                     />
                     <YAxis
                       tick={{ fontSize: 10, fill: "#94a3b8" }}
@@ -247,7 +353,7 @@ export function TimeSheets() {
                         name={emp}
                         fill={getColor(emp)}
                         radius={[4, 4, 0, 0]}
-                        maxBarSize={32}
+                        maxBarSize={mode === "range" && chartData.length > 14 ? 12 : 32}
                       />
                     ))}
                   </BarChart>
@@ -266,7 +372,7 @@ export function TimeSheets() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-700 truncate">{emp}</p>
-                      <p className="text-[10px] text-slate-400">This week</p>
+                      <p className="text-[10px] text-slate-400">{mode === "week" ? "This week" : "Selected range"}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-800">
@@ -277,9 +383,11 @@ export function TimeSheets() {
                 ))}
               </div>
 
-              {/* Week total */}
+              {/* Total */}
               <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Week Total</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {mode === "week" ? "Week" : "Range"} Total
+                </span>
                 <span className="text-sm font-bold text-slate-800">
                   {Math.floor(weekTotal)}h {Math.round((weekTotal % 1) * 60)}m
                 </span>

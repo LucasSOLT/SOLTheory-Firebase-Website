@@ -47,6 +47,8 @@ export default function SolTheoryDashboard() {
   const [qbData, setQbData] = useState<any>(null);
   const [isAllCollapsed, setIsAllCollapsed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [surveyAvg, setSurveyAvg] = useState<number | null>(null);
+  const [surveyCount, setSurveyCount] = useState(0);
 
   /* presence tracking (keep existing logic) */
   useEffect(() => {
@@ -97,9 +99,53 @@ export default function SolTheoryDashboard() {
 
   useEffect(() => {
     fetchQbData();
-    const interval = setInterval(fetchQbData, 5 * 60 * 1000); // 5 minutes
+    const interval = setInterval(fetchQbData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchQbData]);
+
+  /* Fetch Survey Response Average */
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const fetchSurveyAvg = async () => {
+      try {
+        const { collection: col, getDocs: gd, query: q, where: w } = await import("firebase/firestore");
+        // Get surveys created by this user
+        const surveysSnap = await gd(q(col(firestore, "custom_surveys"), w("userId", "==", user.uid)));
+        if (surveysSnap.empty) return;
+        const surveyIds = surveysSnap.docs.map(d => d.id);
+        // Get all responses for those surveys
+        const responsesSnap = await gd(col(firestore, "custom_survey_responses"));
+        let totalScore = 0, totalMax = 0, responseCount = 0;
+        responsesSnap.docs.forEach(d => {
+          const data = d.data();
+          if (!surveyIds.includes(data.surveyId)) return;
+          responseCount++;
+          const answers = data.answers || {};
+          // Find the survey to check question types
+          const surveyDoc = surveysSnap.docs.find(s => s.id === data.surveyId);
+          const questions = surveyDoc?.data()?.questions || [];
+          questions.forEach((question: any) => {
+            const answer = answers[question.id];
+            if (question.type === "rating" && typeof answer === "number") {
+              totalScore += answer;
+              totalMax += 5; // ratings are 1-5
+            } else if (question.type === "choice" && answer) {
+              totalScore += 1; // answered = positive signal
+              totalMax += 1;
+            } else if (question.type === "text" && answer && answer.trim().length > 0) {
+              totalScore += 1;
+              totalMax += 1;
+            }
+          });
+        });
+        setSurveyCount(responseCount);
+        if (totalMax > 0) {
+          setSurveyAvg(Math.round((totalScore / totalMax) * 100));
+        }
+      } catch (err) { console.error("Survey avg error", err); }
+    };
+    fetchSurveyAvg();
+  }, [firestore, user?.uid]);
 
   /* ─── Parse QuickBooks data into usable formats ─── */
   const qbParsed = useMemo(() => {
@@ -320,22 +366,26 @@ export default function SolTheoryDashboard() {
           )}
         </CollapsibleTile>
 
-        {/* Survey Response Temperature */}
-        <CollapsibleTile id="st-survey-response" title="Survey Response Temperature" icon={<Smile className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow min-h-[180px]">
+        {/* Survey Response Avg. */}
+        <CollapsibleTile id="st-survey-response" title="Survey Response Avg." icon={<Smile className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow min-h-[180px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
                 <Smile className="w-3.5 h-3.5" />
               </div>
-              <span className="text-xs font-semibold text-slate-700">Response Temperature</span>
+              <span className="text-xs font-semibold text-slate-700">Survey Response Avg.</span>
             </div>
             <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
               <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
             </div>
           </div>
           <div className="flex items-baseline gap-2 mt-auto">
-            <span className="text-3xl font-bold text-slate-800 tracking-tight text-slate-300">N/A</span>
-            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">0% Avg</span>
+            <span className={`text-3xl font-bold tracking-tight ${surveyAvg !== null ? 'text-slate-800' : 'text-slate-300'}`}>
+              {surveyAvg !== null ? `${surveyAvg}%` : 'N/A'}
+            </span>
+            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+              {surveyCount > 0 ? `${surveyCount} response${surveyCount !== 1 ? 's' : ''}` : 'No responses'}
+            </span>
           </div>
         </CollapsibleTile>
       </div>
@@ -503,6 +553,11 @@ export default function SolTheoryDashboard() {
           )}
         </CollapsibleTile>
 
+        {/* Time Sheets */}
+        <CollapsibleTile id="st-time-sheets" title="Time Sheets" icon={<Clock className="w-4 h-4 text-slate-500" />} className="p-6">
+          <TimeSheets />
+        </CollapsibleTile>
+
         {/* Invoices – QuickBooks-style */}
         <CollapsibleTile id="st-invoices" title="Invoices" icon={<FileText className="w-4 h-4 text-slate-500" />} className="p-6">
           <div className="flex items-center justify-between mb-5">
@@ -571,6 +626,38 @@ export default function SolTheoryDashboard() {
             </div>
           )}
         </CollapsibleTile>
+        {/* Team Activity (mock) */}
+        <CollapsibleTile id="st-team-activity" title="Team Activity" icon={<User className="w-4 h-4 text-slate-500" />} className="p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-500">
+                <User className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-700 leading-none">Team Activity</h3>
+            </div>
+            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+              This Week <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="space-y-4">
+            {[
+              { name: user?.displayName || "You", role: "Admin", status: "Online", color: "bg-emerald-500" }
+            ].map((m) => (
+              <div key={m.name} className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">{(m.name || "U").charAt(0)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-700 truncate">{m.name}</p>
+                  <p className="text-[10px] text-slate-400 font-medium">{m.role}</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${m.color}`} />
+                  <span className="text-[10px] text-slate-500 font-medium">{m.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleTile>
+
         {/* Connected Integrations */}
         <CollapsibleTile id="st-list-int" title="Connected Integrations" icon={<Blocks className="w-4 h-4 text-slate-500" />} className="p-6">
           <div className="flex items-center justify-between mb-5">
@@ -637,42 +724,6 @@ export default function SolTheoryDashboard() {
               </div>
             </div>
           </div>
-        </CollapsibleTile>
-        {/* Team Activity (mock) */}
-        <CollapsibleTile id="st-team-activity" title="Team Activity" icon={<User className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-500">
-                <User className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Team Activity</h3>
-            </div>
-            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-              This Week <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="space-y-4">
-            {[
-              { name: user?.displayName || "You", role: "Admin", status: "Online", color: "bg-emerald-500" }
-            ].map((m) => (
-              <div key={m.name} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">{(m.name || "U").charAt(0)}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-700 truncate">{m.name}</p>
-                  <p className="text-[10px] text-slate-400 font-medium">{m.role}</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${m.color}`} />
-                  <span className="text-[10px] text-slate-500 font-medium">{m.status}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleTile>
-
-        {/* Time Sheets */}
-        <CollapsibleTile id="st-time-sheets" title="Time Sheets" icon={<Clock className="w-4 h-4 text-slate-500" />} className="p-6">
-          <TimeSheets />
         </CollapsibleTile>
         {/* Upcoming Events (mock) */}
         <CollapsibleTile id="st-upcoming" title="Upcoming Events" icon={<CalendarDays className="w-4 h-4 text-slate-500" />} className="p-6">
