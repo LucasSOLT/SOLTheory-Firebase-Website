@@ -308,10 +308,42 @@ export default function SolTheoryDashboard() {
             </div>
           )}
         </CollapsibleTile>
-      </div>
 
-      {/* ─── Row 4: List of Integration + Team Activity ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Invoices */}
+        <CollapsibleTile id="st-invoices" title="Invoices" icon={<FileText className="w-4 h-4 text-slate-500" />} className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
+                <FileText className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-700 leading-none">Invoices</h3>
+            </div>
+            <span className="text-xs font-medium text-slate-500">Last 365 days</span>
+          </div>
+
+          {!isQuickBooksLinked ? (
+             <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
+                 <Lock className="w-4 h-4 text-slate-400" />
+               </div>
+               <div>
+                 <p className="text-xs text-slate-500 mt-1">QuickBooks Required</p>
+               </div>
+             </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="text-xs text-slate-500">
+                Unpaid invoices
+              </div>
+              <div className="text-3xl font-bold text-slate-800">$0</div>
+              
+              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-4">
+                {/* Empty State */}
+                <div className="text-sm text-slate-500 text-center py-4">No unpaid invoices.</div>
+              </div>
+            </div>
+          )}
+        </CollapsibleTile>
         {/* List of Integration */}
         <CollapsibleTile id="st-list-int" title="List of Integration" icon={<Blocks className="w-4 h-4 text-slate-500" />} className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -358,10 +390,6 @@ export default function SolTheoryDashboard() {
             ))}
           </div>
         </CollapsibleTile>
-      </div>
-
-      {/* ─── Row 4: Mock Box + Daily Digest ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Team Activity (mock) */}
         <CollapsibleTile id="st-team-activity" title="Team Activity" icon={<User className="w-4 h-4 text-slate-500" />} className="p-6">
           <div className="flex items-center justify-between mb-5">
@@ -426,10 +454,6 @@ export default function SolTheoryDashboard() {
              {/* Other members would map here */}
           </div>
         </CollapsibleTile>
-      </div>
-
-      {/* ─── Row 5: Two more mock boxes ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Upcoming Events (mock) */}
         <CollapsibleTile id="st-upcoming" title="Upcoming Events" icon={<CalendarDays className="w-4 h-4 text-slate-500" />} className="p-6">
           <div className="flex items-center justify-between mb-5">
