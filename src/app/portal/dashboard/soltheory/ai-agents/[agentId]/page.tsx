@@ -660,6 +660,46 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             </div>
           ))}
         </div>
+
+        {/* Contact Glossary Button */}
+        <div className="px-4 py-3 border-t border-slate-200 shrink-0">
+          <Button variant="outline" className={`w-full justify-start gap-2 h-10 border-slate-300 transition-colors ${isContactsOpen ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-emerald-600'}`} onClick={() => setIsContactsOpen(!isContactsOpen)}>
+            <Users className="w-4 h-4" /> Contact Glossary
+          </Button>
+        </div>
+
+        {/* Inline Contact Glossary Panel */}
+        {isContactsOpen && (
+          <div className="border-t border-slate-200 bg-slate-50 flex flex-col overflow-hidden" style={{maxHeight: '50%'}}>
+            <div className="px-4 py-3 shrink-0">
+              <p className="text-[10px] text-slate-500 font-medium">Map email addresses to nicknames so the AI knows who you mean. Toggle to hide senders from the inbox stream.</p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-3 space-y-3">
+              {agentContacts.map(contact => (
+                <div key={contact.id} className={`p-3 rounded-xl border relative shadow-sm ${contact.ignore ? 'bg-slate-200/30 border-slate-300 opacity-70' : 'bg-white border-slate-200'}`}>
+                  <button onClick={() => setAgentContacts(prev => prev.filter(c => c.id !== contact.id))} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-400 rounded-md transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <div className="space-y-2 mt-0.5">
+                    <div>
+                      <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</label>
+                      <input type="email" placeholder="steve@soltheory.com" value={contact.email} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, email: e.target.value } : c))} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Aliases</label>
+                      <input type="text" placeholder="Steve, Stevie" value={contact.aliases} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, aliases: e.target.value } : c))} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900" />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer w-max">
+                      <input type="checkbox" checked={contact.ignore} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ignore: e.target.checked } : c))} className="w-3.5 h-3.5 rounded appearance-none border border-slate-300 checked:bg-amber-500 checked:border-amber-500" />
+                      <span className={`text-[10px] font-bold ${contact.ignore ? 'text-amber-500' : 'text-slate-400'}`}>Ignore Sender</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+              <Button onClick={() => setAgentContacts([...agentContacts, { id: Date.now().toString(), email: '', aliases: '', ignore: false }])} variant="outline" className="w-full border-dashed border-slate-300 text-slate-500 gap-2 h-8 text-xs hover:border-emerald-500 hover:text-emerald-500 transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Add Contact
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main UI Pane */}
@@ -1058,9 +1098,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <p className="text-xs text-slate-500  uppercase tracking-wider font-bold mt-1">Live Inbox Stream</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setIsContactsOpen(!isContactsOpen)} className={`transition-colors rounded-full ${isContactsOpen ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500  hover:text-emerald-400'}`}>
-                    <Users className="w-4 h-4" />
-                  </Button>
                   <Button variant="ghost" size="icon" onClick={() => setIsObserverFullScreen(!isObserverFullScreen)} className="text-slate-500  hover:text-slate-900  rounded-full">
                     {isObserverFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                   </Button>
@@ -1070,38 +1107,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </div>
               </div>
 
-              {isContactsOpen ? (
-                <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 ]">
-                  <div className="p-4 border-b border-slate-300  shrink-0">
-                    <h4 className="font-bold text-slate-800 ">Contact Glossary</h4>
-                    <p className="text-xs text-slate-500 mt-1">Map email addresses to CSV nicknames so the AI understands who you're referring to. You can also hide senders from the stream.</p>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {agentContacts.map(contact => (
-                      <div key={contact.id} className={`p-4 rounded-xl border relative shadow-sm ${contact.ignore ? 'bg-slate-200/30  border-slate-300  opacity-70' : 'bg-white  border-slate-300 '}`}>
-                        <button onClick={() => setAgentContacts(prev => prev.filter(c => c.id !== contact.id))} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-red-400 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        <div className="space-y-3 mt-1">
-                          <div>
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Email Address</label>
-                            <input type="email" placeholder="steve@soltheory.com" value={contact.email} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, email: e.target.value } : c))} className="w-full bg-slate-50  border border-slate-200  rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900 " />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">CSV Aliases</label>
-                            <input type="text" placeholder="Steve Huff, Stevie, Big Steve" value={contact.aliases} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, aliases: e.target.value } : c))} className="w-full bg-slate-50  border border-slate-200  rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900 " />
-                          </div>
-                          <label className="flex items-center gap-2 cursor-pointer mt-2 w-max">
-                            <input type="checkbox" checked={contact.ignore} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ignore: e.target.checked } : c))} className="w-4 h-4 rounded appearance-none border border-slate-300  checked:bg-amber-500 checked:border-amber-500 flex items-center justify-center after:content-['✓'] after:text-white after:text-xs" />
-                            <span className={`text-xs font-bold ${contact.ignore ? 'text-amber-500' : 'text-slate-500'}`}>Ignore Sender</span>
-                          </label>
-                        </div>
-                      </div>
-                    ))}
-                    <Button onClick={() => setAgentContacts([...agentContacts, { id: Date.now().toString(), email: '', aliases: '', ignore: false }])} variant="outline" className="w-full border-dashed border-slate-300  text-slate-600  gap-2 h-10 hover:border-emerald-500 hover:text-emerald-500 transition-colors">
-                      <Plus className="w-4 h-4" /> Add Contact
-                    </Button>
-                  </div>
-                </div>
-              ) : isGmailConnected ? (
+              {isGmailConnected ? (
                 <>
                   <div className="p-4 bg-slate-200/50  border-b border-slate-300  flex flex-col gap-3">
                     <div className="flex items-center justify-between text-sm">

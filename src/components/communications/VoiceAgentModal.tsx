@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Mail, Calendar, FileText, Presentation, Table, ClipboardList, Ticket, Youtube } from "lucide-react";
+import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown } from "lucide-react";
 
 interface VoiceAgentModalProps {
   isOpen: boolean;
@@ -47,7 +47,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [groqTokens, setGroqTokens] = useState(0);
   const [elevenLabsChars, setElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
-  const [activePreview, setActivePreview] = useState<{ type: string; data: any } | null>(null);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -325,7 +324,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       setBars(Array(32).fill(4));
       accumulatedTextRef.current = "";
       conversationRef.current = [];
-      setActivePreview(null);
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
@@ -344,12 +342,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     try {
       let reply = "";
       let usageNum = 0;
-      let tools: any[] | undefined;
       if (onCallAI) {
         const payload: any = await onCallAI([...conversationRef.current]);
         reply = payload.response || "I couldn't process that.";
         usageNum = payload.usage || 0;
-        tools = payload.executedTools;
       } else {
         const res = await fetch("/api/voice-chat", {
           method: "POST",
@@ -362,7 +358,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         const data = await res.json();
         reply = data.response || "I couldn't process that.";
         usageNum = data.usage || 0;
-        tools = data.executedTools;
       }
       
       setGroqTokens(p => p + usageNum);
@@ -370,27 +365,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       
       if (onUsageUpdate) {
         onUsageUpdate(usageNum, reply.length);
-      }
-
-      // Set preview based on actual tool calls from the server
-      if (tools && tools.length > 0) {
-        const tool = tools[0];
-        const toolTypeMap: Record<string, string> = {
-          draft_outbound_email: "email",
-          search_emails: "email",
-          create_calendar_event: "calendar",
-          list_calendar_events: "calendar",
-          delete_calendar_event: "calendar",
-          update_calendar_event: "calendar",
-          create_google_document: "doc",
-          create_google_slide_deck: "slide",
-          create_google_sheet: "sheet",
-          draft_youtube_video: "youtube",
-        };
-        const previewType = toolTypeMap[tool.name];
-        if (previewType) {
-          setActivePreview({ type: previewType, data: tool.args });
-        }
       }
       
       conversationRef.current.push({ role: "assistant", content: reply });
@@ -477,109 +451,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
 
 
-  // ── Typewriter text component ──
-  function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) {
-    const [displayed, setDisplayed] = useState("");
-    const indexRef = useRef(0);
 
-    useEffect(() => {
-      setDisplayed("");
-      indexRef.current = 0;
-      const interval = setInterval(() => {
-        if (indexRef.current < text.length) {
-          setDisplayed(text.substring(0, indexRef.current + 1));
-          indexRef.current++;
-        } else {
-          clearInterval(interval);
-        }
-      }, speed);
-      return () => clearInterval(interval);
-    }, [text, speed]);
-
-    return <>{displayed}<span className="inline-block w-0.5 h-3.5 bg-slate-400 rounded-full ml-0.5 animate-pulse align-middle" /></>;
-  }
-
-  function TopLeftPreviewCard({ preview }: { preview: { type: string; data: any } | null }) {
-    if (!preview) return null;
-    const { type, data } = preview;
-
-    const configs: Record<string, { icon: any; label: string; color: string; bg: string; accent: string }> = {
-      email:    { icon: Mail,          label: "Email Draft",      color: "text-blue-600",    bg: "bg-gradient-to-br from-blue-50 to-white",  accent: "border-blue-300" },
-      calendar: { icon: Calendar,      label: "Calendar Event",   color: "text-emerald-600", bg: "bg-gradient-to-br from-emerald-50 to-white", accent: "border-emerald-300" },
-      doc:      { icon: FileText,      label: "Google Doc",       color: "text-indigo-600",  bg: "bg-gradient-to-br from-indigo-50 to-white", accent: "border-indigo-300" },
-      slide:    { icon: Presentation,  label: "Google Slides",    color: "text-amber-600",   bg: "bg-gradient-to-br from-amber-50 to-white",  accent: "border-amber-300" },
-      sheet:    { icon: Table,         label: "Google Sheets",    color: "text-green-600",   bg: "bg-gradient-to-br from-green-50 to-white",  accent: "border-green-300" },
-      youtube:  { icon: Youtube,       label: "YouTube Video",    color: "text-red-600",     bg: "bg-gradient-to-br from-red-50 to-white",    accent: "border-red-300" },
-    };
-
-    const config = configs[type];
-    if (!config) return null;
-    const Icon = config.icon;
-
-    return (
-      <div style={{position:'fixed',top:16,left:16,zIndex:9999,width:300}} className="animate-in fade-in slide-in-from-left-4 duration-500">
-        <div className={`w-full rounded-2xl border ${config.accent} ${config.bg} shadow-2xl overflow-hidden`}>
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/50 bg-white/70 backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${config.bg}`}>
-                <Icon className={`w-3.5 h-3.5 ${config.color}`} />
-              </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${config.color}`}>{config.label}</span>
-            </div>
-            <button onClick={() => setActivePreview(null)} className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-
-          {/* Email content */}
-          {type === "email" && (
-            <div className="p-4 space-y-2">
-              {data.to && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase w-10 shrink-0 tracking-wide">To</span>
-                  <span className="text-[11px] font-semibold text-slate-700"><TypewriterText text={data.to} speed={20} /></span>
-                </div>
-              )}
-              {data.subject && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase w-10 shrink-0 tracking-wide">Subj</span>
-                  <span className="text-[11px] font-bold text-slate-900"><TypewriterText text={data.subject} speed={15} /></span>
-                </div>
-              )}
-              {data.body && (
-                <div className="mt-1 pt-2 border-t border-slate-200/60">
-                  <div className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line">
-                    <TypewriterText text={data.body.replace(/\\n/g, '\n')} speed={8} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Calendar content */}
-          {type === "calendar" && (
-            <div className="p-4 space-y-1">
-              <p className="text-xs font-bold text-slate-900"><TypewriterText text={data.summary || data.title || "New Event"} speed={20} /></p>
-              {data.startTime && <p className="text-[10px] text-slate-500 font-semibold"><TypewriterText text={data.startTime} speed={15} /></p>}
-              {data.attendees && <p className="text-[10px] text-slate-400">with {data.attendees}</p>}
-            </div>
-          )}
-
-          {/* Doc/Slide/Sheet/YouTube content */}
-          {["doc", "slide", "sheet", "youtube"].includes(type) && (
-            <div className="p-4 flex items-center gap-3">
-              <div className="flex-1">
-                <p className="text-xs font-bold text-slate-900"><TypewriterText text={data.title || `Creating ${config.label}...`} speed={20} /></p>
-                {data.content && <p className="text-[10px] text-slate-500 line-clamp-2 mt-1"><TypewriterText text={data.content.substring(0, 100)} speed={8} /></p>}
-              </div>
-              <Loader2 className={`w-4 h-4 animate-spin ${config.color} opacity-50 shrink-0`} />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   if (!isOpen) return null;
 
@@ -609,7 +481,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   return (
     <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in fade-in duration-300">
-      <TopLeftPreviewCard preview={activePreview} />
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
       {/* ─── TOP ─── */}

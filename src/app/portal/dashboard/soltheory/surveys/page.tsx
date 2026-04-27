@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useFirestore } from "@/firebase";
 import { getAuth } from "firebase/auth";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AISurveyCreator from "@/components/portal/surveys/AISurveyCreator";
@@ -23,6 +23,7 @@ import {
   BarChart3,
   UserCircle,
   MessageSquare,
+  Trash2,
 } from "lucide-react";
 
 interface CustomSurvey {
@@ -346,7 +347,7 @@ export default function SolTheorySurveysPage() {
                 {responses.map(resp => (
                   <details key={resp.id} className="group bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
                     <summary className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0">
                           {(resp.participantName || "?").charAt(0).toUpperCase()}
                         </div>
@@ -355,7 +356,27 @@ export default function SolTheorySurveysPage() {
                           <p className="text-xs text-slate-400 font-medium">{resp.participantOrg || "—"} · {formatDateTime(resp.submittedAt)}</p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-open:rotate-90 transition-transform" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!firestore) return;
+                            if (!confirm(`Delete response from ${resp.participantName || 'Anonymous'}?`)) return;
+                            try {
+                              await deleteDoc(doc(firestore, "custom_survey_responses", resp.id));
+                              setAllResponses(prev => prev.filter(r => r.id !== resp.id));
+                            } catch (err) {
+                              console.error("Failed to delete response:", err);
+                            }
+                          }}
+                          className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Delete response"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-open:rotate-90 transition-transform" />
+                      </div>
                     </summary>
                     <div className="px-5 pb-4 pt-2 border-t border-slate-100">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
