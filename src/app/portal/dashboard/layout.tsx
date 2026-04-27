@@ -160,7 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden text-slate-900 font-sans">
+    <div className="flex h-screen bg-[#faf9f6] overflow-hidden text-slate-900 font-sans">
       {/* Sidebar Wrapper */}
       <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
         <button 
@@ -171,7 +171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <ChevronRight className={`w-6 h-6 transition-transform duration-300 ${isSidebarCollapsed ? "" : "rotate-180"}`} />
         </button>
 
-        <aside className="w-full bg-white flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
+        <aside className="w-full bg-[#faf9f6] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
           <div className="w-64 flex flex-col h-full"> {/* Inner fixed width container */}
             <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
               {pathname.includes('/nxtchapter') ? (

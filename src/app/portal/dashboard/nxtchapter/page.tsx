@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
 import { IntegrationColumn } from "@/components/portal/IntegrationPicker";
 import { CollapsibleTile } from "@/components/ui/collapsible-tile";
@@ -13,7 +13,7 @@ import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import {
   Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
-  Settings, CalendarDays, ChevronDown, Download, BarChart3, Users, Zap, Smile, Lock, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Globe, Activity, Database, Mail, HardDrive, Landmark, Clock, FileText
+  Settings, CalendarDays, ChevronDown, Download, BarChart3, Users, Zap, Smile, Lock, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Globe, Activity, Database, Mail, HardDrive, Landmark, Clock, FileText, Maximize2, Minimize2, RefreshCw
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -44,6 +44,8 @@ export default function NxtChapterDashboard() {
   const firestore = useFirestore();
   const [isQuickBooksLinked, setIsQuickBooksLinked] = useState(false);
   const [qbData, setQbData] = useState<any>(null);
+  const [isAllCollapsed, setIsAllCollapsed] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   /* presence tracking (keep existing logic) */
   useEffect(() => {
@@ -58,16 +60,18 @@ export default function NxtChapterDashboard() {
     };
   }, [firestore, user?.uid]);
 
-  /* Check if QuickBooks is connected */
-  useEffect(() => {
+  /* Fetch QuickBooks Data */
+  const fetchQbData = useCallback(async () => {
     if (!firestore || !user?.uid) return;
-    getDoc(doc(firestore, "users", user.uid)).then(userDoc => {
+    try {
+      setIsRefreshing(true);
+      const userDoc = await getDoc(doc(firestore, "users", user.uid));
       if (userDoc.exists() && userDoc.data()?.quickbooksOAuth?.refreshToken) {
         setIsQuickBooksLinked(true);
         // Fetch all QuickBooks data
         const qb = userDoc.data().quickbooksOAuth;
         const endpoints = ["accounts", "profit_loss", "expenses", "transactions", "invoices"];
-        Promise.all(endpoints.map(ep =>
+        const results = await Promise.all(endpoints.map(ep =>
           fetch("/api/quickbooks/data", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -79,14 +83,23 @@ export default function NxtChapterDashboard() {
             }),
           }).then(r => r.json()).then(d => ({ endpoint: ep, ...d }))
             .catch(() => ({ endpoint: ep, error: true }))
-        )).then(results => {
-          const mapped: any = {};
-          results.forEach(r => { mapped[r.endpoint] = r; });
-          setQbData(mapped);
-        });
+        ));
+        const mapped: any = {};
+        results.forEach(r => { mapped[r.endpoint] = r; });
+        setQbData(mapped);
       }
-    }).catch(console.error);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [firestore, user?.uid]);
+
+  useEffect(() => {
+    fetchQbData();
+    const interval = setInterval(fetchQbData, 5 * 60 * 1000); // 5 minutes
+    return () => clearInterval(interval);
+  }, [fetchQbData]);
 
   /* ─── Parse QuickBooks data into usable formats ─── */
   const qbParsed = useMemo(() => {
@@ -155,17 +168,24 @@ export default function NxtChapterDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-            <CalendarDays className="w-3.5 h-3.5" /> Oct 18 – Nov 18
+          <button 
+            onClick={() => {
+              const next = !isAllCollapsed;
+              setIsAllCollapsed(next);
+              window.dispatchEvent(new CustomEvent('dashboard-toggle-collapse', { detail: { collapsed: next } }));
+            }}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            {isAllCollapsed ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+            {isAllCollapsed ? "Maximize All" : "Collapse All"}
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-            Monthly <ChevronDown className="w-3 h-3" />
-          </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-            <Filter className="w-3.5 h-3.5" /> Filter
-          </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-            <Download className="w-3.5 h-3.5" /> Export
+          <button 
+            onClick={fetchQbData}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} /> 
+            Refresh
           </button>
         </div>
       </div>

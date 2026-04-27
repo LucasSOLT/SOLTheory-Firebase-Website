@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useUser } from "@/firebase";
 
@@ -24,6 +24,23 @@ export function CollapsibleTile({
     }
     return false;
   });
+
+  useEffect(() => {
+    const handleGlobalCollapse = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && typeof customEvent.detail.collapsed === 'boolean') {
+        const next = customEvent.detail.collapsed;
+        setIsCollapsed(next);
+        if (user?.uid) {
+          localStorage.setItem(`collapse-tile-${user.uid}-${id}`, next.toString());
+        }
+      }
+    };
+    window.addEventListener('dashboard-toggle-collapse', handleGlobalCollapse);
+    return () => {
+      window.removeEventListener('dashboard-toggle-collapse', handleGlobalCollapse);
+    };
+  }, [user?.uid, id]);
 
   const toggleCollapse = () => {
     const next = !isCollapsed;
