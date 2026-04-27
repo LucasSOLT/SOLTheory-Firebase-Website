@@ -42,18 +42,5 @@ export async function GET(req: Request) {
     `&scope=${encodeURIComponent(scope)}` +
     `&state=${encodeURIComponent(statePayload)}`;
 
-  // ── Temporary debug mode: show URL instead of redirecting ──
-  const debug = url.searchParams.get("debug");
-  if (debug === "true") {
-    return NextResponse.json({
-      authUrl,
-      client_id_first10: clientId.substring(0, 10),
-      client_id_last10: clientId.substring(clientId.length - 10),
-      client_id_length: clientId.length,
-      redirect_uri: redirectUri,
-      environment: process.env.QUICKBOOKS_ENVIRONMENT || "not set",
-    });
-  }
-
   return NextResponse.redirect(authUrl);
 }

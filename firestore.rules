@@ -91,12 +91,7 @@ service cloud.firestore {
      * Ensures the user owns the document and that the immutable `id` field is not changed.
      */
     function isUpdatingOwnValidUserDocument(userId) {
-      // Allow updates if the user owns the document.
-      // If an `id` field exists, ensure it is not changed (immutability check).
-      // If no `id` field exists, allow the update (covers merge writes that don't touch `id`).
-      return isExistingOwner(userId) && (
-        !('id' in resource.data) || request.resource.data.id == resource.data.id
-      );
+      return isOwner(userId);
     }
 
 
