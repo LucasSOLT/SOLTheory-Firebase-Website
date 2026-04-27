@@ -12,12 +12,12 @@ import { collection, onSnapshot, query, where, getDocs, doc, updateDoc } from "f
 import {
   Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
   Settings, CalendarDays, ChevronDown, Download,
-  Zap, MessageSquare, Globe, FileText, BarChart3, Users, HardDrive, Youtube, Bot, Clock, Lock, Smile, Wallet, UserPlus, PieChart, Blocks, User, Activity, Database, Mail
+  Zap, MessageSquare, Globe, FileText, BarChart3, Users, HardDrive, Youtube, Bot, Clock, Lock, Smile, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Activity, Database, Mail, Landmark
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart
 } from "recharts";
 
 /* ───── static mock data to match the reference design ───── */
@@ -111,14 +111,14 @@ export default function SolTheoryDashboard() {
           </div>
         </CollapsibleTile>
 
-        {/* Total Revenue */}
-        <CollapsibleTile id="st-total-rev" title="Total Revenue" icon={<DollarSign className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+        {/* Transactions */}
+        <CollapsibleTile id="st-transactions" title="Transactions" icon={<DollarSign className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
                 <DollarSign className="w-3.5 h-3.5" />
               </div>
-              <span className="text-xs font-semibold text-slate-700">Total Revenue</span>
+              <span className="text-xs font-semibold text-slate-700">Transactions</span>
             </div>
             <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
               <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
@@ -127,12 +127,11 @@ export default function SolTheoryDashboard() {
           {!isQuickBooksLinked ? (
             <div className="flex flex-col items-center justify-center py-2 text-slate-400">
                <Lock className="w-5 h-5 mb-1 opacity-50" />
-               <span className="text-[10px] font-medium text-center leading-tight">Connect QuickBooks<br/>to view revenue</span>
+               <span className="text-[10px] font-medium text-center leading-tight">Connect QuickBooks<br/>to view transactions</span>
             </div>
           ) : (
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-slate-800 tracking-tight">$0.00</span>
-              <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">0.0%</span>
+            <div className="flex items-center justify-center py-4">
+              <span className="text-xs font-medium text-slate-400">No recent transactions</span>
             </div>
           )}
         </CollapsibleTile>
@@ -159,21 +158,18 @@ export default function SolTheoryDashboard() {
 
       {/* ─── Middle Row: Sales Overview + Total Subscribers ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Sales Overview — 3 cols */}
-        <CollapsibleTile id="st-sales-overview" title="Sales Overview" icon={<Wallet className="w-4 h-4 text-slate-500" />} className="lg:col-span-3 p-6 flex flex-col">
+        {/* Expenses — 3 cols */}
+        <CollapsibleTile id="st-expenses" title="Expenses" icon={<Wallet className="w-4 h-4 text-slate-500" />} className="lg:col-span-3 p-6 flex flex-col">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
                 <Wallet className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Sales Overview</h3>
+              <h3 className="text-sm font-semibold text-slate-700 leading-none">Expenses</h3>
             </div>
             <div className="flex items-center gap-2">
               <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-                <Filter className="w-3 h-3" /> Filter
-              </button>
-              <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-                <ArrowDownUp className="w-3 h-3" /> Sort
+                Last 30 days <ChevronDown className="w-3 h-3" />
               </button>
               <button className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
                 •••
@@ -181,119 +177,112 @@ export default function SolTheoryDashboard() {
             </div>
           </div>
           {!isQuickBooksLinked ? (
-             <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+             <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 mt-4">
                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
                  <Lock className="w-5 h-5 text-slate-400" />
                </div>
                <div>
                  <h4 className="text-sm font-semibold text-slate-700">QuickBooks Not Linked</h4>
-                 <p className="text-xs text-slate-500 mt-1">Connect your QuickBooks account to view sales overview and distribution data.</p>
+                 <p className="text-xs text-slate-500 mt-1">Connect your QuickBooks account to view expenses.</p>
                </div>
              </div>
           ) : (
-            <>
+            <div className="flex flex-col mt-4">
               <div className="flex items-baseline gap-3 mb-1">
-                <span className="text-3xl font-bold text-slate-800">$0.00</span>
+                <span className="text-3xl font-bold text-slate-800">$0</span>
+                <span className="text-xs font-semibold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                   <TrendingDown className="w-3 h-3" /> 0%
+                </span>
               </div>
-              <div className="flex items-center gap-4 mb-5 text-xs text-slate-400 font-medium">
-                <span className="text-slate-400">0.0%</span>
-                <span>$0.00</span>
-              </div>
-    
-              <div className="flex-1 min-h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={salesData} barCategoryGap="20%" barGap={2}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#94a3b8' }} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip
-                      contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
-                      cursor={{ fill: 'rgba(99,102,241,0.04)' }}
-                    />
-                    <Bar dataKey="china" stackId="a" fill="#c7d2fe" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="uk" stackId="a" fill="#a5b4fc" />
-                    <Bar dataKey="usa" stackId="a" fill="#818cf8" />
-                    <Bar dataKey="canada" stackId="a" fill="#6366f1" />
-                    <Bar dataKey="other" stackId="a" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="text-xs text-emerald-500 font-medium mb-6">
+                ↓ Down 0% from prior 30 days
               </div>
     
-              {/* Legend */}
-              <div className="flex items-center gap-4 mt-4 flex-wrap">
-                {[
-                  { label: "China", color: "#c7d2fe" },
-                  { label: "UK", color: "#a5b4fc" },
-                  { label: "USA", color: "#818cf8" },
-                  { label: "Canada", color: "#6366f1" },
-                  { label: "Other", color: "#4f46e5" },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
-                    <span className="text-xs text-slate-400 font-medium">{item.label}</span>
-                  </div>
-                ))}
+              <div className="flex items-center gap-8 min-h-[160px]">
+                <div className="w-40 h-40 shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 space-y-3">
+                  {/* Empty state for categories */}
+                  <div className="text-sm text-slate-500">No expenses recorded.</div>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </CollapsibleTile>
 
-        {/* Total Subscribers — 2 cols */}
-        <CollapsibleTile id="st-total-sub" title="Total Subscriber" icon={<UserPlus className="w-4 h-4 text-slate-500" />} className="lg:col-span-2 p-6 flex flex-col">
+        {/* Profit & Loss — 2 cols */}
+        <CollapsibleTile id="st-profit-loss" title="Profit & Loss" icon={<Activity className="w-4 h-4 text-slate-500" />} className="lg:col-span-2 p-6 flex flex-col">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
-                <UserPlus className="w-3.5 h-3.5" />
+                <Activity className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Total Subscriber</h3>
+              <h3 className="text-sm font-semibold text-slate-700 leading-none">Profit & Loss</h3>
             </div>
             <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-              Weekly <ChevronDown className="w-3 h-3" />
+              This month <ChevronDown className="w-3 h-3" />
             </button>
           </div>
-          <div className="flex items-baseline gap-3 mb-1">
-            <span className="text-3xl font-bold text-slate-800">0</span>
-          </div>
-          <div className="flex items-center gap-3 mb-5 text-xs text-slate-400 font-medium">
-            <span className="text-slate-400">0.0%</span>
-            <span>+ 0</span>
-          </div>
-
-          <div className="flex-1 min-h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={subscriberData} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#94a3b8' }} />
-                <YAxis hide />
-                <Tooltip
-                  contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
-                  cursor={{ fill: 'rgba(99,102,241,0.04)' }}
-                />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {subscriberData.map((entry, index) => (
-                    <Cell key={index} fill={entry.day === "Tue" ? "#6366f1" : "#e0e7ff"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {!isQuickBooksLinked ? (
+             <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 mt-4">
+               <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
+                 <Lock className="w-5 h-5 text-slate-400" />
+               </div>
+               <div>
+                 <p className="text-xs text-slate-500 mt-1">QuickBooks Required</p>
+               </div>
+             </div>
+          ) : (
+            <div className="flex flex-col mt-4">
+              <div className="text-xs text-slate-500 font-medium mb-1">Net profit for this month</div>
+              <div className="flex items-baseline gap-3 mb-1">
+                <span className="text-3xl font-bold text-slate-800">$0</span>
+              </div>
+              <div className="text-xs text-amber-500 font-medium mb-6">
+                ↓ Down 0% from last month
+              </div>
+              
+              <div className="space-y-6 flex-1 min-h-[160px]">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold mb-1">
+                    <span className="text-slate-800">$0 <span className="font-medium text-slate-500 ml-1">Income</span></span>
+                  </div>
+                  <div className="h-3 w-full bg-slate-100 overflow-hidden relative" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 50%, #e2e8f0 50%, #e2e8f0 75%, transparent 75%, transparent)' }}>
+                     <div className="h-full bg-emerald-500 w-[0%]" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold mb-1">
+                    <span className="text-slate-800">$0 <span className="font-medium text-slate-500 ml-1">Expenses</span></span>
+                  </div>
+                  <div className="h-3 w-full bg-slate-100 overflow-hidden relative" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 50%, #e2e8f0 50%, #e2e8f0 75%, transparent 75%, transparent)' }}>
+                     <div className="h-full bg-teal-500 w-[0%]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </CollapsibleTile>
       </div>
 
-      {/* ─── Bottom Row: Sales Distribution + List of Integration ─── */}
+      {/* ─── Bottom Row: Sales Distribution + Bank Accounts ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Sales Distribution */}
-        <CollapsibleTile id="st-sales-dist" title="Sales Distribution" icon={<PieChart className="w-4 h-4 text-slate-500" />} className="p-6">
+
+        {/* Bank Accounts */}
+        <CollapsibleTile id="st-bank-accounts" title="Bank Accounts" icon={<Landmark className="w-4 h-4 text-slate-500" />} className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
-                <PieChart className="w-3.5 h-3.5" />
+                <Landmark className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Sales Distribution</h3>
+              <h3 className="text-sm font-semibold text-slate-700 leading-none">Bank Accounts</h3>
             </div>
-            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-              Monthly <ChevronDown className="w-3 h-3" />
-            </button>
+            <span className="text-xs font-medium text-slate-500">As of today</span>
           </div>
 
           {!isQuickBooksLinked ? (
@@ -306,14 +295,23 @@ export default function SolTheoryDashboard() {
                </div>
              </div>
           ) : (
-            <>
-              <div className="flex-1 flex items-center justify-center min-h-[120px] text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
-                No data to display.
+            <div className="flex flex-col gap-4">
+              <div className="text-xs text-slate-500">
+                Today's bank balance
               </div>
-            </>
+              <div className="text-3xl font-bold text-slate-800">$0</div>
+              
+              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-4">
+                {/* Empty State */}
+                <div className="text-sm text-slate-500 text-center py-4">No bank accounts linked.</div>
+              </div>
+            </div>
           )}
         </CollapsibleTile>
+      </div>
 
+      {/* ─── Row 4: List of Integration + Team Activity ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* List of Integration */}
         <CollapsibleTile id="st-list-int" title="List of Integration" icon={<Blocks className="w-4 h-4 text-slate-500" />} className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -396,8 +394,38 @@ export default function SolTheoryDashboard() {
           </div>
         </CollapsibleTile>
 
-        {/* Daily Digest */}
-        <DailyDigest />
+        {/* Team Member Time Cards */}
+        <CollapsibleTile id="st-time-cards" title="Team Member Time Cards" icon={<Clock className="w-4 h-4 text-slate-500" />} className="p-6">
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
+                <Clock className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-700 leading-none">Team Member Time Cards</h3>
+            </div>
+            <div className="flex items-center gap-2">
+               <input type="date" className="px-2 py-1.5 text-[10px] font-medium text-slate-500 bg-slate-50 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-indigo-500" defaultValue={new Date(new Date().setDate(new Date().getDate() - new Date().getDay())).toISOString().split('T')[0]} />
+               <span className="text-xs text-slate-400">-</span>
+               <input type="date" className="px-2 py-1.5 text-[10px] font-medium text-slate-500 bg-slate-50 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-indigo-500" defaultValue={new Date().toISOString().split('T')[0]} />
+            </div>
+          </div>
+          <div className="space-y-4">
+             <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50">
+                <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">{(user?.displayName || "U")[0]}</div>
+                   <div>
+                      <p className="text-sm font-semibold text-slate-700">{user?.displayName || "You"}</p>
+                      <p className="text-[10px] text-slate-500">Admin</p>
+                   </div>
+                </div>
+                <div className="text-right">
+                   <p className="text-sm font-bold text-slate-800">0h 0m</p>
+                   <p className="text-[10px] text-slate-500">This period</p>
+                </div>
+             </div>
+             {/* Other members would map here */}
+          </div>
+        </CollapsibleTile>
       </div>
 
       {/* ─── Row 5: Two more mock boxes ─── */}
