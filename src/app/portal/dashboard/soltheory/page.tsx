@@ -8,7 +8,7 @@ import { RecentPlaces } from "@/components/portal/RecentPlaces";
 import { RadialGraphs } from "@/components/portal/RadialGraphs";
 import { useTranslation } from "@/lib/i18n";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, onSnapshot, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, where, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import {
   Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
   Settings, CalendarDays, ChevronDown, Download,
@@ -43,6 +43,7 @@ export default function SolTheoryDashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [isQuickBooksLinked, setIsQuickBooksLinked] = useState(false);
+  const [qbData, setQbData] = useState<any>(null);
 
   /* presence tracking (keep existing logic) */
   useEffect(() => {
@@ -55,6 +56,35 @@ export default function SolTheoryDashboard() {
       updateDoc(userRef, { currentDashboard: null }).catch(() => {});
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
+  }, [firestore, user?.uid]);
+
+  /* Check if QuickBooks is connected */
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    getDoc(doc(firestore, "users", user.uid)).then(userDoc => {
+      if (userDoc.exists() && userDoc.data()?.quickbooksOAuth?.refreshToken) {
+        setIsQuickBooksLinked(true);
+        const qb = userDoc.data().quickbooksOAuth;
+        const endpoints = ["accounts", "profit_loss", "expenses", "transactions", "invoices"];
+        Promise.all(endpoints.map(ep =>
+          fetch("/api/quickbooks/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              realmId: qb.realmId,
+              accessToken: qb.accessToken,
+              refreshToken: qb.refreshToken,
+              endpoint: ep,
+            }),
+          }).then(r => r.json()).then(d => ({ endpoint: ep, ...d }))
+            .catch(() => ({ endpoint: ep, error: true }))
+        )).then(results => {
+          const mapped: any = {};
+          results.forEach(r => { mapped[r.endpoint] = r; });
+          setQbData(mapped);
+        });
+      }
+    }).catch(console.error);
   }, [firestore, user?.uid]);
 
   return (

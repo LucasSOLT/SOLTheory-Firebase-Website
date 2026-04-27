@@ -138,6 +138,11 @@ function SettingsContent() {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [lang, setLang] = useState<Lang>('en');
 
+  // QuickBooks states
+  const [qbConnected, setQbConnected] = useState(false);
+  const [qbError, setQbError] = useState("");
+  const [qbConnecting, setQbConnecting] = useState(false);
+
   useEffect(() => {
     // Load local language
     const savedLang = localStorage.getItem('agent_language') as Lang;
@@ -198,6 +203,49 @@ function SettingsContent() {
     }
   }, [searchParams, user, firestore, isUserLoading]);
 
+  // ── QuickBooks OAuth callback handling ──
+  useEffect(() => {
+    if (isUserLoading) return;
+
+    const qbConnectedParam = searchParams.get("qb_connected");
+    const qbAccessToken = searchParams.get("qb_access_token");
+    const qbRefreshToken = searchParams.get("qb_refresh_token");
+    const qbRealmId = searchParams.get("qb_realm_id");
+    const qbExpiresIn = searchParams.get("qb_expires_in");
+    const qbErrorParam = searchParams.get("error");
+
+    if (qbConnectedParam === "true" && qbRefreshToken && user?.uid && firestore) {
+      // Save tokens to Firestore
+      setDoc(doc(firestore, "users", user.uid), {
+        quickbooksOAuth: {
+          accessToken: qbAccessToken,
+          refreshToken: qbRefreshToken,
+          realmId: qbRealmId,
+          expiresIn: Number(qbExpiresIn) || 3600,
+          connectedAt: new Date().toISOString(),
+        }
+      }, { merge: true }).then(() => {
+        // Clean up URL
+        const cleanUrl = window.location.pathname + "?tab=profile&qb_connected=true";
+        window.history.replaceState({}, document.title, cleanUrl);
+        setQbConnected(true);
+      }).catch(err => {
+        setQbError("Failed to save QuickBooks credentials: " + err.message);
+      });
+    } else if (qbConnectedParam === "true") {
+      setQbConnected(true);
+    } else if (qbConnectedParam === "false" && qbErrorParam) {
+      setQbError(qbErrorParam);
+    } else if (user?.uid && firestore) {
+      // Check if already connected
+      getDoc(doc(firestore, "users", user.uid)).then(userDoc => {
+        if (userDoc.exists() && userDoc.data()?.quickbooksOAuth?.refreshToken) {
+          setQbConnected(true);
+        }
+      }).catch(console.error);
+    }
+  }, [searchParams, user, firestore, isUserLoading]);
+
   const handleSaveProfile = async () => {
     if (!auth || !auth.currentUser || !firestore || !user) return;
     setIsSavingProfile(true);
@@ -228,6 +276,32 @@ function SettingsContent() {
     }
     if (!uid) return;
     window.location.href = `/api/auth/google?uid=${uid}&agentId=jarvis&origin=nxtchapter`;
+  };
+
+  const handleConnectQuickBooks = async () => {
+    let uid = user?.uid;
+    if (!uid && auth) {
+      try {
+        const cred = await signInAnonymously(auth);
+        uid = cred.user.uid;
+      } catch {
+        setQbError("Failed to initialize session.");
+        return;
+      }
+    }
+    if (!uid) return;
+    setQbConnecting(true);
+    window.location.href = `/api/auth/quickbooks?uid=${uid}&origin=nxtchapter`;
+  };
+
+  const handleDisconnectQuickBooks = async () => {
+    if (!user?.uid || !firestore) return;
+    try {
+      await setDoc(doc(firestore, "users", user.uid), { quickbooksOAuth: null }, { merge: true });
+      setQbConnected(false);
+    } catch (err: any) {
+      setQbError("Failed to disconnect: " + err.message);
+    }
   };
 
   const handleSyncInbox = async () => {
@@ -418,14 +492,35 @@ function SettingsContent() {
                         </div>
                       </div>
 
-                      {/* --- Mock QuickBooks --- */}
+                      {/* --- QuickBooks --- */}
                       <div className="w-full h-px bg-slate-100/50" />
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div className="space-y-1.5 max-w-sm">
                           <Label className="text-base text-slate-800">QuickBooks Connection</Label>
-                          <p className="text-sm text-slate-500 leading-relaxed">Connect your QuickBooks account to sync sales and revenue data into your dashboard.</p>
+                          <p className="text-sm text-slate-500 leading-relaxed">Connect your QuickBooks account to sync financial data (expenses, P&L, invoices, bank accounts) into your dashboard. <span className="font-medium text-slate-700">Read-only access.</span></p>
+                          {qbConnected && <p className="text-sm text-emerald-400 font-medium mt-2">✓ QuickBooks Connected Successfully</p>}
+                          {qbError && <p className="text-sm text-red-400 font-medium mt-2">✗ {qbError}</p>}
                         </div>
-                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect QuickBooks</Button>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <Button
+                            variant={qbConnected ? "outline" : "default"}
+                            className={qbConnected ? "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 h-11" : "bg-[#2CA01C] hover:bg-[#248a17] text-white h-11"}
+                            onClick={handleConnectQuickBooks}
+                            disabled={isUserLoading || qbConnecting}
+                          >
+                            {qbConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            {qbConnected ? "✓ Connected" : "Connect QuickBooks"}
+                          </Button>
+                          {qbConnected && (
+                            <Button
+                              variant="secondary"
+                              onClick={handleDisconnectQuickBooks}
+                              className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 h-11"
+                            >
+                              Disconnect
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
                       {/* --- Mock Slack --- */}
