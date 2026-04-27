@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, use } from "react";
+import { useState, useRef, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
@@ -9,7 +9,7 @@ import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Ma
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, deleteDoc, writeBatch, limit as firestoreLimit } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
 
 let _msgCounter = 0;
@@ -53,6 +53,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
 
   const [agentContacts, setAgentContacts] = useState<AgentContact[]>([]);
   const [isContactsOpen, setIsContactsOpen] = useState(false);
@@ -125,27 +127,86 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   const isEmailAgent = params.agentId === "jarvis";
 
-  // Initialize
+  // Initialize – Load sessions from Firestore (with localStorage fallback migration)
   useEffect(() => {
-    const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
-    if (savedSessions) {
+    if (!firestore || !user?.uid) {
+      // Fallback for unauthenticated: use localStorage
+      const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
+      if (savedSessions) {
+        try {
+          const parsed: Session[] = JSON.parse(savedSessions);
+          setSessions(parsed);
+          if (parsed.length > 0) {
+            const mostRecent = parsed.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+            setActiveSessionId(mostRecent.id);
+            setMessages(mostRecent.messages);
+          } else startNewSession();
+        } catch { startNewSession(); }
+      } else startNewSession();
+      setSessionsLoaded(true);
+      return;
+    }
+
+    // Load from Firestore
+    const loadSessions = async () => {
       try {
-        const parsed: Session[] = JSON.parse(savedSessions);
-        const uniqueSessions = new Map<string, Session>();
-        parsed.forEach(s => {
-          const seen = new Set<string>();
-          s.messages = s.messages.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
-          if (!uniqueSessions.has(s.id)) uniqueSessions.set(s.id, s);
-        });
-        const dedupedSessions = Array.from(uniqueSessions.values());
-        setSessions(dedupedSessions);
-        if (dedupedSessions.length > 0) {
-          const mostRecent = dedupedSessions.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        const sessionsRef = collection(firestore, "users", user.uid, "jarvis_sessions");
+        const q = query(sessionsRef, orderBy("updatedAt", "desc"), firestoreLimit(50));
+        const snap = await getDocs(q);
+
+        if (!snap.empty) {
+          const loaded: Session[] = [];
+          snap.forEach(doc => {
+            const data = doc.data();
+            loaded.push({
+              id: doc.id,
+              title: data.title || "New Chat",
+              updatedAt: data.updatedAt || 0,
+              messages: data.messages || [],
+            });
+          });
+          setSessions(loaded);
+          const mostRecent = loaded[0]; // already sorted by updatedAt desc
           setActiveSessionId(mostRecent.id);
           setMessages(mostRecent.messages);
-        } else startNewSession();
-      } catch { startNewSession(); }
-    } else startNewSession();
+        } else {
+          // Check for localStorage sessions to migrate
+          const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
+          if (savedSessions) {
+            try {
+              const parsed: Session[] = JSON.parse(savedSessions);
+              if (parsed.length > 0) {
+                // Migrate localStorage sessions to Firestore
+                for (const s of parsed) {
+                  await setDoc(doc(firestore, "users", user.uid, "jarvis_sessions", s.id), {
+                    title: s.title,
+                    updatedAt: s.updatedAt,
+                    messages: s.messages,
+                    migratedFromLocalStorage: true,
+                  });
+                }
+                setSessions(parsed);
+                const mostRecent = parsed.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+                setActiveSessionId(mostRecent.id);
+                setMessages(mostRecent.messages);
+                // Clear localStorage after migration
+                localStorage.removeItem(`st_agent_sessions_${params.agentId}`);
+              } else {
+                startNewSession();
+              }
+            } catch { startNewSession(); }
+          } else {
+            startNewSession();
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load sessions from Firestore", err);
+        startNewSession();
+      }
+      setSessionsLoaded(true);
+    };
+
+    loadSessions();
 
     const savedConfig = localStorage.getItem(`st_agent_config_${params.agentId}`);
     if (savedConfig) {
@@ -155,7 +216,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     if (savedContacts) {
       try { setAgentContacts(JSON.parse(savedContacts)); } catch { }
     }
-  }, [params.agentId]);
+  }, [params.agentId, firestore, user?.uid]);
 
   useEffect(() => {
     localStorage.setItem(`st_agent_config_${params.agentId}`, JSON.stringify(agentConfig));
@@ -225,12 +286,56 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeSessionId, params.agentId]);
 
+  // Save active session to Firestore on message changes
   useEffect(() => {
-    if (sessions.length > 0 && !isTyping) {
-      const savedSessions = sessions.map(s => s.id === activeSessionId ? { ...s, updatedAt: Date.now() } : s);
-      localStorage.setItem(`st_agent_sessions_${params.agentId}`, JSON.stringify(savedSessions));
+    if (sessions.length > 0 && !isTyping && activeSessionId && sessionsLoaded && firestore && user?.uid) {
+      const activeSession = sessions.find(s => s.id === activeSessionId);
+      if (activeSession) {
+        const sessionData = {
+          title: activeSession.title,
+          updatedAt: Date.now(),
+          messages: activeSession.messages,
+          lastMessagePreview: activeSession.messages.length > 0
+            ? activeSession.messages[activeSession.messages.length - 1].text.substring(0, 100)
+            : "",
+        };
+        setDoc(
+          doc(firestore, "users", user.uid, "jarvis_sessions", activeSessionId),
+          sessionData,
+          { merge: true }
+        ).catch(console.error);
+      }
     }
-  }, [sessions, isTyping, activeSessionId, params.agentId]);
+  }, [sessions, isTyping, activeSessionId, sessionsLoaded, firestore, user?.uid]);
+
+  // Welcome back greeting
+  useEffect(() => {
+    if (hasShownWelcome || !sessionsLoaded || !user?.displayName) return;
+    // Only show if the current session has no messages (fresh page load)
+    if (messages.length === 0 && sessions.length > 0) {
+      // Find the most recent session with actual messages
+      const recentWithMessages = sessions
+        .filter(s => s.messages.length > 0 && s.id !== activeSessionId)
+        .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+
+      const firstName = user.displayName.split(" ")[0];
+      let welcomeText: string;
+
+      if (recentWithMessages) {
+        // Get the last user message from that session
+        const lastUserMsg = [...recentWithMessages.messages].reverse().find(m => m.isSelf);
+        const topic = lastUserMsg
+          ? lastUserMsg.text.substring(0, 80) + (lastUserMsg.text.length > 80 ? "..." : "")
+          : recentWithMessages.title;
+        welcomeText = `Welcome back ${firstName}! Want to keep talking about *"${topic}"*, or do you have something new on your mind?`;
+      } else {
+        welcomeText = `Welcome back ${firstName}! What can I help you with today?`;
+      }
+
+      setMessages([{ id: uid(), text: welcomeText, isSelf: false }]);
+      setHasShownWelcome(true);
+    }
+  }, [sessionsLoaded, user?.displayName, hasShownWelcome, sessions, messages.length, activeSessionId]);
 
   const startNewSession = () => {
     const newSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
@@ -250,6 +355,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
     localStorage.setItem(`st_agent_sessions_${params.agentId}`, JSON.stringify(updated));
+    // Also delete from Firestore
+    if (firestore && user?.uid) {
+      deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(console.error);
+    }
     if (activeSessionId === id) {
       if (updated.length > 0) {
         setActiveSessionId(updated[0].id);
