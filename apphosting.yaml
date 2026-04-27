@@ -12,6 +12,7 @@ env:
   - variable: NEXT_PUBLIC_APP_URL
     value: https://www.soltheory.com
   - variable: QUICKBOOKS_CLIENT_ID
-    secret: QUICKBOOKS_CLIENT_ID
+    value: ABtvw9RyXl0kkOCqMA0L62l7A47RaaOhq88xj8VqgKOH1lu2ld
   - variable: QUICKBOOKS_CLIENT_SECRET
-    secret: QUICKBOOKS_CLIENT_SECRET
+    value: uvDHLix9pVKktutkNdcvS9qHCMftn2qrsyWBK1Es
+
