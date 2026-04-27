@@ -57,9 +57,9 @@ export async function GET(req: Request) {
 
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
-      console.error("QuickBooks token exchange failed:", errBody);
+      console.error("QuickBooks token exchange failed:", tokenRes.status, errBody);
       return NextResponse.redirect(
-        `${redirectBase}?tab=profile&qb_connected=false&error=${encodeURIComponent("Token exchange failed")}`
+        `${redirectBase}?tab=profile&qb_connected=false&error=${encodeURIComponent(`Token exchange failed (${tokenRes.status}): ${errBody}`)}`
       );
     }
 
