@@ -54,6 +54,10 @@ export default function SolTheoryDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [surveyAvg, setSurveyAvg] = useState<number | null>(null);
   const [surveyCount, setSurveyCount] = useState(0);
+  const [surveyTotal, setSurveyTotal] = useState(0); // total surveys created
+  const [surveySlides, setSurveySlides] = useState<any[]>([]); // random Q&A for slideshow
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   
   // Profit & Loss Custom Date Range
   const [plDateRange, setPlDateRange] = useState<DateRange | undefined>({
@@ -219,19 +223,21 @@ export default function SolTheoryDashboard() {
     loadUsage();
   }, [firestore, user?.uid, aiFilter, isHeadAdmin]);
 
-  /* Fetch Survey Response Average */
+  /* Fetch Survey Response Average + Slideshow Data */
   useEffect(() => {
     if (!firestore || !user?.uid) return;
-    const fetchSurveyAvg = async () => {
+    const fetchSurveyData = async () => {
       try {
         const { collection: col, getDocs: gd, query: q, where: w } = await import("firebase/firestore");
         // Get surveys created by this user
         const surveysSnap = await gd(q(col(firestore, "custom_surveys"), w("userId", "==", user.uid)));
+        setSurveyTotal(surveysSnap.size);
         if (surveysSnap.empty) return;
         const surveyIds = surveysSnap.docs.map(d => d.id);
         // Get all responses for those surveys
         const responsesSnap = await gd(col(firestore, "custom_survey_responses"));
         let totalScore = 0, totalMax = 0, responseCount = 0;
+        const slideData: any[] = [];
         responsesSnap.docs.forEach(d => {
           const data = d.data();
           if (!surveyIds.includes(data.surveyId)) return;
@@ -239,18 +245,22 @@ export default function SolTheoryDashboard() {
           const answers = data.answers || {};
           // Find the survey to check question types
           const surveyDoc = surveysSnap.docs.find(s => s.id === data.surveyId);
-          const questions = surveyDoc?.data()?.questions || [];
+          const survey = surveyDoc?.data();
+          const questions = survey?.questions || [];
           questions.forEach((question: any) => {
             const answer = answers[question.id];
             if (question.type === "rating" && typeof answer === "number") {
               totalScore += answer;
               totalMax += 5; // ratings are 1-5
+              slideData.push({ q: question.prompt, a: `${answer}/5`, type: "rating", survey: survey?.title || "Survey" });
             } else if (question.type === "choice" && answer) {
               totalScore += 1; // answered = positive signal
               totalMax += 1;
+              slideData.push({ q: question.prompt, a: answer, type: "choice", survey: survey?.title || "Survey" });
             } else if (question.type === "text" && answer && answer.trim().length > 0) {
               totalScore += 1;
               totalMax += 1;
+              slideData.push({ q: question.prompt, a: answer, type: "text", survey: survey?.title || "Survey" });
             }
           });
         });
@@ -258,9 +268,49 @@ export default function SolTheoryDashboard() {
         if (totalMax > 0) {
           setSurveyAvg(Math.round((totalScore / totalMax) * 100));
         }
-      } catch (err) { console.error("Survey avg error", err); }
+        // Shuffle and keep up to 20 slides
+        const shuffled = slideData.sort(() => Math.random() - 0.5).slice(0, 20);
+        setSurveySlides(shuffled);
+      } catch (err) { console.error("Survey data error", err); }
     };
-    fetchSurveyAvg();
+    fetchSurveyData();
+  }, [firestore, user?.uid]);
+
+  /* Auto-advance survey slideshow every 5s */
+  useEffect(() => {
+    if (surveySlides.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlideIndex(prev => (prev + 1) % surveySlides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [surveySlides.length]);
+
+  /* Fetch Upcoming Events from Google Calendar */
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const fetchEvents = async () => {
+      try {
+        const userDoc = await getDoc(doc(firestore, "users", user.uid));
+        const data = userDoc.data();
+        // Find any Google refresh token
+        const rt = data?.gmailOAuth_jarvis?.refreshToken
+          || data?.gmailOAuth_morpheus?.refreshToken
+          || data?.gmailOAuth_email?.refreshToken
+          || data?.["gmailOAuth_inbound-email"]?.refreshToken
+          || data?.gmailOAuth?.refreshToken;
+        if (!rt) return;
+        const res = await fetch("/api/google/integration-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: rt, service: "gcal_upcoming" }),
+        });
+        const json = await res.json();
+        if (json.success && json.events) {
+          setUpcomingEvents(json.events);
+        }
+      } catch (e) { console.error("Events fetch error", e); }
+    };
+    fetchEvents();
   }, [firestore, user?.uid]);
 
   /* ─── Parse QuickBooks data into usable formats ─── */
@@ -519,27 +569,64 @@ export default function SolTheoryDashboard() {
           )}
         </CollapsibleTile>
 
-        {/* Survey Response Avg. */}
-        <CollapsibleTile id="st-survey-response" title="Survey Response Avg." icon={<Smile className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow min-h-[180px]">
+        {/* Survey Insights */}
+        <CollapsibleTile id="st-survey-response" title="Survey Insights" icon={<Smile className="w-4 h-4 text-amber-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow min-h-[180px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
                 <Smile className="w-3.5 h-3.5" />
               </div>
-              <span className="text-xs font-semibold text-slate-700">Survey Response Avg.</span>
+              <span className="text-xs font-semibold text-slate-700">Survey Insights</span>
             </div>
-            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
+            <Link href="/portal/dashboard/soltheory/surveys" className="text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 transition-colors">
+              View All →
+            </Link>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center p-2 rounded-lg bg-amber-50 border border-amber-100">
+              <div className={`text-lg font-black ${surveyAvg !== null ? (surveyAvg >= 70 ? 'text-emerald-600' : surveyAvg >= 40 ? 'text-amber-600' : 'text-red-500') : 'text-slate-300'}`}>
+                {surveyAvg !== null ? `${surveyAvg}%` : '—'}
+              </div>
+              <div className="text-[9px] text-slate-500 font-semibold uppercase">Avg Score</div>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-indigo-50 border border-indigo-100">
+              <div className="text-lg font-black text-indigo-600">{surveyTotal}</div>
+              <div className="text-[9px] text-slate-500 font-semibold uppercase">Surveys</div>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-emerald-50 border border-emerald-100">
+              <div className="text-lg font-black text-emerald-600">{surveyCount}</div>
+              <div className="text-[9px] text-slate-500 font-semibold uppercase">Responses</div>
             </div>
           </div>
-          <div className="flex items-baseline gap-2 mt-auto">
-            <span className={`text-3xl font-bold tracking-tight ${surveyAvg !== null ? 'text-slate-800' : 'text-slate-300'}`}>
-              {surveyAvg !== null ? `${surveyAvg}%` : 'N/A'}
-            </span>
-            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
-              {surveyCount > 0 ? `${surveyCount} response${surveyCount !== 1 ? 's' : ''}` : 'No responses'}
-            </span>
-          </div>
+
+          {/* Score Progress Bar */}
+          {surveyAvg !== null && (
+            <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${surveyAvg >= 70 ? 'bg-emerald-500' : surveyAvg >= 40 ? 'bg-amber-500' : 'bg-red-500'}`}
+                style={{ width: `${surveyAvg}%` }}
+              />
+            </div>
+          )}
+
+          {/* Auto-scrolling slideshow */}
+          {surveySlides.length > 0 && (
+            <div className="relative overflow-hidden rounded-lg bg-slate-50 border border-slate-100 p-3 min-h-[52px]">
+              <div className="transition-all duration-500 ease-in-out" key={slideIndex}>
+                <div className="text-[9px] text-amber-600 font-bold uppercase tracking-wider mb-0.5">{surveySlides[slideIndex]?.survey}</div>
+                <p className="text-[10px] text-slate-600 font-medium leading-tight truncate">Q: {surveySlides[slideIndex]?.q}</p>
+                <p className="text-[10px] text-slate-800 font-bold truncate mt-0.5">A: {surveySlides[slideIndex]?.a}</p>
+              </div>
+              {/* Dots */}
+              <div className="flex gap-1 mt-1.5 justify-center">
+                {surveySlides.slice(0, 8).map((_, i) => (
+                  <div key={i} className={`w-1 h-1 rounded-full transition-all ${i === slideIndex % Math.min(surveySlides.length, 8) ? 'bg-amber-500 w-2.5' : 'bg-slate-300'}`} />
+                ))}
+              </div>
+            </div>
+          )}
         </CollapsibleTile>
       </div>
 
@@ -987,8 +1074,8 @@ export default function SolTheoryDashboard() {
             </div>
           </div>
         </CollapsibleTile>
-        {/* Upcoming Events (mock) */}
-        <CollapsibleTile id="st-upcoming" title="Upcoming Events" icon={<CalendarDays className="w-4 h-4 text-slate-500" />} className="p-6">
+        {/* Upcoming Events — LIVE from Google Calendar */}
+        <CollapsibleTile id="st-upcoming" title="Upcoming Events" icon={<CalendarDays className="w-4 h-4 text-rose-500" />} className="p-6">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
@@ -996,40 +1083,36 @@ export default function SolTheoryDashboard() {
               </div>
               <h3 className="text-sm font-semibold text-slate-700 leading-none">Upcoming Events</h3>
             </div>
-            <button className="text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors">View Calendar</button>
+            <Link href="/portal/dashboard/soltheory/calendar" className="text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors">View Calendar</Link>
           </div>
-          <div className="space-y-3">
-             <div className="text-xs text-center text-slate-400 py-6 border border-dashed border-slate-200 rounded-xl">No upcoming events scheduled.</div>
-          </div>
-        </CollapsibleTile>
-
-        {/* Active Services */}
-        <CollapsibleTile id="st-active-services" title="Active Services" icon={<Activity className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
-                <Activity className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Active Services</h3>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Email Sync", status: "Active", Icon: Mail, color: "text-blue-500", bg: "bg-blue-50" },
-              { label: "Drive Indexer", status: "Idle", Icon: HardDrive, color: "text-slate-500", bg: "bg-slate-50" },
-              { label: "Cal Sync", status: "Active", Icon: CalendarDays, color: "text-emerald-500", bg: "bg-emerald-50" },
-              { label: "Backup", status: "2h ago", Icon: Database, color: "text-amber-500", bg: "bg-amber-50" },
-            ].map((s) => (
-              <div key={s.label} className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-shadow">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.bg} ${s.color}`}>
-                  <s.Icon className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-700 truncate">{s.label}</p>
-                  <p className="text-[10px] text-slate-400 font-medium">{s.status}</p>
-                </div>
-              </div>
-            ))}
+          <div className="space-y-2.5 max-h-[280px] overflow-y-auto scrollbar-thin">
+            {upcomingEvents.length === 0 ? (
+              <div className="text-xs text-center text-slate-400 py-6 border border-dashed border-slate-200 rounded-xl">No upcoming events scheduled.</div>
+            ) : (
+              upcomingEvents.map((evt: any) => {
+                const start = new Date(evt.start);
+                const isToday = start.toDateString() === new Date().toDateString();
+                const dayLabel = isToday ? "Today" : start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                const timeLabel = start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                return (
+                  <div key={evt.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 bg-white hover:shadow-sm transition-shadow group">
+                    <div className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-500'}`}>
+                      <span className="text-[9px] font-bold uppercase leading-none">{start.toLocaleDateString("en-US", { month: "short" })}</span>
+                      <span className="text-sm font-black leading-none">{start.getDate()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-700 truncate group-hover:text-indigo-700 transition-colors">{evt.title}</p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">{dayLabel} • {timeLabel}</p>
+                      {evt.meetLink && (
+                        <a href={evt.meetLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-blue-600 hover:text-blue-800">
+                          <Globe className="w-2.5 h-2.5" /> Join Meet
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </CollapsibleTile>
       </div>

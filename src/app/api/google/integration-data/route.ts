@@ -102,6 +102,29 @@ export async function POST(req: Request) {
         });
       }
 
+      case "gcal_upcoming": {
+        const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+        const now = new Date();
+        const weekAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const res = await calendar.events.list({
+          calendarId: "primary",
+          timeMin: now.toISOString(),
+          timeMax: weekAhead.toISOString(),
+          singleEvents: true,
+          orderBy: "startTime",
+          maxResults: 10,
+        });
+        const events = (res.data.items || []).map(e => ({
+          id: e.id,
+          title: e.summary || "Untitled",
+          start: e.start?.dateTime || e.start?.date || "",
+          end: e.end?.dateTime || e.end?.date || "",
+          meetLink: e.hangoutLink || null,
+          location: e.location || null,
+        }));
+        return NextResponse.json({ success: true, events });
+      }
+
       default:
         return NextResponse.json({ error: "Unknown service" }, { status: 400 });
     }
