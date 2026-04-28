@@ -165,10 +165,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               messages: data.messages || [],
             });
           });
-          // Filter out empty ghost sessions (no user messages and no title)
+          // Filter out empty ghost sessions (no user messages and title is "New Chat")
           const validSessions = loaded.filter(s =>
             s.messages.filter((m: Message) => m.isSelf).length > 0 || s.title !== "New Chat"
           );
+          // Clean up ghost sessions from Firestore
+          const ghostIds = loaded.filter(s =>
+            s.messages.filter((m: Message) => m.isSelf).length === 0 && s.title === "New Chat"
+          ).map(s => s.id);
+          for (const gid of ghostIds) {
+            deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", gid)).catch(() => {});
+          }
           // Always start with a fresh "New Chat" at the top
           const freshSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
           setSessions([freshSession, ...validSessions]);
@@ -369,17 +376,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   const deleteSession = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    // Don't allow deleting the only empty "New Chat" — just ignore
     const session = sessions.find(s => s.id === id);
-    if (session && session.title === "New Chat" && session.messages.filter(m => m.isSelf).length === 0) {
-      return; // Can't delete the fresh empty chat
-    }
-    if (!confirm('Delete this chat?')) return;
+    const isEmpty = session && session.title === "New Chat" && session.messages.filter(m => m.isSelf).length === 0;
+    // Empty "New Chat" sessions can be removed silently (no confirm)
+    // Sessions with content require confirmation
+    if (!isEmpty && !confirm('Delete this chat?')) return;
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
-    // Delete from Firestore
+    // Delete from Firestore if saved
     if (firestore && user?.uid) {
-      deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(console.error);
+      deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(() => {});
     }
     if (activeSessionId === id) {
       if (updated.length > 0) {
