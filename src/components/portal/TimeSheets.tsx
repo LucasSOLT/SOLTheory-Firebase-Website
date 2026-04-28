@@ -280,7 +280,7 @@ export function TimeSheets() {
                         name={emp}
                         fill={getColor(emp)}
                         radius={[4, 4, 0, 0]}
-                        maxBarSize={mode === "range" && chartData.length > 14 ? 12 : 32}
+                        maxBarSize={chartData.length > 14 ? 12 : 32}
                       />
                     ))}
                   </BarChart>
@@ -299,7 +299,7 @@ export function TimeSheets() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-700 truncate">{emp}</p>
-                      <p className="text-[10px] text-slate-400">{mode === "week" ? "This week" : "Selected range"}</p>
+                      <p className="text-[10px] text-slate-400">Selected range</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-800">
@@ -313,7 +313,7 @@ export function TimeSheets() {
               {/* Total */}
               <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {mode === "week" ? "Week" : "Range"} Total
+                  Range Total
                 </span>
                 <span className="text-sm font-bold text-slate-800">
                   {Math.floor(weekTotal)}h {Math.round((weekTotal % 1) * 60)}m
