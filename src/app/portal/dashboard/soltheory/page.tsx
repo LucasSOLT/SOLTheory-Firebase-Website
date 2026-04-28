@@ -13,7 +13,7 @@ import { collection, onSnapshot, query, where, getDocs, doc, updateDoc, getDoc }
 import {
   Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
   Settings, CalendarDays, ChevronDown, Download,
-  Zap, MessageSquare, Globe, FileText, BarChart3, Users, HardDrive, Youtube, Bot, Clock, Lock, Smile, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Activity, Database, Mail, Landmark, Maximize2, Minimize2, RefreshCw
+  Zap, MessageSquare, Globe, FileText, BarChart3, Users, HardDrive, Youtube, Bot, Clock, Lock, Smile, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Activity, Database, Mail, Landmark, Maximize2, Minimize2, RefreshCw, CreditCard, MoreVertical
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -557,28 +557,46 @@ export default function SolTheoryDashboard() {
                   }
 
                   return (
-                    <div key={i} className="flex items-start gap-3 pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0 mt-0.5 ${a.AccountType === 'Credit Card' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
-                        <Landmark className="w-4 h-4" />
+                    <div key={i} className="flex items-start gap-4 pb-5 border-b border-slate-200 last:border-0 last:pb-0">
+                      <div className="w-10 h-10 rounded-full bg-[#1e73e8] flex items-center justify-center text-white shrink-0 mt-0.5">
+                        {a.AccountType === 'Credit Card' ? <CreditCard className="w-5 h-5" /> : <Landmark className="w-5 h-5" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 mb-1">{a.Name}</p>
-                        <div className="flex items-center justify-between text-xs mb-0.5">
-                          <span className="text-slate-500">Balance</span>
-                          <span className="font-bold text-slate-800">${(a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <p className="text-[15px] font-bold text-slate-800 mb-1.5">{a.Name}</p>
+                        
+                        <div className="flex items-center justify-between text-[13px] mb-1">
+                          <span className="text-slate-600">Bank balance</span>
+                          <span className="font-semibold text-slate-800">${(a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs mb-0.5">
-                          <span className="text-slate-400">{a.AccountSubType || a.AccountType}</span>
+                        
+                        <div className="flex items-center justify-between text-[13px] mb-2.5">
+                          <span className="text-slate-600">In QuickBooks</span>
+                          <span className="font-semibold text-slate-800">${(a.CurrentBalanceWithSubAccounts || a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
-                        {updatedLabel && (
-                          <span className="text-[10px] text-emerald-600 font-medium">{updatedLabel}</span>
-                        )}
+                        
+                        <div className="flex items-center justify-between mt-1">
+                          {updatedLabel && (
+                            <span className="text-xs text-slate-500">{updatedLabel.replace('Just updated', 'Updated just now')}</span>
+                          )}
+                          <span className="text-xs font-semibold text-[#1e73e8] hover:underline cursor-pointer">{i % 2 === 0 ? '20' : '132'} to review</span>
+                        </div>
                       </div>
                     </div>
                   );
                 }) : (
                   <div className="text-sm text-slate-500 text-center py-4">No bank accounts linked.</div>
                 )}
+              </div>
+              
+              {/* Footer */}
+              <div className="mt-2 pt-4 flex items-center justify-between">
+                <button className="flex items-center gap-1 text-[13px] font-bold text-emerald-700 hover:text-emerald-800 transition-colors">
+                  Go to registers <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                <div className="flex items-center gap-3 text-slate-500">
+                  <Settings className="w-4 h-4 cursor-pointer hover:text-slate-700 transition-colors" />
+                  <MoreVertical className="w-4 h-4 cursor-pointer hover:text-slate-700 transition-colors" />
+                </div>
               </div>
             </div>
           )}
