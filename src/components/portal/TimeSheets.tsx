@@ -258,7 +258,7 @@ export function TimeSheets() {
                       tick={{ fontSize: 9, fill: "#94a3b8", fontWeight: 600 }}
                       axisLine={false}
                       tickLine={false}
-                      interval={mode === "range" && chartData.length > 14 ? Math.floor(chartData.length / 10) : 0}
+                      interval={chartData.length > 14 ? Math.floor(chartData.length / 10) : 0}
                     />
                     <YAxis
                       tick={{ fontSize: 10, fill: "#94a3b8" }}
