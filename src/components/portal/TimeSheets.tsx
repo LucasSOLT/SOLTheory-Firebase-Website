@@ -152,36 +152,8 @@ export function TimeSheets() {
   const { chartData, employees, totalByEmployee } = useMemo(() => {
     const employeeSet = new Set<string>();
 
-    if (mode === "week") {
-      // Weekly mode: group by day of week
-      const dayMap: Record<number, Record<string, number>> = {};
-      for (let i = 0; i < 7; i++) dayMap[i] = {};
+    // Group by date
 
-      timeData.forEach((ta: any) => {
-        const name = ta.EmployeeRef?.name || ta.VendorRef?.name || "Unknown";
-        employeeSet.add(name);
-        const txnDate = new Date(ta.TxnDate + "T00:00:00");
-        const dayIdx = txnDate.getDay();
-        const hours = (ta.Hours || 0) + (ta.Minutes || 0) / 60;
-        if (!dayMap[dayIdx]) dayMap[dayIdx] = {};
-        dayMap[dayIdx][name] = (dayMap[dayIdx][name] || 0) + hours;
-      });
-
-      const employees = Array.from(employeeSet).sort();
-      const chartData = DAY_LABELS.map((label, i) => {
-        const row: any = { day: label };
-        employees.forEach(emp => { row[emp] = dayMap[i]?.[emp] || 0; });
-        return row;
-      });
-
-      const totalByEmployee: Record<string, number> = {};
-      employees.forEach(emp => {
-        totalByEmployee[emp] = chartData.reduce((sum, d) => sum + (d[emp] || 0), 0);
-      });
-
-      return { chartData, employees, totalByEmployee };
-    } else {
-      // Custom range mode: group by date
       const dateMap: Record<string, Record<string, number>> = {};
 
       timeData.forEach((ta: any) => {
