@@ -152,29 +152,72 @@ export default function SolTheoryDashboard() {
     return () => clearInterval(interval);
   }, [fetchQbData]);
 
-  /* Fetch AI Token Usage */
+  /* Fetch AI Token Usage — reads from same source as chat interface */
   useEffect(() => {
-    if (!user?.uid) return;
-    const fetchUsage = async () => {
+    if (!firestore || !user?.uid) return;
+
+    const loadUsage = async () => {
       try {
-        const res = await fetch("/api/ai-usage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            uid: user.uid,
-            email: user.email,
-            orgId: "soltheory",
-            filter: aiFilter,
-          }),
-        });
-        const data = await res.json();
-        setAiUsage(data);
+        if (aiFilter === "user") {
+          // Read current user's doc — real-time data
+          const userDoc = await getDoc(doc(firestore, "users", user.uid));
+          const data = userDoc.data();
+          const groqTokens = data?.groqTokens || 0;
+          const elevenChars = data?.elevenLabsChars || 0;
+          const groqCost = groqTokens * 0.00000006;
+          const elevenCost = elevenChars * 0.000167;
+          setAiUsage({
+            totalCost: groqCost + elevenCost,
+            totalTokens: groqTokens,
+            totalChars: elevenChars,
+            totalCalls: null,
+            byModel: {
+              "groq/llama-3.3-70b-versatile": { tokens: groqTokens, cost: groqCost, calls: 0 },
+              ...(elevenChars > 0 ? { "elevenlabs/eleven_turbo_v2_5": { tokens: 0, cost: elevenCost, calls: 0, characters: elevenChars } } : {}),
+            },
+          });
+        } else {
+          // Org or All — query multiple users
+          const { collection: col, getDocs: gd, query: q, where: w } = await import("firebase/firestore");
+          let usersQuery;
+          if (aiFilter === "all" && isHeadAdmin) {
+            usersQuery = col(firestore, "users");
+          } else {
+            // Org filter — get users whose email ends with org domain
+            usersQuery = col(firestore, "users");
+          }
+          const snap = await gd(usersQuery);
+          let groqTokens = 0, elevenChars = 0;
+          snap.docs.forEach(d => {
+            const data = d.data();
+            // For org filter, only include matching org emails
+            if (aiFilter === "org") {
+              const email = data.email || "";
+              if (!email.includes("soltheory")) return;
+            }
+            groqTokens += data.groqTokens || 0;
+            elevenChars += data.elevenLabsChars || 0;
+          });
+          const groqCost = groqTokens * 0.00000006;
+          const elevenCost = elevenChars * 0.000167;
+          setAiUsage({
+            totalCost: groqCost + elevenCost,
+            totalTokens: groqTokens,
+            totalChars: elevenChars,
+            totalCalls: null,
+            byModel: {
+              "groq/llama-3.3-70b-versatile": { tokens: groqTokens, cost: groqCost, calls: 0 },
+              ...(elevenChars > 0 ? { "elevenlabs/eleven_turbo_v2_5": { tokens: 0, cost: elevenCost, calls: 0, characters: elevenChars } } : {}),
+            },
+          });
+        }
       } catch (e) {
         console.error("Failed to fetch AI usage", e);
+        setAiUsage({ totalCost: 0, totalTokens: 0, totalChars: 0, totalCalls: 0, byModel: {} });
       }
     };
-    fetchUsage();
-  }, [user?.uid, user?.email, aiFilter]);
+    loadUsage();
+  }, [firestore, user?.uid, aiFilter, isHeadAdmin]);
 
   /* Fetch Survey Response Average */
   useEffect(() => {
@@ -373,20 +416,33 @@ export default function SolTheoryDashboard() {
 
           {aiUsage && aiUsage.totalCost !== undefined ? (
             <div className="flex flex-col gap-2 mt-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-800 tracking-tight">${(aiUsage.totalCost || 0).toFixed(4)}</span>
-                <span className="text-[10px] font-semibold text-slate-400">{aiUsage.totalCalls || 0} calls</span>
+              {/* Summary bar like the chat interface */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 text-white text-[10px] font-bold tracking-wide">
+                <Cpu className="w-3 h-3 opacity-70" />
+                {(aiUsage.totalTokens || 0).toLocaleString()} TOKENS
+                <span className="opacity-30 mx-0.5">|</span>
+                {(aiUsage.totalChars || 0).toLocaleString()} CHARS
+                <span className="opacity-30 mx-0.5">|</span>
+                ≈ ${(aiUsage.totalCost || 0).toFixed(4)}
               </div>
-              <div className="space-y-1.5 max-h-[90px] overflow-y-auto scrollbar-thin">
+              {/* Per-model breakdown */}
+              <div className="space-y-1.5 max-h-[85px] overflow-y-auto scrollbar-thin">
                 {Object.entries(aiUsage.byModel || {}).map(([key, val]: any) => {
                   const [provider, model] = key.split("/");
+                  const isEL = provider === "elevenlabs";
                   return (
-                    <div key={key} className="flex items-center justify-between text-[10px] py-1 px-2 rounded-md bg-slate-50">
+                    <div key={key} className="flex items-center justify-between text-[10px] py-1.5 px-2.5 rounded-lg bg-slate-50 border border-slate-100">
                       <div className="flex items-center gap-1.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${provider === "elevenlabs" ? "bg-amber-500" : "bg-violet-500"}`} />
-                        <span className="font-medium text-slate-600 truncate max-w-[120px]">{model}</span>
+                        <div className={`w-2 h-2 rounded-full ${isEL ? "bg-emerald-500" : "bg-violet-500"}`} />
+                        <div>
+                          <span className="font-bold text-slate-700 uppercase text-[9px]">{isEL ? "ElevenLabs" : "Groq"}</span>
+                          <span className="text-slate-400 ml-1">{model}</span>
+                        </div>
                       </div>
-                      <span className="font-bold text-slate-800">${(val.cost || 0).toFixed(4)}</span>
+                      <div className="text-right">
+                        <span className="font-bold text-slate-800">${(val.cost || 0).toFixed(4)}</span>
+                        <div className="text-[8px] text-slate-400">{isEL ? `${(val.characters || 0).toLocaleString()} chars` : `${(val.tokens || 0).toLocaleString()} tokens`}</div>
+                      </div>
                     </div>
                   );
                 })}
