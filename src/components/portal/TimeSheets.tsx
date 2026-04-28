@@ -3,10 +3,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { Clock, ChevronLeft, ChevronRight, Loader2, CalendarDays } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, Loader2, CalendarDays, ChevronDown } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
 } from "recharts";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 /* ── helpers ── */
 function getWeekRange(offset: number) {
@@ -80,34 +84,24 @@ export function TimeSheets() {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  // Mode: "week" for week-by-week nav, "range" for custom date range
-  const [mode, setMode] = useState<"week" | "range">("week");
-  const [weekOffset, setWeekOffset] = useState(0);
-
-  // Custom date range
-  const [customStart, setCustomStart] = useState(() => {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return formatDate(d);
+    d.setDate(d.getDate() - 7);
+    return { from: d, to: new Date() };
   });
-  const [customEnd, setCustomEnd] = useState(() => formatDate(new Date()));
 
   const [timeData, setTimeData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const weekRange = useMemo(() => getWeekRange(weekOffset), [weekOffset]);
-
   // Active date range based on mode
   const activeStart = useMemo(() => {
-    if (mode === "week") return weekRange.start;
-    return new Date(customStart + "T00:00:00");
-  }, [mode, weekRange.start, customStart]);
+    return dateRange?.from ? new Date(dateRange.from.setHours(0, 0, 0, 0)) : new Date();
+  }, [dateRange?.from]);
 
   const activeEnd = useMemo(() => {
-    if (mode === "week") return weekRange.end;
-    return new Date(customEnd + "T23:59:59");
-  }, [mode, weekRange.end, customEnd]);
+    return dateRange?.to ? new Date(dateRange.to.setHours(23, 59, 59, 999)) : activeStart;
+  }, [dateRange?.to, activeStart]);
 
   const fetchTimesheets = useCallback(async () => {
     if (!firestore || !user?.uid) return;
@@ -215,8 +209,7 @@ export function TimeSheets() {
       });
 
       return { chartData, employees, totalByEmployee };
-    }
-  }, [timeData, mode, activeStart, activeEnd]);
+  }, [timeData, activeStart, activeEnd]);
 
   const weekTotal = Object.values(totalByEmployee).reduce((a, b) => a + b, 0);
 
@@ -231,75 +224,37 @@ export function TimeSheets() {
           <h3 className="text-sm font-semibold text-slate-700 leading-none">Time Sheets</h3>
         </div>
 
-        {/* Mode toggle */}
-        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
-          <button
-            onClick={() => setMode("week")}
-            className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${mode === "week" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Weekly
-          </button>
-          <button
-            onClick={() => setMode("range")}
-            className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1 ${mode === "range" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            <CalendarDays className="w-3 h-3" /> Custom
-          </button>
-        </div>
+        {/* Custom date range picker */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+              <CalendarDays className="w-3.5 h-3.5 text-slate-500" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                  </>
+                ) : (
+                  format(dateRange.from, "LLL dd, y")
+                )
+              ) : (
+                <span>Custom dates</span>
+              )}
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={dateRange?.from}
+              selected={dateRange}
+              onSelect={setDateRange}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
-
-      {/* Week navigator (week mode) */}
-      {mode === "week" && (
-        <div className="flex items-center gap-1.5 mb-3">
-          <button
-            onClick={() => setWeekOffset(w => w - 1)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setWeekOffset(0)}
-            className="px-3 py-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-          >
-            {weekOffset === 0 ? "This Week" : `${formatShortDate(weekRange.start)} – ${formatShortDate(weekRange.end)}`}
-          </button>
-          <button
-            onClick={() => setWeekOffset(w => w + 1)}
-            disabled={weekOffset >= 0}
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-          <span className="text-[10px] text-slate-400 font-medium ml-2">
-            {formatShortDate(weekRange.start)} – {formatShortDate(weekRange.end)}, {weekRange.start.getFullYear()}
-          </span>
-        </div>
-      )}
-
-      {/* Custom date range picker */}
-      {mode === "range" && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">From</label>
-            <input
-              type="date"
-              value={customStart}
-              onChange={e => setCustomStart(e.target.value)}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-            />
-          </div>
-          <span className="text-slate-300 font-bold">→</span>
-          <div className="flex items-center gap-1.5">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">To</label>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={e => setCustomEnd(e.target.value)}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-            />
-          </div>
-        </div>
-      )}
 
       {/* Loading / Error */}
       {loading && (

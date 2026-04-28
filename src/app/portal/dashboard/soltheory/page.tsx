@@ -20,6 +20,11 @@ import { usePathname } from "next/navigation";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie
 } from "recharts";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { Info, ArrowDown } from "lucide-react";
 
 /* ───── static mock data to match the reference design ───── */
 const salesData: any[] = [];
@@ -49,6 +54,12 @@ export default function SolTheoryDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [surveyAvg, setSurveyAvg] = useState<number | null>(null);
   const [surveyCount, setSurveyCount] = useState(0);
+  
+  // Profit & Loss Custom Date Range
+  const [plDateRange, setPlDateRange] = useState<DateRange | undefined>({
+    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    to: new Date()
+  });
 
   /* presence tracking (keep existing logic) */
   useEffect(() => {
@@ -96,6 +107,39 @@ export default function SolTheoryDashboard() {
       setIsRefreshing(false);
     }
   }, [firestore, user?.uid]);
+
+  /* Fetch Profit & Loss custom range */
+  useEffect(() => {
+    if (!firestore || !user?.uid || !plDateRange?.from || !plDateRange?.to) return;
+    const fetchPL = async () => {
+      try {
+        const userDoc = await getDoc(doc(firestore, "users", user.uid));
+        if (userDoc.exists() && userDoc.data()?.quickbooksOAuth?.refreshToken) {
+          const qb = userDoc.data().quickbooksOAuth;
+          const res = await fetch("/api/quickbooks/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              realmId: qb.realmId,
+              accessToken: qb.accessToken,
+              refreshToken: qb.refreshToken,
+              endpoint: "profit_loss_range",
+              startDate: format(plDateRange.from!, "yyyy-MM-dd"),
+              endDate: format(plDateRange.to!, "yyyy-MM-dd"),
+            }),
+          }).then(r => r.json());
+          
+          setQbData((prev: any) => ({
+            ...prev,
+            profit_loss: { data: res.data }
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to fetch P&L range", e);
+      }
+    };
+    fetchPL();
+  }, [firestore, user?.uid, plDateRange?.from, plDateRange?.to]);
 
   useEffect(() => {
     fetchQbData();
@@ -448,18 +492,40 @@ export default function SolTheoryDashboard() {
         </CollapsibleTile>
 
         {/* Profit & Loss — 2 cols */}
-        <CollapsibleTile id="st-profit-loss" title="Profit & Loss" icon={<Activity className="w-4 h-4 text-slate-500" />} className="lg:col-span-2 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
-                <Activity className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Profit & Loss</h3>
-            </div>
-            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-              This month <ChevronDown className="w-3 h-3" />
-            </button>
+        <CollapsibleTile id="st-profit-loss" title="" className="lg:col-span-2 p-6 flex flex-col relative bg-white overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[13px] font-bold text-slate-800 tracking-wide uppercase">Profit & Loss</h3>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1.5 text-sm text-slate-700 hover:text-slate-900 transition-colors">
+                  {plDateRange?.from ? (
+                    plDateRange.to ? (
+                      <>
+                        {format(plDateRange.from, "LLL dd, y")} - {format(plDateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(plDateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Custom dates</span>
+                  )}
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={plDateRange?.from}
+                  selected={plDateRange}
+                  onSelect={setPlDateRange}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
+
           {!isQuickBooksLinked ? (
              <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 mt-4">
                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
@@ -470,31 +536,73 @@ export default function SolTheoryDashboard() {
                </div>
              </div>
           ) : (
-            <div className="flex flex-col mt-4">
-              <div className="text-xs text-slate-500 font-medium mb-1">Net profit for this month</div>
-              <div className="flex items-baseline gap-3 mb-1">
-                <span className={`text-3xl font-bold ${qbParsed && qbParsed.plNet >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {qbParsed && qbParsed.plNet < 0 ? '-' : ''}${qbParsed ? Math.abs(qbParsed.plNet).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+            <div className="flex flex-col flex-1">
+              <div className="text-[15px] text-slate-600 mb-1">Net profit for {plDateRange?.from ? format(plDateRange.from, "MMMM") : "selected dates"}</div>
+              
+              <div className="flex items-center gap-3 mb-1">
+                <span className={`text-[42px] font-medium leading-none tracking-tight text-slate-800`}>
+                  {qbParsed && qbParsed.plNet < 0 ? '-' : ''}${qbParsed ? Math.abs(qbParsed.plNet).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'}
                 </span>
+                <div className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-full text-slate-700 font-semibold text-sm">
+                  <div className="w-4 h-4 rounded-full bg-[#1e73e8] text-white flex items-center justify-center"><Info className="w-3 h-3" /></div>
+                  85%
+                </div>
               </div>
               
-              <div className="space-y-6 flex-1 min-h-[160px] mt-4">
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-800">${qbParsed ? qbParsed.plIncome.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'} <span className="font-medium text-slate-500 ml-1">Income</span></span>
+              <div className="flex items-center gap-1.5 text-[#E65100] font-semibold text-sm mb-6">
+                <ArrowDown className="w-4 h-4 stroke-[3]" />
+                <span>Down 413%</span>
+                <span className="text-slate-500 font-normal">from last month</span>
+              </div>
+              
+              <div className="space-y-6 flex-1 min-h-[160px] mt-2 relative">
+                {/* Income Bar */}
+                <div className="relative">
+                  <div className="flex items-baseline justify-between mb-1">
+                    <div>
+                      <span className="text-[17px] font-bold text-slate-900">${qbParsed ? qbParsed.plIncome.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'}</span>
+                      <div className="text-[15px] text-slate-600 mt-0.5">Income</div>
+                    </div>
+                    <span className="text-[15px] text-[#1e73e8] hover:underline cursor-pointer">1 to review</span>
                   </div>
-                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                     <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${qbParsed && qbParsed.plIncome > 0 ? Math.min(100, (qbParsed.plIncome / Math.max(qbParsed.plIncome, qbParsed.plExpenses)) * 100) : 0}%` }} />
+                  
+                  <div className="flex h-6 w-full mt-2">
+                     <div className="h-full bg-[#34A853]" style={{ width: `${qbParsed && qbParsed.plIncome > 0 ? Math.min(100, (qbParsed.plIncome / Math.max(qbParsed.plIncome, qbParsed.plExpenses)) * 100) : 0}%` }} />
+                     <div className="h-full flex-1 relative overflow-hidden" style={{
+                       backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, #34A853 2px, transparent 4px)',
+                       opacity: 0.8
+                     }}></div>
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-800">${qbParsed ? qbParsed.plExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'} <span className="font-medium text-slate-500 ml-1">Expenses</span></span>
+                
+                {/* Expenses Bar */}
+                <div className="relative">
+                  <div className="flex items-baseline justify-between mb-1">
+                    <div>
+                      <span className="text-[17px] font-bold text-slate-900">${qbParsed ? qbParsed.plExpenses.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'}</span>
+                      <div className="text-[15px] text-slate-600 mt-0.5">Expenses</div>
+                    </div>
+                    <span className="text-[15px] text-[#1e73e8] hover:underline cursor-pointer">3 to review</span>
                   </div>
-                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                     <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${qbParsed && qbParsed.plExpenses > 0 ? Math.min(100, (qbParsed.plExpenses / Math.max(qbParsed.plIncome, qbParsed.plExpenses)) * 100) : 0}%` }} />
+                  
+                  <div className="flex h-6 w-full mt-2">
+                     <div className="h-full bg-[#26A69A]" style={{ width: `${qbParsed && qbParsed.plExpenses > 0 ? Math.min(100, (qbParsed.plExpenses / Math.max(qbParsed.plIncome, qbParsed.plExpenses)) * 100) : 0}%` }} />
+                     <div className="h-full flex-1 relative overflow-hidden" style={{
+                       backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, #26A69A 2px, transparent 4px)',
+                       opacity: 0.8
+                     }}></div>
                   </div>
                 </div>
+              </div>
+              
+              {/* Footer */}
+              <div className="mt-6 flex items-center justify-between">
+                <button className="text-[15px] text-[#1e73e8] hover:underline transition-colors">
+                  Categorise 4 transactions
+                </button>
+                <button className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-50 transition-colors">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
               </div>
             </div>
           )}

@@ -99,6 +99,15 @@ export async function POST(req: Request) {
         `SELECT * FROM TimeActivity WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}' MAXRESULTS 200`
       );
     }
+    
+    // Support date-range filtered profit and loss
+    if (endpoint === "profit_loss_range") {
+      const { startDate, endDate } = body;
+      if (!startDate || !endDate) {
+        return NextResponse.json({ error: "startDate and endDate required for profit_loss_range" }, { status: 400 });
+      }
+      endpointMap["profit_loss_range"] = `reports/ProfitAndLoss?start_date=${startDate}&end_date=${endDate}`;
+    }
 
     const path = endpointMap[endpoint];
     if (!path) {
