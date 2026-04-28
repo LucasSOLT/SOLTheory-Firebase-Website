@@ -1,11 +1,12 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
+import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 
 export async function POST(req: Request) {
   try {
-    const { messages, agentId } = await req.json();
+    const { messages, agentId, uid } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Messages required" }, { status: 400 });
@@ -37,9 +38,26 @@ export async function POST(req: Request) {
       max_tokens: 200,
     });
 
+    const inputTokens = completion.usage?.prompt_tokens || 0;
+    const outputTokens = completion.usage?.completion_tokens || 0;
+    const totalTokens = completion.usage?.total_tokens || 0;
+    const voiceModel = "llama-3.1-8b-instant";
+    logAIUsage({
+      userId: uid || "anonymous",
+      orgId: isNxt ? "nxtchapter" : "soltheory",
+      model: voiceModel,
+      provider: "groq",
+      endpoint: "/api/voice-chat",
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      costUsd: calculateGroqCost(voiceModel, inputTokens, outputTokens),
+      timestamp: new Date(),
+    });
+
     return NextResponse.json({
       response: completion.choices[0]?.message?.content || "I couldn't process that.",
-      usage: completion.usage?.total_tokens || 0
+      usage: totalTokens
     });
   } catch (error: any) {
     console.error("[Voice API Error]", error?.message);

@@ -5,6 +5,7 @@ import { google } from "googleapis";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
+import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 const tools: any = [
   {
     type: "function",
@@ -1143,10 +1144,28 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
       loopCount++;
     }
 
+    // Log AI usage
+    const inputTokens = completion?.usage?.prompt_tokens || 0;
+    const outputTokens = completion?.usage?.completion_tokens || 0;
+    const totalTokens = completion?.usage?.total_tokens || 0;
+    const model = "llama-3.3-70b-versatile";
+    logAIUsage({
+      userId: uid || "anonymous",
+      orgId: isNxtChapter ? "nxtchapter" : "soltheory",
+      model,
+      provider: "groq",
+      endpoint: "/api/chat",
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      costUsd: calculateGroqCost(model, inputTokens, outputTokens),
+      timestamp: new Date(),
+    });
+
     // Default Raw Response
     return NextResponse.json({ 
       response: responseMessage?.content || "",
-      usage: completion.usage?.total_tokens || 0,
+      usage: totalTokens,
       executedTools: executedTools.length > 0 ? executedTools : undefined
     });
   } catch (error: any) {

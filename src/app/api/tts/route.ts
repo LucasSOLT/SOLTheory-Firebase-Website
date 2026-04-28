@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { logAIUsage, calculateElevenLabsCost } from "@/lib/log-ai-usage";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const text = searchParams.get("text");
+    const uid = searchParams.get("uid") || "anonymous";
+    const org = searchParams.get("org") || "soltheory";
 
     if (!text) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
@@ -36,6 +39,18 @@ export async function GET(req: Request) {
     }
 
     // Stream the raw response directly from ElevenLabs without buffering it into memory
+    const charCount = text.length;
+    logAIUsage({
+      userId: uid,
+      orgId: org,
+      model: "eleven_turbo_v2_5",
+      provider: "elevenlabs",
+      endpoint: "/api/tts",
+      characters: charCount,
+      costUsd: calculateElevenLabsCost(charCount),
+      timestamp: new Date(),
+    });
+
     return new NextResponse(response.body, {
       headers: {
         "Content-Type": "audio/mpeg",

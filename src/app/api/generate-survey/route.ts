@@ -1,9 +1,10 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
+import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 
 export async function POST(req: Request) {
   try {
-    const { description } = await req.json();
+    const { description, uid, orgId } = await req.json();
 
     if (!description) {
       return NextResponse.json({ error: "Description is required" }, { status: 400 });
@@ -70,6 +71,22 @@ Make the survey professional and perfectly tailored to their request.`
     jsonString = jsonString.trim();
 
     const surveyData = JSON.parse(jsonString);
+
+    const surveyModel = "llama-3.3-70b-versatile";
+    const inputTokens = completion.usage?.prompt_tokens || 0;
+    const outputTokens = completion.usage?.completion_tokens || 0;
+    logAIUsage({
+      userId: uid || "anonymous",
+      orgId: orgId || "soltheory",
+      model: surveyModel,
+      provider: "groq",
+      endpoint: "/api/generate-survey",
+      inputTokens,
+      outputTokens,
+      totalTokens: completion.usage?.total_tokens || 0,
+      costUsd: calculateGroqCost(surveyModel, inputTokens, outputTokens),
+      timestamp: new Date(),
+    });
 
     return NextResponse.json({ survey: surveyData });
   } catch (error: any) {

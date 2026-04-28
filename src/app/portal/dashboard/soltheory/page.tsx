@@ -13,7 +13,7 @@ import { collection, onSnapshot, query, where, getDocs, doc, updateDoc, getDoc }
 import {
   Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
   Settings, CalendarDays, ChevronDown, Download,
-  Zap, MessageSquare, Globe, FileText, BarChart3, Users, HardDrive, Youtube, Bot, Clock, Lock, Smile, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Activity, Database, Mail, Landmark, Maximize2, Minimize2, RefreshCw, CreditCard, MoreVertical
+  Zap, MessageSquare, Globe, FileText, BarChart3, Users, HardDrive, Youtube, Bot, Clock, Lock, Smile, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Activity, Database, Mail, Landmark, Maximize2, Minimize2, RefreshCw, CreditCard, MoreVertical, Cpu
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -60,6 +60,11 @@ export default function SolTheoryDashboard() {
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date()
   });
+
+  // AI Token Usage
+  const [aiUsage, setAiUsage] = useState<any>(null);
+  const [aiFilter, setAiFilter] = useState<"user" | "org" | "all">("user");
+  const isHeadAdmin = user?.email === "lucas@soltheory.com";
 
   /* presence tracking (keep existing logic) */
   useEffect(() => {
@@ -141,11 +146,35 @@ export default function SolTheoryDashboard() {
     fetchPL();
   }, [firestore, user?.uid, plDateRange?.from, plDateRange?.to]);
 
-  useEffect(() => {
+   useEffect(() => {
     fetchQbData();
     const interval = setInterval(fetchQbData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchQbData]);
+
+  /* Fetch AI Token Usage */
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchUsage = async () => {
+      try {
+        const res = await fetch("/api/ai-usage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uid: user.uid,
+            email: user.email,
+            orgId: "soltheory",
+            filter: aiFilter,
+          }),
+        });
+        const data = await res.json();
+        setAiUsage(data);
+      } catch (e) {
+        console.error("Failed to fetch AI usage", e);
+      }
+    };
+    fetchUsage();
+  }, [user?.uid, user?.email, aiFilter]);
 
   /* Fetch Survey Response Average */
   useEffect(() => {
@@ -326,23 +355,46 @@ export default function SolTheoryDashboard() {
 
       {/* ─── Top 3 Metric Cards ─── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Page Views */}
-        <CollapsibleTile id="st-page-views" title="Page Views" icon={<Eye className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow min-h-[180px]">
+        {/* AI Token Usage */}
+        <CollapsibleTile id="st-ai-usage" title="AI Token Usage" icon={<Cpu className="w-4 h-4 text-violet-500" />} className="p-5 flex flex-col gap-2 hover:shadow-md transition-shadow min-h-[180px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
-                <Eye className="w-3.5 h-3.5" />
+              <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center text-violet-500">
+                <Cpu className="w-3.5 h-3.5" />
               </div>
-              <span className="text-xs font-semibold text-slate-700">Page Views</span>
+              <span className="text-xs font-semibold text-slate-700">AI Usage (30d)</span>
             </div>
-            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
+            <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+              <button onClick={() => setAiFilter("user")} className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${aiFilter === "user" ? "bg-white text-violet-600 shadow-sm" : "text-slate-500"}`}>Me</button>
+              <button onClick={() => setAiFilter("org")} className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${aiFilter === "org" ? "bg-white text-violet-600 shadow-sm" : "text-slate-500"}`}>Org</button>
+              {isHeadAdmin && <button onClick={() => setAiFilter("all")} className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${aiFilter === "all" ? "bg-white text-violet-600 shadow-sm" : "text-slate-500"}`}>All</button>}
             </div>
           </div>
-          <div className="flex items-baseline gap-2 mt-auto">
-            <span className="text-3xl font-bold text-slate-800 tracking-tight">0</span>
-            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">0%</span>
-          </div>
+
+          {aiUsage ? (
+            <div className="flex flex-col gap-2 mt-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-800 tracking-tight">${aiUsage.totalCost.toFixed(4)}</span>
+                <span className="text-[10px] font-semibold text-slate-400">{aiUsage.totalCalls} calls</span>
+              </div>
+              <div className="space-y-1.5 max-h-[90px] overflow-y-auto scrollbar-thin">
+                {Object.entries(aiUsage.byModel || {}).map(([key, val]: any) => {
+                  const [provider, model] = key.split("/");
+                  return (
+                    <div key={key} className="flex items-center justify-between text-[10px] py-1 px-2 rounded-md bg-slate-50">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${provider === "elevenlabs" ? "bg-amber-500" : "bg-violet-500"}`} />
+                        <span className="font-medium text-slate-600 truncate max-w-[120px]">{model}</span>
+                      </div>
+                      <span className="font-bold text-slate-800">${val.cost.toFixed(4)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">Loading...</div>
+          )}
         </CollapsibleTile>
 
         {/* Accounts Receivable */}
