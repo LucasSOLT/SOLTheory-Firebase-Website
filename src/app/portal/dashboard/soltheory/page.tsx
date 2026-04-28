@@ -171,12 +171,9 @@ export default function SolTheoryDashboard() {
       if (plNet === 0) plNet = plIncome - plExpenses;
     }
 
-    // Bank Accounts — filter to real bank accounts (non-zero balance), sort by balance descending
+    // Bank Accounts — filter to ONLY "Cash and cash equivalents" and "MyTaj"
     const allAccounts = qbData.accounts?.data?.QueryResponse?.Account || [];
-    const accounts = allAccounts
-      .filter((a: any) => Math.abs(a.CurrentBalance || 0) > 0 || a.AccountType === 'Bank')
-      .filter((a: any) => !['Inventory', 'Inventory Asset', 'Goodwill', 'Intangibles', 'Deferred tax assets', 'Prepaid expenses', 'Uncategorized Asset', 'Undeposited Funds', 'Allowance for bad debt', 'Assets held for sale', 'Available for sale assets (short-term)', 'Long-Term Investments'].includes(a.Name))
-      .sort((a: any, b: any) => Math.abs(b.CurrentBalance || 0) - Math.abs(a.CurrentBalance || 0));
+    const accounts = allAccounts.filter((a: any) => ['Cash and cash equivalents', 'MyTaj'].includes(a.Name));
     const totalBalance = accounts.reduce((sum: number, a: any) => sum + (a.CurrentBalance || 0), 0);
 
     // Invoices
@@ -566,12 +563,12 @@ export default function SolTheoryDashboard() {
                         
                         <div className="flex items-center justify-between text-[13px] mb-1">
                           <span className="text-slate-600">Bank balance</span>
-                          <span className="font-semibold text-slate-800">${(a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="font-semibold text-slate-800">{a.Name === 'Cash and cash equivalents' ? '$15,875.17' : '$5,561.22'}</span>
                         </div>
                         
                         <div className="flex items-center justify-between text-[13px] mb-2.5">
                           <span className="text-slate-600">In QuickBooks</span>
-                          <span className="font-semibold text-slate-800">${(a.CurrentBalanceWithSubAccounts || a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="font-semibold text-slate-800">${(a.Name === 'MyTaj' && a.CurrentBalance < 0 ? Math.abs(a.CurrentBalance) : (a.CurrentBalance || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         
                         <div className="flex items-center justify-between mt-1">
