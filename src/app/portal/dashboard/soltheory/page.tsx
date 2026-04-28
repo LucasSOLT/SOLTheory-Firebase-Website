@@ -362,7 +362,7 @@ export default function SolTheoryDashboard() {
               <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center text-violet-500">
                 <Cpu className="w-3.5 h-3.5" />
               </div>
-              <span className="text-xs font-semibold text-slate-700">AI Usage (30d)</span>
+              <span className="text-xs font-semibold text-slate-700">AI Usage</span>
             </div>
             <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
               <button onClick={() => setAiFilter("user")} className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${aiFilter === "user" ? "bg-white text-violet-600 shadow-sm" : "text-slate-500"}`}>Me</button>
