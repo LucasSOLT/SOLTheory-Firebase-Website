@@ -1173,7 +1173,17 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     
     const errMsg = error?.message || "";
     if (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function")) {
-      return NextResponse.json({ response: "I encountered a brief system formatting error while assembling that tool execution. Could you please try asking me that one more time?" });
+      // Retry WITHOUT tools as a fallback
+      try {
+        const groq2 = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const fallback = await groq2.chat.completions.create({
+          messages: messages.length > 0 ? [{ role: "system", content: "You are a helpful assistant." }, ...messages] : [{ role: "user", content: "Hello" }],
+          model: "llama-3.3-70b-versatile",
+        });
+        return NextResponse.json({ response: fallback.choices[0]?.message?.content || "I'm sorry, I had trouble processing that. Could you try rephrasing?" });
+      } catch {
+        return NextResponse.json({ response: "I encountered a temporary issue. Could you please try asking me that one more time?" });
+      }
     }
     if (errMsg.includes("rate_limit") || errMsg.includes("429")) {
       return NextResponse.json({ response: "I'm receiving too many requests right now. Please wait a moment and try again." });

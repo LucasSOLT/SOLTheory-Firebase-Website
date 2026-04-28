@@ -165,10 +165,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               messages: data.messages || [],
             });
           });
-          setSessions(loaded);
-          const mostRecent = loaded[0]; // already sorted by updatedAt desc
-          setActiveSessionId(mostRecent.id);
-          setMessages(mostRecent.messages);
+          // Filter out empty ghost sessions (no user messages and no title)
+          const validSessions = loaded.filter(s =>
+            s.messages.filter((m: Message) => m.isSelf).length > 0 || s.title !== "New Chat"
+          );
+          // Always start with a fresh "New Chat" at the top
+          const freshSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
+          setSessions([freshSession, ...validSessions]);
+          setActiveSessionId(freshSession.id);
+          setMessages([]);
         } else {
           // Check for localStorage sessions to migrate
           const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
@@ -178,17 +183,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               if (parsed.length > 0) {
                 // Migrate localStorage sessions to Firestore
                 for (const s of parsed) {
-                  await setDoc(doc(firestore, "users", user.uid, "jarvis_sessions", s.id), {
-                    title: s.title,
-                    updatedAt: s.updatedAt,
-                    messages: s.messages,
-                    migratedFromLocalStorage: true,
-                  });
+                  if (s.messages.filter(m => m.isSelf).length > 0) {
+                    await setDoc(doc(firestore, "users", user.uid, "jarvis_sessions", s.id), {
+                      title: s.title,
+                      updatedAt: s.updatedAt,
+                      messages: s.messages,
+                      migratedFromLocalStorage: true,
+                    });
+                  }
                 }
-                setSessions(parsed);
-                const mostRecent = parsed.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-                setActiveSessionId(mostRecent.id);
-                setMessages(mostRecent.messages);
+                const validParsed = parsed.filter(s => s.messages.filter(m => m.isSelf).length > 0);
+                const freshSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
+                setSessions([freshSession, ...validParsed]);
+                setActiveSessionId(freshSession.id);
+                setMessages([]);
                 // Clear localStorage after migration
                 localStorage.removeItem(`st_agent_sessions_${params.agentId}`);
               } else {
@@ -274,9 +282,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       setSessions(prev => {
         const updated = prev.map(s => {
           if (s.id === activeSessionId) {
-            const title = s.title === "New Chat" && messages.filter(m => m.isSelf).length > 0
-              ? messages.filter(m => m.isSelf)[0].text.substring(0, 30) + "..." : s.title;
-            return { ...s, messages, title };
+            // Generate title from first user message if still "New Chat"
+            const userMessages = messages.filter(m => m.isSelf);
+            const title = s.title === "New Chat" && userMessages.length > 0
+              ? userMessages[0].text.substring(0, 30) + (userMessages[0].text.length > 30 ? "..." : "")
+              : s.title;
+            return { ...s, messages, title, updatedAt: userMessages.length > 0 ? Date.now() : s.updatedAt };
           }
           return s;
         });
@@ -286,14 +297,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeSessionId, params.agentId]);
 
-  // Save active session to Firestore on message changes
+  // Save active session to Firestore on message changes — ONLY if it has user messages
   useEffect(() => {
     if (sessions.length > 0 && !isTyping && activeSessionId && sessionsLoaded && firestore && user?.uid) {
       const activeSession = sessions.find(s => s.id === activeSessionId);
-      if (activeSession) {
+      if (activeSession && activeSession.messages.filter(m => m.isSelf).length > 0) {
         const sessionData = {
           title: activeSession.title,
-          updatedAt: Date.now(),
+          updatedAt: activeSession.updatedAt,
           messages: activeSession.messages,
           lastMessagePreview: activeSession.messages.length > 0
             ? activeSession.messages[activeSession.messages.length - 1].text.substring(0, 100)
@@ -338,6 +349,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   }, [sessionsLoaded, user?.displayName, hasShownWelcome, sessions, messages.length, activeSessionId]);
 
   const startNewSession = () => {
+    // Only allow ONE empty "New Chat" at a time — if one exists, just switch to it
+    const existingEmpty = sessions.find(s => s.title === "New Chat" && s.messages.filter(m => m.isSelf).length === 0);
+    if (existingEmpty) {
+      setActiveSessionId(existingEmpty.id);
+      setMessages(existingEmpty.messages);
+      return;
+    }
     const newSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
@@ -351,11 +369,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   const deleteSession = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    // Don't allow deleting the only empty "New Chat" — just ignore
+    const session = sessions.find(s => s.id === id);
+    if (session && session.title === "New Chat" && session.messages.filter(m => m.isSelf).length === 0) {
+      return; // Can't delete the fresh empty chat
+    }
     if (!confirm('Delete this chat?')) return;
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
-    localStorage.setItem(`st_agent_sessions_${params.agentId}`, JSON.stringify(updated));
-    // Also delete from Firestore
+    // Delete from Firestore
     if (firestore && user?.uid) {
       deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(console.error);
     }
