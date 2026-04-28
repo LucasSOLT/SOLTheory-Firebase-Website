@@ -80,12 +80,7 @@ export function DailyDigest() {
   const [entries, setEntries] = useState<DigestEntry[]>([]);
   const pathname = usePathname();
 
-  // Track page navigations
-  useEffect(() => {
-    if (!pathname || pathname.endsWith("/soltheory") || pathname.endsWith("/nxtchapter")) return;
-    const { icon, label } = getIconForPath(pathname);
-    logDigestEntry({ type: "navigation", label: `Visited ${label}`, icon, path: pathname });
-  }, [pathname]);
+  // Navigation tracking is now handled at the layout level (see dashboard/layout.tsx)
 
   // Listen for updates
   useEffect(() => {

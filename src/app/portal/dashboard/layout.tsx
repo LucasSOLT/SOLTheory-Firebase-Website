@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n";
+import { logDigestEntry } from "@/components/portal/DailyDigest";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -54,6 +55,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   React.useEffect(() => {
     document.documentElement.classList.remove('dark');
   }, []);
+
+  // Track ALL navigation at the layout level for Recent Places
+  useEffect(() => {
+    if (!pathname) return;
+    // Skip bare dashboard roots
+    if (pathname === '/portal/dashboard/soltheory' || pathname === '/portal/dashboard/nxtchapter') return;
+
+    const getNavInfo = (p: string): { icon: string; label: string } => {
+      if (p.includes('/ai-agents/')) {
+        const agentName = p.split('/ai-agents/')[1]?.split('/')[0] || 'Agent';
+        return { icon: 'Bot', label: `AI Chat — ${agentName.charAt(0).toUpperCase() + agentName.slice(1)}` };
+      }
+      if (p.includes('/youtube')) return { icon: 'Youtube', label: 'YouTube Creator' };
+      if (p.includes('/calendar')) return { icon: 'CalendarDays', label: 'Google Calendar' };
+      if (p.includes('/docs')) return { icon: 'FileText', label: 'Google Docs' };
+      if (p.includes('/slides')) return { icon: 'Presentation', label: 'Google Slides' };
+      if (p.includes('/sheets')) return { icon: 'Table', label: 'Google Sheets' };
+      if (p.includes('/drive')) return { icon: 'HardDrive', label: 'Google Drive' };
+      if (p.includes('/analytics')) return { icon: 'BarChart3', label: 'Analytics' };
+      if (p.includes('/settings')) return { icon: 'Settings', label: 'Settings' };
+      if (p.includes('/communications/dm')) return { icon: 'MessageSquare', label: 'Direct Messages' };
+      if (p.includes('/communications/org-thread')) return { icon: 'MessageSquare', label: 'Org Thread' };
+      if (p.includes('/communications/contacts')) return { icon: 'MessageSquare', label: 'Contacts' };
+      if (p.includes('/communications')) return { icon: 'MessageSquare', label: 'Messages' };
+      if (p.includes('/faq')) return { icon: 'HelpCircle', label: 'FAQ' };
+      if (p.includes('/surveys')) return { icon: 'FileText', label: 'Surveys' };
+      if (p.includes('/support-tickets')) return { icon: 'Mail', label: 'Support Tickets' };
+      if (p.includes('/google-ads')) return { icon: 'Globe', label: 'Google Ads' };
+      return { icon: 'Globe', label: p.split('/').pop() || 'Page' };
+    };
+
+    const { icon, label } = getNavInfo(pathname);
+    logDigestEntry({ type: 'navigation', label, icon, path: pathname });
+  }, [pathname]);
 
   React.useEffect(() => {
     if (user?.uid) {
