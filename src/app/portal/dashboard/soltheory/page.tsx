@@ -371,11 +371,11 @@ export default function SolTheoryDashboard() {
             </div>
           </div>
 
-          {aiUsage ? (
+          {aiUsage && aiUsage.totalCost !== undefined ? (
             <div className="flex flex-col gap-2 mt-1">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-800 tracking-tight">${aiUsage.totalCost.toFixed(4)}</span>
-                <span className="text-[10px] font-semibold text-slate-400">{aiUsage.totalCalls} calls</span>
+                <span className="text-2xl font-bold text-slate-800 tracking-tight">${(aiUsage.totalCost || 0).toFixed(4)}</span>
+                <span className="text-[10px] font-semibold text-slate-400">{aiUsage.totalCalls || 0} calls</span>
               </div>
               <div className="space-y-1.5 max-h-[90px] overflow-y-auto scrollbar-thin">
                 {Object.entries(aiUsage.byModel || {}).map(([key, val]: any) => {
@@ -386,7 +386,7 @@ export default function SolTheoryDashboard() {
                         <div className={`w-1.5 h-1.5 rounded-full ${provider === "elevenlabs" ? "bg-amber-500" : "bg-violet-500"}`} />
                         <span className="font-medium text-slate-600 truncate max-w-[120px]">{model}</span>
                       </div>
-                      <span className="font-bold text-slate-800">${val.cost.toFixed(4)}</span>
+                      <span className="font-bold text-slate-800">${(val.cost || 0).toFixed(4)}</span>
                     </div>
                   );
                 })}
