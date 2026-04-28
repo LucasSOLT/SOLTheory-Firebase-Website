@@ -245,7 +245,7 @@ export function TimeSheets() {
         <>
           {employees.length === 0 ? (
             <div className="text-xs text-center text-slate-400 py-8 border border-dashed border-slate-200 rounded-xl">
-              No time entries for this {mode === "week" ? "week" : "period"}.
+              No time entries for this period.
             </div>
           ) : (
             <>
