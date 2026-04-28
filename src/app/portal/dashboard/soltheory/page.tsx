@@ -558,21 +558,20 @@ export default function SolTheoryDashboard() {
 
                   return (
                     <div key={i} className="flex items-start gap-3 pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                      <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0 mt-0.5">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0 mt-0.5 ${a.AccountType === 'Credit Card' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                         <Landmark className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 mb-1.5">{a.Name}</p>
+                        <p className="text-sm font-bold text-slate-800 mb-1">{a.Name}</p>
                         <div className="flex items-center justify-between text-xs mb-0.5">
-                          <span className="text-slate-500">Bank balance</span>
+                          <span className="text-slate-500">Balance</span>
                           <span className="font-bold text-slate-800">${(a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex items-center justify-between text-xs mb-0.5">
-                          <span className="text-slate-500">In QuickBooks</span>
-                          <span className="font-bold text-slate-800">${(a.CurrentBalanceWithSubAccounts || a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="text-slate-400">{a.AccountSubType || a.AccountType}</span>
                         </div>
                         {updatedLabel && (
-                          <span className="text-[10px] text-slate-400 font-medium">{updatedLabel}</span>
+                          <span className="text-[10px] text-emerald-600 font-medium">{updatedLabel}</span>
                         )}
                       </div>
                     </div>
