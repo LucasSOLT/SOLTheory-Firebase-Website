@@ -12,7 +12,7 @@ interface VoiceAgentModalProps {
   onCallAI?: (messages: any[]) => Promise<any>;
   onUsageUpdate?: (groqTokens: number, elevenLabsChars: number) => void;
   existingMessages?: { role: string; content: string }[];
-  onTranscriptUpdate?: (userText: string, aiReply: string) => void;
+  onTranscriptUpdate?: (userText: string, aiReply: string, pactFacts?: any[]) => void;
 }
 
 type Phase = "listening" | "processing" | "speaking";
@@ -409,11 +409,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     conversationRef.current.push({ role: "user", content: userText });
     try {
       let reply = "";
-      let usageNum = 0;
+      let pactFacts: any[] = [];
       if (onCallAI) {
         const payload: any = await onCallAI([...conversationRef.current]);
         reply = payload.response || "I couldn't process that.";
         usageNum = payload.usage || 0;
+        if (payload.pactFacts) pactFacts = payload.pactFacts;
       } else {
         const res = await fetch("/api/voice-chat", {
           method: "POST",
@@ -426,6 +427,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         const data = await res.json();
         reply = data.response || "I couldn't process that.";
         usageNum = data.usage || 0;
+        if (data.pactFacts) pactFacts = data.pactFacts;
       }
       
       setGroqTokens(p => p + usageNum);
@@ -436,9 +438,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       }
       
       conversationRef.current.push({ role: "assistant", content: reply });
-      return reply;
+      return { reply, pactFacts };
     } catch {
-      return "Connection issue. Try again.";
+      return { reply: "Connection issue. Try again.", pactFacts: [] };
     }
   };
 
@@ -464,25 +466,29 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     stopRecognition();
 
     // Commit user text
-    setTranscriptLines(prev => [...prev, { text: spokenText, isUser: true }]);
+    setTranscriptLines(prev => [...prev, { text: finalUserText, isUser: true }]);
     setLiveText("");
     accumulatedTextRef.current = "";
     setPhase("processing");
 
-    // Call AI
-    const aiReply = await callVoiceAI(spokenText);
+    // Actually call AI
+    const { reply: aiReplyText, pactFacts } = await callVoiceAI(spokenText);
+    const cleanedReply = (aiReplyText || "").replace(/<[^>]*>/g, ""); // Strip any XML/HTML if leaked
 
-    // Notify parent to save to chat session
+    if (cancelledRef.current) return;
+
+    // Update parent component with the exchange and extracted facts
     if (onTranscriptUpdate) {
-      onTranscriptUpdate(spokenText, aiReply);
+      onTranscriptUpdate(spokenText, cleanedReply, pactFacts);
     }
 
     // Show response
+    // Show response in UI
+    setTranscriptLines(prev => [...prev, { text: cleanedReply, isUser: false }]);
     setPhase("speaking");
-    setTranscriptLines(prev => [...prev, { text: aiReply, isUser: false }]);
 
     try {
-      const audioUrl = `/api/tts?text=${encodeURIComponent(aiReply)}`;
+      const audioUrl = `/api/tts?text=${encodeURIComponent(cleanedReply)}`;
       const audio = new Audio(audioUrl);
       
       // Ensure absolutely no overlap if multiple processes resolved simultaneously

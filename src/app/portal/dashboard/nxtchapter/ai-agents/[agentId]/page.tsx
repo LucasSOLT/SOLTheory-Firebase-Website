@@ -1003,6 +1003,35 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         agentName={agent.name}
         agentId={params.agentId as string}
         orgPrefix="nxtchapter"
+        existingMessages={messages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }))}
+        onTranscriptUpdate={(userText, aiReply, pactFacts) => {
+          setMessages(prev => [
+            ...prev,
+            { id: uid(), text: userText, isSelf: true },
+            { id: uid(), text: aiReply, isSelf: false },
+          ]);
+
+          if (pactFacts && pactFacts.length > 0 && user?.uid && firestore) {
+            import("firebase/firestore").then(async ({ collection, getDocs, query, where, addDoc }) => {
+              try {
+                const orgId = "nxtchapter";
+                const pactCol = collection(firestore, "users", user.uid, "pact_entries");
+                const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
+                const existingQs = new Set<string>();
+                existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
+                for (const fact of pactFacts) {
+                  const nq = fact.question.toLowerCase().trim();
+                  if (!existingQs.has(nq) && existingSnap.size < 200) {
+                    await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "voice", orgId, createdAt: Date.now(), updatedAt: Date.now() });
+                    existingQs.add(nq);
+                  }
+                }
+                fetchPACTEntries();
+                console.log(`[PACT] Saved ${pactFacts.length} facts locally from voice chat`);
+              } catch (e) { console.error("[PACT] Voice client save error:", e); }
+            });
+          }
+        }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
             import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
