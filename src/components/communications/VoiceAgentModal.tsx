@@ -410,6 +410,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     try {
       let reply = "";
       let pactFacts: any[] = [];
+      let usageNum = 0;
       if (onCallAI) {
         const payload: any = await onCallAI([...conversationRef.current]);
         reply = payload.response || "I couldn't process that.";
@@ -439,7 +440,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       
       conversationRef.current.push({ role: "assistant", content: reply });
       return { reply, pactFacts };
-    } catch {
+    } catch (err) {
+      console.error("Voice AI Call Error:", err);
       return { reply: "Connection issue. Try again.", pactFacts: [] };
     }
   };
