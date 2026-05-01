@@ -5,12 +5,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic } from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, deleteDoc, writeBatch, limit as firestoreLimit } from "firebase/firestore";
+import { doc, getDoc, setDoc, addDoc, collection, getDocs, query, orderBy, where, deleteDoc, writeBatch, limit as firestoreLimit } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
+import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -83,12 +84,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   // Agent Knowledge Base Config
   const [agentConfig, setAgentConfig] = useState({ soul: "", brain: "", heartbeat: "manual" });
   const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"identity" | "data">("identity");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"identity" | "data" | "brain" | "pact">("identity");
   const [ragDocs, setRagDocs] = useState<any[]>([]);
   const [isRAGUploading, setIsRAGUploading] = useState(false);
   const [isTextInputOpen, setIsTextInputOpen] = useState(false);
   const [ragTitle, setRagTitle] = useState("");
   const [ragTextContent, setRagTextContent] = useState("");
+
+  // P.A.C.T. — Personalized AI Conversation Training
+  type PACTEntry = { id: string; question: string; answer: string; source: string; orgId: string; createdAt: number; updatedAt: number };
+  const [pactEntries, setPactEntries] = useState<PACTEntry[]>([]);
+  const [pactLoaded, setPactLoaded] = useState(false);
 
   const fetchRAGDocs = async () => {
     if (!user?.uid || !firestore) return;
@@ -108,6 +114,35 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   }, [isKnowledgeBaseOpen, activeSettingsTab, user, firestore, params.agentId]);
 
+  // Load P.A.C.T. entries from Firestore
+  const fetchPACTEntries = async () => {
+    if (!user?.uid || !firestore) return;
+    try {
+      const pactRef = collection(firestore, "users", user.uid, "pact_entries");
+      const q = query(pactRef, orderBy("updatedAt", "desc"), firestoreLimit(200));
+      const snap = await getDocs(q);
+      const entries: PACTEntry[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.orgId === "soltheory") {
+          entries.push({ id: d.id, question: data.question, answer: data.answer, source: data.source || "text", orgId: data.orgId, createdAt: data.createdAt, updatedAt: data.updatedAt });
+        }
+      });
+      setPactEntries(entries);
+      setPactLoaded(true);
+    } catch (err) { console.error("Failed to load PACT entries", err); }
+  };
+
+  useEffect(() => {
+    if (user?.uid && firestore) {
+      fetchPACTEntries();
+    }
+  }, [user?.uid, firestore]);
+
+  // Build PACT text for API injection
+  const pactText = pactEntries.length > 0
+    ? pactEntries.map(e => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")
+    : "";
 
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -475,7 +510,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           uid: user?.uid,
           refreshToken: rToken,
           contacts: agentContacts,
-          knowledgeBaseText: kbText
+          knowledgeBaseText: kbText,
+          pactText,
+          userName: user?.displayName || undefined
         }),
       });
       const data = await res.json();
@@ -487,6 +524,29 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
           updateDoc(doc(firestore, "users", user.uid), { groqTokens: increment(usage) }).catch(console.error);
         });
+      }
+
+      // --- Save P.A.C.T. facts from API response ---
+      if (data.pactFacts && data.pactFacts.length > 0 && user?.uid && firestore) {
+        (async () => {
+          try {
+            const orgId = "soltheory";
+            const pactCol = collection(firestore, "users", user.uid, "pact_entries");
+            const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
+            const existingQs = new Set<string>();
+            existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
+            for (const fact of data.pactFacts) {
+              const nq = fact.question.toLowerCase().trim();
+              if (!existingQs.has(nq) && existingSnap.size < 200) {
+                await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "text", orgId, createdAt: Date.now(), updatedAt: Date.now() });
+                existingQs.add(nq);
+              }
+            }
+            // Refresh PACT state
+            fetchPACTEntries();
+            console.log(`[PACT] Saved ${data.pactFacts.length} facts locally`);
+          } catch (e) { console.error("[PACT] Client save error:", e); }
+        })();
       }
     } catch (error: any) {
       setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}.`, isSelf: false }]);
@@ -535,7 +595,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           uid: user?.uid,
           refreshToken: rToken,
           contacts: agentContacts,
-          knowledgeBaseText: kbText
+          knowledgeBaseText: kbText,
+          pactText,
+          userName: user?.displayName || undefined
         }),
       });
       const data = await res.json();
@@ -547,6 +609,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
           updateDoc(doc(firestore, "users", user.uid), { groqTokens: increment(usage) }).catch(console.error);
         });
+      }
+
+      // --- Save P.A.C.T. facts from API response ---
+      if (data.pactFacts && data.pactFacts.length > 0 && user?.uid && firestore) {
+        (async () => {
+          try {
+            const orgId = "soltheory";
+            const pactCol = collection(firestore, "users", user.uid, "pact_entries");
+            const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
+            const existingQs = new Set<string>();
+            existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
+            for (const fact of data.pactFacts) {
+              const nq = fact.question.toLowerCase().trim();
+              if (!existingQs.has(nq) && existingSnap.size < 200) {
+                await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "text", orgId, createdAt: Date.now(), updatedAt: Date.now() });
+                existingQs.add(nq);
+              }
+            }
+            fetchPACTEntries();
+            console.log(`[PACT] Saved ${data.pactFacts.length} facts locally (observer)`);
+          } catch (e) { console.error("[PACT] Client save error:", e); }
+        })();
       }
       
       // refresh inbox just in case
@@ -728,7 +812,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           brain: agentConfig.brain,
           selectedEmailIds: Array.from(selectedEmails),
           contacts: agentContacts,
-          knowledgeBaseText: kbText
+          knowledgeBaseText: kbText,
+          pactText,
+          userName: user?.displayName || undefined
         }),
       });
       const data = await res.json();
@@ -851,6 +937,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         {/* Top Navigator */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0 z-20 bg-slate-100 backdrop-blur-xl">
           <div className="font-bold text-sm tracking-widest uppercase text-slate-900 opacity-80">{agent.name} Console</div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setIsKnowledgeBaseOpen(!isKnowledgeBaseOpen); }}
+              className={`flex items-center gap-2 px-3 h-9 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'}`}
+              title="Agent Neural Configuration"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden md:inline">Brain & Settings</span>
+            </button>
+          </div>
         </div>
 
         {/* Dynamic Main Body (Chat vs Settings vs Observer) */}
@@ -892,84 +988,222 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     >
                       Knowledge Base (RAG)
                     </button>
+                    <button
+                      onClick={() => setActiveSettingsTab("brain")}
+                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 ${activeSettingsTab === "brain" ? "border-blue-500 text-blue-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                    >
+                      <Brain className="w-3.5 h-3.5" /> Org Brain
+                    </button>
+                    <button
+                      onClick={() => { setActiveSettingsTab("pact"); fetchPACTEntries(); }}
+                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 ${activeSettingsTab === "pact" ? "border-emerald-500 text-emerald-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                    >
+                      <BookOpen className="w-3.5 h-3.5" /> P.A.C.T.
+                      {pactEntries.length > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-black">{pactEntries.length}</span>}
+                    </button>
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-6 pb-56 max-w-5xl mx-auto w-full">
                   {activeSettingsTab === "identity" ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Soul Card */}
-                      <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-fuchsia-500/30 backdrop-blur-xl flex flex-col h-[400px]">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-xl bg-fuchsia-500/10 flex items-center justify-center border border-fuchsia-500/20 shadow-inner shrink-0">
-                            <User className="w-5 h-5 text-fuchsia-500 " />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-bold text-slate-900 ">The Soul</h3>
-                            <p className="text-[10px] uppercase font-bold text-fuchsia-500/80 tracking-widest">Voice & Personality</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-500  mb-4 flex-none">Describe how the agent should speak, format answers, and behave.</p>
-                        <textarea
-                          className="flex-1 w-full p-4 bg-white/80  border border-slate-200  rounded-2xl resize-none focus:ring-1 focus:ring-fuchsia-500 outline-none transition-shadow text-sm text-slate-900  placeholder:text-slate-400 shadow-inner"
-                          placeholder="e.g., You are extremely professional but maintain a warm, welcoming tone."
-                          value={agentConfig.soul}
-                          onChange={e => setAgentConfig({ ...agentConfig, soul: e.target.value })}
-                        />
-                      </div>
+                    <div className="space-y-8 animate-in fade-in duration-300">
 
-                      {/* Brain Card */}
-                      <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-indigo-500/30 backdrop-blur-xl flex flex-col h-[400px]">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 shadow-inner shrink-0">
-                            <Brain className="w-5 h-5 text-indigo-500 " />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-bold text-slate-900 ">The Brain</h3>
-                            <p className="text-[10px] uppercase font-bold text-indigo-500/80 tracking-widest">Strict Wiring & Rules</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-500  mb-4 flex-none">Provide strict operational directives or constraints that cannot be broken.</p>
-                        <textarea
-                          className="flex-1 w-full p-4 bg-white/80  border border-slate-200  rounded-2xl resize-none focus:ring-1 focus:ring-indigo-500 outline-none transition-shadow text-sm text-slate-900  placeholder:text-slate-400 shadow-inner"
-                          placeholder="e.g., Never disclose PII. Do not share api keys. Deny invalid refund requests."
-                          value={agentConfig.brain}
-                          onChange={e => setAgentConfig({ ...agentConfig, brain: e.target.value })}
-                        />
-                      </div>
-
-                      {/* Heartbeat Card (Full Width) */}
-                      <div className="relative group bg-white/50  border border-slate-200/60  rounded-3xl p-6 shadow-sm hover:shadow-md transition-all hover:border-emerald-500/30 backdrop-blur-xl md:col-span-2 flex flex-col md:flex-row gap-6 items-center">
-                        <div className="relative flex items-center gap-4 flex-1">
-                          <div className="w-12 h-12 shrink-0 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-inner">
-                            <Bot className="w-6 h-6 text-emerald-500 " />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-bold text-slate-900 ">The Heartbeat (Autonomous Engine)</h3>
-                            <p className="text-xs text-slate-500  mt-1 max-w-md">Determine how frequently the agent performs automated background sweeps.</p>
-                          </div>
-                        </div>
-
-                        <div className="relative shrink-0 w-full md:w-64">
-                          <select
-                            className="w-full p-4 bg-white  border border-slate-200  rounded-2xl focus:ring-2 focus:ring-emerald-500/50 outline-none text-sm font-bold text-slate-900  shadow-inner transition-shadow hover:border-emerald-500/30 cursor-pointer appearance-none"
-                            value={agentConfig.heartbeat}
-                            onChange={e => setAgentConfig({ ...agentConfig, heartbeat: e.target.value })}
-                          >
-                            <option value="manual">Manual Execution Only</option>
-                            <option value="30s">Autopilot: Every 30 Seconds</option>
-                            <option value="1m">Autopilot: Every 1 Minute</option>
-                          </select>
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 animate-pulse pointer-events-none shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                      {/* Section Header */}
+                      <div className="flex items-center gap-3 pb-2">
+                        <div className="w-1 h-8 rounded-full bg-gradient-to-b from-indigo-500 to-fuchsia-500" />
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900 tracking-tight">Agent Personality Configuration</h3>
+                          <p className="text-xs text-slate-400 mt-0.5">Define how {agent.name.split(' ')[0]} communicates, what rules it follows, and how it operates autonomously.</p>
                         </div>
                       </div>
 
-                      <div className="md:col-span-2 flex justify-center mt-6">
-                        <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-black hover:bg-slate-900 text-white px-12 h-12 rounded-full font-bold shadow-xl transition-all transform hover:scale-105 active:scale-95 gap-2">
-                          <CheckCircle2 className="w-5 h-5" /> Compile Rules & Return
+                      {/* Soul Section */}
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500/15 to-purple-500/15 flex items-center justify-center">
+                              <User className="w-4.5 h-4.5 text-fuchsia-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900 text-sm">The Soul</h4>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Voice & Personality</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-600 font-semibold uppercase tracking-wider border border-fuchsia-100">Step 1</span>
+                        </div>
+                        <div className="p-6 pt-4">
+                          <p className="text-xs text-slate-500 mb-3 leading-relaxed">Describe the tone, personality, and communication style the agent should adopt in every interaction.</p>
+                          <textarea
+                            className="w-full h-40 p-4 bg-slate-50/80 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-300 leading-relaxed"
+                            placeholder="e.g., You are extremely professional but maintain a warm, welcoming tone. Use clear, concise language. Be proactive in offering solutions."
+                            value={agentConfig.soul}
+                            onChange={e => setAgentConfig({ ...agentConfig, soul: e.target.value })}
+                          />
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[10px] text-slate-300 font-mono">{agentConfig.soul?.length || 0} characters</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Brain Section */}
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/15 to-blue-500/15 flex items-center justify-center">
+                              <Brain className="w-4.5 h-4.5 text-indigo-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900 text-sm">The Brain</h4>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Strict Wiring & Rules</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 font-semibold uppercase tracking-wider border border-indigo-100">Step 2</span>
+                        </div>
+                        <div className="p-6 pt-4">
+                          <p className="text-xs text-slate-500 mb-3 leading-relaxed">Define strict operational directives, hard constraints, and non-negotiable rules the agent must always follow.</p>
+                          <textarea
+                            className="w-full h-40 p-4 bg-slate-50/80 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-300 leading-relaxed"
+                            placeholder="e.g., Never disclose PII. Do not share API keys. Deny invalid refund requests. Always verify user identity before sensitive actions."
+                            value={agentConfig.brain}
+                            onChange={e => setAgentConfig({ ...agentConfig, brain: e.target.value })}
+                          />
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[10px] text-slate-300 font-mono">{agentConfig.brain?.length || 0} characters</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Heartbeat Section */}
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/15 flex items-center justify-center relative">
+                              <Bot className="w-4.5 h-4.5 text-emerald-600" />
+                              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900 text-sm">The Heartbeat</h4>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Autonomous Engine</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 font-semibold uppercase tracking-wider border border-emerald-100">Step 3</span>
+                        </div>
+                        <div className="p-6 pt-4">
+                          <p className="text-xs text-slate-500 mb-4 leading-relaxed">Control how frequently the agent performs automated background sweeps and proactive actions.</p>
+                          <div className="flex items-center gap-4">
+                            <select
+                              className="flex-1 p-3.5 bg-slate-50/80 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 outline-none text-sm font-medium text-slate-800 transition-all cursor-pointer appearance-none hover:border-emerald-300"
+                              value={agentConfig.heartbeat}
+                              onChange={e => setAgentConfig({ ...agentConfig, heartbeat: e.target.value })}
+                            >
+                              <option value="manual">Manual Execution Only</option>
+                              <option value="30s">Autopilot: Every 30 Seconds</option>
+                              <option value="1m">Autopilot: Every 1 Minute</option>
+                            </select>
+                            <div className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${agentConfig.heartbeat === 'manual' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                              <div className={`w-2 h-2 rounded-full ${agentConfig.heartbeat === 'manual' ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)]'}`} />
+                              {agentConfig.heartbeat === 'manual' ? 'Inactive' : 'Active'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Save Button */}
+                      <div className="flex justify-center pt-2 pb-8">
+                        <Button onClick={() => setIsKnowledgeBaseOpen(false)} className="bg-slate-900 hover:bg-slate-800 text-white px-10 h-11 rounded-xl font-semibold shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] gap-2 text-sm">
+                          <CheckCircle2 className="w-4 h-4" /> Save & Return to Chat
                         </Button>
                       </div>
 
+                    </div>
+                  ) : activeSettingsTab === "brain" ? (
+                    /* ═══ ORG BRAIN TAB ═══ */
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                      <div className="bg-gradient-to-r from-blue-500/10 to-transparent border border-blue-500/20 rounded-3xl p-6 backdrop-blur-md">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-extrabold text-blue-700 mb-2 flex items-center gap-2"><Brain className="w-5 h-5" /> SOL Theory — Organization Brain</h3>
+                            <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+                              This is the hardcoded organizational knowledge that {agent.name.split(' ')[0]} uses across all sessions. It includes company history, frameworks, partners, and operational details.
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0 ml-4">
+                            <div className="text-xs font-bold text-blue-500">{(solTheoryKnowledge.length / 1024).toFixed(1)} KB</div>
+                            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-0.5">Read-Only</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Full Knowledge Document</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{solTheoryKnowledge.length.toLocaleString()} chars</span>
+                        </div>
+                        <div className="p-6 max-h-[500px] overflow-y-auto scrollbar-thin">
+                          <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{solTheoryKnowledge}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  ) : activeSettingsTab === "pact" ? (
+                    /* ═══ P.A.C.T. TAB ═══ */
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                      <div className="bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-3xl p-6 backdrop-blur-md">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-extrabold text-emerald-700 mb-2 flex items-center gap-2"><BookOpen className="w-5 h-5" /> P.A.C.T. — Personalized AI Conversation Training</h3>
+                            <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+                              Facts {agent.name.split(' ')[0]} has learned about you from your conversations. These are automatically extracted and used to personalize future interactions.
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0 ml-4">
+                            <div className="text-2xl font-black text-emerald-600">{pactEntries.length}</div>
+                            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-0.5">{pactEntries.length === 1 ? 'Fact Learned' : 'Facts Learned'}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {pactEntries.length === 0 ? (
+                        <div className="h-48 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center bg-slate-50 gap-3 p-8">
+                          <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                            <BookOpen className="w-6 h-6 text-slate-300" />
+                          </div>
+                          <p className="text-sm text-slate-500 font-medium max-w-sm">No learned facts yet. As you chat with {agent.name.split(' ')[0]}, personal details you share will automatically appear here.</p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Try telling {agent.name.split(' ')[0]} your name, age, or role</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {pactEntries.map((entry) => (
+                            <div key={entry.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 transition-all group">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-wider border border-emerald-100">Q</span>
+                                    <span className="text-sm font-semibold text-slate-800">{entry.question}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-wider border border-blue-100">A</span>
+                                    <span className="text-sm text-slate-600">{entry.answer}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 pt-1">
+                                    <span className="text-[10px] text-slate-400 font-medium">{entry.source === "voice" ? "🎤 Voice" : "⌨️ Text"}</span>
+                                    <span className="text-[10px] text-slate-300">•</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">{new Date(entry.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={async () => {
+                                  if (!user?.uid || !firestore) return;
+                                  try {
+                                    await deleteDoc(doc(firestore, "users", user.uid, "pact_entries", entry.id));
+                                    setPactEntries(prev => prev.filter(e => e.id !== entry.id));
+                                  } catch (err) { console.error("Failed to delete PACT entry", err); }
+                                }}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1405,7 +1639,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               uid: user?.uid,
               refreshToken: rToken,
               contacts: agentContacts,
-              knowledgeBaseText: kbText
+              knowledgeBaseText: kbText,
+              pactText,
+              userName: user?.displayName || undefined
             }),
           });
           const data = await res.json();

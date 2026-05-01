@@ -10,7 +10,7 @@ import Link from "next/link";
 import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings } from "lucide-react";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { signInAnonymously, updateProfile } from "firebase/auth";
+import { updateProfile } from "firebase/auth";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -261,32 +261,20 @@ function SettingsContent() {
   };
 
   const handleConnectGmail = async () => {
-    let uid = user?.uid;
-    if (!uid && auth) {
-      try {
-        const cred = await signInAnonymously(auth);
-        uid = cred.user.uid;
-      } catch (err: any) {
-        setOauthError("Failed to initialize session. Please try again.");
-        return;
-      }
+    const uid = user?.uid;
+    if (!uid) {
+      setOauthError("You must be logged in to connect Gmail.");
+      return;
     }
-    if (!uid) return;
     window.location.href = `/api/auth/google?uid=${uid}&agentId=jarvis&origin=soltheory`;
   };
 
   const handleConnectQuickBooks = async () => {
-    let uid = user?.uid;
-    if (!uid && auth) {
-      try {
-        const cred = await signInAnonymously(auth);
-        uid = cred.user.uid;
-      } catch {
-        setQbError("Failed to initialize session.");
-        return;
-      }
+    const uid = user?.uid;
+    if (!uid) {
+      setQbError("You must be logged in to connect QuickBooks.");
+      return;
     }
-    if (!uid) return;
     setQbConnecting(true);
     window.location.href = `/api/auth/quickbooks?uid=${uid}&origin=soltheory`;
   };

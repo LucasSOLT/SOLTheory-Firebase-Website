@@ -6,6 +6,7 @@ import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
+import { extractPACTFacts } from "@/lib/pact-extractor";
 const tools: any = [
   {
     type: "function",
@@ -289,7 +290,7 @@ const tools: any = [
 
 export async function POST(req: Request) {
   try {
-    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl } = await req.json();
+    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName } = await req.json();
     
     // Parse out scope prefixes for logic, but keep raw for database
     const agentId = (rawAgentId || "").replace("soltheory_", "").replace("nxtchapter_", "");
@@ -384,16 +385,28 @@ export async function POST(req: Request) {
           attempts++;
           console.warn(`[DEBUG] Groq API Attempt ${attempts} failed: ${err?.message || err}`);
           if (err.response) {
-            console.warn(`[DEBUG] Error data:`, err.response?.data);
+            console.warn(`[DEBUG] Error data:`, JSON.stringify(err.response?.data));
           }
-          if (attempts >= maxRetries) throw err;
+          if (attempts >= maxRetries) {
+            // Fallback: If it failed due to tools, try one last time WITHOUT tools
+            const errMsg = err?.message || "";
+            if (useTools && (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls"))) {
+              console.warn(`[DEBUG] Max retries reached for tools. Falling back to non-tool completion...`);
+              const cleanMessages = messagesArray.filter((m: any) => m.role !== "tool" && !m.tool_calls);
+              return await groq.chat.completions.create({
+                messages: cleanMessages.length > 0 ? cleanMessages : messagesArray,
+                model: "llama-3.3-70b-versatile",
+              });
+            }
+            throw err;
+          }
         }
       }
     };
 
     // Payload Array Compilation
     let groqMessages: any[] = [
-      { role: "system", content: agentRole }
+      { role: "system", content: agentRole + "\n\nCRITICAL CONVERSATION RULE: You must always respond in natural, conversational human text. NEVER output raw JSON payloads like {\"title\": \"...\", \"body\": \"...\"} in your message content unless you are explicitly calling a tool via the function calling API. If the user shares a fact, just acknowledge it conversationally." }
     ];
 
     // --- KNOWLEDGE BASE: SECONDARY SYSTEM PROMPT ---
@@ -415,6 +428,15 @@ export async function POST(req: Request) {
       groqMessages.push({
         role: "system",
         content: `IMPORTANT INSTRUCTION REGARDING KNOWLEDGE BASE:\nThe user has provided factual reference data for you below. You MUST use this data to confidently answer their questions, even if it introduces new context you did not know. Do NOT hallucinate tool calls or attempt to use the 'search' tool for this data - it is already completely provided to you inside the XML tags below. Do not mention that you are reading from a knowledge base unless explicitly asked. Do NOT say "I don't have information on..." if the answer is within the knowledge base.\n\n<knowledge_base>\n${cappedKB}\n</knowledge_base>`
+      });
+    }
+
+    // --- P.A.C.T.: Personalized AI Conversation Training ---
+    if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
+      const cappedPact = pactText.substring(0, 5000);
+      groqMessages.push({
+        role: "system",
+        content: `[P.A.C.T. — PERSONALIZED USER CONTEXT]\nYou have learned the following facts about this specific user from previous conversations. Use this knowledge naturally when relevant. Do not repeat these facts unprompted. Do not mention that you have a "PACT" or "training document" — just use the knowledge as if you naturally remember it.\n\n${cappedPact}`
       });
     }
 
@@ -1144,55 +1166,74 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
       loopCount++;
     }
 
-    // Log AI usage
+    // Log AI usage (non-blocking, don't let it crash the request)
     const inputTokens = completion?.usage?.prompt_tokens || 0;
     const outputTokens = completion?.usage?.completion_tokens || 0;
     const totalTokens = completion?.usage?.total_tokens || 0;
     const model = "llama-3.3-70b-versatile";
-    logAIUsage({
-      userId: uid || "anonymous",
-      orgId: isNxtChapter ? "nxtchapter" : "soltheory",
-      model,
-      provider: "groq",
-      endpoint: "/api/chat",
-      inputTokens,
-      outputTokens,
-      totalTokens,
-      costUsd: calculateGroqCost(model, inputTokens, outputTokens),
-      timestamp: new Date(),
-    });
+    try {
+      logAIUsage({
+        userId: uid || "anonymous",
+        orgId: isNxtChapter ? "nxtchapter" : "soltheory",
+        model,
+        provider: "groq",
+        endpoint: "/api/chat",
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        costUsd: calculateGroqCost(model, inputTokens, outputTokens),
+        timestamp: new Date(),
+      });
+    } catch (logErr) {
+      console.warn("[AI Usage] Logging failed (non-fatal):", (logErr as any)?.message);
+    }
+
+    // --- P.A.C.T. Extraction (extract facts, return to client for saving) ---
+    // --- Sanitize response: strip hallucinated XML tool calls ---
+    const sanitizeResponse = (text: string): string => {
+      if (!text) return text;
+      // Remove <function=...>...</function>, <search_past_conversations>...</search_past_conversations>, etc.
+      let clean = text.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file)[^>]*>/gi, '');
+      // Remove JSON-like tool args that were hallucinated inline
+      clean = clean.replace(/\{"(?:query|folderName|to|subject|body|title|date|time|description|videoTitle|content|searchQuery|fileId)"\s*:\s*"[^"]*"\s*\}/g, '');
+      // Collapse multiple whitespace/newlines into single space
+      clean = clean.replace(/\n{3,}/g, '\n\n').trim();
+      // If the cleaned response is empty or too short, provide a fallback
+      if (clean.length < 5) {
+        clean = "I've noted that information. How can I help you today?";
+      }
+      return clean;
+    };
+
+    const finalResponse = sanitizeResponse(responseMessage?.content || "");
+    let pactFacts: { question: string; answer: string }[] = [];
+    if (uid && finalResponse && messages.length > 0) {
+      const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
+      if (lastUserMsg?.content && lastUserMsg.content.trim().length > 15) {
+        try {
+          pactFacts = await extractPACTFacts(lastUserMsg.content, finalResponse, userName);
+          if (pactFacts.length > 0) {
+            console.log(`[PACT] Extracted ${pactFacts.length} facts for user ${uid}:`, pactFacts.map(f => f.question));
+          }
+        } catch (pactErr) {
+          console.error("[PACT] Extraction error:", pactErr);
+        }
+      }
+    }
 
     // Default Raw Response
     return NextResponse.json({ 
-      response: responseMessage?.content || "",
+      response: finalResponse,
       usage: totalTokens,
-      executedTools: executedTools.length > 0 ? executedTools : undefined
+      executedTools: executedTools.length > 0 ? executedTools : undefined,
+      pactFacts: pactFacts.length > 0 ? pactFacts : undefined,
     });
   } catch (error: any) {
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
     
     const errMsg = error?.message || "";
     if (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls")) {
-      // Retry WITHOUT tools as a fallback — use the full groqMessages minus any tool_calls messages
-      try {
-        const groq2 = new Groq({ apiKey: process.env.GROQ_API_KEY });
-        // Strip out any tool messages that would confuse a non-tool call
-        const cleanMessages = (typeof groqMessages !== 'undefined' ? groqMessages : []).filter(
-          (m: any) => m.role !== "tool" && !m.tool_calls
-        );
-        const fallbackMessages = cleanMessages.length > 0 ? cleanMessages : [
-          { role: "system", content: "You are a helpful assistant." },
-          ...messages
-        ];
-        const fallback = await groq2.chat.completions.create({
-          messages: fallbackMessages,
-          model: "llama-3.3-70b-versatile",
-        });
-        return NextResponse.json({ response: fallback.choices[0]?.message?.content || "I'm sorry, I had trouble processing that. Could you try rephrasing?" });
-      } catch (e2: any) {
-        console.error("[DEBUG] Fallback also failed:", e2?.message);
-        return NextResponse.json({ response: "I encountered a temporary issue. Could you please try asking me that one more time?" });
-      }
+      return NextResponse.json({ response: "I encountered a tool execution error. Could you please try asking me that one more time?" });
     }
     if (errMsg.includes("rate_limit") || errMsg.includes("429")) {
       return NextResponse.json({ response: "I'm receiving too many requests right now. Please wait a moment and try again." });

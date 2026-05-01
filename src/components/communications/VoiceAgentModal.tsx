@@ -209,6 +209,34 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         streamRef.current = stream;
         const ctx = new AudioContext();
         audioCtxRef.current = ctx;
+        
+        // --- Play welcoming "Gemini-style" startup chime ---
+        try {
+          const frequencies = [329.63, 440.00, 523.25, 659.25]; // E4, A4, C5, E5 (E minor / A minor feel)
+          const masterGain = ctx.createGain();
+          masterGain.connect(ctx.destination);
+          masterGain.gain.setValueAtTime(0, ctx.currentTime);
+          masterGain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.05); // quick attack
+          masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0); // long fade
+
+          frequencies.forEach((freq, index) => {
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            
+            const panner = ctx.createStereoPanner();
+            panner.pan.value = (index / (frequencies.length - 1)) * 1.5 - 0.75; // spread stereo
+            
+            osc.connect(panner);
+            panner.connect(masterGain);
+            
+            osc.start(ctx.currentTime + index * 0.05); // slight stagger/arpeggiation
+            osc.stop(ctx.currentTime + 2.5);
+          });
+        } catch (e) {
+          console.warn("Could not play startup chime", e);
+        }
+
         const src = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 128;
@@ -261,26 +289,26 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           for (let i = 0; i < barCount; i++) {
             let binVal = 0;
             if (phaseRef.current === "speaking" || phaseRef.current === "processing") {
-              // Rich AI speaking visualizer with layered sine waves
+              // Rich AI speaking visualizer with dynamic jumping
               const t = Date.now() / 1000;
               const center = barCount / 2;
               
               // Bell curve: center bars are taller
-              const gaussian = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(barCount / 3.5, 2)));
+              const gaussian = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(barCount / 4.5, 2)));
               
-              // Multiple overlapping "syllable" waves at different frequencies
-              const wave1 = Math.sin(t * 3.7 + i * 0.4) * 0.5 + 0.5; // slow roll
-              const wave2 = Math.sin(t * 8.3 + i * 0.7) * 0.3 + 0.5; // mid pulse
-              const wave3 = Math.sin(t * 14.1 - i * 0.9) * 0.2 + 0.5; // fast shimmer
+              // Dynamic jumping and speaking simulation
+              const speed = phaseRef.current === "processing" ? 3 : 15; // Faster when speaking
               
-              // Combine waves into a composite envelope (always positive, 0.2 to 1.0 range)
-              const composite = (wave1 * 0.5 + wave2 * 0.3 + wave3 * 0.2);
+              // Create a chaotic bounce that looks like speech modulation
+              const bounce = Math.abs(Math.sin(t * speed + i * 0.4)) * 0.5 + 
+                             Math.abs(Math.sin(t * speed * 1.5 - i * 0.2)) * 0.5;
               
-              // Per-bar jitter for organic feel
-              const jitter = (Math.random() * 8) + (Math.sin(t * 20 + i * 2.5) * 6);
+              // Random high spikes mimicking syllables when speaking
+              const isSpeaking = phaseRef.current === "speaking";
+              const randomSpike = isSpeaking && Math.random() > 0.85 ? Math.random() * 0.8 : 0;
               
-              const baseAmplitude = phaseRef.current === "processing" ? 25 : 70;
-              binVal = (gaussian * baseAmplitude * composite) + jitter + 8;
+              const baseAmplitude = isSpeaking ? 90 : 30; // Taller when speaking
+              binVal = (gaussian * baseAmplitude * (bounce * 0.7 + 0.3 + randomSpike)) + 12;
             } else {
               // Real Mic Input
               for (let j = 0; j < binStep; j++) binVal += dataArray[i * binStep + j] || 0;
@@ -322,9 +350,47 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return () => clearInterval(t);
   }, [isOpen]);
 
-  // Reset on close
+  // Reset on close — FULL cleanup
   useEffect(() => {
     if (!isOpen) {
+      // Kill speech recognition immediately
+      cancelledRef.current = true;
+      stopRecognition();
+
+      // Kill mic stream tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => { t.stop(); t.enabled = false; });
+        streamRef.current = null;
+      }
+
+      // Kill audio context
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+      analyserRef.current = null;
+
+      // Kill animation frame
+      cancelAnimationFrame(animFrameRef.current);
+
+      // Kill any pending audio playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current = null;
+      }
+
+      // Clear all timers
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = null;
+      }
+      if (speakingTimeoutRef.current) {
+        clearTimeout(speakingTimeoutRef.current);
+        speakingTimeoutRef.current = null;
+      }
+
+      // Reset UI state
       setPhase("listening");
       setIsMicMuted(false);
       setIsPaused(false);
@@ -333,17 +399,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       setBars(Array(32).fill(4));
       accumulatedTextRef.current = "";
       conversationRef.current = [];
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
-        silenceTimeoutRef.current = null;
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-        audioRef.current = null;
-      }
+      interruptFrameCount.current = 0;
+      lastTimerTextRef.current = "";
     }
-  }, [isOpen]);
+  }, [isOpen, stopRecognition]);
 
   // ── Call fast voice endpoint ──
   const callVoiceAI = async (userText: string) => {

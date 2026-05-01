@@ -9,7 +9,7 @@ import { Bot, User, Plus, Search, Settings, LogOut, MessageSquare, Send, Menu, L
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
 
 let _msgCounter = 0;
@@ -363,7 +363,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           uid: user?.uid,
           refreshToken: rToken,
           contacts: [],
-          knowledgeBaseText: kbText
+          knowledgeBaseText: kbText,
+          userName: user?.displayName || undefined
         }),
       });
 
@@ -386,6 +387,27 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
           updateDoc(doc(firestore, "users", user.uid), { groqTokens: increment(usage) }).catch(console.error);
         });
+      }
+
+      // --- Save P.A.C.T. facts from API response ---
+      if (data.pactFacts && data.pactFacts.length > 0 && user?.uid && firestore) {
+        (async () => {
+          try {
+            const orgId = "nxtchapter";
+            const pactCol = collection(firestore, "users", user.uid, "pact_entries");
+            const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
+            const existingQs = new Set<string>();
+            existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
+            for (const fact of data.pactFacts) {
+              const nq = fact.question.toLowerCase().trim();
+              if (!existingQs.has(nq) && existingSnap.size < 200) {
+                await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "text", orgId, createdAt: Date.now(), updatedAt: Date.now() });
+                existingQs.add(nq);
+              }
+            }
+            console.log(`[PACT] Saved ${data.pactFacts.length} facts locally (nxtchapter)`);
+          } catch (e) { console.error("[PACT] Client save error:", e); }
+        })();
       }
     } catch (error: any) {
       console.error(error);
@@ -1016,7 +1038,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
               uid: user?.uid,
               refreshToken: rToken,
               contacts: [],
-              knowledgeBaseText: kbText
+              knowledgeBaseText: kbText,
+              userName: user?.displayName || undefined
             }),
           });
           const data = await res.json();

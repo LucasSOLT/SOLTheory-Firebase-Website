@@ -148,6 +148,18 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      match /pact_entries/{pactId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /jarvis_sessions/{sessionId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /nxtchapter_sessions/{sessionId} {
+        allow read, write: if isOwner(userId);
+      }
+
       /**
        * @description YouTube video draft concepts created by the AI Creative Director.
        * @path /users/{userId}/youtube_drafts/{draftId}
