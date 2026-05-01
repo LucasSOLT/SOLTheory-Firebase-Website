@@ -526,8 +526,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         });
       }
 
-      // Fetch PACT entries slightly delayed to allow server to save
-      setTimeout(() => fetchPACTEntries(), 1000);
+      // Trigger background PACT extraction securely on the server
+      if (user?.uid) {
+        fetch("/api/pact/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userMessage: inputValue,
+            aiResponse: data.response,
+            userName: user?.displayName || undefined,
+            uid: user.uid,
+            orgId: "soltheory"
+          })
+        }).then(() => setTimeout(fetchPACTEntries, 1000)).catch(console.error);
+      }
 
     } catch (error: any) {
       setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}.`, isSelf: false }]);
@@ -1584,6 +1596,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             { id: uid(), text: userText, isSelf: true },
             { id: uid(), text: aiReply, isSelf: false },
           ]);
+
+          // Trigger background PACT extraction securely on the server
+          if (user?.uid && userText.trim().length > 15) {
+            fetch("/api/pact/extract", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userMessage: userText,
+                aiResponse: aiReply,
+                userName: user?.displayName || undefined,
+                uid: user.uid,
+                orgId: "soltheory"
+              })
+            }).then(() => setTimeout(fetchPACTEntries, 1000)).catch(console.error);
+          }
         }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {

@@ -389,7 +389,20 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         });
       }
 
-      // Note: PACT facts are now saved securely on the server to avoid client rule errors
+      // Trigger background PACT extraction securely on the server
+      if (user?.uid) {
+        fetch("/api/pact/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userMessage: inputValue,
+            aiResponse: data.response,
+            userName: user?.displayName || undefined,
+            uid: user.uid,
+            orgId: "nxtchapter"
+          })
+        }).then(() => setTimeout(fetchPACTEntries, 1000)).catch(console.error);
+      }
     } catch (error: any) {
       console.error(error);
       const errorMsg: Message = {
@@ -992,25 +1005,19 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
             { id: uid(), text: aiReply, isSelf: false },
           ]);
 
-          if (pactFacts && pactFacts.length > 0 && user?.uid && firestore) {
-            import("firebase/firestore").then(async ({ collection, getDocs, query, where, addDoc }) => {
-              try {
-                const orgId = "nxtchapter";
-                const pactCol = collection(firestore, "users", user.uid, "pact_entries");
-                const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
-                const existingQs = new Set<string>();
-                existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
-                for (const fact of pactFacts) {
-                  const nq = fact.question.toLowerCase().trim();
-                  if (!existingQs.has(nq) && existingSnap.size < 200) {
-                    await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "voice", orgId, createdAt: Date.now(), updatedAt: Date.now() });
-                    existingQs.add(nq);
-                  }
-                }
-                fetchPACTEntries();
-                console.log(`[PACT] Saved ${pactFacts.length} facts locally from voice chat`);
-              } catch (e) { console.error("[PACT] Voice client save error:", e); }
-            });
+          // Trigger background PACT extraction securely on the server
+          if (user?.uid && userText.trim().length > 15) {
+            fetch("/api/pact/extract", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userMessage: userText,
+                aiResponse: aiReply,
+                userName: user?.displayName || undefined,
+                uid: user.uid,
+                orgId: "nxtchapter"
+              })
+            }).then(() => setTimeout(fetchPACTEntries, 1000)).catch(console.error);
           }
         }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {

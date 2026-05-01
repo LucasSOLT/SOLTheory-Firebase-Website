@@ -1206,58 +1206,12 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     };
 
     const finalResponse = sanitizeResponse(responseMessage?.content || "");
-    let pactFacts: { question: string; answer: string }[] = [];
-    if (uid && finalResponse && messages.length > 0) {
-      const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
-      if (lastUserMsg?.content && lastUserMsg.content.trim().length > 15) {
-        try {
-          pactFacts = await extractPACTFacts(lastUserMsg.content, finalResponse, userName);
-          if (pactFacts.length > 0) {
-            console.log(`[PACT] Extracted ${pactFacts.length} facts for user ${uid}`);
-            
-            // Server-side persistence using Admin SDK to bypass un-deployed client rules
-            try {
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const isNxt = (agentId || "").includes("nxtchapter");
-              const orgIdStr = isNxt ? "nxtchapter" : "soltheory";
-              
-              const pactCol = adminDb.collection("users").doc(uid).collection("pact_entries");
-              const existingSnap = await pactCol.where("orgId", "==", orgIdStr).get();
-              const existingQs = new Set<string>();
-              existingSnap.forEach(doc => existingQs.add(doc.data().question?.toLowerCase()?.trim()));
-              
-              for (const fact of pactFacts) {
-                const nq = fact.question.toLowerCase().trim();
-                if (!existingQs.has(nq) && existingSnap.size < 200) {
-                  await pactCol.add({
-                    question: fact.question,
-                    answer: fact.answer,
-                    source: "server",
-                    orgId: orgIdStr,
-                    createdAt: Date.now(),
-                    updatedAt: Date.now()
-                  });
-                  existingQs.add(nq);
-                }
-              }
-              console.log(`[PACT] Saved successfully to server Firestore`);
-            } catch (dbErr) {
-              console.error("[PACT] Server save error (likely localhost missing credentials):", dbErr);
-            }
-          }
-        } catch (pactErr) {
-          console.error("[PACT] Extraction error:", pactErr);
-        }
-      }
-    }
 
     // Default Raw Response
     return NextResponse.json({ 
       response: finalResponse,
       usage: totalTokens,
-      executedTools: executedTools.length > 0 ? executedTools : undefined,
-      pactFacts: pactFacts.length > 0 ? pactFacts : undefined,
+      executedTools: executedTools.length > 0 ? executedTools : undefined
     });
   } catch (error: any) {
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
