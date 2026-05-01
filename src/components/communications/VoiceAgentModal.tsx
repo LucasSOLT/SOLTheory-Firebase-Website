@@ -466,7 +466,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     stopRecognition();
 
     // Commit user text
-    setTranscriptLines(prev => [...prev, { text: finalUserText, isUser: true }]);
+    setTranscriptLines(prev => [...prev, { text: spokenText, isUser: true }]);
     setLiveText("");
     accumulatedTextRef.current = "";
     setPhase("processing");
