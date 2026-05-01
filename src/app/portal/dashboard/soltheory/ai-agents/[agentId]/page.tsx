@@ -526,28 +526,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         });
       }
 
-      // --- Save P.A.C.T. facts from API response ---
-      if (data.pactFacts && data.pactFacts.length > 0 && user?.uid && firestore) {
-        (async () => {
-          try {
-            const orgId = "soltheory";
-            const pactCol = collection(firestore, "users", user.uid, "pact_entries");
-            const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
-            const existingQs = new Set<string>();
-            existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
-            for (const fact of data.pactFacts) {
-              const nq = fact.question.toLowerCase().trim();
-              if (!existingQs.has(nq) && existingSnap.size < 200) {
-                await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "text", orgId, createdAt: Date.now(), updatedAt: Date.now() });
-                existingQs.add(nq);
-              }
-            }
-            // Refresh PACT state
-            fetchPACTEntries();
-            console.log(`[PACT] Saved ${data.pactFacts.length} facts locally`);
-          } catch (e) { console.error("[PACT] Client save error:", e); }
-        })();
-      }
+      // Fetch PACT entries slightly delayed to allow server to save
+      setTimeout(() => fetchPACTEntries(), 1000);
+
     } catch (error: any) {
       setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}.`, isSelf: false }]);
     } finally {
@@ -1596,35 +1577,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         agentId={params.agentId as string}
         orgPrefix="soltheory"
         existingMessages={messages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }))}
-        onTranscriptUpdate={(userText, aiReply, pactFacts) => {
+        onTranscriptUpdate={(userText, aiReply) => {
           // Save voice messages to the active chat session
           setMessages(prev => [
             ...prev,
             { id: uid(), text: userText, isSelf: true },
             { id: uid(), text: aiReply, isSelf: false },
           ]);
-
-          // Save PACT facts
-          if (pactFacts && pactFacts.length > 0 && user?.uid && firestore) {
-            import("firebase/firestore").then(async ({ collection, getDocs, query, where, addDoc }) => {
-              try {
-                const orgId = "soltheory";
-                const pactCol = collection(firestore, "users", user.uid, "pact_entries");
-                const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
-                const existingQs = new Set<string>();
-                existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
-                for (const fact of pactFacts) {
-                  const nq = fact.question.toLowerCase().trim();
-                  if (!existingQs.has(nq) && existingSnap.size < 200) {
-                    await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "voice", orgId, createdAt: Date.now(), updatedAt: Date.now() });
-                    existingQs.add(nq);
-                  }
-                }
-                fetchPACTEntries();
-                console.log(`[PACT] Saved ${pactFacts.length} facts locally from voice chat`);
-              } catch (e) { console.error("[PACT] Voice client save error:", e); }
-            });
-          }
         }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {

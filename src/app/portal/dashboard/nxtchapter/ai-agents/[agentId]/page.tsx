@@ -389,26 +389,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         });
       }
 
-      // --- Save P.A.C.T. facts from API response ---
-      if (data.pactFacts && data.pactFacts.length > 0 && user?.uid && firestore) {
-        (async () => {
-          try {
-            const orgId = "nxtchapter";
-            const pactCol = collection(firestore, "users", user.uid, "pact_entries");
-            const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
-            const existingQs = new Set<string>();
-            existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
-            for (const fact of data.pactFacts) {
-              const nq = fact.question.toLowerCase().trim();
-              if (!existingQs.has(nq) && existingSnap.size < 200) {
-                await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "text", orgId, createdAt: Date.now(), updatedAt: Date.now() });
-                existingQs.add(nq);
-              }
-            }
-            console.log(`[PACT] Saved ${data.pactFacts.length} facts locally (nxtchapter)`);
-          } catch (e) { console.error("[PACT] Client save error:", e); }
-        })();
-      }
+      // Note: PACT facts are now saved securely on the server to avoid client rule errors
     } catch (error: any) {
       console.error(error);
       const errorMsg: Message = {
