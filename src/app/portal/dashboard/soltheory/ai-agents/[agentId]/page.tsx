@@ -118,16 +118,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const fetchPACTEntries = async () => {
     if (!user?.uid || !firestore) return;
     try {
-      const pactRef = collection(firestore, "users", user.uid, "pact_entries");
-      const q = query(pactRef, orderBy("updatedAt", "desc"), firestoreLimit(200));
-      const snap = await getDocs(q);
+      const { getDoc, doc } = await import("firebase/firestore");
+      const userDoc = await getDoc(doc(firestore, "users", user.uid));
       const entries: PACTEntry[] = [];
-      snap.forEach(d => {
-        const data = d.data();
-        if (data.orgId === "soltheory") {
-          entries.push({ id: d.id, question: data.question, answer: data.answer, source: data.source || "text", orgId: data.orgId, createdAt: data.createdAt, updatedAt: data.updatedAt });
-        }
+      
+      // Fallback: Read from the field
+      const fieldData = userDoc.data()?.pact_entries_soltheory || [];
+      fieldData.forEach((item: any, index: number) => {
+        entries.push({
+          id: `field-${index}`,
+          question: item.question,
+          answer: item.answer,
+          source: item.source || "server_background",
+          orgId: "soltheory",
+          createdAt: item.createdAt || Date.now(),
+          updatedAt: item.updatedAt || Date.now()
+        });
       });
+
       setPactEntries(entries);
       setPactLoaded(true);
     } catch (err) { console.error("Failed to load PACT entries", err); }
@@ -538,7 +546,30 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             uid: user.uid,
             orgId: "soltheory"
           })
-        }).then(() => setTimeout(fetchPACTEntries, 1000)).catch(console.error);
+        }).then(res => res.json()).then(async (extractData) => {
+          if (extractData.facts && extractData.facts.length > 0 && firestore && user?.uid) {
+            const { doc, getDoc, updateDoc, arrayUnion } = await import("firebase/firestore");
+            const userDocRef = doc(firestore, "users", user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            const existingField = userDocSnap.data()?.pact_entries_soltheory || [];
+            const existingQs = new Set(existingField.map((f: any) => f.question?.toLowerCase()?.trim()));
+
+            const newFacts = extractData.facts.filter((f: any) => !existingQs.has(f.question?.toLowerCase()?.trim())).map((f: any) => ({
+              question: f.question,
+              answer: f.answer,
+              source: "server_background",
+              createdAt: Date.now(),
+              updatedAt: Date.now()
+            }));
+            
+            if (newFacts.length > 0) {
+              await updateDoc(userDocRef, {
+                pact_entries_soltheory: arrayUnion(...newFacts)
+              });
+              setTimeout(fetchPACTEntries, 1000);
+            }
+          }
+        }).catch(console.error);
       }
 
     } catch (error: any) {
@@ -1609,7 +1640,30 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 uid: user.uid,
                 orgId: "soltheory"
               })
-            }).then(() => setTimeout(fetchPACTEntries, 1000)).catch(console.error);
+            }).then(res => res.json()).then(async (extractData) => {
+              if (extractData.facts && extractData.facts.length > 0 && firestore && user?.uid) {
+                const { doc, getDoc, updateDoc, arrayUnion } = await import("firebase/firestore");
+                const userDocRef = doc(firestore, "users", user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                const existingField = userDocSnap.data()?.pact_entries_soltheory || [];
+                const existingQs = new Set(existingField.map((f: any) => f.question?.toLowerCase()?.trim()));
+
+                const newFacts = extractData.facts.filter((f: any) => !existingQs.has(f.question?.toLowerCase()?.trim())).map((f: any) => ({
+                  question: f.question,
+                  answer: f.answer,
+                  source: "server_background",
+                  createdAt: Date.now(),
+                  updatedAt: Date.now()
+                }));
+                
+                if (newFacts.length > 0) {
+                  await updateDoc(userDocRef, {
+                    pact_entries_soltheory: arrayUnion(...newFacts)
+                  });
+                  setTimeout(fetchPACTEntries, 1000);
+                }
+              }
+            }).catch(console.error);
           }
         }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {

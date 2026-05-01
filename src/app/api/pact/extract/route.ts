@@ -21,41 +21,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "No facts extracted" });
     }
 
-    // 2. Save facts securely to Firestore using Admin SDK
-    console.log(`[PACT Background] Extracted ${pactFacts.length} facts for user ${uid}`);
-    
-    initAdmin();
-    const adminDb = getAdminFirestore();
-    const pactCol = adminDb.collection("users").doc(uid).collection("pact_entries");
-    
-    const existingSnap = await pactCol.where("orgId", "==", orgId).get();
-    const existingQs = new Set<string>();
-    existingSnap.forEach(doc => existingQs.add(doc.data().question?.toLowerCase()?.trim()));
-    
-    let savedCount = 0;
-    for (const fact of pactFacts) {
-      const nq = fact.question.toLowerCase().trim();
-      if (!existingQs.has(nq) && existingSnap.size < 200) {
-        await pactCol.add({
-          question: fact.question,
-          answer: fact.answer,
-          source: "server_background",
-          orgId: orgId,
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        });
-        existingQs.add(nq);
-        savedCount++;
-      }
-    }
-
-    return NextResponse.json({ success: true, savedCount, facts: pactFacts });
+    return NextResponse.json({ success: true, facts: pactFacts });
 
   } catch (error: any) {
-    if (error.message?.includes("credentials")) {
-      console.warn("[PACT Background] Missing admin credentials (expected on localhost). Skipping server save.");
-      return NextResponse.json({ success: true, message: "Skipped server write on localhost due to missing credentials." });
-    }
     console.error("[PACT Background] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
