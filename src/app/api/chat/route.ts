@@ -1172,16 +1172,25 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
     
     const errMsg = error?.message || "";
-    if (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function")) {
-      // Retry WITHOUT tools as a fallback
+    if (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls")) {
+      // Retry WITHOUT tools as a fallback — use the full groqMessages minus any tool_calls messages
       try {
         const groq2 = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        // Strip out any tool messages that would confuse a non-tool call
+        const cleanMessages = (typeof groqMessages !== 'undefined' ? groqMessages : []).filter(
+          (m: any) => m.role !== "tool" && !m.tool_calls
+        );
+        const fallbackMessages = cleanMessages.length > 0 ? cleanMessages : [
+          { role: "system", content: "You are a helpful assistant." },
+          ...messages
+        ];
         const fallback = await groq2.chat.completions.create({
-          messages: messages.length > 0 ? [{ role: "system", content: "You are a helpful assistant." }, ...messages] : [{ role: "user", content: "Hello" }],
+          messages: fallbackMessages,
           model: "llama-3.3-70b-versatile",
         });
         return NextResponse.json({ response: fallback.choices[0]?.message?.content || "I'm sorry, I had trouble processing that. Could you try rephrasing?" });
-      } catch {
+      } catch (e2: any) {
+        console.error("[DEBUG] Fallback also failed:", e2?.message);
         return NextResponse.json({ response: "I encountered a temporary issue. Could you please try asking me that one more time?" });
       }
     }

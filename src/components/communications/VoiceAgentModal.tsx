@@ -11,12 +11,14 @@ interface VoiceAgentModalProps {
   orgPrefix: "soltheory" | "nxtchapter";
   onCallAI?: (messages: any[]) => Promise<any>;
   onUsageUpdate?: (groqTokens: number, elevenLabsChars: number) => void;
+  existingMessages?: { role: string; content: string }[];
+  onTranscriptUpdate?: (userText: string, aiReply: string) => void;
 }
 
 type Phase = "listening" | "processing" | "speaking";
 type TranscriptLine = { text: string; isUser: boolean };
 
-export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate }: VoiceAgentModalProps) {
+export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate }: VoiceAgentModalProps) {
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState<Phase>("listening");
@@ -184,6 +186,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       }
     }
   }, [isPaused, isOpen, isMicMuted, startRecognition, stopRecognition]);
+
+  // Seed conversation with existing chat messages for context
+  useEffect(() => {
+    if (isOpen && existingMessages && existingMessages.length > 0 && conversationRef.current.length === 0) {
+      conversationRef.current = [...existingMessages];
+    }
+  }, [isOpen, existingMessages]);
 
   // ── Start mic + waveform on open ──
   useEffect(() => {
@@ -403,6 +412,11 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     // Call AI
     const aiReply = await callVoiceAI(spokenText);
+
+    // Notify parent to save to chat session
+    if (onTranscriptUpdate) {
+      onTranscriptUpdate(spokenText, aiReply);
+    }
 
     // Show response
     setPhase("speaking");

@@ -1361,6 +1361,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         agentName={agent.name}
         agentId={params.agentId as string}
         orgPrefix="soltheory"
+        existingMessages={messages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }))}
+        onTranscriptUpdate={(userText, aiReply) => {
+          // Save voice messages to the active chat session
+          setMessages(prev => [
+            ...prev,
+            { id: uid(), text: userText, isSelf: true },
+            { id: uid(), text: aiReply, isSelf: false },
+          ]);
+        }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
             import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
@@ -1391,7 +1400,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             body: JSON.stringify({
               messages: apiMessages,
               agentId: `soltheory_${params.agentId}`,
-              soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+              soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email. IMPORTANT: You are in a VOICE CONVERSATION. Keep responses to 1-3 sentences. Be direct. Never use markdown, bullet points, or code blocks.`,
               brain: agentConfig.brain,
               uid: user?.uid,
               refreshToken: rToken,
