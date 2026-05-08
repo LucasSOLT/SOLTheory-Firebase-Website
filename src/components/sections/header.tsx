@@ -99,9 +99,9 @@ export function Header() {
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button asChild variant="default" className="ml-2">
+            <Button asChild variant="outline" className="ml-2 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm font-semibold tracking-wide text-sm rounded-xl px-5">
                 <Link href="/portal/login">
-                    Client Portal
+                    Access Dashboard
                 </Link>
             </Button>
         </div>

@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     const voiceId = "mZ8K1MPRiT5wDQaasg3i";
     const apiKey = "sk_c75325e8b9cfb1e4f2b73ad59419653c2ca59013f889267c";
 
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?optimize_streaming_latency=4&output_format=mp3_22050_32`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

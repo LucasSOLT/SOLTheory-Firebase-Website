@@ -5,7 +5,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -25,27 +25,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const [latestNotifId, setLatestNotifId] = useState<string | null>(null);
 
+  // Collapsible section states (persisted in localStorage)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('sidebar_collapsed') || '{}'); } catch { return {}; }
+  });
+  const toggleSection = (key: string) => {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('sidebar_collapsed', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const playNotificationSound = () => {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
-      
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.05); // Quiet volume (0.05)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
+      const masterGain = ctx.createGain();
+      masterGain.connect(ctx.destination);
+      masterGain.gain.setValueAtTime(0, ctx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.03);
+      masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+      // Pleasant 3-note ascending chime (C5, E5, G5)
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(masterGain);
+        osc.start(ctx.currentTime + i * 0.08);
+        osc.stop(ctx.currentTime + 1.2);
+      });
     } catch (e) {}
   };
 
@@ -185,6 +196,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
   }, [firestore, user?.email]);
 
+  // Listen for new DMs and generate notifications
+  React.useEffect(() => {
+    if (!firestore || !user?.email) return;
+    let unsub: (() => void) | undefined;
+    try {
+      const dmsRef = collection(firestore, "dms");
+      const q = query(dmsRef, where("participants", "array-contains", user.email));
+      unsub = onSnapshot(q, (snap) => {
+        const dmNotifs: any[] = [];
+        const ONE_DAY = 24 * 60 * 60 * 1000;
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const updatedAt = data.updatedAt?.toMillis?.() || 0;
+          if (!updatedAt || Date.now() - updatedAt > ONE_DAY) return;
+          // We don't have per-message sender info on the chat doc, so just track recent activity
+          dmNotifs.push({
+            id: `dm-${d.id}-${updatedAt}`,
+            title: 'New message',
+            desc: `Chat updated with ${data.participants?.filter((p: string) => p !== user.email).join(', ') || 'someone'}`,
+            time: updatedAt,
+            icon: <MessageSquare className="w-4 h-4 text-indigo-600" />,
+            bg: 'bg-indigo-100',
+            link: `${dashboardHome}/communications/dm`
+          });
+        });
+        if (dmNotifs.length > 0) {
+          setNotifications(prev => {
+            const filtered = prev.filter(n => !n.id.startsWith('dm-'));
+            return [...filtered, ...dmNotifs].sort((a, b) => b.time - a.time);
+          });
+        }
+      }, (error) => {
+        // Silently handle missing index or permissions errors  
+        console.warn('DM notification listener error (non-fatal):', error.message);
+      });
+    } catch (e) {
+      console.warn('DM notification listener setup failed (non-fatal):', e);
+    }
+    return () => unsub?.();
+  }, [firestore, user?.email]);
+
   const renderSkeletonBoxes = (count: number) => {
     return Array.from({ length: count }).map((_, i) => (
       <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer mb-2">
@@ -227,8 +279,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Section 1 */}
           <div>
-            <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.menu}</div>
-            <div className="space-y-1 mb-4 pt-1">
+            <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.menu}</span>
+            </button>
+            {!collapsedSections['menu'] && <div className="animate-in fade-in duration-150">
+              <div className="space-y-1 mb-4 pt-1">
               <Link href={`${dashboardHome}`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname === dashboardHome ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname === dashboardHome ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
                   <Home className="w-4 h-4" />
@@ -281,13 +337,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               )}
             </div>
+            </div>}
           </div>
           
           {/* Section 2 */}
           <div className="mb-2">
-            <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.reports}</div>
-            
-            <div className="space-y-1">
+            <button onClick={() => toggleSection('reports')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['reports'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.reports}</span>
+            </button>
+            {!collapsedSections['reports'] &&
+            <div className="space-y-1 animate-in fade-in duration-150">
               <Link href={`${dashboardHome}/analytics`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/analytics') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/analytics') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
                   <Activity className="w-4 h-4 ml-1" />
@@ -307,37 +367,76 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 <span className="text-sm font-medium">Surveys</span>
               </Link>
-            </div>
+            </div>}
+          </div>
+
+          {/* Communications */}
+          <div className="mb-2">
+            <button onClick={() => toggleSection('comms')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['comms'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Communications</span>
+            </button>
+            {!collapsedSections['comms'] && <div className="space-y-1 animate-in fade-in duration-150">
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <MessageCircle className="w-4 h-4 ml-1" />
+                <span className="text-sm">iMessage</span>
+              </div>
+              <Link href={`${dashboardHome}/communications/whatsapp`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/communications/whatsapp') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-emerald-900'}`}>
+                <MessageCircle className="w-4 h-4 ml-1" />
+                <span className="text-sm">WhatsApp</span>
+              </Link>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <Hash className="w-4 h-4 ml-1" />
+                <span className="text-sm">Slack</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <Smartphone className="w-4 h-4 ml-1" />
+                <span className="text-sm">Android MSG</span>
+              </div>
+            </div>}
           </div>
 
           {/* Social Media Integrations */}
           <div className="mb-2">
-            <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.socialMediaIntegrations}</div>
-            <div className="space-y-1">
+            <button onClick={() => toggleSection('social')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['social'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.socialMediaIntegrations}</span>
+            </button>
+            {!collapsedSections['social'] && <div className="space-y-1 animate-in fade-in duration-150">
+              <Link href={`${dashboardHome}/upload-calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-emerald-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-emerald-600'}`}>
+                  <CalendarDays className="w-4 h-4 ml-1" />
+                </div>
+                <span className="text-sm">Upload Calendar</span>
+              </Link>
               <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-fuchsia-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/youtube') ? 'bg-fuchsia-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-fuchsia-600'}`}>
                   <Youtube className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">YouTube</span>
               </Link>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-transparent">
+              <Link href={`${dashboardHome}/instagram`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-rose-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/instagram') ? 'bg-rose-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-rose-600'}`}>
                   <Instagram className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">Instagram</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-transparent">
+              </Link>
+              <Link href={`${dashboardHome}/facebook`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-blue-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/facebook') ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-blue-600'}`}>
                   <Facebook className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">Facebook</span>
-              </div>
-            </div>
+              </Link>
+            </div>}
           </div>
 
-          {/* Section 3 */}
+          {/* Section 3 - Google Integrations */}
           <div>
-            <div className="text-[10px] font-bold text-slate-400 mb-3 px-3 tracking-widest uppercase">{t.googleIntegrations}</div>
+            <button onClick={() => toggleSection('google')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['google'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.googleIntegrations}</span>
+            </button>
+            {!collapsedSections['google'] && <div className="space-y-1 animate-in fade-in duration-150">
             
             <Link href={`${dashboardHome}/calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/calendar') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/calendar') ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
@@ -388,8 +487,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <span className="text-sm">Gemini AI</span>
              </div>
            </div>
+            </div>}
+          </div>
 
-            {renderSkeletonBoxes(3)}
+          {/* Microsoft Suite */}
+          <div className="mb-2">
+            <button onClick={() => toggleSection('microsoft')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['microsoft'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Microsoft Suite</span>
+            </button>
+            {!collapsedSections['microsoft'] && <div className="space-y-1 animate-in fade-in duration-150">
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <Mail className="w-4 h-4 ml-1" />
+                <span className="text-sm">Outlook</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <FileText className="w-4 h-4 ml-1" />
+                <span className="text-sm">Word</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <Table className="w-4 h-4 ml-1" />
+                <span className="text-sm">Excel</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <Presentation className="w-4 h-4 ml-1" />
+                <span className="text-sm">PowerPoint</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <Users className="w-4 h-4 ml-1" />
+                <span className="text-sm">Teams</span>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+                <HardDrive className="w-4 h-4 ml-1" />
+                <span className="text-sm">OneDrive</span>
+              </div>
+            </div>}
           </div>
         </div>
 

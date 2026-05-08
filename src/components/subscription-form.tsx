@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,8 @@ const formSchema = z.object({
 });
 
 export function SubscriptionForm() {
-  const { toast } = useToast();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -31,26 +32,37 @@ export function SubscriptionForm() {
     },
   });
 
+  // Auto-hide success message after 6.5 seconds
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => setShowSuccess(false), 6500);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
+
+  // Auto-hide error message after 6.5 seconds
+  useEffect(() => {
+    if (showError) {
+      const timer = setTimeout(() => setShowError(null), 6500);
+      return () => clearTimeout(timer);
+    }
+  }, [showError]);
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const result = await subscribeUser(values);
     if (result.success) {
-      toast({
-        title: "Subscribed!",
-        description: "Thanks for joining. We'll be in touch.",
-      });
+      setShowSuccess(true);
+      setShowError(null);
       form.reset();
     } else {
-      toast({
-        variant: "destructive",
-        title: "Uh oh! Something went wrong.",
-        description: result.error || "There was a problem with your request.",
-      });
+      setShowError(result.error || "There was a problem with your request.");
+      setShowSuccess(false);
     }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="email"
@@ -78,6 +90,28 @@ export function SubscriptionForm() {
             </FormItem>
           )}
         />
+
+        {/* Inline success notification */}
+        <div
+          className={`text-center transition-all duration-500 ease-out overflow-hidden ${
+            showSuccess ? "opacity-100 max-h-16 mt-2" : "opacity-0 max-h-0 mt-0"
+          }`}
+        >
+          <p className="text-sm font-semibold text-emerald-400 tracking-wide">
+            Subscribed! We&apos;ll be in touch.
+          </p>
+        </div>
+
+        {/* Inline error notification */}
+        <div
+          className={`text-center transition-all duration-500 ease-out overflow-hidden ${
+            showError ? "opacity-100 max-h-16 mt-2" : "opacity-0 max-h-0 mt-0"
+          }`}
+        >
+          <p className="text-sm font-semibold text-red-400 tracking-wide">
+            {showError}
+          </p>
+        </div>
       </form>
     </Form>
   );

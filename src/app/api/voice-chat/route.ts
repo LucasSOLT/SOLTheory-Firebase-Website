@@ -6,7 +6,7 @@ import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 
 export async function POST(req: Request) {
   try {
-    const { messages, agentId, uid } = await req.json();
+    const { messages, agentId, uid, systemInstructions, knowledgeBaseText, pactText } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Messages required" }, { status: 400 });
@@ -20,10 +20,22 @@ export async function POST(req: Request) {
       : "You are Jarvis, the AI voice assistant for SOL Theory. You are in a live voice conversation. Keep every response to 1-3 sentences. Be direct, helpful, and natural. Never use markdown, bullet points, numbered lists, or code blocks. Speak as if talking out loud to a person.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
 
     if (isNxt) {
-       systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + nxtChapterKnowledge;
+      systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + nxtChapterKnowledge;
     }
     if (isSol) {
-       systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
+      systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
+    }
+
+    if (systemInstructions) {
+      systemPrompt += "\n\n[SESSION INSTRUCTIONS]\n" + systemInstructions;
+    }
+
+    if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
+      systemPrompt += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + knowledgeBaseText.substring(0, 50000);
+    }
+
+    if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
+      systemPrompt += "\n\n[P.A.C.T. — PERSONALIZED USER CONTEXT]\nYou have learned the following facts about this specific user from previous conversations. Use this knowledge naturally when relevant. Do not repeat these facts unprompted.\n\n" + pactText.substring(0, 5000);
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -34,8 +46,8 @@ export async function POST(req: Request) {
         ...messages,
       ],
       model: "llama-3.1-8b-instant",
-      temperature: 0.6,
-      max_tokens: 200,
+      temperature: 0.5,
+      max_tokens: 150,
     });
 
     const inputTokens = completion.usage?.prompt_tokens || 0;

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown } from "lucide-react";
+import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
 
 interface VoiceAgentModalProps {
   isOpen: boolean;
@@ -13,12 +13,15 @@ interface VoiceAgentModalProps {
   onUsageUpdate?: (groqTokens: number, elevenLabsChars: number) => void;
   existingMessages?: { role: string; content: string }[];
   onTranscriptUpdate?: (userText: string, aiReply: string, pactFacts?: any[]) => void;
+  systemInstructions?: string;
+  knowledgeBaseText?: string;
+  pactText?: string;
 }
 
 type Phase = "listening" | "processing" | "speaking";
 type TranscriptLine = { text: string; isUser: boolean };
 
-export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate }: VoiceAgentModalProps) {
+export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate, systemInstructions, knowledgeBaseText, pactText }: VoiceAgentModalProps) {
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState<Phase>("listening");
@@ -42,6 +45,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const interruptFrameCount = useRef(0);
   const lastTimerTextRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Persistent audio element for mobile compatibility - created once, reused
+  const persistentAudioRef = useRef<HTMLAudioElement | null>(null);
   const isPausedRef = useRef(isPaused);
   const [responseDelay, setResponseDelay] = useState(1500);
   const responseDelayRef = useRef(1500);
@@ -49,12 +54,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [groqTokens, setGroqTokens] = useState(0);
   const [elevenLabsChars, setElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
-  const finishUserTurnRef = useRef<() => Promise<void>>(async () => {});
+  const [isMinimized, setIsMinimized] = useState(false);
+  const finishUserTurnRef = useRef<() => Promise<void>>(async () => { });
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
-  useEffect(() => { 
-    isPausedRef.current = isPaused; 
-    
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+
     // Relay pause/play immediately to active AI audio stream
     if (audioRef.current) {
       if (isPaused) {
@@ -76,7 +82,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     if (recognitionRef.current) {
       const r = recognitionRef.current;
       recognitionRef.current = null; // prevent auto-restart in onend
-      try { r.abort(); } catch {} // Use abort() to instantly kill without trailing onresult events
+      try { r.abort(); } catch { } // Use abort() to instantly kill without trailing onresult events
     }
   }, []);
 
@@ -111,18 +117,18 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       }
 
       const newText = (accumulatedTextRef.current + (interim ? " " + interim : "")).trim();
-      
+
       // Voice Auto-Submit Logic
       // Only reset the silence timer if actual new text was registered
       if (newText !== lastTimerTextRef.current) {
         lastTimerTextRef.current = newText;
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
-        
+
         silenceTimeoutRef.current = setTimeout(() => {
           if (phaseRef.current === "listening" && !isPausedRef.current) {
             const currentText = newText;
             if (currentText && currentText.length > 2) {
-               finishUserTurnRef.current();
+              finishUserTurnRef.current();
             }
           }
         }, responseDelayRef.current); // Use customizable delay
@@ -138,14 +144,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     recognition.onend = () => {
       // Only auto-restart if reference is still held (not manually stopped)
       if (recognitionRef.current === recognition && !cancelledRef.current) {
-        try { recognition.start(); } catch {}
+        try { recognition.start(); } catch { }
       }
     };
 
     try {
       recognition.start();
       recognitionRef.current = recognition;
-    } catch {}
+    } catch { }
   }, [stopRecognition]);
 
   // ── Mute: fully stop/start recognition + mic track ──
@@ -201,15 +207,15 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     const initMic = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
         if (cancelledRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
 
         streamRef.current = stream;
         const ctx = new AudioContext();
         audioCtxRef.current = ctx;
-        
+
         // --- Play welcoming "Gemini-style" startup chime ---
         try {
           const frequencies = [329.63, 440.00, 523.25, 659.25]; // E4, A4, C5, E5 (E minor / A minor feel)
@@ -223,13 +229,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             const osc = ctx.createOscillator();
             osc.type = 'sine';
             osc.frequency.value = freq;
-            
+
             const panner = ctx.createStereoPanner();
             panner.pan.value = (index / (frequencies.length - 1)) * 1.5 - 0.75; // spread stereo
-            
+
             osc.connect(panner);
             panner.connect(masterGain);
-            
+
             osc.start(ctx.currentTime + index * 0.05); // slight stagger/arpeggiation
             osc.stop(ctx.currentTime + 2.5);
           });
@@ -250,10 +256,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           if (cancelledRef.current) return;
           const barCount = 32;
           const newBars: number[] = [];
-          
+
           if (analyserRef.current) {
             analyserRef.current.getByteFrequencyData(dataArray);
-            
+
             // INTERRUPT LOGIC — require sustained loud input, not just a spike from laughter
             if (phaseRef.current === "speaking" && !isPausedRef.current) {
               let sum = 0;
@@ -292,21 +298,21 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               // Rich AI speaking visualizer with dynamic jumping
               const t = Date.now() / 1000;
               const center = barCount / 2;
-              
+
               // Bell curve: center bars are taller
               const gaussian = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(barCount / 4.5, 2)));
-              
+
               // Dynamic jumping and speaking simulation
               const speed = phaseRef.current === "processing" ? 3 : 15; // Faster when speaking
-              
+
               // Create a chaotic bounce that looks like speech modulation
-              const bounce = Math.abs(Math.sin(t * speed + i * 0.4)) * 0.5 + 
-                             Math.abs(Math.sin(t * speed * 1.5 - i * 0.2)) * 0.5;
-              
+              const bounce = Math.abs(Math.sin(t * speed + i * 0.4)) * 0.5 +
+                Math.abs(Math.sin(t * speed * 1.5 - i * 0.2)) * 0.5;
+
               // Random high spikes mimicking syllables when speaking
               const isSpeaking = phaseRef.current === "speaking";
               const randomSpike = isSpeaking && Math.random() > 0.85 ? Math.random() * 0.8 : 0;
-              
+
               const baseAmplitude = isSpeaking ? 90 : 30; // Taller when speaking
               binVal = (gaussian * baseAmplitude * (bounce * 0.7 + 0.3 + randomSpike)) + 12;
             } else {
@@ -324,6 +330,19 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
         // Start recognition immediately
         startRecognition();
+
+        // MOBILE FIX: "Unlock" a persistent audio element during this user-gesture-triggered flow.
+        // Mobile browsers (iOS Safari, Chrome Android) block Audio.play() unless
+        // the audio element was first played inside a direct user gesture.
+        if (!persistentAudioRef.current) {
+          const a = document.createElement('audio');
+          a.setAttribute('playsinline', 'true');
+          a.setAttribute('webkit-playsinline', 'true');
+          // Play a tiny silent audio to unlock the element
+          a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+          a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+          persistentAudioRef.current = a;
+        }
       } catch (err) {
         console.error("Microphone access denied:", err);
       }
@@ -365,7 +384,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
       // Kill audio context
       if (audioCtxRef.current) {
-        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current.close().catch(() => { });
         audioCtxRef.current = null;
       }
       analyserRef.current = null;
@@ -423,6 +442,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           body: JSON.stringify({
             messages: conversationRef.current,
             agentId: `${orgPrefix}_${agentId}`,
+            systemInstructions,
+            knowledgeBaseText,
+            pactText,
           }),
         });
         const data = await res.json();
@@ -430,14 +452,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         usageNum = data.usage || 0;
         if (data.pactFacts) pactFacts = data.pactFacts;
       }
-      
+
       setGroqTokens(p => p + usageNum);
       setElevenLabsChars(p => p + reply.length);
-      
+
       if (onUsageUpdate) {
         onUsageUpdate(usageNum, reply.length);
       }
-      
+
       conversationRef.current.push({ role: "assistant", content: reply });
       return { reply, pactFacts };
     } catch (err) {
@@ -479,39 +501,58 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     if (cancelledRef.current) return;
 
-    // Update parent component with the exchange and extracted facts
+    // SPEED OPTIMIZATION: Start preloading TTS audio IMMEDIATELY, before updating UI
+    const audioUrl = `/api/tts?text=${encodeURIComponent(cleanedReply)}`;
+
+    // MOBILE FIX: Reuse the persistent unlocked audio element instead of new Audio()
+    const audio = persistentAudioRef.current || document.createElement('audio');
+    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('webkit-playsinline', 'true');
+    audio.preload = "auto";
+    audio.src = audioUrl;
+    audio.load(); // Force reload on mobile
+
+    // Kill any existing audio to prevent overlap
+    if (audioRef.current && audioRef.current !== audio) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+    audioRef.current = audio;
+
+    // Update parent component and transcript in parallel with audio loading
     if (onTranscriptUpdate) {
       onTranscriptUpdate(spokenText, cleanedReply, pactFacts);
     }
-
-    // Show response
-    // Show response in UI
     setTranscriptLines(prev => [...prev, { text: cleanedReply, isUser: false }]);
     setPhase("speaking");
 
     try {
-      const audioUrl = `/api/tts?text=${encodeURIComponent(cleanedReply)}`;
-      const audio = new Audio(audioUrl);
-      
-      // Ensure absolutely no overlap if multiple processes resolved simultaneously
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-      }
-      
-      audioRef.current = audio;
-      
       audio.onended = () => {
         setPhase("listening");
         audioRef.current = null;
         if (!isMicMuted && !isPaused) startRecognition();
       };
-      
-      await audio.play();
-    } catch(err) {
+
+      // Play as soon as enough audio is buffered (don't wait for full download)
+      await new Promise<void>((resolve, reject) => {
+        const tryPlay = () => {
+          audio.play().then(resolve).catch((e) => {
+            // Mobile fallback: retry once after a short delay
+            console.warn('Audio play blocked, retrying:', e.message);
+            setTimeout(() => {
+              audio.play().then(resolve).catch(reject);
+            }, 100);
+          });
+        };
+        audio.oncanplay = () => tryPlay();
+        audio.onerror = () => reject(new Error("Audio load failed"));
+        // Safety: if canplay already fired (cached), play immediately
+        if (audio.readyState >= 3) tryPlay();
+      });
+    } catch (err) {
       console.error(err);
-      // Fallback
-      const delay = Math.max(1500, Math.min(aiReply.length * 35, 6000));
+      // Fallback: text-based delay
+      const delay = Math.max(1500, Math.min(cleanedReply.length * 35, 6000));
       speakingTimeoutRef.current = setTimeout(() => {
         setPhase("listening");
         if (!isMicMuted && !isPaused) startRecognition();
@@ -538,17 +579,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   const ac =
     isMicMuted ? "rose" :
-    isPaused ? "slate" :
-    phase === "speaking" ? "indigo" :
-    phase === "processing" ? "amber" :
-    "emerald";
+      isPaused ? "slate" :
+        phase === "speaking" ? "indigo" :
+          phase === "processing" ? "amber" :
+            "emerald";
 
   const statusLabel =
     isMicMuted ? "Microphone Off" :
-    isPaused ? "Session Paused" :
-    phase === "speaking" ? `${agentName.split(" ")[0]} is speaking...` :
-    phase === "processing" ? "Thinking..." :
-    "Listening — speak naturally";
+      isPaused ? "Session Paused" :
+        phase === "speaking" ? `${agentName.split(" ")[0]} is speaking...` :
+          phase === "processing" ? "Thinking..." :
+            "Listening — speak naturally";
 
   const g: Record<string, Record<string, string>> = {
     grad: { rose: "from-rose-400 via-rose-500 to-pink-500", indigo: "from-purple-400 via-fuchsia-500 to-pink-500", amber: "from-indigo-400 via-blue-500 to-cyan-400", emerald: "from-blue-400 via-cyan-500 to-teal-400", slate: "from-slate-300 via-slate-400 to-slate-500" },
@@ -560,22 +601,105 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     glow: { rose: "bg-rose-400", indigo: "bg-purple-500", amber: "bg-indigo-400", emerald: "bg-cyan-400", slate: "bg-slate-300" },
   };
 
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-6 right-6 z-[100] w-80 bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-slate-200">
+        <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
+        
+        <div className="p-4 relative">
+          <button onClick={() => setIsMinimized(false)} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all z-10">
+            <Maximize2 className="w-4 h-4" />
+          </button>
+          
+          <div className="flex flex-col items-center">
+            <div className={`inline-flex items-center gap-1.5 pl-2 pr-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest mb-1 border ${g.badge[ac]}`}>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${g.dot[ac]}`} />
+                <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${g.dotS[ac]}`} />
+              </span>
+              <span className="pr-0.5">{statusLabel.split('—')[0]}</span>
+            </div>
+            
+            <h2 className="text-base font-black text-slate-900 tracking-tight">{agentName}</h2>
+            <p className="text-slate-400 text-[10px] font-medium mt-0.5">{formatTime(elapsed)}</p>
+
+            {/* Waveform */}
+            <div className="w-full max-w-[200px] mt-4 relative">
+              <div className="relative h-16 flex items-center justify-center">
+                <div className={`absolute inset-0 rounded-full blur-[40px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
+                <div className="relative flex items-center justify-center gap-1 h-full w-full">
+                  {bars.slice(0, 24).map((h, i) => (
+                    <div key={i} className={`rounded-full transition-[height,background-color] duration-[120ms] ease-out bg-gradient-to-t shadow-sm ${g.bar[ac]}`}
+                      style={{
+                        width: "4px",
+                        height: `${Math.max(4, isMicMuted || isPaused ? 8 : h)}%`,
+                        opacity: isMicMuted || isPaused ? 0.3 : 0.8 + (h / 100) * 0.2
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-2 mt-4 w-full">
+              <button onClick={() => setIsMicMuted(!isMicMuted)}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
+              >
+                {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+
+              <button onClick={finishUserTurn} disabled={phase !== "listening" || isMicMuted || isPaused}
+                className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
+                  }`}
+              >
+                {phase === "processing" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> ...</> : <><Hand className="w-3.5 h-3.5" /> Done</>}
+              </button>
+
+              <button onClick={() => setIsPaused(!isPaused)}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isPaused ? "bg-amber-100 text-amber-600 ring-2 ring-amber-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
+              >
+                {isPaused ? <Play className="w-4 h-4 ml-0.5" /> : <Pause className="w-4 h-4" />}
+              </button>
+
+              <button onClick={onClose} className="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-100">
+                <Phone className="w-4 h-4 rotate-[135deg]" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in fade-in duration-300">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
-      {/* ─── TOP ─── */}
-      <div className={`flex flex-col items-center pt-4 sm:pt-6 pb-4 px-4 sm:px-6 relative transition-all duration-500 ease-in-out ${showTranscript ? "shrink-0 border-b border-slate-100" : "flex-1 justify-center bg-slate-50"}`}>
-
-        <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-3 sm:top-4 right-14 sm:right-16 px-2 sm:px-4 h-8 sm:h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 flex items-center gap-1.5 sm:gap-2 max-w-fit shadow-sm cursor-pointer transition-colors z-50">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
-          <span className="text-[11px] font-black tracking-wider text-slate-500 whitespace-nowrap">
-            ${( (groqTokens * 0.00000006) + (elevenLabsChars * 0.000167) ).toFixed(4)}
-          </span>
-        </button>
+      <div className="flex flex-col items-center flex-1 justify-center relative bg-slate-50 p-6">
+        
+        <div className="absolute top-6 left-6 right-6 flex items-center justify-between pointer-events-none">
+          {/* Top Left: Cost */}
+          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-10 rounded-full bg-white border border-slate-200 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors z-50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
+            <span className="text-[11px] font-black tracking-wider text-slate-600 whitespace-nowrap">
+              ${((groqTokens * 0.00000006) + (elevenLabsChars * 0.000167)).toFixed(4)}
+            </span>
+          </button>
+          
+          {/* Top Right: Minimize & Close */}
+          <div className="flex items-center gap-2 pointer-events-auto z-[101]">
+            <button onClick={() => setIsMinimized(true)} className="w-10 h-10 rounded-full bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="Minimize">
+              <Minimize2 className="w-5 h-5" />
+            </button>
+            <button onClick={onClose} className="w-10 h-10 rounded-full bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="End Call">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
         {showCostBreakdown && (
-          <div className="absolute top-14 sm:top-16 right-4 sm:right-16 z-[200] w-[calc(100%-2rem)] sm:w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-20 left-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[12px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black text-slate-900 tracking-tight">Session Cost Breakdown</h3>
               <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -583,7 +707,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
             <div className="space-y-4">
               {/* Groq Section */}
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-[8px]">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2 h-2 rounded-full bg-indigo-500" />
                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
@@ -598,7 +722,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               </div>
 
               {/* ElevenLabs Section */}
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-[4px]">
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-[8px]">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Text-to-Speech</span>
@@ -613,23 +737,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               </div>
 
               {/* Total */}
-              <div className="p-3 bg-slate-900 rounded-[4px]">
+              <div className="p-3 bg-slate-900 rounded-[8px]">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Session Cost</span>
                   <span className="text-lg font-black text-white">${((groqTokens * 0.00000006) + (elevenLabsChars * 0.000167)).toFixed(4)}</span>
                 </div>
               </div>
-
-              <p className="text-[10px] text-slate-400 leading-relaxed">Groq pricing: blended avg of $0.05/M input + $0.08/M output tokens. ElevenLabs pricing: Starter plan ($5/mo for 30K credits), ~$0.167 per 1,000 characters. Costs are estimates for this session only.</p>
             </div>
           </div>
         )}
 
-        <button onClick={onClose} className="absolute top-3 sm:top-4 right-3 sm:right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-[4px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95 z-[101]">
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className={`inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 border ${g.badge[ac]} relative`}>
+        <div className={`inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 border ${g.badge[ac]} relative`}>
           <span className="relative flex h-1.5 w-1.5">
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${g.dot[ac]}`} />
             <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${g.dotS[ac]}`} />
@@ -651,132 +769,58 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           )}
           {!isPaused && <ChevronDown className="w-3 h-3 opacity-50 -ml-1 pointer-events-none" />}
         </div>
-        <h2 className="text-xl font-black text-slate-900 tracking-tight">{agentName}</h2>
-        <p className="text-slate-400 text-xs font-medium mt-0.5">{formatTime(elapsed)}</p>
+        
+        <h2 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-2">{agentName}</h2>
+        <p className="text-slate-400 text-sm font-medium">{formatTime(elapsed)}</p>
 
         {/* Waveform */}
-        <div className="w-full max-w-[280px] sm:max-w-lg mt-4 sm:mt-8 relative">
-          <div className="relative h-20 sm:h-32 flex items-center justify-center">
+        <div className="w-full max-w-[280px] sm:max-w-2xl mt-12 mb-12 relative">
+          <div className="relative h-32 sm:h-48 flex items-center justify-center">
             {/* Ambient Background Glow */}
-            <div className={`absolute inset-0 rounded-full blur-[60px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
-            
-            <div className="relative flex items-center justify-center gap-[3px] sm:gap-1.5 h-full w-full">
+            <div className={`absolute inset-0 rounded-full blur-[80px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
+
+            <div className="relative flex items-center justify-center gap-[3px] sm:gap-2 h-full w-full">
               {bars.map((h, i) => (
                 <div key={i} className={`rounded-full transition-[height,background-color] duration-[120ms] ease-out bg-gradient-to-t shadow-sm ${g.bar[ac]}`}
-                  style={{ 
-                    width: "5px", 
-                    height: `${Math.max(4, isMicMuted || isPaused ? 8 : h)}%`, 
-                    opacity: isMicMuted || isPaused ? 0.3 : 0.8 + (h / 100) * 0.2 
+                  style={{
+                    width: "8px",
+                    height: `${Math.max(4, isMicMuted || isPaused ? 8 : h)}%`,
+                    opacity: isMicMuted || isPaused ? 0.3 : 0.8 + (h / 100) * 0.2
                   }}
                 />
               ))}
             </div>
           </div>
-          <div className="flex flex-col items-center gap-2 mt-8">
-            <span className={`text-[11px] font-black uppercase tracking-[0.25em] ${g.text[ac]} transition-colors duration-500`}>{statusLabel}</span>
-          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-2 mb-12">
+          <span className={`text-sm font-black uppercase tracking-[0.25em] ${g.text[ac]} transition-colors duration-500`}>{statusLabel}</span>
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-4 sm:mt-8 px-4">
-          <button 
-            onClick={() => setShowTranscript(!showTranscript)} 
-            className="h-9 sm:h-10 rounded-xl px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 text-xs font-bold"
-            title="Toggle Live Transcript"
-          >
-            <MessageSquareText className="w-4 h-4" /> {showTranscript ? "Hide Chat" : "Show Chat"}
-          </button>
-
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 px-4">
           <button onClick={() => setIsMicMuted(!isMicMuted)}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isMicMuted ? "bg-rose-100 text-rose-600 ring-4 ring-rose-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"}`}
           >
-            {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>
 
           <button onClick={finishUserTurn} disabled={phase !== "listening" || isMicMuted || isPaused}
-            className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
-              phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
-            }`}
+            className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
+              }`}
           >
-            {phase === "processing" ? <><Loader2 className="w-4 h-4 animate-spin" /> Thinking...</> : <><Hand className="w-4 h-4" /> <span className="hidden sm:inline">I&apos;m Done Speaking</span><span className="sm:hidden">Done</span></>}
+            {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : <><Hand className="w-5 h-5" /> <span>I&apos;m Done Speaking</span></>}
           </button>
 
           <button onClick={() => setIsPaused(!isPaused)}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isPaused ? "bg-amber-100 text-amber-600 ring-2 ring-amber-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isPaused ? "bg-amber-100 text-amber-600 ring-4 ring-amber-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"}`}
           >
-            {isPaused ? <Play className="w-4 h-4 ml-0.5" /> : <Pause className="w-4 h-4" />}
+            {isPaused ? <Play className="w-6 h-6 ml-1" /> : <Pause className="w-6 h-6" />}
           </button>
 
-          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-100">
-            <Phone className="w-4 h-4 rotate-[135deg]" />
+          <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-200 shadow-sm">
+            <Phone className="w-6 h-6 rotate-[135deg]" />
           </button>
-        </div>
-      </div>
-
-      {/* ─── BOTTOM: Transcript ─── */}
-      <div className={`flex flex-col bg-white transition-all duration-500 ease-in-out overflow-hidden ${showTranscript ? "flex-1 min-h-[200px] sm:min-h-[300px] opacity-100" : "h-0 min-h-0 opacity-0"}`}>
-        <div className="px-4 sm:px-8 pt-4 pb-2 flex items-center gap-2 shrink-0">
-          <MessageSquareText className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Transcript</span>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-6">
-          <div className="max-w-2xl mx-auto space-y-4">
-            {transcriptLines.length === 0 && !liveText ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-4">
-                  <Mic className="w-6 h-6 text-slate-300" />
-                </div>
-                <p className="text-sm text-slate-400 font-medium">Start speaking — your words will appear here in real time.</p>
-                <p className="text-xs text-slate-300 mt-1">Press &quot;I&apos;m Done Speaking&quot; when you&apos;re finished.</p>
-              </div>
-            ) : (
-              <>
-                {transcriptLines.map((line, i) => (
-                  <React.Fragment key={i}>
-                    <div className={`flex gap-3 ${line.isUser ? "justify-end" : "justify-start"}`}>
-                      {!line.isUser && (
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-sm mt-1">
-                          <Bot className="w-4 h-4 text-white" />
-                        </div>
-                      )}
-                      <div className={`rounded-2xl px-4 py-3 text-sm max-w-[75%] leading-relaxed shadow-sm ${
-                        line.isUser ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm"
-                      }`}>
-                        {line.text}
-                      </div>
-                      {line.isUser && (
-                        <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0 mt-1">
-                          <User className="w-4 h-4 text-slate-500" />
-                        </div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                ))}
-                {liveText && !isMicMuted && !isPaused && (
-                  <div className="flex gap-3 justify-end">
-                    <div className="rounded-2xl rounded-tr-sm px-4 py-3 text-sm max-w-[75%] leading-relaxed bg-indigo-100 border border-indigo-200 text-indigo-800 shadow-sm">
-                      {liveText}
-                      <span className="inline-block w-0.5 h-4 bg-indigo-500 rounded-full ml-1 animate-pulse align-middle" />
-                    </div>
-                    <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0 mt-1">
-                      <User className="w-4 h-4 text-slate-500" />
-                    </div>
-                  </div>
-                )}
-                {phase === "processing" && (
-                  <div className="flex gap-3 justify-start">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-sm mt-1">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="rounded-2xl rounded-tl-sm px-4 py-3 text-sm bg-white border border-slate-200 text-slate-400 shadow-sm flex items-center gap-2">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> <span className="italic">Thinking...</span>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            <div ref={transcriptEndRef} />
-          </div>
         </div>
       </div>
     </div>

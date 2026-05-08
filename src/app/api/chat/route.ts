@@ -63,7 +63,7 @@ const tools: any = [
       description: "Draft an outbound email and place it in the user's Gmail Drafts folder. If the user wants a Google Meet link in the email, set includeGoogleMeetLink to true and the system will automatically create a calendar event, generate the Meet URL, and embed it into the email body for you.",
       parameters: {
         type: "object",
-        properties: { 
+        properties: {
           to: { type: "string", description: "Recipient email address" },
           subject: { type: "string", description: "Email subject line" },
           body: { type: "string", description: "The full email body with STRICT formatting rules. Structure MUST be exactly: 'Hello [Name],\\n\\n[Body paragraph(s)]\\n\\nThanks,\\n[Sender Name]'. The greeting (e.g. 'Hello John,') MUST be on its own line. There MUST be exactly one blank line after the greeting before the body content. The body paragraphs go next. Then there MUST be one blank line before the closing. The closing (e.g. 'Thanks,' or 'Best regards,') MUST be on its own line, followed by the sender's name on the NEXT line. Use \\n for line breaks. Do NOT write any placeholder text for meeting links — the system handles that automatically when includeGoogleMeetLink is true." },
@@ -83,7 +83,7 @@ const tools: any = [
       description: "List the user's Google Calendar events within a date range. Defaults to the next 7 days if no range is specified. Use this to check schedule availability, find conflicts, or answer questions about upcoming events.",
       parameters: {
         type: "object",
-        properties: { 
+        properties: {
           timeMin: { type: "string", description: "Start of search window, ISO string, e.g., 2026-04-10T00:00:00-06:00" },
           timeMax: { type: "string", description: "End of search window, ISO string, e.g., 2026-04-17T23:59:59-06:00" }
         },
@@ -98,7 +98,7 @@ const tools: any = [
       description: "Create a new event on the user's Google Calendar. If the user says 'schedule a meeting at 4pm today', compute the correct ISO times for the user.",
       parameters: {
         type: "object",
-        properties: { 
+        properties: {
           summary: { type: "string", description: "Title of the event, e.g., 'Meeting with John Smith'" },
           description: { type: "string", description: "Optional longer description or notes for the event" },
           startDateTime: { type: "string", description: "ISO 8601 with timezone, e.g., 2026-04-10T16:00:00-06:00" },
@@ -116,7 +116,7 @@ const tools: any = [
       description: "Delete/cancel a specific calendar event by its eventId. Use list_calendar_events first to find the event ID.",
       parameters: {
         type: "object",
-        properties: { 
+        properties: {
           eventId: { type: "string", description: "The Google Calendar event ID" }
         },
         required: ["eventId"]
@@ -130,7 +130,7 @@ const tools: any = [
       description: "Update/reschedule an existing calendar event. Use list_calendar_events first to find the event ID. Only provide fields you want to change.",
       parameters: {
         type: "object",
-        properties: { 
+        properties: {
           eventId: { type: "string", description: "The Google Calendar event ID" },
           summary: { type: "string", description: "New title for the event" },
           description: { type: "string", description: "New description" },
@@ -290,8 +290,12 @@ const tools: any = [
 
 export async function POST(req: Request) {
   try {
-    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName } = await req.json();
-    
+    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText } = await req.json();
+
+    // Validate model against whitelist, default to llama-3.3-70b
+    const ALLOWED_MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct'];
+    const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.3-70b-versatile';
+
     // Parse out scope prefixes for logic, but keep raw for database
     const agentId = (rawAgentId || "").replace("soltheory_", "").replace("nxtchapter_", "");
 
@@ -323,7 +327,7 @@ export async function POST(req: Request) {
 
     if (soul) agentRole += `\n\nYour specific personality, tone, and character overrides (Soul): ${soul}`;
     if (brain) agentRole += `\n\nStrict operational instructions and persistent knowledge (Brain): ${brain}`;
-    
+
     if (contacts && Array.isArray(contacts) && contacts.length > 0) {
       agentRole += `\n\n[CONTACT GLOSSARY / ADDRESS BOOK]\nYou possess an address book that maps nicknames/aliases to real email addresses. Whenever the user asks you to email someone by name or nickname, you MUST look up their email address in this glossary and use the EXACT email address for the 'to' parameter. DO NOT use placeholder emails.\n`;
       contacts.forEach(c => {
@@ -340,7 +344,7 @@ export async function POST(req: Request) {
 
     // Gmail Auth Hook Configuration
     const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
-    
+
     if (isEmailAgent) {
       agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, Google Workspace Document Creation Tools, Survey Creation Tools, AND Past Conversation Memory.\n\n[CONVERSATION MEMORY]: You MUST USE your search_past_conversations tool when the user references something from a previous chat, asks "remember when...", "what did we discuss about...", "last time we talked about...", or any time they need information from a past session. This tool searches ALL of their saved chat history across all sessions. Use it proactively when you sense the user is referencing prior context you don't have in the current conversation.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[SURVEY TOOLS]: You MUST USE your create_and_send_survey tool when the user asks you to create a survey, questionnaire, or feedback form. When the user says to send it to people by name, you MUST look up the email addresses in the Contact Glossary above and pass them as recipientEmails. Include a good detailed topic description so the AI generates high-quality questions. If the user specifies a number of questions, pass it as questionCount.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
@@ -378,7 +382,7 @@ export async function POST(req: Request) {
         try {
           return await groq.chat.completions.create({
             messages: messagesArray,
-            model: "llama-3.3-70b-versatile",
+            model: selectedModel,
             ...(useTools ? { tools, tool_choice: "auto" } : {}),
           });
         } catch (err: any) {
@@ -395,7 +399,7 @@ export async function POST(req: Request) {
               const cleanMessages = messagesArray.filter((m: any) => m.role !== "tool" && !m.tool_calls);
               return await groq.chat.completions.create({
                 messages: cleanMessages.length > 0 ? cleanMessages : messagesArray,
-                model: "llama-3.3-70b-versatile",
+                model: selectedModel,
               });
             }
             throw err;
@@ -423,6 +427,10 @@ export async function POST(req: Request) {
       combinedKnowledge += "\n\n[HARDCODED ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
     }
 
+    if (orgBrainText && typeof orgBrainText === "string" && orgBrainText.trim().length > 0) {
+      combinedKnowledge += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + orgBrainText;
+    }
+
     if (combinedKnowledge.trim().length > 0) {
       const cappedKB = combinedKnowledge.substring(0, 100000); // Increased cap to 100k for the hardcoded knowledge
       groqMessages.push({
@@ -443,7 +451,7 @@ export async function POST(req: Request) {
     groqMessages.push(...messages);
 
     const useTools = !!(gmail || calendar || docsApi || youtubeApi || uid);
-    
+
     console.log(`[DEBUG] agentId="${agentId}" rawAgentId="${rawAgentId}" isEmailAgent=${isEmailAgent} refreshToken=${refreshToken ? "YES" : "NO"}`);
     console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools}`);
 
@@ -470,7 +478,7 @@ export async function POST(req: Request) {
     // Execute Tool Loop if Triggered
     while (responseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid) && loopCount < MAX_LOOPS) {
       groqMessages.push(responseMessage);
-      
+
       // Sort tool calls: process calendar events BEFORE email drafts so Meet links are available
       const sortedToolCalls = [...responseMessage.tool_calls].sort((a: any, b: any) => {
         const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'draft_outbound_email' ? 2 : 1;
@@ -479,18 +487,18 @@ export async function POST(req: Request) {
       for (const toolCall of sortedToolCalls) {
         const functionName = toolCall.function.name;
         console.log(`[TOOL CALL] LLM requested tool: ${functionName} | args: ${toolCall.function.arguments?.substring(0, 200)}`);
-        
+
         let functionResult = "";
         try {
           const args = JSON.parse(toolCall.function.arguments);
           executedTools.push({ name: functionName, args });
-          
+
           if (functionName === "search_emails") {
             const res = await gmail.users.messages.list({ userId: 'me', q: args.query, maxResults: 10 });
             if (!res.data.messages || res.data.messages.length === 0) {
               functionResult = JSON.stringify({ result: "No emails found matching query. Try broadening your 'query' (e.g. using just the domain, or name)." });
             } else {
-              const detailPromises = res.data.messages.slice(0, 5).map((msg: any) => 
+              const detailPromises = res.data.messages.slice(0, 5).map((msg: any) =>
                 gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date'] })
               );
               const details = await Promise.all(detailPromises);
@@ -498,8 +506,8 @@ export async function POST(req: Request) {
                 const h = d.data.payload?.headers || [];
                 return {
                   messageId: d.data.id,
-                  subject: h.find((x:any)=>x.name==='Subject')?.value,
-                  from: h.find((x:any)=>x.name==='From')?.value,
+                  subject: h.find((x: any) => x.name === 'Subject')?.value,
+                  from: h.find((x: any) => x.name === 'From')?.value,
                   snippet: d.data.snippet
                 };
               });
@@ -595,7 +603,7 @@ export async function POST(req: Request) {
           } else if (functionName === "draft_outbound_email") {
             let finalBody = args.body;
             if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
-              const lastContextMsg = messages.slice().reverse().find((m:any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
+              const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
               if (lastContextMsg) {
                 const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
                 finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
@@ -733,7 +741,7 @@ export async function POST(req: Request) {
             if (args.body) {
               let finalBody = args.body;
               if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
-                const lastContextMsg = messages.slice().reverse().find((m:any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
+                const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
                 if (lastContextMsg) {
                   const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
                   finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
@@ -888,13 +896,13 @@ export async function POST(req: Request) {
                 requestBody: { title: `Script: ${args.title}` }
               });
               const docId = docRes.data.documentId;
-              
+
               const scriptContent = args.script || "Script content will be added here.";
               await docsApi.documents.batchUpdate({
                 documentId: docId,
                 requestBody: { requests: [{ insertText: { location: { index: 1 }, text: scriptContent } }] }
               });
-              
+
               await driveApi.files.update({
                 fileId: docId,
                 requestBody: { properties: { createdByAI: 'true' } }
@@ -913,7 +921,7 @@ export async function POST(req: Request) {
                   if (!videoFetchRes.ok) throw new Error(`Failed to download video: ${videoFetchRes.status}`);
                   const videoBuffer = Buffer.from(await videoFetchRes.arrayBuffer());
                   console.log(`[YOUTUBE TOOL] Video downloaded: ${videoBuffer.length} bytes`);
-                  
+
                   const { Readable } = require('stream');
                   const videoStream = new Readable();
                   videoStream.push(videoBuffer);
@@ -939,14 +947,14 @@ export async function POST(req: Request) {
 
                   const videoId = ytRes.data.id;
                   console.log("[YOUTUBE TOOL] Video uploaded! ID:", videoId);
-                  functionResult = JSON.stringify({ 
-                    result: `Video draft uploaded to YouTube!\n- YouTube Video: https://studio.youtube.com/video/${videoId}/edit (Private)\n- Script Doc: ${docUrl}\n\nYour video "${args.title}" is now in YouTube Studio as a private draft. Review and publish when ready!\n\n[YOUTUBE_METADATA: ID=${videoId}, TYPE=video]` 
+                  functionResult = JSON.stringify({
+                    result: `Video draft uploaded to YouTube!\n- YouTube Video: https://studio.youtube.com/video/${videoId}/edit (Private)\n- Script Doc: ${docUrl}\n\nYour video "${args.title}" is now in YouTube Studio as a private draft. Review and publish when ready!\n\n[YOUTUBE_METADATA: ID=${videoId}, TYPE=video]`
                   });
                 } catch (uploadErr: any) {
                   console.error("[YOUTUBE TOOL] Video upload failed:", uploadErr.message);
                   // Fall back to playlist if upload fails
-                  functionResult = JSON.stringify({ 
-                    result: `Video upload failed (${uploadErr.message}), but your Script Doc was created: ${docUrl}. Try re-uploading the video file.` 
+                  functionResult = JSON.stringify({
+                    result: `Video upload failed (${uploadErr.message}), but your Script Doc was created: ${docUrl}. Try re-uploading the video file.`
                   });
                 }
               } else {
@@ -975,8 +983,8 @@ export async function POST(req: Request) {
                     console.error("[YOUTUBE TOOL] Playlist creation failed:", playlistErr.message);
                   }
                 }
-                functionResult = JSON.stringify({ 
-                  result: `Video concept created (no video file attached)!\n- YouTube Draft Playlist: ${playlistUrl || "unavailable"}\n- Script Doc: ${docUrl}\n\nUpload a video file on the dashboard to create a full YouTube video draft next time.\n\n[YOUTUBE_METADATA: ID=${playlistIdStr}, TYPE=playlist]` 
+                functionResult = JSON.stringify({
+                  result: `Video concept created (no video file attached)!\n- YouTube Draft Playlist: ${playlistUrl || "unavailable"}\n- Script Doc: ${docUrl}\n\nUpload a video file on the dashboard to create a full YouTube video draft next time.\n\n[YOUTUBE_METADATA: ID=${playlistIdStr}, TYPE=playlist]`
                 });
               }
             } catch (err: any) {
@@ -986,7 +994,7 @@ export async function POST(req: Request) {
           } else if (functionName === "create_and_send_survey") {
             try {
               console.log("[SURVEY TOOL] Creating survey:", args.topic);
-              
+
               // Step 1: Generate survey questions using Groq
               const surveyGroq = new Groq({ apiKey: process.env.GROQ_API_KEY });
               const surveyCompletion = await surveyGroq.chat.completions.create({
@@ -1010,25 +1018,25 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                   },
                   { role: "user", content: args.topic }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: selectedModel,
                 temperature: 0.7,
                 response_format: { type: "json_object" }
               });
-              
+
               let surveyJson = surveyCompletion.choices[0]?.message?.content || "";
               surveyJson = surveyJson.trim().replace(/^```json/, "").replace(/^```/, "").replace(/```$/, "").trim();
               const surveyData = JSON.parse(surveyJson);
               console.log("[SURVEY TOOL] Generated survey:", surveyData.title, "with", surveyData.questions?.length, "questions");
-              
+
               // Step 2: Save to Firestore using Admin SDK
               initAdmin();
               const adminDb = getAdminFirestore();
-              
+
               // Extract user email from soul context
               const userEmailMatch = soul?.match(/email address is: ([^\s.]+@[^\s.]+\.[^\s]+)/);
               const userEmail = userEmailMatch?.[1] || "unknown@soltheory.com";
               const userDomain = userEmail.split("@")[1] || "soltheory.com";
-              
+
               const surveyDoc = await adminDb.collection("custom_surveys").add({
                 ...surveyData,
                 userId: uid || "unknown",
@@ -1039,21 +1047,21 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                 invitedEmails: args.recipientEmails || [],
                 createdAt: new Date()
               });
-              
+
               const surveyUrl = `https://soltheory.com/survey/${surveyDoc.id}`;
               console.log("[SURVEY TOOL] Survey saved:", surveyDoc.id, "URL:", surveyUrl);
-              
+
               // Step 3: Send email invitations via Gmail API
               let emailResults: string[] = [];
               if (gmail && args.recipientEmails && args.recipientEmails.length > 0) {
                 for (let i = 0; i < args.recipientEmails.length; i++) {
                   const recipientEmail = args.recipientEmails[i];
                   const recipientName = args.recipientNames?.[i] || recipientEmail.split("@")[0];
-                  
+
                   const emailBody = `Hello ${recipientName},\n\nYou've been invited to take a survey: "${surveyData.title}"\n\n${surveyData.description || ""}\n\nPlease click the link below to participate:\n${surveyUrl}\n\nThank you for your time and feedback!\n\nBest regards`;
-                  
+
                   const emailSubject = `Survey Invitation: ${surveyData.title}`;
-                  
+
                   const rawEmail = [
                     `To: ${recipientEmail}`,
                     `Subject: ${emailSubject}`,
@@ -1061,9 +1069,9 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                     "",
                     emailBody
                   ].join("\n");
-                  
+
                   const encodedEmail = Buffer.from(rawEmail).toString("base64url");
-                  
+
                   try {
                     await gmail.users.messages.send({
                       userId: "me",
@@ -1077,7 +1085,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                   }
                 }
               }
-              
+
               functionResult = JSON.stringify({
                 result: `Survey "${surveyData.title}" created successfully with ${surveyData.questions?.length || 0} questions!\n\nSurvey Link: ${surveyUrl}\n\nEmail Status:\n${emailResults.length > 0 ? emailResults.join("\n") : "No emails sent (no recipients specified)"}`
               });
@@ -1136,7 +1144,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                 const topResults = results.slice(0, 5);
                 functionResult = JSON.stringify({
                   result: topResults.length > 0
-                    ? `Found ${topResults.length} relevant past conversations:\n\n` + topResults.map((r, i) => `${i+1}. "${r.title}" (${r.date})\n   Matching messages: ${r.snippets.join(" | ")}`).join("\n\n")
+                    ? `Found ${topResults.length} relevant past conversations:\n\n` + topResults.map((r, i) => `${i + 1}. "${r.title}" (${r.date})\n   Matching messages: ${r.snippets.join(" | ")}`).join("\n\n")
                     : "No past conversations matched that query."
                 });
               }
@@ -1149,7 +1157,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
         } catch (err: any) {
           functionResult = JSON.stringify({ error: err.message });
         }
-        
+
         // Push Result Object back onto context array
         groqMessages.push({
           tool_call_id: toolCall.id,
@@ -1158,10 +1166,10 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
           content: functionResult,
         });
       }
-      
+
       // PASS: Agent processes tool outputs and decides next step
       completion = await createCompletionWithRetry(groqMessages, useTools);
-      
+
       responseMessage = completion.choices[0]?.message;
       loopCount++;
     }
@@ -1170,7 +1178,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     const inputTokens = completion?.usage?.prompt_tokens || 0;
     const outputTokens = completion?.usage?.completion_tokens || 0;
     const totalTokens = completion?.usage?.total_tokens || 0;
-    const model = "llama-3.3-70b-versatile";
+    const model = selectedModel;
     try {
       logAIUsage({
         userId: uid || "anonymous",
@@ -1208,14 +1216,14 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     const finalResponse = sanitizeResponse(responseMessage?.content || "");
 
     // Default Raw Response
-    return NextResponse.json({ 
+    return NextResponse.json({
       response: finalResponse,
       usage: totalTokens,
       executedTools: executedTools.length > 0 ? executedTools : undefined
     });
   } catch (error: any) {
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
-    
+
     const errMsg = error?.message || "";
     if (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls")) {
       return NextResponse.json({ response: "I encountered a tool execution error. Could you please try asking me that one more time?" });

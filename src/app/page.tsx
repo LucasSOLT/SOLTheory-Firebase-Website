@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
 import Link from 'next/link';
-import { ArrowDown, Sparkles, Mail, Layers, LayoutDashboard, Settings } from 'lucide-react';
+import { ArrowDown, Sparkles, ShoppingCart } from 'lucide-react';
 
 import { BlobHero } from '@/components/ui/blob-hero';
 import { motion } from 'framer-motion';
@@ -39,6 +39,7 @@ export default function Home() {
         
         {/* SECTION 1: Dynamic Abstract 3D Hero */}
         <section className="relative min-h-[100dvh] w-full flex items-center justify-center overflow-hidden z-10">
+          <StarBackground />
           <BlobHero />
           <div className="relative z-10 container mx-auto px-4 pointer-events-none mt-20">
             <div className="flex flex-col items-center justify-center text-center gap-6">
@@ -69,7 +70,7 @@ export default function Home() {
           <div className="relative z-10 w-full flex flex-col items-center bg-transparent">
 
             {/* SECTION 1.5: Template Products */}
-            <section className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-20 border-t border-white/5">
+            <section className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-20">
               <div className="container mx-auto px-4">
                 <div className="text-center max-w-4xl mx-auto space-y-6 mb-16">
                   <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Agentic Affordable Agentic Solutions, Built to Scale</h2>
@@ -85,54 +86,68 @@ export default function Home() {
                       id: 1,
                       title: "Agentic Email Assistant",
                       price: "$5.99 a month",
-                      description: "Access our inbound and outbound email agents that automatically respond to emails, draft professional responses, and create campaign emails. Our AI operates exclusively within the Google product ecosystem.",
-                      Icon: Mail
+                      description: (
+                        <>Access our inbound and outbound email agents that automatically respond to emails, draft professional responses, and create campaign emails. Our AI operates exclusively <b>within the Google product ecosystem</b>.</>
+                      ),
+                      image: "/images/email_agent_card.png"
                     },
                     {
                       id: 2,
                       title: "Google Suite Assistant",
                       price: "$12.99 a month",
-                      description: "Access our entire suite of Google AI agents, including our Calendar Agent, Email Agent, and Phone Agent. Essentially capable of accessing any Google Suite tools to completely automate your workflow.",
-                      Icon: Layers
+                      description: (
+                        <>Access our entire suite of Google AI agents, including our <b>Calendar Agent, Email Agent, and Phone Agent</b>. Essentially capable of accessing any Google Suite tools to <i>completely automate your workflow</i>.</>
+                      ),
+                      image: "/images/google_suite_card.png"
                     },
                     {
                       id: 3,
                       title: "Dashboard Access",
                       price: "$22.99 a month",
-                      description: "Unlock predictive analytics, get full access to the entire Google Suite agent, prioritized support, and our communications network. This tier includes essentially all the offerings we have.",
-                      Icon: LayoutDashboard
+                      description: (
+                        <>Unlock predictive analytics, get full access to the entire Google Suite agent, prioritized support, and our communications network. This tier includes essentially <b>all the offerings we have to offer</b>.</>
+                      ),
+                      image: "/images/dashboard_access_card.png"
                     },
                     {
                       id: 4,
                       title: "Customized Solutions",
                       price: "Subject to Scale",
-                      description: "A stylized dashboard heavily tailored to your specific organization's needs. The price varies entirely depending on the scale and requires a consultation with our development team.",
-                      Icon: Settings
+                      description: (
+                        <>A stylized dashboard heavily tailored to your specific organization's needs. The price varies entirely depending on the scale and <Link href="/consultation" className="hover:text-white transition-colors cursor-pointer"><b><u>requires a consultation</u></b></Link> with <i>our development team</i>.</>
+                      ),
+                      image: "/images/custom_solutions_card.png"
                     }
                   ].map((item) => (
                     <div key={item.id} className="group relative">
                       <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/20 to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 min-h-[420px] shadow-lg">
-                        <div className="h-40 w-full bg-gradient-to-br from-black/60 to-black/30 flex items-center justify-center border-b border-white/5 relative overflow-hidden">
-                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-fuchsia-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-                          <item.Icon className="w-12 h-12 text-white/50 group-hover:text-fuchsia-400 group-hover:scale-110 transition-all duration-500 relative z-10" />
+                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 min-h-[600px] shadow-lg">
+                        <div className="h-64 w-full relative overflow-hidden">
+                          <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                         </div>
-                        <CardHeader className="pt-6 relative z-20 flex-grow">
-                          <div className="w-12 h-1 bg-gradient-to-r from-fuchsia-500 to-indigo-500 rounded-full mb-4" />
-                          <div className="flex flex-col gap-1 mb-2">
-                            <CardTitle className="font-headline text-2xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500">
-                              {item.title}
-                            </CardTitle>
-                            <span className="text-fuchsia-400 font-semibold tracking-wide text-sm bg-fuchsia-500/10 w-fit px-3 py-1 rounded-full border border-fuchsia-500/20">{item.price}</span>
-                          </div>
-                          <p className="text-slate-400 text-sm mt-3 leading-relaxed">
+                        <CardHeader className="pt-6 px-6 relative z-20 flex-grow">
+                          <CardTitle className="font-headline text-xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 leading-tight">
+                            {item.title}
+                          </CardTitle>
+                          <span className="text-white/70 text-sm font-medium mt-1 block">{item.price}</span>
+                          <div className="w-8 h-px bg-white/20 mt-3 mb-2" />
+                          <div className="text-slate-400 text-sm leading-relaxed">
                             {item.description}
-                          </p>
+                          </div>
                         </CardHeader>
                         <div className="p-6 pt-0 mt-auto">
-                          <Link href="/contact" className="block w-full text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
-                            Contact Team
-                          </Link>
+                          {item.id === 4 ? (
+                            <Link href="/contact" className="block w-full text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
+                              Contact Team
+                            </Link>
+                          ) : (
+                            <Link href="/contact" className="group/btn relative block w-full text-center py-3 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-sm hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 mt-4 cursor-pointer z-30 overflow-hidden">
+                              <span className="flex items-center justify-center gap-2 transition-all duration-300 opacity-100 translate-y-0 group-hover/btn:opacity-0 group-hover/btn:-translate-y-3">See More</span>
+                              <span className="absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 opacity-0 translate-y-3 group-hover/btn:opacity-100 group-hover/btn:translate-y-0"><ShoppingCart className="w-4 h-4" /> Checkout</span>
+                            </Link>
+                          )}
                         </div>
                       </Card>
                     </div>
@@ -198,7 +213,13 @@ export default function Home() {
 
             {/* SECTION 4 & 5 Combined: Dense Protocol Overview */}
             <section id="qualifies" className="relative py-32 md:py-48 w-full flex flex-col items-center justify-center bg-transparent z-40 shadow-2xl overflow-hidden">
-              <div className="container mx-auto px-4 w-full flex flex-col justify-center">
+              <motion.div
+                initial={{ opacity: 0, y: 60 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
+                className="container mx-auto px-4 w-full flex flex-col justify-center"
+              >
                 <div className="text-center mb-10 md:mb-16 mt-6 md:mt-10">
                   <h2 className="font-nunito text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-xl">The SOL Protocol</h2>
                   <p className="text-slate-400 max-w-2xl mx-auto text-lg pt-2 md:pt-0">Network qualifications and absolute directives for our premium ecosystem.</p>
@@ -274,7 +295,7 @@ export default function Home() {
                   </div>
 
                 </div>
-              </div>
+              </motion.div>
             </section>
 
             {/* SECTION 6: Subscription & Footer Context */}

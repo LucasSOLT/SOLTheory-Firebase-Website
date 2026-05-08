@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen } from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
@@ -21,6 +21,22 @@ type Session = { id: string; title: string; updatedAt: number; messages: Message
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; date: string; internalDate?: number; };
 type AgentContact = { id: string; email: string; aliases: string; ignore: boolean; };
 
+
+const exploreItemsMeta: Record<string, { name: string, greeting: string }> = {
+  "Featured": { name: "Felix", greeting: "Hello. I'm Felix, what premium models would you like to test today?" },
+  "Conversational AI": { name: "Jarvis", greeting: "Hello. I am Jarvis. How can I assist you today?" },
+  "Image Generation": { name: "Iris", greeting: "Hello. I'm Iris, what kind of image can I help you generate today?" },
+  "Video Generation": { name: "Victor", greeting: "Hello. I'm Victor, what video concept are we working on today?" },
+  "Music Generation": { name: "Mac", greeting: "Hello. I'm Mac, can I help generate some music for you?" },
+  "Code Generation": { name: "Cody", greeting: "Hello. I'm Cody, what logic-related endeavor are we tackling today?" },
+  
+  "Email Agents": { name: "Emma", greeting: "Hello. I'm Emma, what kind of email campaign are we setting up today?" },
+  "Social Media Agents": { name: "Sam", greeting: "Hello. I'm Sam, what social media posts are we scheduling today?" },
+  "Message Agents": { name: "Max", greeting: "Hello. I'm Max, what messaging integration are we building today?" },
+  "Advertising Agents": { name: "Adam", greeting: "Hello. I'm Adam, what advertising campaign are we launching today?" },
+  "Build your own Agent": { name: "Builder", greeting: "Hello. I'm Builder, how can I help you configure your custom agent today?" }
+};
+
 export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ agentId: string }> }) {
   const searchParams = useSearchParams();
   const params = use(props.params);
@@ -35,7 +51,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState<{url: string, name: string} | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string, name: string } | null>(null);
 
 
   // Observer Panel States
@@ -56,6 +72,47 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [sessionInstructions, setSessionInstructions] = useState("");
+  const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+
+  const [exploreTab, setExploreTab] = useState<"models" | "agents">("models");
+  const [selectedExploreItem, setSelectedExploreItem] = useState<string | null>(null);
+
+  const [isAgentRequestModalOpen, setIsAgentRequestModalOpen] = useState(false);
+  const [agentRequestForm, setAgentRequestForm] = useState({ name: '', email: '', phone: '', message: '' });
+  const [isSubmittingAgentRequest, setIsSubmittingAgentRequest] = useState(false);
+
+  const submitAgentRequest = async () => {
+    if (!agentRequestForm.name || !agentRequestForm.email || !agentRequestForm.message) {
+      alert("Name, Email, and Message are required fields.");
+      return;
+    }
+    setIsSubmittingAgentRequest(true);
+    try {
+      const { collection, addDoc } = await import("firebase/firestore");
+      await addDoc(collection(firestore, "support_tickets"), {
+        subject: "New Agent Request",
+        message: `Name: ${agentRequestForm.name}\nPhone: ${agentRequestForm.phone}\nEmail: ${agentRequestForm.email}\n\nRequest:\n${agentRequestForm.message}`,
+        fromEmail: agentRequestForm.email,
+        fromName: agentRequestForm.name,
+        toEmail: "lucas@soltheory.com",
+        status: "open",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isAgentRequest: true
+      });
+      alert("Agent Request Submitted!");
+      setIsAgentRequestModalOpen(false);
+      setAgentRequestForm({ name: '', email: '', phone: '', message: '' });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit request.");
+    } finally {
+      setIsSubmittingAgentRequest(false);
+    }
+  };
 
   const [agentContacts, setAgentContacts] = useState<AgentContact[]>([]);
   const [isContactsOpen, setIsContactsOpen] = useState(false);
@@ -83,8 +140,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   };
   // Agent Knowledge Base Config
   const [agentConfig, setAgentConfig] = useState({ soul: "", brain: "", heartbeat: "manual" });
+  const [orgBrain, setOrgBrain] = useState<string>("");
+  const [orgBrainLoaded, setOrgBrainLoaded] = useState(false);
+  const [orgBrainSaving, setOrgBrainSaving] = useState(false);
   const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"identity" | "data" | "brain" | "pact">("identity");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"identity" | "data" | "brain" | "pact" | "orgbrain">("identity");
   const [ragDocs, setRagDocs] = useState<any[]>([]);
   const [isRAGUploading, setIsRAGUploading] = useState(false);
   const [isTextInputOpen, setIsTextInputOpen] = useState(false);
@@ -121,7 +181,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const { getDoc, doc } = await import("firebase/firestore");
       const userDoc = await getDoc(doc(firestore, "users", user.uid));
       const entries: PACTEntry[] = [];
-      
+
       // Fallback: Read from the field
       const fieldData = userDoc.data()?.pact_entries_soltheory || [];
       fieldData.forEach((item: any, index: number) => {
@@ -135,6 +195,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           updatedAt: item.updatedAt || Date.now()
         });
       });
+
+      entries.sort((a, b) => b.createdAt - a.createdAt);
 
       setPactEntries(entries);
       setPactLoaded(true);
@@ -153,7 +215,67 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     : "";
 
 
+
+  // Org Brain — editable organizational knowledge base stored in Firestore
+  const fetchOrgBrain = async () => {
+    if (!firestore) return;
+    try {
+      const { doc, getDoc } = await import("firebase/firestore");
+      const snap = await getDoc(doc(firestore, "organizations", "soltheory"));
+      if (snap.exists()) {
+        setOrgBrain(snap.data()?.orgBrain || "");
+      }
+      setOrgBrainLoaded(true);
+    } catch (err) { console.error("Failed to load org brain", err); setOrgBrainLoaded(true); }
+  };
+
+  const saveOrgBrain = async () => {
+    if (!firestore) return;
+    setOrgBrainSaving(true);
+    try {
+      const { doc, setDoc } = await import("firebase/firestore");
+      await setDoc(doc(firestore, "organizations", "soltheory"), { orgBrain }, { merge: true });
+    } catch (err) { console.error("Failed to save org brain", err); alert("Failed to save. Check Firestore rules."); }
+    finally { setOrgBrainSaving(false); }
+  };
+
+  useEffect(() => {
+    if (firestore) fetchOrgBrain();
+  }, [firestore]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Global click-outside and Escape key handler for all dropdowns/popups
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Close model dropdown if clicking outside it
+      if (isModelDropdownOpen && !target.closest('[data-dropdown="model"]')) {
+        setIsModelDropdownOpen(false);
+      }
+      // Close cost breakdown if clicking outside it
+      if (showCostBreakdown && !target.closest('[data-popup="cost"]')) {
+        setShowCostBreakdown(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsModelDropdownOpen(false);
+        setShowCostBreakdown(false);
+        if (isSystemInstructionsOpen) setIsSystemInstructionsOpen(false);
+        if (lightboxImage) setLightboxImage(null);
+        if (isObserverFullScreen) setIsObserverFullScreen(false);
+        if (isKnowledgeBaseOpen) setIsKnowledgeBaseOpen(false);
+        if (isContactsOpen) setIsContactsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isModelDropdownOpen, showCostBreakdown, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen, isContactsOpen]);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string }> = {
     "jarvis": {
@@ -178,14 +300,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (savedSessions) {
         try {
           const parsed: Session[] = JSON.parse(savedSessions);
-          setSessions(parsed);
-          if (parsed.length > 0) {
-            const mostRecent = parsed.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-            setActiveSessionId(mostRecent.id);
-            setMessages(mostRecent.messages);
-          } else startNewSession();
-        } catch { startNewSession(); }
-      } else startNewSession();
+          const validParsed = parsed.filter(s => s.messages.filter(m => m.isSelf).length > 0);
+          setSessions(validParsed);
+        } catch { /* no-op */ }
+      }
+      // Start with a blank screen — no active session, no messages
+      setActiveSessionId(null);
+      setMessages([]);
       setSessionsLoaded(true);
       return;
     }
@@ -217,12 +338,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             s.messages.filter((m: Message) => m.isSelf).length === 0 && s.title === "New Chat"
           ).map(s => s.id);
           for (const gid of ghostIds) {
-            deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", gid)).catch(() => {});
+            deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", gid)).catch(() => { });
           }
-          // Always start with a fresh "New Chat" at the top
-          const freshSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
-          setSessions([freshSession, ...validSessions]);
-          setActiveSessionId(freshSession.id);
+          // Load only valid sessions — start with blank screen
+          setSessions(validSessions);
+          setActiveSessionId(null);
           setMessages([]);
         } else {
           // Check for localStorage sessions to migrate
@@ -243,23 +363,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   }
                 }
                 const validParsed = parsed.filter(s => s.messages.filter(m => m.isSelf).length > 0);
-                const freshSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
-                setSessions([freshSession, ...validParsed]);
-                setActiveSessionId(freshSession.id);
-                setMessages([]);
+                setSessions(validParsed);
                 // Clear localStorage after migration
                 localStorage.removeItem(`st_agent_sessions_${params.agentId}`);
-              } else {
-                startNewSession();
               }
-            } catch { startNewSession(); }
-          } else {
-            startNewSession();
+            } catch { /* no-op */ }
           }
+          // Blank screen — no active session
+          setActiveSessionId(null);
+          setMessages([]);
         }
       } catch (err) {
         console.error("Failed to load sessions from Firestore", err);
-        startNewSession();
+        setActiveSessionId(null);
+        setMessages([]);
       }
       setSessionsLoaded(true);
     };
@@ -332,12 +449,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       setSessions(prev => {
         const updated = prev.map(s => {
           if (s.id === activeSessionId) {
-            // Generate title from first user message if still "New Chat"
+            // Title will be set by the AI summarizer after the first exchange
             const userMessages = messages.filter(m => m.isSelf);
-            const title = s.title === "New Chat" && userMessages.length > 0
-              ? userMessages[0].text.substring(0, 30) + (userMessages[0].text.length > 30 ? "..." : "")
-              : s.title;
-            return { ...s, messages, title, updatedAt: userMessages.length > 0 ? Date.now() : s.updatedAt };
+            return { ...s, messages, updatedAt: userMessages.length > 0 ? Date.now() : s.updatedAt };
           }
           return s;
         });
@@ -369,52 +483,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   }, [sessions, isTyping, activeSessionId, sessionsLoaded, firestore, user?.uid]);
 
-  // Welcome back greeting
-  useEffect(() => {
-    if (hasShownWelcome || !sessionsLoaded || !user?.displayName) return;
-    // Only show if the current session has no messages (fresh page load)
-    if (messages.length === 0 && sessions.length > 0) {
-      // Find the most recent session with actual messages
-      const recentWithMessages = sessions
-        .filter(s => s.messages.length > 0 && s.id !== activeSessionId)
-        .sort((a, b) => b.updatedAt - a.updatedAt)[0];
 
-      const firstName = user.displayName.split(" ")[0];
-      let welcomeText: string;
-
-      if (recentWithMessages) {
-        // Get the last user message from that session
-        const lastUserMsg = [...recentWithMessages.messages].reverse().find(m => m.isSelf);
-        const topic = lastUserMsg
-          ? lastUserMsg.text.substring(0, 80) + (lastUserMsg.text.length > 80 ? "..." : "")
-          : recentWithMessages.title;
-        welcomeText = `Welcome back ${firstName}! Want to keep talking about *"${topic}"*, or do you have something new on your mind?`;
-      } else {
-        welcomeText = `Welcome back ${firstName}! What can I help you with today?`;
-      }
-
-      setMessages([{ id: uid(), text: welcomeText, isSelf: false }]);
-      setHasShownWelcome(true);
-    }
-  }, [sessionsLoaded, user?.displayName, hasShownWelcome, sessions, messages.length, activeSessionId]);
 
   const startNewSession = () => {
-    // Only allow ONE empty "New Chat" at a time — if one exists, just switch to it
-    const existingEmpty = sessions.find(s => s.title === "New Chat" && s.messages.filter(m => m.isSelf).length === 0);
-    if (existingEmpty) {
-      setActiveSessionId(existingEmpty.id);
-      setMessages(existingEmpty.messages);
-      return;
-    }
-    const newSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), messages: [] };
-    setSessions(prev => [newSession, ...prev]);
-    setActiveSessionId(newSession.id);
+    // Reset to blank screen — no session is created until the user sends a message
+    setActiveSessionId(null);
     setMessages([]);
+    setSelectedExploreItem(null);
   };
 
   const loadSession = (id: string) => {
     const session = sessions.find(s => s.id === id);
-    if (session) { setActiveSessionId(session.id); setMessages(session.messages); setIsKnowledgeBaseOpen(false); }
+    if (session) { setActiveSessionId(session.id); setMessages(session.messages); setIsKnowledgeBaseOpen(false); setSelectedExploreItem(null); }
   };
 
   const deleteSession = (e: React.MouseEvent, id: string) => {
@@ -428,15 +508,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     setSessions(updated);
     // Delete from Firestore if saved
     if (firestore && user?.uid) {
-      deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(() => {});
+      deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(() => { });
     }
     if (activeSessionId === id) {
-      if (updated.length > 0) {
-        setActiveSessionId(updated[0].id);
-        setMessages(updated[0].messages);
-      } else {
-        startNewSession();
-      }
+      // Return to blank screen
+      setActiveSessionId(null);
+      setMessages([]);
+      setSelectedExploreItem(null);
     }
   };
 
@@ -488,7 +566,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isTyping) return;
     const userMsg: Message = { id: uid(), text: inputValue, isSelf: true };
-    const newMessages = [...messages, userMsg];
+
+    // Lazily create a new session on first message if no active session exists
+    let currentSessionId = activeSessionId;
+    if (!currentSessionId) {
+      const newSession: Session = {
+        id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        title: "New Chat",
+        updatedAt: Date.now(),
+        messages: []
+      };
+      currentSessionId = newSession.id;
+      setSessions(prev => [newSession, ...prev]);
+      setActiveSessionId(currentSessionId);
+    }
+
+    // Filter out welcome greeting messages (bot-only messages that were never part of a real session)
+    const realMessages = messages.filter(m => m.isSelf || messages.some(um => um.isSelf));
+    const newMessages = [...realMessages, userMsg];
     setMessages(newMessages); setIsTyping(true); setInputValue("");
 
     try {
@@ -513,20 +608,53 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `soltheory_${params.agentId}`,
-          soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
           contacts: agentContacts,
           knowledgeBaseText: kbText,
+          orgBrainText: orgBrain,
           pactText,
-          userName: user?.displayName || undefined
+          userName: user?.displayName || undefined,
+          model: selectedModel
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
-      
+
+      // Generate AI title for new sessions after first exchange
+      const activeSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
+      if (activeSession && (activeSession.title === "New Chat" || !activeSession.title)) {
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [
+              { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
+              { role: "user", content: `User said: ${inputValue}\nAI replied: ${data.response.substring(0, 200)}` }
+            ],
+            agentId: "soltheory_jarvis",
+            soul: "",
+            brain: "",
+          }),
+        }).then(r => r.json()).then(titleData => {
+          if (titleData.response) {
+            const aiTitle = titleData.response.replace(/["']/g, '').trim().substring(0, 60);
+            setSessions(prev => prev.map(s =>
+              s.id === currentSessionId ? { ...s, title: aiTitle } : s
+            ));
+          }
+        }).catch(() => {
+          // Fallback: use first few words of user message
+          const fallback = inputValue.split(' ').slice(0, 6).join(' ');
+          setSessions(prev => prev.map(s =>
+            s.id === currentSessionId ? { ...s, title: fallback } : s
+          ));
+        });
+      }
+
       const usage = data.usage || 0;
       if (usage > 0 && user?.uid && firestore) {
         import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
@@ -561,7 +689,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               createdAt: Date.now(),
               updatedAt: Date.now()
             }));
-            
+
             if (newFacts.length > 0) {
               await updateDoc(userDocRef, {
                 pact_entries_soltheory: arrayUnion(...newFacts)
@@ -588,9 +716,22 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     // Switch to Chat if not already visible/active
     setIsObserverFullScreen(false);
 
+    // Lazily create a new session on first message if no active session exists
+    if (!activeSessionId) {
+      const newSession: Session = {
+        id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        title: "New Chat",
+        updatedAt: Date.now(),
+        messages: []
+      };
+      setSessions(prev => [newSession, ...prev]);
+      setActiveSessionId(newSession.id);
+    }
+
     // Add msg to main chat
     const userMsg: Message = { id: uid(), text: msgText, isSelf: true };
-    const newMessages = [...messages, userMsg];
+    const realMessages = messages.filter(m => m.isSelf || messages.some(um => um.isSelf));
+    const newMessages = [...realMessages, userMsg];
     setMessages(newMessages);
     setIsTyping(true);
 
@@ -614,20 +755,22 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `soltheory_${params.agentId}`,
-          soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
           contacts: agentContacts,
           knowledgeBaseText: kbText,
+          orgBrainText: orgBrain,
           pactText,
-          userName: user?.displayName || undefined
+          userName: user?.displayName || undefined,
+          model: selectedModel
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
-      
+
       const usage = data.usage || 0;
       if (usage > 0 && user?.uid && firestore) {
         import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
@@ -656,7 +799,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           } catch (e) { console.error("[PACT] Client save error:", e); }
         })();
       }
-      
+
       // refresh inbox just in case
       fetchPulse();
     } catch (error: any) {
@@ -837,6 +980,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           selectedEmailIds: Array.from(selectedEmails),
           contacts: agentContacts,
           knowledgeBaseText: kbText,
+          orgBrainText: orgBrain,
           pactText,
           userName: user?.displayName || undefined
         }),
@@ -875,32 +1019,79 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       {/* Sessions Sidebar */}
       <div className="hidden md:flex w-[300px] flex-col bg-white/80  backdrop-blur-3xl border-r border-slate-200  shrink-0 z-20">
         {/* Sidebar header unchanged for brevity (Using standard implementation) */}
-        <div className="p-6 flex flex-col gap-4 border-b border-slate-200 ">
-          <Link href="/portal/dashboard/soltheory/ai-agents" className="flex items-center gap-2 text-slate-500  hover:text-slate-900  transition-colors text-sm mb-2">
-            <ArrowLeft className="w-4 h-4" /> Matrix
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] ${agent.theme}`}>
-              <Bot className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-extrabold text-lg text-slate-900  tracking-tight">{agent.name.split(' ')[0]}</span>
-              <div className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Linked
+        <div className="p-4 flex flex-col gap-3 border-b border-slate-200">
+          {/* Model Selector */}
+          <div className="relative" data-dropdown="model">
+            <button
+              onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+              className="w-full text-left p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer flex items-center justify-between"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Model</div>
+                <div className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                  {[{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'openai/gpt-oss-120b',name:'GPT 120B'},{id:'openai/gpt-oss-20b',name:'GPT 20B'},{id:'qwen/qwen3-32b',name:'Qwen 3'}].find(m => m.id === selectedModel)?.name || 'Llama 3.3'}
+                </div>
               </div>
-            </div>
+              <svg className={`w-4 h-4 text-slate-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {isModelDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                {[
+                  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best all-around model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
+                  { id: 'openai/gpt-oss-120b', name: 'GPT 120B', desc: 'Most powerful reasoning', tag: 'Pro', tagColor: 'bg-purple-50 text-purple-600' },
+                  { id: 'openai/gpt-oss-20b', name: 'GPT 20B', desc: 'Lightweight & fast', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
+                  { id: 'qwen/qwen3-32b', name: 'Qwen 3', desc: 'Advanced reasoning & math', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
+                ].map(model => (
+                  <button
+                    key={model.id}
+                    onClick={() => { setSelectedModel(model.id); setIsModelDropdownOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors ${selectedModel === model.id ? 'bg-slate-50' : ''}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                      <div className="min-w-0">
+                        <span className={`text-sm font-medium block ${selectedModel === model.id ? 'text-slate-900' : 'text-slate-600'}`}>{model.name}</span>
+                        <span className="text-[10px] text-slate-400 block">{model.desc}</span>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${model.tagColor}`}>{model.tag}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* System Instructions Box */}
+          <button
+            onClick={() => setIsSystemInstructionsOpen(true)}
+            className="w-full text-left p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-800">System instructions</span>
+              {sessionInstructions && <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />}
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+              {sessionInstructions
+                ? sessionInstructions.substring(0, 60) + (sessionInstructions.length > 60 ? '...' : '')
+                : 'Optional tone and style instructions for the model'}
+            </p>
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin mt-2">
-          <Button variant="outline" className="w-full justify-start gap-2 h-10 bg-slate-200/50  hover:bg-slate-300/50  border-slate-300  text-slate-900  mb-2" onClick={startNewSession}>
-            <Plus className="w-4 h-4" /> New Session
-          </Button>
-
-          <div className="text-xs font-semibold text-slate-900  mb-2 px-1 uppercase tracking-widest mt-4">Chat History</div>
-          {sessions.map(s => (
-            <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 h-10 rounded-lg transition-all ${activeSessionId === s.id ? 'bg-slate-300/50  text-slate-900  border border-slate-200 ' : 'text-slate-500  hover:text-slate-900  hover:bg-slate-200/50 '}`}>
+                    <div className="text-xs font-semibold text-slate-900  mb-2 px-1 uppercase tracking-widest">Chat History</div>
+          <button onClick={() => startNewSession()} className="w-full text-left p-3 rounded-xl border border-dashed border-slate-300/50 bg-slate-50 hover:bg-slate-100 transition-colors flex items-center gap-3 mb-4 group">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+              <SquarePen className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-semibold text-slate-700">New Chat</span>
+          </button>
+          {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
+            <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
+          )}
+          {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
+            <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[40px] py-2 rounded-lg transition-all ${activeSessionId === s.id ? 'bg-slate-300/50  text-slate-900  border border-slate-200 ' : 'text-slate-500  hover:text-slate-900  hover:bg-slate-200/50 '}`}>
               <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
-              <span className="truncate text-sm font-medium flex-1">{s.title}</span>
+              <span className="text-sm font-medium flex-1 break-words leading-snug">{s.title}</span>
               <button onClick={(e) => deleteSession(e, s.id)} className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md hover:bg-red-50">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -917,7 +1108,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
         {/* Inline Contact Glossary Panel */}
         {isContactsOpen && (
-          <div className="border-t border-slate-200 bg-slate-50 flex flex-col overflow-hidden" style={{maxHeight: '50%'}}>
+          <div className="border-t border-slate-200 bg-slate-50 flex flex-col overflow-hidden" style={{ maxHeight: '50%' }}>
             <div className="px-4 py-3 shrink-0">
               <p className="text-[10px] text-slate-500 font-medium">Map email addresses to nicknames so the AI knows who you mean. Toggle to hide senders from the inbox stream.</p>
             </div>
@@ -941,7 +1132,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
                 </div>
               ))}
-              <Button onClick={() => setAgentContacts([...agentContacts, { id: Date.now().toString(), email: '', aliases: '', ignore: false }])} variant="outline" className="w-full border-dashed border-slate-300 text-slate-500 gap-2 h-8 text-xs hover:border-emerald-500 hover:text-emerald-500 transition-colors">
+              <Button onClick={() => setAgentContacts([...agentContacts, { id: Date.now().toString(), email: '', aliases: '', ignore: false }])} variant="outline" className="w-full border-dashed border-slate-300 bg-white text-slate-500 gap-2 h-8 text-xs hover:border-slate-400 hover:text-slate-700 transition-colors">
                 <Plus className="w-3.5 h-3.5" /> Add Contact
               </Button>
             </div>
@@ -954,13 +1145,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
         {/* Background Ambient Glow */}
         <div className="absolute inset-0 pointer-events-none z-0">
-          <div className="absolute top-[10%] right-[10%] w-[500px] h-[500px] bg-fuchsia-600/10 blur-[150px] rounded-full mix-blend-screen" />
-          <div className="absolute bottom-[20%] left-[20%] w-[600px] h-[600px] bg-indigo-600/10 blur-[150px] rounded-full mix-blend-screen" />
+          <div className="absolute inset-0 pointer-events-none" style={{ animation: 'spin 180s linear infinite', opacity: messages.length === 0 && !selectedExploreItem ? 1 : 0, transition: 'opacity 1s ease' }}>
+            <div className="absolute top-[10%] right-[10%] w-[500px] h-[500px] bg-fuchsia-600/10 blur-[150px] rounded-full mix-blend-screen" />
+            <div className="absolute bottom-[20%] left-[20%] w-[600px] h-[600px] bg-indigo-600/10 blur-[150px] rounded-full mix-blend-screen" />
+          </div>
         </div>
 
         {/* Top Navigator */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0 z-20 bg-slate-100 backdrop-blur-xl">
-          <div className="font-bold text-sm tracking-widest uppercase text-slate-900 opacity-80">{agent.name} Console</div>
+          <div className="font-bold text-sm tracking-wide text-slate-900 opacity-80">
+            {(() => {
+              if (!activeSessionId || messages.filter(m => m.isSelf).length === 0) return '';
+              const title = sessions.find(s => s.id === activeSessionId)?.title || '';
+              return title === 'New Chat' ? '' : title;
+            })()}
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => { setIsKnowledgeBaseOpen(!isKnowledgeBaseOpen); }}
@@ -977,7 +1176,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         <div className="flex-1 flex relative overflow-hidden">
 
           {/* Chat / Settings Wrapper */}
-          <div className="flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-hidden h-full">
+          <div className="flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-y-auto overflow-x-hidden h-full">
             {isKnowledgeBaseOpen ? (
               // Enhanced RAG Dashboard Screen
               <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -1148,23 +1347,51 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           <div>
                             <h3 className="text-lg font-extrabold text-blue-700 mb-2 flex items-center gap-2"><Brain className="w-5 h-5" /> SOL Theory — Organization Brain</h3>
                             <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                              This is the hardcoded organizational knowledge that {agent.name.split(' ')[0]} uses across all sessions. It includes company history, frameworks, partners, and operational details.
+                              Edit the organizational knowledge base that all agents and models reference. Changes are saved to Firestore and take effect immediately on all future conversations — no code changes needed.
                             </p>
                           </div>
                           <div className="text-right shrink-0 ml-4">
-                            <div className="text-xs font-bold text-blue-500">{(solTheoryKnowledge.length / 1024).toFixed(1)} KB</div>
-                            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-0.5">Read-Only</div>
+                            <div className="text-xs font-bold text-blue-500">{((orgBrain.length + solTheoryKnowledge.length) / 1024).toFixed(1)} KB</div>
+                            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-0.5">Editable + Default</div>
                           </div>
                         </div>
                       </div>
 
+                      {/* Editable Org Brain */}
+                      <div className="border border-blue-200 rounded-2xl bg-white overflow-hidden">
+                        <div className="p-4 border-b border-blue-100 flex items-center justify-between bg-blue-50/50">
+                          <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">✏️ Editable Knowledge (Saved to Cloud)</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{orgBrain.length.toLocaleString()} chars</span>
+                        </div>
+                        <div className="p-4">
+                          <textarea
+                            value={orgBrain}
+                            onChange={(e) => setOrgBrain(e.target.value)}
+                            placeholder="Add custom organizational knowledge here. This text will be injected into every agent's context alongside the default knowledge below.&#10;&#10;Example:&#10;- New product launches&#10;- Updated pricing&#10;- Team changes&#10;- Custom instructions for all agents"
+                            className="w-full min-h-[300px] p-4 text-sm text-slate-700 font-sans leading-relaxed border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 resize-y bg-slate-50"
+                          />
+                          <div className="flex items-center justify-between mt-3">
+                            <p className="text-[11px] text-slate-400">All agents (text + voice) across all model/agent modes will use this knowledge.</p>
+                            <Button
+                              onClick={saveOrgBrain}
+                              disabled={orgBrainSaving}
+                              className="bg-blue-600 hover:bg-blue-500 text-white px-6 h-9 rounded-lg font-semibold text-sm gap-2 transition-all"
+                            >
+                              {orgBrainSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                              {orgBrainSaving ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Read-only Default */}
                       <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
                         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Full Knowledge Document</span>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">🔒 Default Knowledge (Built-in)</span>
                           <span className="text-[10px] text-slate-400 font-mono">{solTheoryKnowledge.length.toLocaleString()} chars</span>
                         </div>
-                        <div className="p-6 max-h-[500px] overflow-y-auto scrollbar-thin">
-                          <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{solTheoryKnowledge}</pre>
+                        <div className="p-6 max-h-[300px] overflow-y-auto scrollbar-thin">
+                          <pre className="text-sm text-slate-500 whitespace-pre-wrap font-sans leading-relaxed">{solTheoryKnowledge}</pre>
                         </div>
                       </div>
                     </div>
@@ -1330,7 +1557,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               // Chat Screen
               <div className="flex-1 flex flex-col relative">
                 {/* Unified Token Tracking Pill */}
-                <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-4 h-9 rounded-full bg-white border border-slate-200 flex items-center gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+                <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-4 h-9 rounded-full bg-white border border-slate-200 flex items-center gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
                   <Bot className="w-4 h-4 text-emerald-500" />
                   <span className="text-[10px] font-black tracking-wider text-slate-600 uppercase">
                     {totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span> ≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
@@ -1338,7 +1565,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </button>
 
                 {showCostBreakdown && (
-                  <div className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div data-popup="cost" className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
                       <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -1381,20 +1608,164 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
                   </div>
                 )}
-                
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-56">
-                  <div className="max-w-3xl mx-auto space-y-8">
-                    <div className="flex justify-center mb-10 pt-10">
-                      <div className="text-3xl font-black opacity-10 tracking-[0.3em] uppercase">{agent.name}</div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-slate-300  bg-slate-200/50 `}><Bot className={`w-5 h-5 ${agent.accent}`} /></div>
-                      <div className="flex-1 space-y-1 pt-1">
-                        <div className="font-bold text-sm text-slate-700 ">{agent.name.split(' ')[0]}</div>
-                        <div className={`text-slate-800  inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg}`}>{agent.greeting}</div>
+
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 pb-36">
+                  <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem ? 'max-w-6xl' : 'max-w-3xl'}`}>
+                    {messages.length === 0 && !selectedExploreItem ? (
+                      <div className="flex flex-col items-center justify-center pt-24 md:pt-32 lg:pt-40 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        
+                        
+                        <div className="w-full">
+                                                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4 w-full">
+                             <h2 className="text-[32px] md:text-[40px] font-light text-slate-700 tracking-tight">
+                               Explore INSiGHT {exploreTab === "models" ? "Models" : "Agents"}
+                             </h2>
+                             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/60 self-start md:self-auto">
+                               <button onClick={() => setExploreTab("models")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'models' ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 border border-transparent'}`}>Models</button>
+                               <button onClick={() => setExploreTab("agents")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'agents' ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 border border-transparent'}`}>Agents</button>
+                             </div>
+                          </div>
+                          
+                                                                                                        {exploreTab === "models" ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                               <div onClick={() => setSelectedExploreItem("Featured")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-amber-50 group-hover:bg-amber-100 transition-colors flex items-center justify-center text-amber-500">
+                                     <Sparkles className="w-4 h-4" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Featured</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Test out our premium Groq models.</p>
+                               </div>
+                               
+                               <div onClick={() => setSelectedExploreItem("Conversational AI")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center text-blue-500">
+                                     <MessageSquare className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Conversational AI</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Converse with our voice agent, Jarvis.</p>
+                               </div>
+                               
+                               <div onClick={() => setSelectedExploreItem("Image Generation")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-purple-50 group-hover:bg-purple-100 transition-colors flex items-center justify-center text-purple-500">
+                                     <ImageIcon className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Image Generation</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Create and edit cutting-edge AI images - Coming Soon.</p>
+                               </div>
+                               
+                               <div onClick={() => setSelectedExploreItem("Video Generation")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-green-50 group-hover:bg-green-100 transition-colors flex items-center justify-center text-green-600">
+                                     <Video className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Video Generation</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Generate state of the art AI videos - Coming Soon.</p>
+                               </div>
+                               
+                               <div onClick={() => setSelectedExploreItem("Music Generation")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-rose-50 group-hover:bg-rose-100 transition-colors flex items-center justify-center text-rose-500">
+                                     <Music className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Music Generation</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Explore our text to speech and music models - Coming Soon.</p>
+                               </div>
+                               
+                               <div onClick={() => setSelectedExploreItem("Code Generation")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-orange-50 group-hover:bg-orange-100 transition-colors flex items-center justify-center text-orange-500">
+                                     <Code className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Code Generation</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Tackle your logic-related endeavors.</p>
+                               </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                               <div onClick={() => setSelectedExploreItem("Email Agents")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center text-blue-500">
+                                     <Mail className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Email Agents</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Set up scheduled email campaigns!</p>
+                               </div>
+
+                               <div onClick={() => setSelectedExploreItem("Social Media Agents")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-pink-50 group-hover:bg-pink-100 transition-colors flex items-center justify-center text-pink-500">
+                                     <Users className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Social Media Agents</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Set up scheduled social media posts.</p>
+                               </div>
+
+                               <div onClick={() => setSelectedExploreItem("Message Agents")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex items-center justify-center text-emerald-500">
+                                     <MessageSquare className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Message Agents</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Create messaging app integrations with AI.</p>
+                               </div>
+
+                               <div onClick={() => setSelectedExploreItem("Advertising Agents")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-amber-50 group-hover:bg-amber-100 transition-colors flex items-center justify-center text-amber-500">
+                                     <Presentation className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Advertising Agents</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Build cron jobs for advertising campagins - Coming Soon.</p>
+                               </div>
+
+                               <div onClick={() => setIsAgentRequestModalOpen(true)} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 transition-colors flex items-center justify-center text-indigo-500">
+                                     <Plus className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Submit an Agent Request</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Submit a new agent request to the team.</p>
+                               </div>
+
+                               <div onClick={() => setSelectedExploreItem("Build your own Agent")} className="border border-slate-200/80 rounded-[20px] px-5 py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600">
+                                     <Settings className="w-5 h-5" />
+                                   </div>
+                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Build your own Agent</h3>
+                                 </div>
+                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Configure a custom agent with our drag & drop system - Coming Soon.</p>
+                               </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    {messages.map(msg => (
+                    ) : (
+                                                                  <>
+                        <div className="flex justify-center mb-10 pt-10">
+                          <div className="text-3xl font-black opacity-10 tracking-[0.3em] uppercase text-center max-w-full truncate px-4">{selectedExploreItem ? `${exploreItemsMeta[selectedExploreItem]?.name || ''} - ${selectedExploreItem}` : agent.name}</div>
+                        </div>
+                        <div className="flex gap-4">
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-slate-300  bg-slate-200/50 `}><Bot className={`w-5 h-5 ${agent.accent}`} /></div>
+                          <div className="flex-1 space-y-1 pt-1">
+                            <div className="font-bold text-sm text-slate-700 ">{selectedExploreItem ? exploreItemsMeta[selectedExploreItem]?.name || agent.name.split(' ')[0] : agent.name.split(' ')[0]}</div>
+                            <div className={`text-slate-800  inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg}`}>{selectedExploreItem ? exploreItemsMeta[selectedExploreItem]?.greeting || agent.greeting : agent.greeting}</div>
+                          </div>
+                        </div>
+                        {messages.map(msg => (
                       <div key={msg.id} className={`flex gap-4 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-slate-300  ${msg.isSelf ? 'bg-indigo-600 border-indigo-500' : 'bg-slate-200/50 '}`}>{msg.isSelf ? <User className="w-5 h-5 text-slate-900 " /> : <Bot className={`w-5 h-5 ${agent.accent}`} />}</div>
                         <div className={`flex-1 space-y-1 pt-1 ${msg.isSelf ? 'text-right' : ''}`}>
@@ -1402,10 +1773,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             {msg.imageUrl ? (
                               <div className="flex flex-col mb-2">
                                 <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">{msg.text.replace('Uploaded image: ', '')}</span>
-                                <img 
-                                  src={msg.imageUrl} 
-                                  alt="Uploaded Preview" 
-                                  className="max-w-[200px] max-h-[200px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity" 
+                                <img
+                                  src={msg.imageUrl}
+                                  alt="Uploaded Preview"
+                                  className="max-w-[200px] max-h-[200px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity"
                                   onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.replace('Uploaded image: ', '') })}
                                 />
                               </div>
@@ -1421,12 +1792,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <div className={`inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg} flex items-center gap-3`}><Loader2 className={`w-4 h-4 animate-spin ${agent.accent}`} /> Processing...</div>
                       </div>
                     )}
-                    <div ref={bottomRef} className="h-32" />
+                      </>
+                    )}
+                    <div ref={bottomRef} className="h-4" />
                   </div>
                 </div>
 
-                {/* Chat Input Container */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 via-slate-50/95 to-transparent pt-12 z-20">
+                {/* Chat Input Container - hidden on chooser screen */}
+                <div className={`absolute bottom-0 left-0 right-0 p-4 pb-5 bg-gradient-to-t from-slate-50 via-slate-50/90 to-transparent pt-8 z-20 transition-all duration-300 ${messages.length === 0 && !selectedExploreItem ? "opacity-0 pointer-events-none translate-y-4" : ""}`}>
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
@@ -1458,7 +1831,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         className="absolute right-14 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
                         title="Start Voice Session"
                       >
-                        <Mic className="w-5 h-5" />
+                        <div className="relative flex items-center justify-center w-5 h-5">
+                          <AudioLines className="w-5 h-5 text-indigo-500" />
+                          <Sparkles className="w-2.5 h-2.5 absolute -top-1 -right-1 text-indigo-400" />
+                        </div>
                       </button>
 
                       <Button size="icon" onClick={handleSendMessage} disabled={!inputValue.trim() || isTyping} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white text-black hover:bg-slate-200 w-10 h-10 disabled:opacity-30">
@@ -1486,17 +1862,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
           {/* THE OBSERVER PANEL SLIDE-OUT */}
           {isObserverOpen && (
-            <div className={`${isObserverFullScreen ? 'fixed inset-0 w-full z-50 bg-black/95' : 'w-[450px] bg-white/80 '} border-l border-slate-300  backdrop-blur-3xl shrink-0 flex flex-col relative z-20 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] animate-in ${isObserverFullScreen ? 'zoom-in-95' : 'slide-in-from-right'} duration-500`}>
-              <div className="p-5 border-b border-slate-300  flex items-center justify-between">
+            <div className={`${isObserverFullScreen ? 'fixed inset-0 w-full z-50 bg-white' : 'w-[450px] bg-white/80 '} border-l border-slate-200 backdrop-blur-3xl shrink-0 flex flex-col relative z-20 shadow-[-20px_0_50px_rgba(0,0,0,0.08)] animate-in ${isObserverFullScreen ? 'zoom-in-95' : 'slide-in-from-right'} duration-500`}>
+              <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900  flex items-center gap-2"><Eye className="w-5 h-5 text-emerald-400" /> Observer Panel {isPolling && <Loader2 className="w-4 h-4 animate-spin text-emerald-400 ml-2" />}</h3>
-                  <p className="text-xs text-slate-500  uppercase tracking-wider font-bold mt-1">Live Inbox Stream</p>
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Eye className="w-5 h-5 text-emerald-500" /> Observer Panel {isPolling && <Loader2 className="w-4 h-4 animate-spin text-emerald-500 ml-2" />}</h3>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mt-1">Live Inbox Stream</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setIsObserverFullScreen(!isObserverFullScreen)} className="text-slate-500  hover:text-slate-900  rounded-full">
+                  <Button variant="ghost" size="icon" onClick={() => setIsObserverFullScreen(!isObserverFullScreen)} className="text-slate-500 hover:text-slate-900 rounded-full">
                     {isObserverFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setIsObserverOpen(false)} className="text-slate-500  hover:text-slate-900  rounded-full">
+                  <Button variant="ghost" size="icon" onClick={() => setIsObserverOpen(false)} className="text-slate-500 hover:text-slate-900 rounded-full">
                     <X className="w-5 h-5" />
                   </Button>
                 </div>
@@ -1504,24 +1880,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
               {isGmailConnected ? (
                 <>
-                  <div className="p-4 bg-slate-200/50  border-b border-slate-300  flex flex-col gap-3">
+                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col gap-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700  font-medium">Inbox</span>
-                      <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${selectedEmails.size >= 20 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'}`}>{selectedEmails.size}/20 selected</span>
+                      <span className="text-slate-700 font-medium">Inbox</span>
+                      <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${selectedEmails.size >= 20 ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200'}`}>{selectedEmails.size}/20 selected</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Button onClick={toggleSelectAll} variant="outline" className="w-full h-9 bg-slate-100  border-slate-300  text-slate-700  hover:text-slate-900  text-xs gap-2">
-                        <CheckSquare className="w-3.5 h-3.5 text-emerald-400" /> {selectedEmails.size === incomingEmails.filter(e => !agentContacts.find(c => c.ignore && c.email.toLowerCase() === (e.from.split('<').pop()?.replace('>', '') || '').toLowerCase())).length && incomingEmails.length > 0 ? 'Deselect All' : 'Select All'}
+                      <Button onClick={toggleSelectAll} variant="outline" className="w-full h-9 bg-white border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs gap-2">
+                        <CheckSquare className="w-3.5 h-3.5 text-emerald-500" /> {selectedEmails.size === incomingEmails.filter(e => !agentContacts.find(c => c.ignore && c.email.toLowerCase() === (e.from.split('<').pop()?.replace('>', '') || '').toLowerCase())).length && incomingEmails.length > 0 ? 'Deselect All' : 'Select All'}
                       </Button>
-                      <Button onClick={handleProcessInbox} disabled={selectedEmails.size === 0 || isBatchSyncing || isTyping} className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-slate-900  text-xs font-bold border-0 shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-50 transition-all gap-1 truncate">
+                      <Button onClick={handleProcessInbox} disabled={selectedEmails.size === 0 || isBatchSyncing || isTyping} className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-0 shadow-sm disabled:opacity-50 transition-all gap-1 truncate">
                         {isBatchSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Bot className="w-3.5 h-3.5 shrink-0" />} <span className="truncate">Draft Replies for ({selectedEmails.size})</span>
                       </Button>
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+                  <div className="flex-1 overflow-y-auto p-4 scrollbar-thin bg-white">
                     {incomingEmails.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 p-8 text-center">
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 p-8 text-center">
                         <Mail className="w-10 h-10 opacity-20" />
                         <p className="text-sm">The inbox queue is currently empty. The agent has no pending executions.</p>
                       </div>
@@ -1538,28 +1914,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           const isExpanded = expandedEmailId === email.id;
                           const ts = email.internalDate || 0;
                           const dateLabel = ts > 0
-                            ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' • ' + new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' \u2022 ' + new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                             : '';
                           return (
-                            <div key={email.id} onClick={() => setExpandedEmailId(isExpanded ? null : email.id)} className={`p-4 rounded-xl border transition-all group relative cursor-pointer ${isSelected ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-slate-200/50  border-slate-300  hover:border-white/20'}`}>
+                            <div key={email.id} onClick={() => setExpandedEmailId(isExpanded ? null : email.id)} className={`p-4 rounded-xl border transition-all group relative cursor-pointer ${isSelected ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
                               <button
                                 type="button"
                                 onClick={(e) => toggleSelection(e, email.id)}
-                                className={`absolute top-3.5 left-3.5 w-4 h-4 rounded border-2 flex items-center justify-center transition-all z-10 flex-shrink-0 ${isSelected ? 'bg-emerald-500 border-emerald-500' : 'bg-slate-100  border-white/30 hover:border-emerald-400'}`}
+                                className={`absolute top-3.5 left-3.5 w-4 h-4 rounded border-2 flex items-center justify-center transition-all z-10 flex-shrink-0 ${isSelected ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-slate-300 hover:border-emerald-400'}`}
                               >
-                                {isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-black" />}
+                                {isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}
                               </button>
                               <div className="absolute top-3.5 right-3.5 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); }} className="p-1.5 rounded-md bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-slate-900 " title="Delete Email">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); }} className="p-1.5 rounded-md bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-colors" title="Delete Email">
                                   {isDeletingEmail === email.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                 </button>
                               </div>
                               <div className="flex justify-between items-start mb-1 gap-2 pl-7">
-                                <span className="font-bold text-sm text-slate-800  truncate">{senderName}</span>
-                                <span className="text-[10px] text-slate-500  whitespace-nowrap shrink-0 font-medium tabular-nums">{dateLabel}</span>
+                                <span className="font-bold text-sm text-slate-800 truncate">{senderName}</span>
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0 font-medium tabular-nums">{dateLabel}</span>
                               </div>
-                              <h4 className={`text-sm text-emerald-400 font-medium mb-1.5 pl-7 ${isExpanded ? '' : 'truncate'}`}>{email.subject}</h4>
-                              <p className={`text-xs text-slate-500  leading-relaxed pl-7 break-words ${isExpanded ? '' : 'line-clamp-2'}`}>{(email.snippet || '').replace(/&#39;/g, "'").replace(/&quot;/g, '"')}</p>
+                              <h4 className={`text-sm text-emerald-600 font-medium mb-1.5 pl-7 ${isExpanded ? '' : 'truncate'}`}>{email.subject}</h4>
+                              <p className={`text-xs text-slate-500 leading-relaxed pl-7 break-words ${isExpanded ? '' : 'line-clamp-2'}`}>{(email.snippet || '').replace(/&#39;/g, "'").replace(/&quot;/g, '"')}</p>
                             </div>
                           )
                         })}
@@ -1567,17 +1943,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     )}
                   </div>
                   {/* Mini chat at the bottom of Observer Panel */}
-                  <div className="p-4 bg-slate-100  border-t border-slate-300  flex items-center gap-2 relative shrink-0">
+                  <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center gap-2 relative shrink-0">
                     <Bot className={`w-5 h-5 absolute left-7 ${agent.accent}`} />
                     <Input
                       placeholder={`Instruct ${agent.name.split(' ')[0]} to modify these emails...`}
-                      className="pl-10 pr-10 bg-slate-200/50  border-slate-300  text-sm h-11 text-slate-900  placeholder:text-slate-500 focus-visible:ring-emerald-500"
+                      className="pl-10 pr-10 bg-white border-slate-200 text-sm h-11 text-slate-900 placeholder:text-slate-400 focus-visible:ring-emerald-500"
                       value={observerInputValue}
                       onChange={e => setObserverInputValue(e.target.value)}
                       onPaste={handlePaste}
                       onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleObserverChat()}
                     />
-                    <Button size="icon" onClick={handleObserverChat} disabled={!observerInputValue.trim() || isTyping} className="absolute right-6 top-1/2 -translate-y-1/2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-slate-900  w-7 h-7 disabled:opacity-30">
+                    <Button size="icon" onClick={handleObserverChat} disabled={!observerInputValue.trim() || isTyping} className="absolute right-6 top-1/2 -translate-y-1/2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white w-7 h-7 disabled:opacity-30">
                       {isTyping ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                     </Button>
                   </div>
@@ -1613,20 +1989,112 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           )}
         </div>
       </div>
+
+      {/* System Instructions Popup */}
+      {isSystemInstructionsOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsSystemInstructionsOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">System instructions</h3>
+                  <p className="text-xs text-slate-400 mt-1">Provide tone, style, or context instructions for this session. These apply to every message in the current chat.</p>
+                </div>
+                <button onClick={() => setIsSystemInstructionsOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <textarea
+                autoFocus
+                className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-300 leading-relaxed"
+                placeholder="e.g., Respond in a formal business tone. Keep answers concise. Focus on actionable advice. Always include specific examples."
+                value={sessionInstructions}
+                onChange={e => setSessionInstructions(e.target.value)}
+              />
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-[10px] text-slate-300 font-mono">{sessionInstructions.length} characters</span>
+                <div className="flex items-center gap-2">
+                  {sessionInstructions && (
+                    <button onClick={() => setSessionInstructions("")} className="px-3 py-1.5 text-xs text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors font-medium">
+                      Clear
+                    </button>
+                  )}
+                  <button onClick={() => setIsSystemInstructionsOpen(false)} className="px-4 py-1.5 text-xs bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-semibold">
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <VoiceAgentModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
         agentName={agent.name}
         agentId={params.agentId as string}
         orgPrefix="soltheory"
+        systemInstructions={sessionInstructions}
+        knowledgeBaseText={orgBrain}
+        pactText={pactText}
         existingMessages={messages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }))}
         onTranscriptUpdate={(userText, aiReply) => {
-          // Save voice messages to the active chat session
-          setMessages(prev => [
-            ...prev,
-            { id: uid(), text: userText, isSelf: true },
-            { id: uid(), text: aiReply, isSelf: false },
-          ]);
+          // Lazily create a session if none exists (voice started from blank screen)
+          let currentSessionId = activeSessionId;
+          if (!currentSessionId) {
+            const newSession: Session = {
+              id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              title: "New Chat",
+              updatedAt: Date.now(),
+              messages: []
+            };
+            currentSessionId = newSession.id;
+            setSessions(prev => [newSession, ...prev]);
+            setActiveSessionId(newSession.id);
+          }
+
+          // Trigger AI Title generator if needed
+          const existingSession = sessions.find(s => s.id === currentSessionId);
+          if (!existingSession || existingSession.title === "New Chat" || !existingSession.title) {
+            fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: [
+                  { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
+                  { role: "user", content: `User said: ${userText}\nAI replied: ${aiReply.substring(0, 200)}` }
+                ],
+                agentId: "soltheory_jarvis",
+                soul: "",
+                brain: "",
+              }),
+            }).then(r => r.json()).then(titleData => {
+              if (titleData.response) {
+                const aiTitle = titleData.response.replace(/["']/g, '').trim().substring(0, 60);
+                setSessions(prev => prev.map(s =>
+                  s.id === currentSessionId ? { ...s, title: aiTitle } : s
+                ));
+              }
+            }).catch(() => {
+              const fallback = userText.split(' ').slice(0, 6).join(' ');
+              setSessions(prev => prev.map(s =>
+                s.id === currentSessionId ? { ...s, title: fallback } : s
+              ));
+            });
+          }
+
+          // Save voice messages to the active chat session (filter out welcome greeting)
+          setMessages(prev => {
+            const real = prev.filter(m => m.isSelf || prev.some(um => um.isSelf));
+            return [
+              ...real,
+              { id: uid(), text: userText, isSelf: true },
+              { id: uid(), text: aiReply, isSelf: false },
+            ];
+          });
 
           // Trigger background PACT extraction securely on the server
           if (user?.uid && userText.trim().length > 15) {
@@ -1655,7 +2123,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   createdAt: Date.now(),
                   updatedAt: Date.now()
                 }));
-                
+
                 if (newFacts.length > 0) {
                   await updateDoc(userDocRef, {
                     pact_entries_soltheory: arrayUnion(...newFacts)
@@ -1669,7 +2137,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
             import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
-              updateDoc(doc(firestore, "users", user.uid), { 
+              updateDoc(doc(firestore, "users", user.uid), {
                 groqTokens: increment(groqUsage),
                 elevenLabsChars: increment(elevenLabsUsage)
               }).catch(console.error);
@@ -1689,7 +2157,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
           }
           const kbText = await getKnowledgeBaseText();
-          
+
           const res = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1725,6 +2193,53 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </div>
       )}
 
+
+      {isAgentRequestModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-indigo-500" />
+                Submit an Agent Request
+              </h3>
+              <Button variant="ghost" size="icon" onClick={() => setIsAgentRequestModalOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full">
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Name *</label>
+                <Input placeholder="John Doe" value={agentRequestForm.name} onChange={e => setAgentRequestForm({...agentRequestForm, name: e.target.value})} className="mt-1" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Email *</label>
+                  <Input placeholder="john@example.com" type="email" value={agentRequestForm.email} onChange={e => setAgentRequestForm({...agentRequestForm, email: e.target.value})} className="mt-1" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Phone</label>
+                  <Input placeholder="(555) 000-0000" type="tel" value={agentRequestForm.phone} onChange={e => setAgentRequestForm({...agentRequestForm, phone: e.target.value})} className="mt-1" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Message *</label>
+                <textarea 
+                  placeholder="Describe the agent you'd like us to build..." 
+                  value={agentRequestForm.message} 
+                  onChange={e => setAgentRequestForm({...agentRequestForm, message: e.target.value})} 
+                  className="w-full mt-1 bg-white border border-slate-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none text-slate-900 h-32" 
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsAgentRequestModalOpen(false)}>Cancel</Button>
+              <Button onClick={submitAgentRequest} disabled={isSubmittingAgentRequest || !agentRequestForm.name || !agentRequestForm.email || !agentRequestForm.message} className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[120px]">
+                {isSubmittingAgentRequest ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Request"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

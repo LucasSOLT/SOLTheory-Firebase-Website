@@ -78,6 +78,30 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Global click-outside and Escape key handler for all dropdowns/popups
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showCostBreakdown && !target.closest('[data-popup="cost"]')) {
+        setShowCostBreakdown(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowCostBreakdown(false);
+        if (lightboxImage) setLightboxImage(null);
+        if (isObserverFullScreen) setIsObserverFullScreen(false);
+        if (isKnowledgeBaseOpen) setIsKnowledgeBaseOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showCostBreakdown, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
+
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent?: string }> = {
     "jarvis": {
       name: "Jarvis (Executive Agent)",
@@ -107,21 +131,15 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           s.messages = s.messages.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
           if (!uniqueSessions.has(s.id)) uniqueSessions.set(s.id, s);
         });
-        const dedupedSessions = Array.from(uniqueSessions.values());
+        const dedupedSessions = Array.from(uniqueSessions.values()).filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat");
         setSessions(dedupedSessions);
-        if (dedupedSessions.length > 0) {
-          const mostRecent = dedupedSessions.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-          setActiveSessionId(mostRecent.id);
-          setMessages(mostRecent.messages);
-        } else {
-          startNewSession();
-        }
       } catch (e) {
-        startNewSession();
+        /* no-op */
       }
-    } else {
-      startNewSession();
     }
+    // Start with blank screen — no active session
+    setActiveSessionId(null);
+    setMessages([]);
   }, [params.agentId]);
 
   useEffect(() => {
@@ -182,10 +200,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       setSessions(prev => {
         const updated = prev.map(s => {
           if (s.id === activeSessionId) {
-            const title = s.title === "New Chat" && messages.filter(m => m.isSelf).length > 0
-              ? messages.filter(m => m.isSelf)[0].text.substring(0, 30) + "..."
-              : s.title;
-            return { ...s, messages, title };
+            // Title will be set by the AI summarizer after the first exchange
+            return { ...s, messages };
           }
           return s;
         });
@@ -244,14 +260,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   }, [params.agentId, user, firestore, agentConfig.heartbeat]);
 
   const startNewSession = () => {
-    const newSession: Session = {
-      id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      title: "New Chat",
-      updatedAt: Date.now(),
-      messages: []
-    };
-    setSessions(prev => [newSession, ...prev]);
-    setActiveSessionId(newSession.id);
+    // Reset to blank screen — no session is created until the user sends a message
+    setActiveSessionId(null);
     setMessages([]);
   };
 
@@ -271,13 +281,9 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     localStorage.setItem(`agent_sessions_${params.agentId}`, JSON.stringify(updated));
 
     if (activeSessionId === id) {
-      if (updated.length > 0) {
-        const mostRecent = updated.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-        setActiveSessionId(mostRecent.id);
-        setMessages(mostRecent.messages);
-      } else {
-        startNewSession();
-      }
+      // Return to blank screen
+      setActiveSessionId(null);
+      setMessages([]);
     }
   };
 
@@ -326,6 +332,18 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isTyping) return;
+
+    // Lazily create a new session on first message if no active session exists
+    if (!activeSessionId) {
+      const newSession: Session = {
+        id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        title: "New Chat",
+        updatedAt: Date.now(),
+        messages: []
+      };
+      setSessions(prev => [newSession, ...prev]);
+      setActiveSessionId(newSession.id);
+    }
 
     const userMsg: Message = { id: uid(), text: inputValue, isSelf: true };
     const newMessages = [...messages, userMsg];
@@ -381,6 +399,37 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       };
 
       setMessages(prev => [...prev, aiMsg]);
+
+      // Generate AI title for new sessions after first exchange
+      const currentSessionId = activeSessionId;
+      const activeSessionObj = sessions.find(s => s.id === currentSessionId) || sessions[0];
+      if (activeSessionObj && (activeSessionObj.title === "New Chat" || !activeSessionObj.title)) {
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [
+              { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
+              { role: "user", content: `User said: ${inputValue}\nAI replied: ${data.response.substring(0, 200)}` }
+            ],
+            agentId: "nxtchapter_jarvis",
+            soul: "",
+            brain: "",
+          }),
+        }).then(r => r.json()).then(titleData => {
+          if (titleData.response) {
+            const aiTitle = titleData.response.replace(/["']/g, '').trim().substring(0, 60);
+            setSessions(prev => prev.map(s =>
+              s.id === currentSessionId ? { ...s, title: aiTitle } : s
+            ));
+          }
+        }).catch(() => {
+          const fallback = inputValue.split(' ').slice(0, 6).join(' ');
+          setSessions(prev => prev.map(s =>
+            s.id === currentSessionId ? { ...s, title: fallback } : s
+          ));
+        });
+      }
 
       const usage = data.usage || 0;
       if (usage > 0 && user?.uid && firestore) {
@@ -460,10 +509,6 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           </div>
         </div>
         <div className="px-3 py-2 space-y-1">
-          <Button variant="outline" className="w-full justify-start gap-2 h-10 bg-white  border-slate-300  hover:bg-slate-100 text-slate-900  shadow-sm" onClick={startNewSession}>
-            <Plus className="w-4 h-4" /> New chat
-          </Button>
-
           {isSearchOpen ? (
             <div className="flex items-center gap-2 px-2 h-10 border border-slate-300  rounded-md bg-white  shadow-sm transition-all focus-within:ring-1 focus-within:ring-primary">
               <Search className="w-4 h-4 text-slate-400 shrink-0" />
@@ -490,7 +535,10 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
           <div className="text-xs font-semibold text-muted-foreground mb-2 px-2 mt-4 flex items-center justify-between">
             Recent
           </div>
-          {sessions.sort((a, b) => b.updatedAt - a.updatedAt).map((session) => {
+          {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
+            <div className="text-xs text-slate-400 px-2 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
+          )}
+          {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").sort((a, b) => b.updatedAt - a.updatedAt).map((session) => {
             const isMatch = searchQuery.trim() !== "" && session.title.toLowerCase().includes(searchQuery.toLowerCase());
             return (
               <div
@@ -502,7 +550,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                   className="flex-1 flex items-center justify-start font-normal h-full text-sm outline-none bg-transparent overflow-hidden"
                 >
                   <MessageSquare className="w-4 h-4 mr-2 shrink-0" />
-                  <span className="truncate">{session.title}</span>
+                  <span className="break-words leading-snug text-sm">{session.title}</span>
                 </button>
                 <button onClick={(e) => deleteSession(e, session.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-opacity ml-1 rounded hover:bg-slate-200">
                   <Trash2 className="w-4 h-4" />
