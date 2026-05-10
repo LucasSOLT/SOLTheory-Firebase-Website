@@ -1,11 +1,30 @@
 import { NextResponse } from "next/server";
-import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 /**
  * POST /api/sms/webhook
  * Receives incoming SMS from Twilio webhook.
- * Twilio sends form-encoded data, so we parse it from the request.
+ * Twilio sends form-encoded data.
+ * 
+ * This uses Admin SDK because it runs server-side on Vercel (not client-side).
+ * For local dev, use ngrok to tunnel localhost to a public URL.
  */
+
+function getAdminDb() {
+  if (!getApps().length) {
+    // On Vercel, use env-based service account credentials
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      initializeApp({ credential: cert(serviceAccount) });
+    } else {
+      // Fallback: try application default credentials
+      initializeApp();
+    }
+  }
+  return getFirestore();
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -23,8 +42,7 @@ export async function POST(req: Request) {
       });
     }
 
-    initAdmin();
-    const db = getAdminFirestore();
+    const db = getAdminDb();
 
     // Find the user who owns this Twilio number
     const usersSnapshot = await db.collection("users")
@@ -59,13 +77,6 @@ export async function POST(req: Request) {
       mediaUrls,
       createdAt: new Date().toISOString(),
       read: false,
-    });
-
-    // Update unread count
-    const userRef = db.collection("users").doc(uid);
-    const userData = userDoc.data();
-    await userRef.update({
-      smsUnreadCount: (userData.smsUnreadCount || 0) + 1,
     });
 
     console.log(`[SMS Webhook] Stored inbound message for user ${uid}`);

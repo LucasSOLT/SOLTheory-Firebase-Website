@@ -3,14 +3,12 @@ import twilio from "twilio";
 
 /**
  * POST /api/sms/send
- * Send an SMS via Twilio. No Firebase Admin SDK needed.
- * Firestore caching is handled client-side.
+ * Send an SMS via Twilio Messaging Service (A2P compliant).
  * Body: { from, to, message }
  */
 export async function POST(req: Request) {
   try {
     const { from, to, message } = await req.json();
-    if (!from) return NextResponse.json({ error: "Missing 'from' number. Set up messaging first." }, { status: 400 });
     if (!to) return NextResponse.json({ error: "Missing 'to' phone number" }, { status: 400 });
     if (!message) return NextResponse.json({ error: "Missing message" }, { status: 400 });
 
@@ -19,16 +17,26 @@ export async function POST(req: Request) {
     // Normalize phone number
     let normalizedTo = to.replace(/[^+\d]/g, "");
     if (!normalizedTo.startsWith("+")) {
-      normalizedTo = "+1" + normalizedTo; // Default to US
+      normalizedTo = "+1" + normalizedTo;
     }
 
-    const sent = await client.messages.create({
+    // Use Messaging Service SID for A2P compliance, fall back to direct 'from' number
+    const msgParams: any = {
       body: message,
-      from,
       to: normalizedTo,
-    });
+    };
 
-    console.log(`[SMS Send] ${from} → ${normalizedTo}: ${sent.sid}`);
+    if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+      msgParams.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+    } else if (from) {
+      msgParams.from = from;
+    } else {
+      return NextResponse.json({ error: "No messaging service or 'from' number configured." }, { status: 400 });
+    }
+
+    const sent = await client.messages.create(msgParams);
+
+    console.log(`[SMS Send] → ${normalizedTo}: ${sent.sid} (status: ${sent.status})`);
 
     return NextResponse.json({
       success: true,

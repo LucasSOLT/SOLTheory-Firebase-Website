@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc, setDoc, addDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { playMessageSendSound } from "@/lib/send-sound";
 import {
   Send,
   MessageCircle,
@@ -14,13 +15,13 @@ import {
   ArrowLeft,
   Loader2,
   RefreshCw,
-  Circle,
   CheckCheck,
   Phone,
   Plus,
   Wifi,
   AlertTriangle,
   Smartphone,
+  Shield,
 } from "lucide-react";
 
 type Conversation = {
@@ -172,6 +173,7 @@ export default function IMessagePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      playMessageSendSound();
 
       // Save to Firestore client-side
       await addDoc(collection(firestore, "users", user.uid, "sms_messages"), {
@@ -253,42 +255,37 @@ export default function IMessagePage() {
   // Not provisioned — setup screen
   if (isProvisioned === false) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
-        <Card className="bg-white border border-slate-200 shadow-xl max-w-lg w-full rounded-2xl">
-          <CardContent className="p-10 text-center space-y-6">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <MessageCircle className="w-10 h-10 text-white" />
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          {/* Header strip */}
+          <div className="bg-[#F0F2F5] px-8 pt-8 pb-6 text-center border-b border-slate-100">
+            <div className="w-16 h-16 rounded-full bg-white mx-auto flex items-center justify-center shadow-sm border border-slate-200 mb-4">
+              <MessageCircle className="w-8 h-8 text-[#25D366]" />
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Set Up Messaging</h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Enter your Twilio phone number to start sending and receiving texts. Jarvis will be able to text people on your behalf.
-              </p>
-            </div>
-            <div className="bg-emerald-50 rounded-xl p-5 text-left space-y-3 border border-emerald-100">
-              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-2">
-                <Smartphone className="w-3.5 h-3.5" /> What You Get
-              </p>
-              <ul className="text-sm text-emerald-900 space-y-2">
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">✓</span>
-                  <span>Send and receive texts from the <strong>dashboard</strong></span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">✓</span>
-                  <span>Ask <strong>Jarvis</strong> to text people by voice or chat</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">✓</span>
-                  <span>Works with <strong>any phone</strong> — iPhone or Android</span>
-                </li>
-              </ul>
+            <h2 className="text-xl font-bold text-slate-900">Connect Your Number</h2>
+            <p className="text-slate-500 text-sm mt-1">Link a Twilio phone number to get started with SMS</p>
+          </div>
+
+          <div className="px-8 py-6 space-y-5">
+            {/* Features list */}
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                { icon: <Send className="w-4 h-4" />, text: "Send & receive texts from your dashboard" },
+                { icon: <Smartphone className="w-4 h-4" />, text: "Works with any phone — iPhone or Android" },
+                { icon: <Shield className="w-4 h-4" />, text: "Ask Jarvis to message on your behalf" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+                  <div className="text-[#25D366]">{item.icon}</div>
+                  <span className="text-sm text-slate-700">{item.text}</span>
+                </div>
+              ))}
             </div>
 
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Your Twilio Phone Number</label>
+            {/* Number input */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Your Twilio Phone Number</label>
               <Input
-                placeholder="(720) 460-6822"
+                placeholder="(720) 356-0494"
                 value={setupNumber}
                 onChange={(e) => setSetupNumber(e.target.value)}
                 className="h-12 text-center text-lg font-mono !bg-white border-slate-200 rounded-xl !text-slate-900 placeholder:!text-slate-400"
@@ -305,23 +302,17 @@ export default function IMessagePage() {
             <Button
               onClick={handleProvision}
               disabled={isProvisioning || !setupNumber.trim()}
-              className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/20 text-base"
+              className="w-full h-11 !bg-[#25D366] hover:!bg-[#128C7E] !text-white font-semibold rounded-xl text-sm"
             >
               {isProvisioning ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Saving...
-                </>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting...</>
               ) : (
-                <>
-                  <Phone className="w-5 h-5 mr-2" />
-                  Activate Messaging
-                </>
+                <><Phone className="w-4 h-4 mr-2" /> Activate Messaging</>
               )}
             </Button>
-            <p className="text-[11px] text-slate-400">Enter the number from your Twilio console. Contact your admin if you don't have one.</p>
-          </CardContent>
-        </Card>
+            <p className="text-[11px] text-slate-400 text-center">Enter the number from your Twilio console. Contact your admin if you don&apos;t have one.</p>
+          </div>
+        </div>
       </div>
     );
   }
