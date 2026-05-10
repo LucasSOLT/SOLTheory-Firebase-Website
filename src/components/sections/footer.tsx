@@ -17,6 +17,11 @@ export function Footer() {
                     <Logo className="h-5 w-5 opacity-70" />
                     <span className="text-sm text-slate-500 font-medium">&copy; {new Date().getFullYear()} SOL Theory. All Rights Reserved.</span>
                 </div>
+                <div className="flex items-center gap-4">
+                    <Link href="/privacy" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Privacy Policy</Link>
+                    <span className="text-slate-700">·</span>
+                    <Link href="/terms" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Terms of Service</Link>
+                </div>
                 <div className="flex items-center gap-1">
                     {socialLinks.map(link => (
                         <Link

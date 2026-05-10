@@ -377,10 +377,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Communications</span>
             </button>
             {!collapsedSections['comms'] && <div className="space-y-1 animate-in fade-in duration-150">
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
+              <Link href={`${dashboardHome}/communications/imessage`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/communications/imessage') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-blue-900'}`}>
                 <MessageCircle className="w-4 h-4 ml-1" />
                 <span className="text-sm">iMessage</span>
-              </div>
+              </Link>
               <Link href={`${dashboardHome}/communications/whatsapp`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/communications/whatsapp') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-emerald-900'}`}>
                 <MessageCircle className="w-4 h-4 ml-1" />
                 <span className="text-sm">WhatsApp</span>

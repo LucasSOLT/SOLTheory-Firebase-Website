@@ -285,6 +285,77 @@ const tools: any = [
         required: ["query"]
       }
     }
+  },
+  // ── iMessage Tools ──
+  {
+    type: "function",
+    function: {
+      name: "list_imessage_chats",
+      description: "List the user's recent text message conversations. Returns contact numbers and last message preview. Use this when the user asks about their messages, texts, or wants to see recent conversations.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Max number of conversations to return. Default 20." }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_imessage_thread",
+      description: "Get messages from a specific text conversation thread. Use list_imessage_chats first to find the contact number. Use this when the user wants to read specific messages or see their conversation history with someone.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact: { type: "string", description: "The contact's phone number, e.g. '+15551234567'" },
+          limit: { type: "number", description: "Number of messages to retrieve. Default 25." }
+        },
+        required: ["contact"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_imessages",
+      description: "Search across all text message conversations for messages containing a keyword or phrase. Use this when the user asks to find specific messages or search their message history.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The search term to find in messages" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_imessage",
+      description: "Send a text message to a phone number. Look up phone numbers from the Contact Glossary when users refer to people by name. Format phone numbers with country code (e.g. +15551234567).",
+      parameters: {
+        type: "object",
+        properties: {
+          to: { type: "string", description: "The recipient's phone number, e.g. '+15551234567' or '5551234567'" },
+          message: { type: "string", description: "The text message to send" }
+        },
+        required: ["to", "message"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "summarize_imessages",
+      description: "Get a summary of recent text message activity. Use this when the user asks 'what messages do I have', 'any new texts', 'summarize my messages', 'do I have unread messages', etc.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    }
   }
 ];
 
@@ -346,7 +417,7 @@ export async function POST(req: Request) {
     const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
 
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, Google Workspace Document Creation Tools, Survey Creation Tools, AND Past Conversation Memory.\n\n[CONVERSATION MEMORY]: You MUST USE your search_past_conversations tool when the user references something from a previous chat, asks "remember when...", "what did we discuss about...", "last time we talked about...", or any time they need information from a past session. This tool searches ALL of their saved chat history across all sessions. Use it proactively when you sense the user is referencing prior context you don't have in the current conversation.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[SURVEY TOOLS]: You MUST USE your create_and_send_survey tool when the user asks you to create a survey, questionnaire, or feedback form. When the user says to send it to people by name, you MUST look up the email addresses in the Contact Glossary above and pass them as recipientEmails. Include a good detailed topic description so the AI generates high-quality questions. If the user specifies a number of questions, pass it as questionCount.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, Google Workspace Document Creation Tools, Survey Creation Tools, Past Conversation Memory, AND iMessage Tools.\n\n[CONVERSATION MEMORY]: You MUST USE your search_past_conversations tool when the user references something from a previous chat, asks "remember when...", "what did we discuss about...", "last time we talked about...", or any time they need information from a past session. This tool searches ALL of their saved chat history across all sessions. Use it proactively when you sense the user is referencing prior context you don't have in the current conversation.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[SURVEY TOOLS]: You MUST USE your create_and_send_survey tool when the user asks you to create a survey, questionnaire, or feedback form. When the user says to send it to people by name, you MUST look up the email addresses in the Contact Glossary above and pass them as recipientEmails. Include a good detailed topic description so the AI generates high-quality questions. If the user specifies a number of questions, pass it as questionCount.\n\n[iMESSAGE TOOLS]: You MUST USE your iMessage tools (list_imessage_chats, get_imessage_thread, search_imessages, send_imessage, summarize_imessages) when the user asks about their text messages, iMessages, or wants to text someone. Use list_imessage_chats to find conversations, get_imessage_thread to read specific chats, search_imessages to find messages by keyword, send_imessage to send texts, and summarize_imessages for an overview of recent/unread messages. When the user refers to a contact by name, look up their PHONE NUMBER in the Contact Glossary and construct the chatGuid as 'iMessage;-;+1XXXXXXXXXX'. Present message summaries in a clean, readable format.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
@@ -1150,6 +1221,115 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               }
             } catch (searchErr: any) {
               functionResult = JSON.stringify({ error: "Failed to search past conversations: " + searchErr.message });
+            }
+          } else if (functionName === "list_imessage_chats") {
+            try {
+              initAdmin();
+              const adminDb = getAdminFirestore();
+              const userDoc = await adminDb.collection("users").doc(uid).get();
+              const userData = userDoc.data();
+              if (!userData?.twilioPhoneNumber) {
+                functionResult = JSON.stringify({ result: "Messaging is not set up yet. Tell the user to go to the Messages page in the sidebar to activate their messaging number." });
+              } else {
+                const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(500).get();
+                const convMap = new Map<string, any>();
+                snapshot.docs.forEach((d: any) => {
+                  const data = d.data();
+                  const contact = data.direction === "inbound" ? data.from : data.to;
+                  if (!convMap.has(contact)) {
+                    convMap.set(contact, { contact, lastMessage: data.body || "", lastTime: data.createdAt, unreadCount: 0, messageCount: 0 });
+                  }
+                  const conv = convMap.get(contact)!;
+                  conv.messageCount++;
+                  if (data.direction === "inbound" && !data.read) conv.unreadCount++;
+                });
+                const convos = Array.from(convMap.values()).sort((a: any, b: any) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime());
+                functionResult = JSON.stringify({ result: convos.length > 0 ? convos : "No text conversations found." });
+              }
+            } catch (imErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to list conversations: " + imErr.message });
+            }
+          } else if (functionName === "get_imessage_thread") {
+            try {
+              initAdmin();
+              const adminDb = getAdminFirestore();
+              const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(100).get();
+              const normalizedContact = (args.contact || "").replace(/[^+\d]/g, "");
+              const msgs = snapshot.docs.map((d: any) => d.data()).filter((m: any) => (m.from || "").includes(normalizedContact) || (m.to || "").includes(normalizedContact)).map((m: any) => ({
+                from: m.direction === 'outbound' ? 'You' : m.from,
+                text: m.body || '[Media]',
+                time: m.createdAt,
+              }));
+              functionResult = JSON.stringify({ result: msgs.length > 0 ? msgs : "No messages found in this conversation." });
+            } catch (imErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to get message thread: " + imErr.message });
+            }
+          } else if (functionName === "search_imessages") {
+            try {
+              initAdmin();
+              const adminDb = getAdminFirestore();
+              const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(200).get();
+              const searchQuery = (args.query || "").toLowerCase();
+              const results = snapshot.docs.map((d: any) => d.data()).filter((m: any) => (m.body || "").toLowerCase().includes(searchQuery)).slice(0, 20).map((m: any) => ({
+                from: m.direction === 'outbound' ? 'You' : m.from,
+                to: m.to,
+                text: (m.body || "").substring(0, 200),
+                time: m.createdAt,
+              }));
+              functionResult = JSON.stringify({ result: results.length > 0 ? results : `No messages found matching "${args.query}".` });
+            } catch (imErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to search messages: " + imErr.message });
+            }
+          } else if (functionName === "send_imessage") {
+            try {
+              initAdmin();
+              const adminDb = getAdminFirestore();
+              const userDoc = await adminDb.collection("users").doc(uid).get();
+              const myNumber = userDoc.data()?.twilioPhoneNumber;
+              if (!myNumber) throw new Error("Messaging not set up. Tell user to go to Messages page first.");
+              const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/sms/send`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ from: myNumber, to: args.to, message: args.message }),
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error);
+              // Cache sent message
+              await adminDb.collection("users").doc(uid).collection("sms_messages").add({
+                sid: data.sid, from: myNumber, to: data.to || args.to, body: args.message,
+                direction: "outbound", status: "sent", createdAt: new Date().toISOString(),
+              });
+              functionResult = JSON.stringify({ result: `Text message sent successfully to ${args.to}.` });
+            } catch (imErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to send text: " + imErr.message });
+            }
+          } else if (functionName === "summarize_imessages") {
+            try {
+              initAdmin();
+              const adminDb = getAdminFirestore();
+              const userDoc = await adminDb.collection("users").doc(uid).get();
+              const myNumber = userDoc.data()?.twilioPhoneNumber;
+              if (!myNumber) {
+                functionResult = JSON.stringify({ result: "Messaging is not set up. Tell the user to go to the Messages page to get their messaging number." });
+              } else {
+                const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(500).get();
+                const convMap = new Map<string, any>();
+                snapshot.docs.forEach((d: any) => {
+                  const data = d.data();
+                  const contact = data.direction === "inbound" ? data.from : data.to;
+                  if (!convMap.has(contact)) convMap.set(contact, { contact, lastMessage: data.body || "", lastTime: data.createdAt, unreadCount: 0 });
+                  if (data.direction === "inbound" && !data.read) convMap.get(contact)!.unreadCount++;
+                });
+                const convos = Array.from(convMap.values());
+                const unread = convos.filter((c: any) => c.unreadCount > 0);
+                functionResult = JSON.stringify({ result: {
+                  myNumber, totalConversations: convos.length, unreadConversations: unread.length,
+                  totalUnreadMessages: unread.reduce((acc: number, c: any) => acc + c.unreadCount, 0),
+                  recentConversations: convos.slice(0, 10),
+                }});
+              }
+            } catch (imErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to summarize messages: " + imErr.message });
             }
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });

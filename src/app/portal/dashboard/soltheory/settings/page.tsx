@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings } from "lucide-react";
+import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff } from "lucide-react";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
@@ -143,6 +143,15 @@ function SettingsContent() {
   const [qbError, setQbError] = useState("");
   const [qbConnecting, setQbConnecting] = useState(false);
 
+  // iMessage / BlueBubbles states
+  const [imServerUrl, setImServerUrl] = useState("");
+  const [imPassword, setImPassword] = useState("");
+  const [imConnected, setImConnected] = useState(false);
+  const [imTesting, setImTesting] = useState(false);
+  const [imSaving, setImSaving] = useState(false);
+  const [imMessage, setImMessage] = useState("");
+  const [imShowPassword, setImShowPassword] = useState(false);
+
   useEffect(() => {
     // Load local language
     const savedLang = localStorage.getItem('agent_language') as Lang;
@@ -166,8 +175,20 @@ function SettingsContent() {
       if (firestore) {
         getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
           if (docSnap.exists()) {
-            setBio(docSnap.data().bio || "");
-            setLocation(docSnap.data().location || "");
+            const data = docSnap.data();
+            setBio(data.bio || "");
+            setLocation(data.location || "");
+            // Load iMessage config
+            if (data.imessageServerUrl) {
+              setImServerUrl(data.imessageServerUrl);
+              setImPassword(data.imessagePassword || "");
+              setImConnected(true);
+            }
+            // Load Twilio messaging status
+            if (data.twilioPhoneNumber) {
+              setImConnected(true);
+              setImServerUrl(data.twilioPhoneNumber);
+            }
           }
         });
       }
@@ -286,6 +307,64 @@ function SettingsContent() {
       setQbConnected(false);
     } catch (err: any) {
       setQbError("Failed to disconnect: " + err.message);
+    }
+  };
+
+  // ── iMessage / BlueBubbles handlers ──
+  const handleTestImessage = async () => {
+    if (!imServerUrl.trim() || !imPassword.trim()) {
+      setImMessage("Please enter both server URL and password.");
+      return;
+    }
+    setImTesting(true);
+    setImMessage("");
+    try {
+      const res = await fetch(`/api/imessage/ping?serverUrl=${encodeURIComponent(imServerUrl.trim())}&password=${encodeURIComponent(imPassword.trim())}`);
+      const data = await res.json();
+      if (data.connected) {
+        setImMessage("✓ Connection successful!");
+      } else {
+        setImMessage(`✗ ${data.message || "Connection failed."}`);
+      }
+    } catch (err: any) {
+      setImMessage(`✗ ${err.message}`);
+    } finally {
+      setImTesting(false);
+    }
+  };
+
+  const handleSaveImessage = async () => {
+    if (!user?.uid || !firestore || !imServerUrl.trim() || !imPassword.trim()) return;
+    setImSaving(true);
+    setImMessage("");
+    try {
+      await setDoc(doc(firestore, "users", user.uid), {
+        imessageServerUrl: imServerUrl.trim(),
+        imessagePassword: imPassword.trim(),
+      }, { merge: true });
+      setImConnected(true);
+      setImMessage("✓ iMessage connection saved!");
+    } catch (err: any) {
+      setImMessage(`✗ Failed to save: ${err.message}`);
+    } finally {
+      setImSaving(false);
+      setTimeout(() => setImMessage(""), 4000);
+    }
+  };
+
+  const handleDisconnectImessage = async () => {
+    if (!user?.uid || !firestore) return;
+    try {
+      await setDoc(doc(firestore, "users", user.uid), {
+        imessageServerUrl: null,
+        imessagePassword: null,
+      }, { merge: true });
+      setImConnected(false);
+      setImServerUrl("");
+      setImPassword("");
+      setImMessage("");
+    } catch (err: any) {
+      setImMessage(`✗ Failed to disconnect: ${err.message}`);
     }
   };
 
@@ -528,14 +607,31 @@ function SettingsContent() {
                         <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect WhatsApp</Button>
                       </div>
 
-                      {/* --- Mock Apple Account --- */}
+                      {/* --- Messaging (SMS/Text) --- */}
                       <div className="w-full h-px bg-slate-100/50" />
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-1.5 max-w-sm">
-                          <Label className="text-base text-slate-800">Apple Account Connection</Label>
-                          <p className="text-sm text-slate-500 leading-relaxed">Link your Apple Developer account to manage app store analytics and metadata.</p>
+                        <div className="space-y-1.5 max-w-md">
+                          <Label className="text-base text-slate-800 flex items-center gap-2">
+                            <MessageCircle className="w-4 h-4 text-emerald-500" />
+                            Text Messaging
+                          </Label>
+                          <p className="text-sm text-slate-500 leading-relaxed">
+                            Get a dedicated phone number so Jarvis can send and receive text messages on your behalf. Works with any phone — iPhone or Android.
+                          </p>
+                          {imConnected && imServerUrl && (
+                            <p className="text-sm text-emerald-500 font-medium mt-1 flex items-center gap-1">
+                              <Wifi className="w-3.5 h-3.5" /> Active · <span className="font-mono text-emerald-600">{imServerUrl}</span>
+                            </p>
+                          )}
                         </div>
-                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect Apple Account</Button>
+                        <Button
+                          onClick={() => window.location.href = window.location.pathname.replace("/settings", "/communications/imessage")}
+                          className={imConnected && imServerUrl ? "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 h-11" : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white h-11"}
+                          variant={imConnected && imServerUrl ? "outline" : "default"}
+                        >
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          {imConnected && imServerUrl ? "✓ Active" : "Set Up Messaging"}
+                        </Button>
                       </div>
 
                     </CardContent>

@@ -191,6 +191,14 @@ service cloud.firestore {
       match /settings/{settingId} {
         allow read, write: if isOwner(userId);
       }
+
+      /**
+       * @description SMS messages received and sent via Twilio integration.
+       * @path /users/{userId}/sms_messages/{messageId}
+       */
+      match /sms_messages/{messageId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     /**
