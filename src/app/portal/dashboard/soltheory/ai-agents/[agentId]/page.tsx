@@ -1176,7 +1176,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         <div className="flex-1 flex relative overflow-hidden">
 
           {/* Chat / Settings Wrapper */}
-          <div className="flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-y-auto overflow-x-hidden h-full">
+          <div className={`flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-x-hidden h-full ${isKnowledgeBaseOpen ? "overflow-y-auto" : "overflow-hidden"}`}>
             {isKnowledgeBaseOpen ? (
               // Enhanced RAG Dashboard Screen
               <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
