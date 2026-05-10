@@ -1609,7 +1609,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 pb-36">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 pb-8">
                   <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem ? 'max-w-6xl' : 'max-w-3xl'}`}>
                     {messages.length === 0 && !selectedExploreItem ? (
                       <div className="flex flex-col items-center justify-center pt-24 md:pt-32 lg:pt-40 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1799,7 +1799,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </div>
 
                 {/* Chat Input Container - hidden on chooser screen */}
-                <div className={`absolute bottom-0 left-0 right-0 p-4 pb-5 bg-gradient-to-t from-slate-50 via-slate-50/90 to-transparent pt-8 z-20 transition-all duration-300 ${messages.length === 0 && !selectedExploreItem ? "opacity-0 pointer-events-none translate-y-4" : ""}`}>
+                <div className={`shrink-0 px-4 pb-6 pt-2 z-20 ${messages.length === 0 && !selectedExploreItem ? "hidden" : ""}`}>
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
