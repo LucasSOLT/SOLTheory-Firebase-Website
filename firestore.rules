@@ -197,7 +197,8 @@ service cloud.firestore {
        * @path /users/{userId}/sms_messages/{messageId}
        */
       match /sms_messages/{messageId} {
-        allow read, write: if isOwner(userId);
+        allow read, update, delete: if isOwner(userId);
+        allow create: if isOwner(userId) || request.resource.data.direction == "inbound";
       }
     }
 

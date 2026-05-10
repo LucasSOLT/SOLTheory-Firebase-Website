@@ -1,29 +1,20 @@
 import { NextResponse } from "next/server";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, collection, addDoc, getDocs, query, where, limit } from "firebase/firestore";
 
-/**
- * POST /api/sms/webhook
- * Receives incoming SMS from Twilio webhook.
- * Twilio sends form-encoded data.
- * 
- * This uses Admin SDK because it runs server-side on Vercel (not client-side).
- * For local dev, use ngrok to tunnel localhost to a public URL.
- */
+// Client-side config (safe for server components too)
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
 
-function getAdminDb() {
-  if (!getApps().length) {
-    // On Vercel, use env-based service account credentials
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-      initializeApp({ credential: cert(serviceAccount) });
-    } else {
-      // Fallback: try application default credentials
-      initializeApp();
-    }
-  }
-  return getFirestore();
-}
+// Initialize Firebase Client SDK (NOT Admin SDK)
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 export async function POST(req: Request) {
   try {
@@ -37,38 +28,28 @@ export async function POST(req: Request) {
     console.log(`[SMS Webhook] Incoming: ${from} → ${to}: "${body}" (${messageSid})`);
 
     if (!to) {
-      return new Response("<Response></Response>", {
-        headers: { "Content-Type": "text/xml" },
-      });
+      return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
     }
 
-    const db = getAdminDb();
-
-    // Find the user who owns this Twilio number
-    const usersSnapshot = await db.collection("users")
-      .where("twilioPhoneNumber", "==", to)
-      .limit(1)
-      .get();
+    // Find the user who owns this Twilio number using client SDK query
+    const q = query(collection(db, "users"), where("twilioPhoneNumber", "==", to), limit(1));
+    const usersSnapshot = await getDocs(q);
 
     if (usersSnapshot.empty) {
       console.warn(`[SMS Webhook] No user found for number ${to}`);
-      return new Response("<Response></Response>", {
-        headers: { "Content-Type": "text/xml" },
-      });
+      return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
     }
 
-    const userDoc = usersSnapshot.docs[0];
-    const uid = userDoc.id;
+    const uid = usersSnapshot.docs[0].id;
 
-    // Collect media URLs if any
     const mediaUrls: string[] = [];
     for (let i = 0; i < numMedia; i++) {
       const mediaUrl = formData.get(`MediaUrl${i}`) as string;
       if (mediaUrl) mediaUrls.push(mediaUrl);
     }
 
-    // Store the incoming message in Firestore
-    await db.collection("users").doc(uid).collection("sms_messages").add({
+    // Store the incoming message in Firestore (Allowed by our new security rule for 'inbound')
+    await addDoc(collection(db, "users", uid, "sms_messages"), {
       sid: messageSid,
       from,
       to,
@@ -79,16 +60,12 @@ export async function POST(req: Request) {
       read: false,
     });
 
-    console.log(`[SMS Webhook] Stored inbound message for user ${uid}`);
+    console.log(`[SMS Webhook] Stored inbound message for user ${uid} without requiring Private Keys`);
 
-    // Return empty TwiML response (no auto-reply)
-    return new Response("<Response></Response>", {
-      headers: { "Content-Type": "text/xml" },
-    });
+    // Return empty TwiML response
+    return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
   } catch (err: any) {
     console.error("[SMS Webhook] Error:", err.message);
-    return new Response("<Response></Response>", {
-      headers: { "Content-Type": "text/xml" },
-    });
+    return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
   }
 }
