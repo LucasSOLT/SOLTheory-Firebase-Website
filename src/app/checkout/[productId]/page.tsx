@@ -147,7 +147,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Customer Information */}
-            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm p-8">
+            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm p-5 md:p-8">
               <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                 <span className="w-7 h-7 rounded-full bg-fuchsia-500/20 border border-fuchsia-500/30 flex items-center justify-center text-xs font-bold text-fuchsia-400">1</span>
                 Customer Information
@@ -190,7 +190,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Payment Method */}
-            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm p-8">
+            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm p-5 md:p-8">
               <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                 <span className="w-7 h-7 rounded-full bg-fuchsia-500/20 border border-fuchsia-500/30 flex items-center justify-center text-xs font-bold text-fuchsia-400">2</span>
                 Payment Method
@@ -235,7 +235,7 @@ export default function CheckoutPage() {
                       className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-fuchsia-500/50 focus:ring-1 focus:ring-fuchsia-500/20 transition-all text-sm tracking-wider"
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs text-slate-500 uppercase tracking-wider mb-1.5 font-medium">Expiry</label>
                       <input
