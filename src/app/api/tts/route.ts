@@ -12,7 +12,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
 
-    const voiceId = "mZ8K1MPRiT5wDQaasg3i";
+    const voice = searchParams.get("voice");
+    const voiceId = voice || "mZ8K1MPRiT5wDQaasg3i"; // Default: Jarvis (British male)
     const apiKey = "sk_c75325e8b9cfb1e4f2b73ad59419653c2ca59013f889267c";
 
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?optimize_streaming_latency=4&output_format=mp3_22050_32`, {

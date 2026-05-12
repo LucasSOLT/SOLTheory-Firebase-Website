@@ -22,19 +22,19 @@ type EmailMeta = { id: string; subject: string; snippet: string; from: string; d
 type AgentContact = { id: string; email: string; aliases: string; ignore: boolean; };
 
 
-const exploreItemsMeta: Record<string, { name: string, greeting: string }> = {
-  "Featured": { name: "Felix", greeting: "Hello. I'm Felix, what premium models would you like to test today?" },
-  "Conversational AI": { name: "Jarvis", greeting: "Hello. I am Jarvis. How can I assist you today?" },
-  "Image Generation": { name: "Iris", greeting: "Hello. I'm Iris, what kind of image can I help you generate today?" },
-  "Video Generation": { name: "Victor", greeting: "Hello. I'm Victor, what video concept are we working on today?" },
-  "Music Generation": { name: "Mac", greeting: "Hello. I'm Mac, can I help generate some music for you?" },
-  "Code Generation": { name: "Cody", greeting: "Hello. I'm Cody, what logic-related endeavor are we tackling today?" },
+const exploreItemsMeta: Record<string, { name: string, greeting: string, voiceId: string, color: string }> = {
+  "Featured": { name: "Felix", greeting: "Hello. I'm Felix, what premium models would you like to test today?", voiceId: "pFZP5JQG7iQjIQuC4Bku", color: "amber" },
+  "Conversational AI": { name: "Jarvis", greeting: "Hello. I am Jarvis. How can I assist you today?", voiceId: "mZ8K1MPRiT5wDQaasg3i", color: "blue" },
+  "Image Generation": { name: "Iris", greeting: "Hello. I'm Iris, what kind of image can I help you generate today?", voiceId: "EXAVITQu4vr4xnSDxMaL", color: "purple" },
+  "Video Generation": { name: "Victor", greeting: "Hello. I'm Victor, what video concept are we working on today?", voiceId: "VR6AewLTigWG4xSOukaG", color: "green" },
+  "Music Generation": { name: "Mac", greeting: "Hello. I'm Mac, can I help generate some music for you?", voiceId: "TX3LPaxmHKxFdv7VOQHJ", color: "rose" },
+  "Code Generation": { name: "Cody", greeting: "Hello. I'm Cody, what logic-related endeavor are we tackling today?", voiceId: "iP95p4xoKVk53GoZ742B", color: "orange" },
   
-  "Email Agents": { name: "Emma", greeting: "Hello. I'm Emma, what kind of email campaign are we setting up today?" },
-  "Social Media Agents": { name: "Sam", greeting: "Hello. I'm Sam, what social media posts are we scheduling today?" },
-  "Message Agents": { name: "Max", greeting: "Hello. I'm Max, what messaging integration are we building today?" },
-  "Advertising Agents": { name: "Adam", greeting: "Hello. I'm Adam, what advertising campaign are we launching today?" },
-  "Build your own Agent": { name: "Builder", greeting: "Hello. I'm Builder, how can I help you configure your custom agent today?" }
+  "Email Agents": { name: "Emma", greeting: "Hello. I'm Emma, what kind of email campaign are we setting up today?", voiceId: "XB0fDUnXU5powFXDhCwa", color: "blue" },
+  "Social Media Agents": { name: "Sam", greeting: "Hello. I'm Sam, what social media posts are we scheduling today?", voiceId: "onwK4e9ZLuTAKqWW03F9", color: "pink" },
+  "Message Agents": { name: "Max", greeting: "Hello. I'm Max, what messaging integration are we building today?", voiceId: "N2lVS1w4EtoT3dr4eOWO", color: "emerald" },
+  "Advertising Agents": { name: "Adam", greeting: "Hello. I'm Adam, what advertising campaign are we launching today?", voiceId: "ErXwobaYiN019PkySvjV", color: "amber" },
+  "Build your own Agent": { name: "Builder", greeting: "Hello. I'm Builder, how can I help you configure your custom agent today?", voiceId: "JBFqnCBsd6RMkjVDRZzb", color: "slate" }
 };
 
 export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ agentId: string }> }) {
@@ -1752,6 +1752,42 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             </div>
                           )}
                         </div>
+
+                        {/* Quick Chat Box */}
+                        <div className="w-full max-w-2xl mx-auto mt-12">
+                          <p className="text-center text-sm text-slate-400 mb-3">Ask Jarvis anything — he's a jack of all trades.</p>
+                          <form onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!inputValue.trim()) return;
+                            const text = inputValue.trim();
+                            setInputValue('');
+                            setSelectedExploreItem('Conversational AI');
+                            // Create a new session and send the message
+                            const fakeId = uid();
+                            const userMsg: Message = { id: fakeId, text, isSelf: true };
+                            setMessages([userMsg]);
+                            // Trigger the send flow after state update
+                            setTimeout(() => {
+                              const inputEl = document.querySelector<HTMLInputElement>('[data-chat-input]');
+                              if (inputEl) {
+                                inputEl.value = text;
+                                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                              }
+                            }, 100);
+                          }} className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl shadow-sm px-4 py-3 hover:shadow-md transition-shadow">
+                            <Bot className="w-5 h-5 text-slate-400 shrink-0" />
+                            <input
+                              type="text"
+                              value={inputValue}
+                              onChange={(e) => setInputValue(e.target.value)}
+                              placeholder="What's on your mind?"
+                              className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400"
+                            />
+                            <button type="submit" disabled={!inputValue.trim()} className="w-8 h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-200 text-white disabled:text-slate-400 flex items-center justify-center transition-colors shrink-0">
+                              <Send className="w-4 h-4" />
+                            </button>
+                          </form>
+                        </div>
                       </div>
                     ) : (
                                                                   <>
@@ -2034,9 +2070,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       <VoiceAgentModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
-        agentName={agent.name}
+        agentName={selectedExploreItem ? (exploreItemsMeta[selectedExploreItem]?.name || agent.name) : agent.name}
         agentId={params.agentId as string}
         orgPrefix="soltheory"
+        voiceId={selectedExploreItem ? exploreItemsMeta[selectedExploreItem]?.voiceId : undefined}
         systemInstructions={sessionInstructions}
         knowledgeBaseText={orgBrain}
         pactText={pactText}

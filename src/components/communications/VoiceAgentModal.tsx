@@ -16,12 +16,13 @@ interface VoiceAgentModalProps {
   systemInstructions?: string;
   knowledgeBaseText?: string;
   pactText?: string;
+  voiceId?: string;
 }
 
 type Phase = "listening" | "processing" | "speaking";
 type TranscriptLine = { text: string; isUser: boolean };
 
-export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate, systemInstructions, knowledgeBaseText, pactText }: VoiceAgentModalProps) {
+export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate, systemInstructions, knowledgeBaseText, pactText, voiceId }: VoiceAgentModalProps) {
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState<Phase>("listening");
@@ -502,7 +503,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     if (cancelledRef.current) return;
 
     // SPEED OPTIMIZATION: Start preloading TTS audio IMMEDIATELY, before updating UI
-    const audioUrl = `/api/tts?text=${encodeURIComponent(cleanedReply)}`;
+    const audioUrl = `/api/tts?text=${encodeURIComponent(cleanedReply)}${voiceId ? `&voice=${encodeURIComponent(voiceId)}` : ''}`;
 
     // MOBILE FIX: Reuse the persistent unlocked audio element instead of new Audio()
     const audio = persistentAudioRef.current || document.createElement('audio');
