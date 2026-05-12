@@ -20,6 +20,7 @@ export default {
         body: ['var(--font-pt-sans)', 'sans-serif'],
         headline: ['var(--font-playfair)', 'sans-serif'],
         nunito: ['var(--font-nunito)', 'sans-serif'],
+        jakarta: ['var(--font-jakarta)', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {

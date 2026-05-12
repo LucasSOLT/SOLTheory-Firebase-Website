@@ -44,17 +44,21 @@ export default function Home() {
           <div className="relative z-10 container mx-auto px-4 pointer-events-none mt-4 md:mt-10">
             <div className="flex flex-col items-center justify-center text-center gap-6">
 
-              <h1 className="font-nunito text-6xl md:text-[8rem] font-semibold tracking-tight text-white drop-shadow-2xl leading-none">
+              <h1 className="font-jakarta text-6xl md:text-[8rem] font-bold tracking-tight text-white drop-shadow-2xl leading-none">
                 SOL Theory
               </h1>
 
               <p className="mt-2 text-2xl md:text-5xl font-light text-slate-300 drop-shadow-lg max-w-4xl">
-                The Evolution of <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400">Self Improvement</span>
+                The Evolution of <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400">Improvement</span>
               </p>
 
-              <p className="mt-2 text-sm md:text-base text-slate-400 max-w-2xl leading-relaxed font-light">
-                We are a social innovation firm building AI-powered tools for personal and professional growth. Our platform delivers agentic automation, analytics dashboards, and community-driven resources. Everything we create is rooted in science, driven by data, and designed to be simple, practical, and fun.
-              </p>
+              <div className="w-16 h-px bg-gradient-to-r from-transparent via-slate-500 to-transparent mt-4" />
+
+              <div className="mt-2 flex flex-col items-center gap-1.5 font-light leading-relaxed text-center">
+                <span className="text-base md:text-lg text-slate-300">A social innovation firm building AI-powered tools for growth.</span>
+                <span className="text-sm md:text-base text-slate-400">Agentic automation, analytics dashboards, and community resources.</span>
+                <span className="text-xs md:text-sm text-slate-400/80">Rooted in science. Driven by data. Designed to be fun.</span>
+              </div>
             </div>
           </div>
 
@@ -71,7 +75,7 @@ export default function Home() {
 
             {/* SECTION 1.5: Template Products */}
             <section className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-20">
-              <div className="w-full px-6 md:px-20 lg:px-52">
+              <div className="w-full px-6 md:px-24 lg:px-64">
                 <div className="text-center max-w-4xl mx-auto space-y-6 mb-16">
                   <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Affordable Agentic Solutions, Built to Scale</h2>
                   <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-24 mb-6" />
@@ -143,7 +147,7 @@ export default function Home() {
                               Contact Team
                             </Link>
                           ) : (
-                            <Link href="/contact" className="group/btn relative block w-full text-center py-3.5 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-base hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 mt-4 cursor-pointer z-30 overflow-hidden">
+                            <Link href={`/checkout/${item.id}`} className="group/btn relative block w-full text-center py-3.5 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-base hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 mt-4 cursor-pointer z-30 overflow-hidden">
                               <span className="flex items-center justify-center gap-2 transition-all duration-300 opacity-100 translate-y-0 group-hover/btn:opacity-0 group-hover/btn:-translate-y-3">See More</span>
                               <span className="absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 opacity-0 translate-y-3 group-hover/btn:opacity-100 group-hover/btn:translate-y-0"><ShoppingCart className="w-4 h-4" /> Checkout</span>
                             </Link>
