@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase';
 
-import { Playfair_Display, PT_Sans, Nunito, Outfit } from 'next/font/google';
+import { Playfair_Display, PT_Sans, Nunito, Sora } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
 const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440";
@@ -47,7 +47,7 @@ const nunito = Nunito({
   variable: '--font-nunito',
 });
 
-const jakarta = Outfit({
+const jakarta = Sora({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-jakarta',

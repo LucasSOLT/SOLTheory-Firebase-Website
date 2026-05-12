@@ -75,7 +75,7 @@ export default function Home() {
 
             {/* SECTION 1.5: Template Products */}
             <section className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-20">
-              <div className="w-full px-6 md:px-24 lg:px-64">
+              <div className="w-full px-6 md:px-24 lg:px-72">
                 <div className="text-center max-w-4xl mx-auto space-y-6 mb-16">
                   <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Affordable Agentic Solutions, Built to Scale</h2>
                   <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-24 mb-6" />

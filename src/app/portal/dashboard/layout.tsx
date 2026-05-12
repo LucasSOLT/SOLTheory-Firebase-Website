@@ -252,10 +252,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 bg-white border-2 border-slate-200 shadow-md rounded-full flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 z-50 transition-all cursor-pointer"
+          className={`absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-white border border-slate-200 shadow-md rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-50 z-50 transition-all duration-300 cursor-pointer ${isSidebarCollapsed ? 'left-3' : '-right-5'}`}
           title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <ChevronRight className={`w-6 h-6 transition-transform duration-300 ${isSidebarCollapsed ? "" : "rotate-180"}`} />
+          <div className="flex flex-col gap-[4px] items-center justify-center">
+            <span className={`block h-[2px] bg-current rounded-full transition-all duration-300 ${isSidebarCollapsed ? 'w-4' : 'w-4'}`} />
+            <span className={`block h-[2px] bg-current rounded-full transition-all duration-300 ${isSidebarCollapsed ? 'w-3' : 'w-3'}`} />
+            <span className={`block h-[2px] bg-current rounded-full transition-all duration-300 ${isSidebarCollapsed ? 'w-4' : 'w-4'}`} />
+          </div>
         </button>
 
         <aside className="w-full bg-[#faf9f6] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
