@@ -18,6 +18,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const firestore = useFirestore();
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -66,6 +68,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   React.useEffect(() => {
     document.documentElement.classList.remove('dark');
   }, []);
+
+  // Track window resize for mobile detection
+  React.useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close mobile menu on navigation
+  React.useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   // Track ALL navigation at the layout level for Recent Places
   useEffect(() => {
@@ -248,8 +266,108 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-[#faf9f6] overflow-hidden text-slate-900 font-sans">
-      {/* Sidebar Wrapper */}
-      <div className={`relative flex flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
+
+      {/* ========== MOBILE TOP BAR ========== */}
+      {isMobile && (
+        <div className="fixed top-0 left-0 right-0 h-14 bg-[#faf9f6] border-b border-slate-200/80 flex items-center justify-between px-4 z-[60] shadow-sm">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"
+          >
+            {isMobileMenuOpen ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <div className="flex flex-col gap-[4px] items-center justify-center">
+                <span className="block h-[2px] w-4 bg-current rounded-full" />
+                <span className="block h-[2px] w-3 bg-current rounded-full" />
+                <span className="block h-[2px] w-4 bg-current rounded-full" />
+              </div>
+            )}
+          </button>
+          <Link href={dashboardHome} className="flex items-center gap-2">
+            {pathname.includes('/nxtchapter') ? (
+              <span className="font-bold text-lg text-slate-900 tracking-tight">NXT Chapter</span>
+            ) : (
+              <span className="font-bold text-lg text-slate-900 tracking-tight">SOL Theory</span>
+            )}
+          </Link>
+          <div className="w-10" /> {/* Spacer for centering */}
+        </div>
+      )}
+
+      {/* ========== MOBILE FULLSCREEN MENU OVERLAY ========== */}
+      {isMobile && isMobileMenuOpen && (
+        <div className="fixed inset-0 z-[55] bg-[#faf9f6] pt-14 overflow-y-auto">
+          <aside className="w-full flex flex-col h-full">
+            <div className="w-full flex flex-col h-full">
+              <Link href={dashboardHome} className="p-6 pt-6 pb-6 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}>
+                {pathname.includes('/nxtchapter') ? (
+                  <>
+                    <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-32 h-auto object-contain object-left" />
+                    <span className="font-bold text-xl text-slate-900 tracking-tight">NXT Chapter</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
+                      <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-12 h-12 object-contain" />
+                    </div>
+                    <span className="font-bold text-xl text-slate-900 tracking-tight">SOL Theory</span>
+                  </>
+                )}
+              </Link>
+
+              <div className="flex-grow overflow-y-auto px-4 space-y-4 pb-8">
+                {/* Reuse the same nav items — these render the same sidebar links */}
+                <div className="space-y-1">
+                  <Link href={`${dashboardHome}`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname === dashboardHome ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Home className="w-5 h-5" />
+                    <span>Homepage</span>
+                  </Link>
+                  <Link href={`${dashboardHome}/ai-agents/jarvis`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-agents') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Users className="w-5 h-5" />
+                    <span>Agent Manager</span>
+                  </Link>
+                  <Link href={`${dashboardHome}/faq`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/faq') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <HelpCircle className="w-5 h-5" />
+                    <span>FAQ</span>
+                  </Link>
+                  <Link href={`${dashboardHome}/communications`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/communications') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <MessageSquare className="w-5 h-5" />
+                    <span>Communications</span>
+                  </Link>
+                  <Link href={`${dashboardHome}/reports`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/reports') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <FileText className="w-5 h-5" />
+                    <span>Reports</span>
+                  </Link>
+                  <Link href={`${dashboardHome}/settings`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/settings') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Settings className="w-5 h-5" />
+                    <span>Settings</span>
+                  </Link>
+                </div>
+
+                {/* User info at bottom */}
+                <div className="border-t border-slate-200 pt-4 mt-4">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Avatar className="h-10 w-10 ring-2 ring-slate-200">
+                      <AvatarImage src={user?.photoURL || undefined} />
+                      <AvatarFallback className="bg-slate-100 text-slate-600 font-bold text-sm">{user?.displayName?.[0] || user?.email?.[0] || '?'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-900">{user?.displayName || 'User'}</span>
+                      <span className="text-xs text-slate-500 truncate">{user?.email || ''}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
+      <div className={`relative flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible hidden md:flex ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           className={`absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-white border border-slate-200 shadow-md rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-50 z-50 transition-all duration-300 cursor-pointer ${isSidebarCollapsed ? 'left-3' : '-right-5'}`}
@@ -586,9 +704,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0">
-        {/* Top Navbar */}
-        <header className="h-[88px] flex items-center justify-between px-10 shrink-0">
+      <div className={`flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0 ${isMobile ? 'pt-14' : ''}`}>
+        {/* Top Navbar — hidden on mobile */}
+        <header className="h-[88px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex">
           <div className="flex-grow max-w-[480px] relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
@@ -677,7 +795,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 overflow-hidden px-10 pb-10 flex flex-col relative w-full min-h-0">
+        <main className="flex-1 overflow-hidden px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0">
           {children}
         </main>
       </div>
