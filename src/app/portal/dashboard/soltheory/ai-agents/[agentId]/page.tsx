@@ -458,7 +458,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         return updated;
       });
     }
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, activeSessionId, params.agentId]);
 
   // Save active session to Firestore on message changes — ONLY if it has user messages
@@ -1014,7 +1014,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   }, [isObserverOpen, isGmailConnected]);
 
   return (
-    <div className="flex w-full h-full bg-slate-50 ] text-slate-800  overflow-hidden font-sans selection:bg-fuchsia-500/30">
+    <div className="flex w-full flex-1 min-h-0 bg-slate-50 text-slate-800 overflow-hidden font-sans selection:bg-fuchsia-500/30">
 
       {/* Sessions Sidebar */}
       <div className="hidden md:flex w-[300px] flex-col bg-white/80  backdrop-blur-3xl border-r border-slate-200  shrink-0 z-20">

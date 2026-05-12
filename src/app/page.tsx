@@ -41,19 +41,19 @@ export default function Home() {
         <section className="relative min-h-[100dvh] w-full flex items-center justify-center overflow-hidden z-10">
           <StarBackground />
           <BlobHero />
-          <div className="relative z-10 container mx-auto px-4 pointer-events-none mt-20">
+          <div className="relative z-10 container mx-auto px-4 pointer-events-none mt-4 md:mt-10">
             <div className="flex flex-col items-center justify-center text-center gap-6">
-              
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 text-sm font-semibold tracking-widest backdrop-blur-md">
-                <Sparkles className="w-4 h-4" /> THE APP ECOSYSTEM
-              </div>
 
               <h1 className="font-nunito text-6xl md:text-[8rem] font-semibold tracking-tight text-white drop-shadow-2xl leading-none">
                 SOL Theory
               </h1>
 
-              <p className="mt-4 text-2xl md:text-5xl font-light text-slate-300 drop-shadow-lg max-w-4xl">
+              <p className="mt-2 text-2xl md:text-5xl font-light text-slate-300 drop-shadow-lg max-w-4xl">
                 The Evolution of <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400">Self Improvement</span>
+              </p>
+
+              <p className="mt-2 text-sm md:text-base text-slate-400 max-w-2xl leading-relaxed font-light">
+                We are a social innovation firm building AI-powered tools for personal and professional growth. Our platform delivers agentic automation, analytics dashboards, and community-driven resources. Everything we create is rooted in science, driven by data, and designed to be simple, practical, and fun.
               </p>
             </div>
           </div>
@@ -71,16 +71,16 @@ export default function Home() {
 
             {/* SECTION 1.5: Template Products */}
             <section className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-20">
-              <div className="container mx-auto px-4">
+              <div className="w-full px-6 md:px-20 lg:px-52">
                 <div className="text-center max-w-4xl mx-auto space-y-6 mb-16">
-                  <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Agentic Affordable Agentic Solutions, Built to Scale</h2>
+                  <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Affordable Agentic Solutions, Built to Scale</h2>
                   <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-24 mb-6" />
                   <p className="text-slate-300 text-xl font-light">
                     Discover our curated selection of premium products and services designed for your evolution.
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full">
                   {[
                     {
                       id: 1,
@@ -105,9 +105,9 @@ export default function Home() {
                       title: "Dashboard Access",
                       price: "$22.99 a month",
                       description: (
-                        <>Unlock predictive analytics, get full access to the entire Google Suite agent, prioritized support, and our communications network. This tier includes essentially <b>all the offerings we have to offer</b>.</>
+                        <>Unlock predictive analytics, get full access to the entire Google Suite agent, priority support, and our communications network. This tier includes <b>everything our platform has to offer</b>.</>
                       ),
-                      image: "/images/dashboard_access_card.png"
+                      image: "/images/dashboard_access_card.jpg"
                     },
                     {
                       id: 4,
@@ -116,34 +116,34 @@ export default function Home() {
                       description: (
                         <>A stylized dashboard heavily tailored to your specific organization's needs. The price varies entirely depending on the scale and <Link href="/consultation" className="hover:text-white transition-colors cursor-pointer"><b><u>requires a consultation</u></b></Link> with <i>our development team</i>.</>
                       ),
-                      image: "/images/custom_solutions_card.png"
+                      image: "/images/custom_solutions_card.jpg"
                     }
                   ].map((item) => (
                     <div key={item.id} className="group relative">
                       <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/20 to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 min-h-[600px] shadow-lg">
-                        <div className="h-64 w-full relative overflow-hidden">
+                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 min-h-[520px] shadow-lg">
+                        <div className="h-80 md:h-96 w-full relative overflow-hidden">
                           <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                           <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                         </div>
-                        <CardHeader className="pt-6 px-6 relative z-20 flex-grow">
-                          <CardTitle className="font-headline text-xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 leading-tight">
+                        <CardHeader className="pt-8 px-8 relative z-20 flex-grow">
+                          <CardTitle className="font-headline text-2xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 leading-tight">
                             {item.title}
                           </CardTitle>
-                          <span className="text-white/70 text-sm font-medium mt-1 block">{item.price}</span>
-                          <div className="w-8 h-px bg-white/20 mt-3 mb-2" />
-                          <div className="text-slate-400 text-sm leading-relaxed">
+                          <span className="text-white/70 text-base font-medium mt-1.5 block">{item.price}</span>
+                          <div className="w-10 h-px bg-white/20 mt-4 mb-3" />
+                          <div className="text-slate-400 text-base leading-relaxed">
                             {item.description}
                           </div>
                         </CardHeader>
-                        <div className="p-6 pt-0 mt-auto">
+                        <div className="p-8 pt-0 mt-auto">
                           {item.id === 4 ? (
-                            <Link href="/contact" className="block w-full text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
+                            <Link href="/contact" className="block w-full text-center py-3.5 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-base hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
                               Contact Team
                             </Link>
                           ) : (
-                            <Link href="/contact" className="group/btn relative block w-full text-center py-3 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-sm hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 mt-4 cursor-pointer z-30 overflow-hidden">
+                            <Link href="/contact" className="group/btn relative block w-full text-center py-3.5 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-base hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 mt-4 cursor-pointer z-30 overflow-hidden">
                               <span className="flex items-center justify-center gap-2 transition-all duration-300 opacity-100 translate-y-0 group-hover/btn:opacity-0 group-hover/btn:-translate-y-3">See More</span>
                               <span className="absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 opacity-0 translate-y-3 group-hover/btn:opacity-100 group-hover/btn:translate-y-0"><ShoppingCart className="w-4 h-4" /> Checkout</span>
                             </Link>
@@ -181,7 +181,7 @@ export default function Home() {
                     SOL Theory is a curated community of creators and an ecosystem of apps where members can discover and share their products, services, and knowledge.
                   </p>
                   <p className="text-slate-300 text-lg leading-relaxed max-w-3xl mx-auto border-t border-white/10 pt-6 mt-6 font-light">
-                    We provide a platform for A-Hope, B-Tools, C-Practice. Every product must be able to demonstrate and have a <span className="text-fuchsia-300 font-semibold px-2 bg-fuchsia-500/10 rounded-md py-0.5 border border-fuchsia-500/20 shadow-sm shadow-fuchsia-500/10">SPF (Simple, Practical and Fun)</span> rating for its products and life.
+                    We provide a platform for A-Hope, B-Tools, C-Practice. Every product must demonstrate a <span className="text-fuchsia-300 font-semibold px-2 bg-fuchsia-500/10 rounded-md py-0.5 border border-fuchsia-500/20 shadow-sm shadow-fuchsia-500/10">SPF (Simple, Practical and Fun)</span> rating across its products and community.
                   </p>
                 </div>
               </div>

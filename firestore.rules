@@ -112,7 +112,8 @@ service cloud.firestore {
        * @deny (update) A user cannot update another user's account document.
        */
       allow get: if isOwner(userId);
-      allow list: if isSignedIn();
+      // Allow unauthenticated list queries (needed for Twilio webhook to find user by phone number)
+      allow list: if true;
       allow create: if isCreatingOwnValidUserDocument(userId);
       allow update: if isUpdatingOwnValidUserDocument(userId);
       allow delete: if isExistingOwner(userId);

@@ -56,10 +56,32 @@ export function BlobHero() {
   const [ready, setReady] = useState(false);
 
   return (
-    <div className="absolute inset-0 w-full h-full z-0 pointer-events-none">
-      {/* CSS placeholder shown instantly while Three.js loads */}
+    <div className="absolute inset-0 w-full h-full z-0 pointer-events-none flex items-center justify-center">
+      {/* Responsive sizing wrapper — constrains blob on mobile */}
+      <div className="absolute inset-0 md:inset-0" style={{ top: '15%', bottom: '15%', left: '15%', right: '15%' }}>
+        <div className="relative w-full h-full md:hidden" style={{ transform: 'scale(0.55)', transformOrigin: 'center center' }}>
+          {/* CSS placeholder shown instantly while Three.js loads — mobile */}
+          <div
+            className="absolute inset-0 flex items-center justify-center transition-opacity duration-700"
+            style={{ opacity: ready ? 0 : 1, pointerEvents: 'none' }}
+          >
+            <div
+              className="rounded-full"
+              style={{
+                width: '220px',
+                height: '220px',
+                background: 'radial-gradient(circle at 38% 38%, #1a1a2e 0%, #0a0a0b 55%, #000 100%)',
+                boxShadow: '0 0 80px 20px rgba(192,38,211,0.08), 0 0 120px 40px rgba(79,70,229,0.06)',
+                filter: 'blur(1px)',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop placeholder — full size */}
       <div
-        className="absolute inset-0 flex items-center justify-center transition-opacity duration-700"
+        className="absolute inset-0 items-center justify-center transition-opacity duration-700 hidden md:flex"
         style={{ opacity: ready ? 0 : 1, pointerEvents: 'none' }}
       >
         <div
@@ -74,9 +96,9 @@ export function BlobHero() {
         />
       </div>
 
-      {/* High-fidelity Three.js canvas */}
+      {/* High-fidelity Three.js canvas — scales down on mobile */}
       <div
-        className="absolute inset-0 transition-opacity duration-700"
+        className="absolute inset-0 transition-opacity duration-700 md:scale-100 scale-[0.55] origin-center"
         style={{ opacity: ready ? 1 : 0 }}
       >
         <Canvas
