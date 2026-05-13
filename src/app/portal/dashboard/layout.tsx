@@ -333,14 +333,117 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <HelpCircle className="w-5 h-5" />
                     <span>FAQ</span>
                   </Link>
-                  <Link href={`${dashboardHome}/communications`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/communications') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
-                    <MessageSquare className="w-5 h-5" />
-                    <span>Communications</span>
-                  </Link>
-                  <Link href={`${dashboardHome}/reports`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/reports') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
-                    <FileText className="w-5 h-5" />
-                    <span>Reports</span>
-                  </Link>
+                </div>
+
+                {/* Flagship Tools */}
+                <div className="pt-3 border-t border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Flagship Tools</span>
+                  <div className="space-y-1 mt-2">
+                    <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
+                      <Users className="w-5 h-5 text-slate-500" />
+                      <span>CRM</span>
+                    </Link>
+                    <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
+                      <GraduationCap className="w-5 h-5 text-slate-500" />
+                      <span>DRIVE (LMS)</span>
+                    </Link>
+                    <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
+                      <BarChart3 className="w-5 h-5 text-slate-500" />
+                      <span>Business Intelligence</span>
+                    </Link>
+                    <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
+                      <Database className="w-5 h-5 text-slate-500" />
+                      <span>ERP</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Reports */}
+                <div className="pt-3 border-t border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Reports</span>
+                  <div className="space-y-1 mt-2">
+                    <Link href={`${dashboardHome}/analytics`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/analytics') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <Activity className="w-5 h-5" />
+                      <span>Analytics</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/support-tickets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <Ticket className="w-5 h-5" />
+                      <span>Support Tickets</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/surveys') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <ClipboardList className="w-5 h-5" />
+                      <span>Surveys</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Communications */}
+                <div className="pt-3 border-t border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Communications</span>
+                  <div className="space-y-1 mt-2">
+                    <Link href={`${dashboardHome}/communications/imessage`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/imessage') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <MessageCircle className="w-5 h-5" />
+                      <span>iMessage</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/communications/whatsapp`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/whatsapp') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <MessageCircle className="w-5 h-5" />
+                      <span>WhatsApp</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/communications/dm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/dm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <MessageSquare className="w-5 h-5" />
+                      <span>Direct Messages</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Social Media */}
+                <div className="pt-3 border-t border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Social Media</span>
+                  <div className="space-y-1 mt-2">
+                    <Link href={`${dashboardHome}/upload-calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <CalendarDays className="w-5 h-5" />
+                      <span>Upload Calendar</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/youtube`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <Youtube className="w-5 h-5" />
+                      <span>YouTube</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/instagram`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <Instagram className="w-5 h-5" />
+                      <span>Instagram</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/facebook`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <Facebook className="w-5 h-5" />
+                      <span>Facebook</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Google Integrations */}
+                <div className="pt-3 border-t border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Google Integrations</span>
+                  <div className="space-y-1 mt-2">
+                    <Link href={`${dashboardHome}/calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/calendar') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <CalendarDays className="w-5 h-5" />
+                      <span>Google Calendar</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/docs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/docs') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <FileText className="w-5 h-5" />
+                      <span>Google Docs</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/slides`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/slides') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <Presentation className="w-5 h-5" />
+                      <span>Google Slides</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/sheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/sheets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <Table className="w-5 h-5" />
+                      <span>Google Sheets</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Settings */}
+                <div className="pt-3 border-t border-slate-200">
                   <Link href={`${dashboardHome}/settings`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/settings') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
                     <Settings className="w-5 h-5" />
                     <span>Settings</span>

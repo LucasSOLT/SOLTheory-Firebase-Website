@@ -208,13 +208,26 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     const initMic = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
+        // Try with ideal constraints first, fall back to basic if device doesn't support them
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          });
+        } catch {
+          // Fallback: some devices/browsers don't support constraints
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
         if (cancelledRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
 
         streamRef.current = stream;
-        const ctx = new AudioContext();
+        // Cross-browser AudioContext (Safari uses webkitAudioContext)
+        const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioCtx();
+        // iOS/Safari requires resume() after user gesture
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
         audioCtxRef.current = ctx;
 
         // --- Play welcoming "Gemini-style" startup chime ---
@@ -536,19 +549,29 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
       // Play as soon as enough audio is buffered (don't wait for full download)
       await new Promise<void>((resolve, reject) => {
+        let played = false;
         const tryPlay = () => {
+          if (played) return;
+          played = true;
+          // Ensure AudioContext is active (iOS requirement)
+          if (audioCtxRef.current?.state === 'suspended') {
+            audioCtxRef.current.resume().catch(() => {});
+          }
           audio.play().then(resolve).catch((e) => {
             // Mobile fallback: retry once after a short delay
             console.warn('Audio play blocked, retrying:', e.message);
             setTimeout(() => {
               audio.play().then(resolve).catch(reject);
-            }, 100);
+            }, 200);
           });
         };
         audio.oncanplay = () => tryPlay();
+        audio.oncanplaythrough = () => tryPlay();
         audio.onerror = () => reject(new Error("Audio load failed"));
         // Safety: if canplay already fired (cached), play immediately
         if (audio.readyState >= 3) tryPlay();
+        // Ultimate fallback: if canplay never fires within 5s, try anyway
+        setTimeout(() => { if (!played) tryPlay(); }, 5000);
       });
     } catch (err) {
       console.error(err);
