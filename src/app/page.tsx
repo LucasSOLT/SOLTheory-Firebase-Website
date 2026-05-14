@@ -125,23 +125,23 @@ export default function Home() {
                   ].map((item) => (
                     <div key={item.id} className="group relative">
                       <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/20 to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 min-h-[520px] shadow-lg">
-                        <div className="h-80 md:h-96 w-full relative overflow-hidden">
+                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 shadow-lg aspect-[3/2]">
+                        <div className="w-full relative overflow-hidden flex-[0_0_55%]">
                           <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                           <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                         </div>
-                        <CardHeader className="pt-8 px-8 relative z-20 flex-grow">
+                        <CardHeader className="pt-5 px-6 md:px-8 relative z-20 flex-grow min-h-0 overflow-hidden">
                           <CardTitle className="font-headline text-2xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 leading-tight">
                             {item.title}
                           </CardTitle>
                           <span className="text-white/70 text-base font-medium mt-1.5 block">{item.price}</span>
-                          <div className="w-10 h-px bg-white/20 mt-4 mb-3" />
-                          <div className="text-slate-400 text-base leading-relaxed">
+                          <div className="w-10 h-px bg-white/20 mt-3 mb-2" />
+                          <div className="text-slate-400 text-sm md:text-base leading-relaxed line-clamp-3">
                             {item.description}
                           </div>
                         </CardHeader>
-                        <div className="p-8 pt-0 mt-auto">
+                        <div className="px-6 md:px-8 pb-5 pt-0 mt-auto">
                           {item.id === 4 ? (
                             <Link href="/contact" className="block w-full text-center py-3.5 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-base hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
                               Contact Team
