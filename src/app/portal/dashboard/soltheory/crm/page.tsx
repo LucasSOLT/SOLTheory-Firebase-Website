@@ -298,7 +298,9 @@ export default function CRMPage() {
 
   const handleAddContact = async () => {
     if (!form.firstName.trim() || !form.lastName.trim()) return;
-    const c: Customer = { id: `CUST-${String(customers.length+1).padStart(3,"0")}`, firstName: form.firstName.trim(), lastName: form.lastName.trim(), phone: form.phone.trim(), email: form.email.trim(), birthday: form.birthday, leadStatus: form.leadStatus, tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean), totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
+    const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const c: Customer = { id, firstName: form.firstName.trim(), lastName: form.lastName.trim(), phone: form.phone.trim(), email: form.email.trim(), birthday: form.birthday, leadStatus: form.leadStatus, tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean), totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
+    console.log("[CRM] Adding contact:", c.id, c.firstName, c.lastName);
     await addContact(c); resetForm(); setShowAddModal(false);
   };
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortDir(d => d==="asc"?"desc":"asc"); else { setSortKey(key); setSortDir("asc"); } };
