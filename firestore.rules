@@ -149,6 +149,10 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      match /meetings/{meetingId} {
+        allow read, write: if isOwner(userId);
+      }
+
       match /pact_entries/{pactId} {
         allow read, write: if isOwner(userId);
       }

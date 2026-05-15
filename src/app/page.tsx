@@ -74,17 +74,17 @@ export default function Home() {
           <div className="relative z-10 w-full flex flex-col items-center bg-transparent">
 
             {/* SECTION 1.5: Template Products */}
-            <section className="relative py-32 md:py-40 w-full flex flex-col items-center justify-center bg-transparent z-20">
-              <div className="w-full px-6 md:px-24 lg:px-72">
+            <section className="relative py-16 md:py-20 w-full flex flex-col items-center justify-center bg-transparent z-20">
+              <div className="w-full px-6 md:px-12 lg:px-24">
                 <div className="text-center max-w-4xl mx-auto space-y-6 mb-16">
-                  <h2 className="font-nunito text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Affordable Agentic Solutions, Built to Scale</h2>
-                  <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-24 mb-6" />
-                  <p className="text-slate-300 text-xl font-light">
-                    Discover our curated selection of premium products and services designed for your evolution.
+                  <h2 className="font-nunito text-4xl md:text-5xl font-bold text-white tracking-tight drop-shadow-xl">Affordable Agentic Solutions</h2>
+                  <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-16 mb-4" />
+                  <p className="text-slate-300 text-lg font-light">
+                    Premium products and services designed for your evolution.
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
                   {[
                     {
                       id: 1,
@@ -124,30 +124,27 @@ export default function Home() {
                     }
                   ].map((item) => (
                     <div key={item.id} className="group relative">
-                      <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/20 to-indigo-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden h-full flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 shadow-lg aspect-[3/2]">
-                        <div className="w-full relative overflow-hidden flex-[0_0_55%]">
+                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 shadow-lg">
+                        <div className="w-full relative overflow-hidden aspect-[3/2]">
                           <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                         </div>
-                        <CardHeader className="pt-5 px-6 md:px-8 relative z-20 flex-grow min-h-0 overflow-hidden">
-                          <CardTitle className="font-headline text-2xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 leading-tight">
+                        <CardHeader className="pt-4 px-5 md:px-6 relative z-20 flex-grow">
+                          <CardTitle className="font-headline text-lg md:text-xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 leading-tight">
                             {item.title}
                           </CardTitle>
-                          <span className="text-white/70 text-base font-medium mt-1.5 block">{item.price}</span>
-                          <div className="w-10 h-px bg-white/20 mt-3 mb-2" />
-                          <div className="text-slate-400 text-sm md:text-base leading-relaxed line-clamp-3">
+                          <span className="text-white/70 text-xs md:text-sm font-medium mt-1 block">{item.price}</span>
+                          <div className="w-8 h-px bg-white/20 mt-2 mb-2" />
+                          <div className="text-slate-400 text-xs md:text-sm leading-relaxed line-clamp-4">
                             {item.description}
                           </div>
                         </CardHeader>
-                        <div className="px-6 md:px-8 pb-5 pt-0 mt-auto">
+                        <div className="px-5 md:px-6 pb-4 pt-0 mt-auto">
                           {item.id === 4 ? (
-                            <Link href="/contact" className="block w-full text-center py-3.5 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-base hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 mt-4 backdrop-blur-sm cursor-pointer z-30">
+                            <Link href="/contact" className="block w-full text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm md:text-base hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 backdrop-blur-sm cursor-pointer z-30">
                               Contact Team
                             </Link>
                           ) : (
-                            <Link href={`/checkout/${item.id}`} className="group/btn relative block w-full text-center py-3.5 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-base hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 mt-4 cursor-pointer z-30 overflow-hidden">
+                            <Link href={`/checkout/${item.id}`} className="group/btn relative block w-full text-center py-3 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-sm md:text-base hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 cursor-pointer z-30 overflow-hidden">
                               <span className="flex items-center justify-center gap-2 transition-all duration-300 opacity-100 translate-y-0 group-hover/btn:opacity-0 group-hover/btn:-translate-y-3">See More</span>
                               <span className="absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 opacity-0 translate-y-3 group-hover/btn:opacity-100 group-hover/btn:translate-y-0"><ShoppingCart className="w-4 h-4" /> Checkout</span>
                             </Link>

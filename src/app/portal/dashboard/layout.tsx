@@ -339,7 +339,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="pt-3 border-t border-slate-200">
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Flagship Tools</span>
                   <div className="space-y-1 mt-2">
-                    <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
+                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/crm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
                       <Users className="w-5 h-5 text-slate-500" />
                       <span>CRM</span>
                     </Link>
@@ -573,8 +573,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
             {!collapsedSections['flagship'] && (
               <div className="space-y-1 animate-in fade-in duration-150">
-                <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-indigo-900 transition-colors cursor-pointer font-semibold group">
-                  <div className="w-6 h-6 rounded-md bg-transparent text-slate-500 group-hover:text-indigo-600 flex items-center justify-center transition-colors">
+                <Link href={`${dashboardHome}/crm`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/crm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/crm') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
                     <Users className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">{t.crm}</span>
