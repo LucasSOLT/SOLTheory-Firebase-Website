@@ -1,45 +1,22 @@
 /**
- * Clean CRM data - check BOTH old (crm_contacts) and new (contacts) paths
+ * Check if contacts exist for a specific user
  */
 const projectId = "studio-5711990008-7ac2c";
 const apiKey = "AIzaSyCAJWBLJ1GTXtELpKFubBlENBq0eroUyCM";
-const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
-
-async function listDocs(path) {
-  const url = `${baseUrl}/${path}?key=${apiKey}`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.documents || [];
-}
-
-async function deleteDocs(fullPath) {
-  const url = `https://firestore.googleapis.com/v1/${fullPath}?key=${apiKey}`;
-  return fetch(url, { method: "DELETE" });
-}
-
-const users = await listDocs("users");
-console.log(`Found ${users.length} user docs`);
+const uid = "5zeg0k65FvUZ5dso1Uvp5N5HqJm2";
 
 const paths = ["contacts", "crm_contacts", "meetings", "crm_meetings"];
+const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
 
-for (const userDoc of users) {
-  const uid = userDoc.name.split("/").pop();
-  
-  for (const sub of paths) {
-    const docs = await listDocs(`users/${uid}/${sub}`);
-    if (docs.length > 0) {
-      console.log(`\nUser ${uid} -> ${sub}: ${docs.length} docs`);
-      for (const d of docs) {
-        const f = d.fields || {};
-        const label = f.firstName ? `${f.firstName.stringValue} ${f.lastName?.stringValue}` : d.name.split("/").pop();
-        console.log(`  Deleting: ${label}`);
-        await deleteDocs(d.name);
-      }
-      console.log(`  ✅ Deleted`);
-    }
-  }
+for (const sub of paths) {
+  const url = `${baseUrl}/users/${uid}/${sub}?key=${apiKey}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const docs = data.documents || [];
+  console.log(`users/${uid}/${sub}: ${docs.length} docs${docs.length > 0 ? '' : ' (empty)'}`);
+  docs.forEach(d => {
+    const f = d.fields || {};
+    const name = `${f.firstName?.stringValue || '?'} ${f.lastName?.stringValue || '?'}`;
+    console.log(`  - ${name} (${d.name.split('/').pop()})`);
+  });
 }
-
-console.log("\n🧹 Clean slate!");
-process.exit(0);

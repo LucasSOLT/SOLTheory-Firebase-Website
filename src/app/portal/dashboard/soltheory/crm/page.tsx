@@ -1729,6 +1729,9 @@ export default function CRMPage() {
           </div>
         </div>
       )}
+
+      {/* ══════ TOAST NOTIFICATIONS ══════ */}
+      <ToastContainer />
     </div>
   );
 }
