@@ -245,6 +245,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     // Teardown previous listeners if re-initializing
     get().teardown();
     set({ isLoading: true, _db: db, _uid: uid });
+    console.log("[CRM Store] Initializing Firestore for UID:", uid);
 
     try {
       // Set up real-time listener for contacts
@@ -305,7 +306,11 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   /* ── Contact CRUD (Firestore) ── */
   addContact: async (customer) => {
     const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    if (!_db || !_uid) {
+      console.error("addContact: Firestore not initialized", { _db: !!_db, _uid });
+      get().showToast("⚠️ Database not connected. Please refresh.", "error");
+      return;
+    }
     set({ isAddingContact: true });
     try {
       await setDoc(doc(_db, crmPath(_uid, "contacts"), customer.id), {
