@@ -343,10 +343,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Users className="w-5 h-5 text-slate-500" />
                       <span>CRM</span>
                     </Link>
-                    <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
-                      <GraduationCap className="w-5 h-5 text-slate-500" />
-                      <span>DRIVE (LMS)</span>
-                    </Link>
+
                     <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
                       <BarChart3 className="w-5 h-5 text-slate-500" />
                       <span>Business Intelligence</span>
@@ -579,12 +576,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                   <span className="text-sm font-medium">{t.crm}</span>
                 </Link>
-                <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-indigo-900 transition-colors cursor-pointer font-semibold group">
-                  <div className="w-6 h-6 rounded-md bg-transparent text-slate-500 group-hover:text-indigo-600 flex items-center justify-center transition-colors">
-                    <GraduationCap className="w-4 h-4" />
-                  </div>
-                  <span className="text-sm font-medium">{t.drive}</span>
-                </Link>
+
                 <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-indigo-900 transition-colors cursor-pointer font-semibold group">
                   <div className="w-6 h-6 rounded-md bg-transparent text-slate-500 group-hover:text-indigo-600 flex items-center justify-center transition-colors">
                     <BarChart3 className="w-4 h-4" />
