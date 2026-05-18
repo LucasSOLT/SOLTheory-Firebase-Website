@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, MeshDistortMaterial, Float, ContactShadows } from "@react-three/drei";
+import { Environment, MeshDistortMaterial, Float } from "@react-three/drei";
 import { Suspense, useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 
@@ -15,17 +15,17 @@ function ShinyBlackBlob({ onReady }: { onReady: () => void }) {
       hasSignaled.current = true;
       onReady();
     }
-    const targetX = state.pointer.y * 0.5;
-    const targetY = state.pointer.x * 0.5;
-    meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, targetX, 0.05);
-    meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, targetY, 0.05);
+    const targetX = state.pointer.y * 0.3;
+    const targetY = state.pointer.x * 0.3;
+    meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, targetX, 0.02);
+    meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, targetY, 0.02);
   });
 
   return (
-    <Float speed={1.5} rotationIntensity={1.5} floatIntensity={2}>
+    <Float speed={0.6} rotationIntensity={0.8} floatIntensity={1.2}>
       <mesh ref={meshRef} scale={1.8}>
         {/* Max subdivision for ultra-smooth surface */}
-        <icosahedronGeometry args={[1, 512]} />
+        <icosahedronGeometry args={[1, 128]} />
         <MeshDistortMaterial
           color="#080810"
           envMapIntensity={3}
@@ -34,7 +34,7 @@ function ShinyBlackBlob({ onReady }: { onReady: () => void }) {
           metalness={0.95}
           roughness={0.02}
           distort={0.4}
-          speed={2}
+          speed={0.8}
         />
       </mesh>
     </Float>
@@ -58,7 +58,7 @@ export function BlobHero() {
   return (
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-none flex items-center justify-center">
       {/* Responsive sizing wrapper — constrains blob on mobile */}
-      <div className="absolute inset-0 md:inset-0" style={{ top: '15%', bottom: '15%', left: '15%', right: '15%' }}>
+      <div className="absolute inset-0 md:inset-0" style={{ top: '15%', bottom: '15%', left: '20%', right: '10%' }}>
         <div className="relative w-full h-full md:hidden" style={{ transform: 'scale(0.55)', transformOrigin: 'center center' }}>
           {/* CSS placeholder shown instantly while Three.js loads — mobile */}
           <div
@@ -103,7 +103,7 @@ export function BlobHero() {
       >
         <Canvas
           camera={{ position: [0, 0, 5], fov: 45 }}
-          dpr={[2, 4]}
+          dpr={[1, 2]}
           gl={{
             antialias: true,
             alpha: true,
@@ -131,7 +131,7 @@ export function BlobHero() {
           <Suspense fallback={null}>
             <ShinyBlackBlob onReady={() => setReady(true)} />
             <Environment preset="city" />
-            <ContactShadows position={[0, -2.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} color="#c026d3" />
+
           </Suspense>
         </Canvas>
       </div>

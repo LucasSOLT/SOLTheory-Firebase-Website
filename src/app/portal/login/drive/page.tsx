@@ -38,8 +38,10 @@ export default function DriveLoginPage() {
 
       const emailLower = email.toLowerCase();
       if (emailLower.endsWith("@soltheory.com") || emailLower.endsWith("@nxtchapter.org")) {
-        // For now, DRiVE redirects to a placeholder — will be replaced with actual DRiVE app route
-        router.push("/portal/dashboard/soltheory");
+        // DRiVE redirects to the external SOL DRiVE platform in a new tab
+        window.open("https://www.solworld.ai/soldrive", "_blank");
+        // Optional: Redirect the current window back to portal to avoid being stuck on the login page
+        router.push("/portal");
       } else {
         await signOut(auth);
         throw new Error("Unauthorized organization");

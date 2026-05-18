@@ -15,7 +15,7 @@ import {
   MessageCircle, PanelRightClose, PanelRightOpen, Send, Sparkles, Trash2,
   CheckSquare, Square, Tag, MailPlus, Calendar, Clock, ToggleLeft, ToggleRight,
   CalendarCheck, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
-  Menu, Palette, Link2, Edit3, Trash,
+  Menu, Palette, Link2, Edit3, Trash, Loader2,
 } from "lucide-react";
 
 type SortKey = "name" | "email" | "phone" | "tags" | "status";
@@ -187,6 +187,7 @@ export default function CRMPage() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  const [isSendingCampaign, setIsSendingCampaign] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [viewingCustomer, setViewingCustomer] = useState<string | null>(null);
   const [meetingDate, setMeetingDate] = useState("");
@@ -194,6 +195,70 @@ export default function CRMPage() {
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingSyncGoogle, setMeetingSyncGoogle] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const handleSendCampaign = async () => {
+    if (!user?.uid) return;
+    const recipientsWithEmails = selectedCustomers.filter(c => c.email);
+    if (recipientsWithEmails.length === 0) {
+      showToast("No selected contacts have email addresses.", "error");
+      return;
+    }
+    
+    const isConfirmed = window.confirm(`Are you sure you want to permanently send this email campaign to ${recipientsWithEmails.length} recipient${recipientsWithEmails.length === 1 ? '' : 's'}?`);
+    if (!isConfirmed) return;
+
+    setIsSendingCampaign(true);
+    
+    try {
+      // Fetch refresh token from Firestore (same pattern as chat route)
+      let rToken = null;
+      if (db) {
+        const { doc: firestoreDoc, getDoc } = await import("firebase/firestore");
+        const userDoc = await getDoc(firestoreDoc(db, "users", user.uid));
+        const data = userDoc.data();
+        rToken = data?.gmailOAuth_jarvis?.refreshToken
+          || data?.gmailOAuth_morpheus?.refreshToken
+          || data?.gmailOAuth_email?.refreshToken
+          || data?.["gmailOAuth_inbound-email"]?.refreshToken
+          || data?.gmailOAuth?.refreshToken
+          || null;
+      }
+
+      if (!rToken) {
+        showToast("No Gmail account connected. Please connect via Settings or AI Agents first.", "error");
+        setIsSendingCampaign(false);
+        return;
+      }
+
+      const formattedBody = emailBody.split('\n').map(line => `<p style="margin:0 0 12px 0;">${line}</p>`).join('');
+      const res = await fetch("/api/crm/send-campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          refreshToken: rToken,
+          subject: emailSubject,
+          htmlBody: formattedBody,
+          recipients: recipientsWithEmails.map(c => c.email)
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        showToast(`✅ Successfully sent ${data.sentCount} emails!`);
+        setShowEmailModal(false);
+        setEmailSubject("");
+        setEmailBody("");
+        setSelectedIds(new Set());
+      } else {
+        showToast(data.error || "Failed to send campaign", "error");
+      }
+    } catch (err) {
+      showToast("An error occurred while sending the campaign.", "error");
+    } finally {
+      setIsSendingCampaign(false);
+    }
+  };
 
   /* ─────────── INITIALIZE FIRESTORE ─────────── */
   useEffect(() => {
@@ -350,8 +415,8 @@ export default function CRMPage() {
     }
 
     // READ — find specific contact
-    if (lower.startsWith("find ") || lower.startsWith("lookup ") || lower.startsWith("look up ") || lower.startsWith("show ") || lower.startsWith("who is ") || lower.startsWith("get ")) {
-      const nameQuery = input.replace(/^(find|lookup|look up|show|who is|get)\s+/i, "").trim();
+    if (lower.match(/\b(find|lookup|look up|show|who is|get)\s+/)) {
+      const nameQuery = input.replace(/.*?\b(find|lookup|look up|show|who is|get)\s+/i, "").trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
         addJarvisMsg(`📋 **${match.firstName} ${match.lastName}** (${match.id})\n\n📧 ${match.email || "No email"}\n📞 ${match.phone || "No phone"}\n🎂 ${match.birthday || "No birthday"}\n📊 Status: ${match.leadStatus}\n🏷️ Tags: ${match.tags.length ? match.tags.join(", ") : "None"}\n💰 Revenue: $${match.totalRevenue.toFixed(2)}\n🧠 AI Notes: ${match.aiNotes || "None yet"}`); return;
@@ -360,25 +425,25 @@ export default function CRMPage() {
     }
 
     // CREATE — add contact
-    if (lower.startsWith("add ") || lower.startsWith("create ")) {
-      const parts = input.replace(/^(add|create)\s+(contact\s+)?/i, "").trim().split(/\s+/);
+    if (lower.match(/\b(add|create)\s+/)) {
+      const parts = input.replace(/.*?\b(add|create)\s+(?:contact\s+)?/i, "").trim().split(/\s+/);
       if (parts.length < 2) { addJarvisMsg("Please provide at least a first and last name. Example: \"Add contact Jane Doe jane@test.com\""); return; }
       const firstName = parts[0], lastName = parts[1];
       const emailMatch = parts.find(p => p.includes("@"));
       const phoneMatch = parts.find(p => /^\+?\d[\d\-() ]{6,}$/.test(p));
       const newId = `CUST-${String(customers.length + 1).padStart(3, "0")}`;
       const newCustomer: Customer = { id: newId, firstName, lastName, phone: phoneMatch || "", email: emailMatch || "", birthday: "", leadStatus: "Cold Lead", tags: [], totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
-      setCustomers(prev => [...prev, newCustomer]);
+      addContact(newCustomer);
       addJarvisMsg(`✅ Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
     }
 
     // UPDATE STATUS — set X to Y
-    if (lower.startsWith("set ") || lower.includes("change") || lower.includes("move ") || lower.includes("update status")) {
+    if (lower.match(/\b(set|change|move|update status)\b/)) {
       const statusMap: Record<string, Customer["leadStatus"]> = { "cold": "Cold Lead", "cold lead": "Cold Lead", "warm": "Warm Lead", "warm lead": "Warm Lead", "interested": "Interested", "sale": "Sale Completed", "sale completed": "Sale Completed", "completed": "Sale Completed" };
       let foundStatus: Customer["leadStatus"] | null = null;
       for (const [key, val] of Object.entries(statusMap)) { if (lower.includes(key)) { foundStatus = val; break; } }
       if (!foundStatus) { addJarvisMsg("I need a valid status: Cold Lead, Warm Lead, Interested, or Sale Completed."); return; }
-      const cleaned = input.replace(/^(set|change|move|update status)\s+(of\s+)?/i, "").replace(new RegExp(`\\b(to\\s+)?(cold lead|warm lead|interested|sale completed|cold|warm|sale|completed)\\b`, "gi"), "").trim();
+      const cleaned = input.replace(/.*?\b(set|change|move|update status)\s+(?:of\s+)?/i, "").replace(new RegExp(`\\b(to\\s+)?(cold lead|warm lead|interested|sale completed|cold|warm|sale|completed)\\b`, "gi"), "").trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(cleaned.toLowerCase()));
       if (match) {
         handleStatusChange(match.id, foundStatus);
@@ -388,19 +453,19 @@ export default function CRMPage() {
     }
 
     // DELETE
-    if (lower.startsWith("delete ") || lower.startsWith("remove ")) {
-      const nameQuery = input.replace(/^(delete|remove)\s+(contact\s+)?/i, "").trim();
+    if (lower.match(/\b(delete|remove)\b/)) {
+      const nameQuery = input.replace(/.*?\b(delete|remove)\s+(?:contact\s+)?/i, "").trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
-        setCustomers(prev => prev.filter(c => c.id !== match.id));
+        deleteContact(match.id);
         addJarvisMsg(`🗑️ Deleted **${match.firstName} ${match.lastName}** (${match.id}) from the CRM.`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}" to delete.`); return;
     }
 
     // ANALYZE — add AI notes
-    if (lower.startsWith("analyze ") || lower.startsWith("note ") || lower.startsWith("insight ")) {
-      const body = input.replace(/^(analyze|note|insight)\s+/i, "").trim();
+    if (lower.match(/\b(analyze|note|insight)\b/)) {
+      const body = input.replace(/.*?\b(analyze|note|insight)\s+/i, "").trim();
       const colonIdx = body.indexOf(":");
       if (colonIdx === -1) { addJarvisMsg("Use the format: \"Analyze [Name]: [Your note]\" — e.g., \"Analyze Jane Doe: Very interested in automation\""); return; }
       const nameQuery = body.slice(0, colonIdx).trim();
@@ -408,7 +473,8 @@ export default function CRMPage() {
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
         const stamp = `Jarvis Deduction (${new Date().toLocaleDateString()}): ${noteText}`;
-        setCustomers(prev => prev.map(c => c.id === match.id ? { ...c, aiNotes: c.aiNotes ? c.aiNotes + "\n" + stamp : stamp } : c));
+        const newNotes = match.aiNotes ? match.aiNotes + "\n" + stamp : stamp;
+        store.updateCustomer(match.id, { aiNotes: newNotes });
         addJarvisMsg(`🧠 Added AI note to **${match.firstName} ${match.lastName}**:\n\n_${stamp}_`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}".`); return;
@@ -827,8 +893,11 @@ export default function CRMPage() {
                 ) : (
                   <div className="overflow-x-auto"><table className="w-full text-sm"><tbody>
                     {customers.slice(0,5).map(c => (
-                      <tr key={c.id} className={`border-b border-slate-50 hover:bg-slate-50/50 ${getRowTint(c.tags)}`}>
-                        <td className="py-3 px-6 font-medium text-slate-800">{c.firstName} {c.lastName}</td>
+                      <tr key={c.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
+                        <td className="py-3 pl-6 pr-2 w-10">
+                          <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                        </td>
+                        <td className="py-3 px-4 font-medium text-slate-800">{c.firstName} {c.lastName}</td>
                         <td className="py-3 px-4 text-slate-500">{c.email}</td>
                         <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[c.leadStatus]||""}`}>{c.leadStatus}</span></td>
                       </tr>
@@ -885,9 +954,12 @@ export default function CRMPage() {
                         <thead className="bg-slate-50/60">
                           <tr className="border-b border-[#E5E7EB]">
                             <th className="w-12 py-3.5 pl-5">
-                              <button onClick={toggleSelectAll} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-indigo-600 cursor-pointer">
-                                {filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id)) ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
-                              </button>
+                              <input 
+                                type="checkbox" 
+                                checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} 
+                                onChange={toggleSelectAll} 
+                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                              />
                             </th>
                             <th onClick={()=>toggleSort("name")} className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3.5 pr-4 cursor-pointer hover:text-slate-700 select-none">Name<SortIcon k="name"/></th>
                             <th onClick={()=>toggleSort("email")} className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3.5 px-4 cursor-pointer hover:text-slate-700 select-none">Email<SortIcon k="email"/></th>
@@ -901,9 +973,12 @@ export default function CRMPage() {
                           {filteredSortedCustomers.map(c => (
                             <tr key={c.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
                               <td className="py-3.5 pl-5">
-                                <button onClick={() => toggleSelect(c.id)} className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-indigo-600 cursor-pointer">
-                                  {selectedIds.has(c.id) ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
-                                </button>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedIds.has(c.id)} 
+                                  onChange={() => toggleSelect(c.id)} 
+                                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
                               </td>
                               <td className="py-3.5 pr-4">
                                 <div className="flex items-center gap-3">
@@ -1566,7 +1641,13 @@ export default function CRMPage() {
           <button onClick={() => setShowEmailModal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer">
             <MailPlus className="w-4 h-4" />New Email Campaign
           </button>
-          <button onClick={() => { const ids = Array.from(selectedIds); setCustomers(prev => prev.filter(c => !ids.includes(c.id))); setSelectedIds(new Set()); }} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors cursor-pointer">
+          <button onClick={() => { 
+            const ids = Array.from(selectedIds); 
+            if (window.confirm(`Are you sure you want to permanently delete ${ids.length} contact${ids.length === 1 ? '' : 's'}?`)) {
+              bulkDelete(ids); 
+              setSelectedIds(new Set()); 
+            }
+          }} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors cursor-pointer">
             <Trash2 className="w-3.5 h-3.5" />Delete
           </button>
           <button onClick={() => setSelectedIds(new Set())} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Clear</button>
@@ -1623,8 +1704,9 @@ export default function CRMPage() {
               <span className="text-xs text-slate-400">{selectedCustomers.filter(c => c.email).length} of {selectedCustomers.length} have email addresses</span>
               <div className="flex items-center gap-3">
                 <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); }} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
-                <button disabled={!emailSubject.trim() || !emailBody.trim()} onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setSelectedIds(new Set()); }} className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer">
-                  <Send className="w-3.5 h-3.5" />Send Campaign
+                <button disabled={!emailSubject.trim() || !emailBody.trim() || isSendingCampaign} onClick={handleSendCampaign} className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer">
+                  {isSendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  {isSendingCampaign ? "Sending..." : "Send Campaign"}
                 </button>
               </div>
             </div>

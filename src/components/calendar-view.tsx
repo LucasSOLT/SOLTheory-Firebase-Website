@@ -16,11 +16,8 @@ import {
   ChevronDown,
   Loader2,
   Sparkles,
-  MessageSquare,
   X,
   Send,
-  Bot,
-  User
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, useFirestore } from "@/firebase";
@@ -459,112 +456,97 @@ export function CalendarView() {
         </div>
       )}
 
-      {/* Floating AI Assistant Chat Widget */}
-      <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end">
-         {/* Chat Interface Window */}
-         {isChatOpen && (
-           <div className="w-[340px] h-[450px] bg-white rounded-2xl shadow-2xl border border-slate-200 mb-4 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-300">
-             <div className="bg-slate-900 text-white p-4 flex items-center justify-between shrink-0">
-               <div className="flex items-center gap-3">
-                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                   <Bot className="w-4 h-4 text-blue-300" />
-                 </div>
-                 <div>
-                   <p className="text-sm font-semibold">Calendar Assistant</p>
-                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Authorized
-                   </p>
-                 </div>
-               </div>
-               <button onClick={() => setIsChatOpen(false)} className="p-1 hover:bg-white/10 rounded-md transition-colors text-slate-400 hover:text-white">
-                 <X className="w-4 h-4" />
-               </button>
-             </div>
-             
-             {/* Chat History Area */}
-             <div className="flex-1 overflow-y-auto p-4 bg-slate-50 flex flex-col gap-4">
-                <div className="flex gap-3">
-                   <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                     <Sparkles className="w-4 h-4 text-blue-600" />
-                   </div>
-                   <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
-                      <p className="text-sm text-slate-700 leading-relaxed">
-                        Hey there! I'm your Calendar Assistant. Would you like me to schedule a meeting or check your availability?
-                      </p>
-                   </div>
+      {/* ══════ AI COPILOT TOGGLE ══════ */}
+      <button
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className={`fixed bottom-6 right-6 z-[90] w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all cursor-pointer ${isChatOpen ? "bg-slate-700 hover:bg-slate-800" : "bg-blue-600 hover:bg-blue-700"} text-white`}
+      >
+        {isChatOpen ? <X className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+      </button>
+
+      {/* ══════ AI COPILOT SIDEBAR ══════ */}
+      <div className={`fixed top-0 right-0 h-full z-[80] transition-transform duration-300 ease-in-out ${isChatOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="w-[380px] h-full bg-white border-l border-[#E5E7EB] shadow-2xl flex flex-col">
+          {/* Header */}
+          <div className="h-16 flex items-center justify-between px-5 border-b border-[#E5E7EB] shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 leading-tight">Calendar Assistant</h3>
+                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Online</span>
+              </div>
+            </div>
+            <button onClick={() => setIsChatOpen(false)} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+            {/* Welcome message */}
+            <div className="flex justify-start">
+              <div className="max-w-[85%] px-3.5 py-2.5 rounded-xl text-[13px] leading-relaxed whitespace-pre-wrap bg-slate-100 text-slate-700 rounded-bl-md border border-slate-200">
+                Hey there! I&apos;m your Calendar Assistant. Would you like me to schedule a meeting or check your availability?
+              </div>
+            </div>
+
+            {messages.map(msg => (
+              <div key={msg.id} className={`flex ${msg.isSelf ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] px-3.5 py-2.5 rounded-xl text-[13px] leading-relaxed whitespace-pre-wrap ${
+                  msg.isSelf
+                    ? "bg-blue-600 text-white rounded-br-md"
+                    : "bg-slate-100 text-slate-700 rounded-bl-md border border-slate-200"
+                }`}>
+                  {msg.isSelf ? msg.text : (
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({node, ...props}) => <a {...props} className="text-blue-600 hover:text-blue-800 hover:underline font-medium break-all" target="_blank" rel="noopener noreferrer" />,
+                        p: ({node, ...props}) => <p {...props} className="mb-2 last:mb-0" />
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  )}
                 </div>
+              </div>
+            ))}
 
-                {messages.map(msg => (
-                  <div key={msg.id} className={`flex gap-3 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
-                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.isSelf ? 'bg-slate-200 text-slate-600' : 'bg-blue-50 text-blue-600'}`}>
-                       {msg.isSelf ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                     </div>
-                     <div className={`border rounded-2xl p-3 shadow-sm max-w-[85%] ${msg.isSelf ? 'bg-slate-100 border-slate-200 rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
-                        <div className={`text-sm text-slate-700 leading-relaxed`}>
-                          {msg.isSelf ? msg.text : (
-                            <ReactMarkdown 
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                a: ({node, ...props}) => <a {...props} className="text-blue-600 hover:text-blue-800 hover:underline font-medium break-all" target="_blank" rel="noopener noreferrer" />,
-                                p: ({node, ...props}) => <p {...props} className="mb-2 last:mb-0" />
-                              }}
-                            >
-                              {msg.text}
-                            </ReactMarkdown>
-                          )}
-                        </div>
-                     </div>
-                  </div>
-                ))}
-                
-                {isTyping && (
-                  <div className="flex gap-3">
-                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                       <Sparkles className="w-4 h-4 text-blue-600" />
-                     </div>
-                     <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                        <span className="text-sm text-slate-500">Checking schedule...</span>
-                     </div>
-                  </div>
-                )}
-                <div ref={chatBottomRef} />
-             </div>
-
-             {/* Input Area */}
-             <div className="p-3 border-t border-slate-100 bg-white">
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    placeholder="Ask the Assistant..."
-                    className="w-full pl-4 pr-10 py-2.5 bg-slate-100 border-transparent focus:bg-white border focus:border-blue-200 focus:ring-2 focus:ring-opacity-50 rounded-xl text-sm transition-all outline-none text-slate-700"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && chatMessage.trim()) {
-                        handleSendMessage();
-                      }
-                    }}
-                  />
-                  <button 
-                    onClick={handleSendMessage}
-                    disabled={!chatMessage.trim() || isTyping}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 disabled:bg-slate-300 text-white rounded-lg transition-colors"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] px-3.5 py-2.5 rounded-xl text-[13px] leading-relaxed bg-slate-100 text-slate-700 rounded-bl-md border border-slate-200 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  <span>Checking schedule...</span>
                 </div>
-             </div>
-           </div>
-         )}
+              </div>
+            )}
+            <div ref={chatBottomRef} />
+          </div>
 
-         {/* Chat Toggle Button */}
-         <button 
-           onClick={() => setIsChatOpen(!isChatOpen)}
-           className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-105 ${isChatOpen ? 'bg-slate-800 text-white' : 'bg-blue-600 text-white'}`}
-         >
-           {isChatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
-         </button>
+          {/* Input */}
+          <div className="border-t border-[#E5E7EB] px-4 py-3 shrink-0 bg-white">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
+                placeholder="Ask the Assistant..."
+                className="flex-1 h-10 px-3.5 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!chatMessage.trim() || isTyping}
+                className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2 text-center">Try &quot;Schedule a meeting&quot; or &quot;Check my availability&quot;</p>
+          </div>
+        </div>
       </div>
 
     </div>

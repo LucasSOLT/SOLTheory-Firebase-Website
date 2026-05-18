@@ -2,7 +2,7 @@
 
 
 import { Header } from '@/components/sections/header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
 import Link from 'next/link';
@@ -84,7 +84,7 @@ export default function Home() {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+                <div className="flex flex-col w-full">
                   {[
                     {
                       id: 1,
@@ -122,37 +122,51 @@ export default function Home() {
                       ),
                       image: "/images/custom_solutions_card.jpg"
                     }
-                  ].map((item) => (
-                    <div key={item.id} className="group relative">
-                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl z-10 shadow-lg">
-                        <div className="w-full relative overflow-hidden aspect-[3/2]">
+                  ].map((item, idx) => {
+                    const isLeft = idx % 2 === 0;
+
+                    const textBlock = (
+                      <div className={`flex flex-col justify-center gap-4 max-w-[360px] ${isLeft ? 'text-left' : 'text-right'}`}>
+                        <h3 className="font-headline text-3xl md:text-4xl font-bold text-white leading-tight">{item.title}</h3>
+                        <span className="text-fuchsia-400/80 text-base md:text-lg font-semibold tracking-wide">{item.price}</span>
+                        <div className="w-12 h-px bg-white/20" style={isLeft ? {} : { marginLeft: 'auto' }} />
+                        <div className="text-slate-400 text-base md:text-lg leading-relaxed">{item.description}</div>
+                      </div>
+                    );
+
+                    const cardBlock = (
+                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl shadow-lg w-[460px] shrink-0">
+                        <div className="w-full relative overflow-hidden aspect-square">
                           <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                         </div>
-                        <CardHeader className="pt-4 px-5 md:px-6 relative z-20 flex-grow">
-                          <CardTitle className="font-headline text-lg md:text-xl font-bold text-white group-hover:text-fuchsia-300 transition-colors duration-500 leading-tight">
-                            {item.title}
-                          </CardTitle>
-                          <span className="text-white/70 text-xs md:text-sm font-medium mt-1 block">{item.price}</span>
-                          <div className="w-8 h-px bg-white/20 mt-2 mb-2" />
-                          <div className="text-slate-400 text-xs md:text-sm leading-relaxed line-clamp-4">
-                            {item.description}
-                          </div>
-                        </CardHeader>
-                        <div className="px-5 md:px-6 pb-4 pt-0 mt-auto">
+                        <div className="px-5 md:px-6 py-4 mt-auto">
                           {item.id === 4 ? (
-                            <Link href="/contact" className="block w-full text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm md:text-base hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 backdrop-blur-sm cursor-pointer z-30">
+                            <Link href="/contact" className="block w-full text-center py-4 px-5 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-base md:text-lg hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 backdrop-blur-sm cursor-pointer z-30">
                               Contact Team
                             </Link>
                           ) : (
-                            <Link href={`/checkout/${item.id}`} className="group/btn relative block w-full text-center py-3 px-4 rounded-xl bg-black/80 border border-white/10 text-white font-semibold text-sm md:text-base hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 cursor-pointer z-30 overflow-hidden">
+                            <Link href={`/checkout/${item.id}`} className="group/btn relative block w-full text-center py-4 px-5 rounded-xl bg-black/80 border border-white/10 text-white font-bold text-base md:text-lg hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 cursor-pointer z-30 overflow-hidden">
                               <span className="flex items-center justify-center gap-2 transition-all duration-300 opacity-100 translate-y-0 group-hover/btn:opacity-0 group-hover/btn:-translate-y-3">See More</span>
-                              <span className="absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 opacity-0 translate-y-3 group-hover/btn:opacity-100 group-hover/btn:translate-y-0"><ShoppingCart className="w-4 h-4" /> Checkout</span>
+                              <span className="absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 opacity-0 translate-y-3 group-hover/btn:opacity-100 group-hover/btn:translate-y-0"><ShoppingCart className="w-5 h-5" /> Checkout</span>
                             </Link>
                           )}
                         </div>
                       </Card>
-                    </div>
-                  ))}
+                    );
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`group relative flex items-center gap-12 ${
+                          isLeft ? 'self-start ml-[12%] flex-row' : 'self-end mr-[12%] flex-row-reverse'
+                        }`}
+                        style={{ zIndex: idx + 1, marginTop: idx > 0 ? '-220px' : '0px' }}
+                      >
+                        {cardBlock}
+                        {textBlock}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>

@@ -407,7 +407,7 @@ export default function SolTheoryDashboard() {
   }, [qbData]);
 
   return (
-    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
+    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 focus:outline-none" tabIndex={-1}>
       <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-5 items-stretch">
         {/* Left Integration Slots */}
         <div className="hidden xl:flex flex-col gap-5 h-full">

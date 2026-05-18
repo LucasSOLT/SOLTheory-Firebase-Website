@@ -111,37 +111,7 @@ function docToCustomer(data: Record<string, unknown>, id: string): Customer {
 
 /* ─────────────── INITIAL DATA ─────────────── */
 
-const INITIAL_CONVERSATIONS: Conversation[] = [
-  {
-    id: "conv-1", customerName: "John Doe", channel: "email",
-    lastMessage: "Hi, I wanted to follow up on our proposal. Are we still on for Tuesday?",
-    lastTimestamp: new Date(Date.now() - 1000 * 60 * 12), unread: true, ticketStatus: "Open Issue",
-    messages: [
-      { id: "m1", sender: "customer", text: "Hi there! I received the quote you sent over. Looks great.", timestamp: new Date(Date.now() - 1000 * 60 * 60) },
-      { id: "m2", sender: "agent", text: "Glad to hear it, John! Let me know if you have any questions.", timestamp: new Date(Date.now() - 1000 * 60 * 45) },
-      { id: "m3", sender: "customer", text: "Hi, I wanted to follow up on our proposal. Are we still on for Tuesday?", timestamp: new Date(Date.now() - 1000 * 60 * 12) },
-    ]
-  },
-  {
-    id: "conv-2", customerName: "Sarah Miller", channel: "whatsapp",
-    lastMessage: "Thanks for the quick response! 🙏",
-    lastTimestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), unread: true, ticketStatus: "Pending",
-    messages: [
-      { id: "m4", sender: "customer", text: "Hey, I'm having trouble with the onboarding process.", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3) },
-      { id: "m5", sender: "agent", text: "I'm sorry to hear that! Can you tell me what step you're stuck on?", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2.5) },
-      { id: "m6", sender: "customer", text: "Thanks for the quick response! 🙏", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2) },
-    ]
-  },
-  {
-    id: "conv-3", customerName: "Mike Johnson", channel: "imessage",
-    lastMessage: "Perfect, see you then.",
-    lastTimestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), unread: false, ticketStatus: "Resolved",
-    messages: [
-      { id: "m7", sender: "agent", text: "Hi Mike, just confirming our meeting for tomorrow at 3pm.", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 25) },
-      { id: "m8", sender: "customer", text: "Perfect, see you then.", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24) },
-    ]
-  },
-];
+const INITIAL_CONVERSATIONS: Conversation[] = [];
 
 const INITIAL_TAGS: CrmTag[] = [
   { name: "VIP", color: "#f59e0b" },
@@ -175,6 +145,7 @@ interface CrmStore {
   _uid: string | null;
   _unsubContacts: Unsubscribe | null;
   _unsubMeetings: Unsubscribe | null;
+  _unsubConversations: Unsubscribe | null;
 
   /* ── Loading flags ── */
   isLoading: boolean;
@@ -233,6 +204,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   _uid: null,
   _unsubContacts: null,
   _unsubMeetings: null,
+  _unsubConversations: null,
 
   isLoading: true,
   isAddingContact: false,
@@ -287,8 +259,37 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
           console.error("CRM meetings snapshot error:", error);
         }
       );
+      // Set up real-time listener for conversations
+      const conversationsRef = collection(db, crmPath(uid, "conversations"));
+      const unsubConversations = onSnapshot(
+        query(conversationsRef),
+        (snapshot) => {
+          const conversations = snapshot.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              customerName: data.customerName || "",
+              channel: data.channel || "email",
+              lastMessage: data.lastMessage || "",
+              lastTimestamp: data.lastTimestamp?.toDate() || new Date(),
+              unread: data.unread || false,
+              ticketStatus: data.ticketStatus || "Open Issue",
+              messages: (data.messages || []).map((m: any) => ({
+                id: m.id || "",
+                sender: m.sender || "customer",
+                text: m.text || "",
+                timestamp: m.timestamp?.toDate() || new Date()
+              }))
+            } as Conversation;
+          });
+          set({ conversations });
+        },
+        (error) => {
+          console.error("CRM conversations snapshot error:", error);
+        }
+      );
 
-      set({ _unsubContacts: unsubContacts, _unsubMeetings: unsubMeetings });
+      set({ _unsubContacts: unsubContacts, _unsubMeetings: unsubMeetings, _unsubConversations: unsubConversations });
     } catch (error) {
       console.error("CRM initializeStore error:", error);
       set({ isLoading: false });
@@ -297,10 +298,11 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   teardown: () => {
-    const { _unsubContacts, _unsubMeetings } = get();
+    const { _unsubContacts, _unsubMeetings, _unsubConversations } = get();
     if (_unsubContacts) _unsubContacts();
     if (_unsubMeetings) _unsubMeetings();
-    set({ _unsubContacts: null, _unsubMeetings: null });
+    if (_unsubConversations) _unsubConversations();
+    set({ _unsubContacts: null, _unsubMeetings: null, _unsubConversations: null });
   },
 
   /* ── Contact CRUD (Firestore) ── */
@@ -439,30 +441,61 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     }));
   },
 
-  /* ── Inbox (local for now — real API integration later) ── */
+  /* ── Inbox ── */
   sendInboxReply: async (convId, text) => {
     set({ isSendingReply: true });
     await new Promise<void>(res => setTimeout(res, 300));
+    
+    const { _db, _uid, conversations } = get();
+    if (!_db || !_uid) {
+      set({ isSendingReply: false });
+      return;
+    }
+    
+    const conv = conversations.find(c => c.id === convId);
+    if (!conv) {
+      set({ isSendingReply: false });
+      return;
+    }
+    
     const msg: InboxMessage = { id: `im-${Date.now()}`, sender: "agent", text, timestamp: new Date() };
-    set(state => ({
-      conversations: state.conversations.map(c =>
-        c.id === convId ? { ...c, messages: [...c.messages, msg], lastMessage: text, lastTimestamp: msg.timestamp } : c
-      ),
-      isSendingReply: false,
-    }));
+    const updatedMessages = [...conv.messages, msg];
+    
+    try {
+      await updateDoc(doc(_db, crmPath(_uid, "conversations"), convId), {
+        messages: updatedMessages,
+        lastMessage: text,
+        lastTimestamp: msg.timestamp
+      });
+    } catch (error) {
+      console.error("sendInboxReply error:", error);
+      get().showToast("⚠️ Failed to send reply", "error");
+    }
+    set({ isSendingReply: false });
   },
 
-  updateTicketStatus: (convId, status) => {
-    set(state => ({
-      conversations: state.conversations.map(c => c.id === convId ? { ...c, ticketStatus: status } : c),
-    }));
-    get().showToast(`🎫 Ticket status updated to ${status}`);
+  updateTicketStatus: async (convId, status) => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+    try {
+      await updateDoc(doc(_db, crmPath(_uid, "conversations"), convId), { ticketStatus: status });
+      get().showToast(`🎫 Ticket status updated to ${status}`);
+    } catch (error) {
+      console.error("updateTicketStatus error:", error);
+    }
   },
 
-  markConversationRead: (convId) => {
-    set(state => ({
-      conversations: state.conversations.map(c => c.id === convId ? { ...c, unread: false } : c),
-    }));
+  markConversationRead: async (convId) => {
+    const { _db, _uid, conversations } = get();
+    if (!_db || !_uid) return;
+    const conv = conversations.find(c => c.id === convId);
+    if (conv && conv.unread) {
+      try {
+        await updateDoc(doc(_db, crmPath(_uid, "conversations"), convId), { unread: false });
+      } catch (error) {
+        console.error("markConversationRead error:", error);
+      }
+    }
   },
 
   /* ── Jarvis ── */
