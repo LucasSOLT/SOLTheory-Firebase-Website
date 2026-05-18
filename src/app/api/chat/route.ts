@@ -145,12 +145,14 @@ const tools: any = [
     type: "function",
     function: {
       name: "create_google_document",
-      description: "Create a new Google Docs document in the user's Google Drive. Populates it with the provided text content. Use this when the user asks you to create a document, write a report, draft meeting notes, etc.",
+      description: "Create a new Google Docs document in the user's Google Drive. Populates it with the provided text content. Use this when the user asks you to create a document, write a report, draft meeting notes, etc. You MUST write the full document — do not truncate or summarize. Write long-form, professional prose with clear paragraph breaks.",
       parameters: {
         type: "object",
         properties: {
           title: { type: "string", description: "The title/name of the Google Doc" },
-          body: { type: "string", description: "The full text content to insert. Use newlines for paragraphs. CRITICAL: If you need to paste an entire large uploaded document, DO NOT output the full document text here! Use '[INSERT_DOCUMENT_CONTEXT]' instead and the system will replace it." }
+          body: { type: "string", description: "The full text content to insert. Use newlines for paragraphs. Separate sections with headings prefixed by '## '. CRITICAL: If you need to paste an entire large uploaded document, DO NOT output the full document text here! Use '[INSERT_DOCUMENT_CONTEXT]' instead and the system will replace it." },
+          font: { type: "string", description: "The font family to apply (e.g. 'Arial', 'Times New Roman', 'Georgia'). If not specified, defaults to 'Arial'." },
+          lineSpacing: { type: "string", enum: ["single", "double"], description: "Line spacing: 'single' (1.0) or 'double' (2.0). Defaults to 'double'." }
         },
         required: ["title", "body"]
       }
@@ -819,6 +821,7 @@ export async function POST(req: Request) {
                 }
               }
 
+              // Insert all text first
               await docsApi.documents.batchUpdate({
                 documentId: docId,
                 requestBody: {
@@ -830,6 +833,88 @@ export async function POST(req: Request) {
                   }]
                 }
               });
+
+              // Now apply formatting (font + line spacing)
+              const fontFamily = args.font || "Arial";
+              const spacingMode = args.lineSpacing || "double";
+              const lineSpacingValue = spacingMode === "single" ? 100 : 200; // 100 = 1.0, 200 = 2.0 (in hundredths of a point-ratio)
+
+              const textLength = finalBody.length;
+              const formatRequests: any[] = [];
+
+              // Apply font family + size 12pt to the entire body
+              formatRequests.push({
+                updateTextStyle: {
+                  range: { startIndex: 1, endIndex: 1 + textLength },
+                  textStyle: {
+                    fontFamily: fontFamily,
+                    fontSize: { magnitude: 12, unit: "PT" }
+                  },
+                  fields: "fontFamily,fontSize"
+                }
+              });
+
+              // Apply line spacing to entire body
+              formatRequests.push({
+                updateParagraphStyle: {
+                  range: { startIndex: 1, endIndex: 1 + textLength },
+                  paragraphStyle: {
+                    lineSpacing: lineSpacingValue,
+                    spaceAbove: { magnitude: 0, unit: "PT" },
+                    spaceBelow: { magnitude: 0, unit: "PT" }
+                  },
+                  fields: "lineSpacing,spaceAbove,spaceBelow"
+                }
+              });
+
+              // Detect headings marked with "## " and apply HEADING_2 style
+              const lines = finalBody.split('\n');
+              let charIdx = 1; // Document starts at index 1
+              for (const line of lines) {
+                if (line.startsWith('## ')) {
+                  // Apply heading style to this line
+                  const headingStart = charIdx;
+                  const headingEnd = charIdx + line.length;
+                  formatRequests.push({
+                    updateParagraphStyle: {
+                      range: { startIndex: headingStart, endIndex: headingEnd },
+                      paragraphStyle: { namedStyleType: "HEADING_2" },
+                      fields: "namedStyleType"
+                    }
+                  });
+                  // Remove the "## " prefix from the text
+                  formatRequests.push({
+                    deleteContentRange: {
+                      range: { startIndex: headingStart, endIndex: headingStart + 3 }
+                    }
+                  });
+                }
+                charIdx += line.length + 1; // +1 for the newline
+              }
+
+              // Apply formatting requests (process in reverse order for heading deletions to maintain correct indices)
+              if (formatRequests.length > 0) {
+                // Separate delete requests (must be applied separately, in reverse order)
+                const deleteReqs = formatRequests.filter((r: any) => r.deleteContentRange);
+                const styleReqs = formatRequests.filter((r: any) => !r.deleteContentRange);
+
+                // Apply style requests first
+                if (styleReqs.length > 0) {
+                  await docsApi.documents.batchUpdate({
+                    documentId: docId,
+                    requestBody: { requests: styleReqs }
+                  });
+                }
+
+                // Apply delete requests in reverse order so indices stay correct
+                if (deleteReqs.length > 0) {
+                  deleteReqs.reverse();
+                  await docsApi.documents.batchUpdate({
+                    documentId: docId,
+                    requestBody: { requests: deleteReqs }
+                  });
+                }
+              }
             }
 
             // Tag the file as AI-created so the dashboard can find it

@@ -16,6 +16,11 @@ import {
   X,
   Send,
   Sparkles,
+  SlidersHorizontal,
+  ChevronUp,
+  Type,
+  AlignJustify,
+  Hash,
 } from "lucide-react";
 import { useUser, useFirestore } from "@/firebase";
 import { usePathname } from "next/navigation";
@@ -94,6 +99,18 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<{id: string, text: string, isSelf: boolean}[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+
+  // Document settings
+  const [showDocSettings, setShowDocSettings] = useState(false);
+  const [docWordCount, setDocWordCount] = useState(1000);
+  const [docFont, setDocFont] = useState("Arial");
+  const [docSpacing, setDocSpacing] = useState<"single" | "double">("double");
+
+  const GOOGLE_DOCS_FONTS = [
+    "Arial", "Times New Roman", "Georgia", "Verdana", "Trebuchet MS",
+    "Courier New", "Comic Sans MS", "Garamond", "Palatino Linotype",
+    "Roboto", "Open Sans", "Lato"
+  ];
   const chatBottomRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -125,7 +142,21 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
             content: m.text
           })), 
           agentId: `nxtchapter_drive_assistant`,
-          soul: `You are the Google Drive Assistant for this dashboard. You have the ability to draft Google Docs natively using your function tools. If the user asks you to draft a document, draft a presentation, or draft a spreadsheet, USE YOUR \`create_google_document\`, \`create_google_slide_deck\`, or \`create_google_sheet\` functions respectively. Provide detailed, well-written text. Do not pretend, actually use your tools to make the drive files! Keep your direct conversational replies short since you live in a popup window.`,
+          soul: `You are the Google Drive Assistant for this dashboard. You have the ability to draft Google Docs natively using your function tools. If the user asks you to draft a document, draft a presentation, or draft a spreadsheet, USE YOUR \`create_google_document\`, \`create_google_slide_deck\`, or \`create_google_sheet\` functions respectively. Do not pretend, actually use your tools to make the drive files! Keep your direct conversational replies short since you live in a sidebar window.
+
+[DOCUMENT QUALITY DIRECTIVES]:
+When creating Google Docs, you MUST follow these rules:
+- Target word count: approximately ${docWordCount} words. This is CRITICAL. Write substantially — do NOT produce short, skeletal documents.
+- Structure the document into clear sections with headings.
+- Write 2-3 full paragraphs per page (approximately every 250-300 words).
+- Each paragraph should be 4-6 sentences minimum.
+- Use professional, well-researched prose. Include specific details, examples, data points, and actionable insights.
+- Break the document into logical sections with clear section headings (use headings like "## Section Title").
+- Separate paragraphs with blank lines for readability.
+- Do NOT use bullet points excessively — prefer flowing prose paragraphs.
+- The user wants font: ${docFont}, spacing: ${docSpacing}-spaced.
+- Pass font="${docFont}" and lineSpacing="${docSpacing}" in your create_google_document call.
+- IMPORTANT: Write the FULL document body in a single create_google_document call. Do not truncate or summarize.`,
           brain: "",
           uid: user?.uid,
           refreshToken: rToken,
@@ -504,26 +535,127 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Input */}
-          <div className="border-t border-[#E5E7EB] px-4 py-3 shrink-0 bg-white">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
-                placeholder="Ask the Assistant..."
-                className="flex-1 h-10 px-3.5 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
-              />
+          {/* Input + Doc Settings */}
+          <div className="border-t border-[#E5E7EB] shrink-0 bg-white relative">
+            {/* Dropup Settings Panel */}
+            {showDocSettings && (
+              <div className="absolute bottom-full left-0 right-0 bg-white border-t border-[#E5E7EB] shadow-lg rounded-t-xl z-10 animate-in slide-in-from-bottom-2 duration-200">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                    Document Settings
+                  </h4>
+                  <button onClick={() => setShowDocSettings(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="px-4 py-3 space-y-4">
+                  {/* Word Count */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <Hash className="w-3 h-3" /> Word Count
+                      <span className="ml-auto text-indigo-600 font-bold text-xs normal-case">{docWordCount.toLocaleString()} words</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={250}
+                      max={5000}
+                      step={250}
+                      value={docWordCount}
+                      onChange={(e) => setDocWordCount(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                      <span>250</span>
+                      <span>2,500</span>
+                      <span>5,000</span>
+                    </div>
+                  </div>
+
+                  {/* Font */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <Type className="w-3 h-3" /> Font Family
+                    </label>
+                    <select
+                      value={docFont}
+                      onChange={(e) => setDocFont(e.target.value)}
+                      className="w-full h-9 px-3 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 cursor-pointer"
+                    >
+                      {GOOGLE_DOCS_FONTS.map(f => (
+                        <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Spacing */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <AlignJustify className="w-3 h-3" /> Line Spacing
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setDocSpacing("single")}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                          docSpacing === "single"
+                            ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                            : "bg-[#F9FAFB] border-[#E5E7EB] text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        Single
+                      </button>
+                      <button
+                        onClick={() => setDocSpacing("double")}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                          docSpacing === "double"
+                            ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                            : "bg-[#F9FAFB] border-[#E5E7EB] text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        Double
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Settings toggle bar */}
+            <div className="px-4 pt-2">
               <button
-                onClick={handleSendMessage}
-                disabled={!chatMessage.trim() || isTyping}
-                className="w-10 h-10 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
+                onClick={() => setShowDocSettings(!showDocSettings)}
+                className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  showDocSettings
+                    ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
+                    : "bg-slate-50 text-slate-500 hover:bg-slate-100 border border-transparent"
+                }`}
               >
-                <Send className="w-4 h-4" />
+                <ChevronUp className={`w-3 h-3 transition-transform ${showDocSettings ? "rotate-180" : ""}`} />
+                {docFont} · {docWordCount.toLocaleString()} words · {docSpacing === "double" ? "Double" : "Single"}-spaced
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-2 text-center">Try &quot;Create a Google Doc&quot; or &quot;Draft a presentation&quot;</p>
+
+            {/* Input row */}
+            <div className="px-4 py-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
+                  placeholder="Ask the Assistant..."
+                  className="flex-1 h-10 px-3.5 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!chatMessage.trim() || isTyping}
+                  className="w-10 h-10 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1.5 text-center">Try &quot;Write a 2000-word research paper on AI&quot;</p>
+            </div>
           </div>
         </div>
       </div>
