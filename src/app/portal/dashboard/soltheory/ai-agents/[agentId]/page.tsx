@@ -60,6 +60,38 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  const openVoiceSession = () => {
+    if (typeof window !== "undefined") {
+      // 1. Initialize and play a brief silent sound to unlock the audio element on mobile
+      let audio = (window as any).jarvisAudio;
+      if (!audio) {
+        audio = document.createElement("audio");
+        audio.setAttribute("playsinline", "true");
+        audio.setAttribute("webkit-playsinline", "true");
+        (window as any).jarvisAudio = audio;
+      }
+      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }).catch((e: any) => console.warn("Audio unlock failed on trigger click:", e));
+
+      // 2. Warm up AudioContext
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        let ctx = (window as any).jarvisAudioContext;
+        if (!ctx || ctx.state === "closed") {
+          ctx = new AudioCtx();
+          (window as any).jarvisAudioContext = ctx;
+        }
+        if (ctx.state === "suspended") {
+          ctx.resume().catch((e: any) => console.warn("Context resume failed on trigger click:", e));
+        }
+      }
+    }
+    setIsVoiceModalOpen(true);
+  };
   const [totalGroqTokens, setTotalGroqTokens] = useState(0);
   const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
@@ -1787,7 +1819,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               </button>
                             </form>
                             <button
-                              onClick={() => setIsVoiceModalOpen(true)}
+                              onClick={openVoiceSession}
                               className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 shrink-0 cursor-pointer"
                               title="Talk to Jarvis"
                             >
@@ -1870,7 +1902,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       />
 
                       <button
-                        onClick={() => setIsVoiceModalOpen(true)}
+                        onClick={openVoiceSession}
                         className="absolute right-14 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
                         title="Start Voice Session"
                       >

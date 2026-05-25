@@ -63,6 +63,38 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  const openVoiceSession = () => {
+    if (typeof window !== "undefined") {
+      // 1. Initialize and play a brief silent sound to unlock the audio element on mobile
+      let audio = (window as any).jarvisAudio;
+      if (!audio) {
+        audio = document.createElement("audio");
+        audio.setAttribute("playsinline", "true");
+        audio.setAttribute("webkit-playsinline", "true");
+        (window as any).jarvisAudio = audio;
+      }
+      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }).catch((e: any) => console.warn("Audio unlock failed on trigger click:", e));
+
+      // 2. Warm up AudioContext
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        let ctx = (window as any).jarvisAudioContext;
+        if (!ctx || ctx.state === "closed") {
+          ctx = new AudioCtx();
+          (window as any).jarvisAudioContext = ctx;
+        }
+        if (ctx.state === "suspended") {
+          ctx.resume().catch((e: any) => console.warn("Context resume failed on trigger click:", e));
+        }
+      }
+    }
+    setIsVoiceModalOpen(true);
+  };
   const [totalGroqTokens, setTotalGroqTokens] = useState(0);
   const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
@@ -899,7 +931,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                 />
 
                 <button
-                  onClick={() => setIsVoiceModalOpen(true)}
+                  onClick={openVoiceSession}
                   className="absolute right-12 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
                   title="Start Voice Session"
                 >
@@ -907,7 +939,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
                 </button>
 
                 <Button
-                  onClick={() => setIsVoiceModalOpen(true)}
+                  onClick={openVoiceSession}
                   variant="ghost"
                   size="icon"
                   className="absolute right-12 top-1/2 -translate-y-1/2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors w-8 h-8"

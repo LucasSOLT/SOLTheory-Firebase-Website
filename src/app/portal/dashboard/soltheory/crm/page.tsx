@@ -15,7 +15,7 @@ import {
   MessageCircle, PanelRightClose, PanelRightOpen, Send, Sparkles, Trash2,
   CheckSquare, Square, Tag, MailPlus, Calendar, Clock, ToggleLeft, ToggleRight,
   CalendarCheck, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
-  Menu, Palette, Link2, Edit3, Trash, Loader2,
+  Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool,
 } from "lucide-react";
 
 type SortKey = "name" | "email" | "phone" | "tags" | "status";
@@ -184,10 +184,122 @@ export default function CRMPage() {
   const [contactsViewMode, setContactsViewMode] = useState<"table" | "pipeline">("table");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<string>("");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [dateFilterFrom, setDateFilterFrom] = useState("");
+  const [dateFilterTo, setDateFilterTo] = useState("");
+  const hasActiveFilters = !!tagFilter || !!statusFilter || !!dateFilterFrom || !!dateFilterTo;
+  const clearAllFilters = () => { setTagFilter(""); setStatusFilter(""); setDateFilterFrom(""); setDateFilterTo(""); };
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSendingCampaign, setIsSendingCampaign] = useState(false);
+  // Email Campaign v2 state
+  const [emailTab, setEmailTab] = useState<"compose" | "preview">("compose");
+  const [emailSignature, setEmailSignature] = useState<{
+    signoff: string;
+    name: string;
+    role: string;
+    company: string;
+    phone: string;
+    website: string;
+    logoUrl?: string;
+    useCursive?: boolean;
+  } | null>(null);
+  const [showSignatureEditor, setShowSignatureEditor] = useState(false);
+  const [sigForm, setSigForm] = useState({ signoff: "Best regards", name: "", role: "", company: "", phone: "", website: "", logoUrl: "", useCursive: false });
+  const [campaignDrafts, setCampaignDrafts] = useState<{id: string, subject: string, body: string, savedAt: string}[]>([]);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  // Load signature from Firestore
+  useEffect(() => {
+    if (!user?.uid || !db) return;
+    (async () => {
+      const { doc: firestoreDoc, getDoc } = await import("firebase/firestore");
+      const sigDoc = await getDoc(firestoreDoc(db, "users", user.uid, "settings", "emailSignature"));
+      if (sigDoc.exists()) {
+        setEmailSignature(sigDoc.data() as any);
+        setSigForm(sigDoc.data() as any);
+      } else {
+        // Auto-fill with user display name
+        setSigForm(f => ({ ...f, name: user.displayName || "" }));
+      }
+      // Load drafts
+      const { collection, getDocs } = await import("firebase/firestore");
+      const draftsSnap = await getDocs(collection(db, "users", user.uid, "emailDrafts"));
+      const d: any[] = [];
+      draftsSnap.forEach(doc => d.push({ id: doc.id, ...doc.data() }));
+      d.sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+      setCampaignDrafts(d);
+    })();
+  }, [user?.uid, db]);
+
+  const saveSignature = async () => {
+    if (!user?.uid || !db) return;
+    const { doc: firestoreDoc, setDoc } = await import("firebase/firestore");
+    await setDoc(firestoreDoc(db, "users", user.uid, "settings", "emailSignature"), sigForm);
+    setEmailSignature(sigForm);
+    setShowSignatureEditor(false);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500_000) { alert("Image must be under 500KB"); return; }
+    setIsUploadingLogo(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSigForm(f => ({ ...f, logoUrl: reader.result as string }));
+      setIsUploadingLogo(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveDraft = async () => {
+    if (!user?.uid || !db || !emailSubject.trim()) return;
+    const { collection, addDoc } = await import("firebase/firestore");
+    const ref = await addDoc(collection(db, "users", user.uid, "emailDrafts"), {
+      subject: emailSubject,
+      body: emailBody,
+      savedAt: new Date().toISOString()
+    });
+    setCampaignDrafts(prev => [{ id: ref.id, subject: emailSubject, body: emailBody, savedAt: new Date().toISOString() }, ...prev]);
+  };
+
+  const loadDraft = (draft: typeof campaignDrafts[0]) => {
+    setEmailSubject(draft.subject);
+    setEmailBody(draft.body);
+    setShowDrafts(false);
+  };
+
+  const deleteDraft = async (draftId: string) => {
+    if (!user?.uid || !db) return;
+    const { doc: firestoreDoc, deleteDoc } = await import("firebase/firestore");
+    await deleteDoc(firestoreDoc(db, "users", user.uid, "emailDrafts", draftId));
+    setCampaignDrafts(prev => prev.filter(d => d.id !== draftId));
+  };
+
+  const renderSignatureHtml = () => {
+    if (!emailSignature) return "";
+    const parts = [];
+    if (emailSignature.logoUrl) parts.push(`<img src="${emailSignature.logoUrl}" alt="Logo" style="max-height:48px;max-width:160px;margin-bottom:8px;display:block;" />`);
+    if (emailSignature.signoff) parts.push(`<p style="margin:0;">${emailSignature.signoff},</p>`);
+    if (emailSignature.name) {
+      if (emailSignature.useCursive) {
+        // Gmail blocks custom fonts + data URIs, so use bold italic as the email-safe equivalent
+        parts.push(`<p style="font-weight:bold;font-style:italic;font-size:18px;margin:4px 0 0 0;color:#1e293b;">${emailSignature.name}</p>`);
+      } else {
+        parts.push(`<p style="font-weight:bold;margin:4px 0 0 0;">${emailSignature.name}</p>`);
+      }
+    }
+    if (emailSignature.role || emailSignature.company) parts.push(`<p style="margin:0;color:#6b7280;font-size:13px;">${[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>`);
+    const contactParts = [];
+    if (emailSignature.phone) contactParts.push(emailSignature.phone);
+    if (emailSignature.website) contactParts.push(emailSignature.website);
+    if (contactParts.length > 0) parts.push(`<p style="margin:2px 0 0 0;color:#9ca3af;font-size:12px;">${contactParts.join(" · ")}</p>`);
+    return parts.length > 0 ? `<br/><div style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px;">${parts.join("")}</div>` : "";
+  };
   const [showNotifications, setShowNotifications] = useState(false);
   const [viewingCustomer, setViewingCustomer] = useState<string | null>(null);
   const [meetingDate, setMeetingDate] = useState("");
@@ -230,7 +342,7 @@ export default function CRMPage() {
         return;
       }
 
-      const formattedBody = emailBody.split('\n').map(line => `<p style="margin:0 0 12px 0;">${line}</p>`).join('');
+      const formattedBody = emailBody.split('\n').map(line => `<p style="margin:0 0 12px 0;">${line}</p>`).join('') + renderSignatureHtml();
       const res = await fetch("/api/crm/send-campaign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -364,8 +476,16 @@ export default function CRMPage() {
   const handleAddContact = async () => {
     if (!form.firstName.trim() || !form.lastName.trim()) return;
     const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const c: Customer = { id, firstName: form.firstName.trim(), lastName: form.lastName.trim(), phone: form.phone.trim(), email: form.email.trim(), birthday: form.birthday, leadStatus: form.leadStatus, tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean), totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
+    const parsedTags = form.tags.split(",").map(t=>t.trim()).filter(Boolean);
+    const c: Customer = { id, firstName: form.firstName.trim(), lastName: form.lastName.trim(), phone: form.phone.trim(), email: form.email.trim(), birthday: form.birthday, leadStatus: form.leadStatus, tags: parsedTags, totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
     console.log("[CRM] Adding contact:", c.id, c.firstName, c.lastName);
+    // Auto-sync new tags to customTags in settings
+    const existingTagNames = customTags.map(t => t.name.toLowerCase());
+    const newTags = parsedTags.filter(t => !existingTagNames.includes(t.toLowerCase()));
+    if (newTags.length > 0) {
+      const tagColors = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#ef4444"];
+      setCustomTags((prev: any) => [...prev, ...newTags.map((name, i) => ({ name, color: tagColors[(prev.length + i) % tagColors.length] }))]);
+    }
     await addContact(c); resetForm(); setShowAddModal(false);
   };
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortDir(d => d==="asc"?"desc":"asc"); else { setSortKey(key); setSortDir("asc"); } };
@@ -383,9 +503,22 @@ export default function CRMPage() {
   }, [customers]);
 
   const filteredSortedCustomers = useMemo(() => {
-    if (!tagFilter) return sortedCustomers;
-    return sortedCustomers.filter(c => c.tags.includes(tagFilter));
-  }, [sortedCustomers, tagFilter]);
+    let list = sortedCustomers;
+    if (tagFilter) list = list.filter(c => c.tags.includes(tagFilter));
+    if (statusFilter) list = list.filter(c => c.leadStatus === statusFilter);
+    // Date filtering uses the contact ID timestamp (CUST-{timestamp}-xxx)
+    if (dateFilterFrom || dateFilterTo) {
+      list = list.filter(c => {
+        const match = c.id.match(/CUST-(\d+)/);
+        if (!match) return true;
+        const created = new Date(parseInt(match[1]));
+        if (dateFilterFrom && created < new Date(dateFilterFrom)) return false;
+        if (dateFilterTo) { const to = new Date(dateFilterTo); to.setDate(to.getDate()+1); if (created >= to) return false; }
+        return true;
+      });
+    }
+    return list;
+  }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo]);
 
   const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleSelectAll = () => { const visible = filteredSortedCustomers.map(c => c.id); const allSelected = visible.every(id => selectedIds.has(id)); if (allSelected) setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.delete(id)); return n; }); else setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.add(id)); return n; }); };
@@ -611,6 +744,9 @@ export default function CRMPage() {
 
   return (
     <div className="flex h-[calc(100vh-0px)] md:h-screen bg-[#F9FAFB] overflow-hidden -m-0">
+      {/* Load cursive font for email signatures */}
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet" />
       {/* ──── Mobile Sidebar Overlay ──── */}
       {isMobileSidebarOpen && (
         <div className="fixed inset-0 z-[80] lg:hidden" onClick={() => setIsMobileSidebarOpen(false)}>
@@ -922,7 +1058,65 @@ export default function CRMPage() {
                     <button onClick={() => setContactsViewMode("pipeline")} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors cursor-pointer ${contactsViewMode === "pipeline" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Pipeline View</button>
                   </div>
                   <div className="hidden sm:block w-px h-6 bg-slate-200"></div>
-                  <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"><Filter className="w-3.5 h-3.5" />Filter</button>
+                  <div className="relative">
+                    <button onClick={() => setShowFilterPanel(!showFilterPanel)} className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${hasActiveFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}>
+                      <Filter className="w-3.5 h-3.5" />Filter
+                      {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
+                    </button>
+                    {showFilterPanel && (
+                      <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-[#E5E7EB] shadow-xl z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filters</h4>
+                          <div className="flex items-center gap-2">
+                            {hasActiveFilters && <button onClick={clearAllFilters} className="text-[10px] font-semibold text-red-500 hover:text-red-600 cursor-pointer">Clear All</button>}
+                            <button onClick={() => setShowFilterPanel(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                        <div className="px-4 py-3 space-y-4 max-h-[400px] overflow-y-auto">
+                          {/* Tag Filter */}
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Tags</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {allTags.map(tag => (
+                                <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all cursor-pointer ${tagFilter === tag ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                                  {tag}
+                                </button>
+                              ))}
+                              {allTags.length === 0 && <p className="text-[11px] text-slate-400">No tags yet</p>}
+                            </div>
+                          </div>
+                          {/* Status Filter */}
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Lead Status</label>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {['New', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost'].map(status => (
+                                <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${statusFilter === status ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                                  {status}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Date Range */}
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Date Added</label>
+                            <div className="flex items-center gap-2">
+                              <input type="date" value={dateFilterFrom} onChange={e => setDateFilterFrom(e.target.value)} className="flex-1 h-8 px-2.5 text-xs rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                              <span className="text-[10px] text-slate-400">to</span>
+                              <input type="date" value={dateFilterTo} onChange={e => setDateFilterTo(e.target.value)} className="flex-1 h-8 px-2.5 text-xs rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                            </div>
+                          </div>
+                        </div>
+                        {/* Active filter summary */}
+                        {hasActiveFilters && (
+                          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/50">
+                            <p className="text-[10px] text-slate-500">
+                              Showing {filteredSortedCustomers.length} of {customers.length} contacts
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <button onClick={()=>setShowAddModal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"><UserPlus className="w-4 h-4" />Add Contact</button>
                 </div>
               </div>
@@ -1656,55 +1850,235 @@ export default function CRMPage() {
 
       {/* ══════ EMAIL CAMPAIGN MODAL ══════ */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); }}>
-          <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setShowSignatureEditor(false); setShowDrafts(false); }}>
+          <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col" style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#E5E7EB] shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] shrink-0 bg-gradient-to-r from-indigo-50/50 to-white">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center"><MailPlus className="w-4.5 h-4.5 text-indigo-600" /></div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+                  <MailPlus className="w-5 h-5 text-white" />
+                </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">New Email Campaign</h2>
-                  <p className="text-xs text-slate-400">{selectedCustomers.length} recipient{selectedCustomers.length !== 1 ? "s" : ""} selected</p>
+                  <h2 className="text-lg font-bold text-slate-800">Email Campaign</h2>
+                  <p className="text-xs text-slate-400 flex items-center gap-2">
+                    <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedCustomers.filter(c => c.email).length} recipients</span>
+                    <span className="text-slate-300">·</span>
+                    <span>{selectedCustomers.length} selected</span>
+                  </p>
                 </div>
               </div>
-              <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); }} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
+              <div className="flex items-center gap-2">
+                {/* Tab Switcher */}
+                <div className="flex bg-slate-100 rounded-lg p-0.5">
+                  <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Compose</button>
+                  <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Preview</button>
+                </div>
+                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
+              </div>
+            </div>
+
+            {/* Recipients Bar */}
+            <div className="px-6 py-3 border-b border-[#E5E7EB] bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To:</span>
+                {selectedCustomers.slice(0, 8).map(c => (
+                  <span key={c.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-600 shadow-sm">
+                    <span className="w-3.5 h-3.5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[7px] font-bold">{c.firstName[0]}</span>
+                    {c.firstName} {c.lastName}
+                  </span>
+                ))}
+                {selectedCustomers.length > 8 && <span className="text-[11px] text-slate-400 font-medium">+{selectedCustomers.length - 8} more</span>}
+              </div>
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-              {/* Recipients */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Recipients</label>
-                <div className="flex flex-wrap gap-2 p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB] min-h-[40px]">
-                  {selectedCustomers.map(c => (
-                    <span key={c.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-700 shadow-sm">
-                      <span className="w-4 h-4 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-[8px] font-bold">{c.firstName[0]}</span>
-                      {c.firstName} {c.lastName}
-                      {c.email && <span className="text-slate-400 ml-0.5">&lt;{c.email}&gt;</span>}
-                    </span>
-                  ))}
+            <div className="flex-1 overflow-hidden flex">
+              {/* Compose Panel — hidden when Preview tab is active on mobile */}
+              <div className={`flex-1 flex flex-col overflow-y-auto ${emailTab === "preview" ? "hidden" : ""}`}>
+                <div className="px-6 py-5 space-y-4 flex-1">
+                  {/* Subject */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Subject Line</label>
+                    <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full h-11 px-4 text-sm font-medium rounded-lg border border-[#E5E7EB] bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" placeholder="e.g. Exciting update for our valued partners" />
+                  </div>
+
+                  {/* Email Body — LARGER */}
+                  <div className="flex-1 flex flex-col">
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Email Body</label>
+                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className="w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed" placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
+                  </div>
+
+                  {/* Signature Block */}
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Edit3 className="w-3 h-3" />Email Signature</span>
+                      <button onClick={() => setShowSignatureEditor(!showSignatureEditor)} className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer">
+                        {emailSignature ? "Edit" : "+ Add Signature"}
+                      </button>
+                    </div>
+                    {emailSignature && !showSignatureEditor && (
+                      <div className="px-4 py-3 border-t border-slate-100 text-sm text-slate-600">
+                        {emailSignature.logoUrl && <img src={emailSignature.logoUrl} alt="Logo" className="max-h-12 max-w-[140px] mb-2" />}
+                        <p className="font-normal">{emailSignature.signoff},</p>
+                        {emailSignature.name && (
+                          <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-slate-800" : "font-bold"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
+                        )}
+                        {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
+                        {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" · ")}</p>}
+                      </div>
+                    )}
+                    {showSignatureEditor && (
+                      <div className="px-4 py-4 border-t border-slate-100 space-y-3">
+                        {/* Logo Upload */}
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1 block"><ImagePlus className="w-3 h-3" />Company Logo / Image</label>
+                          <div className="flex items-center gap-3">
+                            {sigForm.logoUrl ? (
+                              <div className="relative group">
+                                <img src={sigForm.logoUrl} alt="Logo" className="h-10 max-w-[120px] rounded border border-slate-200 object-contain bg-white p-1" />
+                                <button onClick={() => setSigForm(f => ({...f, logoUrl: ""}))} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><X className="w-2.5 h-2.5" /></button>
+                              </div>
+                            ) : null}
+                            <label className="px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-[11px] font-medium text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 transition-colors">
+                              <ImagePlus className="w-3 h-3" />{isUploadingLogo ? "Uploading..." : sigForm.logoUrl ? "Change" : "Upload Logo"}
+                              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                            </label>
+                            <span className="text-[9px] text-slate-400">Max 500KB</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Sign-off</label>
+                            <input value={sigForm.signoff} onChange={e => setSigForm(f => ({...f, signoff: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="Best regards" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Full Name</label>
+                            <input value={sigForm.name} onChange={e => setSigForm(f => ({...f, name: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="Lucas Huff" />
+                          </div>
+                        </div>
+                        {/* Cursive toggle */}
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100">
+                          <PenTool className="w-3.5 h-3.5 text-indigo-500" />
+                          <div className="flex-1">
+                            <p className="text-[11px] font-semibold text-slate-600">Cursive Signature</p>
+                            <p className="text-[9px] text-slate-400">Display your name in an elegant handwritten font</p>
+                          </div>
+                          <button onClick={() => setSigForm(f => ({...f, useCursive: !f.useCursive}))} className="cursor-pointer">
+                            {sigForm.useCursive ? <ToggleRight className="w-7 h-7 text-indigo-600" /> : <ToggleLeft className="w-7 h-7 text-slate-300" />}
+                          </button>
+                        </div>
+                        {sigForm.useCursive && sigForm.name && (
+                          <div className="px-3 py-2 bg-white rounded-lg border border-slate-200">
+                            <p className="text-[9px] text-slate-400 mb-1 uppercase tracking-wider font-semibold">Preview</p>
+                            <p className="text-2xl text-slate-800" style={{ fontFamily: "'Dancing Script', cursive" }}>{sigForm.name}</p>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Title / Role</label>
+                            <input value={sigForm.role} onChange={e => setSigForm(f => ({...f, role: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="CEO" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Company</label>
+                            <input value={sigForm.company} onChange={e => setSigForm(f => ({...f, company: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="SOL Theory" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Phone</label>
+                            <input value={sigForm.phone} onChange={e => setSigForm(f => ({...f, phone: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="+1 (555) 123-4567" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Website</label>
+                            <input value={sigForm.website} onChange={e => setSigForm(f => ({...f, website: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="www.soltheory.com" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <button onClick={saveSignature} className="px-4 py-1.5 rounded-lg bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer">Save Signature</button>
+                          <button onClick={() => setShowSignatureEditor(false)} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-medium text-slate-500 hover:bg-slate-50 cursor-pointer">Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Subject */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Subject Line</label>
-                <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full h-11 px-4 text-sm rounded-lg border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" placeholder="e.g. Exclusive offer for our valued customers" />
-              </div>
-
-              {/* Body */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Email Body</label>
-                <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={10} className="w-full px-4 py-3 text-sm rounded-lg border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed" placeholder="Write your email content here... You can use line breaks for paragraphs." />
+              {/* Preview Panel — full-width when Preview tab is active */}
+              <div className={`flex flex-col overflow-y-auto ${emailTab === "preview" ? "flex-1" : "hidden lg:flex lg:w-[380px] lg:shrink-0"} border-l border-[#E5E7EB] bg-slate-50`}>
+                <div className="px-5 py-3 border-b border-slate-200 bg-white">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />Email Preview</h4>
+                </div>
+                <div className="flex-1 p-5 flex justify-center">
+                  <div className={`bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full ${emailTab === "preview" ? "max-w-2xl" : ""}`}>
+                    {/* Fake email header */}
+                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">{(emailSignature?.name || user?.displayName || "Y")[0]}</div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{emailSignature?.name || user?.displayName || "You"}</p>
+                          <p className="text-[11px] text-slate-400">to {selectedCustomers.filter(c=>c.email).length} recipients</p>
+                        </div>
+                      </div>
+                      <p className={`font-bold text-slate-800 ${emailTab === "preview" ? "text-lg" : "text-sm"}`}>{emailSubject || "(No subject)"}</p>
+                    </div>
+                    {/* Email body preview */}
+                    <div className={`px-6 py-5 text-slate-700 leading-relaxed ${emailTab === "preview" ? "text-base min-h-[300px]" : "text-sm min-h-[150px]"}`}>
+                      {emailBody ? emailBody.split('\n').map((line, i) => (
+                        <p key={i} className="mb-3 last:mb-0">{line || <>&nbsp;</>}</p>
+                      )) : <p className="text-slate-400 italic">Your email content will appear here...</p>}
+                      {emailSignature && (
+                        <div className="border-t border-slate-100 pt-3 mt-6 text-slate-500">
+                          {emailSignature.logoUrl && <img src={emailSignature.logoUrl} alt="Logo" className="max-h-12 max-w-[140px] mb-2" />}
+                          <p>{emailSignature.signoff},</p>
+                          {emailSignature.name && (
+                            <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-slate-800" : "font-bold text-slate-700"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
+                          )}
+                          {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
+                          {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" · ")}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-[#E5E7EB] bg-slate-50/50 shrink-0">
-              <span className="text-xs text-slate-400">{selectedCustomers.filter(c => c.email).length} of {selectedCustomers.length} have email addresses</span>
+            <div className="flex items-center justify-between px-6 py-3 border-t border-[#E5E7EB] bg-slate-50/80 shrink-0">
               <div className="flex items-center gap-3">
-                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); }} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
-                <button disabled={!emailSubject.trim() || !emailBody.trim() || isSendingCampaign} onClick={handleSendCampaign} className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer">
+                <span className="text-[11px] text-slate-400 font-medium">{selectedCustomers.filter(c => c.email).length} of {selectedCustomers.length} have email</span>
+                {/* Draft controls */}
+                <div className="relative">
+                  <button onClick={() => setShowDrafts(!showDrafts)} className="text-[11px] text-indigo-600 font-semibold hover:text-indigo-700 cursor-pointer flex items-center gap-1">
+                    <Download className="w-3 h-3" />{campaignDrafts.length > 0 ? `Drafts (${campaignDrafts.length})` : "Drafts"}
+                  </button>
+                  {showDrafts && (
+                    <div className="absolute bottom-full left-0 mb-2 w-72 bg-white rounded-xl border border-slate-200 shadow-xl z-10 overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">Saved Drafts</span>
+                        <button onClick={() => setShowDrafts(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {campaignDrafts.length === 0 ? (
+                          <p className="px-4 py-4 text-xs text-slate-400 text-center">No drafts saved yet</p>
+                        ) : campaignDrafts.map(draft => (
+                          <div key={draft.id} className="px-4 py-2.5 border-b border-slate-50 hover:bg-slate-50 flex items-center justify-between group cursor-pointer" onClick={() => loadDraft(draft)}>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-700 truncate">{draft.subject || "(No subject)"}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{new Date(draft.savedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                            </div>
+                            <button onClick={(e) => { e.stopPropagation(); deleteDraft(draft.id); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 transition-all cursor-pointer"><Trash className="w-3 h-3" /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={saveDraft} disabled={!emailSubject.trim()} className="px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"><Download className="w-3 h-3" />Save Draft</button>
+                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
+                <button disabled={!emailSubject.trim() || !emailBody.trim() || isSendingCampaign} onClick={handleSendCampaign} className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-xs font-bold text-white hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer">
                   {isSendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   {isSendingCampaign ? "Sending..." : "Send Campaign"}
                 </button>

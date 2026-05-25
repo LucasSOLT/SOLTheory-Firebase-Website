@@ -48,6 +48,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Persistent audio element for mobile compatibility - created once, reused
   const persistentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const isPausedRef = useRef(isPaused);
   const [responseDelay, setResponseDelay] = useState(1500);
   const responseDelayRef = useRef(1500);
@@ -206,8 +207,35 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     if (!isOpen) return;
     cancelledRef.current = false;
 
+    // Window gesture handler to resume/unlock on first user tap/click inside the modal
+    const unlockOnGesture = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+      if (persistentAudioRef.current) {
+        const a = persistentAudioRef.current;
+        if (a.src && a.src.startsWith("data:")) {
+          a.play().then(() => {
+            a.pause();
+            a.currentTime = 0;
+          }).catch(() => {});
+        }
+      }
+    };
+    window.addEventListener("click", unlockOnGesture, { capture: true, passive: true });
+    window.addEventListener("touchstart", unlockOnGesture, { capture: true, passive: true });
+
     const initMic = async () => {
       try {
+        // --- WebKit/iOS audioSession override to ensure loudspeaker instead of quiet earpiece ---
+        if (typeof navigator !== "undefined" && (navigator as any).audioSession) {
+          try {
+            (navigator as any).audioSession.type = "auto";
+          } catch (e) {
+            console.warn("Failed to set audioSession to auto:", e);
+          }
+        }
+
         // Try with ideal constraints first, fall back to basic if device doesn't support them
         let stream: MediaStream;
         try {
@@ -218,15 +246,28 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           // Fallback: some devices/browsers don't support constraints
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
+
+        if (typeof navigator !== "undefined" && (navigator as any).audioSession) {
+          try {
+            (navigator as any).audioSession.type = "play-and-record";
+          } catch (e) {
+            console.warn("Failed to set audioSession to play-and-record:", e);
+          }
+        }
+
         if (cancelledRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
 
         streamRef.current = stream;
+
         // Cross-browser AudioContext (Safari uses webkitAudioContext)
         const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-        const ctx = new AudioCtx();
+        const globalCtx = (window as any).jarvisAudioContext;
+        const ctx = (globalCtx && globalCtx.state !== "closed") ? globalCtx : new AudioCtx();
+        (window as any).jarvisAudioContext = ctx;
+
         // iOS/Safari requires resume() after user gesture
         if (ctx.state === 'suspended') {
-          await ctx.resume();
+          await ctx.resume().catch(() => {});
         }
         audioCtxRef.current = ctx;
 
@@ -244,11 +285,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             osc.type = 'sine';
             osc.frequency.value = freq;
 
-            const panner = ctx.createStereoPanner();
-            panner.pan.value = (index / (frequencies.length - 1)) * 1.5 - 0.75; // spread stereo
-
-            osc.connect(panner);
-            panner.connect(masterGain);
+            if (ctx.createStereoPanner) {
+              const panner = ctx.createStereoPanner();
+              panner.pan.value = (index / (frequencies.length - 1)) * 1.5 - 0.75; // spread stereo
+              osc.connect(panner);
+              panner.connect(masterGain);
+            } else {
+              osc.connect(masterGain);
+            }
 
             osc.start(ctx.currentTime + index * 0.05); // slight stagger/arpeggiation
             osc.stop(ctx.currentTime + 2.5);
@@ -348,14 +392,31 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         // MOBILE FIX: "Unlock" a persistent audio element during this user-gesture-triggered flow.
         // Mobile browsers (iOS Safari, Chrome Android) block Audio.play() unless
         // the audio element was first played inside a direct user gesture.
-        if (!persistentAudioRef.current) {
-          const a = document.createElement('audio');
+        let a = (window as any).jarvisAudio;
+        if (!a) {
+          a = document.createElement('audio');
           a.setAttribute('playsinline', 'true');
           a.setAttribute('webkit-playsinline', 'true');
           // Play a tiny silent audio to unlock the element
           a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
           a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-          persistentAudioRef.current = a;
+          (window as any).jarvisAudio = a;
+        }
+        persistentAudioRef.current = a;
+
+        // Connect the audio element to the audio context so it outputs at full volume through the same Web Audio destination
+        if (ctx && a) {
+          let source = (window as any).jarvisAudioSource;
+          if (!source) {
+            try {
+              source = ctx.createMediaElementSource(a);
+              source.connect(ctx.destination);
+              (window as any).jarvisAudioSource = source;
+            } catch (e) {
+              console.warn("Failed to connect audio element to context:", e);
+            }
+          }
+          audioSourceRef.current = source;
         }
       } catch (err) {
         console.error("Microphone access denied:", err);
@@ -368,11 +429,27 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       cancelledRef.current = true;
       cancelAnimationFrame(animFrameRef.current);
       stopRecognition();
+      window.removeEventListener("click", unlockOnGesture, { capture: true });
+      window.removeEventListener("touchstart", unlockOnGesture, { capture: true });
       streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
-      audioCtxRef.current?.close();
-      audioCtxRef.current = null;
+      // Suspend audio context instead of closing it, to persist the connected audio source nodes safely
+      if (audioCtxRef.current) {
+        audioCtxRef.current.suspend().catch(() => {});
+      }
       analyserRef.current = null;
+
+      // Reset audio session category on exit
+      if (typeof navigator !== "undefined" && (navigator as any).audioSession) {
+        try {
+          (navigator as any).audioSession.type = "playback";
+          setTimeout(() => {
+            try {
+              (navigator as any).audioSession.type = "auto";
+            } catch {}
+          }, 300);
+        } catch {}
+      }
     };
   }, [isOpen, startRecognition, stopRecognition]);
 
@@ -396,12 +473,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         streamRef.current = null;
       }
 
-      // Kill audio context
+      // Suspend audio context instead of closing it, to persist the connected audio source nodes safely
       if (audioCtxRef.current) {
-        audioCtxRef.current.close().catch(() => { });
-        audioCtxRef.current = null;
+        audioCtxRef.current.suspend().catch(() => { });
       }
       analyserRef.current = null;
+      audioSourceRef.current = null;
 
       // Kill animation frame
       cancelAnimationFrame(animFrameRef.current);
