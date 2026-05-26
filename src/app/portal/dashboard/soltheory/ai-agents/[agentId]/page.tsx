@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
@@ -19,7 +19,7 @@ const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(3
 type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; date: string; internalDate?: number; };
-type AgentContact = { id: string; email: string; aliases: string; ignore: boolean; };
+type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
 
 
 const exploreItemsMeta: Record<string, { name: string, greeting: string, voiceId: string, color: string }> = {
@@ -55,11 +55,90 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
 
   // Observer Panel States
+  const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
+  const [isObserverOpen, setIsObserverOpen] = useState(false);
+  const [observerInputValue, setObserverInputValue] = useState("");
   const [incomingEmails, setIncomingEmails] = useState<EmailMeta[]>([]);
   const [ignoredEmails, setIgnoredEmails] = useState<string[]>([]);
+
+  const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
+
+  // Agent Eye States
+  const [agentEyeTab, setAgentEyeTab] = useState<'gmail' | 'outlook' | 'sms' | 'jarvis-view'>('gmail');
+  const [agentEyeDropdownOpen, setAgentEyeDropdownOpen] = useState(false);
+  const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
+  const [agentEyePos, setAgentEyePos] = useState({ x: 200, y: 120 });
+  const [agentEyeSize, setAgentEyeSize] = useState({ w: 420, h: 420 });
+  const agentEyeDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const agentEyeResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
+
+  // Keep a ref of current size so drag handler can access it without re-creating
+  const agentEyeSizeRef = useRef(agentEyeSize);
+  agentEyeSizeRef.current = agentEyeSize;
+
+  // Agent Eye drag handlers
+  const onAgentEyeDragStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    agentEyeDragRef.current = { startX: e.clientX, startY: e.clientY, origX: agentEyePos.x, origY: agentEyePos.y };
+  }, [agentEyePos]);
+
+  const onAgentEyeDragMove = useCallback((e: React.PointerEvent) => {
+    if (!agentEyeDragRef.current) return;
+    const dx = e.clientX - agentEyeDragRef.current.startX;
+    const dy = e.clientY - agentEyeDragRef.current.startY;
+    const maxX = window.innerWidth - agentEyeSizeRef.current.w;
+    const maxY = window.innerHeight - agentEyeSizeRef.current.h;
+    setAgentEyePos({
+      x: Math.max(0, Math.min(maxX, agentEyeDragRef.current.origX + dx)),
+      y: Math.max(0, Math.min(maxY, agentEyeDragRef.current.origY + dy))
+    });
+  }, []);
+
+  const onAgentEyeDragEnd = useCallback(() => {
+    agentEyeDragRef.current = null;
+  }, []);
+
+  // Keep a ref of current position so resize handler can access it
+  const agentEyePosRef = useRef(agentEyePos);
+  agentEyePosRef.current = agentEyePos;
+
+  // Agent Eye resize handlers
+  const onAgentEyeResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    agentEyeResizeRef.current = { startX: e.clientX, startY: e.clientY, origW: agentEyeSize.w, origH: agentEyeSize.h };
+  }, [agentEyeSize]);
+
+  const onAgentEyeResizeMove = useCallback((e: React.PointerEvent) => {
+    if (!agentEyeResizeRef.current) return;
+    const dx = e.clientX - agentEyeResizeRef.current.startX;
+    const dy = e.clientY - agentEyeResizeRef.current.startY;
+    const maxW = window.innerWidth - agentEyePosRef.current.x;
+    const maxH = window.innerHeight - agentEyePosRef.current.y;
+    setAgentEyeSize({
+      w: Math.max(240, Math.min(maxW, agentEyeResizeRef.current.origW + dx)),
+      h: Math.max(240, Math.min(maxH, agentEyeResizeRef.current.origH + dy))
+    });
+  }, []);
+
+  const onAgentEyeResizeEnd = useCallback(() => {
+    agentEyeResizeRef.current = null;
+  }, []);
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  // SMS Observer States
+  const [smsConversations, setSmsConversations] = useState<{contact: string; lastMessage: string; lastTime: string; direction: string; unreadCount: number; messageCount: number}[]>([]);
+  const [smsMessages, setSmsMessages] = useState<{id: string; from: string; to: string; body: string; direction: string; createdAt: string}[]>([]);
+  const [smsActiveContact, setSmsActiveContact] = useState<string | null>(null);
+  const [smsNewMessage, setSmsNewMessage] = useState('');
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsLoading, setSmsLoading] = useState(false);
+  const [smsTwilioNumber, setSmsTwilioNumber] = useState<string | null>(null);
+  const smsEndRef = useRef<HTMLDivElement>(null);
 
   const openVoiceSession = () => {
     if (typeof window !== "undefined") {
@@ -1030,14 +1109,90 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   };
 
   useEffect(() => {
-    if (isObserverOpen && isGmailConnected) {
+    if (isAgentEyeOpen && agentEyeTab === 'gmail' && isGmailConnected) {
       fetchPulse();
       const interval = setInterval(() => {
         fetchPulse();
       }, 10000);
       return () => clearInterval(interval);
     }
-  }, [isObserverOpen, isGmailConnected]);
+  }, [isAgentEyeOpen, agentEyeTab, isGmailConnected]);
+
+  // SMS fetch helpers
+  const fetchSmsConversations = useCallback(async () => {
+    if (!user?.uid || !firestore) return;
+    setSmsLoading(true);
+    try {
+      // check twilio number
+      const uDoc = await getDoc(doc(firestore, 'users', user.uid));
+      const twNum = uDoc.data()?.twilioPhoneNumber;
+      setSmsTwilioNumber(twNum || null);
+      if (!twNum) { setSmsLoading(false); return; }
+
+      const snap = await getDocs(query(collection(firestore, 'users', user.uid, 'sms_messages'), orderBy('createdAt', 'desc'), firestoreLimit(500)));
+      const convMap = new Map<string, any>();
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const contact = data.direction === 'inbound' ? data.from : data.to;
+        if (!convMap.has(contact)) convMap.set(contact, { contact, lastMessage: data.body || '', lastTime: data.createdAt, direction: data.direction, unreadCount: 0, messageCount: 0 });
+        const c = convMap.get(contact)!;
+        c.messageCount++;
+        if (data.direction === 'inbound' && !data.read) c.unreadCount++;
+      });
+      setSmsConversations(Array.from(convMap.values()).sort((a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime()));
+    } catch (e) { console.error('[SMS] fetch error', e); }
+    finally { setSmsLoading(false); }
+  }, [user?.uid, firestore]);
+
+  const fetchSmsThread = useCallback(async (contact: string) => {
+    if (!user?.uid || !firestore) return;
+    try {
+      const snap = await getDocs(query(collection(firestore, 'users', user.uid, 'sms_messages'), orderBy('createdAt', 'desc'), firestoreLimit(200)));
+      const normalized = contact.replace(/[^+\d]/g, '');
+      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any))
+        .filter((m: any) => (m.from || '').includes(normalized) || (m.to || '').includes(normalized))
+        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      setSmsMessages(msgs);
+      setTimeout(() => smsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch (e) { console.error('[SMS] thread error', e); }
+  }, [user?.uid, firestore]);
+
+  const sendSms = useCallback(async () => {
+    if (!smsNewMessage.trim() || !smsActiveContact || !smsTwilioNumber || !user?.uid || !firestore) return;
+    setSmsSending(true);
+    try {
+      const res = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: smsTwilioNumber, to: smsActiveContact, message: smsNewMessage })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      // Save to Firestore
+      await addDoc(collection(firestore, 'users', user.uid, 'sms_messages'), {
+        sid: data.sid, from: smsTwilioNumber, to: data.to || smsActiveContact,
+        body: smsNewMessage, direction: 'outbound', status: 'sent', createdAt: new Date().toISOString()
+      });
+      setSmsNewMessage('');
+      await fetchSmsThread(smsActiveContact);
+      await fetchSmsConversations();
+    } catch (e: any) { console.error('[SMS] send error', e); }
+    finally { setSmsSending(false); }
+  }, [smsNewMessage, smsActiveContact, smsTwilioNumber, user?.uid, firestore, fetchSmsThread, fetchSmsConversations]);
+
+  // SMS polling
+  useEffect(() => {
+    if (isAgentEyeOpen && agentEyeTab === 'sms') {
+      fetchSmsConversations();
+      const interval = setInterval(fetchSmsConversations, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [isAgentEyeOpen, agentEyeTab, fetchSmsConversations]);
+
+  // Refetch thread when active contact changes
+  useEffect(() => {
+    if (smsActiveContact && isAgentEyeOpen && agentEyeTab === 'sms') fetchSmsThread(smsActiveContact);
+  }, [smsActiveContact, isAgentEyeOpen, agentEyeTab, fetchSmsThread]);
 
   return (
     <div className="flex w-full flex-1 min-h-0 bg-slate-50 text-slate-800 overflow-hidden font-sans selection:bg-fuchsia-500/30">
@@ -1149,6 +1304,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             })()}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAgentEyeOpen(!isAgentEyeOpen)}
+              className={`flex items-center gap-2 px-3 h-9 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? 'bg-amber-50 text-amber-600 border-amber-300' : 'bg-white text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'}`}
+              title="Agent Eye"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="hidden md:inline">Agent Eye</span>
+            </button>
             <button
               onClick={() => { setIsKnowledgeBaseOpen(!isKnowledgeBaseOpen); }}
               className={`flex items-center gap-2 px-3 h-9 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'}`}
@@ -2132,6 +2295,391 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 {isSubmittingAgentRequest ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Request"}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agent Eye Floating Popup */}
+      {isAgentEyeOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            left: agentEyePos.x,
+            top: agentEyePos.y,
+            width: agentEyeSize.w,
+            height: agentEyeSize.h,
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+          className="rounded-2xl shadow-2xl border border-amber-200/60 bg-white/95 backdrop-blur-xl overflow-hidden"
+        >
+          {/* Title Bar — draggable */}
+          <div
+            onPointerDown={onAgentEyeDragStart}
+            onPointerMove={onAgentEyeDragMove}
+            onPointerUp={onAgentEyeDragEnd}
+            className="flex items-center justify-between h-11 px-4 shrink-0 select-none cursor-grab active:cursor-grabbing"
+            style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
+          >
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-white/90" />
+              <span className="text-xs font-bold uppercase tracking-widest text-white/95">Agent Eye</span>
+            </div>
+            <button
+              onClick={() => setIsAgentEyeOpen(false)}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
+
+          {/* Observer Dropdown Selector */}
+          <div className="relative shrink-0 border-b border-slate-200 bg-slate-50/80">
+            <button
+              onClick={() => setAgentEyeDropdownOpen(!agentEyeDropdownOpen)}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                {agentEyeTab === 'gmail' && <Mail className="w-4 h-4 text-red-500" />}
+                {agentEyeTab === 'outlook' && <Mail className="w-4 h-4 text-blue-500" />}
+                {agentEyeTab === 'sms' && <Smartphone className="w-4 h-4 text-purple-500" />}
+                {agentEyeTab === 'jarvis-view' && <Monitor className="w-4 h-4 text-amber-500" />}
+                <span>
+                  {agentEyeTab === 'gmail' && 'Gmail'}
+                  {agentEyeTab === 'outlook' && 'Outlook'}
+                  {agentEyeTab === 'sms' && 'SMS'}
+                  {agentEyeTab === 'jarvis-view' && 'Jarvis View'}
+                </span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${agentEyeDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {agentEyeDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-b-xl shadow-xl overflow-hidden">
+                {[
+                  { id: 'gmail' as const, label: 'Gmail', icon: <Mail className="w-4 h-4 text-red-500" />, ready: true },
+                  { id: 'outlook' as const, label: 'Outlook', icon: <Mail className="w-4 h-4 text-blue-500" />, ready: false },
+                  { id: 'sms' as const, label: 'SMS', icon: <Smartphone className="w-4 h-4 text-purple-500" />, ready: true },
+                  { id: 'jarvis-view' as const, label: 'Jarvis View', icon: <Monitor className="w-4 h-4 text-amber-500" />, ready: false },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { setAgentEyeTab(item.id); setAgentEyeDropdownOpen(false); }}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                      agentEyeTab === item.id ? 'bg-amber-50 font-semibold text-amber-700' : 'text-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </div>
+                    {!item.ready && <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Soon</span>}
+                    {agentEyeTab === item.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Observer Body */}
+          <div className="flex-1 overflow-auto flex flex-col">
+
+            {/* ──── Gmail Observer ──── */}
+            {agentEyeTab === 'gmail' && (
+              <div className="flex-1 flex flex-col h-full">
+                {!isGmailConnected ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
+                    <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                      <Mail className="w-7 h-7 text-red-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-slate-700">Gmail not connected</p>
+                      <p className="text-xs text-slate-400 mt-1">Connect Gmail in Brain &amp; Settings → Data</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col h-full">
+                    {/* Gmail-style Toolbar */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-white shrink-0">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={toggleSelectAll}
+                          className="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100 transition-colors"
+                          title="Select all"
+                        >
+                          <CheckSquare className={`w-4 h-4 ${selectedEmails.size > 0 ? 'text-blue-600' : 'text-slate-400'}`} />
+                        </button>
+                        <button
+                          onClick={fetchPulse}
+                          disabled={isPolling}
+                          className="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100 transition-colors"
+                          title="Refresh"
+                        >
+                          <RefreshCw className={`w-4 h-4 text-slate-400 ${isPolling ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {selectedEmails.size > 0 && (
+                          <button
+                            onClick={handleProcessInbox}
+                            disabled={isBatchSyncing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+                          >
+                            {isBatchSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                            Process {selectedEmails.size}
+                          </button>
+                        )}
+                        <span className="text-[11px] text-slate-400 tabular-nums ml-1">
+                          {incomingEmails.length} email{incomingEmails.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Email List — Gmail-style */}
+                    <div className="flex-1 overflow-y-auto">
+                      {incomingEmails.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                          <Inbox className="w-12 h-12 text-slate-200 mb-3" />
+                          <p className="text-sm font-medium text-slate-400">Inbox is empty</p>
+                          <p className="text-xs text-slate-300 mt-1">New emails will appear here</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100">
+                          {incomingEmails.map(email => {
+                            const isSelected = selectedEmails.has(email.id);
+                            const senderName = email.from.split('<')[0].trim().replace(/"/g, '') || email.from;
+                            const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
+                            const isIgnored = agentContacts.find(c => c.ignore && c.email.toLowerCase() === senderEmail.toLowerCase());
+                            if (isIgnored) return null;
+                            const dateStr = (() => {
+                              try {
+                                const d = email.internalDate ? new Date(Number(email.internalDate)) : new Date(email.date);
+                                const now = new Date();
+                                if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                                return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                              } catch { return ''; }
+                            })();
+                            return (
+                              <div
+                                key={email.id}
+                                onClick={() => toggleSelection({ stopPropagation: () => {} } as any, email.id)}
+                                className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors group ${
+                                  isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                                }`}
+                              >
+                                {/* Checkbox */}
+                                <div className="pt-0.5 shrink-0">
+                                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                                    isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover:border-slate-400'
+                                  }`}>
+                                    {isSelected && (
+                                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[13px] font-semibold text-slate-800 truncate">{senderName}</span>
+                                    <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">{dateStr}</span>
+                                  </div>
+                                  <p className="text-[12.5px] font-medium text-slate-700 truncate mt-0.5">{email.subject || '(no subject)'}</p>
+                                  <p className="text-[11.5px] text-slate-400 truncate mt-0.5 leading-snug">{email.snippet}</p>
+                                </div>
+                                {/* Delete */}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); }}
+                                  className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 rounded transition-all shrink-0 mt-0.5"
+                                  title="Delete"
+                                >
+                                  {isDeletingEmail === email.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" /> : <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ──── Coming Soon Screens ──── */}
+            {agentEyeTab === 'outlook' && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center">
+                  <Mail className="w-8 h-8 text-blue-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-base font-bold text-slate-700">Outlook</p>
+                  <p className="text-xs text-slate-400 mt-1.5 max-w-[200px]">Outlook inbox observer is coming soon</p>
+                </div>
+                <div className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-500 text-[10px] font-bold uppercase tracking-widest">Coming Soon</div>
+              </div>
+            )}
+
+
+
+            {agentEyeTab === 'sms' && (
+              <div className="flex-1 flex flex-col h-full">
+                {!smsTwilioNumber ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
+                    <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center">
+                      <Smartphone className="w-7 h-7 text-purple-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-slate-700">SMS not connected</p>
+                      <p className="text-xs text-slate-400 mt-1">Set up your Twilio number in Messages</p>
+                    </div>
+                  </div>
+                ) : !smsActiveContact ? (
+                  /* ── Conversation List ── */
+                  <div className="flex-1 flex flex-col h-full">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-white shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-purple-500" />
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Messages</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={fetchSmsConversations} className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition-colors">
+                          <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${smsLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <span className="text-[10px] text-slate-400 tabular-nums">{smsConversations.length}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {smsConversations.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full py-10 text-center">
+                          <MessageCircle className="w-10 h-10 text-slate-200 mb-2" />
+                          <p className="text-sm text-slate-400">No conversations yet</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100">
+                          {smsConversations.map(conv => {
+                            const digits = conv.contact.replace(/\D/g, '');
+                            const display = digits.length === 11 && digits.startsWith('1')
+                              ? `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`
+                              : digits.length === 10 ? `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}` : conv.contact;
+                            const timeStr = (() => { try { const d = new Date(conv.lastTime); const now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : d.toLocaleDateString([], {month:'short',day:'numeric'}); } catch { return ''; } })();
+                            return (
+                              <button key={conv.contact} onClick={() => setSmsActiveContact(conv.contact)}
+                                className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors text-left">
+                                <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
+                                  <span className="text-[11px] font-bold text-purple-600">{conv.contact.slice(-2)}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[13px] font-semibold text-slate-800 truncate">{display}</span>
+                                    <span className="text-[10px] text-slate-400 shrink-0">{timeStr}</span>
+                                  </div>
+                                  <p className="text-[11.5px] text-slate-400 truncate mt-0.5">
+                                    {conv.direction === 'outbound' ? 'You: ' : ''}{conv.lastMessage || 'No messages'}
+                                  </p>
+                                </div>
+                                {conv.unreadCount > 0 && (
+                                  <span className="bg-purple-500 text-white text-[9px] font-bold rounded-full w-4.5 h-4.5 px-1.5 py-0.5 flex items-center justify-center shrink-0 mt-1">{conv.unreadCount}</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Thread View ── */
+                  <div className="flex-1 flex flex-col h-full">
+                    {/* Thread Header */}
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-white shrink-0">
+                      <button onClick={() => { setSmsActiveContact(null); setSmsMessages([]); }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition-colors">
+                        <ArrowLeft className="w-4 h-4 text-slate-400" />
+                      </button>
+                      <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-purple-600">{smsActiveContact.slice(-2)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-semibold text-slate-800 truncate">
+                          {(() => { const d = smsActiveContact.replace(/\D/g,''); return d.length===11&&d.startsWith('1') ? `(${d.slice(1,4)}) ${d.slice(4,7)}-${d.slice(7)}` : d.length===10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : smsActiveContact; })()}
+                        </p>
+                        <p className="text-[9px] text-slate-400">SMS</p>
+                      </div>
+                      <button onClick={() => fetchSmsThread(smsActiveContact)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100">
+                        <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                      </button>
+                    </div>
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5" style={{ backgroundColor: '#f8f7f4' }}>
+                      {smsMessages.length === 0 ? (
+                        <div className="flex items-center justify-center h-full text-slate-400 text-xs">No messages</div>
+                      ) : smsMessages.map((msg, i) => {
+                        const isMe = msg.direction === 'outbound';
+                        return (
+                          <div key={msg.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] px-3 py-1.5 rounded-2xl text-[12px] leading-relaxed shadow-sm ${
+                              isMe ? 'bg-purple-500 text-white rounded-br-md' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-md'
+                            }`}>
+                              {msg.body || '📎 Media'}
+                              <div className={`text-[8px] mt-0.5 ${isMe ? 'text-purple-200 text-right' : 'text-slate-400'}`}>
+                                {(() => { try { return new Date(msg.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); } catch { return ''; } })()}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={smsEndRef} className="h-1" />
+                    </div>
+                    {/* Send Bar */}
+                    <div className="border-t border-slate-200 p-2 bg-white shrink-0">
+                      <form onSubmit={(e) => { e.preventDefault(); sendSms(); }} className="flex gap-1.5">
+                        <input
+                          value={smsNewMessage}
+                          onChange={e => setSmsNewMessage(e.target.value)}
+                          placeholder="Type a message..."
+                          className="flex-1 h-9 px-3 text-[12px] bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-300 text-slate-800 placeholder:text-slate-400"
+                          disabled={smsSending}
+                        />
+                        <button type="submit" disabled={!smsNewMessage.trim() || smsSending}
+                          className="w-9 h-9 flex items-center justify-center rounded-full bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-40 transition-colors">
+                          {smsSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {agentEyeTab === 'jarvis-view' && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center">
+                  <Monitor className="w-8 h-8 text-amber-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-base font-bold text-slate-700">Jarvis View</p>
+                  <p className="text-xs text-slate-400 mt-1.5 max-w-[220px]">Watch Jarvis browse, search, and act in real time</p>
+                </div>
+                <div className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-500 text-[10px] font-bold uppercase tracking-widest">Coming Soon</div>
+              </div>
+            )}
+
+          </div>
+
+          {/* Resize Handle — bottom-right corner */}
+          <div
+            onPointerDown={onAgentEyeResizeStart}
+            onPointerMove={onAgentEyeResizeMove}
+            onPointerUp={onAgentEyeResizeEnd}
+            className="absolute bottom-0 right-0 w-5 h-5 cursor-nwse-resize"
+            style={{ touchAction: 'none' }}
+          >
+            <svg viewBox="0 0 20 20" className="w-full h-full text-amber-400/60">
+              <line x1="14" y1="20" x2="20" y2="14" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="10" y1="20" x2="20" y2="10" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
           </div>
         </div>
       )}

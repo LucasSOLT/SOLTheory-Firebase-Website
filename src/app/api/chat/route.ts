@@ -402,9 +402,13 @@ export async function POST(req: Request) {
     if (brain) agentRole += `\n\nStrict operational instructions and persistent knowledge (Brain): ${brain}`;
 
     if (contacts && Array.isArray(contacts) && contacts.length > 0) {
-      agentRole += `\n\n[CONTACT GLOSSARY / ADDRESS BOOK]\nYou possess an address book that maps nicknames/aliases to real email addresses. Whenever the user asks you to email someone by name or nickname, you MUST look up their email address in this glossary and use the EXACT email address for the 'to' parameter. DO NOT use placeholder emails.\n`;
+      agentRole += `\n\n[CONTACT GLOSSARY / ADDRESS BOOK]\nYou possess an address book that maps nicknames/aliases to real email addresses AND phone numbers. Whenever the user asks you to email someone by name or nickname, you MUST look up their email address in this glossary and use the EXACT email address for the 'to' parameter. DO NOT use placeholder emails. When the user asks you to TEXT or MESSAGE someone by name, you MUST look up their PHONE NUMBER in this glossary and use it for the 'to' parameter of send_imessage.\n`;
       contacts.forEach(c => {
-        if (!c.ignore) agentRole += `- NAME/ALIASES: ${c.aliases} => EMAIL ADDRESS: ${c.email}\n`;
+        if (!c.ignore) {
+          let line = `- NAME/ALIASES: ${c.aliases} => EMAIL: ${c.email}`;
+          if (c.phone) line += ` | PHONE: ${c.phone}`;
+          agentRole += line + '\n';
+        }
       });
     }
 
@@ -1372,7 +1376,10 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               const userDoc = await adminDb.collection("users").doc(uid).get();
               const myNumber = userDoc.data()?.twilioPhoneNumber;
               if (!myNumber) throw new Error("Messaging not set up. Tell user to go to Messages page first.");
-              const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/sms/send`, {
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL !== 'http://localhost:3000'
+                ? process.env.NEXT_PUBLIC_APP_URL
+                : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+              const res = await fetch(`${baseUrl}/api/sms/send`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ from: myNumber, to: args.to, message: args.message }),
