@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, query, where, limit } from "firebase/firestore";
+import { firebaseConfig } from "@/firebase/config";
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const WEBHOOK_APP_NAME = "sms-webhook-test";
+const APP_NAME = "sms-webhook-test";
 
 function getTestApp() {
-  try { return getApp(WEBHOOK_APP_NAME); }
-  catch { return initializeApp(firebaseConfig, WEBHOOK_APP_NAME); }
+  try { return getApp(APP_NAME); }
+  catch { return initializeApp(firebaseConfig, APP_NAME); }
 }
 
 export async function POST(req: Request) {
@@ -43,10 +35,10 @@ export async function POST(req: Request) {
     steps.push(`User UID: ${uid}`);
 
     const docRef = await addDoc(collection(db, "users", uid, "sms_messages"), {
-      sid: "diag_client_sdk_" + Date.now(),
+      sid: "diag_" + Date.now(),
       from: from || "+17204606822",
       to: to || "+17203560494",
-      body: "🔧 Client SDK diagnostic test",
+      body: "🔧 Webhook diagnostic test",
       direction: "inbound",
       mediaUrls: [],
       createdAt: new Date().toISOString(),
