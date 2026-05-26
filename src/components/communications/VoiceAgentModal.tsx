@@ -72,7 +72,21 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       }
     }
   }, [isPaused, phase]);
-  useEffect(() => { responseDelayRef.current = responseDelay; }, [responseDelay]);
+  useEffect(() => {
+    responseDelayRef.current = responseDelay;
+    // If currently listening and there's an active silence timer, reset it with the new delay
+    if (phaseRef.current === "listening" && silenceTimeoutRef.current && !isPausedRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      const currentText = accumulatedTextRef.current.trim();
+      if (currentText && currentText.length > 2) {
+        silenceTimeoutRef.current = setTimeout(() => {
+          if (phaseRef.current === "listening" && !isPausedRef.current) {
+            finishUserTurnRef.current();
+          }
+        }, responseDelay);
+      }
+    }
+  }, [responseDelay]);
 
   // Auto-scroll
   useEffect(() => {
@@ -750,11 +764,28 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
 
-              <button onClick={finishUserTurn} disabled={phase !== "listening" || isMicMuted || isPaused}
-                className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
+              <button onClick={() => {
+                  if (phase === "speaking") {
+                    if (audioRef.current) {
+                      audioRef.current.pause();
+                      audioRef.current.src = "";
+                      audioRef.current = null;
+                    }
+                    if (speakingTimeoutRef.current) {
+                      clearTimeout(speakingTimeoutRef.current);
+                      speakingTimeoutRef.current = null;
+                    }
+                    setPhase("listening");
+                    phaseRef.current = "listening";
+                    if (!isMicMuted && !isPaused) startRecognition();
+                  } else {
+                    finishUserTurn();
+                  }
+                }} disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
+                className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
                   }`}
               >
-                {phase === "processing" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> ...</> : <><Hand className="w-3.5 h-3.5" /> Done</>}
+                {phase === "processing" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> ...</> : phase === "speaking" ? <><Play className="w-3.5 h-3.5" /> Resume</> : <><Hand className="w-3.5 h-3.5" /> Done</>}
               </button>
 
               <button onClick={() => setIsPaused(!isPaused)}
@@ -853,22 +884,19 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${g.dot[ac]}`} />
             <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${g.dotS[ac]}`} />
           </span>
-          {isPaused ? (
-            <span className="pr-1">Paused</span>
-          ) : (
-            <select
-              value={responseDelay}
-              onChange={(e) => setResponseDelay(Number(e.target.value))}
-              className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity font-bold tracking-widest"
-              title="Adjust how long Jarvis waits before responding"
-            >
-              <option value={500} className="text-slate-900">Fast (0.5s pause)</option>
-              <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
-              <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
-              <option value={5000} className="text-slate-900">Very Slow (5.0s pause)</option>
-            </select>
-          )}
-          {!isPaused && <ChevronDown className="w-3 h-3 opacity-50 -ml-1 pointer-events-none" />}
+          {isPaused && <span className="pr-0.5 text-amber-500">⏸</span>}
+          <select
+            value={responseDelay}
+            onChange={(e) => setResponseDelay(Number(e.target.value))}
+            className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity font-bold tracking-widest"
+            title="Adjust how long Jarvis waits before responding"
+          >
+            <option value={500} className="text-slate-900">Fast (0.5s pause)</option>
+            <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
+            <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
+            <option value={5000} className="text-slate-900">Very Slow (5.0s pause)</option>
+          </select>
+          <ChevronDown className="w-3 h-3 opacity-50 -ml-1 pointer-events-none" />
         </div>
         
         <h2 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-2">{agentName}</h2>
@@ -906,11 +934,29 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>
 
-          <button onClick={finishUserTurn} disabled={phase !== "listening" || isMicMuted || isPaused}
-            className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
+          <button onClick={() => {
+              if (phase === "speaking") {
+                // Interrupt AI audio and resume listening
+                if (audioRef.current) {
+                  audioRef.current.pause();
+                  audioRef.current.src = "";
+                  audioRef.current = null;
+                }
+                if (speakingTimeoutRef.current) {
+                  clearTimeout(speakingTimeoutRef.current);
+                  speakingTimeoutRef.current = null;
+                }
+                setPhase("listening");
+                phaseRef.current = "listening";
+                if (!isMicMuted && !isPaused) startRecognition();
+              } else {
+                finishUserTurn();
+              }
+            }} disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
+            className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
               }`}
           >
-            {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : <><Hand className="w-5 h-5" /> <span>I&apos;m Done Speaking</span></>}
+            {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Play className="w-5 h-5" /> <span>Resume Speaking</span></> : <><Hand className="w-5 h-5" /> <span>I&apos;m Done Speaking</span></>}
           </button>
 
           <button onClick={() => setIsPaused(!isPaused)}

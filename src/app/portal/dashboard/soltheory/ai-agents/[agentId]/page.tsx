@@ -2016,11 +2016,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               </button>
                             </form>
                             <button
-                              onClick={openVoiceSession}
+                              onClick={() => {
+                                setSelectedExploreItem('Conversational AI');
+                                openVoiceSession();
+                              }}
                               className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 shrink-0 cursor-pointer"
                               title="Talk to Jarvis"
                             >
-                              <Mic className="w-5 h-5" />
+                              <div className="relative flex items-center justify-center w-5 h-5">
+                                <AudioLines className="w-5 h-5" />
+                                <Sparkles className="w-2.5 h-2.5 absolute -top-1 -right-1 text-indigo-200" />
+                              </div>
                             </button>
                           </div>
                         </div>
