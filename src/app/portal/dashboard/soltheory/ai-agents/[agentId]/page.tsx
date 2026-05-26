@@ -95,10 +95,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [totalGroqTokens, setTotalGroqTokens] = useState(0);
   const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
-  const [isObserverOpen, setIsObserverOpen] = useState(false);
-  const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
-  const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
-  const [observerInputValue, setObserverInputValue] = useState("");
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
@@ -147,7 +143,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   };
 
   const [agentContacts, setAgentContacts] = useState<AgentContact[]>([]);
-  const [isContactsOpen, setIsContactsOpen] = useState(false);
 
   const toggleSelection = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -298,7 +293,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         if (lightboxImage) setLightboxImage(null);
         if (isObserverFullScreen) setIsObserverFullScreen(false);
         if (isKnowledgeBaseOpen) setIsKnowledgeBaseOpen(false);
-        if (isContactsOpen) setIsContactsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -307,7 +301,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isModelDropdownOpen, showCostBreakdown, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen, isContactsOpen]);
+  }, [isModelDropdownOpen, showCostBreakdown, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string }> = {
     "jarvis": {
@@ -1131,45 +1125,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           ))}
         </div>
 
-        {/* Contact Glossary Button */}
-        <div className="px-4 py-3 border-t border-slate-200 shrink-0">
-          <Button variant="outline" className={`w-full justify-start gap-2 h-10 border-slate-300 transition-colors ${isContactsOpen ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-emerald-600'}`} onClick={() => setIsContactsOpen(!isContactsOpen)}>
-            <Users className="w-4 h-4" /> Contact Glossary
-          </Button>
-        </div>
 
-        {/* Inline Contact Glossary Panel */}
-        {isContactsOpen && (
-          <div className="border-t border-slate-200 bg-slate-50 flex flex-col overflow-hidden" style={{ maxHeight: '50%' }}>
-            <div className="px-4 py-3 shrink-0">
-              <p className="text-[10px] text-slate-500 font-medium">Map email addresses to nicknames so the AI knows who you mean. Toggle to hide senders from the inbox stream.</p>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-3 space-y-3">
-              {agentContacts.map(contact => (
-                <div key={contact.id} className={`p-3 rounded-xl border relative shadow-sm ${contact.ignore ? 'bg-slate-200/30 border-slate-300 opacity-70' : 'bg-white border-slate-200'}`}>
-                  <button onClick={() => setAgentContacts(prev => prev.filter(c => c.id !== contact.id))} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-400 rounded-md transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                  <div className="space-y-2 mt-0.5">
-                    <div>
-                      <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</label>
-                      <input type="email" placeholder="steve@soltheory.com" value={contact.email} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, email: e.target.value } : c))} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900" />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Aliases</label>
-                      <input type="text" placeholder="Steve, Stevie" value={contact.aliases} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, aliases: e.target.value } : c))} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900" />
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer w-max">
-                      <input type="checkbox" checked={contact.ignore} onChange={e => setAgentContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ignore: e.target.checked } : c))} className="w-3.5 h-3.5 rounded appearance-none border border-slate-300 checked:bg-amber-500 checked:border-amber-500" />
-                      <span className={`text-[10px] font-bold ${contact.ignore ? 'text-amber-500' : 'text-slate-400'}`}>Ignore Sender</span>
-                    </label>
-                  </div>
-                </div>
-              ))}
-              <Button onClick={() => setAgentContacts([...agentContacts, { id: Date.now().toString(), email: '', aliases: '', ignore: false }])} variant="outline" className="w-full border-dashed border-slate-300 bg-white text-slate-500 gap-2 h-8 text-xs hover:border-slate-400 hover:text-slate-700 transition-colors">
-                <Plus className="w-3.5 h-3.5" /> Add Contact
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Main UI Pane */}
@@ -1924,144 +1880,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
 
 
-          {/* RIGHT OBSERVER PANEL Ribbon Button */}
-          {params.agentId === "jarvis" && !isObserverOpen && (
-            <button
-              onClick={() => setIsObserverOpen(true)}
-              className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300 transition-all duration-200"
-              title="Open Observer Panel"
-            >
-              <Mail className="w-5 h-5" />
-            </button>
-          )}
 
-          {/* THE OBSERVER PANEL SLIDE-OUT */}
-          {isObserverOpen && (
-            <div className={`${isObserverFullScreen ? 'fixed inset-0 w-full z-50 bg-white' : 'w-[450px] bg-white/80 '} border-l border-slate-200 backdrop-blur-3xl shrink-0 flex flex-col relative z-20 shadow-[-20px_0_50px_rgba(0,0,0,0.08)] animate-in ${isObserverFullScreen ? 'zoom-in-95' : 'slide-in-from-right'} duration-500`}>
-              <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Eye className="w-5 h-5 text-emerald-500" /> Observer Panel {isPolling && <Loader2 className="w-4 h-4 animate-spin text-emerald-500 ml-2" />}</h3>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mt-1">Live Inbox Stream</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setIsObserverFullScreen(!isObserverFullScreen)} className="text-slate-500 hover:text-slate-900 rounded-full">
-                    {isObserverFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setIsObserverOpen(false)} className="text-slate-500 hover:text-slate-900 rounded-full">
-                    <X className="w-5 h-5" />
-                  </Button>
-                </div>
-              </div>
-
-              {isGmailConnected ? (
-                <>
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col gap-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700 font-medium">Inbox</span>
-                      <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${selectedEmails.size >= 20 ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200'}`}>{selectedEmails.size}/20 selected</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button onClick={toggleSelectAll} variant="outline" className="w-full h-9 bg-white border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs gap-2">
-                        <CheckSquare className="w-3.5 h-3.5 text-emerald-500" /> {selectedEmails.size === incomingEmails.filter(e => !agentContacts.find(c => c.ignore && c.email.toLowerCase() === (e.from.split('<').pop()?.replace('>', '') || '').toLowerCase())).length && incomingEmails.length > 0 ? 'Deselect All' : 'Select All'}
-                      </Button>
-                      <Button onClick={handleProcessInbox} disabled={selectedEmails.size === 0 || isBatchSyncing || isTyping} className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-0 shadow-sm disabled:opacity-50 transition-all gap-1 truncate">
-                        {isBatchSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Bot className="w-3.5 h-3.5 shrink-0" />} <span className="truncate">Draft Replies for ({selectedEmails.size})</span>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-4 scrollbar-thin bg-white">
-                    {incomingEmails.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 p-8 text-center">
-                        <Mail className="w-10 h-10 opacity-20" />
-                        <p className="text-sm">The inbox queue is currently empty. The agent has no pending executions.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {incomingEmails.filter(email => {
-                          const cleanFrom = email.from.split('<').pop()?.replace('>', '')?.trim() || "";
-                          const contactMatch = agentContacts.find(c => c.email.toLowerCase() === cleanFrom.toLowerCase());
-                          if (contactMatch && contactMatch.ignore) return false;
-                          return true;
-                        }).map(email => {
-                          const senderName = email.from.split('<')[0].trim().replace(/"/g, '');
-                          const isSelected = selectedEmails.has(email.id);
-                          const isExpanded = expandedEmailId === email.id;
-                          const ts = email.internalDate || 0;
-                          const dateLabel = ts > 0
-                            ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' \u2022 ' + new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : '';
-                          return (
-                            <div key={email.id} onClick={() => setExpandedEmailId(isExpanded ? null : email.id)} className={`p-4 rounded-xl border transition-all group relative cursor-pointer ${isSelected ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
-                              <button
-                                type="button"
-                                onClick={(e) => toggleSelection(e, email.id)}
-                                className={`absolute top-3.5 left-3.5 w-4 h-4 rounded border-2 flex items-center justify-center transition-all z-10 flex-shrink-0 ${isSelected ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-slate-300 hover:border-emerald-400'}`}
-                              >
-                                {isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}
-                              </button>
-                              <div className="absolute top-3.5 right-3.5 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); }} className="p-1.5 rounded-md bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-colors" title="Delete Email">
-                                  {isDeletingEmail === email.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                </button>
-                              </div>
-                              <div className="flex justify-between items-start mb-1 gap-2 pl-7">
-                                <span className="font-bold text-sm text-slate-800 truncate">{senderName}</span>
-                                <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0 font-medium tabular-nums">{dateLabel}</span>
-                              </div>
-                              <h4 className={`text-sm text-emerald-600 font-medium mb-1.5 pl-7 ${isExpanded ? '' : 'truncate'}`}>{email.subject}</h4>
-                              <p className={`text-xs text-slate-500 leading-relaxed pl-7 break-words ${isExpanded ? '' : 'line-clamp-2'}`}>{(email.snippet || '').replace(/&#39;/g, "'").replace(/&quot;/g, '"')}</p>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  {/* Mini chat at the bottom of Observer Panel */}
-                  <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center gap-2 relative shrink-0">
-                    <Bot className={`w-5 h-5 absolute left-7 ${agent.accent}`} />
-                    <Input
-                      placeholder={`Instruct ${agent.name.split(' ')[0]} to modify these emails...`}
-                      className="pl-10 pr-10 bg-white border-slate-200 text-sm h-11 text-slate-900 placeholder:text-slate-400 focus-visible:ring-emerald-500"
-                      value={observerInputValue}
-                      onChange={e => setObserverInputValue(e.target.value)}
-                      onPaste={handlePaste}
-                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleObserverChat()}
-                    />
-                    <Button size="icon" onClick={handleObserverChat} disabled={!observerInputValue.trim() || isTyping} className="absolute right-6 top-1/2 -translate-y-1/2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white w-7 h-7 disabled:opacity-30">
-                      {isTyping ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                /* Gmail Disconnected State */
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-5">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center border border-amber-500/20 shadow-inner">
-                      <Mail className="w-9 h-9 text-amber-400" />
-                    </div>
-                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-                      <X className="w-3 h-3 text-white" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">Gmail Disconnected</h3>
-                    <p className="text-sm text-slate-500 mt-2 max-w-[280px] leading-relaxed">
-                      Connect a Gmail account to enable real-time inbox monitoring and autonomous email drafting.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid}&agentId=${params.agentId}&origin=soltheory`}
-                    disabled={!user?.uid}
-                    className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-xl shadow-emerald-500/20 px-8 h-12 rounded-full font-bold transition-all transform hover:scale-105 active:scale-95 gap-2 border-0"
-                  >
-                    <Mail className="w-4 h-4" /> Connect Gmail Account
-                  </Button>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Requires Google OAuth Authorization</p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

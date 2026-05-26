@@ -98,10 +98,6 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const [totalGroqTokens, setTotalGroqTokens] = useState(0);
   const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
-  const [isObserverOpen, setIsObserverOpen] = useState(false);
-  const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
-  const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
-  const [observerInputValue, setObserverInputValue] = useState("");
   const [isGmailConnected, setIsGmailConnected] = useState(false);
 
   // Agent Knowledge Base Config
@@ -965,111 +961,6 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
         )}
       </div>
 
-      {/* RIGHT OBSERVER PANEL Ribbon Button */}
-      {params.agentId === "jarvis" && !isObserverOpen && (
-        <button
-          onClick={() => setIsObserverOpen(true)}
-          className="absolute top-1/2 right-0 z-30 transform -translate-y-1/2 bg-slate-200  hover:bg-slate-300 text-slate-700  p-2 rounded-l-xl shadow-md border border-r-0 border-slate-300  transition-all duration-200"
-          title="Open Observer Panel"
-        >
-          <Mail className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* RIGHT OBSERVER PANEL (Shown for email agents) */}
-      {params.agentId === "jarvis" && (
-        <div className={`transition-all duration-300 ease-in-out shrink-0 border-slate-200  bg-slate-50  overflow-hidden relative ${isObserverOpen ? 'w-full md:w-[380px] border-l opacity-100 flex flex-col z-20' : 'w-0 opacity-0 border-l-0 border-none'}`}>
-          <div className="h-14 flex items-center justify-between px-5 border-b border-slate-200  shrink-0 bg-white ">
-            <div className="font-semibold text-[15px] flex items-center gap-2 text-slate-800 ">
-              <Mail className="w-[18px] h-[18px] text-green-500" />
-              Inbox Observer {isPolling && <Loader2 className="w-4 h-4 animate-spin text-emerald-500 ml-2" />}
-            </div>
-            <div className="flex items-center gap-3">
-              {isPolling ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
-              ) : (
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" title="Polling active" />
-              )}
-              <Button variant="ghost" size="icon" onClick={() => setIsObserverOpen(false)} className="h-8 w-8 text-slate-500 hover:text-slate-800 ">
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {isGmailConnected ? (
-            <>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-                {incomingEmails.length === 0 || incomingEmails.filter(e => !ignoredEmails.includes(e.from)).length === 0 ? (
-                  <div className="text-center text-slate-500  text-sm mt-12 flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-slate-200  flex items-center justify-center">
-                      <Mail className="w-5 h-5 text-slate-400" />
-                    </div>
-                    <span>No valid unread emails detected.<br />Polling in background...</span>
-                  </div>
-                ) : (
-                  incomingEmails
-                    .filter(email => !ignoredEmails.includes(email.from))
-                    .map(email => (
-                      <div key={email.id} className="bg-white  border border-slate-200  rounded-lg p-3.5 text-sm flex flex-col gap-1.5 shadow-sm hover:shadow-md transition-shadow relative group">
-                        <div className="flex items-start justify-between">
-                          <div className="font-semibold text-slate-800  truncate pr-6">{email.from.replace(/"/g, '')}</div>
-
-                          {/* Three dots menu */}
-                          <div className="absolute right-2 top-2 z-10">
-                            <button onClick={() => setOpenEmailDropdown(openEmailDropdown === email.id ? null : email.id)} className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100/80 transition-colors">
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                            {openEmailDropdown === email.id && (
-                              <div className="absolute right-0 top-full mt-1 w-[220px] bg-white  border border-slate-200  rounded-md shadow-lg py-1">
-                                <button onClick={() => handleIgnoreEmail(email)} className="w-full text-left px-3 py-2 text-xs text-red-600  hover:bg-red-50/20 transition-colors">
-                                  Stop replying to this email address
-                                </button>
-                                <button onClick={() => setOpenEmailDropdown(null)} className="w-full text-left px-3 py-2 text-xs text-slate-600  hover:bg-slate-100 transition-colors">
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-slate-700  font-medium truncate text-[13px]">{email.subject}</div>
-                        <div className="text-xs text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{email.snippet.replace(/&#39;/g, "'")}</div>
-                        <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">{new Date(email.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                      </div>
-                    ))
-                )}
-              </div>
-
-              <div className="p-4 border-t border-slate-200  shrink-0 bg-white ">
-                <Button
-                  onClick={handleBatchSync}
-                  disabled={isBatchSyncing || incomingEmails.length === 0}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 shadow-sm h-11 disabled:bg-slate-300 disabled: disabled:text-slate-500"
-                >
-                  {isBatchSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {isBatchSyncing ? "Drafting..." : `Draft Replies (Top ${Math.min(incomingEmails.length, 15)})`}
-                </Button>
-                <div className="flex items-center justify-between justify-center mt-2 px-1">
-                  <div className="text-[10px] text-slate-400  flex items-center gap-1 font-medium">Automatic sweeps draft top {Math.min(incomingEmails.length, 15)}</div>
-                  <div className="w-6 h-6 rounded-md bg-slate-100  flex items-center justify-center text-[10px] font-bold text-slate-600 ">
-                    N'
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-              <div className="bg-slate-200  rounded-full p-4 mb-2">
-                <Mail className="w-8 h-8 text-slate-400" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 ">Gmail Disconnected</h3>
-              <p className="text-sm text-slate-500 ">Connect a dedicated Gmail account for this agent to enable real-time tracking.</p>
-              <Button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid}&agentId=${params.agentId}`} className="mt-4 bg-primary text-primary-foreground shadow-sm w-full font-semibold">
-                Connect Gmail
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
 
       <VoiceAgentModal
         isOpen={isVoiceModalOpen}
