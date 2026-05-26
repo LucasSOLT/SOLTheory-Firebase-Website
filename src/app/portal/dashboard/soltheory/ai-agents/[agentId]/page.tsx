@@ -69,8 +69,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
   const [agentEyePos, setAgentEyePos] = useState({ x: 200, y: 120 });
   const [agentEyeSize, setAgentEyeSize] = useState({ w: 420, h: 420 });
+  const [agentEyeExpanded, setAgentEyeExpanded] = useState(false);
   const agentEyeDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const agentEyeResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
+  const agentEyeResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
 
   // Keep a ref of current size so drag handler can access it without re-creating
   const agentEyeSizeRef = useRef(agentEyeSize);
@@ -103,28 +104,93 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const agentEyePosRef = useRef(agentEyePos);
   agentEyePosRef.current = agentEyePos;
 
-  // Agent Eye resize handlers
-  const onAgentEyeResizeStart = useCallback((e: React.PointerEvent) => {
+  // Agent Eye resize handlers — supports all edges and corners
+  const onAgentEyeEdgeResizeStart = useCallback((edge: string) => (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    agentEyeResizeRef.current = { startX: e.clientX, startY: e.clientY, origW: agentEyeSize.w, origH: agentEyeSize.h };
-  }, [agentEyeSize]);
+    agentEyeResizeRef.current = {
+      startX: e.clientX, startY: e.clientY,
+      origW: agentEyeSize.w, origH: agentEyeSize.h,
+      origX: agentEyePos.x, origY: agentEyePos.y,
+      edge
+    };
+  }, [agentEyeSize, agentEyePos]);
 
   const onAgentEyeResizeMove = useCallback((e: React.PointerEvent) => {
     if (!agentEyeResizeRef.current) return;
-    const dx = e.clientX - agentEyeResizeRef.current.startX;
-    const dy = e.clientY - agentEyeResizeRef.current.startY;
-    const maxW = window.innerWidth - agentEyePosRef.current.x;
-    const maxH = window.innerHeight - agentEyePosRef.current.y;
-    setAgentEyeSize({
-      w: Math.max(240, Math.min(maxW, agentEyeResizeRef.current.origW + dx)),
-      h: Math.max(240, Math.min(maxH, agentEyeResizeRef.current.origH + dy))
-    });
+    const { startX, startY, origW, origH, origX, origY, edge } = agentEyeResizeRef.current;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    let newW = origW, newH = origH, newX = origX, newY = origY;
+
+    if (edge.includes('r')) { newW = Math.max(280, Math.min(window.innerWidth - origX, origW + dx)); }
+    if (edge.includes('b')) { newH = Math.max(280, Math.min(window.innerHeight - origY, origH + dy)); }
+    if (edge.includes('l')) {
+      const dw = Math.min(dx, origW - 280);
+      newW = origW - dw;
+      newX = Math.max(0, origX + dw);
+    }
+
+    setAgentEyeSize({ w: newW, h: newH });
+    if (edge.includes('l')) setAgentEyePos(prev => ({ ...prev, x: newX }));
   }, []);
 
   const onAgentEyeResizeEnd = useCallback(() => {
     agentEyeResizeRef.current = null;
+  }, []);
+
+  // Double-click header to toggle 2x expanded size
+  const onAgentEyeDoubleClick = useCallback(() => {
+    if (agentEyeExpanded) {
+      setAgentEyeSize({ w: 420, h: 420 });
+      setAgentEyeExpanded(false);
+    } else {
+      const targetW = 780, targetH = 680;
+      const x = Math.max(0, Math.min(agentEyePos.x, window.innerWidth - targetW));
+      const y = Math.max(0, Math.min(agentEyePos.y, window.innerHeight - targetH));
+      setAgentEyeSize({ w: targetW, h: targetH });
+      setAgentEyePos({ x, y });
+      setAgentEyeExpanded(true);
+    }
+  }, [agentEyeExpanded, agentEyePos]);
+
+  // SMS Sound Effects
+  const playSmsSound = useCallback((type: 'sent' | 'received') => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (type === 'sent') {
+        // Swoosh — ascending tone
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.25);
+      } else {
+        // Ding — two-tone chime
+        [600, 800].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const t = ctx.currentTime + i * 0.12;
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+          osc.start(t);
+          osc.stop(t + 0.3);
+        });
+      }
+      setTimeout(() => ctx.close(), 500);
+    } catch { /* audio not available */ }
   }, []);
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
@@ -1139,10 +1205,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         c.messageCount++;
         if (data.direction === 'inbound' && !data.read) c.unreadCount++;
       });
-      setSmsConversations(Array.from(convMap.values()).sort((a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime()));
+      const newConvos = Array.from(convMap.values()).sort((a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime());
+      // Detect new inbound messages and play sound
+      if (smsConversations.length > 0 && newConvos.length > 0) {
+        const oldTotal = smsConversations.reduce((sum, c) => sum + c.messageCount, 0);
+        const newTotal = newConvos.reduce((sum: number, c: any) => sum + c.messageCount, 0);
+        const hasNewInbound = newConvos.some((nc: any) => {
+          const oc = smsConversations.find(c => c.contact === nc.contact);
+          return oc && nc.messageCount > oc.messageCount && nc.direction === 'inbound';
+        });
+        if (newTotal > oldTotal && hasNewInbound) playSmsSound('received');
+      }
+      setSmsConversations(newConvos);
     } catch (e) { console.error('[SMS] fetch error', e); }
     finally { setSmsLoading(false); }
-  }, [user?.uid, firestore]);
+  }, [user?.uid, firestore, smsConversations, playSmsSound]);
 
   const fetchSmsThread = useCallback(async (contact: string) => {
     if (!user?.uid || !firestore) return;
@@ -1173,12 +1250,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         sid: data.sid, from: smsTwilioNumber, to: data.to || smsActiveContact,
         body: smsNewMessage, direction: 'outbound', status: 'sent', createdAt: new Date().toISOString()
       });
+      playSmsSound('sent');
       setSmsNewMessage('');
       await fetchSmsThread(smsActiveContact);
       await fetchSmsConversations();
     } catch (e: any) { console.error('[SMS] send error', e); }
     finally { setSmsSending(false); }
-  }, [smsNewMessage, smsActiveContact, smsTwilioNumber, user?.uid, firestore, fetchSmsThread, fetchSmsConversations]);
+  }, [smsNewMessage, smsActiveContact, smsTwilioNumber, user?.uid, firestore, fetchSmsThread, fetchSmsConversations, playSmsSound]);
 
   // SMS polling
   useEffect(() => {
@@ -2314,11 +2392,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           }}
           className="rounded-2xl shadow-2xl border border-amber-200/60 bg-white/95 backdrop-blur-xl overflow-hidden"
         >
-          {/* Title Bar — draggable */}
+          {/* Title Bar — draggable, double-click to expand */}
           <div
             onPointerDown={onAgentEyeDragStart}
             onPointerMove={onAgentEyeDragMove}
             onPointerUp={onAgentEyeDragEnd}
+            onDoubleClick={onAgentEyeDoubleClick}
             className="flex items-center justify-between h-11 px-4 shrink-0 select-none cursor-grab active:cursor-grabbing"
             style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
           >
@@ -2669,10 +2748,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
           {/* Resize Handle — bottom-right corner */}
           <div
-            onPointerDown={onAgentEyeResizeStart}
+            onPointerDown={onAgentEyeEdgeResizeStart('br')}
             onPointerMove={onAgentEyeResizeMove}
             onPointerUp={onAgentEyeResizeEnd}
-            className="absolute bottom-0 right-0 w-5 h-5 cursor-nwse-resize"
+            className="absolute bottom-0 right-0 w-5 h-5 cursor-nwse-resize z-10"
             style={{ touchAction: 'none' }}
           >
             <svg viewBox="0 0 20 20" className="w-full h-full text-amber-400/60">
@@ -2681,6 +2760,29 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="1.5" />
             </svg>
           </div>
+          {/* Resize Handle — bottom-left corner */}
+          <div
+            onPointerDown={onAgentEyeEdgeResizeStart('bl')}
+            onPointerMove={onAgentEyeResizeMove}
+            onPointerUp={onAgentEyeResizeEnd}
+            className="absolute bottom-0 left-0 w-5 h-5 cursor-nesw-resize z-10"
+            style={{ touchAction: 'none', transform: 'scaleX(-1)' }}
+          >
+            <svg viewBox="0 0 20 20" className="w-full h-full text-amber-400/60">
+              <line x1="14" y1="20" x2="20" y2="14" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="10" y1="20" x2="20" y2="10" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </div>
+          {/* Edge resize — right */}
+          <div onPointerDown={onAgentEyeEdgeResizeStart('r')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
+            className="absolute top-11 right-0 w-1.5 bottom-5 cursor-ew-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
+          {/* Edge resize — left */}
+          <div onPointerDown={onAgentEyeEdgeResizeStart('l')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
+            className="absolute top-11 left-0 w-1.5 bottom-5 cursor-ew-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
+          {/* Edge resize — bottom */}
+          <div onPointerDown={onAgentEyeEdgeResizeStart('b')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
+            className="absolute bottom-0 left-5 right-5 h-1.5 cursor-ns-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
         </div>
       )}
     </div>
