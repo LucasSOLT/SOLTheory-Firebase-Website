@@ -131,9 +131,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       newW = origW - dw;
       newX = Math.max(0, origX + dw);
     }
+    if (edge.includes('t')) {
+      const dh = Math.min(dy, origH - 280);
+      newH = origH - dh;
+      newY = Math.max(0, origY + dh);
+    }
 
     setAgentEyeSize({ w: newW, h: newH });
-    if (edge.includes('l')) setAgentEyePos(prev => ({ ...prev, x: newX }));
+    if (edge.includes('l') || edge.includes('t')) setAgentEyePos({ x: newX, y: newY });
   }, []);
 
   const onAgentEyeResizeEnd = useCallback(() => {
@@ -2850,6 +2855,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           {/* Edge resize — bottom */}
           <div onPointerDown={onAgentEyeEdgeResizeStart('b')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
             className="absolute bottom-0 left-5 right-5 h-1.5 cursor-ns-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
+          {/* Edge resize — top */}
+          <div onPointerDown={onAgentEyeEdgeResizeStart('t')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
+            className="absolute top-0 left-5 right-5 h-1.5 cursor-ns-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
+          {/* Resize Handle — top-right corner */}
+          <div onPointerDown={onAgentEyeEdgeResizeStart('tr')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
+            className="absolute top-0 right-0 w-5 h-5 cursor-nesw-resize z-10" style={{ touchAction: 'none' }} />
+          {/* Resize Handle — top-left corner */}
+          <div onPointerDown={onAgentEyeEdgeResizeStart('tl')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
+            className="absolute top-0 left-0 w-5 h-5 cursor-nwse-resize z-10" style={{ touchAction: 'none' }} />
         </div>
       )}
     </div>

@@ -33,8 +33,8 @@ function ShinyBlackBlob({ onReady }: { onReady: () => void }) {
           clearcoatRoughness={0.02}
           metalness={0.95}
           roughness={0.02}
-          distort={0.4}
-          speed={0.8}
+          distort={0.25}
+          speed={0.5}
         />
       </mesh>
     </Float>
