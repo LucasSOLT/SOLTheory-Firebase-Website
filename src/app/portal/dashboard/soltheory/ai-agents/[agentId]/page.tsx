@@ -194,6 +194,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const agentEyeDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const agentEyeResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
 
+  // Agent Eye Minimize state
+  const [isAgentEyeMinimized, setIsAgentEyeMinimized] = useState(false);
+  const [agentEyeMinRight, setAgentEyeMinRight] = useState(16);
+  const agentEyeMinDragRef = useRef<{ startX: number; origRight: number } | null>(null);
+
+  // Chat sidebar resizable state
+  const [chatSidebarWidth, setChatSidebarWidth] = useState(300);
+  const [isChatSidebarCollapsed, setIsChatSidebarCollapsed] = useState(false);
+  const sidebarResizeRef = useRef<{ startX: number; startW: number } | null>(null);
+
   // Keep a ref of current size so drag handler can access it without re-creating
   const agentEyeSizeRef = useRef(agentEyeSize);
   agentEyeSizeRef.current = agentEyeSize;
@@ -1435,10 +1445,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   }, [smsActiveContact, isAgentEyeOpen, agentEyeTab, fetchSmsThread]);
 
   return (
+    <>
     <div className="flex w-full flex-1 min-h-0 bg-slate-50 text-slate-800 overflow-hidden font-sans selection:bg-fuchsia-500/30">
 
       {/* Sessions Sidebar */}
-      <div className="hidden md:flex w-[300px] flex-col bg-white/80  backdrop-blur-3xl border-r border-slate-200  shrink-0 z-20">
+      <div className="hidden md:flex flex-col bg-white/80 backdrop-blur-3xl border-r border-slate-200 shrink-0 z-20 relative overflow-hidden" style={{ width: isChatSidebarCollapsed ? 0 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
         {/* Sidebar header unchanged for brevity (Using standard implementation) */}
         <div className="p-4 flex flex-col gap-3 border-b border-slate-200">
           {/* Model Selector */}
@@ -1499,7 +1510,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin mt-2">
-                    <div className="text-xs font-semibold text-slate-900  mb-2 px-1 uppercase tracking-widest">Chat History</div>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <span className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Chat History</span>
+                      <button onClick={() => setIsChatSidebarCollapsed(true)} className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-colors" title="Collapse sidebar">
+                        <svg className="w-3 h-3 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
           <button onClick={() => startNewSession()} className="w-full text-left p-3 rounded-xl border border-dashed border-slate-300/50 bg-slate-50 hover:bg-slate-100 transition-colors flex items-center gap-3 mb-4 group">
             <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-100 transition-colors">
               <SquarePen className="w-4 h-4" />
@@ -1522,6 +1538,42 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
 
       </div>
+
+      {/* Sidebar Resize Handle */}
+      <div
+        className="hidden md:flex w-[5px] cursor-col-resize items-center justify-center group hover:bg-indigo-500/20 active:bg-indigo-500/30 transition-colors relative z-30 shrink-0"
+        style={{ marginLeft: -2.5, display: isChatSidebarCollapsed ? 'none' : undefined }}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          sidebarResizeRef.current = { startX: e.clientX, startW: chatSidebarWidth };
+          const onMove = (ev: PointerEvent) => {
+            if (!sidebarResizeRef.current) return;
+            const delta = ev.clientX - sidebarResizeRef.current.startX;
+            const newW = Math.max(180, Math.min(500, sidebarResizeRef.current.startW + delta));
+            setChatSidebarWidth(newW);
+          };
+          const onUp = () => {
+            sidebarResizeRef.current = null;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+          };
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
+        }}
+      >
+        <div className="w-[2px] h-8 rounded-full bg-slate-300 group-hover:bg-indigo-400 transition-colors" />
+      </div>
+
+      {/* Sidebar Collapse Toggle */}
+      {isChatSidebarCollapsed && (
+        <button
+          onClick={() => setIsChatSidebarCollapsed(false)}
+          className="hidden md:flex w-6 h-12 bg-white border border-slate-200 shadow-sm rounded-r-lg items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all z-30 cursor-pointer shrink-0 my-auto"
+          title="Expand sidebar"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+        </button>
+      )}
 
       {/* Main UI Pane */}
       <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
@@ -2225,7 +2277,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </div>
 
                 {/* Chat Input Container - hidden on chooser screen */}
-                <div className={`shrink-0 px-4 pb-6 pt-2 z-20 ${messages.length === 0 && !selectedExploreItem ? "hidden" : ""}`}>
+                <div className={`shrink-0 px-4 pb-6 pt-2 z-20 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? "hidden" : ""}`}>
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
@@ -2531,27 +2583,53 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </div>
       )}
 
+      {/* Agent Eye rendered outside flex container for z-index */}
+    </div>
+
       {/* Agent Eye Floating Popup */}
-      {isAgentEyeOpen && (
+      {(isAgentEyeOpen || isAgentEyeMinimized) && (
         <div
-          style={{
-            position: 'fixed',
+          style={isAgentEyeMinimized ? {
+            position: 'fixed' as const,
+            bottom: 16,
+            right: agentEyeMinRight,
+            width: 260,
+            height: 44,
+            zIndex: 9999,
+          } : {
+            position: 'fixed' as const,
             left: agentEyePos.x,
             top: agentEyePos.y,
             width: agentEyeSize.w,
             height: agentEyeSize.h,
             zIndex: 9999,
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: 'column' as const,
           }}
           className="rounded-2xl shadow-2xl border border-amber-200/60 bg-white/95 backdrop-blur-xl overflow-hidden"
         >
           {/* Title Bar — draggable, double-click to expand */}
           <div
-            onPointerDown={onAgentEyeDragStart}
-            onPointerMove={onAgentEyeDragMove}
-            onPointerUp={onAgentEyeDragEnd}
-            onDoubleClick={onAgentEyeDoubleClick}
+            onPointerDown={isAgentEyeMinimized ? (e: React.PointerEvent) => {
+              e.preventDefault();
+              agentEyeMinDragRef.current = { startX: e.clientX, origRight: agentEyeMinRight };
+              const el = e.currentTarget;
+              el.setPointerCapture(e.pointerId);
+            } : onAgentEyeDragStart}
+            onPointerMove={isAgentEyeMinimized ? (e: React.PointerEvent) => {
+              if (!agentEyeMinDragRef.current) return;
+              const delta = e.clientX - agentEyeMinDragRef.current.startX;
+              const newRight = Math.max(0, Math.min(window.innerWidth - 260, agentEyeMinDragRef.current.origRight - delta));
+              setAgentEyeMinRight(newRight);
+            } : onAgentEyeDragMove}
+            onPointerUp={isAgentEyeMinimized ? (e: React.PointerEvent) => {
+              agentEyeMinDragRef.current = null;
+              (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+            } : onAgentEyeDragEnd}
+            onDoubleClick={isAgentEyeMinimized ? () => {
+              setIsAgentEyeMinimized(false);
+              setIsAgentEyeOpen(true);
+            } : onAgentEyeDoubleClick}
             className="flex items-center justify-between h-11 px-4 shrink-0 select-none cursor-grab active:cursor-grabbing"
             style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
           >
@@ -2559,14 +2637,38 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <Eye className="w-4 h-4 text-white/90" />
               <span className="text-xs font-bold uppercase tracking-widest text-white/95">Agent Eye</span>
             </div>
-            <button
-              onClick={() => setIsAgentEyeOpen(false)}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
-            >
-              <X className="w-3.5 h-3.5 text-white" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Minimize / Maximize button */}
+              <button
+                onClick={() => {
+                  if (isAgentEyeMinimized) {
+                    setIsAgentEyeMinimized(false);
+                    setIsAgentEyeOpen(true);
+                  } else {
+                    setIsAgentEyeMinimized(true);
+                    setIsAgentEyeOpen(false);
+                  }
+                }}
+                className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
+                title={isAgentEyeMinimized ? 'Maximize' : 'Minimize'}
+              >
+                {isAgentEyeMinimized ? (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 14h6m0 0v6m0-6L3 21M20 10h-6m0 0V4m0 6l7-7" /></svg>
+                ) : (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14H5" /></svg>
+                )}
+              </button>
+              {/* Close button */}
+              <button
+                onClick={() => { setIsAgentEyeOpen(false); setIsAgentEyeMinimized(false); }}
+                className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-white" />
+              </button>
+            </div>
           </div>
 
+          {!isAgentEyeMinimized && (<>
           {/* Observer Dropdown Selector */}
           <div className="relative shrink-0 border-b border-slate-200 bg-slate-50/80">
             <button
@@ -2940,8 +3042,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           {/* Resize Handle — top-left corner */}
           <div onPointerDown={onAgentEyeEdgeResizeStart('tl')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
             className="absolute top-0 left-0 w-5 h-5 cursor-nwse-resize z-10" style={{ touchAction: 'none' }} />
+      </>)}
         </div>
       )}
-    </div>
+    </>
   );
 }

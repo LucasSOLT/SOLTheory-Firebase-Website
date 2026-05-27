@@ -468,17 +468,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
       <div className={`relative flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible hidden md:flex ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
-        <button 
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className={`absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-white border border-slate-200 shadow-md rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-50 z-50 transition-all duration-300 cursor-pointer ${isSidebarCollapsed ? 'left-3' : '-right-5'}`}
+        <div 
+          className={`absolute top-1/2 -translate-y-1/2 z-50 transition-all duration-300 ${isSidebarCollapsed ? 'left-2' : '-right-[14px]'}`}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            const startX = e.clientX;
+            const startCollapsed = isSidebarCollapsed;
+            let hasDragged = false;
+            const el = e.currentTarget;
+            el.setPointerCapture(e.pointerId);
+            const onMove = (ev: PointerEvent) => {
+              const delta = ev.clientX - startX;
+              if (Math.abs(delta) > 8) hasDragged = true;
+              if (hasDragged) {
+                if (startCollapsed && delta > 60) { setIsSidebarCollapsed(false); }
+                else if (!startCollapsed && delta < -60) { setIsSidebarCollapsed(true); }
+              }
+            };
+            const onUp = (ev: PointerEvent) => {
+              el.releasePointerCapture(ev.pointerId);
+              if (!hasDragged) setIsSidebarCollapsed(!startCollapsed);
+              el.removeEventListener('pointermove', onMove);
+              el.removeEventListener('pointerup', onUp);
+            };
+            el.addEventListener('pointermove', onMove);
+            el.addEventListener('pointerup', onUp);
+          }}
           title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <div className="flex flex-col gap-[4px] items-center justify-center">
-            <span className={`block h-[2px] bg-current rounded-full transition-all duration-300 ${isSidebarCollapsed ? 'w-4' : 'w-4'}`} />
-            <span className={`block h-[2px] bg-current rounded-full transition-all duration-300 ${isSidebarCollapsed ? 'w-3' : 'w-3'}`} />
-            <span className={`block h-[2px] bg-current rounded-full transition-all duration-300 ${isSidebarCollapsed ? 'w-4' : 'w-4'}`} />
+          <div className="w-[28px] h-[72px] rounded-full bg-white border border-slate-200/80 shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] cursor-grab active:cursor-grabbing group hover:border-indigo-300 hover:bg-indigo-50/50 transition-all duration-200 select-none">
+            <div className="flex flex-col items-center gap-[2px] mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
+              <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+              <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+              <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+            </div>
+            <svg className={`w-3 h-3 text-slate-400 group-hover:text-indigo-500 transition-all duration-300 ${isSidebarCollapsed ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
           </div>
-        </button>
+        </div>
 
         <aside className="w-full bg-[#faf9f6] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
           <div className="w-64 flex flex-col h-full"> {/* Inner fixed width container */}
