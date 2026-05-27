@@ -502,7 +502,7 @@ export async function POST(req: Request) {
 
     // Payload Array Compilation
     let groqMessages: any[] = [
-      { role: "system", content: agentRole + "\n\nCRITICAL CONVERSATION RULE: You must always respond in natural, conversational human text. NEVER output raw JSON payloads like {\"title\": \"...\", \"body\": \"...\"} in your message content unless you are explicitly calling a tool via the function calling API. If the user shares a fact, just acknowledge it conversationally." }
+      { role: "system", content: agentRole + "\n\nCRITICAL CONVERSATION RULES:\n1. ALWAYS respond in natural, conversational human text. NEVER output raw JSON payloads like {\"query\": \"...\", \"title\": \"...\"} in your message content. If you need to search the web, call the web_search tool via the function calling API — do NOT write the JSON in your message.\n2. DISTINGUISH between QUESTIONS and PERSONAL FACTS: When a user ASKS you something (e.g. 'what is a geode?', 'what's the weather?', 'tell me about X', 'search for Y', 'can you find Z'), this is a QUESTION — you must ANSWER it using your knowledge or tools. Do NOT treat questions as personal facts to remember. Only save DECLARATIVE statements where the user shares personal info about themselves (e.g. 'my name is John', 'I live in Colorado', 'my dog is named Rex').\n3. When in doubt about whether you can answer a question, USE the web_search tool to look it up rather than giving an empty or unhelpful response." }
     ];
 
     // --- KNOWLEDGE BASE: SECONDARY SYSTEM PROMPT ---
@@ -1520,19 +1520,84 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     const sanitizeResponse = (text: string): string => {
       if (!text) return text;
       // Remove <function=...>...</function>, <search_past_conversations>...</search_past_conversations>, etc.
-      let clean = text.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file)[^>]*>/gi, '');
+      let clean = text.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file|web_search)[^>]*>/gi, '');
       // Remove JSON-like tool args that were hallucinated inline
       clean = clean.replace(/\{"(?:query|folderName|to|subject|body|title|date|time|description|videoTitle|content|searchQuery|fileId)"\s*:\s*"[^"]*"\s*\}/g, '');
       // Collapse multiple whitespace/newlines into single space
       clean = clean.replace(/\n{3,}/g, '\n\n').trim();
-      // If the cleaned response is empty or too short, provide a fallback
+      // If the cleaned response is empty or too short, provide a contextual fallback
       if (clean.length < 5) {
-        clean = "I've noted that information. How can I help you today?";
+        clean = "I'm sorry, I wasn't able to process that properly. Could you try rephrasing your question?";
       }
       return clean;
     };
 
-    const finalResponse = sanitizeResponse(responseMessage?.content || "");
+    let finalResponseText = responseMessage?.content || "";
+
+    // --- HALLUCINATED TOOL CALL RECOVERY ---
+    // If the model hallucinated a web_search call in its text (instead of using tool_calls),
+    // detect it and actually execute the search so the user gets a real answer.
+    const hallucinatedSearchMatch = finalResponseText.match(/\{\s*"query"\s*:\s*"([^"]+)"\s*\}/);
+    if (hallucinatedSearchMatch && executedTools.length === 0) {
+      const hallucinatedQuery = hallucinatedSearchMatch[1];
+      console.log(`[RECOVERY] Detected hallucinated web_search for: "${hallucinatedQuery}". Executing real search...`);
+      try {
+        const tavilyKey = process.env.TAVILY_API_KEY;
+        if (tavilyKey) {
+          const searchRes = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: tavilyKey,
+              query: hallucinatedQuery,
+              search_depth: "basic",
+              include_answer: true,
+              max_results: 5,
+            }),
+          });
+          const searchData = await searchRes.json();
+          if (searchRes.ok) {
+            const results = (searchData.results || []).map((r: any) => ({
+              title: r.title,
+              url: r.url,
+              snippet: (r.content || "").substring(0, 300),
+            }));
+            executedTools.push({ name: 'web_search', args: { query: hallucinatedQuery, searchResults: results } });
+
+            // Re-ask the model to generate a proper response using search results
+            const searchContext = searchData.answer
+              ? `Web Search Answer: ${searchData.answer}\n\nSources:\n${results.map((r: any) => `- ${r.title}: ${r.url}\n  ${r.snippet}`).join("\n")}`
+              : `Search Results:\n${results.map((r: any) => `- ${r.title}: ${r.url}\n  ${r.snippet}`).join("\n")}`;
+
+            groqMessages.push({
+              role: "assistant",
+              content: null,
+              tool_calls: [{
+                id: `recovery_${Date.now()}`,
+                type: "function",
+                function: { name: "web_search", arguments: JSON.stringify({ query: hallucinatedQuery }) }
+              }]
+            });
+            groqMessages.push({
+              tool_call_id: `recovery_${Date.now()}`,
+              role: "tool",
+              name: "web_search",
+              content: JSON.stringify({ result: searchContext }),
+            });
+
+            const recoveryCompletion = await groq.chat.completions.create({
+              messages: groqMessages,
+              model: selectedModel,
+            });
+            finalResponseText = recoveryCompletion.choices[0]?.message?.content || finalResponseText;
+          }
+        }
+      } catch (recoveryErr) {
+        console.error("[RECOVERY] Web search recovery failed:", recoveryErr);
+      }
+    }
+
+    const finalResponse = sanitizeResponse(finalResponseText);
 
     // Default Raw Response
     return NextResponse.json({
