@@ -38,6 +38,110 @@ const exploreItemsMeta: Record<string, { name: string, greeting: string, voiceId
   "Build your own Agent": { name: "Builder", greeting: "Hello. I'm Builder, how can I help you configure your custom agent today?", voiceId: "JBFqnCBsd6RMkjVDRZzb", color: "slate" }
 };
 
+const LOADING_PHRASES = [
+  "Thinking deeply...",
+  "Analyzing your request...",
+  "Searching the web...",
+  "Gathering information...",
+  "Reading sources...",
+  "Processing data...",
+  "Connecting the dots...",
+  "Synthesizing insights...",
+  "Crafting response...",
+  "Cross-referencing...",
+  "Consulting knowledge base...",
+  "Parsing context...",
+  "Evaluating options...",
+  "Running analysis...",
+  "Checking references...",
+  "Compiling results...",
+  "Building answer...",
+  "Sifting through data...",
+  "Examining details...",
+  "Reviewing findings...",
+  "Formulating thoughts...",
+  "Digging deeper...",
+  "Scanning databases...",
+  "Interpreting results...",
+  "Structuring response...",
+  "Weighing perspectives...",
+  "Correlating data points...",
+  "Exploring possibilities...",
+  "Refining analysis...",
+  "Mapping connections...",
+  "Assessing relevance...",
+  "Computing insights...",
+  "Distilling information...",
+  "Querying sources...",
+  "Crunching numbers...",
+  "Piecing it together...",
+  "Reasoning through this...",
+  "Fetching latest data...",
+  "Reviewing documents...",
+  "Analyzing patterns...",
+  "Generating insights...",
+  "Preparing your answer...",
+  "Almost there...",
+  "Processing context...",
+  "Evaluating sources...",
+  "Organizing thoughts...",
+  "Bridging concepts...",
+  "Validating information...",
+  "Harmonizing data...",
+  "Calibrating response...",
+  "Extracting key points...",
+  "Surveying the landscape...",
+  "Running diagnostics...",
+  "Contextualizing...",
+  "Pulling threads...",
+  "Mining insights...",
+  "Aggregating findings...",
+  "Tracing connections...",
+  "Benchmarking results...",
+  "Fact-checking...",
+  "Iterating on ideas...",
+  "Filtering noise...",
+  "Prioritizing info...",
+  "Decoding complexity...",
+  "Assembling the puzzle...",
+  "Triangulating sources...",
+  "Optimizing output...",
+  "Reviewing context...",
+  "Deep processing...",
+  "Analyzing sentiment...",
+  "Scanning for patterns...",
+  "Building connections...",
+  "Researching topic...",
+  "Navigating data...",
+  "Exploring databases...",
+  "Indexing results...",
+  "Sorting through findings...",
+  "Unpacking concepts...",
+  "Verifying accuracy...",
+  "Collating responses...",
+  "Enriching context...",
+  "Rendering insights...",
+  "Resolving queries...",
+  "Profiling data...",
+  "Sequencing thoughts...",
+  "Drafting response...",
+  "Fine-tuning output...",
+  "Aligning perspectives...",
+  "Charting a course...",
+  "Mapping the terrain...",
+  "Surveying options...",
+  "Deciphering patterns...",
+  "Orchestrating data...",
+  "Curating insights...",
+  "Weaving narratives...",
+  "Sculpting response...",
+  "Illuminating details...",
+  "Crystallizing thoughts...",
+  "Converging on answer...",
+  "Polishing response...",
+  "Finalizing output...",
+];
+
 export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ agentId: string }> }) {
   const searchParams = useSearchParams();
   const params = use(props.params);
@@ -48,6 +152,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [loadingPhraseIndex, setLoadingPhraseIndex] = useState(0);
+
+  // Rotate loading phrases while Jarvis is typing
+  useEffect(() => {
+    if (!isTyping) {
+      setLoadingPhraseIndex(Math.floor(Math.random() * LOADING_PHRASES.length));
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingPhraseIndex(Math.floor(Math.random() * LOADING_PHRASES.length));
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isTyping]);
+
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -2016,19 +2134,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             <form onSubmit={(e) => {
                               e.preventDefault();
                               if (!inputValue.trim()) return;
-                              const text = inputValue.trim();
-                              setInputValue('');
                               setSelectedExploreItem('Conversational AI');
-                              const fakeId = uid();
-                              const userMsg: Message = { id: fakeId, text, isSelf: true };
-                              setMessages([userMsg]);
-                              setTimeout(() => {
-                                const inputEl = document.querySelector<HTMLInputElement>('[data-chat-input]');
-                                if (inputEl) {
-                                  inputEl.value = text;
-                                  inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                                }
-                              }, 100);
+                              // handleSendMessage will pick up inputValue and auto-create a session
+                              setTimeout(() => handleSendMessage(), 50);
                             }} className="flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-2xl shadow-sm px-4 py-3 hover:shadow-md transition-shadow">
                               <Bot className="w-5 h-5 text-slate-400 shrink-0" />
                               <input
@@ -2060,15 +2168,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                     ) : (
                                                                   <>
-                        <div className="flex justify-center mb-10 pt-10">
+                         <div className="flex justify-center mb-10 pt-10">
                           <div className="text-3xl font-black opacity-10 tracking-[0.3em] uppercase text-center max-w-full truncate px-4">{selectedExploreItem ? `${exploreItemsMeta[selectedExploreItem]?.name || ''} - ${selectedExploreItem}` : agent.name}</div>
-                        </div>
-                        <div className="flex gap-4">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-slate-300  bg-slate-200/50 `}><Bot className={`w-5 h-5 ${agent.accent}`} /></div>
-                          <div className="flex-1 space-y-1 pt-1">
-                            <div className="font-bold text-sm text-slate-700 ">{selectedExploreItem ? exploreItemsMeta[selectedExploreItem]?.name || agent.name.split(' ')[0] : agent.name.split(' ')[0]}</div>
-                            <div className={`text-slate-800  inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg}`}>{selectedExploreItem ? exploreItemsMeta[selectedExploreItem]?.greeting || agent.greeting : agent.greeting}</div>
-                          </div>
                         </div>
                         {messages.map(msg => (
                       <div key={msg.id} className={`flex gap-4 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
@@ -2094,7 +2195,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     {isTyping && (
                       <div className="flex gap-4">
                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-slate-300  bg-slate-200/50 `}><Bot className={`w-5 h-5 ${agent.accent}`} /></div>
-                        <div className={`inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg} flex items-center gap-3`}><Loader2 className={`w-4 h-4 animate-spin ${agent.accent}`} /> Processing...</div>
+                        <div className={`inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg} flex items-center gap-3`}>
+                          <Loader2 className={`w-4 h-4 animate-spin ${agent.accent}`} />
+                          <span key={loadingPhraseIndex} className="animate-in fade-in duration-500 text-sm text-slate-600">{LOADING_PHRASES[loadingPhraseIndex % LOADING_PHRASES.length]}</span>
+                        </div>
                       </div>
                     )}
                       </>
