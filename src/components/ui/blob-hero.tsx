@@ -58,8 +58,8 @@ export function BlobHero() {
   return (
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-none flex items-center justify-center">
       {/* Responsive sizing wrapper — constrains blob on mobile */}
-      <div className="absolute inset-0 md:inset-0" style={{ top: '15%', bottom: '15%', left: '20%', right: '10%' }}>
-        <div className="relative w-full h-full md:hidden" style={{ transform: 'scale(0.55)', transformOrigin: 'center center' }}>
+      <div className="absolute inset-0 md:top-[15%] md:bottom-[15%] md:left-[20%] md:right-[10%]">
+        <div className="relative w-full h-full md:hidden flex items-center justify-center">
           {/* CSS placeholder shown instantly while Three.js loads — mobile */}
           <div
             className="absolute inset-0 flex items-center justify-center transition-opacity duration-700"

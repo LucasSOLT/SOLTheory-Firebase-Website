@@ -567,9 +567,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
       conversationRef.current.push({ role: "assistant", content: reply });
       return { reply, pactFacts };
-    } catch (err) {
-      console.error("Voice AI Call Error:", err);
-      return { reply: "Connection issue. Try again.", pactFacts: [] };
+    } catch (err: any) {
+      console.error("Voice AI Call Error:", err?.message || err);
+      const msg = err?.message?.includes("fetch") || err?.message?.includes("network") || err?.message?.includes("Failed")
+        ? "Network connection issue. Check your internet and try again."
+        : "Connection issue. Try again.";
+      return { reply: msg, pactFacts: [] };
     }
   };
 

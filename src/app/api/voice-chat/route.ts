@@ -72,9 +72,15 @@ export async function POST(req: Request) {
       usage: totalTokens
     });
   } catch (error: any) {
-    console.error("[Voice API Error]", error?.message);
+    console.error("[Voice API Error]", error?.message, error?.status, JSON.stringify(error?.error || {}));
+    
+    const isAuthError = error?.status === 401 || error?.message?.includes("auth") || error?.message?.includes("API key");
+    const errorMsg = isAuthError
+      ? "API key issue. Please check the server configuration."
+      : "I had a brief connection issue. Could you try again?";
+    
     return NextResponse.json(
-      { response: "I had a brief connection issue. Could you try again?" },
+      { response: errorMsg, error: error?.message },
       { status: 200 }
     );
   }

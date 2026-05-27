@@ -126,17 +126,17 @@ export default function Home() {
                     const isLeft = idx % 2 === 0;
 
                     const textBlock = (
-                      <div className={`flex flex-col justify-center gap-4 max-w-[360px] ${isLeft ? 'text-left' : 'text-right'}`}>
-                        <h3 className="font-headline text-3xl md:text-4xl font-bold text-white leading-tight">{item.title}</h3>
+                      <div className={`flex flex-col justify-center gap-4 max-w-full md:max-w-[360px] text-center ${isLeft ? 'md:text-left' : 'md:text-right'}`}>
+                        <h3 className="font-headline text-2xl md:text-4xl font-bold text-white leading-tight">{item.title}</h3>
                         <span className="text-fuchsia-400/80 text-base md:text-lg font-semibold tracking-wide">{item.price}</span>
-                        <div className="w-12 h-px bg-white/20" style={isLeft ? {} : { marginLeft: 'auto' }} />
-                        <div className="text-slate-400 text-base md:text-lg leading-relaxed">{item.description}</div>
+                        <div className="w-12 h-px bg-white/20 mx-auto md:mx-0" style={isLeft ? {} : { marginLeft: 'auto' }} />
+                        <div className="text-slate-400 text-sm md:text-lg leading-relaxed">{item.description}</div>
                       </div>
                     );
 
                     const cardBlock = (
-                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl shadow-lg w-[460px] shrink-0">
-                        <div className="w-full relative overflow-hidden aspect-square">
+                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl shadow-lg w-full max-w-sm md:max-w-none md:w-[460px] shrink-0">
+                        <div className="w-full relative overflow-hidden aspect-[4/3] md:aspect-square">
                           <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                         </div>
                         <div className="px-5 md:px-6 py-4 mt-auto">
@@ -157,10 +157,10 @@ export default function Home() {
                     return (
                       <div
                         key={item.id}
-                        className={`group relative flex items-center gap-12 ${
-                          isLeft ? 'self-start ml-[12%] flex-row' : 'self-end mr-[12%] flex-row-reverse'
-                        }`}
-                        style={{ zIndex: idx + 1, marginTop: idx > 0 ? '-220px' : '0px' }}
+                        className={`group relative flex flex-col items-center gap-6 md:gap-12 md:items-center ${
+                          isLeft ? 'md:self-start md:ml-[12%] md:flex-row' : 'md:self-end md:mr-[12%] md:flex-row-reverse'
+                        } ${idx > 0 ? 'mt-8 md:-mt-[220px]' : ''}`}
+                        style={{ zIndex: idx + 1 }}
                       >
                         {cardBlock}
                         {textBlock}
