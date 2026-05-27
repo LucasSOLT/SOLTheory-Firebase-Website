@@ -12,6 +12,7 @@ import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc, setDoc, addDoc, collection, getDocs, query, orderBy, where, deleteDoc, writeBatch, limit as firestoreLimit } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 
 let _msgCounter = 0;
@@ -918,26 +919,42 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
 
-      // Feed web search URLs into the Jarvis Eye browser animation
+      // Check if Jarvis searched the web — orchestrate sequential animation
+      const webSearchNavs: JarvisViewNavigation[] = [];
       if (data.executedTools && Array.isArray(data.executedTools)) {
         const webSearchTools = data.executedTools.filter((t: any) => t.name === 'web_search');
-        if (webSearchTools.length > 0) {
-          const newNavs: JarvisViewNavigation[] = [];
-          webSearchTools.forEach((t: any) => {
-            const results = t.args?.searchResults || [];
-            results.forEach((r: any) => {
-              if (r.url) newNavs.push({ url: r.url, title: r.title });
-            });
+        webSearchTools.forEach((t: any) => {
+          const results = t.args?.searchResults || [];
+          results.forEach((r: any) => {
+            if (r.url) webSearchNavs.push({ url: r.url, title: r.title });
           });
-          if (newNavs.length > 0) {
-            // Auto-open Agent Eye and switch to Jarvis View
-            setIsAgentEyeOpen(true);
-            setAgentEyeTab('jarvis-view');
-            setJarvisNavQueue(prev => [...prev, ...newNavs]);
-          }
+        });
+      }
+
+      // Limit to 2 websites by default
+      const limitedNavs = webSearchNavs.slice(0, 2);
+
+      if (limitedNavs.length > 0) {
+        // Sequential flow: animate first URL → show response → animate second URL
+        setIsAgentEyeOpen(true);
+        setAgentEyeTab('jarvis-view');
+
+        // 1. Navigate to first URL
+        setJarvisNavQueue(prev => [...prev, limitedNavs[0]]);
+
+        // 2. Wait for first animation (~4s for cursor + typing + loading), then show response
+        await new Promise(resolve => setTimeout(resolve, 4000));
+        setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
+
+        // 3. If there's a second URL, navigate to it after a brief pause
+        if (limitedNavs.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          setJarvisNavQueue(prev => [...prev, limitedNavs[1]]);
         }
+      } else {
+        // No web search — show response immediately
+        setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
       }
 
       // Generate AI title for new sessions after first exchange
@@ -2187,7 +2204,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 />
                               </div>
                             ) : null}
-                            {msg.isSelf && !msg.imageUrl ? msg.text : (!msg.imageUrl && <ReactMarkdown>{msg.text}</ReactMarkdown>)}
+                            {msg.isSelf && !msg.imageUrl ? msg.text : (!msg.imageUrl && <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => (<a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline underline-offset-2 break-all">{children}</a>) }}>{msg.text}</ReactMarkdown>)}
                           </div>
                         </div>
                       </div>
