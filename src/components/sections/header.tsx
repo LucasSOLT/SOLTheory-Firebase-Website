@@ -23,7 +23,8 @@ const navLinks = [
 ];
 
 const dropdownMenuItems = [
-    { href: '/portal/login', label: 'Client Portal' },
+    { href: '/portal/login/insight', label: 'INSiGHT' },
+    { href: '/portal/login/drive', label: 'DRiVE' },
     { type: 'separator' as const },
     { href: 'https://www.lifenavigation.ai', label: 'LifeNavigationU', target: '_blank' },
     { href: 'https://www.thrivecoaching.ai', label: 'Thrive Coaching', target: '_blank' },
