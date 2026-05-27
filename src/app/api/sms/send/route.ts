@@ -3,7 +3,8 @@ import twilio from "twilio";
 
 /**
  * POST /api/sms/send
- * Send an SMS via Twilio Messaging Service (A2P compliant).
+ * Send an SMS via Twilio.
+ * Tries Messaging Service first (A2P compliant), falls back to direct number if A2P not approved.
  * Body: { from, to, message }
  */
 export async function POST(req: Request) {
@@ -20,23 +21,46 @@ export async function POST(req: Request) {
       normalizedTo = "+1" + normalizedTo;
     }
 
-    // Use Messaging Service SID for A2P compliance, fall back to direct 'from' number
-    const msgParams: any = {
-      body: message,
-      to: normalizedTo,
-    };
+    let sent: any;
 
+    // Strategy 1: Use Messaging Service SID (A2P compliant)
     if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
-      msgParams.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-    } else if (from) {
-      msgParams.from = from;
-    } else {
-      return NextResponse.json({ error: "No messaging service or 'from' number configured." }, { status: 400 });
+      try {
+        sent = await client.messages.create({
+          body: message,
+          to: normalizedTo,
+          messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+        });
+        console.log(`[SMS Send] via MessagingService → ${normalizedTo}: ${sent.sid} (status: ${sent.status})`);
+      } catch (msErr: any) {
+        console.warn(`[SMS Send] Messaging Service failed: ${msErr.message}. Falling back to direct number...`);
+        // Fall through to Strategy 2
+      }
     }
 
-    const sent = await client.messages.create(msgParams);
+    // Strategy 2: Use direct 'from' number (works without A2P approval for testing/low volume)
+    if (!sent && from) {
+      let normalizedFrom = from.replace(/[^+\d]/g, "");
+      if (!normalizedFrom.startsWith("+")) normalizedFrom = "+1" + normalizedFrom;
+      
+      try {
+        sent = await client.messages.create({
+          body: message,
+          to: normalizedTo,
+          from: normalizedFrom,
+        });
+        console.log(`[SMS Send] via direct number ${normalizedFrom} → ${normalizedTo}: ${sent.sid} (status: ${sent.status})`);
+      } catch (directErr: any) {
+        console.error(`[SMS Send] Direct number also failed: ${directErr.message}`);
+        return NextResponse.json({ 
+          error: `SMS sending failed. Messaging Service error may be A2P registration pending. Direct send error: ${directErr.message}` 
+        }, { status: 500 });
+      }
+    }
 
-    console.log(`[SMS Send] → ${normalizedTo}: ${sent.sid} (status: ${sent.status})`);
+    if (!sent) {
+      return NextResponse.json({ error: "No messaging service or 'from' number configured." }, { status: 400 });
+    }
 
     return NextResponse.json({
       success: true,

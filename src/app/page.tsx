@@ -52,7 +52,7 @@ export default function Home() {
                 The Evolution of <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400">Improvement</span>
               </p>
 
-              <div className="w-16 h-px bg-gradient-to-r from-transparent via-slate-500 to-transparent mt-4" />
+
 
               <div className="mt-2 flex flex-col items-center gap-1.5 font-light leading-relaxed text-center">
                 <span className="text-base md:text-lg text-slate-300">A social innovation firm building AI-powered tools for growth.</span>
