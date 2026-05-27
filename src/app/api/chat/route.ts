@@ -358,6 +358,21 @@ const tools: any = [
         required: []
       }
     }
+  },
+  // ── Web Search Tools ──
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Search the web using Tavily AI search engine. Use this when the user asks a question that requires real-time information, current events, recent data, facts you're unsure about, or anything that would benefit from a web search. Returns relevant snippets and source URLs.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The search query to look up on the web" }
+        },
+        required: ["query"]
+      }
+    }
   }
 ];
 
@@ -423,7 +438,7 @@ export async function POST(req: Request) {
     const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
 
     if (isEmailAgent) {
-      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, Google Workspace Document Creation Tools, Survey Creation Tools, Past Conversation Memory, AND iMessage Tools.\n\n[CONVERSATION MEMORY]: You MUST USE your search_past_conversations tool when the user references something from a previous chat, asks "remember when...", "what did we discuss about...", "last time we talked about...", or any time they need information from a past session. This tool searches ALL of their saved chat history across all sessions. Use it proactively when you sense the user is referencing prior context you don't have in the current conversation.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[SURVEY TOOLS]: You MUST USE your create_and_send_survey tool when the user asks you to create a survey, questionnaire, or feedback form. When the user says to send it to people by name, you MUST look up the email addresses in the Contact Glossary above and pass them as recipientEmails. Include a good detailed topic description so the AI generates high-quality questions. If the user specifies a number of questions, pass it as questionCount.\n\n[iMESSAGE TOOLS]: You MUST USE your iMessage tools (list_imessage_chats, get_imessage_thread, search_imessages, send_imessage, summarize_imessages) when the user asks about their text messages, iMessages, or wants to text someone. Use list_imessage_chats to find conversations, get_imessage_thread to read specific chats, search_imessages to find messages by keyword, send_imessage to send texts, and summarize_imessages for an overview of recent/unread messages. When the user refers to a contact by name, look up their PHONE NUMBER in the Contact Glossary and construct the chatGuid as 'iMessage;-;+1XXXXXXXXXX'. Present message summaries in a clean, readable format.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
+      agentRole += `\n\n[CRITICAL SYSTEM DIRECTIVE]: You are a fully authorized Executive Agent with active Gmail API Tools, Google Calendar API Tools, YouTube Integration Tools, Google Workspace Document Creation Tools, Survey Creation Tools, Past Conversation Memory, AND iMessage Tools.\n\n[CONVERSATION MEMORY]: You MUST USE your search_past_conversations tool when the user references something from a previous chat, asks "remember when...", "what did we discuss about...", "last time we talked about...", or any time they need information from a past session. This tool searches ALL of their saved chat history across all sessions. Use it proactively when you sense the user is referencing prior context you don't have in the current conversation.\n\n[EMAIL TOOLS]: You MUST USE your email tools (search_emails, delete_email, create_folder, block_sender, draft_outbound_email) when the user asks about email operations.\n\n[CALENDAR & MEET TOOLS]: You MUST USE your calendar tools (list_calendar_events, create_calendar_event, delete_calendar_event, update_calendar_event) when the user asks about their schedule, wants to book meetings, check availability, cancel events, or reschedule. When creating events, infer reasonable defaults: if no duration is specified assume 1 hour, and use the user's timezone. IMPORTANT: If the meeting is virtual or a video call, set 'addGoogleMeetLink' to true in create_calendar_event to automatically generate a Google Meet link.\n\n[YOUTUBE TOOLS]: You MUST USE your draft_youtube_video tool when the user asks you to draft a video, create a video concept, or store a YouTube video, PROVIDED you have gathered all necessary information. If your specific system instructions require you to ask questions first (like when a video file is attached), ask those questions BEFORE calling the tool. Do NOT just reply with the script in standard chat text; push it to their YouTube Dashboard via the execution tool.\n\n[WORKSPACE DOCUMENT TOOLS]: You MUST USE your document creation tools (create_google_document, create_google_slide_deck, create_google_sheet) when the user asks you to create Google Docs, Slides presentations, or Sheets spreadsheets. Create rich, detailed content. For documents, write full paragraphs. For slides, create multiple slides with clear titles and body text. For sheets, include headers and populated rows.\n\n[SURVEY TOOLS]: You MUST USE your create_and_send_survey tool when the user asks you to create a survey, questionnaire, or feedback form. When the user says to send it to people by name, you MUST look up the email addresses in the Contact Glossary above and pass them as recipientEmails. Include a good detailed topic description so the AI generates high-quality questions. If the user specifies a number of questions, pass it as questionCount.\n\n[iMESSAGE TOOLS]: You MUST USE your iMessage tools (list_imessage_chats, get_imessage_thread, search_imessages, send_imessage, summarize_imessages) when the user asks about their text messages, iMessages, or wants to text someone. Use list_imessage_chats to find conversations, get_imessage_thread to read specific chats, search_imessages to find messages by keyword, send_imessage to send texts, and summarize_imessages for an overview of recent/unread messages. When the user refers to a contact by name, look up their PHONE NUMBER in the Contact Glossary and construct the chatGuid as 'iMessage;-;+1XXXXXXXXXX'. Present message summaries in a clean, readable format.\n\n[WEB SEARCH]: You MUST USE your web_search tool when the user asks questions requiring current/real-time information, recent events, facts, research, or anything you're uncertain about. Search first, then provide a comprehensive answer based on the results.\n\n[MAPS & GEOLOCATION]: You do NOT have a direct Google Maps API. If the user asks for local business recommendations, directions, or deep Google Maps advice, you MUST use your web search capabilities (e.g. searching the web for local places or routes) to gather the data and present it effectively.\n\nThe current date and time is: ${new Date().toISOString()}.\n\nHOWEVER, if the user asks you to "read", "check", or "search" a DOCUMENT or your KNOWLEDGE BASE, DO NOT execute your tools. Instead, answer directly using the [KNOWLEDGE BASE DATA] provided below.`;
     }
 
 
@@ -1422,6 +1437,38 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               }
             } catch (imErr: any) {
               functionResult = JSON.stringify({ error: "Failed to summarize messages: " + imErr.message });
+            }
+          } else if (functionName === "web_search") {
+            try {
+              const tavilyKey = process.env.TAVILY_API_KEY;
+              if (!tavilyKey) throw new Error("Web search not configured");
+              const searchRes = await fetch("https://api.tavily.com/search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  api_key: tavilyKey,
+                  query: args.query,
+                  search_depth: "basic",
+                  include_answer: true,
+                  max_results: 5,
+                }),
+              });
+              const searchData = await searchRes.json();
+              if (!searchRes.ok) throw new Error(searchData.detail || "Search failed");
+              const results = (searchData.results || []).map((r: any) => ({
+                title: r.title,
+                url: r.url,
+                snippet: (r.content || "").substring(0, 300),
+              }));
+              // Append URL list to executedTools args for client-side Jarvis Eye animation
+              executedTools[executedTools.length - 1].args.searchResults = results;
+              functionResult = JSON.stringify({
+                result: searchData.answer
+                  ? `Web Search Answer: ${searchData.answer}\n\nSources:\n${results.map((r: any) => `- ${r.title}: ${r.url}\n  ${r.snippet}`).join("\n")}`
+                  : `Search Results:\n${results.map((r: any) => `- ${r.title}: ${r.url}\n  ${r.snippet}`).join("\n")}`,
+              });
+            } catch (searchErr: any) {
+              functionResult = JSON.stringify({ error: "Web search failed: " + searchErr.message });
             }
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
