@@ -75,8 +75,8 @@ export default function Home() {
             {/* ════════════════════════════════════════════════════════════
                 SECTION 1.5A: Hero Statement (Lemonade top section)
             ════════════════════════════════════════════════════════════ */}
-            <section className="relative py-24 md:py-32 w-full flex flex-col items-center justify-center z-20">
-              <div className="absolute inset-0 bg-[#f8f7f6]" />
+            <section className="relative py-24 md:py-32 w-full flex flex-col items-center justify-center z-20 bg-[#faf9f8]">
+
               
               <div className="relative z-10 w-full px-6 text-center">
                 {/* SOL Theory Brand Name — fancy serif script */}
@@ -123,11 +123,10 @@ export default function Home() {
             {/* ════════════════════════════════════════════════════════════
                 SECTION 1.5B: Product Cards (Lemonade bottom section)
             ════════════════════════════════════════════════════════════ */}
-            <section id="products" className="relative py-16 md:py-24 w-full flex flex-col items-center justify-center z-20">
-              {/* Light grey background */}
-              <div className="absolute inset-0 bg-[#f2f1ef]" />
+            <section id="products" className="relative py-16 md:py-24 w-full flex flex-col items-center justify-center z-20 bg-[#f0efed]">
 
-              <div className="relative z-10 w-full px-6 md:px-12 lg:px-20">
+
+              <div className="w-full px-6 md:px-12 lg:px-20">
                 {/* Section Heading */}
                 <div className="text-center max-w-2xl mx-auto mb-4">
                   <h3 className="font-jakarta text-2xl md:text-[2rem] font-bold text-slate-700 tracking-tight leading-tight">
@@ -142,7 +141,7 @@ export default function Home() {
                 </div>
 
                 {/* 5 Product Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 max-w-[900px] mx-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5 max-w-[1000px] mx-auto">
                   {[
                     {
                       title: "Email Tools",
@@ -150,7 +149,7 @@ export default function Home() {
                       price: "$3.99/mo",
                       checkoutId: 1,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-14 h-14 mx-auto mb-3">
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-4">
                           <rect x="12" y="20" width="56" height="40" rx="5" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
                           <path d="M12 26 L40 46 L68 26" stroke="#94a3b8" strokeWidth="1.8" fill="none" strokeLinejoin="round" />
                           <path d="M12 60 L30 42" stroke="#94a3b8" strokeWidth="1.2" fill="none" />
@@ -166,7 +165,7 @@ export default function Home() {
                       price: "$10.99/mo",
                       checkoutId: 5,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-14 h-14 mx-auto mb-3">
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-4">
                           <rect x="24" y="10" width="32" height="60" rx="7" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
                           <line x1="24" y1="19" x2="56" y2="19" stroke="#94a3b8" strokeWidth="1.2" />
                           <line x1="24" y1="58" x2="56" y2="58" stroke="#94a3b8" strokeWidth="1.2" />
@@ -185,7 +184,7 @@ export default function Home() {
                       price: "$7.99/mo",
                       checkoutId: 2,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-14 h-14 mx-auto mb-3">
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-4">
                           <rect x="14" y="16" width="28" height="28" rx="4" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
                           <line x1="14" y1="24" x2="42" y2="24" stroke="#94a3b8" strokeWidth="1.5" />
                           <line x1="22" y1="16" x2="22" y2="12" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
@@ -209,7 +208,7 @@ export default function Home() {
                       price: "$20.99/mo",
                       checkoutId: 3,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-14 h-14 mx-auto mb-3">
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-4">
                           <rect x="10" y="14" width="60" height="42" rx="5" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
                           <line x1="10" y1="22" x2="70" y2="22" stroke="#94a3b8" strokeWidth="1.2" />
                           <circle cx="16" cy="18" r="1.5" fill="#ec4899" opacity="0.6" />
@@ -233,7 +232,7 @@ export default function Home() {
                       price: "Varies",
                       checkoutId: 0,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-14 h-14 mx-auto mb-3">
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-4">
                           <path d="M40 10 L66 24 L66 52 L40 66 L14 52 L14 24 Z" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
                           <path d="M40 10 L40 38 L66 24" stroke="#94a3b8" strokeWidth="0.8" opacity="0.3" fill="none" />
                           <path d="M40 38 L14 24" stroke="#94a3b8" strokeWidth="0.8" opacity="0.3" fill="none" />
@@ -252,22 +251,22 @@ export default function Home() {
                   ].map((product, idx) => (
                     <div
                       key={idx}
-                      className="bg-white rounded-xl px-4 py-5 flex flex-col items-center text-center shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300 group border border-slate-200/60"
+                      className="bg-[#f8f7f5] rounded-xl px-5 py-7 flex flex-col items-center text-center shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300 group border border-[#e8e6e3]"
                     >
                       {/* Icon */}
                       {product.icon}
 
                       {/* Title */}
-                      <h4 className="text-sm font-bold text-slate-800 mb-1.5">{product.title}</h4>
+                      <h4 className="text-sm font-bold text-slate-800 mb-2">{product.title}</h4>
 
                       {/* Description */}
-                      <p className="text-[10px] text-slate-400 leading-relaxed mb-4 max-w-[140px]">{product.description}</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed mb-5 max-w-[150px]">{product.description}</p>
 
                       {/* CTA Button */}
                       <Link
                         href={product.checkoutId > 0 ? `/checkout/${product.checkoutId}` : '/contact'}
                         id={`product-cta-${idx}`}
-                        className="inline-block w-full py-2 px-3 text-[9px] font-bold uppercase tracking-[0.12em] text-white bg-[#ec4899] hover:bg-[#db2777] rounded-md transition-all duration-200 hover:shadow-lg hover:shadow-pink-500/20"
+                        className="inline-block w-full py-2.5 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-white bg-[#ec4899] hover:bg-[#db2777] rounded-md transition-all duration-200 hover:shadow-lg hover:shadow-pink-500/20"
                       >
                         Check Our Prices
                       </Link>
