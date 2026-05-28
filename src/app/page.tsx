@@ -2,11 +2,10 @@
 
 
 import { Header } from '@/components/sections/header';
-import { Card } from '@/components/ui/card';
 import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
 import Link from 'next/link';
-import { ArrowDown, Sparkles, ShoppingCart } from 'lucide-react';
+import { ArrowDown, Sparkles } from 'lucide-react';
 
 import { BlobHero } from '@/components/ui/blob-hero';
 import { motion } from 'framer-motion';
@@ -73,100 +72,158 @@ export default function Home() {
           <StarBackground />
           <div className="relative z-10 w-full flex flex-col items-center bg-transparent">
 
-            {/* SECTION 1.5: Template Products */}
-            <section className="relative py-16 md:py-20 w-full flex flex-col items-center justify-center bg-transparent z-20">
-              <div className="w-full px-6 md:px-12 lg:px-24">
-                <div className="text-center max-w-4xl mx-auto space-y-6 mb-16">
-                  <h2 className="font-nunito text-4xl md:text-5xl font-bold text-white tracking-tight drop-shadow-xl">Affordable Agentic Solutions</h2>
-                  <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-16 mb-4" />
-                  <p className="text-slate-300 text-lg font-light">
-                    Premium products and services designed for your evolution.
+            {/* SECTION 1.5: Lemonade-Style Product Showcase */}
+            <section className="relative py-20 md:py-28 w-full flex flex-col items-center justify-center z-20">
+              {/* Dark background overlay for contrast with light cards */}
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a0b]/90 to-[#111114]" />
+              
+              <div className="relative z-10 w-full px-6 md:px-12 lg:px-24">
+                {/* Hero Headline */}
+                <div className="text-center max-w-3xl mx-auto mb-16 md:mb-20">
+                  <h2 className="font-jakarta text-4xl md:text-[3.2rem] font-bold text-white tracking-tight leading-tight">
+                    Finally. A power tool for{' '}
+                    <span className="relative inline-block group cursor-help">
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400 border-b-2 border-dashed border-fuchsia-400/40">SOL</span>
+                      {/* SOL Hover Tooltip */}
+                      <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50">
+                        <span className="block bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 px-5 py-4 text-center min-w-[200px]">
+                          <span className="block text-sm font-bold text-slate-800 mb-1">Self, Others, and Life</span>
+                          <Link href="/sol-explained" className="inline-block mt-2 px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-fuchsia-500 to-indigo-500 rounded-full hover:shadow-lg hover:shadow-fuchsia-500/25 transition-all">
+                            Learn More
+                          </Link>
+                        </span>
+                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-3 h-3 bg-white/95 border-r border-b border-slate-200 rotate-45" />
+                      </span>
+                    </span>
+                    {' '}improvement.
+                  </h2>
+                  <p className="mt-5 text-slate-400 text-base md:text-lg font-light">
+                    Incredible prices. Monthly subscription. Bundle discounts.
                   </p>
                 </div>
-                
-                <div className="flex flex-col w-full">
+
+                {/* 5 Product Cards — Lemonade style */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5 max-w-6xl mx-auto">
                   {[
                     {
-                      id: 1,
-                      title: "Agentic Email Assistant",
-                      price: "$5.99 a month",
-                      description: (
-                        <>Access our inbound and outbound email agents that automatically respond to emails, draft professional responses, and create campaign emails. Our AI operates exclusively <b>within the Google product ecosystem</b>.</>
+                      title: "Email Tools",
+                      description: "AI-powered inbound and outbound email agents that draft and send for you.",
+                      price: "$3.99/mo",
+                      checkoutId: 1,
+                      icon: (
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
+                          <rect x="10" y="18" width="60" height="44" rx="6" stroke="currentColor" strokeWidth="2" fill="none" />
+                          <path d="M10 24 L40 44 L70 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                          <circle cx="58" cy="28" r="8" fill="#ec4899" opacity="0.15" />
+                          <path d="M55 28 L57.5 30.5 L61 26" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                       ),
-                      image: "/images/email_agent_card.png"
                     },
                     {
-                      id: 2,
-                      title: "Google Suite Assistant",
-                      price: "$12.99 a month",
-                      description: (
-                        <>Access our entire suite of Google AI agents, including our <b>Calendar Agent, Email Agent, and Phone Agent</b>. Essentially capable of accessing any Google Suite tools to <i>completely automate your workflow</i>.</>
+                      title: "SMS Tools",
+                      description: "Automated text messaging with smart replies and campaign scheduling.",
+                      price: "$10.99/mo",
+                      checkoutId: 5,
+                      icon: (
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
+                          <rect x="22" y="8" width="36" height="64" rx="8" stroke="currentColor" strokeWidth="2" fill="none" />
+                          <line x1="22" y1="18" x2="58" y2="18" stroke="currentColor" strokeWidth="1.5" />
+                          <line x1="22" y1="60" x2="58" y2="60" stroke="currentColor" strokeWidth="1.5" />
+                          <circle cx="40" cy="66" r="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                          <rect x="28" y="26" width="20" height="8" rx="4" fill="#ec4899" opacity="0.12" stroke="#ec4899" strokeWidth="1" />
+                          <rect x="32" y="38" width="20" height="8" rx="4" fill="currentColor" opacity="0.06" stroke="currentColor" strokeWidth="1" />
+                        </svg>
                       ),
-                      image: "/images/google_suite_card.png"
                     },
                     {
-                      id: 3,
-                      title: "Dashboard Access",
-                      price: "$22.99 a month",
-                      description: (
-                        <>Unlock predictive analytics, get full access to the entire Google Suite agent, priority support, and our communications network. This tier includes <b>everything our platform has to offer</b>.</>
+                      title: "Google Suite Tools",
+                      description: "Full integration with Calendar, Drive, and Docs for workflow automation.",
+                      price: "$7.99/mo",
+                      checkoutId: 2,
+                      icon: (
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
+                          <circle cx="40" cy="40" r="26" stroke="currentColor" strokeWidth="2" fill="none" />
+                          <path d="M40 14 L40 40 L58 52" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                          <rect x="12" y="56" width="22" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                          <line x1="16" y1="62" x2="30" y2="62" stroke="currentColor" strokeWidth="1" />
+                          <line x1="16" y1="66" x2="26" y2="66" stroke="currentColor" strokeWidth="1" />
+                          <circle cx="62" cy="22" r="8" fill="#ec4899" opacity="0.12" stroke="#ec4899" strokeWidth="1" />
+                          <path d="M59 22 L61 24 L65 20" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                        </svg>
                       ),
-                      image: "/images/dashboard_access_card.jpg"
                     },
                     {
-                      id: 4,
-                      title: "Customized Solutions",
-                      price: "Subject to Scale",
-                      description: (
-                        <>A stylized dashboard heavily tailored to your specific organization's needs. The price varies entirely depending on the scale and <Link href="/consultation" className="hover:text-white transition-colors cursor-pointer"><b><u>requires a consultation</u></b></Link> with <i>our development team</i>.</>
+                      title: "Agentic Dashboard",
+                      description: "Predictive analytics, full agent access, and priority support included.",
+                      price: "$20.99/mo",
+                      checkoutId: 3,
+                      icon: (
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
+                          <rect x="8" y="12" width="64" height="48" rx="6" stroke="currentColor" strokeWidth="2" fill="none" />
+                          <line x1="8" y1="22" x2="72" y2="22" stroke="currentColor" strokeWidth="1.5" />
+                          <circle cx="14" cy="17" r="2" fill="#ec4899" opacity="0.5" />
+                          <circle cx="20" cy="17" r="2" fill="currentColor" opacity="0.2" />
+                          <circle cx="26" cy="17" r="2" fill="currentColor" opacity="0.2" />
+                          <rect x="14" y="28" width="20" height="26" rx="2" fill="currentColor" opacity="0.05" stroke="currentColor" strokeWidth="1" />
+                          <rect x="40" y="28" width="26" height="12" rx="2" fill="#ec4899" opacity="0.08" stroke="#ec4899" strokeWidth="0.8" />
+                          <rect x="40" y="44" width="26" height="10" rx="2" fill="currentColor" opacity="0.04" stroke="currentColor" strokeWidth="0.8" />
+                          <rect x="20" y="64" width="40" height="6" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        </svg>
                       ),
-                      image: "/images/custom_solutions_card.jpg"
-                    }
-                  ].map((item, idx) => {
-                    const isLeft = idx % 2 === 0;
+                    },
+                    {
+                      title: "Custom Solutions",
+                      description: "Fully tailored dashboards built specifically for your organization.",
+                      price: "Varies",
+                      checkoutId: 0,
+                      icon: (
+                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
+                          <path d="M40 12 L68 28 L68 56 L40 72 L12 56 L12 28 Z" stroke="currentColor" strokeWidth="2" fill="none" />
+                          <path d="M40 12 L40 42 L68 28" stroke="currentColor" strokeWidth="1" opacity="0.4" fill="none" />
+                          <path d="M40 42 L12 28" stroke="currentColor" strokeWidth="1" opacity="0.4" fill="none" />
+                          <path d="M40 42 L40 72" stroke="currentColor" strokeWidth="1" opacity="0.4" fill="none" />
+                          <circle cx="40" cy="42" r="6" fill="#ec4899" opacity="0.12" stroke="#ec4899" strokeWidth="1" />
+                          <path d="M38 42 L40 44 L43 40" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                        </svg>
+                      ),
+                    },
+                  ].map((product, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-[#f5f5f5] rounded-2xl p-6 flex flex-col items-center text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+                    >
+                      {/* Icon */}
+                      {product.icon}
 
-                    const textBlock = (
-                      <div className={`flex flex-col justify-center gap-4 max-w-full md:max-w-[360px] text-center ${isLeft ? 'md:text-left' : 'md:text-right'}`}>
-                        <h3 className="font-headline text-2xl md:text-4xl font-bold text-white leading-tight">{item.title}</h3>
-                        <span className="text-fuchsia-400/80 text-base md:text-lg font-semibold tracking-wide">{item.price}</span>
-                        <div className="w-12 h-px bg-white/20 mx-auto md:mx-0" style={isLeft ? {} : { marginLeft: 'auto' }} />
-                        <div className="text-slate-400 text-sm md:text-lg leading-relaxed">{item.description}</div>
-                      </div>
-                    );
+                      {/* Title */}
+                      <h3 className="text-base font-bold text-slate-800 mb-2">{product.title}</h3>
 
-                    const cardBlock = (
-                      <Card className="relative bg-black/40 backdrop-blur-sm border border-white/10 overflow-hidden flex flex-col transition-all duration-500 group-hover:border-fuchsia-500/50 group-hover:bg-white/5 group-hover:-translate-y-2 rounded-3xl shadow-lg w-full max-w-sm md:max-w-none md:w-[460px] shrink-0">
-                        <div className="w-full relative overflow-hidden aspect-[4/3] md:aspect-square">
-                          <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                        </div>
-                        <div className="px-5 md:px-6 py-4 mt-auto">
-                          {item.id === 4 ? (
-                            <Link href="/contact" className="block w-full text-center py-4 px-5 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-base md:text-lg hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 hover:text-fuchsia-400 transition-all duration-300 backdrop-blur-sm cursor-pointer z-30">
-                              Contact Team
-                            </Link>
-                          ) : (
-                            <Link href={`/checkout/${item.id}`} className="group/btn relative block w-full text-center py-4 px-5 rounded-xl bg-black/80 border border-white/10 text-white font-bold text-base md:text-lg hover:bg-purple-900 hover:border-purple-500/50 transition-all duration-300 cursor-pointer z-30 overflow-hidden">
-                              <span className="flex items-center justify-center gap-2 transition-all duration-300 opacity-100 translate-y-0 group-hover/btn:opacity-0 group-hover/btn:-translate-y-3">See More</span>
-                              <span className="absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 opacity-0 translate-y-3 group-hover/btn:opacity-100 group-hover/btn:translate-y-0"><ShoppingCart className="w-5 h-5" /> Checkout</span>
-                            </Link>
-                          )}
-                        </div>
-                      </Card>
-                    );
+                      {/* Description */}
+                      <p className="text-xs text-slate-500 leading-relaxed mb-5 min-h-[36px]">{product.description}</p>
 
-                    return (
-                      <div
-                        key={item.id}
-                        className={`group relative flex flex-col items-center gap-6 md:gap-12 md:items-center ${
-                          isLeft ? 'md:self-start md:ml-[12%] md:flex-row' : 'md:self-end md:mr-[12%] md:flex-row-reverse'
-                        } ${idx > 0 ? 'mt-8 md:-mt-[220px]' : ''}`}
-                        style={{ zIndex: idx + 1 }}
-                      >
-                        {cardBlock}
-                        {textBlock}
-                      </div>
-                    );
-                  })}
+                      {/* CTA Button */}
+                      {product.checkoutId > 0 ? (
+                        <Link
+                          href={`/checkout/${product.checkoutId}`}
+                          className="inline-block w-full py-2.5 px-4 text-xs font-bold uppercase tracking-wider text-white bg-[#ec4899] hover:bg-[#db2777] rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-pink-500/25"
+                        >
+                          Check Our Prices
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/contact"
+                          className="inline-block w-full py-2.5 px-4 text-xs font-bold uppercase tracking-wider text-white bg-[#ec4899] hover:bg-[#db2777] rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-pink-500/25"
+                        >
+                          Check Our Prices
+                        </Link>
+                      )}
+
+                      {/* Price text */}
+                      <span className="mt-2.5 text-[11px] text-slate-400 font-medium">
+                        {product.price === "Varies" ? "Price varies by project" : `FROM ${product.price}`}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>

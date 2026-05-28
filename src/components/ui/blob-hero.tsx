@@ -7,6 +7,7 @@ import * as THREE from "three";
 
 interface BlobConfig {
   position: [number, number, number];
+  rotation: [number, number, number];
   scale: number;
   floatSpeed: number;
   floatIntensity: number;
@@ -64,6 +65,7 @@ function ShinyBlob({
         ref={meshRef}
         scale={config.scale}
         position={config.position}
+        rotation={config.rotation}
       >
         <sphereGeometry args={[1, 96, 96]} />
         <MeshDistortMaterial
@@ -123,18 +125,19 @@ class BlobErrorBoundary extends Component<
 // Three blob configurations for desktop — each has a unique color identity
 const BLOB_CONFIGS: BlobConfig[] = [
   {
-    // Top-right — smallest (warm red / crimson)
-    // More glassy, higher roughness for a frosted-ember look
+    // Top-right — smallest (muted warm red / rose-grey)
+    // Tilted right for off-kilter effect
     position: [2.5, 1.4, -0.5],
+    rotation: [0.3, -0.4, 0.25],
     scale: 0.65,
     floatSpeed: 0.8,
     floatIntensity: 1.0,
     rotationIntensity: 0.6,
     distort: 0.22,
     speed: 0.6,
-    color: "#2a0a0f",
-    emissive: "#ff2244",
-    emissiveIntensity: 0.12,
+    color: "#1f1218",
+    emissive: "#cc4466",
+    emissiveIntensity: 0.06,
     metalness: 0.7,
     roughness: 0.15,
     clearcoat: 0.6,
@@ -142,18 +145,19 @@ const BLOB_CONFIGS: BlobConfig[] = [
     envMapIntensity: 2.0,
   },
   {
-    // Middle/top-left — biggest (hero blob, deep purple / amethyst)
-    // Classic glossy dark look with purple undertone
+    // Middle/top-left — biggest (hero blob, muted purple-grey / amethyst)
+    // No tilt — classic centered hero
     position: [-2.2, 0.3, 0],
+    rotation: [0, 0, 0],
     scale: 1.25,
     floatSpeed: 0.5,
     floatIntensity: 1.2,
     rotationIntensity: 0.8,
     distort: 0.20,
     speed: 0.4,
-    color: "#18082a",
-    emissive: "#9333ea",
-    emissiveIntensity: 0.08,
+    color: "#141020",
+    emissive: "#7c5cbf",
+    emissiveIntensity: 0.05,
     metalness: 0.88,
     roughness: 0.04,
     clearcoat: 1,
@@ -161,18 +165,19 @@ const BLOB_CONFIGS: BlobConfig[] = [
     envMapIntensity: 2.8,
   },
   {
-    // Bottom-left — medium (ocean blue / teal)
-    // Slightly more matte/satin for a deep-ocean feel
+    // Bottom-left — medium (muted ocean blue-grey / steel teal)
+    // Tilted left for off-kilter effect
     position: [-0.5, -1.4, -0.3],
+    rotation: [-0.2, 0.35, -0.3],
     scale: 0.85,
     floatSpeed: 0.6,
     floatIntensity: 0.9,
     rotationIntensity: 0.7,
     distort: 0.25,
     speed: 0.5,
-    color: "#081828",
-    emissive: "#0ea5e9",
-    emissiveIntensity: 0.10,
+    color: "#0f161e",
+    emissive: "#4488aa",
+    emissiveIntensity: 0.06,
     metalness: 0.75,
     roughness: 0.12,
     clearcoat: 0.8,
