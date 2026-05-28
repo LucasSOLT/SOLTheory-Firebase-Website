@@ -72,154 +72,207 @@ export default function Home() {
           <StarBackground />
           <div className="relative z-10 w-full flex flex-col items-center bg-transparent">
 
-            {/* SECTION 1.5: Lemonade-Style Product Showcase */}
-            <section className="relative py-20 md:py-28 w-full flex flex-col items-center justify-center z-20">
-              {/* Dark background overlay for contrast with light cards */}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a0b]/90 to-[#111114]" />
+            {/* ════════════════════════════════════════════════════════════
+                SECTION 1.5A: Hero Statement (Lemonade top section)
+            ════════════════════════════════════════════════════════════ */}
+            <section className="relative py-24 md:py-32 w-full flex flex-col items-center justify-center z-20">
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a0b]/80 to-[#18181b]" />
               
-              <div className="relative z-10 w-full px-6 md:px-12 lg:px-24">
-                {/* Hero Headline */}
-                <div className="text-center max-w-3xl mx-auto mb-16 md:mb-20">
-                  <h2 className="font-jakarta text-4xl md:text-[3.2rem] font-bold text-white tracking-tight leading-tight">
-                    Finally. A power tool for{' '}
-                    <span className="relative inline-block group cursor-help">
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400 border-b-2 border-dashed border-fuchsia-400/40">SOL</span>
-                      {/* SOL Hover Tooltip */}
-                      <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50">
-                        <span className="block bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 px-5 py-4 text-center min-w-[200px]">
-                          <span className="block text-sm font-bold text-slate-800 mb-1">Self, Others, and Life</span>
-                          <Link href="/sol-explained" className="inline-block mt-2 px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-fuchsia-500 to-indigo-500 rounded-full hover:shadow-lg hover:shadow-fuchsia-500/25 transition-all">
-                            Learn More
-                          </Link>
-                        </span>
-                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-3 h-3 bg-white/95 border-r border-b border-slate-200 rotate-45" />
+              <div className="relative z-10 w-full px-6 text-center">
+                {/* SOL Theory Brand Name — fancy serif script */}
+                <p className="font-headline text-2xl md:text-3xl text-slate-400 tracking-wide mb-10 italic font-bold">
+                  SOL Theory
+                </p>
+
+                {/* Main Headline */}
+                <h2 className="font-jakarta text-4xl md:text-[3.4rem] font-bold text-white tracking-tight leading-[1.15] max-w-3xl mx-auto">
+                  Finally. Power tools for{' '}
+                  <span className="relative inline-block group cursor-help">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400 border-b-2 border-dashed border-fuchsia-400/40">SOL</span>
+                    {/* SOL Hover Tooltip */}
+                    <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50">
+                      <span className="block bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 px-5 py-4 text-center min-w-[200px]">
+                        <span className="block text-sm font-bold text-slate-800 mb-1">Self, Others, and Life</span>
+                        <Link href="/sol-explained" className="inline-block mt-2 px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-fuchsia-500 to-indigo-500 rounded-full hover:shadow-lg hover:shadow-fuchsia-500/25 transition-all">
+                          Learn More
+                        </Link>
                       </span>
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-3 h-3 bg-white/95 border-r border-b border-slate-200 rotate-45" />
                     </span>
-                    {' '}improvement.
-                  </h2>
-                  <p className="mt-5 text-slate-400 text-base md:text-lg font-light">
-                    Incredible prices. Monthly subscription. Bundle discounts.
-                  </p>
+                  </span>
+                  {' '}improvement.
+                </h2>
+
+                {/* Subtitle */}
+                <p className="mt-5 text-slate-400 text-base md:text-lg font-light max-w-xl mx-auto">
+                  Cutting-edge functionality. Competitive pricing. One SOL.
+                </p>
+
+                {/* CTA Button */}
+                <div className="mt-10">
+                  <Link
+                    href="#products"
+                    className="inline-block px-8 py-3.5 text-sm font-bold uppercase tracking-wider text-white bg-[#ec4899] hover:bg-[#db2777] rounded-lg transition-all duration-200 hover:shadow-xl hover:shadow-pink-500/30 hover:-translate-y-0.5"
+                  >
+                    Check Our Prices
+                  </Link>
+                </div>
+              </div>
+            </section>
+
+            {/* ════════════════════════════════════════════════════════════
+                SECTION 1.5B: Product Cards (Lemonade bottom section)
+            ════════════════════════════════════════════════════════════ */}
+            <section id="products" className="relative py-16 md:py-24 w-full flex flex-col items-center justify-center z-20">
+              {/* Warm light grey background */}
+              <div className="absolute inset-0 bg-[#e8e6e4]" />
+
+              <div className="relative z-10 w-full px-6 md:px-12 lg:px-20">
+                {/* Section Heading */}
+                <div className="text-center max-w-2xl mx-auto mb-4">
+                  <h3 className="font-jakarta text-2xl md:text-[2rem] font-bold text-slate-800 tracking-tight leading-tight">
+                    Incredible Prices. Monthly Subscription.<br />Bundle Discounts.
+                  </h3>
                 </div>
 
-                {/* 5 Product Cards — Lemonade style */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5 max-w-6xl mx-auto">
+                {/* Heart + Savings badge */}
+                <div className="flex items-center justify-center gap-2 mb-12">
+                  <span className="text-[#ec4899]">♥</span>
+                  <span className="text-xs text-[#ec4899] font-semibold tracking-wide">Amazing savings when you bundle</span>
+                </div>
+
+                {/* 5 Product Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 md:gap-6 max-w-[1100px] mx-auto">
                   {[
                     {
                       title: "Email Tools",
-                      description: "AI-powered inbound and outbound email agents that draft and send for you.",
+                      description: "AI agents that draft, send, and manage your emails automatically.",
                       price: "$3.99/mo",
                       checkoutId: 1,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
-                          <rect x="10" y="18" width="60" height="44" rx="6" stroke="currentColor" strokeWidth="2" fill="none" />
-                          <path d="M10 24 L40 44 L70 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                          <circle cx="58" cy="28" r="8" fill="#ec4899" opacity="0.15" />
-                          <path d="M55 28 L57.5 30.5 L61 26" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg viewBox="0 0 80 80" fill="none" className="w-[72px] h-[72px] mx-auto mb-4">
+                          <rect x="12" y="20" width="56" height="40" rx="5" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
+                          <path d="M12 26 L40 46 L68 26" stroke="#94a3b8" strokeWidth="1.8" fill="none" strokeLinejoin="round" />
+                          <path d="M12 60 L30 42" stroke="#94a3b8" strokeWidth="1.2" fill="none" />
+                          <path d="M68 60 L50 42" stroke="#94a3b8" strokeWidth="1.2" fill="none" />
+                          <circle cx="56" cy="30" r="7" fill="#ec4899" opacity="0.12" />
+                          <path d="M53.5 30 L55.5 32 L59 28" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       ),
                     },
                     {
                       title: "SMS Tools",
-                      description: "Automated text messaging with smart replies and campaign scheduling.",
+                      description: "Smart text messaging with automated replies and scheduling.",
                       price: "$10.99/mo",
                       checkoutId: 5,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
-                          <rect x="22" y="8" width="36" height="64" rx="8" stroke="currentColor" strokeWidth="2" fill="none" />
-                          <line x1="22" y1="18" x2="58" y2="18" stroke="currentColor" strokeWidth="1.5" />
-                          <line x1="22" y1="60" x2="58" y2="60" stroke="currentColor" strokeWidth="1.5" />
-                          <circle cx="40" cy="66" r="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                          <rect x="28" y="26" width="20" height="8" rx="4" fill="#ec4899" opacity="0.12" stroke="#ec4899" strokeWidth="1" />
-                          <rect x="32" y="38" width="20" height="8" rx="4" fill="currentColor" opacity="0.06" stroke="currentColor" strokeWidth="1" />
+                        <svg viewBox="0 0 80 80" fill="none" className="w-[72px] h-[72px] mx-auto mb-4">
+                          <rect x="24" y="10" width="32" height="60" rx="7" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
+                          <line x1="24" y1="19" x2="56" y2="19" stroke="#94a3b8" strokeWidth="1.2" />
+                          <line x1="24" y1="58" x2="56" y2="58" stroke="#94a3b8" strokeWidth="1.2" />
+                          <circle cx="40" cy="64" r="2.5" stroke="#94a3b8" strokeWidth="1.2" fill="none" />
+                          <rect x="29" y="26" width="18" height="9" rx="4.5" fill="#ec4899" opacity="0.1" stroke="#ec4899" strokeWidth="0.8" />
+                          <rect x="33" y="39" width="18" height="9" rx="4.5" fill="#94a3b8" opacity="0.08" stroke="#94a3b8" strokeWidth="0.8" />
+                          <circle cx="35" cy="30.5" r="1" fill="#ec4899" opacity="0.5" />
+                          <circle cx="39" cy="30.5" r="1" fill="#ec4899" opacity="0.5" />
+                          <circle cx="43" cy="30.5" r="1" fill="#ec4899" opacity="0.5" />
                         </svg>
                       ),
                     },
                     {
-                      title: "Google Suite Tools",
-                      description: "Full integration with Calendar, Drive, and Docs for workflow automation.",
+                      title: "Google Suite",
+                      description: "Calendar, Drive, and Docs integration for total workflow control.",
                       price: "$7.99/mo",
                       checkoutId: 2,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
-                          <circle cx="40" cy="40" r="26" stroke="currentColor" strokeWidth="2" fill="none" />
-                          <path d="M40 14 L40 40 L58 52" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                          <rect x="12" y="56" width="22" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                          <line x1="16" y1="62" x2="30" y2="62" stroke="currentColor" strokeWidth="1" />
-                          <line x1="16" y1="66" x2="26" y2="66" stroke="currentColor" strokeWidth="1" />
-                          <circle cx="62" cy="22" r="8" fill="#ec4899" opacity="0.12" stroke="#ec4899" strokeWidth="1" />
-                          <path d="M59 22 L61 24 L65 20" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                        <svg viewBox="0 0 80 80" fill="none" className="w-[72px] h-[72px] mx-auto mb-4">
+                          <rect x="14" y="16" width="28" height="28" rx="4" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
+                          <line x1="14" y1="24" x2="42" y2="24" stroke="#94a3b8" strokeWidth="1.5" />
+                          <line x1="22" y1="16" x2="22" y2="12" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
+                          <line x1="34" y1="16" x2="34" y2="12" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
+                          <rect x="19" y="29" width="4" height="4" rx="1" fill="#ec4899" opacity="0.2" />
+                          <rect x="26" y="29" width="4" height="4" rx="1" fill="#94a3b8" opacity="0.15" />
+                          <rect x="33" y="29" width="4" height="4" rx="1" fill="#94a3b8" opacity="0.15" />
+                          <rect x="19" y="36" width="4" height="4" rx="1" fill="#94a3b8" opacity="0.15" />
+                          <rect x="44" y="36" width="22" height="28" rx="3" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                          <line x1="49" y1="44" x2="61" y2="44" stroke="#94a3b8" strokeWidth="1" />
+                          <line x1="49" y1="49" x2="58" y2="49" stroke="#94a3b8" strokeWidth="1" />
+                          <line x1="49" y1="54" x2="60" y2="54" stroke="#94a3b8" strokeWidth="1" />
+                          <path d="M48 20 A12 12 0 0 1 60 32" stroke="#ec4899" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                          <path d="M58 28 L60 32 L56 33" stroke="#ec4899" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       ),
                     },
                     {
                       title: "Agentic Dashboard",
-                      description: "Predictive analytics, full agent access, and priority support included.",
+                      description: "Full analytics suite with every agent and priority support.",
                       price: "$20.99/mo",
                       checkoutId: 3,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
-                          <rect x="8" y="12" width="64" height="48" rx="6" stroke="currentColor" strokeWidth="2" fill="none" />
-                          <line x1="8" y1="22" x2="72" y2="22" stroke="currentColor" strokeWidth="1.5" />
-                          <circle cx="14" cy="17" r="2" fill="#ec4899" opacity="0.5" />
-                          <circle cx="20" cy="17" r="2" fill="currentColor" opacity="0.2" />
-                          <circle cx="26" cy="17" r="2" fill="currentColor" opacity="0.2" />
-                          <rect x="14" y="28" width="20" height="26" rx="2" fill="currentColor" opacity="0.05" stroke="currentColor" strokeWidth="1" />
-                          <rect x="40" y="28" width="26" height="12" rx="2" fill="#ec4899" opacity="0.08" stroke="#ec4899" strokeWidth="0.8" />
-                          <rect x="40" y="44" width="26" height="10" rx="2" fill="currentColor" opacity="0.04" stroke="currentColor" strokeWidth="0.8" />
-                          <rect x="20" y="64" width="40" height="6" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        <svg viewBox="0 0 80 80" fill="none" className="w-[72px] h-[72px] mx-auto mb-4">
+                          <rect x="10" y="14" width="60" height="42" rx="5" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
+                          <line x1="10" y1="22" x2="70" y2="22" stroke="#94a3b8" strokeWidth="1.2" />
+                          <circle cx="16" cy="18" r="1.5" fill="#ec4899" opacity="0.6" />
+                          <circle cx="21" cy="18" r="1.5" fill="#94a3b8" opacity="0.25" />
+                          <circle cx="26" cy="18" r="1.5" fill="#94a3b8" opacity="0.25" />
+                          <rect x="15" y="27" width="18" height="24" rx="2" fill="#94a3b8" opacity="0.06" stroke="#94a3b8" strokeWidth="0.8" />
+                          <rect x="37" y="27" width="28" height="11" rx="2" fill="#ec4899" opacity="0.06" stroke="#ec4899" strokeWidth="0.8" />
+                          <rect x="37" y="41" width="28" height="10" rx="2" fill="#94a3b8" opacity="0.04" stroke="#94a3b8" strokeWidth="0.8" />
+                          <rect x="18" y="40" width="3" height="8" rx="1" fill="#94a3b8" opacity="0.2" />
+                          <rect x="23" y="36" width="3" height="12" rx="1" fill="#ec4899" opacity="0.15" />
+                          <rect x="28" y="38" width="3" height="10" rx="1" fill="#94a3b8" opacity="0.2" />
+                          <line x1="35" y1="56" x2="45" y2="56" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
+                          <line x1="40" y1="56" x2="40" y2="62" stroke="#94a3b8" strokeWidth="1.5" />
+                          <line x1="32" y1="62" x2="48" y2="62" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
                         </svg>
                       ),
                     },
                     {
                       title: "Custom Solutions",
-                      description: "Fully tailored dashboards built specifically for your organization.",
+                      description: "Bespoke dashboards designed and built for your organization.",
                       price: "Varies",
                       checkoutId: 0,
                       icon: (
-                        <svg viewBox="0 0 80 80" fill="none" className="w-16 h-16 mx-auto mb-3 text-slate-500">
-                          <path d="M40 12 L68 28 L68 56 L40 72 L12 56 L12 28 Z" stroke="currentColor" strokeWidth="2" fill="none" />
-                          <path d="M40 12 L40 42 L68 28" stroke="currentColor" strokeWidth="1" opacity="0.4" fill="none" />
-                          <path d="M40 42 L12 28" stroke="currentColor" strokeWidth="1" opacity="0.4" fill="none" />
-                          <path d="M40 42 L40 72" stroke="currentColor" strokeWidth="1" opacity="0.4" fill="none" />
-                          <circle cx="40" cy="42" r="6" fill="#ec4899" opacity="0.12" stroke="#ec4899" strokeWidth="1" />
-                          <path d="M38 42 L40 44 L43 40" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                        <svg viewBox="0 0 80 80" fill="none" className="w-[72px] h-[72px] mx-auto mb-4">
+                          <path d="M40 10 L66 24 L66 52 L40 66 L14 52 L14 24 Z" stroke="#94a3b8" strokeWidth="1.8" fill="none" />
+                          <path d="M40 10 L40 38 L66 24" stroke="#94a3b8" strokeWidth="0.8" opacity="0.3" fill="none" />
+                          <path d="M40 38 L14 24" stroke="#94a3b8" strokeWidth="0.8" opacity="0.3" fill="none" />
+                          <path d="M40 38 L40 66" stroke="#94a3b8" strokeWidth="0.8" opacity="0.3" fill="none" />
+                          <circle cx="40" cy="38" r="8" fill="#ec4899" opacity="0.08" stroke="#ec4899" strokeWidth="1" />
+                          <path d="M37.5 38 L39.5 40 L43 36" stroke="#ec4899" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          <circle cx="40" cy="10" r="2" fill="#94a3b8" opacity="0.2" />
+                          <circle cx="66" cy="24" r="2" fill="#94a3b8" opacity="0.2" />
+                          <circle cx="66" cy="52" r="2" fill="#94a3b8" opacity="0.2" />
+                          <circle cx="40" cy="66" r="2" fill="#94a3b8" opacity="0.2" />
+                          <circle cx="14" cy="52" r="2" fill="#94a3b8" opacity="0.2" />
+                          <circle cx="14" cy="24" r="2" fill="#94a3b8" opacity="0.2" />
                         </svg>
                       ),
                     },
                   ].map((product, idx) => (
                     <div
                       key={idx}
-                      className="bg-[#f5f5f5] rounded-2xl p-6 flex flex-col items-center text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+                      className="bg-[#f7f6f5] rounded-2xl px-5 py-7 flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-[0_10px_40px_rgba(0,0,0,0.14)] hover:-translate-y-1.5 transition-all duration-300 group border border-[#e5e3e1]"
                     >
                       {/* Icon */}
                       {product.icon}
 
                       {/* Title */}
-                      <h3 className="text-base font-bold text-slate-800 mb-2">{product.title}</h3>
+                      <h4 className="text-[15px] font-bold text-slate-800 mb-2">{product.title}</h4>
 
                       {/* Description */}
-                      <p className="text-xs text-slate-500 leading-relaxed mb-5 min-h-[36px]">{product.description}</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed mb-5 min-h-[32px] max-w-[160px]">{product.description}</p>
 
                       {/* CTA Button */}
-                      {product.checkoutId > 0 ? (
-                        <Link
-                          href={`/checkout/${product.checkoutId}`}
-                          className="inline-block w-full py-2.5 px-4 text-xs font-bold uppercase tracking-wider text-white bg-[#ec4899] hover:bg-[#db2777] rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-pink-500/25"
-                        >
-                          Check Our Prices
-                        </Link>
-                      ) : (
-                        <Link
-                          href="/contact"
-                          className="inline-block w-full py-2.5 px-4 text-xs font-bold uppercase tracking-wider text-white bg-[#ec4899] hover:bg-[#db2777] rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-pink-500/25"
-                        >
-                          Check Our Prices
-                        </Link>
-                      )}
+                      <Link
+                        href={product.checkoutId > 0 ? `/checkout/${product.checkoutId}` : '/contact'}
+                        className="inline-block w-full py-2.5 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-white bg-[#ec4899] hover:bg-[#db2777] rounded-md transition-all duration-200 hover:shadow-lg hover:shadow-pink-500/20"
+                      >
+                        Check Our Prices
+                      </Link>
 
                       {/* Price text */}
-                      <span className="mt-2.5 text-[11px] text-slate-400 font-medium">
+                      <span className="mt-3 text-[10px] text-slate-400 font-medium">
                         {product.price === "Varies" ? "Price varies by project" : `FROM ${product.price}`}
                       </span>
                     </div>
