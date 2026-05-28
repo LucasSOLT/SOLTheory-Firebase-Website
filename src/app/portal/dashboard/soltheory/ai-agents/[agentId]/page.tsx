@@ -187,8 +187,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [agentEyeTab, setAgentEyeTab] = useState<'gmail' | 'outlook' | 'sms' | 'jarvis-view'>('gmail');
   const [agentEyeDropdownOpen, setAgentEyeDropdownOpen] = useState(false);
   const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
-  const [agentEyePos, setAgentEyePos] = useState({ x: 200, y: 120 });
-  const [agentEyeSize, setAgentEyeSize] = useState({ w: 420, h: 420 });
+  const [agentEyePos, setAgentEyePos] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 10, y: 80 };
+    return { x: 200, y: 120 };
+  });
+  const [agentEyeSize, setAgentEyeSize] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(280, window.innerWidth - 20), h: 300 };
+    return { w: 420, h: 420 };
+  });
   const [agentEyeExpanded, setAgentEyeExpanded] = useState(false);
   const [jarvisNavQueue, setJarvisNavQueue] = useState<JarvisViewNavigation[]>([]);
   const agentEyeDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
@@ -947,8 +953,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       if (limitedNavs.length > 0) {
         // Sequential flow: animate first URL → show response → animate second URL
-        setIsAgentEyeOpen(true);
         setAgentEyeTab('jarvis-view');
+        setIsAgentEyeMinimized(false);
+        setIsAgentEyeOpen(true);
+
+        // Small delay to let the component mount before pushing nav queue
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         // 1. Navigate to first URL
         setJarvisNavQueue(prev => [...prev, limitedNavs[0]]);

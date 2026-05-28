@@ -13,6 +13,7 @@ interface BlobConfig {
   rotationIntensity: number;
   distort: number;
   speed: number;
+  color: string;
 }
 
 function ShinyBlackBlob({
@@ -58,7 +59,7 @@ function ShinyBlackBlob({
       >
         <sphereGeometry args={[1, 96, 96]} />
         <MeshDistortMaterial
-          color="#080810"
+          color={config.color}
           envMapIntensity={3}
           clearcoat={1}
           clearcoatRoughness={0.02}
@@ -112,7 +113,7 @@ class BlobErrorBoundary extends Component<
 // Three blob configurations for desktop
 const BLOB_CONFIGS: BlobConfig[] = [
   {
-    // Top-right — small
+    // Top-right — small (slight red)
     position: [2.5, 1.4, -0.5],
     scale: 0.65,
     floatSpeed: 0.8,
@@ -120,9 +121,10 @@ const BLOB_CONFIGS: BlobConfig[] = [
     rotationIntensity: 0.6,
     distort: 0.15,
     speed: 0.5,
+    color: "#1a0808",
   },
   {
-    // Middle/top-left — medium (hero blob)
+    // Middle/top-left — medium (hero blob, slight purple)
     position: [-2.2, 0.3, 0],
     scale: 1.25,
     floatSpeed: 0.5,
@@ -130,9 +132,10 @@ const BLOB_CONFIGS: BlobConfig[] = [
     rotationIntensity: 0.8,
     distort: 0.20,
     speed: 0.4,
+    color: "#100818",
   },
   {
-    // Bottom-left, slightly right — small/medium
+    // Bottom-left, slightly right — small/medium (slight ocean blue)
     position: [-0.5, -1.4, -0.3],
     scale: 0.85,
     floatSpeed: 0.6,
@@ -140,6 +143,7 @@ const BLOB_CONFIGS: BlobConfig[] = [
     rotationIntensity: 0.7,
     distort: 0.18,
     speed: 0.45,
+    color: "#081018",
   },
 ];
 
