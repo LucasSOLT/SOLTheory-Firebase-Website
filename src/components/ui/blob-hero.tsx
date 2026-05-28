@@ -13,10 +13,18 @@ interface BlobConfig {
   rotationIntensity: number;
   distort: number;
   speed: number;
+  // Material
   color: string;
+  emissive: string;
+  emissiveIntensity: number;
+  metalness: number;
+  roughness: number;
+  clearcoat: number;
+  clearcoatRoughness: number;
+  envMapIntensity: number;
 }
 
-function ShinyBlackBlob({
+function ShinyBlob({
   onReady,
   config,
 }: {
@@ -60,11 +68,13 @@ function ShinyBlackBlob({
         <sphereGeometry args={[1, 96, 96]} />
         <MeshDistortMaterial
           color={config.color}
-          envMapIntensity={3}
-          clearcoat={1}
-          clearcoatRoughness={0.02}
-          metalness={0.95}
-          roughness={0.02}
+          emissive={config.emissive}
+          emissiveIntensity={config.emissiveIntensity}
+          envMapIntensity={config.envMapIntensity}
+          clearcoat={config.clearcoat}
+          clearcoatRoughness={config.clearcoatRoughness}
+          metalness={config.metalness}
+          roughness={config.roughness}
           distort={config.distort}
           speed={config.speed}
         />
@@ -110,21 +120,30 @@ class BlobErrorBoundary extends Component<
   }
 }
 
-// Three blob configurations for desktop
+// Three blob configurations for desktop — each has a unique color identity
 const BLOB_CONFIGS: BlobConfig[] = [
   {
-    // Top-right — small (slight red)
+    // Top-right — smallest (warm red / crimson)
+    // More glassy, higher roughness for a frosted-ember look
     position: [2.5, 1.4, -0.5],
     scale: 0.65,
     floatSpeed: 0.8,
     floatIntensity: 1.0,
     rotationIntensity: 0.6,
-    distort: 0.15,
-    speed: 0.5,
-    color: "#1a0808",
+    distort: 0.22,
+    speed: 0.6,
+    color: "#2a0a0f",
+    emissive: "#ff2244",
+    emissiveIntensity: 0.12,
+    metalness: 0.7,
+    roughness: 0.15,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.1,
+    envMapIntensity: 2.0,
   },
   {
-    // Middle/top-left — medium (hero blob, slight purple)
+    // Middle/top-left — biggest (hero blob, deep purple / amethyst)
+    // Classic glossy dark look with purple undertone
     position: [-2.2, 0.3, 0],
     scale: 1.25,
     floatSpeed: 0.5,
@@ -132,18 +151,33 @@ const BLOB_CONFIGS: BlobConfig[] = [
     rotationIntensity: 0.8,
     distort: 0.20,
     speed: 0.4,
-    color: "#100818",
+    color: "#18082a",
+    emissive: "#9333ea",
+    emissiveIntensity: 0.08,
+    metalness: 0.88,
+    roughness: 0.04,
+    clearcoat: 1,
+    clearcoatRoughness: 0.02,
+    envMapIntensity: 2.8,
   },
   {
-    // Bottom-left, slightly right — small/medium (slight ocean blue)
+    // Bottom-left — medium (ocean blue / teal)
+    // Slightly more matte/satin for a deep-ocean feel
     position: [-0.5, -1.4, -0.3],
     scale: 0.85,
     floatSpeed: 0.6,
     floatIntensity: 0.9,
     rotationIntensity: 0.7,
-    distort: 0.18,
-    speed: 0.45,
-    color: "#081018",
+    distort: 0.25,
+    speed: 0.5,
+    color: "#081828",
+    emissive: "#0ea5e9",
+    emissiveIntensity: 0.10,
+    metalness: 0.75,
+    roughness: 0.12,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.06,
+    envMapIntensity: 2.2,
   },
 ];
 
@@ -186,38 +220,44 @@ export function BlobHero() {
               <RendererConfig />
 
               {/* Ambient fill */}
-              <ambientLight intensity={0.4} />
+              <ambientLight intensity={0.3} />
 
-              {/* Key lights — fuchsia/indigo accent */}
+              {/* Key lights — warm and cool accents */}
               <directionalLight
                 position={[10, 10, 5]}
-                intensity={1.5}
+                intensity={1.2}
                 color="#c026d3"
               />
               <directionalLight
                 position={[-10, -10, -5]}
-                intensity={1.5}
+                intensity={1.2}
                 color="#4f46e5"
               />
 
-              {/* Rim lights for edge definition */}
+              {/* Rim lights for edge definition — color-matched */}
               <pointLight
-                position={[5, 0, -5]}
-                intensity={0.8}
-                color="#818cf8"
-                distance={20}
+                position={[5, 2, -4]}
+                intensity={0.6}
+                color="#f87171"
+                distance={18}
               />
               <pointLight
                 position={[-5, 3, -3]}
-                intensity={0.6}
-                color="#e879f9"
-                distance={20}
+                intensity={0.5}
+                color="#a78bfa"
+                distance={18}
+              />
+              <pointLight
+                position={[-2, -4, -2]}
+                intensity={0.5}
+                color="#38bdf8"
+                distance={18}
               />
 
               {/* Top fill for subtle highlight on crown */}
               <pointLight
                 position={[0, 8, 3]}
-                intensity={0.4}
+                intensity={0.3}
                 color="#ffffff"
                 distance={25}
               />
@@ -225,7 +265,7 @@ export function BlobHero() {
               <Suspense fallback={null}>
                 {/* Render all 3 blobs — only the first signals ready */}
                 {BLOB_CONFIGS.map((config, i) => (
-                  <ShinyBlackBlob
+                  <ShinyBlob
                     key={i}
                     config={config}
                     onReady={i === 0 ? () => setReady(true) : undefined}
