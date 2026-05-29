@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { X, Bot, Sparkles, Loader2, Plus } from "lucide-react";
+import { X, Bot, Sparkles, Loader2, Plus, Trash2 } from "lucide-react";
 import { GrantAgentConfigModal, type GrantAgentConfig } from "./GrantAgentConfigModal";
 import { GrantAgentBrowserSim } from "./GrantAgentBrowserSim";
 
@@ -111,6 +111,34 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // Delete / deactivate an agent
+  async function handleDeleteAgent(index: number) {
+    if (!window.confirm(`Remove ${slots[index].name}? The agent will stop scanning.`)) return;
+    const updatedSlots = [...slots];
+    updatedSlots[index] = {
+      ...updatedSlots[index],
+      config: null,
+      active: false,
+    };
+    setSlots(updatedSlots);
+
+    if (!firestore) return;
+    try {
+      const docRef = doc(firestore, "grant_agent_config", "soltheory");
+      const agentsMap: Record<string, any> = {};
+      updatedSlots.forEach((slot) => {
+        agentsMap[slot.id] = {
+          name: slot.name,
+          config: slot.config,
+          active: slot.active,
+        };
+      });
+      await setDoc(docRef, { agents: agentsMap, updatedAt: new Date(), updatedBy: user?.uid || null }, { merge: true });
+    } catch (err) {
+      console.error("Failed to delete agent:", err);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
@@ -189,8 +217,16 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
                       <div className="flex-1 min-h-[120px] relative">
                         <GrantAgentBrowserSim config={slot.config!} colorTheme={{ dot: colors.dot, label: colors.label }} />
                       </div>
+                      {/* Delete button */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteAgent(index); }}
+                        className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-white/90 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-300 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 cursor-pointer shadow-sm"
+                        title="Remove agent"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                       {/* Click to edit hint */}
-                      <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/[0.03] transition-colors flex items-center justify-center z-10">
+                      <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/[0.03] transition-colors flex items-center justify-center z-10 pointer-events-none">
                         <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 px-3 py-1.5 rounded-lg shadow-sm border border-slate-200/60">
                           Click to Edit
                         </span>

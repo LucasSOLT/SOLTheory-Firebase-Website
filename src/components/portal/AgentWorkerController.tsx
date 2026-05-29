@@ -24,6 +24,10 @@ const DEFAULT_NAMES = [
  * Persistent invisible controller that manages agent worker lifecycles.
  * Lives at the dashboard page level so workers survive modal open/close.
  * Uses Firestore onSnapshot to react to config changes in real-time.
+ *
+ * FIX: Now tracks a config hash per agent so that when the interval or
+ * other config fields change, the worker is stopped and restarted with
+ * the new settings.
  */
 export function AgentWorkerController({
   onSlotsChange,
@@ -31,7 +35,8 @@ export function AgentWorkerController({
   onSlotsChange?: (slots: AgentSlotData[]) => void;
 }) {
   const firestore = useFirestore();
-  const startedRef = useRef<Set<string>>(new Set());
+  /** Track started agents AND their serialised config so we can detect changes */
+  const startedRef = useRef<Map<string, string>>(new Map());
   const callbackRef = useRef(onSlotsChange);
 
   // Keep callback ref current without re-subscribing
@@ -63,12 +68,16 @@ export function AgentWorkerController({
           };
         });
 
-        // Start/stop workers based on active state
+        // Start/stop/restart workers based on active state AND config changes
         slots.forEach((slot) => {
+          const configHash = slot.config ? JSON.stringify(slot.config) : "";
+
           if (slot.active && slot.config) {
-            if (!startedRef.current.has(slot.id)) {
+            const prevHash = startedRef.current.get(slot.id);
+            if (prevHash !== configHash) {
+              // Config changed (or first start) — restart worker with new settings
               startAgentWorker(firestore, slot.id, slot.config);
-              startedRef.current.add(slot.id);
+              startedRef.current.set(slot.id, configHash);
             }
           } else {
             if (startedRef.current.has(slot.id)) {
