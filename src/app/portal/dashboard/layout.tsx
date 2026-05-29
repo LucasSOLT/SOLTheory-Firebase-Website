@@ -5,7 +5,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -111,6 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (p.includes('/faq')) return { icon: 'HelpCircle', label: 'FAQ' };
       if (p.includes('/surveys')) return { icon: 'FileText', label: 'Surveys' };
       if (p.includes('/support-tickets')) return { icon: 'Mail', label: 'Support Tickets' };
+      if (p.includes('/action-board')) return { icon: 'LayoutDashboard', label: 'Action Board' };
       if (p.includes('/google-ads')) return { icon: 'Globe', label: 'Google Ads' };
       return { icon: 'Globe', label: p.split('/').pop() || 'Page' };
     };
@@ -346,11 +347,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
                       <BarChart3 className="w-5 h-5 text-slate-500" />
-                      <span>Business Intelligence</span>
+                      <span>BI</span>
                     </Link>
                     <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
                       <Database className="w-5 h-5 text-slate-500" />
                       <span>ERP</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/action-board') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <LayoutDashboard className="w-5 h-5 text-slate-500" />
+                      <span>Action Board</span>
                     </Link>
                   </div>
                 </div>
@@ -616,6 +621,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Database className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">{t.erp}</span>
+                </Link>
+                <Link href={`${dashboardHome}/action-board`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/action-board') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/action-board') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                    <LayoutDashboard className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">{t.actionBoard}</span>
                 </Link>
               </div>
             )}

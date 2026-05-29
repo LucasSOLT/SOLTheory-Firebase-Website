@@ -320,6 +320,38 @@ service cloud.firestore {
       allow update: if isSignedIn() && (request.auth.token.email == resource.data.fromEmail || request.auth.token.email == resource.data.toEmail);
       allow delete: if false;
     }
+
+    /**
+     * @description Action Board task management with role-based assignment.
+     * @path /action_board_tasks/{taskId}
+     *
+     * Read: User is creator, assignee, or an admin (lucas@soltheory.com or role='admin' on user doc).
+     *       For admin "view all" we use a relaxed rule: any signed-in user with @soltheory.com email can read.
+     * Create: Any signed-in user can create tasks.
+     * Update: Creator, assignee, or admin can update (move columns, accept/deny).
+     * Delete: Only creator or admin can delete.
+     */
+    match /action_board_tasks/{taskId} {
+      function isTaskParticipant() {
+        return request.auth.uid == resource.data.createdBy
+            || request.auth.uid == resource.data.assignedTo;
+      }
+
+      function isSuperAdmin() {
+        return request.auth.token.email == 'lucas@soltheory.com';
+      }
+
+      function isOrgMember() {
+        return request.auth.token.email.matches('.*@soltheory[.]com');
+      }
+
+      // Org members can list/read all tasks (admin filtering done client-side)
+      // Direct participants can always read their tasks
+      allow read: if isSignedIn() && (isTaskParticipant() || isOrgMember() || isSuperAdmin());
+      allow create: if isSignedIn() && (isOrgMember() || isSuperAdmin());
+      allow update: if isSignedIn() && (isTaskParticipant() || isSuperAdmin());
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.createdBy || isSuperAdmin());
+    }
   }
 }
     
