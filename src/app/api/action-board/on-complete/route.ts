@@ -52,7 +52,13 @@ export async function POST(req: Request) {
         const adminDb = getAdminFirestore();
         const userDoc = await adminDb.collection("users").doc(userId).get();
         const userData = userDoc.data();
-        refreshToken = userData?.googleRefreshToken || userData?.google?.refreshToken || null;
+        refreshToken = userData?.googleRefreshToken || 
+                       userData?.google?.refreshToken || 
+                       userData?.gmailOAuth_jarvis?.refreshToken || 
+                       userData?.gmailOAuth_morpheus?.refreshToken ||
+                       userData?.gmailOAuth_email?.refreshToken ||
+                       userData?.gmailOAuth?.refreshToken ||
+                       null;
       } catch (err) {
         console.warn("[ActionBoard/on-complete] Could not look up refresh token:", err);
       }

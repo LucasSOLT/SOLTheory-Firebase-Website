@@ -310,6 +310,23 @@ function SettingsContent() {
     }
   };
 
+  const handleDisconnectGmail = async () => {
+    if (!user?.uid || !firestore) return;
+    try {
+      const agent = searchParams.get("agent") || "jarvis";
+      await setDoc(doc(firestore, "users", user.uid), {
+        [`gmailOAuth_${agent}`]: null,
+        gmailOAuth_jarvis: null,
+        gmailOAuth_morpheus: null,
+        gmailOAuth_email: null,
+        gmailOAuth: null,
+      }, { merge: true });
+      setGmailConnected(false);
+    } catch (err: any) {
+      setOauthError("Failed to disconnect: " + err.message);
+    }
+  };
+
   // ── iMessage / BlueBubbles handlers ──
   const handleTestImessage = async () => {
     if (!imServerUrl.trim() || !imPassword.trim()) {
@@ -531,26 +548,45 @@ function SettingsContent() {
                           {syncMessage && <p className={`text-sm font-medium mt-2 ${syncMessage.includes('Error') ? 'text-red-400' : 'text-blue-400'}`}>ℹ️ {syncMessage === 'OK' ? dict.syncInbox + ' OK' : syncMessage}</p>}
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <Button 
-                            variant={gmailConnected ? "outline" : "default"} 
-                            className={gmailConnected ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 h-11" : "bg-indigo-600 hover:bg-indigo-700 h-11"}
-                            onClick={handleConnectGmail}
-                            disabled={isUserLoading}
-                          >
-                            <Mail className="w-4 h-4 mr-2" />
-                            {gmailConnected ? dict.connected : dict.connectGmail}
-                          </Button>
+                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
+                          {gmailConnected ? (
+                            <>
+                              <Button 
+                                variant="outline" 
+                                className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
+                                onClick={(e) => e.preventDefault()}
+                              >
+                                <Mail className="w-4 h-4 mr-2 text-slate-700" />
+                                {dict.connected}
+                              </Button>
 
-                          {gmailConnected && (
+                              <Button 
+                                variant="secondary" 
+                                onClick={handleSyncInbox}
+                                disabled={isSyncing || !user}
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/50 h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                              >
+                                {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                                {isSyncing ? dict.syncing : "Refresh"}
+                              </Button>
+
+                              <Button 
+                                variant="outline" 
+                                onClick={handleDisconnectGmail}
+                                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50 h-8 px-3 rounded-lg text-xs font-semibold transition-all ml-auto"
+                              >
+                                Disconnect
+                              </Button>
+                            </>
+                          ) : (
                             <Button 
-                              variant="secondary" 
-                              onClick={handleSyncInbox}
-                              disabled={isSyncing || !user}
-                              className="bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 border border-blue-500/30 h-11"
+                              variant="default" 
+                              className="bg-indigo-600 hover:bg-indigo-700 h-11 text-white rounded-xl shadow-md hover:shadow-lg transition-all"
+                              onClick={handleConnectGmail}
+                              disabled={isUserLoading}
                             >
-                              {isSyncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                              {isSyncing ? dict.syncing : dict.syncInbox}
+                              <Mail className="w-4 h-4 mr-2" />
+                              {dict.connectGmail}
                             </Button>
                           )}
                         </div>
@@ -565,23 +601,44 @@ function SettingsContent() {
                           {qbConnected && <p className="text-sm text-emerald-400 font-medium mt-2">✓ QuickBooks Connected Successfully</p>}
                           {qbError && <p className="text-sm text-red-400 font-medium mt-2">✗ {qbError}</p>}
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <Button
-                            variant={qbConnected ? "outline" : "default"}
-                            className={qbConnected ? "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 h-11" : "bg-[#2CA01C] hover:bg-[#248a17] text-white h-11"}
-                            onClick={handleConnectQuickBooks}
-                            disabled={isUserLoading || qbConnecting}
-                          >
-                            {qbConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                            {qbConnected ? "✓ Connected" : "Connect QuickBooks"}
-                          </Button>
-                          {qbConnected && (
+                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
+                          {qbConnected ? (
+                            <>
+                              <Button 
+                                variant="outline" 
+                                className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
+                                onClick={(e) => e.preventDefault()}
+                              >
+                                ✓ Connected
+                              </Button>
+
+                              <Button 
+                                variant="secondary" 
+                                onClick={handleConnectQuickBooks}
+                                disabled={isUserLoading || qbConnecting}
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/50 h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                              >
+                                {qbConnecting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                                Refresh
+                              </Button>
+
+                              <Button 
+                                variant="outline" 
+                                onClick={handleDisconnectQuickBooks}
+                                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50 h-8 px-3 rounded-lg text-xs font-semibold transition-all ml-auto"
+                              >
+                                Disconnect
+                              </Button>
+                            </>
+                          ) : (
                             <Button
-                              variant="secondary"
-                              onClick={handleDisconnectQuickBooks}
-                              className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 h-11"
+                              variant="default"
+                              className="bg-[#2CA01C] hover:bg-[#248a17] text-white h-11 rounded-xl shadow-md hover:shadow-lg transition-all"
+                              onClick={handleConnectQuickBooks}
+                              disabled={isUserLoading || qbConnecting}
                             >
-                              Disconnect
+                              {qbConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                              Connect QuickBooks
                             </Button>
                           )}
                         </div>
@@ -594,7 +651,9 @@ function SettingsContent() {
                           <Label className="text-base text-slate-800">Slack Connection</Label>
                           <p className="text-sm text-slate-500 leading-relaxed">Connect your Slack workspace to receive system alerts and daily digests in a channel.</p>
                         </div>
-                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect Slack</Button>
+                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
+                          <Button className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">Connect Slack</Button>
+                        </div>
                       </div>
 
                       {/* --- Mock Whatsapp --- */}
@@ -604,7 +663,9 @@ function SettingsContent() {
                           <Label className="text-base text-slate-800">WhatsApp Connection</Label>
                           <p className="text-sm text-slate-500 leading-relaxed">Connect your WhatsApp Business account to handle customer communications.</p>
                         </div>
-                        <Button className="h-11 bg-black text-emerald-400 hover:bg-zinc-900 border-none">Connect WhatsApp</Button>
+                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
+                          <Button className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">Connect WhatsApp</Button>
+                        </div>
                       </div>
 
                       {/* --- Messaging (SMS/Text) --- */}
@@ -624,14 +685,45 @@ function SettingsContent() {
                             </p>
                           )}
                         </div>
-                        <Button
-                          onClick={() => window.location.href = window.location.pathname.replace("/settings", "/communications/imessage")}
-                          className={imConnected && imServerUrl ? "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 h-11" : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white h-11"}
-                          variant={imConnected && imServerUrl ? "outline" : "default"}
-                        >
-                          <MessageCircle className="w-4 h-4 mr-2" />
-                          {imConnected && imServerUrl ? "✓ Active" : "Set Up Messaging"}
-                        </Button>
+                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
+                          {imConnected && imServerUrl ? (
+                            <>
+                              <Button 
+                                variant="outline" 
+                                className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
+                                onClick={(e) => e.preventDefault()}
+                              >
+                                ✓ Active
+                              </Button>
+
+                              <Button 
+                                variant="secondary" 
+                                onClick={handleTestImessage}
+                                disabled={imTesting}
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/50 h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                              >
+                                {imTesting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                                Refresh
+                              </Button>
+
+                              <Button 
+                                variant="outline" 
+                                onClick={handleDisconnectImessage}
+                                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50 h-8 px-3 rounded-lg text-xs font-semibold transition-all ml-auto"
+                              >
+                                Disconnect
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              onClick={() => window.location.href = window.location.pathname.replace("/settings", "/communications/imessage")}
+                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white h-11 rounded-xl shadow-md hover:shadow-lg transition-all"
+                            >
+                              <MessageCircle className="w-4 h-4 mr-2" />
+                              Set Up Messaging
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
                     </CardContent>
