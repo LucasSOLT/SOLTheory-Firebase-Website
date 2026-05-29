@@ -37,7 +37,7 @@ export default function SolTheoryDashboard() {
           </p>
         </div>
 
-        {/* Uniform Grid Layout with Solid White Structural Tiles */}
+        {/* Uniform Grid Layout with Solid White Structural Tiles & Hover Bookmarks */}
         <div className="space-y-5">
           
           {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
@@ -45,7 +45,10 @@ export default function SolTheoryDashboard() {
             {/* Slot 1: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards */}
             <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
               {/* Card 1A: Weekly Timesheet Hours (Real QuickBooks data!) */}
-              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+              <div className="relative group flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 1
+                </div>
                 <div className="flex items-center justify-between mb-3 shrink-0">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Hours Worked</span>
                   <Clock className="w-4 h-4 text-indigo-500" />
@@ -56,7 +59,10 @@ export default function SolTheoryDashboard() {
               </div>
 
               {/* Card 1B: Nearest Due Tasks Priority Widget (Real Action Board data!) */}
-              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+              <div className="relative group flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 2
+                </div>
                 <div className="flex items-center justify-between mb-3 shrink-0">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nearest Due Tasks</span>
                   <Clock className="w-4 h-4 text-rose-500" />
@@ -70,28 +76,52 @@ export default function SolTheoryDashboard() {
             {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank Solid White Cards) */}
             <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
               {/* Card 2A: Conversion Rate (Left KPI - Blank White Card) */}
-              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
+              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 3
+                </div>
+              </div>
 
               {/* Card 2B: Active Users (Right KPI - Blank White Card) */}
-              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
+              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 4
+                </div>
+              </div>
 
               {/* Card 2C: Weekly Revenue Analytics (Bottom span-2 - Blank White Card) */}
-              <div className="col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]" />
+              <div className="relative group col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 5
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
           <div className="flex flex-col lg:flex-row gap-5 w-full">
             {/* Slot 3: Left (Aspect 16:9) -> Single Full-Height (Blank White Card) */}
-            <div className="flex-1 aspect-[16/9] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow" />
+            <div className="relative group flex-1 aspect-[16/9] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow">
+              <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                Tile 6
+              </div>
+            </div>
 
             {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank White Cards) */}
             <div className="flex-1 aspect-[16/9] flex flex-col gap-5">
               {/* Card 4A (2/3 Height): User Demographics (Blank White Card) */}
-              <div className="flex-[2] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0" />
+              <div className="relative group flex-[2] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 7
+                </div>
+              </div>
 
               {/* Card 4B (1/3 Height): Real-time Latency (Blank White Card) */}
-              <div className="flex-[1] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0" />
+              <div className="relative group flex-[1] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0">
+                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 8
+                </div>
+              </div>
             </div>
           </div>
 
@@ -100,22 +130,42 @@ export default function SolTheoryDashboard() {
             {/* Slot 5: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank White Cards) */}
             <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
               {/* Card 5A: Retention Rate (Left KPI - Blank White Card) */}
-              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
+              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 9
+                </div>
+              </div>
 
               {/* Card 5B: Satisfaction CSAT (Right KPI - Blank White Card) */}
-              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
+              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 10
+                </div>
+              </div>
 
               {/* Card 5C: Uptime Line Chart (Bottom span-2 - Blank White Card) */}
-              <div className="col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]" />
+              <div className="relative group col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 11
+                </div>
+              </div>
             </div>
 
             {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards (Blank White Cards) */}
             <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
               {/* Card 6A: Upcoming Milestones (Blank White Card) */}
-              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow" />
+              <div className="relative group flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 12
+                </div>
+              </div>
 
               {/* Card 6B: System Status / Health (Blank White Card) */}
-              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow" />
+              <div className="relative group flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 13
+                </div>
+              </div>
             </div>
           </div>
 
