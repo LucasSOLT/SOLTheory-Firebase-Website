@@ -23,10 +23,15 @@ export default function SolTheoryDashboard() {
 
   return (
     <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4 sm:px-8 focus:outline-none" tabIndex={-1}>
-      <div className="space-y-6 min-w-0 max-w-7xl mx-auto">
+      <div className="space-y-6 min-w-0 w-full">
         {/* Dashboard Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            Welcome back, {user?.displayName || "Lucas"}.
+          </h1>
+          <p className="text-sm text-slate-500 font-medium">
+            Here is your week at a glance.
+          </p>
         </div>
 
         {/* Redesigned Wireframe Layout (6 Rectangles) */}
