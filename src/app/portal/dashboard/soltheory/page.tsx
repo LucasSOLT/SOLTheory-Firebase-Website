@@ -6,6 +6,8 @@ import { doc, updateDoc } from "firebase/firestore";
 import { Clock, ExternalLink, Activity } from "lucide-react";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
+import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
+import { GrantStatusPieChart } from "@/components/portal/GrantStatusPieChart";
 
 export default function SolTheoryDashboard() {
   const { user } = useUser();
@@ -112,9 +114,15 @@ export default function SolTheoryDashboard() {
                 </div>
                 
                 {/* Left Column (50% width) - Split vertically into Top-Left and Bottom-Left */}
-                <div className="flex-1 flex flex-col gap-4 h-full">
-                  <div className="flex-1 flex flex-col justify-center" />
-                  <div className="flex-1 flex flex-col justify-center" />
+                <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
+                  {/* Top-Left: Grant Completions Line Graph */}
+                  <div className="flex-1 min-h-0">
+                    <GrantCompletionsLineChart />
+                  </div>
+                  {/* Bottom-Left: Grant Status Pie/Donut Chart */}
+                  <div className="flex-1 min-h-0">
+                    <GrantStatusPieChart />
+                  </div>
                 </div>
 
                 {/* Right Column (50% width) - Combined Top-Right and Bottom-Right quadrants into a single full-height container */}
