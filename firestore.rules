@@ -348,7 +348,7 @@ service cloud.firestore {
       // Org members can list/read all tasks (admin filtering done client-side)
       // Direct participants can always read their tasks
       allow read: if isSignedIn() && (isTaskParticipant() || isOrgMember() || isSuperAdmin());
-      allow create: if isSignedIn() && (isOrgMember() || isSuperAdmin());
+      allow create: if isSignedIn();
       allow update: if isSignedIn() && (isTaskParticipant() || isSuperAdmin());
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.createdBy || isSuperAdmin());
     }

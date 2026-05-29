@@ -442,31 +442,42 @@ export default function ActionBoardPage() {
     const startDateObj = fromDatetimeLocal(newStartDate);
     const dueDateObj = fromDatetimeLocal(newDueDate);
 
+    const automationsData = buildAutomations();
+
+    const taskData: Record<string, any> = {
+      orgId: ORG_ID,
+      title: newTitle.trim(),
+      description: newDesc.trim() || "",
+      priority: newPriority,
+      column: status === "direct" ? newColumn : "todo",
+      createdBy: user.uid,
+      createdByEmail: user.email || "",
+      createdByName: user.displayName || "",
+      assignedTo: assigneeUid,
+      assignedToEmail: assigneeMember?.email || user.email || "",
+      assignedToName: assigneeMember?.displayName || user.displayName || "",
+      assignmentStatus: status,
+      startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
+      dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
+      completedAt: null,
+      isLate: false,
+      lateNotifiedAt: null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    // Only include automations field if it has data (avoid null/undefined in Firestore)
+    if (automationsData) {
+      taskData.automations = automationsData;
+    }
+
     try {
-      await addDoc(collection(firestore, "action_board_tasks"), {
-        orgId: ORG_ID,
-        title: newTitle.trim(),
-        description: newDesc.trim() || null,
-        priority: newPriority,
-        column: status === "direct" ? newColumn : "todo",
-        createdBy: user.uid,
-        createdByEmail: user.email || "",
-        createdByName: user.displayName || "",
-        assignedTo: assigneeUid,
-        assignedToEmail: assigneeMember?.email || user.email || "",
-        assignedToName: assigneeMember?.displayName || user.displayName || "",
-        assignmentStatus: status,
-        startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
-        dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
-        completedAt: null,
-        isLate: false,
-        lateNotifiedAt: null,
-        automations: buildAutomations(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    } catch (err) {
+      console.log("[ActionBoard] Creating task:", taskData);
+      const docRef = await addDoc(collection(firestore, "action_board_tasks"), taskData);
+      console.log("[ActionBoard] Task created with ID:", docRef.id);
+    } catch (err: any) {
       console.error("[ActionBoard] Failed to create task:", err);
+      alert(`Failed to create task: ${err.message || err}`);
     }
 
     setNewTitle(""); setNewDesc(""); setNewPriority("Medium"); setNewColumn("todo");
