@@ -93,7 +93,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 2B: Grant Statuses (Manual) (Tile 4) */}
               <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
-                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 4
                 </div>
                 <div className="flex items-center justify-between mb-2 shrink-0">
@@ -107,7 +107,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 2C / Tile 5: Bottom span-2 - Blank White Card with seamless internal grid layout */}
               <div className="relative group col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] p-5 flex gap-5">
-                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 5
                 </div>
                 
@@ -143,7 +143,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 4B (1/3 Height): Real-time Latency (Blank White Card) */}
               <div className="relative group flex-[1] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0">
-                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 8
                 </div>
               </div>
@@ -163,7 +163,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 5B: Satisfaction CSAT (Right KPI - Blank White Card) */}
               <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
-                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 10
                 </div>
               </div>
@@ -180,7 +180,7 @@ export default function SolTheoryDashboard() {
             <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
               {/* Card 6A: Upcoming Milestones (Blank White Card) */}
               <div className="relative group flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow">
-                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 12
                 </div>
               </div>
