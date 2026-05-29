@@ -198,27 +198,29 @@ export function GrantAgentBrowserSim({
           </div>
         </div>
 
-        {/* Browser Viewport */}
-        <div className="flex-1 flex items-center justify-center p-2 min-h-[50px] relative overflow-hidden bg-white">
+        {/* Browser Viewport — fixed size, content absolutely positioned to prevent layout shift */}
+        <div className="flex-1 relative min-h-[50px] overflow-hidden bg-white">
           {/* Idle / cursor_move: blank page */}
           {(phase === "idle" || phase === "cursor_move") && (
-            <div className="text-center">
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-[8px] text-slate-300 font-medium">Waiting...</div>
             </div>
           )}
 
           {/* Typing: show faint page lines */}
           {phase === "typing" && (
-            <div className="w-full space-y-1.5 px-1">
-              <div className="h-1.5 bg-slate-100 rounded-full w-3/4 animate-pulse" />
-              <div className="h-1.5 bg-slate-100 rounded-full w-1/2 animate-pulse" style={{ animationDelay: "150ms" }} />
-              <div className="h-1.5 bg-slate-100 rounded-full w-5/6 animate-pulse" style={{ animationDelay: "300ms" }} />
+            <div className="absolute inset-0 flex items-center p-2">
+              <div className="w-full space-y-1.5">
+                <div className="h-1.5 bg-slate-100 rounded-full w-3/4 animate-pulse" />
+                <div className="h-1.5 bg-slate-100 rounded-full w-1/2 animate-pulse" style={{ animationDelay: "150ms" }} />
+                <div className="h-1.5 bg-slate-100 rounded-full w-5/6 animate-pulse" style={{ animationDelay: "300ms" }} />
+              </div>
             </div>
           )}
 
           {/* Loading: spinner */}
           {phase === "loading" && (
-            <div className="flex flex-col items-center gap-1.5">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
               <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
               <span className="text-[7px] font-semibold text-slate-400">Scanning results...</span>
             </div>
@@ -226,30 +228,32 @@ export function GrantAgentBrowserSim({
 
           {/* Found: grant result */}
           {(phase === "found" || phase === "minimizing") && (
-            <div className="w-full px-1">
-              {/* Fake search results */}
-              <div className="space-y-1.5 mb-2">
-                <div className="h-1.5 bg-slate-100 rounded-full w-full" />
-                <div className="h-1.5 bg-slate-100 rounded-full w-2/3" />
-              </div>
-              {/* Found toast */}
-              <div className="bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5 animate-in slide-in-from-bottom-2 fade-in duration-300">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex items-center justify-center">
-                    <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                  </div>
-                  <span className="text-[7px] font-extrabold text-emerald-700 uppercase tracking-wider">
-                    Grant Found!
-                  </span>
+            <div className="absolute inset-0 flex items-center p-2">
+              <div className="w-full">
+                {/* Fake search results */}
+                <div className="space-y-1.5 mb-2">
+                  <div className="h-1.5 bg-slate-100 rounded-full w-full" />
+                  <div className="h-1.5 bg-slate-100 rounded-full w-2/3" />
                 </div>
-                <p className="text-[6px] text-emerald-600 font-semibold truncate pl-3.5">{currentGrant}</p>
+                {/* Found toast */}
+                <div className="bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                    </div>
+                    <span className="text-[7px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                      Grant Found!
+                    </span>
+                  </div>
+                  <p className="text-[6px] text-emerald-600 font-semibold truncate pl-3.5">{currentGrant}</p>
+                </div>
               </div>
             </div>
           )}
 
           {/* Stored: empty, browser gone */}
           {(phase === "stored" || phase === "resetting") && (
-            <div className="text-center">
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-[7px] text-slate-300 font-medium">Preparing next scan...</div>
             </div>
           )}
