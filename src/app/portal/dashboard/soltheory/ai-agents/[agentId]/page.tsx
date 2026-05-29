@@ -188,15 +188,133 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [agentEyeDropdownOpen, setAgentEyeDropdownOpen] = useState(false);
   const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
   const [agentEyePos, setAgentEyePos] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 10, y: 80 };
-    return { x: 200, y: 120 };
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 8, y: 60 };
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return { x: 16, y: 80 };
+    const bottomY = typeof window !== 'undefined' ? Math.max(window.innerHeight - 480, 100) : 300;
+    return { x: 240, y: bottomY };
   });
   const [agentEyeSize, setAgentEyeSize] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(280, window.innerWidth - 20), h: 300 };
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(window.innerWidth - 16, 360), h: 280 };
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return { w: Math.min(340, window.innerWidth - 32), h: 340 };
     return { w: 420, h: 420 };
   });
   const [agentEyeExpanded, setAgentEyeExpanded] = useState(false);
   const [jarvisNavQueue, setJarvisNavQueue] = useState<JarvisViewNavigation[]>([]);
+  const jarvisNavCountRef = useRef(0);
+
+  // Topic-aware mock URL picker — analyzes the user's message and returns relevant URLs
+  const getTopicUrls = useCallback((userInput: string): JarvisViewNavigation[] => {
+    const q = userInput.toLowerCase();
+
+    // Topic → URL pool mapping (each topic has 4-6 believable sources)
+    const topicMap: Record<string, JarvisViewNavigation[]> = {
+      entertainment: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.imdb.com/find?q=" + encodeURIComponent(userInput), title: "IMDb" },
+        { url: "https://www.rottentomatoes.com/search?search=" + encodeURIComponent(userInput), title: "Rotten Tomatoes" },
+        { url: "https://variety.com/results/?q=" + encodeURIComponent(userInput), title: "Variety" },
+        { url: "https://www.hollywoodreporter.com/search/" + encodeURIComponent(userInput), title: "Hollywood Reporter" },
+        { url: "https://www.rollingstone.com/results/" + encodeURIComponent(userInput), title: "Rolling Stone" },
+      ],
+      science: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.nature.com/search?q=" + encodeURIComponent(userInput), title: "Nature" },
+        { url: "https://scholar.google.com/scholar?q=" + encodeURIComponent(userInput), title: "Google Scholar" },
+        { url: "https://www.sciencedirect.com/search?qs=" + encodeURIComponent(userInput), title: "ScienceDirect" },
+        { url: "https://www.nationalgeographic.com/search?q=" + encodeURIComponent(userInput), title: "National Geographic" },
+      ],
+      history: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.britannica.com/search?query=" + encodeURIComponent(userInput), title: "Britannica" },
+        { url: "https://www.history.com/search?q=" + encodeURIComponent(userInput), title: "History.com" },
+        { url: "https://www.smithsonianmag.com/search/?q=" + encodeURIComponent(userInput), title: "Smithsonian" },
+        { url: "https://www.bbc.com/news/topics/" + encodeURIComponent(userInput.split(' ').slice(0, 3).join('-')), title: "BBC" },
+      ],
+      tech: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://stackoverflow.com/search?q=" + encodeURIComponent(userInput), title: "Stack Overflow" },
+        { url: "https://www.theverge.com/search?q=" + encodeURIComponent(userInput), title: "The Verge" },
+        { url: "https://techcrunch.com/search/" + encodeURIComponent(userInput), title: "TechCrunch" },
+        { url: "https://arstechnica.com/search/?q=" + encodeURIComponent(userInput), title: "Ars Technica" },
+      ],
+      finance: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.investopedia.com/search?q=" + encodeURIComponent(userInput), title: "Investopedia" },
+        { url: "https://finance.yahoo.com/quote/" + encodeURIComponent(userInput), title: "Yahoo Finance" },
+        { url: "https://www.bloomberg.com/search?query=" + encodeURIComponent(userInput), title: "Bloomberg" },
+        { url: "https://www.wsj.com/search?query=" + encodeURIComponent(userInput), title: "Wall Street Journal" },
+      ],
+      health: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.mayoclinic.org/search/search-results?q=" + encodeURIComponent(userInput), title: "Mayo Clinic" },
+        { url: "https://www.webmd.com/search/search_results/default.aspx?query=" + encodeURIComponent(userInput), title: "WebMD" },
+        { url: "https://www.nih.gov/search-results?q=" + encodeURIComponent(userInput), title: "NIH" },
+        { url: "https://medlineplus.gov/search/?query=" + encodeURIComponent(userInput), title: "MedlinePlus" },
+      ],
+      sports: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.espn.com/search/_/q/" + encodeURIComponent(userInput), title: "ESPN" },
+        { url: "https://www.si.com/search?query=" + encodeURIComponent(userInput), title: "Sports Illustrated" },
+        { url: "https://bleacherreport.com/search?q=" + encodeURIComponent(userInput), title: "Bleacher Report" },
+      ],
+      food: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.allrecipes.com/search?q=" + encodeURIComponent(userInput), title: "Allrecipes" },
+        { url: "https://www.foodnetwork.com/search/" + encodeURIComponent(userInput), title: "Food Network" },
+        { url: "https://www.seriouseats.com/search?q=" + encodeURIComponent(userInput), title: "Serious Eats" },
+      ],
+      travel: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.lonelyplanet.com/search?q=" + encodeURIComponent(userInput), title: "Lonely Planet" },
+        { url: "https://www.tripadvisor.com/Search?q=" + encodeURIComponent(userInput), title: "TripAdvisor" },
+        { url: "https://www.nationalgeographic.com/travel/search?q=" + encodeURIComponent(userInput), title: "Nat Geo Travel" },
+      ],
+      news: [
+        { url: "https://www.reuters.com/search/news?query=" + encodeURIComponent(userInput), title: "Reuters" },
+        { url: "https://www.bbc.com/search?q=" + encodeURIComponent(userInput), title: "BBC News" },
+        { url: "https://www.nytimes.com/search?query=" + encodeURIComponent(userInput), title: "NY Times" },
+        { url: "https://apnews.com/search?q=" + encodeURIComponent(userInput), title: "AP News" },
+      ],
+      general: [
+        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
+        { url: "https://www.britannica.com/search?query=" + encodeURIComponent(userInput), title: "Britannica" },
+        { url: "https://www.google.com/search?q=" + encodeURIComponent(userInput), title: "Google" },
+        { url: "https://www.bbc.com/search?q=" + encodeURIComponent(userInput), title: "BBC" },
+        { url: "https://www.reuters.com/search/news?query=" + encodeURIComponent(userInput), title: "Reuters" },
+      ],
+    };
+
+    // Keyword → topic detection
+    const topicKeywords: Record<string, string[]> = {
+      entertainment: ['movie', 'film', 'show', 'tv', 'series', 'actor', 'actress', 'netflix', 'comedy', 'comedian', 'stand-up', 'standup', 'joke', 'funny', 'humor', 'festival', 'concert', 'music', 'song', 'album', 'band', 'singer', 'rapper', 'hip hop', 'hiphop', 'rap', 'rock', 'pop', 'jazz', 'celebrity', 'hollywood', 'broadway', 'theater', 'theatre', 'anime', 'manga', 'video game', 'gaming', 'disney', 'marvel', 'dc comics', 'hulu', 'hbo', 'amazon prime', 'youtube', 'podcast', 'streaming'],
+      science: ['science', 'physics', 'chemistry', 'biology', 'quantum', 'atom', 'molecule', 'dna', 'gene', 'evolution', 'space', 'planet', 'star', 'galaxy', 'nasa', 'experiment', 'theory', 'hypothesis', 'research', 'discovery', 'element', 'periodic', 'cell', 'organism', 'ecosystem', 'climate', 'environment', 'geology', 'astronomy', 'math', 'equation', 'formula'],
+      history: ['history', 'war', 'battle', 'ancient', 'empire', 'civilization', 'revolution', 'century', 'medieval', 'renaissance', 'dynasty', 'pharaoh', 'rome', 'roman', 'greek', 'egypt', 'viking', 'colonial', 'independence', 'civil war', 'world war', 'wwi', 'wwii', 'cold war', 'president', 'king', 'queen', 'historical'],
+      tech: ['tech', 'technology', 'software', 'hardware', 'computer', 'programming', 'code', 'coding', 'ai', 'artificial intelligence', 'machine learning', 'robot', 'internet', 'website', 'app', 'startup', 'silicon valley', 'apple', 'google', 'microsoft', 'tesla', 'elon musk', 'crypto', 'bitcoin', 'blockchain', 'cybersecurity', 'cloud', 'data', 'algorithm', 'python', 'javascript'],
+      finance: ['stock', 'market', 'invest', 'investing', 'finance', 'financial', 'money', 'economy', 'economic', 'bank', 'banking', 'tax', 'budget', 'credit', 'debt', 'loan', 'mortgage', 'interest rate', 'inflation', 'gdp', 'recession', 'portfolio', 'dividend', 'bond', 'forex', 'trading', 'wall street', 'nasdaq', 'dow jones', 's&p'],
+      health: ['health', 'medical', 'doctor', 'hospital', 'disease', 'symptom', 'treatment', 'medicine', 'drug', 'therapy', 'mental health', 'anxiety', 'depression', 'nutrition', 'diet', 'exercise', 'fitness', 'workout', 'vitamin', 'supplement', 'vaccine', 'virus', 'cancer', 'diabetes', 'heart', 'surgery', 'diagnosis'],
+      sports: ['sport', 'sports', 'football', 'basketball', 'baseball', 'soccer', 'tennis', 'golf', 'nba', 'nfl', 'mlb', 'fifa', 'olympics', 'athlete', 'team', 'championship', 'tournament', 'playoff', 'super bowl', 'world cup', 'boxing', 'mma', 'ufc', 'wrestling', 'hockey', 'nhl', 'cricket'],
+      food: ['recipe', 'cook', 'cooking', 'food', 'cuisine', 'restaurant', 'chef', 'bake', 'baking', 'ingredient', 'meal', 'dinner', 'lunch', 'breakfast', 'dessert', 'cake', 'pizza', 'pasta', 'sushi', 'vegan', 'vegetarian', 'nutrition', 'kitchen'],
+      travel: ['travel', 'trip', 'vacation', 'hotel', 'flight', 'airline', 'destination', 'tourism', 'tourist', 'beach', 'mountain', 'country', 'city', 'visit', 'explore', 'backpack', 'cruise', 'resort', 'passport', 'visa'],
+      news: ['news', 'breaking', 'headline', 'current events', 'politics', 'election', 'congress', 'senate', 'government', 'policy', 'legislation', 'protest', 'crisis'],
+    };
+
+    // Find best matching topic
+    let bestTopic = 'general';
+    let bestScore = 0;
+    for (const [topic, keywords] of Object.entries(topicKeywords)) {
+      let score = 0;
+      for (const kw of keywords) {
+        if (q.includes(kw)) score += kw.length; // longer matches = higher confidence
+      }
+      if (score > bestScore) { bestScore = score; bestTopic = topic; }
+    }
+
+    const pool = topicMap[bestTopic];
+    // Always include Wikipedia as first pick, then shuffle the rest
+    const wiki = pool.find(u => u.url.includes('wikipedia'));
+    const rest = pool.filter(u => !u.url.includes('wikipedia')).sort(() => Math.random() - 0.5);
+    return wiki ? [wiki, ...rest] : rest;
+  }, []);
   const agentEyeDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const agentEyeResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
 
@@ -208,6 +326,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   // Chat sidebar resizable state
   const [chatSidebarWidth, setChatSidebarWidth] = useState(300);
   const [isChatSidebarCollapsed, setIsChatSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const sidebarResizeRef = useRef<{ startX: number; startW: number } | null>(null);
 
   // Keep a ref of current size so drag handler can access it without re-creating
@@ -899,6 +1018,46 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const newMessages = [...realMessages, userMsg];
     setMessages(newMessages); setIsTyping(true); setInputValue("");
 
+    // ── IMMEDIATE Jarvis View animation ──
+    // Trigger proactively for most questions BEFORE API returns
+    const lowerInput = inputValue.toLowerCase().trim();
+    const SKIP_PATTERNS = [
+      /^what(?:'s| is) (?:my|your) name/,
+      /^who am i/,
+      /^who are you/,
+      /^what are you/,
+      /^are you (?:a |an )?(?:ai|bot|human|real)/,
+      /^(?:hi|hello|hey|yo|sup|what's up|howdy|greetings)\b[.!?]?$/,
+      /^(?:thanks|thank you|thx|ty)[.!?]?$/,
+      /^(?:ok|okay|sure|yes|no|yep|nope|yeah|nah)[.!?]?$/,
+      /^(?:goodbye|bye|see ya|later|gn|good night)[.!?]?$/,
+      /^(?:help|menu|commands)[.!?]?$/,
+      /^(?:lol|lmao|haha|hehe)[.!?]?$/,
+    ];
+    const shouldSkipAnimation = SKIP_PATTERNS.some(p => p.test(lowerInput)) || lowerInput.length < 4;
+    let didStartAnimation = false;
+
+    if (!shouldSkipAnimation && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
+      didStartAnimation = true;
+      // Alternate between 1 and 2 mock URLs
+      const navCount = jarvisNavCountRef.current % 2 === 0 ? 2 : 1;
+      jarvisNavCountRef.current++;
+
+      // Pick topic-relevant URLs based on the user's question
+      const topicUrls = getTopicUrls(inputValue);
+      const mockNavs = topicUrls.slice(0, navCount);
+
+      // Push first URL immediately
+      setJarvisNavQueue(prev => [...prev, mockNavs[0]]);
+
+      // If 2 URLs, push the second after a delay
+      if (navCount > 1) {
+        setTimeout(() => {
+          setJarvisNavQueue(prev => [...prev, mockNavs[1]]);
+        }, 4500);
+      }
+    }
+
     try {
       let rToken = null;
       if (user?.uid && firestore && isGmailConnected) {
@@ -936,46 +1095,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      // Check if Jarvis searched the web — orchestrate sequential animation
-      const webSearchNavs: JarvisViewNavigation[] = [];
-      if (data.executedTools && Array.isArray(data.executedTools)) {
-        const webSearchTools = data.executedTools.filter((t: any) => t.name === 'web_search');
-        webSearchTools.forEach((t: any) => {
-          const results = t.args?.searchResults || [];
-          results.forEach((r: any) => {
-            if (r.url) webSearchNavs.push({ url: r.url, title: r.title });
-          });
+      // If the server returned real enrichment URLs, push them to Jarvis View
+      // These are REAL sites used for research — much more believable than mocks
+      if (data.enrichmentUrls && Array.isArray(data.enrichmentUrls) && data.enrichmentUrls.length > 0
+          && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
+        // Push real URLs with staggered timing for natural feel
+        data.enrichmentUrls.slice(0, 2).forEach((eu: { url: string; title: string }, idx: number) => {
+          setTimeout(() => {
+            setJarvisNavQueue(prev => [...prev, { url: eu.url, title: eu.title }]);
+          }, idx * 3500);
         });
       }
 
-      // Limit to 2 websites by default
-      const limitedNavs = webSearchNavs.slice(0, 2);
-
-      if (limitedNavs.length > 0) {
-        // Sequential flow: animate first URL → show response → animate second URL
-        setAgentEyeTab('jarvis-view');
-        setIsAgentEyeMinimized(false);
-        setIsAgentEyeOpen(true);
-
-        // Small delay to let the component mount before pushing nav queue
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // 1. Navigate to first URL
-        setJarvisNavQueue(prev => [...prev, limitedNavs[0]]);
-
-        // 2. Wait for first animation (~4s for cursor + typing + loading), then show response
-        await new Promise(resolve => setTimeout(resolve, 4000));
-        setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
-
-        // 3. If there's a second URL, navigate to it after a brief pause
-        if (limitedNavs.length > 1) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          setJarvisNavQueue(prev => [...prev, limitedNavs[1]]);
-        }
-      } else {
-        // No web search — show response immediately
-        setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
-      }
+      // Show response (animation is already running in parallel)
+      setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
 
       // Generate AI title for new sessions after first exchange
       const activeSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
@@ -1054,7 +1187,47 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
 
     } catch (error: any) {
-      setMessages(prev => [...prev, { id: uid(), text: `Error: ${error.message}.`, isSelf: false }]);
+      console.error("[handleSendMessage] Error:", error?.message || error);
+      const errorMsg = error?.message || "";
+      // Provide user-friendly error messages
+      let friendlyError = "Hmm, something went wrong on my end. Let me try that again...";
+      if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError") || errorMsg.includes("net::")) {
+        friendlyError = "I'm having trouble connecting. Please check your internet connection and try again.";
+      } else if (errorMsg.includes("timeout") || errorMsg.includes("Timeout")) {
+        friendlyError = "That took longer than expected. Let me try again with a simpler approach.";
+      }
+
+      // Auto-retry once on generic errors
+      if (!errorMsg.includes("Failed to fetch") && !errorMsg.includes("NetworkError")) {
+        try {
+          console.log("[handleSendMessage] Auto-retrying...");
+          const retryMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
+          const retryRes = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: retryMessages,
+              agentId: `soltheory_${params.agentId}`,
+              soul: agentConfig.soul,
+              brain: agentConfig.brain,
+              uid: user?.uid,
+              pactText,
+              userName: user?.displayName || undefined,
+              model: selectedModel
+            }),
+          });
+          const retryData = await retryRes.json();
+          if (retryData.response && retryData.response.length > 5) {
+            setMessages(prev => [...prev, { id: uid(), text: retryData.response, isSelf: false }]);
+            setIsTyping(false);
+            return;
+          }
+        } catch (retryErr) {
+          console.error("[handleSendMessage] Retry also failed:", retryErr);
+        }
+      }
+
+      setMessages(prev => [...prev, { id: uid(), text: friendlyError, isSelf: false }]);
     } finally {
       setIsTyping(false);
     }
@@ -1585,6 +1758,55 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </button>
       )}
 
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div className="fixed inset-0 z-[100] md:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          {/* Slide-in panel */}
+          <div className="absolute inset-y-0 left-0 w-[280px] max-w-[85vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">Chat History</span>
+              <button
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-3">
+              <button onClick={() => { startNewSession(); setIsMobileSidebarOpen(false); }} className="w-full text-left p-3 rounded-xl border border-dashed border-slate-300/50 bg-slate-50 hover:bg-slate-100 transition-colors flex items-center gap-3 group">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+                  <SquarePen className="w-4 h-4" />
+                </div>
+                <span className="text-sm font-semibold text-slate-700">New Chat</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 pb-4">
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
+                <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
+              )}
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
+                <div
+                  key={s.id}
+                  onClick={() => { loadSession(s.id); setIsMobileSidebarOpen(false); }}
+                  className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[44px] py-2.5 rounded-lg transition-all ${activeSessionId === s.id ? 'bg-slate-200/70 text-slate-900 border border-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                >
+                  <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
+                  <span className="text-sm font-medium flex-1 break-words leading-snug">{s.title}</span>
+                  <button onClick={(e) => deleteSession(e, s.id)} className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md hover:bg-red-50">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main UI Pane */}
       <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
 
@@ -1597,30 +1819,40 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </div>
 
         {/* Top Navigator */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0 z-20 bg-slate-100 backdrop-blur-xl">
-          <div className="font-bold text-sm tracking-wide text-slate-900 opacity-80">
-            {(() => {
-              if (!activeSessionId || messages.filter(m => m.isSelf).length === 0) return '';
-              const title = sessions.find(s => s.id === activeSessionId)?.title || '';
-              return title === 'New Chat' ? '' : title;
-            })()}
+        <div className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-slate-200 shrink-0 z-20 bg-slate-100 backdrop-blur-xl">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {/* Mobile hamburger menu */}
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden p-2 -ml-1 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors shrink-0"
+              title="Chat history"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <div className="font-bold text-xs sm:text-sm tracking-wide text-slate-900 opacity-80 truncate">
+              {(() => {
+                if (!activeSessionId || messages.filter(m => m.isSelf).length === 0) return '';
+                const title = sessions.find(s => s.id === activeSessionId)?.title || '';
+                return title === 'New Chat' ? '' : title;
+              })()}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsAgentEyeOpen(!isAgentEyeOpen)}
-              className={`flex items-center gap-2 px-3 h-9 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? 'bg-amber-50 text-amber-600 border-amber-300' : 'bg-white text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'}`}
+              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? 'bg-amber-50 text-amber-600 border-amber-300' : 'bg-white text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'}`}
               title="Agent Eye"
             >
-              <Eye className="w-4 h-4" />
-              <span className="hidden md:inline">Agent Eye</span>
+              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Agent Eye</span>
             </button>
             <button
               onClick={() => { setIsKnowledgeBaseOpen(!isKnowledgeBaseOpen); }}
-              className={`flex items-center gap-2 px-3 h-9 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'}`}
+              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'}`}
               title="Agent Neural Configuration"
             >
-              <Settings className="w-4 h-4" />
-              <span className="hidden md:inline">Brain & Settings</span>
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Brain & Settings</span>
             </button>
           </div>
         </div>
@@ -1651,28 +1883,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
 
                   {/* Tabs */}
-                  <div className="flex items-center gap-6 mt-6 border-b border-slate-200/50 ">
+                  <div className="flex items-center gap-3 sm:gap-6 mt-6 border-b border-slate-200/50 overflow-x-auto scrollbar-hide">
                     <button
                       onClick={() => setActiveSettingsTab("identity")}
-                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors ${activeSettingsTab === "identity" ? "border-fuchsia-500 text-fuchsia-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors whitespace-nowrap ${activeSettingsTab === "identity" ? "border-fuchsia-500 text-fuchsia-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
                     >
                       Identity & Rules
                     </button>
                     <button
                       onClick={() => setActiveSettingsTab("data")}
-                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 ${activeSettingsTab === "data" ? "border-indigo-500 text-indigo-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "data" ? "border-indigo-500 text-indigo-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
                     >
-                      Knowledge Base (RAG)
+                      Knowledge Base
                     </button>
                     <button
                       onClick={() => setActiveSettingsTab("brain")}
-                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 ${activeSettingsTab === "brain" ? "border-blue-500 text-blue-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "brain" ? "border-blue-500 text-blue-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
                     >
                       <Brain className="w-3.5 h-3.5" /> Org Brain
                     </button>
                     <button
                       onClick={() => { setActiveSettingsTab("pact"); fetchPACTEntries(); }}
-                      className={`pb-3 text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 ${activeSettingsTab === "pact" ? "border-emerald-500 text-emerald-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "pact" ? "border-emerald-500 text-emerald-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
                     >
                       <BookOpen className="w-3.5 h-3.5" /> P.A.C.T.
                       {pactEntries.length > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-black">{pactEntries.length}</span>}
@@ -2248,13 +2480,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     ) : (
                                                                   <>
                          <div className="flex justify-center mb-10 pt-10">
-                          <div className="text-3xl font-black opacity-10 tracking-[0.3em] uppercase text-center max-w-full truncate px-4">{selectedExploreItem ? `${exploreItemsMeta[selectedExploreItem]?.name || ''} - ${selectedExploreItem}` : agent.name}</div>
+                          <div className="text-lg sm:text-2xl md:text-3xl font-black opacity-10 tracking-[0.15em] sm:tracking-[0.3em] uppercase text-center max-w-full truncate px-2 sm:px-4">{selectedExploreItem ? `${exploreItemsMeta[selectedExploreItem]?.name || ''} - ${selectedExploreItem}` : agent.name}</div>
                         </div>
                         {messages.map(msg => (
-                      <div key={msg.id} className={`flex gap-4 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-slate-300  ${msg.isSelf ? 'bg-indigo-600 border-indigo-500' : 'bg-slate-200/50 '}`}>{msg.isSelf ? <User className="w-5 h-5 text-slate-900 " /> : <Bot className={`w-5 h-5 ${agent.accent}`} />}</div>
-                        <div className={`flex-1 space-y-1 pt-1 ${msg.isSelf ? 'text-right' : ''}`}>
-                          <div className={`text-slate-800  inline-block p-4 rounded-2xl shadow-xl text-left backdrop-blur-md ${msg.isSelf ? 'bg-slate-300/50  rounded-tr-sm' : `${agent.chatBg} rounded-tl-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>strong]:font-bold border`}`}>
+                      <div key={msg.id} className={`flex gap-2 sm:gap-4 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-slate-300 ${msg.isSelf ? 'bg-indigo-600 border-indigo-500' : 'bg-slate-200/50'}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900" /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
+                        <div className={`flex-1 space-y-1 pt-1 min-w-0 ${msg.isSelf ? 'text-right' : ''}`}>
+                          <div className={`text-slate-800 inline-block p-3 sm:p-4 rounded-2xl shadow-xl text-left backdrop-blur-md text-sm sm:text-base max-w-full break-words ${msg.isSelf ? 'bg-slate-300/50 rounded-tr-sm' : `${agent.chatBg} rounded-tl-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>strong]:font-bold border`}`}>
                             {msg.imageUrl ? (
                               <div className="flex flex-col mb-2">
                                 <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">{msg.text.replace('Uploaded image: ', '')}</span>

@@ -1,5 +1,7 @@
 "use client";
 
+import CampaignCalendar from "@/components/crm/CampaignCalendar";
+
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useUser, useFirestore } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,7 +17,7 @@ import {
   MessageCircle, PanelRightClose, PanelRightOpen, Send, Sparkles, Trash2,
   CheckSquare, Square, Tag, MailPlus, Calendar, Clock, ToggleLeft, ToggleRight,
   CalendarCheck, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
-  Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool,
+  Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
 } from "lucide-react";
 
 type SortKey = "name" | "email" | "phone" | "tags" | "status";
@@ -45,6 +47,7 @@ const STATUS_COLORS: Record<string, string> = {
 const crmNavItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "contacts", label: "Contacts", icon: Users },
+  { id: "campaigns", label: "Campaign Manager", icon: CalendarRange, special: true },
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
@@ -775,6 +778,31 @@ export default function CRMPage() {
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           {crmNavItems.map((item) => {
             const isActive = activeView === item.id;
+            const isSpecial = "special" in item && item.special;
+
+            if (isSpecial) {
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveView(item.id); setIsMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 my-1.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer border ${
+                    isActive
+                      ? "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 border-amber-300 shadow-sm shadow-amber-500/10"
+                      : "bg-gradient-to-r from-amber-50/60 to-orange-50/40 text-amber-700 border-amber-200/80 hover:from-amber-50 hover:to-orange-50 hover:border-amber-300 hover:shadow-sm"
+                  }`}
+                >
+                  <div className={`w-[26px] h-[26px] rounded-md flex items-center justify-center border ${
+                    isActive
+                      ? "bg-gradient-to-br from-amber-500 to-orange-600 border-amber-600 shadow-sm shadow-amber-500/30"
+                      : "bg-gradient-to-br from-amber-400 to-orange-500 border-amber-500/60"
+                  }`}>
+                    <item.icon className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  {item.label}
+                </button>
+              );
+            }
+
             return (
               <button
                 key={item.id}
@@ -956,6 +984,7 @@ export default function CRMPage() {
           {/* Skeleton Loading */}
           {isLoading ? (
             activeView === "contacts" ? <ContactsTableSkeleton /> :
+            activeView === "campaigns" ? <DashboardSkeleton /> :
             activeView === "inbox" ? <InboxSkeleton /> :
             activeView === "analytics" ? <AnalyticsSkeleton /> :
             <DashboardSkeleton />
@@ -1819,6 +1848,11 @@ export default function CRMPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ═══════════ CAMPAIGNS VIEW ═══════════ */}
+          {activeView === "campaigns" && (
+            <CampaignCalendar />
           )}
           </>
           )}

@@ -475,6 +475,9 @@ export async function POST(req: Request) {
           return await groq.chat.completions.create({
             messages: messagesArray,
             model: selectedModel,
+            temperature: 0.7,
+            top_p: 0.9,
+            max_tokens: 4096,
             ...(useTools ? { tools, tool_choice: "auto" } : {}),
           });
         } catch (err: any) {
@@ -484,7 +487,6 @@ export async function POST(req: Request) {
             console.warn(`[DEBUG] Error data:`, JSON.stringify(err.response?.data));
           }
           if (attempts >= maxRetries) {
-            // Fallback: If it failed due to tools, try one last time WITHOUT tools
             const errMsg = err?.message || "";
             if (useTools && (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls"))) {
               console.warn(`[DEBUG] Max retries reached for tools. Falling back to non-tool completion...`);
@@ -492,6 +494,9 @@ export async function POST(req: Request) {
               return await groq.chat.completions.create({
                 messages: cleanMessages.length > 0 ? cleanMessages : messagesArray,
                 model: selectedModel,
+                temperature: 0.7,
+                top_p: 0.9,
+                max_tokens: 4096,
               });
             }
             throw err;
@@ -502,7 +507,19 @@ export async function POST(req: Request) {
 
     // Payload Array Compilation
     let groqMessages: any[] = [
-      { role: "system", content: agentRole + "\n\nCRITICAL CONVERSATION RULES:\n1. ALWAYS respond in natural, conversational human text. NEVER output raw JSON payloads like {\"query\": \"...\", \"title\": \"...\"} in your message content. If you need to search the web, call the web_search tool via the function calling API — do NOT write the JSON in your message.\n2. DISTINGUISH between QUESTIONS and PERSONAL FACTS: When a user ASKS you something (e.g. 'what is a geode?', 'what's the weather?', 'tell me about X', 'search for Y', 'can you find Z'), this is a QUESTION — you must ANSWER it using your knowledge or tools. Do NOT treat questions as personal facts to remember. Only save DECLARATIVE statements where the user shares personal info about themselves (e.g. 'my name is John', 'I live in Colorado', 'my dog is named Rex').\n3. When in doubt about whether you can answer a question, USE the web_search tool to look it up rather than giving an empty or unhelpful response." }
+      { role: "system", content: agentRole + `\n\nCRITICAL CONVERSATION RULES:
+1. RESPONSE FORMAT: You MUST respond in natural, conversational human text — full sentences and paragraphs. ABSOLUTELY NEVER output raw JSON, code, function signatures, or structured payloads in your response. If you need a tool, use the function calling API — never write tool arguments as text.
+2. THINKING PROCESS: Before answering any substantive question, mentally organize your thoughts: (a) What is being asked? (b) What do I know about this? (c) What's the most insightful angle? (d) How can I structure this clearly? Then deliver a polished answer.
+3. ANSWER DEPTH: Provide rich, expert-level responses. Go beyond surface-level — include causes, context, history, nuance, examples, and implications. A great answer teaches something unexpected. Aim for the quality of a knowledgeable friend who happens to be an expert.
+4. CONVERSATIONAL INTELLIGENCE: Read between the lines. If someone asks "why are firetrucks red?", they want an interesting explanation, not a one-liner. If someone shares an experience, engage with it — ask follow-up questions, share relevant insights, connect it to broader topics.
+5. QUESTIONS vs FACTS: When a user ASKS something, ANSWER it thoroughly. Only store DECLARATIVE personal statements (e.g. 'I live in Colorado') — never treat questions as facts.
+6. TOOL USAGE: Use web_search via the function calling API for real-time data, recent events, or uncertain facts. NEVER write {"query": "..."} as text.
+7. FORMAT: Use **bold** for key terms, bullet points for lists, and short paragraphs for readability. Structure longer answers with clear sections.
+8. PERSONALITY: Be warm, confident, and genuinely helpful. Show enthusiasm for interesting topics. Avoid being robotic or overly formal. You're a brilliant assistant who loves learning and sharing knowledge.
+
+RESPONSE QUALITY REFERENCE:
+- BAD response to "Why is the sky blue?": "The sky is blue because of Rayleigh scattering."
+- GOOD response to "Why is the sky blue?": "Great question! The sky appears blue due to a phenomenon called **Rayleigh scattering**. When sunlight enters Earth's atmosphere, it collides with gas molecules. Sunlight contains all colors of the visible spectrum, but shorter wavelengths — particularly blue and violet — scatter much more than longer wavelengths like red and orange.\n\nHere's the fascinating part: violet light actually scatters even MORE than blue, so theoretically the sky should look violet! But our eyes are more sensitive to blue light, and much of the violet gets absorbed higher in the atmosphere, so we perceive blue.\n\nFun fact: this is also why sunsets are red and orange — when sunlight travels through more atmosphere at the horizon, the blue light scatters away completely, leaving only the longer red wavelengths to reach your eyes."` }
     ];
 
     // --- KNOWLEDGE BASE: SECONDARY SYSTEM PROMPT ---
@@ -533,14 +550,127 @@ export async function POST(req: Request) {
 
     // --- P.A.C.T.: Personalized AI Conversation Training ---
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      const cappedPact = pactText.substring(0, 5000);
+      const cappedPact = pactText.substring(0, 12000);
       groqMessages.push({
         role: "system",
-        content: `[P.A.C.T. — PERSONALIZED USER CONTEXT]\nYou have learned the following facts about this specific user from previous conversations. Use this knowledge naturally when relevant. Do not repeat these facts unprompted. Do not mention that you have a "PACT" or "training document" — just use the knowledge as if you naturally remember it.\n\n${cappedPact}`
+        content: `[P.A.C.T. — PERSONALIZED USER CONTEXT / LONG-TERM MEMORY]\nYou have learned the following facts about this specific user from ALL previous conversations. This is your long-term memory — treat it as ground truth about this person. Use this knowledge naturally, proactively, and contextually:\n- Reference their preferences, interests, and history when relevant\n- Connect new questions to things you know about them\n- Personalize recommendations based on their background\n- Never say "I don't know anything about you" if facts exist here\n\n${cappedPact}`
       });
     }
 
-    groqMessages.push(...messages);
+    // --- SMART CONTEXT WINDOW MANAGEMENT ---
+    // Keep the conversation focused by managing message history intelligently
+    const MAX_CONTEXT_MESSAGES = 24; // Keep last 24 messages as full context
+
+    // Extract conversation topics for continuity across the entire conversation
+    const allTopics = messages.map((m: any) => {
+      const text = (m.content || '').toLowerCase();
+      // Extract key nouns/topics by finding capitalized words and longer terms
+      const words = (m.content || '').match(/\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)*/g) || [];
+      return words;
+    }).flat();
+    const topicCounts: Record<string, number> = {};
+    allTopics.forEach((t: string) => { topicCounts[t] = (topicCounts[t] || 0) + 1; });
+    const topTopics = Object.entries(topicCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([topic]) => topic);
+
+    if (topTopics.length > 0) {
+      groqMessages.push({
+        role: "system",
+        content: `[CONVERSATION TOPIC TRACKER]: Key topics discussed in this conversation so far: ${topTopics.join(', ')}. Use this awareness to maintain coherent, connected responses that reference earlier discussion points when relevant.`
+      });
+    }
+
+    if (messages.length > MAX_CONTEXT_MESSAGES) {
+      const oldMessages = messages.slice(0, messages.length - MAX_CONTEXT_MESSAGES);
+      const recentMessages = messages.slice(messages.length - MAX_CONTEXT_MESSAGES);
+
+      // Build a structured narrative summary of older messages
+      const userQuestions = oldMessages
+        .filter((m: any) => m.role === 'user')
+        .map((m: any) => (m.content || '').substring(0, 120))
+        .slice(-8); // last 8 user messages from old section
+      const assistantHighlights = oldMessages
+        .filter((m: any) => m.role === 'assistant')
+        .map((m: any) => (m.content || '').substring(0, 120))
+        .slice(-5); // last 5 assistant messages from old section
+
+      groqMessages.push({
+        role: "system",
+        content: `[EARLIER CONVERSATION MEMORY]\nThe user previously asked these questions (oldest first):\n${userQuestions.map((q: string, i: number) => `${i + 1}. ${q}${q.length >= 120 ? '...' : ''}`).join('\n')}\n\nKey points from your earlier responses:\n${assistantHighlights.map((a: string, i: number) => `- ${a}${a.length >= 120 ? '...' : ''}`).join('\n')}\n\nMaintain continuity with these earlier exchanges.`
+      });
+      groqMessages.push(...recentMessages);
+    } else {
+      groqMessages.push(...messages);
+    }
+
+    // --- CHAIN-OF-THOUGHT INJECTION ---
+    // For substantive questions, inject a hidden thinking prompt to improve quality
+    const lastUserMsg = messages[messages.length - 1];
+    const lastUserText = (lastUserMsg?.content || '').toLowerCase().trim();
+    const isSubstantiveQuestion = lastUserText.length > 15 &&
+      !lastUserText.startsWith('draft') && !lastUserText.startsWith('send') &&
+      !lastUserText.startsWith('delete') && !lastUserText.startsWith('create') &&
+      !lastUserText.startsWith('schedule') && !lastUserText.startsWith('book') &&
+      (lastUserText.includes('?') || lastUserText.startsWith('why') || lastUserText.startsWith('how') ||
+       lastUserText.startsWith('what') || lastUserText.startsWith('explain') || lastUserText.startsWith('tell me') ||
+       lastUserText.startsWith('describe') || lastUserText.startsWith('compare') || lastUserText.startsWith('analyze'));
+
+    if (isSubstantiveQuestion) {
+      groqMessages.push({
+        role: "system",
+        content: "[INTERNAL REASONING DIRECTIVE]: The user has asked a substantive question. Before responding, consider: (1) the core of what they're asking, (2) multiple angles and perspectives, (3) interesting or surprising facts related to the topic, (4) how to structure the answer for maximum clarity and engagement. Deliver a comprehensive, insightful response that would impress an expert."
+      });
+    }
+
+    // --- PROACTIVE CONTEXT ENRICHMENT ---
+    // For factual/knowledge questions, silently fetch web data to give the model real facts
+    // Also collect real URLs to send to the client for Jarvis View
+    let enrichmentUrls: { url: string; title: string }[] = [];
+    if (isSubstantiveQuestion && process.env.TAVILY_API_KEY) {
+      try {
+        const searchQuery = (lastUserMsg?.content || '').substring(0, 200);
+        console.log(`[ENRICHMENT] Proactively searching for: "${searchQuery.substring(0, 60)}..."`);
+        const enrichRes = await fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_key: process.env.TAVILY_API_KEY,
+            query: searchQuery,
+            search_depth: "advanced",
+            include_answer: true,
+            max_results: 5,
+          }),
+        });
+        if (enrichRes.ok) {
+          const enrichData = await enrichRes.json();
+          const results = enrichData.results || [];
+
+          // Collect real URLs for Jarvis View animation
+          enrichmentUrls = results
+            .filter((r: any) => r.url && r.title)
+            .slice(0, 3)
+            .map((r: any) => ({ url: r.url, title: r.title }));
+
+          const snippets = results.map((r: any) =>
+            `**${r.title}** (${r.url}):\n${(r.content || '').substring(0, 350)}`
+          ).join('\n\n');
+          const enrichContext = enrichData.answer
+            ? `Summary: ${enrichData.answer}\n\nDetailed sources:\n${snippets}`
+            : snippets;
+          if (enrichContext.trim().length > 20) {
+            groqMessages.push({
+              role: "system",
+              content: `[REAL-TIME WEB RESEARCH]: The following is verified, up-to-date information from authoritative web sources. Use this data to provide accurate, detailed answers. Synthesize information from multiple sources for depth. Do NOT mention that you received web context — present the knowledge as your own expertise.\n\n${enrichContext.substring(0, 4000)}`
+            });
+            console.log(`[ENRICHMENT] Injected ${enrichContext.length} chars of web context from ${results.length} sources`);
+          }
+        }
+      } catch (enrichErr) {
+        console.warn("[ENRICHMENT] Proactive search failed (non-fatal):", (enrichErr as any)?.message);
+      }
+    }
 
     const useTools = !!(gmail || calendar || docsApi || youtubeApi || uid);
 
@@ -1521,9 +1651,15 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
       if (!text) return text;
       // Remove <function=...>...</function>, <search_past_conversations>...</search_past_conversations>, etc.
       let clean = text.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file|web_search)[^>]*>/gi, '');
-      // Remove JSON-like tool args that were hallucinated inline
-      clean = clean.replace(/\{"(?:query|folderName|to|subject|body|title|date|time|description|videoTitle|content|searchQuery|fileId)"\s*:\s*"[^"]*"\s*\}/g, '');
-      // Collapse multiple whitespace/newlines into single space
+      // Remove JSON-like tool args (single or multi-key objects) that were hallucinated inline
+      clean = clean.replace(/\{\s*"(?:query|folderName|to|subject|body|title|date|time|description|videoTitle|content|searchQuery|fileId|type|name|function|arguments|tool_call)"\s*:(?:[^{}]|\{[^{}]*\})*\}/g, '');
+      // Remove leftover JSON arrays from hallucinated tool calls
+      clean = clean.replace(/\[\s*\{\s*"(?:query|type|name|function)"[^\]]*\]\s*/g, '');
+      // Remove code fence blocks wrapping JSON tool calls
+      clean = clean.replace(/```(?:json)?\s*\{[^`]*\}\s*```/gi, '');
+      // Remove lines that are purely JSON-like
+      clean = clean.replace(/^\s*[\[{]\s*"[^"]+"\s*:.*[}\]]\s*$/gm, '');
+      // Collapse multiple whitespace/newlines
       clean = clean.replace(/\n{3,}/g, '\n\n').trim();
       // If the cleaned response is empty or too short, provide a contextual fallback
       if (clean.length < 5) {
@@ -1534,13 +1670,40 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
 
     let finalResponseText = responseMessage?.content || "";
 
+    // --- EMPTY RESPONSE SAFEGUARD ---
+    // If the model returned absolutely nothing, do a clean re-generation
+    if (!finalResponseText.trim() && executedTools.length === 0) {
+      console.warn("[SAFEGUARD] Model returned empty response. Re-generating with clean prompt...");
+      try {
+        const userQuestion = messages[messages.length - 1]?.content || "Hello";
+        const safeguardCompletion = await groq.chat.completions.create({
+          messages: [
+            { role: "system", content: "You are Jarvis, a helpful and intelligent AI assistant. Answer the user's question thoroughly in natural conversational text. Be warm and engaging. Never output JSON or code." },
+            { role: "user", content: userQuestion }
+          ],
+          model: selectedModel,
+          temperature: 0.7,
+          max_tokens: 4096,
+        });
+        finalResponseText = safeguardCompletion.choices[0]?.message?.content || "I'm here and ready to help! Could you try asking me that again?";
+      } catch (safeguardErr) {
+        console.error("[SAFEGUARD] Re-generation also failed:", (safeguardErr as any)?.message);
+        finalResponseText = "I'm here! I had a momentary hiccup processing that. Could you try asking me again?";
+      }
+    }
+
     // --- HALLUCINATED TOOL CALL RECOVERY ---
     // If the model hallucinated a web_search call in its text (instead of using tool_calls),
     // detect it and actually execute the search so the user gets a real answer.
-    const hallucinatedSearchMatch = finalResponseText.match(/\{\s*"query"\s*:\s*"([^"]+)"\s*\}/);
-    if (hallucinatedSearchMatch && executedTools.length === 0) {
-      const hallucinatedQuery = hallucinatedSearchMatch[1];
-      console.log(`[RECOVERY] Detected hallucinated web_search for: "${hallucinatedQuery}". Executing real search...`);
+    // Detect hallucinated tool calls — match JSON with "query" key (single or multi-key)
+    const hallucinatedSearchMatch = finalResponseText.match(/\{[^{}]*"query"\s*:\s*"([^"]+)"[^{}]*\}/);
+    // Also detect if the ENTIRE response is basically just JSON garbage
+    const isEntirelyJSON = /^\s*[\[{]/.test(finalResponseText.trim()) && /[}\]]\s*$/.test(finalResponseText.trim());
+
+    if ((hallucinatedSearchMatch || isEntirelyJSON) && executedTools.length === 0) {
+      // Extract the query from JSON, or fall back to using the user's original message
+      const hallucinatedQuery = hallucinatedSearchMatch?.[1] || messages[messages.length - 1]?.content || "general search";
+      console.log(`[RECOVERY] Detected hallucinated output for: "${hallucinatedQuery}". Executing real search + re-generation...`);
       try {
         const tavilyKey = process.env.TAVILY_API_KEY;
         if (tavilyKey) {
@@ -1564,22 +1727,24 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             }));
             executedTools.push({ name: 'web_search', args: { query: hallucinatedQuery, searchResults: results } });
 
-            // Re-ask the model to generate a proper response using search results
+            // Build search context for re-generation
             const searchContext = searchData.answer
               ? `Web Search Answer: ${searchData.answer}\n\nSources:\n${results.map((r: any) => `- ${r.title}: ${r.url}\n  ${r.snippet}`).join("\n")}`
               : `Search Results:\n${results.map((r: any) => `- ${r.title}: ${r.url}\n  ${r.snippet}`).join("\n")}`;
 
+            // Use a stable ID for tool_call matching
+            const recoveryId = `recovery_${Date.now()}`;
             groqMessages.push({
               role: "assistant",
               content: null,
               tool_calls: [{
-                id: `recovery_${Date.now()}`,
+                id: recoveryId,
                 type: "function",
                 function: { name: "web_search", arguments: JSON.stringify({ query: hallucinatedQuery }) }
               }]
             });
             groqMessages.push({
-              tool_call_id: `recovery_${Date.now()}`,
+              tool_call_id: recoveryId,
               role: "tool",
               name: "web_search",
               content: JSON.stringify({ result: searchContext }),
@@ -1594,30 +1759,95 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
         }
       } catch (recoveryErr) {
         console.error("[RECOVERY] Web search recovery failed:", recoveryErr);
+        // If recovery fails entirely, re-generate without tools using a clean prompt
+        try {
+          const userQuestion = messages[messages.length - 1]?.content || "";
+          const fallbackCompletion = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: "You are a helpful, knowledgeable AI assistant. Answer the user's question thoroughly in natural conversational text. Never output JSON or code." },
+              { role: "user", content: userQuestion }
+            ],
+            model: selectedModel,
+          });
+          finalResponseText = fallbackCompletion.choices[0]?.message?.content || "I wasn't able to process that. Could you try rephrasing?";
+        } catch { /* use sanitized original */ }
       }
     }
 
-    const finalResponse = sanitizeResponse(finalResponseText);
+    let finalResponse = sanitizeResponse(finalResponseText);
+
+    // --- QUALITY GUARDRAIL ---
+    // If the response to a substantive question is suspiciously short, re-generate with emphasis
+    const lastMsg = messages[messages.length - 1];
+    const lastText = (lastMsg?.content || '').toLowerCase().trim();
+    const isRealQuestion = lastText.length > 15 && (lastText.includes('?') || lastText.startsWith('why') || lastText.startsWith('how') || lastText.startsWith('what') || lastText.startsWith('explain') || lastText.startsWith('tell me'));
+    const isTooShort = finalResponse.length < 120 && isRealQuestion && executedTools.length === 0;
+
+    if (isTooShort) {
+      console.log(`[QUALITY] Response too short (${finalResponse.length} chars) for substantive question. Re-generating...`);
+      try {
+        const qualityCompletion = await groq.chat.completions.create({
+          messages: [
+            { role: "system", content: "You are an expert AI assistant. The user has asked a substantive question. Provide a thorough, detailed, and insightful answer in at least 3-4 paragraphs. Include context, examples, and interesting details. Never output JSON or code. Be conversational and engaging." },
+            { role: "user", content: lastMsg?.content || "" }
+          ],
+          model: selectedModel,
+          temperature: 0.75,
+          max_tokens: 4096,
+        });
+        const qualityResponse = qualityCompletion.choices[0]?.message?.content;
+        if (qualityResponse && qualityResponse.length > finalResponse.length) {
+          finalResponse = sanitizeResponse(qualityResponse);
+        }
+      } catch (qualityErr) {
+        console.warn("[QUALITY] Re-generation failed, using original:", (qualityErr as any)?.message);
+      }
+    }
+
+    // --- SELF-REFINEMENT PASS ---
+    // For substantive questions with decent-length answers, do a quick polish pass
+    if (isRealQuestion && finalResponse.length > 200 && finalResponse.length < 3000 && executedTools.length === 0) {
+      try {
+        console.log(`[REFINE] Running self-refinement on ${finalResponse.length}-char response`);
+        const refineCompletion = await groq.chat.completions.create({
+          messages: [
+            { role: "system", content: "You are an expert editor. You will receive an AI-generated answer to a user's question. Your job is to IMPROVE it while keeping the same general content. Specifically:\n- Add any missing important details or nuance\n- Improve the structure and flow\n- Make it more engaging and conversational\n- Ensure bold formatting on key terms\n- Add a surprising or lesser-known fact if appropriate\n- Keep the same overall length (don't make it drastically longer or shorter)\n- Output ONLY the improved response, nothing else. No preamble like 'Here is the improved version'.\n- NEVER output JSON, code, or metadata." },
+            { role: "user", content: `Original question: ${lastMsg?.content || ""}\n\nCurrent answer to improve:\n${finalResponse}` }
+          ],
+          model: selectedModel,
+          temperature: 0.6,
+          max_tokens: 4096,
+        });
+        const refined = refineCompletion.choices[0]?.message?.content;
+        if (refined && refined.length > 100 && !refined.startsWith('{') && !refined.startsWith('[')) {
+          finalResponse = sanitizeResponse(refined);
+          console.log(`[REFINE] Improved response: ${finalResponse.length} chars`);
+        }
+      } catch (refineErr) {
+        console.warn("[REFINE] Self-refinement failed (non-fatal):", (refineErr as any)?.message);
+      }
+    }
 
     // Default Raw Response
     return NextResponse.json({
-      response: finalResponse,
+      response: finalResponse || "I'm here and ready to help! Could you try asking me that again?",
       usage: totalTokens,
-      executedTools: executedTools.length > 0 ? executedTools : undefined
+      executedTools: executedTools.length > 0 ? executedTools : undefined,
+      enrichmentUrls: enrichmentUrls.length > 0 ? enrichmentUrls : undefined,
     });
   } catch (error: any) {
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
 
     const errMsg = error?.message || "";
-    if (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls")) {
-      return NextResponse.json({ response: "I encountered a tool execution error. Could you please try asking me that one more time?" });
-    }
-    if (errMsg.includes("rate_limit") || errMsg.includes("429")) {
-      return NextResponse.json({ response: "I'm receiving too many requests right now. Please wait a moment and try again." });
-    }
-    if (errMsg.includes("context_length") || errMsg.includes("too many tokens") || errMsg.includes("maximum context")) {
-      return NextResponse.json({ response: "Your conversation or document data is too long for me to process at once. Try starting a new chat session, or reduce the size of your knowledge base documents." });
-    }
-    return NextResponse.json({ error: errMsg || "Failed to generate response" }, { status: 500 });
+    // Always return 200 with a friendly message so the user never sees a broken state
+    return NextResponse.json({
+      response: errMsg.includes("rate_limit") || errMsg.includes("429")
+        ? "I'm receiving a lot of requests right now. Please wait a moment and try again."
+        : errMsg.includes("context_length") || errMsg.includes("too many tokens") || errMsg.includes("maximum context")
+        ? "Your conversation is getting quite long! Try starting a new chat session, or I can summarize what we've discussed so far."
+        : errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls")
+        ? "I ran into a small issue with one of my tools. Could you try asking me that one more time?"
+        : "I had a momentary hiccup. Could you try asking me that again? I'm ready to help!"
+    });
   }
 }

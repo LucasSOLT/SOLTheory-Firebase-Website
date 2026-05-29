@@ -167,7 +167,7 @@ const BLOB_CONFIGS: BlobConfig[] = [
   {
     // Bottom-left — medium (muted ocean blue-grey / steel teal)
     // Tilted left for off-kilter effect
-    position: [-0.5, -1.4, -0.3],
+    position: [2.2, -1.3, -0.3],
     rotation: [-0.2, 0.35, -0.3],
     scale: 0.85,
     floatSpeed: 0.6,

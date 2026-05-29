@@ -60,7 +60,10 @@ export function Header() {
           <ul className="flex items-center gap-8">
             {navLinks.map((link) => (
               <li key={link.href}>
-                <Link href={link.href} className="text-lg text-muted-foreground hover:text-primary transition-colors">
+                <Link 
+                  href={link.href} 
+                  className="text-[15px] font-semibold tracking-wider text-slate-100 hover:text-fuchsia-400 transition-all duration-300 uppercase"
+                >
                   {link.label}
                 </Link>
               </li>
