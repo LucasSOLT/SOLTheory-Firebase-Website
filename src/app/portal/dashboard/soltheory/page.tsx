@@ -73,23 +73,39 @@ export default function SolTheoryDashboard() {
               </div>
             </div>
 
-            {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank Solid White Cards) */}
+            {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
             <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
-              {/* Card 2A: Conversion Rate (Left KPI - Blank White Card) */}
-              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
-                <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+              {/* Card 2A: Grant Agent Interface (Tile 3) */}
+              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 3
+                </div>
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Agent Interface</span>
+                  <button className="p-1 rounded-lg bg-slate-50 border border-slate-200/60 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors shadow-sm cursor-pointer">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-100 bg-slate-50/30 rounded-xl min-h-[40px] py-1 px-2">
+                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Interface Offline</span>
                 </div>
               </div>
 
-              {/* Card 2B: Active Users (Right KPI - Blank White Card) */}
-              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+              {/* Card 2B: Grant Statuses (Manual) (Tile 4) */}
+              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
                 <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 4
                 </div>
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Statuses (Manual)</span>
+                  <Activity className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-100 bg-slate-50/30 rounded-xl min-h-[40px] py-1 px-2">
+                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">No statuses</span>
+                </div>
               </div>
 
-              {/* Card 2C / Tile 5: Weekly Revenue Analytics (Bottom span-2 - Blank White Card with seamless internal grid layout) */}
+              {/* Card 2C / Tile 5: Bottom span-2 - Blank White Card with seamless internal grid layout */}
               <div className="relative group col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] p-5 flex gap-5">
                 <div className="absolute top-0 left-0 bg-slate-955 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 5
@@ -109,35 +125,19 @@ export default function SolTheoryDashboard() {
 
           {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
           <div className="flex flex-col lg:flex-row gap-5 w-full">
-            {/* Slot 3: Left (Aspect 16:9) -> Grant Agent Interface */}
-            <div className="relative group flex-1 aspect-[16/9] bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            {/* Slot 3: Left (Aspect 16:9) -> Single Full-Height (Blank White Card - Tile 6) */}
+            <div className="relative group flex-1 aspect-[16/9] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow">
               <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                 Tile 6
-              </div>
-              <div className="flex items-center justify-between mb-3 shrink-0">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Grant Agent Interface</span>
-                <button className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/60 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors shadow-sm cursor-pointer">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="flex-1 flex items-center justify-center border border-dashed border-slate-100 bg-slate-50/30 rounded-xl min-h-[80px]">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Interface Offline</span>
               </div>
             </div>
 
             {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank White Cards) */}
             <div className="flex-1 aspect-[16/9] flex flex-col gap-5">
-              {/* Card 4A (2/3 Height): Grant Statuses (Manual) */}
-              <div className="relative group flex-[2] bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+              {/* Card 4A (2/3 Height): Blank White Card (Tile 7) */}
+              <div className="relative group flex-[2] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 7
-                </div>
-                <div className="flex items-center justify-between mb-3 shrink-0">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Grant Statuses (Manual)</span>
-                  <Activity className="w-4 h-4 text-slate-400" />
-                </div>
-                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-100 bg-slate-50/30 rounded-xl min-h-[60px]">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">No statuses configured</span>
                 </div>
               </div>
 
