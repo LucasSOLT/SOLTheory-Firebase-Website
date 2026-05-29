@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useFirestore, useUser } from "@/firebase";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -12,94 +10,65 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Loader2, AlertCircle } from "lucide-react";
-
-interface GrantSuggestion {
-  id: string;
-  status: string;
-  completedAt?: any;
-  appliedAt?: any;
-  createdAt?: any;
-}
+import { Loader2 } from "lucide-react";
+import type { GrantRecord } from "@/hooks/useGrantsData";
 
 /**
- * Generates the last 6 months as labels for the X-axis.
+ * Generates the last 7 day labels for the X-axis.
  */
-function getLast6Months(): { key: string; label: string }[] {
-  const months: { key: string; label: string }[] = [];
+function getLast7Days(): { key: string; label: string }[] {
+  const days: { key: string; label: string }[] = [];
   const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleString("default", { month: "short" });
-    months.push({ key, label });
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+    const label = d.toLocaleDateString("en-US", { weekday: "short" });
+    days.push({ key, label });
   }
-  return months;
+  return days;
 }
 
-export function GrantCompletionsLineChart() {
-  const { user } = useUser();
-  const firestore = useFirestore();
+interface Props {
+  grants: GrantRecord[];
+  loading: boolean;
+}
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [grants, setGrants] = useState<GrantSuggestion[]>([]);
-
-  useEffect(() => {
-    if (!firestore || !user?.uid) return;
-
-    setLoading(true);
-    setError(null);
-
-    const grantsRef = collection(firestore, "grant_suggestions");
-    const q = query(grantsRef, where("orgId", "==", "soltheory"));
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const fetched: GrantSuggestion[] = snap.docs.map((d) => ({
-          id: d.id,
-          status: d.data().status || "unapplied",
-          completedAt: d.data().completedAt || null,
-          appliedAt: d.data().appliedAt || null,
-          createdAt: d.data().createdAt || null,
-        }));
-        setGrants(fetched);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Error loading grant suggestions:", err);
-        setError("Failed to load grants");
-        setLoading(false);
-      }
-    );
-
-    return () => unsub();
-  }, [firestore, user?.uid]);
-
+export function GrantCompletionsLineChart({ grants = [], loading }: Props) {
   const chartData = useMemo(() => {
-    const months = getLast6Months();
+    const days = getLast7Days();
 
-    // Bucket grants that are "completed" or "applied" by their completion/applied month
+    // Bucket grants that are applied, approved, or denied by their relevant timestamp
     const counts: Record<string, number> = {};
-    months.forEach((m) => (counts[m.key] = 0));
+    days.forEach((d) => (counts[d.key] = 0));
 
-    grants.forEach((g) => {
-      if (g.status !== "completed" && g.status !== "applied") return;
-      const ts = g.completedAt || g.appliedAt;
-      if (!ts) return;
-      const d = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (counts[key] !== undefined) counts[key]++;
+    (grants || []).forEach((g) => {
+      if (g.status !== "applied" && g.status !== "approved" && g.status !== "denied") return;
+
+      // Pick the most relevant timestamp for when this grant was actioned
+      const tsRaw = g.completedAt || g.appliedAt || g.deniedAt || g.dateSuggested;
+      if (!tsRaw) return;
+
+      try {
+        const d = new Date(tsRaw);
+        if (isNaN(d.getTime())) return;
+        const key = d.toISOString().slice(0, 10);
+        if (counts[key] !== undefined) counts[key]++;
+      } catch {
+        // skip malformed timestamps
+      }
     });
 
-    // Running cumulative total
+    // Running cumulative total over the 7-day window
     let cumulative = 0;
-    return months.map((m) => {
-      cumulative += counts[m.key];
-      return { name: m.label, count: cumulative };
+    return days.map((d) => {
+      cumulative += counts[d.key];
+      return { name: d.label, count: cumulative };
     });
   }, [grants]);
+
+  const totalActioned = grants.filter(
+    (g) => g.status === "applied" || g.status === "approved" || g.status === "denied"
+  ).length;
 
   if (loading) {
     return (
@@ -109,23 +78,14 @@ export function GrantCompletionsLineChart() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="h-full w-full flex flex-col items-center justify-center text-center p-2">
-        <AlertCircle className="w-4 h-4 text-red-400 mb-1" />
-        <span className="text-[8px] text-red-500 font-semibold">{error}</span>
-      </div>
-    );
-  }
-
   return (
     <div className="h-full w-full flex flex-col min-h-0">
       <div className="flex items-center justify-between mb-1.5 shrink-0">
         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-          Grants Completed
+          Grants Completed (7d)
         </span>
         <span className="text-[8px] font-semibold text-slate-300 tabular-nums">
-          {grants.filter((g) => g.status === "completed" || g.status === "applied").length} total
+          {totalActioned} total
         </span>
       </div>
       <div className="flex-1 min-h-0 w-full">

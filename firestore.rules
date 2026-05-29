@@ -352,6 +352,29 @@ service cloud.firestore {
       allow update: if isSignedIn() && (isTaskParticipant() || isSuperAdmin());
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.createdBy || isSuperAdmin());
     }
+
+    /**
+     * @description Grant search agent configuration.
+     * @path /grant_agent_config/{orgId}
+     * @allow (read, write) Any signed-in user can manage agent configs.
+     */
+    match /grant_agent_config/{orgId} {
+      allow read, write: if isSignedIn();
+    }
+
+    /**
+     * @description Suggested grants discovered by search agents.
+     * @path /grant_suggestions/{grantId}
+     * @allow (read, create) Any signed-in user can read and create grant suggestions.
+     * @allow (update) Any signed-in user can update grant status (apply, approve, deny).
+     * @allow (delete) Only super admin can delete grants.
+     */
+    match /grant_suggestions/{grantId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && request.auth.token.email == 'lucas@soltheory.com';
+    }
   }
 }
     

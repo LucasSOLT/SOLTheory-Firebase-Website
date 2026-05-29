@@ -1,15 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useFirestore, useUser } from "@/firebase";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Loader2, AlertCircle } from "lucide-react";
-
-interface GrantSuggestion {
-  id: string;
-  status: string;
-}
+import { Loader2 } from "lucide-react";
+import type { GrantRecord } from "@/hooks/useGrantsData";
 
 const STATUS_CONFIG = [
   { key: "received",  label: "Received",       color: "#22c55e" }, // green-500
@@ -18,43 +12,12 @@ const STATUS_CONFIG = [
   { key: "applied",   label: "Review Pending",  color: "#facc15" }, // yellow-400
 ];
 
-export function GrantStatusPieChart() {
-  const { user } = useUser();
-  const firestore = useFirestore();
+interface Props {
+  grants: GrantRecord[];
+  loading: boolean;
+}
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [grants, setGrants] = useState<GrantSuggestion[]>([]);
-
-  useEffect(() => {
-    if (!firestore || !user?.uid) return;
-
-    setLoading(true);
-    setError(null);
-
-    const grantsRef = collection(firestore, "grant_suggestions");
-    const q = query(grantsRef, where("orgId", "==", "soltheory"));
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const fetched: GrantSuggestion[] = snap.docs.map((d) => ({
-          id: d.id,
-          status: d.data().status || "unapplied",
-        }));
-        setGrants(fetched);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Error loading grant statuses:", err);
-        setError("Failed to load grants");
-        setLoading(false);
-      }
-    );
-
-    return () => unsub();
-  }, [firestore, user?.uid]);
-
+export function GrantStatusPieChart({ grants = [], loading }: Props) {
   const { chartData, total } = useMemo(() => {
     const buckets: Record<string, number> = {
       received: 0,
@@ -63,9 +26,9 @@ export function GrantStatusPieChart() {
       applied: 0,
     };
 
-    grants.forEach((g) => {
-      const s = g.status?.toLowerCase() || "unapplied";
-      if (s === "received" || s === "completed") buckets.received++;
+    (grants || []).forEach((g) => {
+      const s = (g.status || "unapplied").toLowerCase();
+      if (s === "received" || s === "completed" || s === "approved") buckets.received++;
       else if (s === "denied") buckets.denied++;
       else if (s === "applied" || s === "pending") buckets.applied++;
       else buckets.unapplied++;
@@ -73,15 +36,13 @@ export function GrantStatusPieChart() {
 
     const total = grants.length;
 
-    // When there's no data at all, show 100% "Un-Applied" visually
+    // When sum of all statuses is 0, show a single 100% grey placeholder
+    // to avoid divide-by-zero or NaN render errors
     if (total === 0) {
       return {
-        chartData: STATUS_CONFIG.map((sc) => ({
-          name: sc.label,
-          value: sc.key === "unapplied" ? 1 : 0,
-          color: sc.color,
-          actualValue: 0,
-        })),
+        chartData: [
+          { name: "No Suggested Grants", value: 1, color: "#d1d5db", actualValue: 0 },
+        ],
         total: 0,
       };
     }
@@ -92,7 +53,7 @@ export function GrantStatusPieChart() {
         value: buckets[sc.key],
         color: sc.color,
         actualValue: buckets[sc.key],
-      })),
+      })).filter((d) => d.value > 0), // Only show segments with data
       total,
     };
   }, [grants]);
@@ -101,15 +62,6 @@ export function GrantStatusPieChart() {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="h-full w-full flex flex-col items-center justify-center text-center p-2">
-        <AlertCircle className="w-4 h-4 text-red-400 mb-1" />
-        <span className="text-[8px] text-red-500 font-semibold">{error}</span>
       </div>
     );
   }
@@ -173,7 +125,13 @@ export function GrantStatusPieChart() {
         {/* Legend */}
         <div className="flex flex-col gap-1.5 shrink-0 pr-1">
           {STATUS_CONFIG.map((sc) => {
-            const entry = chartData.find((c) => c.name === sc.label);
+            const bucket = grants.filter((g) => {
+              const s = (g.status || "unapplied").toLowerCase();
+              if (sc.key === "received") return s === "received" || s === "completed" || s === "approved";
+              if (sc.key === "denied") return s === "denied";
+              if (sc.key === "applied") return s === "applied" || s === "pending";
+              return s === "unapplied";
+            });
             return (
               <div key={sc.key} className="flex items-center gap-1.5">
                 <div
@@ -184,7 +142,7 @@ export function GrantStatusPieChart() {
                   {sc.label}
                 </span>
                 <span className="text-[8px] font-bold text-slate-700 tabular-nums leading-none">
-                  {entry?.actualValue ?? 0}
+                  {bucket.length}
                 </span>
               </div>
             );

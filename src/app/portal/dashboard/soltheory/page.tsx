@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
+import { useRouter } from "next/navigation";
 import { doc, updateDoc } from "firebase/firestore";
-import { Clock, ExternalLink, Activity } from "lucide-react";
+import { Clock, ExternalLink, Activity, ChevronRight } from "lucide-react";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
 import { GrantStatusPieChart } from "@/components/portal/GrantStatusPieChart";
+import { SuggestedGrantsList } from "@/components/portal/SuggestedGrantsList";
+import { GrantAgentHub } from "@/components/portal/GrantAgentHub";
+import { useGrantsData } from "@/hooks/useGrantsData";
+import { AgentWorkerController, type AgentSlotData } from "@/components/portal/AgentWorkerController";
+import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
 
 export default function SolTheoryDashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
+  const [isGrantConfigOpen, setIsGrantConfigOpen] = useState(false);
+  const { grants: grantsData, loading: grantsLoading } = useGrantsData();
+  const [agentSlots, setAgentSlots] = useState<AgentSlotData[]>([]);
+  const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
 
   /* presence tracking (keep existing logic) */
   useEffect(() => {
@@ -84,26 +95,27 @@ export default function SolTheoryDashboard() {
                 </div>
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Agent Interface</span>
-                  <button className="p-1 rounded-lg bg-slate-50 border border-slate-200/60 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors shadow-sm cursor-pointer">
+                  <button onClick={() => setIsGrantConfigOpen(true)} className="p-1 rounded-lg bg-indigo-50 border border-indigo-200/60 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors shadow-sm cursor-pointer">
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-100 bg-slate-50/30 rounded-xl min-h-[40px] py-1 px-2">
-                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Interface Offline</span>
-                </div>
+                <ActiveAgentsPreview slots={agentSlots} onOpenHub={() => setIsGrantConfigOpen(true)} />
               </div>
 
               {/* Card 2B: Grant Statuses (Manual) (Tile 4) */}
-              <div className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
+              <div
+                onClick={() => router.push("/portal/dashboard/soltheory/grant-statuses")}
+                className="relative group bg-white border border-slate-200/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px] cursor-pointer"
+              >
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 4
                 </div>
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Statuses (Manual)</span>
-                  <Activity className="w-4 h-4 text-slate-400" />
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
                 </div>
-                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-100 bg-slate-50/30 rounded-xl min-h-[40px] py-1 px-2">
-                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">No statuses</span>
+                <div className="flex-1 flex items-center justify-center border border-dashed border-indigo-100 bg-indigo-50/20 rounded-xl min-h-[40px] py-1 px-2 group-hover:bg-indigo-50/40 transition-colors">
+                  <span className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider">View All Statuses</span>
                 </div>
               </div>
 
@@ -117,16 +129,18 @@ export default function SolTheoryDashboard() {
                 <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
                   {/* Top-Left: Grant Completions Line Graph */}
                   <div className="flex-1 min-h-0">
-                    <GrantCompletionsLineChart />
+                    <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
                   </div>
                   {/* Bottom-Left: Grant Status Pie/Donut Chart */}
                   <div className="flex-1 min-h-0">
-                    <GrantStatusPieChart />
+                    <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
                   </div>
                 </div>
 
-                {/* Right Column (50% width) - Combined Top-Right and Bottom-Right quadrants into a single full-height container */}
-                <div className="flex-1 flex flex-col justify-center h-full" />
+                {/* Right Column (50% width) - Suggested Grants scrollable list */}
+                <div className="flex-1 flex flex-col h-full min-h-0">
+                  <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
+                </div>
               </div>
             </div>
           </div>
@@ -204,6 +218,12 @@ export default function SolTheoryDashboard() {
 
         </div>
       </div>
+      {/* Grant Agent Hub Modal */}
+      {isGrantConfigOpen && (
+        <GrantAgentHub onClose={() => setIsGrantConfigOpen(false)} />
+      )}
+      {/* Persistent background worker controller — always mounted */}
+      <AgentWorkerController onSlotsChange={handleSlotsChange} />
     </div>
   );
 }
