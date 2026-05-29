@@ -37,7 +37,7 @@ export default function SolTheoryDashboard() {
           </p>
         </div>
 
-        {/* Uniform Grid Layout */}
+        {/* Uniform Grid Layout with Solid White Structural Tiles */}
         <div className="space-y-5">
           
           {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
@@ -67,55 +67,55 @@ export default function SolTheoryDashboard() {
               </div>
             </div>
 
-            {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank Slots) */}
+            {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank Solid White Cards) */}
             <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
-              {/* Card 2A: Conversion Rate (Left KPI - Blank Dotted) */}
-              <div className="border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full min-h-[60px] hover:bg-white/20 transition-colors" />
+              {/* Card 2A: Conversion Rate (Left KPI - Blank White Card) */}
+              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
 
-              {/* Card 2B: Active Users (Right KPI - Blank Dotted) */}
-              <div className="border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full min-h-[60px] hover:bg-white/20 transition-colors" />
+              {/* Card 2B: Active Users (Right KPI - Blank White Card) */}
+              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
 
-              {/* Card 2C: Weekly Revenue Analytics (Bottom span-2 - Blank Dotted) */}
-              <div className="col-span-2 border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full min-h-[100px] hover:bg-white/20 transition-colors" />
+              {/* Card 2C: Weekly Revenue Analytics (Bottom span-2 - Blank White Card) */}
+              <div className="col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]" />
             </div>
           </div>
 
           {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
           <div className="flex flex-col lg:flex-row gap-5 w-full">
-            {/* Slot 3: Left (Aspect 16:9) -> Single Full-Height (Blank Dotted) */}
-            <div className="flex-1 aspect-[16/9] border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full hover:bg-white/20 transition-colors" />
+            {/* Slot 3: Left (Aspect 16:9) -> Single Full-Height (Blank White Card) */}
+            <div className="flex-1 aspect-[16/9] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow" />
 
-            {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank Dotted) */}
+            {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank White Cards) */}
             <div className="flex-1 aspect-[16/9] flex flex-col gap-5">
-              {/* Card 4A (2/3 Height): User Demographics (Blank Dotted) */}
-              <div className="flex-[2] border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full hover:bg-white/20 transition-colors min-h-0" />
+              {/* Card 4A (2/3 Height): User Demographics (Blank White Card) */}
+              <div className="flex-[2] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0" />
 
-              {/* Card 4B (1/3 Height): Real-time Latency (Blank Dotted) */}
-              <div className="flex-[1] border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full hover:bg-white/20 transition-colors min-h-0" />
+              {/* Card 4B (1/3 Height): Real-time Latency (Blank White Card) */}
+              <div className="flex-[1] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-0" />
             </div>
           </div>
 
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
           <div className="flex flex-col lg:flex-row gap-5 w-full">
-            {/* Slot 5: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank Dotted) */}
+            {/* Slot 5: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank White Cards) */}
             <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
-              {/* Card 5A: Retention Rate (Left KPI - Blank Dotted) */}
-              <div className="border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full min-h-[60px] hover:bg-white/20 transition-colors" />
+              {/* Card 5A: Retention Rate (Left KPI - Blank White Card) */}
+              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
 
-              {/* Card 5B: Satisfaction CSAT (Right KPI - Blank Dotted) */}
-              <div className="border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full min-h-[60px] hover:bg-white/20 transition-colors" />
+              {/* Card 5B: Satisfaction CSAT (Right KPI - Blank White Card) */}
+              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]" />
 
-              {/* Card 5C: Uptime Line Chart (Bottom span-2 - Blank Dotted) */}
-              <div className="col-span-2 border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full min-h-[100px] hover:bg-white/20 transition-colors" />
+              {/* Card 5C: Uptime Line Chart (Bottom span-2 - Blank White Card) */}
+              <div className="col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]" />
             </div>
 
-            {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards (Blank Dotted) */}
+            {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards (Blank White Cards) */}
             <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
-              {/* Card 6A: Upcoming Milestones (Blank Dotted) */}
-              <div className="flex-1 border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full hover:bg-white/20 transition-colors" />
+              {/* Card 6A: Upcoming Milestones (Blank White Card) */}
+              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow" />
 
-              {/* Card 6B: System Status / Health (Blank Dotted) */}
-              <div className="flex-1 border border-dashed border-slate-200/60 bg-white/10 rounded-2xl h-full w-full hover:bg-white/20 transition-colors" />
+              {/* Card 6B: System Status / Health (Blank White Card) */}
+              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow" />
             </div>
           </div>
 
