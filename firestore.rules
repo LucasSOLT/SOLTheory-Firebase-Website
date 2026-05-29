@@ -342,7 +342,7 @@ service cloud.firestore {
       }
 
       function isOrgMember() {
-        return request.auth.token.email.matches('.*@soltheory[.]com');
+        return request.auth.token.email.split('@')[1] == 'soltheory.com';
       }
 
       // Org members can list/read all tasks (admin filtering done client-side)
