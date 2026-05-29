@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
-import { Users, Activity, TrendingUp, CalendarDays, Smile, Percent, Zap } from "lucide-react";
+import { Users, Activity, TrendingUp, CalendarDays, Smile, Percent, Zap, Clock } from "lucide-react";
+import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 
 export default function SolTheoryDashboard() {
   const { user } = useUser();
@@ -70,30 +71,14 @@ export default function SolTheoryDashboard() {
                 </div>
               </div>
 
-              {/* Card 1B: Action Board Timeline */}
-              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Board Activity Timeline</span>
-                  <Activity className="w-4 h-4 text-slate-400" />
+              {/* Card 1B: Weekly Timesheet Hours */}
+              <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Hours Worked</span>
+                  <Clock className="w-4 h-4 text-slate-400" />
                 </div>
-                <div className="space-y-2.5 flex-1 flex flex-col justify-center">
-                  {[
-                    { title: "Design Phase Complete", time: "10m ago", active: false, done: true },
-                    { title: "Firestore Integration", time: "1h ago", active: false, done: true },
-                    { title: "Vercel Deployment", time: "Active", active: true, done: false },
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-start gap-2.5 text-xs">
-                      <div className="flex flex-col items-center shrink-0">
-                        <div className={`w-2.5 h-2.5 rounded-full border-2 ${step.active ? "border-indigo-500 bg-white" : step.done ? "border-emerald-500 bg-emerald-500" : "border-slate-300 bg-white"}`} />
-                        {i < 2 && <div className="w-px h-6 bg-slate-200" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-semibold ${step.active ? "text-indigo-600 font-bold" : "text-slate-700"}`}>{step.title}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{step.time}</p>
-                      </div>
-                      {step.active && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping shrink-0" />}
-                    </div>
-                  ))}
+                <div className="flex-1 min-h-0 w-full">
+                  <WeeklyTimesheetChart />
                 </div>
               </div>
             </div>
