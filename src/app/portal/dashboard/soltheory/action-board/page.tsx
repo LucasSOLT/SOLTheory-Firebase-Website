@@ -46,6 +46,7 @@ import {
   MessageSquare as SlackIcon,
   Link2,
   ChevronRight,
+  Edit2,
 } from "lucide-react";
 
 // ── Types ──
@@ -185,6 +186,16 @@ function fromDatetimeLocal(val: string): Date | null {
   return new Date(val);
 }
 
+function toDatetimeLocalString(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const MM = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+}
+
 // ── Helper: days until/since due ──
 function getDueDelta(dueDate: Timestamp | null | undefined): { label: string; isOverdue: boolean; daysLeft: number } | null {
   if (!dueDate) return null;
@@ -212,6 +223,7 @@ export default function ActionBoardPage() {
 
   // ── UI State ──
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
@@ -486,6 +498,129 @@ export default function ActionBoardPage() {
     setIsModalOpen(false);
   };
 
+  const openNewTaskModal = () => {
+    setEditingTaskId(null);
+    setNewTitle(""); setNewDesc(""); setNewPriority("Medium"); setNewColumn("todo");
+    setNewAssignee("self"); setAssigneeSearch(""); setNewStartDate(""); setNewDueDate("");
+    setAutoEmails(""); setAutoSlackWebhook(""); setAutoSlackChannel(""); setAutoGoogleAction("");
+    setIsAutomationsOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const openNewTaskModalInColumn = (columnId: ColumnId) => {
+    openNewTaskModal();
+    setNewColumn(columnId);
+  };
+
+  const openEditTaskModal = (task: ActionBoardTask) => {
+    setEditingTaskId(task.id);
+    setNewTitle(task.title);
+    setNewDesc(task.description || "");
+    setNewPriority(task.priority);
+    setNewColumn(task.column);
+    setNewAssignee(task.assignedTo === user?.uid ? "self" : task.assignedTo);
+    setAssigneeSearch("");
+    setNewStartDate(task.startDate ? toDatetimeLocalString(task.startDate.toDate()) : "");
+    setNewDueDate(task.dueDate ? toDatetimeLocalString(task.dueDate.toDate()) : "");
+
+    const auto = task.automations || {};
+    setAutoEmails(auto.emails ? auto.emails.join(", ") : "");
+    setAutoSlackWebhook(auto.slackWebhook || "");
+    setAutoSlackChannel(auto.slackChannel || "");
+    setAutoGoogleAction(auto.googleAction || "");
+    setIsAutomationsOpen(!!(auto.emails || auto.slackWebhook || auto.googleAction));
+
+    setIsModalOpen(true);
+    setOpenMenuId(null);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingTaskId(null);
+    setNewTitle(""); setNewDesc(""); setNewPriority("Medium"); setNewColumn("todo");
+    setNewAssignee("self"); setAssigneeSearch(""); setNewStartDate(""); setNewDueDate("");
+    setAutoEmails(""); setAutoSlackWebhook(""); setAutoSlackChannel(""); setAutoGoogleAction("");
+    setIsAutomationsOpen(false);
+  };
+
+  const saveTask = async () => {
+    if (!newTitle.trim() || !user?.uid || !firestore || !editingTaskId) return;
+
+    const assigneeUid = newAssignee === "self" ? user.uid : newAssignee;
+    const assigneeMember = orgMembers.find(m => m.uid === assigneeUid);
+    const isSelfAssign = assigneeUid === user.uid;
+
+    const task = tasks.find(t => t.id === editingTaskId);
+    const isAssigneeChanged = task ? task.assignedTo !== assigneeUid : true;
+
+    let status = task ? task.assignmentStatus : "direct";
+    if (isAssigneeChanged) {
+      if (isSelfAssign) status = "direct";
+      else if (isAdmin) status = "direct";
+      else status = "pending_approval";
+    }
+
+    const startDateObj = fromDatetimeLocal(newStartDate);
+    const dueDateObj = fromDatetimeLocal(newDueDate);
+
+    const automationsData = buildAutomations();
+
+    const taskData: Record<string, any> = {
+      title: newTitle.trim(),
+      description: newDesc.trim() || "",
+      priority: newPriority,
+      column: newColumn,
+      assignedTo: assigneeUid,
+      assignedToEmail: assigneeMember?.email || user.email || "",
+      assignedToName: assigneeMember?.displayName || user.displayName || "",
+      assignmentStatus: status,
+      startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
+      dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
+      updatedAt: serverTimestamp(),
+    };
+
+    if (newColumn === "done") {
+      if (task?.column !== "done") {
+        taskData.completedAt = serverTimestamp();
+        if (dueDateObj && Date.now() <= dueDateObj.getTime()) {
+          taskData.isLate = false;
+        }
+      }
+    } else {
+      if (task?.column === "done") {
+        taskData.completedAt = null;
+      }
+    }
+
+    if (automationsData) {
+      taskData.automations = automationsData;
+    } else {
+      taskData.automations = null;
+    }
+
+    try {
+      console.log("[ActionBoard] Updating task:", editingTaskId, taskData);
+      await updateDoc(doc(firestore, "action_board_tasks", editingTaskId), taskData);
+      console.log("[ActionBoard] Task updated successfully");
+
+      if (newColumn === "done" && task && task.column !== "done") {
+        fireOnCompleteAutomations({
+          ...task,
+          ...taskData,
+          column: "done",
+          completedAt: Timestamp.now(),
+          startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
+          dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
+        } as ActionBoardTask);
+      }
+    } catch (err: any) {
+      console.error("[ActionBoard] Failed to update task:", err);
+      alert(`Failed to update task: ${err.message || err}`);
+    }
+
+    handleCloseModal();
+  };
+
   const deleteTask = async (id: string) => {
     if (!firestore) return;
     try { await deleteDoc(doc(firestore, "action_board_tasks", id)); }
@@ -742,7 +877,7 @@ export default function ActionBoardPage() {
             )}
 
             {/* Add Task */}
-            <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors font-semibold text-sm shadow-md hover:shadow-lg cursor-pointer active:scale-[0.97]">
+            <button onClick={openNewTaskModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors font-semibold text-sm shadow-md hover:shadow-lg cursor-pointer active:scale-[0.97]">
               <Plus className="w-4 h-4" /> Add Task
             </button>
           </div>
@@ -802,6 +937,8 @@ export default function ActionBoardPage() {
                           onDragStart={e => onDragStart(e, task.id)}
                           onDragEnd={onDragEnd}
                           className={`group bg-white rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.02] relative border ${
+                            openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
+                          } ${
                             isLateTask && task.column !== "done"
                               ? "border-red-300 bg-red-50/30 ring-1 ring-red-200/50"
                               : "border-slate-200"
@@ -823,17 +960,22 @@ export default function ActionBoardPage() {
                                 <MoreHorizontal className="w-4 h-4" />
                               </button>
                               {openMenuId === task.id && (
-                                <div className="absolute right-0 top-8 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
                                   {COLUMNS.filter(c => c.id !== task.column).map(c => (
-                                    <button key={c.id} onClick={() => moveTask(task.id, c.id)} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                    <button key={c.id} onClick={(e) => { e.stopPropagation(); moveTask(task.id, c.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
                                       <ArrowRight className="w-3.5 h-3.5 text-slate-400" /> Move to {c.label}
                                     </button>
                                   ))}
                                   <div className="border-t border-slate-100" />
                                   {(task.createdBy === user?.uid || isAdmin) && (
-                                    <button onClick={() => deleteTask(task.id)} className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
-                                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                                    </button>
+                                    <>
+                                      <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                        <Edit2 className="w-3.5 h-3.5 text-slate-400" /> Edit Task
+                                      </button>
+                                      <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
+                                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               )}
@@ -929,7 +1071,7 @@ export default function ActionBoardPage() {
 
                 {/* Quick Add */}
                 <div className="p-3 pt-0">
-                  <button onClick={() => { setNewColumn(col.id); setIsModalOpen(true); }} className="w-full py-2.5 rounded-xl border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5">
+                  <button onClick={() => openNewTaskModalInColumn(col.id)} className="w-full py-2.5 rounded-xl border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5">
                     <Plus className="w-3.5 h-3.5" /> Add card
                   </button>
                 </div>
@@ -941,14 +1083,22 @@ export default function ActionBoardPage() {
 
       {/* ══ Add Task Modal ══ */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsModalOpen(false)}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={handleCloseModal}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Plus className="w-5 h-5 text-indigo-500" /> New Task
+                {editingTaskId ? (
+                  <>
+                    <Edit2 className="w-5 h-5 text-indigo-500" /> Edit Task
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5 text-indigo-500" /> New Task
+                  </>
+                )}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+              <button onClick={handleCloseModal} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -957,7 +1107,7 @@ export default function ActionBoardPage() {
               {/* Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Title <span className="text-red-400">*</span></label>
-                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && addTask()} placeholder="What needs to be done?" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
+                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && (editingTaskId ? saveTask() : addTask())} placeholder="What needs to be done?" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
               </div>
 
               {/* Description */}
@@ -1126,8 +1276,12 @@ export default function ActionBoardPage() {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white rounded-b-2xl">
-              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
-              <button onClick={addTask} disabled={!newTitle.trim()} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer">Create Task</button>
+              <button onClick={handleCloseModal} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+              {editingTaskId ? (
+                <button onClick={saveTask} disabled={!newTitle.trim()} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer">Save Changes</button>
+              ) : (
+                <button onClick={addTask} disabled={!newTitle.trim()} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer">Create Task</button>
+              )}
             </div>
           </div>
         </div>
