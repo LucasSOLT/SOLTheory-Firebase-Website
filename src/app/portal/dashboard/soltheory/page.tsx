@@ -5,6 +5,7 @@ import { useFirestore, useUser } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { Users, Activity, TrendingUp, CalendarDays, Smile, Percent, Zap, Clock } from "lucide-react";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
+import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 
 export default function SolTheoryDashboard() {
   const { user } = useUser();
@@ -71,14 +72,14 @@ export default function SolTheoryDashboard() {
                 </div>
               </div>
 
-              {/* Card 1B: Weekly Timesheet Hours */}
+              {/* Card 1B: Nearest Due Tasks Priority Widget */}
               <div className="flex-1 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
                 <div className="flex items-center justify-between mb-3 shrink-0">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Hours Worked</span>
-                  <Clock className="w-4 h-4 text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nearest Due Tasks</span>
+                  <Clock className="w-4 h-4 text-rose-500" />
                 </div>
                 <div className="flex-1 min-h-0 w-full">
-                  <WeeklyTimesheetChart />
+                  <NearestDueTasksWidget />
                 </div>
               </div>
             </div>
@@ -135,32 +136,14 @@ export default function SolTheoryDashboard() {
                   </div>
                 </div>
 
-              {/* Bottom Row: Full-width Area Chart */}
-              <div className="col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-shadow min-h-0">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Revenue Analytics</span>
-                  <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg p-0.5">
-                    <span className="px-2 py-0.5 text-[9px] font-bold rounded bg-white text-slate-700 shadow-sm">1W</span>
-                    <span className="px-2 py-0.5 text-[9px] font-bold text-slate-500">1M</span>
-                  </div>
+              {/* Bottom Row: Weekly Timesheet Hours */}
+              <div className="col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Hours Worked (QuickBooks)</span>
+                  <Clock className="w-4 h-4 text-indigo-500" />
                 </div>
-                {/* Large SVG Area Chart */}
-                <div className="flex-1 w-full min-h-0 relative mt-2">
-                  <svg className="w-full h-full" viewBox="0 0 500 130" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="grad-area-large" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    <line x1="0" y1="32.5" x2="500" y2="32.5" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-                    <line x1="0" y1="65" x2="500" y2="65" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-                    <line x1="0" y1="97.5" x2="500" y2="97.5" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-                    <path d="M 0 110 Q 70 80 140 95 T 280 40 T 420 60 T 500 20 L 500 130 L 0 130 Z" fill="url(#grad-area-large)" />
-                    <path d="M 0 110 Q 70 80 140 95 T 280 40 T 420 60 T 500 20" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" />
-                    <circle cx="280" cy="40" r="4.5" fill="#4f46e5" stroke="white" strokeWidth="1.5" className="animate-pulse" />
-                    <circle cx="500" cy="20" r="4" fill="#4f46e5" stroke="white" strokeWidth="1.5" />
-                  </svg>
+                <div className="flex-1 min-h-0 w-full">
+                  <WeeklyTimesheetChart />
                 </div>
               </div>
             </div>
