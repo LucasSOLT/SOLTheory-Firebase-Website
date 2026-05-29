@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, ChevronDown, Loader2, AlertCircle, ScrollText, Search,
   Send, CheckCircle2, XCircle, Building2, Calendar, DollarSign, Tag,
-  FileText, ShieldCheck, Layers, Globe, ExternalLink, Trash2,
+  FileText, ShieldCheck, Layers, Globe, ExternalLink, Trash2, CheckSquare,
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -97,6 +97,9 @@ function GrantRow({
   isExpanded,
   onToggle,
   onUpdateStatus,
+  onDelete,
+  isSelected,
+  onSelect,
   updatingId,
 }: {
   grant: GrantRecord;
@@ -104,6 +107,8 @@ function GrantRow({
   onToggle: () => void;
   onUpdateStatus: (id: string, status: GrantRecord["status"]) => void;
   onDelete: (id: string) => void;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
   updatingId: string | null;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -145,6 +150,16 @@ function GrantRow({
           isExpanded ? "rounded-t-xl rounded-b-none border-b-0" : "rounded-xl"
         }`}
       >
+        {/* Checkbox */}
+        <div className="w-6 mr-2 flex items-center justify-center shrink-0">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => { e.stopPropagation(); onSelect(grant.id); }}
+            className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 cursor-pointer accent-indigo-600"
+          />
+        </div>
         <div className="flex-[3] min-w-0 pr-3">
           <p className="text-sm font-semibold text-slate-800 truncate leading-tight group-hover:text-slate-900 transition-colors">
             {grant.title}
@@ -352,6 +367,8 @@ export default function GrantStatusesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     if (!firestore || !user?.uid) return;
@@ -460,6 +477,43 @@ export default function GrantStatusesPage() {
       )
     : grants;
 
+  /* ─── Selection Handlers ─── */
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filteredGrants.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredGrants.map((g) => g.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (!firestore || selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} grant${selectedIds.size !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      const deletePromises = Array.from(selectedIds).map((id) =>
+        deleteDoc(doc(firestore, "grant_suggestions", id))
+      );
+      await Promise.all(deletePromises);
+      setSelectedIds(new Set());
+      if (expandedId && selectedIds.has(expandedId)) setExpandedId(null);
+    } catch (err) {
+      console.error("Bulk delete failed:", err);
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
+  const allSelected = filteredGrants.length > 0 && selectedIds.size === filteredGrants.length;
+
   return (
     <div className="h-full w-full flex flex-col bg-[#faf9f6]">
       {/* Header */}
@@ -498,6 +552,15 @@ export default function GrantStatusesPage() {
       {/* Column Headers */}
       <div className="shrink-0 px-8">
         <div className="flex items-center px-5 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <div className="w-6 mr-2 flex items-center justify-center shrink-0">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              disabled={filteredGrants.length === 0}
+              className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 cursor-pointer accent-indigo-600"
+            />
+          </div>
           <div className="flex-[3] min-w-0">Grant Name</div>
           <div className="flex-[2] min-w-0 hidden sm:block">Agency</div>
           <div className="w-24 text-right hidden md:block">Date Found</div>
@@ -506,6 +569,32 @@ export default function GrantStatusesPage() {
           <div className="w-8" />
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="shrink-0 px-8 mb-2">
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-2.5">
+            <CheckSquare className="w-4 h-4 text-red-500" />
+            <span className="text-xs font-bold text-red-700">
+              {selectedIds.size} grant{selectedIds.size !== 1 ? "s" : ""} selected
+            </span>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="ml-auto flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {bulkDeleting ? "Deleting..." : "Delete Selected"}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       <div className="flex-1 overflow-y-auto px-8 pb-8">
@@ -543,6 +632,8 @@ export default function GrantStatusesPage() {
                 onToggle={() => setExpandedId(expandedId === grant.id ? null : grant.id)}
                 onUpdateStatus={handleUpdateStatus}
                 onDelete={handleDeleteGrant}
+                isSelected={selectedIds.has(grant.id)}
+                onSelect={toggleSelect}
                 updatingId={updatingId}
               />
             ))}
