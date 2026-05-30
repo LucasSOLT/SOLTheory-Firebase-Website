@@ -14,20 +14,20 @@ export interface AgentSlotData {
 }
 
 const DEFAULT_NAMES = [
-  "Grant Scout Alpha",
-  "Grant Scout Beta",
-  "Grant Scout Gamma",
-  "Grant Scout Delta",
+  "Global Grant Scout"
 ];
 
 /**
- * Persistent invisible controller that manages agent worker lifecycles.
- * Lives at the dashboard page level so workers survive modal open/close.
- * Uses Firestore onSnapshot to react to config changes in real-time.
- *
- * FIX: Now tracks a config hash per agent so that when the interval or
- * other config fields change, the worker is stopped and restarted with
- * the new settings.
+ * Agent Worker Controller.
+ * 
+ * Listens to Firestore config changes. When the config hash changes
+ * (e.g. interval updated from 1 hour → 1 minute), the worker is
+ * stopped and restarted with the new settings immediately.
+ * 
+ * Protected by:
+ * - setTimeout chains (stale callbacks die, no ghost intervals)
+ * - window-stored handles (survive HMR)
+ * - Firestore timing gate (prevents duplicate scans across tabs)
  */
 export function AgentWorkerController({
   onSlotsChange,
@@ -35,11 +35,9 @@ export function AgentWorkerController({
   onSlotsChange?: (slots: AgentSlotData[]) => void;
 }) {
   const firestore = useFirestore();
-  /** Track started agents AND their serialised config so we can detect changes */
   const startedRef = useRef<Map<string, string>>(new Map());
   const callbackRef = useRef(onSlotsChange);
 
-  // Keep callback ref current without re-subscribing
   useEffect(() => {
     callbackRef.current = onSlotsChange;
   }, [onSlotsChange]);
@@ -47,15 +45,17 @@ export function AgentWorkerController({
   useEffect(() => {
     if (!firestore) return;
 
+    // Kill any orphaned workers from previous HMR / mount cycles
+    stopAllAgentWorkers();
+    startedRef.current.clear();
+
     const docRef = doc(firestore, "grant_agent_config", "soltheory");
 
     const unsub = onSnapshot(
       docRef,
       (snap) => {
-        // Build default slots even if document doesn't exist yet
-        const agents = snap.exists()
-          ? (snap.data().agents as Record<string, { name: string; config: GrantAgentConfig; active: boolean }> | undefined)
-          : undefined;
+        const data = snap.exists() ? snap.data() : undefined;
+        const agents = data?.agents as Record<string, { name: string; config: GrantAgentConfig; active: boolean }> | undefined;
 
         const slots: AgentSlotData[] = DEFAULT_NAMES.map((name, i) => {
           const id = `agent_${i + 1}`;
@@ -68,14 +68,16 @@ export function AgentWorkerController({
           };
         });
 
-        // Start/stop/restart workers based on active state AND config changes
         slots.forEach((slot) => {
+          // Hash ONLY the config fields that affect the worker
+          // (not lastScanTimes or other metadata that would cause loops)
           const configHash = slot.config ? JSON.stringify(slot.config) : "";
 
           if (slot.active && slot.config) {
             const prevHash = startedRef.current.get(slot.id);
             if (prevHash !== configHash) {
-              // Config changed (or first start) — restart worker with new settings
+              // Config changed (interval, categories, location, etc.) — restart
+              console.log(`[Controller] Config changed for ${slot.id} — restarting worker`);
               startAgentWorker(firestore, slot.id, slot.config);
               startedRef.current.set(slot.id, configHash);
             }
@@ -91,7 +93,6 @@ export function AgentWorkerController({
       },
       (err) => {
         console.error("AgentWorkerController snapshot error:", err);
-        // Still send default empty slots so the UI doesn't break
         const defaultSlots: AgentSlotData[] = DEFAULT_NAMES.map((name, i) => ({
           id: `agent_${i + 1}`,
           name,
@@ -107,7 +108,7 @@ export function AgentWorkerController({
       stopAllAgentWorkers();
       startedRef.current.clear();
     };
-  }, [firestore]); // Only depend on firestore — callbackRef handles the rest
+  }, [firestore]);
 
   return null;
 }

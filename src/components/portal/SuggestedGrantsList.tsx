@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Loader2, ScrollText, ChevronDown, Check } from "lucide-react";
+import { Loader2, ScrollText, ChevronDown, Check, Trash2, ExternalLink } from "lucide-react";
+import { useFirestore } from "@/firebase";
+import { doc, deleteDoc } from "firebase/firestore";
 import type { GrantRecord } from "@/hooks/useGrantsData";
 
 type FilterCategory = "none" | "unapplied" | "applied" | "completed";
@@ -80,8 +82,10 @@ interface Props {
 }
 
 export function SuggestedGrantsList({ grants = [], loading }: Props) {
+  const firestore = useFirestore();
   const [filter, setFilter] = useState<FilterCategory>("none");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -96,6 +100,23 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
       return () => document.removeEventListener("mousedown", handleClick);
     }
   }, [dropdownOpen]);
+
+  // Delete a single grant
+  async function handleDelete(grantId: string) {
+    if (!firestore) return;
+    setDeletingIds((prev) => new Set(prev).add(grantId));
+    try {
+      await deleteDoc(doc(firestore, "grant_suggestions", grantId));
+    } catch (err) {
+      console.error("Failed to delete grant:", err);
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(grantId);
+        return next;
+      });
+    }
+  }
 
   // Apply filter + sort using standard .filter() and .sort()
   const filteredGrants = useMemo(() => {
@@ -208,16 +229,33 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
           {filteredGrants.map((grant) => {
             const pill = STATUS_PILLS[grant.status] || STATUS_PILLS.unapplied;
             const cardBg = getCardBg(grant.status);
+            const isDeleting = deletingIds.has(grant.id);
             return (
               <div
                 key={grant.id}
-                className={`${cardBg} border shadow-sm rounded-lg px-3 py-2 flex items-center justify-between gap-2 hover:shadow transition-shadow`}
+                className={`group ${cardBg} border shadow-sm rounded-lg px-3 py-2 flex items-center justify-between gap-2 hover:shadow transition-all ${
+                  isDeleting ? "opacity-50 pointer-events-none" : ""
+                }`}
               >
                 {/* Left: Title + date */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold text-slate-800 truncate leading-tight">
-                    {grant.title}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-[10px] font-bold text-slate-800 truncate leading-tight">
+                      {grant.title}
+                    </p>
+                    {grant.url && (
+                      <a
+                        href={grant.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 text-indigo-400 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Open grant page"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                  </div>
                   <p className="text-[8px] text-slate-400 font-medium truncate mt-0.5">
                     {formatDate(grant.dateSuggested)}
                     {grant.amount != null && (
@@ -235,12 +273,29 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                   </span>
                 </div>
 
-                {/* Right: Status pill */}
-                <span
-                  className={`shrink-0 text-[7px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${pill.bg} ${pill.text} ${pill.border}`}
-                >
-                  {pill.label}
-                </span>
+                {/* Right: Status pill + Delete */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span
+                    className={`text-[7px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${pill.bg} ${pill.text} ${pill.border}`}
+                  >
+                    {pill.label}
+                  </span>
+                  {/* Delete button — visible on hover */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(grant.id);
+                    }}
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+                    title="Remove grant"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-2.5 h-2.5" />
+                    )}
+                  </button>
+                </div>
               </div>
             );
           })}

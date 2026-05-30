@@ -6,7 +6,7 @@ import type { GrantAgentConfig } from "./GrantAgentConfigModal";
 
 /* ─── Animation Phases ─── */
 type Phase =
-  | "idle"
+  | "waiting"       // idle countdown until next scan
   | "cursor_move"
   | "typing"
   | "loading"
@@ -15,32 +15,41 @@ type Phase =
   | "stored"
   | "resetting";
 
-/* ─── Search URLs based on config ─── */
-const SEARCH_URLS = [
-  "grants.gov/search?q=homeless+shelter+denver",
-  "colorado.gov/dola/hrp-grants",
-  "samhsa.gov/grants/gbhi-application",
-  "hud.gov/program_offices/comm_planning/coc",
-  "denverhost.gov/rapid-resolution-rfp",
-  "grants.gov/search?q=ESG+continuum+care",
-  "colorado.gov/cdhs/thr-grants-2026",
-  "hhs.gov/grants/discretionary/homeless",
-  "grants.gov/search?q=CDBG+nonprofit+housing",
-  "denverhost.gov/grants/capacity-building",
-];
+import { GRANT_DATABASE } from "@/data/grantDatabase";
 
-const GRANT_NAMES = [
-  "Denver HOST Rapid Resolution Grant",
-  "HUD CoC Program – Denver Metro",
-  "ESG Emergency Shelter Operations",
-  "CDBG Community Facilities Grant",
-  "SAMHSA GBHI Treatment Grant",
-  "Colorado THR Housing First Grant",
-  "HOME-ARP Qualifying Activities",
-  "SSBG Social Services Block Grant",
-  "HHS Discretionary – Homeless Youth",
-  "Private Foundation Operating Grant",
-];
+/* ─── Pull real URLs and names from the grant database ─── */
+const SEARCH_URLS = GRANT_DATABASE.slice(0, 20).map((g) =>
+  g.url.replace(/^https?:\/\//, "").replace(/\/$/, "")
+);
+
+const GRANT_NAMES = GRANT_DATABASE.slice(0, 20).map((g) => g.title);
+
+/* ─── Convert config interval to milliseconds ─── */
+function intervalToMs(value: number, unit: string): number {
+  const multipliers: Record<string, number> = {
+    minutes: 60_000,
+    hours: 3_600_000,
+    days: 86_400_000,
+    weeks: 604_800_000,
+  };
+  return value * (multipliers[unit] || 60_000);
+}
+
+/* ─── Format remaining time for display ─── */
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "now";
+  const totalSec = Math.ceil(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const hrs = Math.floor(totalSec / 3600);
+  const remMins = Math.floor((totalSec % 3600) / 60);
+  const remSecs = totalSec % 60;
+  if (hrs > 0) return `${hrs}h ${remMins}m ${remSecs}s`;
+  if (remMins > 0) return `${remMins}m ${remSecs}s`;
+  return `${remSecs}s`;
+}
+
+/* ─── Animation phase total duration (approx) ─── */
+const SCAN_ANIMATION_DURATION_MS = 7_200; // sum of all phase durations
 
 /* ─── Component ─── */
 export function GrantAgentBrowserSim({
@@ -50,30 +59,69 @@ export function GrantAgentBrowserSim({
   config: GrantAgentConfig;
   colorTheme: { dot: string; label: string };
 }) {
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<Phase>("waiting");
   const [typedChars, setTypedChars] = useState(0);
   const [storedCount, setStoredCount] = useState(0);
   const [displayUrlIndex, setDisplayUrlIndex] = useState(0);
+  const [countdown, setCountdown] = useState("");
+  const [lastScanFoundGrant, setLastScanFoundGrant] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const urlIndexRef = useRef(0);
+  const scanEndTimeRef = useRef<number>(0);
 
   const currentUrl = SEARCH_URLS[displayUrlIndex % SEARCH_URLS.length];
   const currentGrant = GRANT_NAMES[displayUrlIndex % GRANT_NAMES.length];
 
+  // Use the FULL configured interval (no animation subtraction)
+  const configIntervalMs = intervalToMs(config.intervalValue, config.intervalUnit);
+
   const clearTimers = useCallback(() => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     if (typingRef.current) { clearInterval(typingRef.current); typingRef.current = null; }
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
   }, []);
 
-  // Phase orchestrator — only depends on `phase`
+  // Phase orchestrator
   useEffect(() => {
     clearTimers();
 
     switch (phase) {
-      case "idle":
-        timerRef.current = setTimeout(() => setPhase("cursor_move"), 800);
+      case "waiting": {
+        // Use a SHARED target time so both preview and full-display stay in sync
+        const win = typeof window !== "undefined" ? window as any : null;
+        let targetTime = win?.__grantNextScanTime as number | undefined;
+
+        if (!targetTime || targetTime <= Date.now()) {
+          // No shared time exists or it expired — set a new one
+          targetTime = Date.now() + configIntervalMs;
+          if (win) win.__grantNextScanTime = targetTime;
+        }
+
+        scanEndTimeRef.current = targetTime;
+
+        // Immediately show initial countdown
+        setCountdown(formatCountdown(targetTime - Date.now()));
+
+        // Tick every second
+        countdownRef.current = setInterval(() => {
+          const remaining = scanEndTimeRef.current - Date.now();
+          if (remaining <= 0) {
+            setCountdown("now");
+          } else {
+            setCountdown(formatCountdown(remaining));
+          }
+        }, 1_000);
+
+        // Wait the full countdown, then start the scan animation
+        const waitMs = Math.max(targetTime - Date.now(), 500);
+        timerRef.current = setTimeout(() => {
+          if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+          setPhase("cursor_move");
+        }, waitMs);
         break;
+      }
 
       case "cursor_move":
         timerRef.current = setTimeout(() => {
@@ -102,7 +150,17 @@ export function GrantAgentBrowserSim({
         break;
 
       case "found":
-        timerRef.current = setTimeout(() => setPhase("minimizing"), 2000);
+        // Check if the real worker found a grant or came up empty
+        if (typeof window !== "undefined") {
+          const status = window.__lastGrantScanStatus;
+          setLastScanFoundGrant(status === "found" || status === undefined);
+        }
+        if (lastScanFoundGrant) {
+          timerRef.current = setTimeout(() => setPhase("minimizing"), 2000);
+        } else {
+          // No grant found — skip minimizing, go straight to resetting
+          timerRef.current = setTimeout(() => setPhase("resetting"), 2500);
+        }
         break;
 
       case "minimizing":
@@ -117,11 +175,12 @@ export function GrantAgentBrowserSim({
         break;
 
       case "resetting":
-        // Advance to next URL using ref (no state change → no re-render loop)
+        // Advance to next URL
         urlIndexRef.current += 1;
         setDisplayUrlIndex(urlIndexRef.current);
         setTypedChars(0);
-        timerRef.current = setTimeout(() => setPhase("idle"), 400);
+        // Go back to waiting for the next interval
+        timerRef.current = setTimeout(() => setPhase("waiting"), 400);
         break;
     }
 
@@ -134,6 +193,8 @@ export function GrantAgentBrowserSim({
 
   const isMinimizing = phase === "minimizing";
   const isStored = phase === "stored";
+  const isWaiting = phase === "waiting";
+  const isScanning = !isWaiting;
 
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden select-none">
@@ -144,6 +205,8 @@ export function GrantAgentBrowserSim({
             ? "scale-[0.08] opacity-0 translate-x-[60%] translate-y-[60%]"
             : isStored
             ? "scale-0 opacity-0"
+            : isWaiting
+            ? "scale-100 opacity-100"
             : "scale-100 opacity-100"
         }`}
         style={{
@@ -198,12 +261,20 @@ export function GrantAgentBrowserSim({
           </div>
         </div>
 
-        {/* Browser Viewport — fixed size, content absolutely positioned to prevent layout shift */}
+        {/* Browser Viewport */}
         <div className="flex-1 relative min-h-[50px] overflow-hidden bg-white">
-          {/* Idle / cursor_move: blank page */}
-          {(phase === "idle" || phase === "cursor_move") && (
+          {/* Waiting: show countdown */}
+          {isWaiting && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+              <div className="text-[7px] text-slate-300 font-medium">Next scan in</div>
+              <div className={`text-[10px] font-bold tabular-nums ${colorTheme.label}`}>{countdown}</div>
+            </div>
+          )}
+
+          {/* cursor_move: blank page */}
+          {phase === "cursor_move" && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-[8px] text-slate-300 font-medium">Waiting...</div>
+              <div className="text-[8px] text-slate-300 font-medium">Initiating scan...</div>
             </div>
           )}
 
@@ -226,7 +297,7 @@ export function GrantAgentBrowserSim({
             </div>
           )}
 
-          {/* Found: grant result */}
+          {/* Found: grant result or no-new-grants message */}
           {(phase === "found" || phase === "minimizing") && (
             <div className="absolute inset-0 flex items-center p-2">
               <div className="w-full">
@@ -235,18 +306,33 @@ export function GrantAgentBrowserSim({
                   <div className="h-1.5 bg-slate-100 rounded-full w-full" />
                   <div className="h-1.5 bg-slate-100 rounded-full w-2/3" />
                 </div>
-                {/* Found toast */}
-                <div className="bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5 animate-in slide-in-from-bottom-2 fade-in duration-300">
-                  <div className="flex items-center gap-1 mb-0.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                {lastScanFoundGrant ? (
+                  /* ── Grant found toast ── */
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                        <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                      </div>
+                      <span className="text-[7px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                        Grant Found!
+                      </span>
                     </div>
-                    <span className="text-[7px] font-extrabold text-emerald-700 uppercase tracking-wider">
-                      Grant Found!
-                    </span>
+                    <p className="text-[6px] text-emerald-600 font-semibold truncate pl-3.5">{currentGrant}</p>
                   </div>
-                  <p className="text-[6px] text-emerald-600 font-semibold truncate pl-3.5">{currentGrant}</p>
-                </div>
+                ) : (
+                  /* ── No new grants toast ── */
+                  <div className="bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-400 flex items-center justify-center">
+                        <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      </div>
+                      <span className="text-[7px] font-extrabold text-amber-700 uppercase tracking-wider">
+                        No New Grants
+                      </span>
+                    </div>
+                    <p className="text-[6px] text-amber-600 font-semibold pl-3.5">Continuing the search...</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -1,237 +1,66 @@
 "use client";
 
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, Timestamp, doc, getDoc, getDocs, query, where, updateDoc, setDoc } from "firebase/firestore";
 import type { Firestore } from "firebase/firestore";
 import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
 
 /* ═══════════════════════════════════════════════════════
-   Realistic Mock Grant Data Generator
-   Based on grants.gov structural guidelines & real Denver
-   homeless shelter / nonprofit funding programs.
+   Grant Agent Worker — BULLETPROOF ARCHITECTURE
+   
+   Key design decisions:
+   1. NO setInterval — uses setTimeout chains instead.
+      If a stale callback fires, it checks its version
+      and dies without scheduling another timeout.
+   2. Worker handles stored on `window` so HMR reloads
+      can find and kill previous instances.
+   3. Server-side timestamp gating: before every scan,
+      reads `lastScanTime` from Firestore. If the
+      interval hasn't elapsed, skips. This prevents
+      duplicate scans across tabs and HMR reloads.
+   4. Exactly ONE grant per scan, period.
    ═══════════════════════════════════════════════════════ */
 
-interface GeneratedGrant {
-  title: string;
-  description: string;
-  agency: string;
-  amount: number;
-  status: "unapplied";
-  orgId: string;
-  agentId: string;
-  dateSuggested: Timestamp;
-  createdAt: Timestamp;
-  location_state: string;
-  location_city: string;
-  url: string;
-  eligibility: string;
-  fundingInstrument: string;
-  activityCategories: string[];
-  grantStructures: string[];
-  agencyLevels: string[];
-  classification: string;
-  openDate: Timestamp;
-  closeDate: Timestamp;
+/* ─── Global type for window storage ─── */
+declare global {
+  interface Window {
+    __grantAgentWorkers?: Map<string, WorkerHandle>;
+    __grantAgentVersion?: number;
+    __lastGrantScanStatus?: "found" | "no_new" | "searching" | "idle";
+    __lastGrantScanMessage?: string;
+  }
 }
-
-/* ─── Grant Title Templates ─── */
-const GRANT_TEMPLATES = [
-  {
-    title: "Emergency Solutions Grant (ESG) – Rapid Re-Housing – NOFO FR-6800-N-25",
-    agency: "U.S. Department of Housing and Urban Development (HUD)",
-    description: "Federal funding for rapid re-housing activities including short/medium-term rental assistance, housing search, and stabilization services for individuals experiencing homelessness in the Denver metro area. Apply through e-snaps via the HUD Exchange portal.",
-    url: "https://www.hudexchange.info/programs/e-snaps/",
-    instrument: "Grant",
-    structure: "Project Grants",
-    level: "Federal",
-    categories: ["Housing", "Community Development"],
-    amountRange: [75000, 500000],
-  },
-  {
-    title: "Continuum of Care (CoC) Program – FY2025 NOFO Renewal Projects",
-    agency: "U.S. Department of Housing and Urban Development (HUD)",
-    description: "HUD Continuum of Care competitive funding for permanent supportive housing, transitional housing, and coordinated entry in coordination with the Metro Denver Homeless Initiative (MDHI). Applications submitted through the e-snaps system.",
-    url: "https://www.hudexchange.info/programs/e-snaps/",
-    instrument: "Cooperative Agreement",
-    structure: "Project Grants",
-    level: "Federal",
-    categories: ["Housing", "Health"],
-    amountRange: [150000, 1200000],
-  },
-  {
-    title: "Denver HOST – Shelter Operations & Services RFP FY2026",
-    agency: "Denver Department of Housing Stability (HOST)",
-    description: "City and County of Denver Request for Proposals for emergency shelter operations, day services, and housing navigation. Submit applications through Denver HOST's Submittable procurement portal.",
-    url: "https://denvergov.submittable.com/submit",
-    instrument: "Grant",
-    structure: "Project Grants",
-    level: "Local/Municipal",
-    categories: ["Housing", "Community Development"],
-    amountRange: [50000, 500000],
-  },
-  {
-    title: "Colorado Homelessness Resolution Program (HRP) – NOFA FY2026",
-    agency: "Colorado Division of Housing (DOH/DOLA)",
-    description: "State Notice of Funding Availability for emergency shelter, street outreach, rapid re-housing, and homelessness prevention. Managed through the Colorado Division of Housing's Neighborly grants portal. Eligible: nonprofits, local governments, CoC agencies.",
-    url: "https://cdola.colorado.gov/housing-funding-opportunities",
-    instrument: "Grant",
-    structure: "Categorical Grants",
-    level: "State",
-    categories: ["Housing", "Health"],
-    amountRange: [100000, 750000],
-  },
-  {
-    title: "SAMHSA GBHI – Grants for the Benefit of Homeless Individuals FY2026",
-    agency: "Substance Abuse & Mental Health Services Administration (SAMHSA)",
-    description: "Federal competitive grant for behavioral health treatment and recovery support services for people experiencing homelessness with substance use disorders or mental illness. Apply directly through the SAMHSA grants application portal.",
-    url: "https://www.samhsa.gov/grants/how-to-apply",
-    instrument: "Cooperative Agreement",
-    structure: "Project Grants",
-    level: "Federal",
-    categories: ["Health", "Community Development"],
-    amountRange: [200000, 600000],
-  },
-  {
-    title: "HOME-ARP – American Rescue Plan Supportive Services Allocation",
-    agency: "U.S. Department of Housing and Urban Development (HUD)",
-    description: "HOME Investment Partnerships – American Rescue Plan funding for supportive services, rental housing, and non-congregate shelter for qualifying populations including homeless individuals and domestic violence survivors.",
-    url: "https://www.hudexchange.info/programs/home-arp/",
-    instrument: "Grant",
-    structure: "Formula Grants",
-    level: "Federal",
-    categories: ["Housing", "Health", "Community Development"],
-    amountRange: [300000, 2000000],
-  },
-  {
-    title: "VA Homeless Providers Grant & Per Diem (GPD) – Transitional Housing",
-    agency: "U.S. Department of Veterans Affairs",
-    description: "Federal funding for community-based organizations providing transitional housing and supportive services to Veterans experiencing homelessness. Eligible nonprofits must apply through Grants.gov using the current NOFO.",
-    url: "https://www.va.gov/homeless/gpd.asp",
-    instrument: "Grant",
-    structure: "Project Grants",
-    level: "Federal",
-    categories: ["Housing", "Health"],
-    amountRange: [100000, 800000],
-  },
-  {
-    title: "FEMA Emergency Food & Shelter Program (EFSP) – Phase 41",
-    agency: "Federal Emergency Management Agency (FEMA)",
-    description: "Federal funding distributed through local United Way boards for mass shelter, mass feeding, and emergency rent/mortgage/utility assistance for individuals facing economic emergencies. Apply through your local EFSP board.",
-    url: "https://www.efsp.unitedway.org/efsp/website/websiteContents/index.cfm?template=apply.cfm",
-    instrument: "Grant",
-    structure: "Formula Grants",
-    level: "Federal",
-    categories: ["Housing", "Community Development"],
-    amountRange: [25000, 250000],
-  },
-  {
-    title: "Colorado Health Foundation – Health Equity Grant Cycle (Oct 2026)",
-    agency: "Colorado Health Foundation",
-    description: "Private foundation competitive grant supporting health equity initiatives in Colorado communities. Funding cycles in February, June, and October. Apply through the Colorado Health Foundation grantee portal after consulting with a Program Officer.",
-    url: "https://coloradohealth.org/for-grantees",
-    instrument: "Grant",
-    structure: "Project Grants",
-    level: "Private Foundation",
-    categories: ["Health"],
-    amountRange: [10000, 100000],
-  },
-  {
-    title: "The Denver Foundation – Community Grants Program 2026",
-    agency: "The Denver Foundation",
-    description: "Community grants for Metro Denver nonprofits focused on strengthening neighborhoods and addressing homelessness, housing instability, and basic needs. Applications accepted through The Denver Foundation's online portal.",
-    url: "https://www.denverfoundation.org/Nonprofits/Apply-for-Funding",
-    instrument: "Grant",
-    structure: "Project Grants",
-    level: "Private Foundation",
-    categories: ["Community Development", "Housing"],
-    amountRange: [5000, 50000],
-  },
-  {
-    title: "HUD Youth Homelessness Demonstration Program (YHDP) – Round 5",
-    agency: "U.S. Department of Housing and Urban Development (HUD)",
-    description: "Demonstration funding for communities developing coordinated systems addressing youth homelessness including host homes, rapid re-housing, and transitional living. Apply through e-snaps.",
-    url: "https://www.hudexchange.info/programs/yhdp/",
-    instrument: "Cooperative Agreement",
-    structure: "Project Grants",
-    level: "Federal",
-    categories: ["Housing", "Education", "Health"],
-    amountRange: [250000, 1500000],
-  },
-  {
-    title: "ACF Runaway & Homeless Youth – Basic Center Program (BCP)",
-    agency: "Administration for Children and Families (ACF/HHS)",
-    description: "Federal formula grant for locally-based emergency shelter, outreach, and counseling services for runaway and homeless youth under 18. Applications through Grants.gov under CFDA 93.623.",
-    url: "https://www.grants.gov/search-grants?keywords=basic+center+program+runaway+homeless+youth",
-    instrument: "Grant",
-    structure: "Formula Grants",
-    level: "Federal",
-    categories: ["Housing", "Education", "Health"],
-    amountRange: [50000, 400000],
-  },
-];
-
-/* ─── Generator ─── */
-function generateMockGrant(agentId: string, config: GrantAgentConfig): GeneratedGrant {
-  // Pick a random template
-  const template = GRANT_TEMPLATES[Math.floor(Math.random() * GRANT_TEMPLATES.length)];
-
-  // Calculate amount within budget constraints
-  let [minAmt, maxAmt] = template.amountRange;
-  if (config.budgetMin != null) minAmt = Math.max(minAmt, config.budgetMin);
-  if (config.budgetMax != null) maxAmt = Math.min(maxAmt, config.budgetMax);
-  if (minAmt > maxAmt) maxAmt = minAmt + 50000;
-  const amount = Math.round((minAmt + Math.random() * (maxAmt - minAmt)) / 1000) * 1000;
-
-  // Generate realistic open/close dates
-  const now = new Date();
-  const openDate = new Date(now);
-  openDate.setDate(openDate.getDate() - Math.floor(Math.random() * 14)); // opened within last 2 weeks
-  const closeDate = new Date(openDate);
-  closeDate.setDate(closeDate.getDate() + 30 + Math.floor(Math.random() * 60)); // 30-90 day window
-
-  // Add slight variation to title to avoid exact duplicates
-  const fiscalYear = now.getFullYear();
-  const quarter = `Q${Math.ceil((now.getMonth() + 1) / 3)}`;
-  const variantTitle = `${template.title} — FY${fiscalYear} ${quarter}`;
-
-  return {
-    title: variantTitle,
-    description: template.description,
-    agency: template.agency,
-    amount,
-    status: "unapplied",
-    orgId: "soltheory",
-    agentId,
-    dateSuggested: Timestamp.now(),
-    createdAt: Timestamp.now(),
-    location_state: config.locationState || "Colorado",
-    location_city: config.locationCity || "Denver",
-    url: template.url,
-    eligibility: "Nonprofits with 501(c)(3) IRS Status (Other than Institutions of Higher Education)",
-    fundingInstrument: template.instrument,
-    activityCategories: template.categories,
-    grantStructures: [template.structure],
-    agencyLevels: [template.level],
-    classification: "Nonprofits 501(c)(3)",
-    openDate: Timestamp.fromDate(openDate),
-    closeDate: Timestamp.fromDate(closeDate),
-  };
-}
-
-/* ═══════════════════════════════════════════════════════
-   Agent Worker Manager
-   ═══════════════════════════════════════════════════════ */
 
 interface WorkerHandle {
   agentId: string;
-  intervalId: ReturnType<typeof setInterval>;
+  timeoutId: ReturnType<typeof setTimeout> | null;
   config: GrantAgentConfig;
+  version: number;
+  suggestedUrls: Set<string>;
+  suggestedTitles: Set<string>;
+  scanLock: boolean;
 }
 
-const activeWorkers = new Map<string, WorkerHandle>();
+/**
+ * Get or create the global workers map on window.
+ * Survives HMR reloads.
+ */
+function getWorkersMap(): Map<string, WorkerHandle> {
+  if (typeof window === "undefined") return new Map();
+  if (!window.__grantAgentWorkers) {
+    window.__grantAgentWorkers = new Map();
+  }
+  return window.__grantAgentWorkers;
+}
+
+function getNextVersion(): number {
+  if (typeof window === "undefined") return 0;
+  window.__grantAgentVersion = (window.__grantAgentVersion || 0) + 1;
+  return window.__grantAgentVersion;
+}
 
 /**
  * Convert config interval to milliseconds.
- * Minimum floor of 30 seconds to prevent abuse.
+ * Minimum floor of 60 seconds.
  */
 function intervalToMs(value: number, unit: string): number {
   const multipliers: Record<string, number> = {
@@ -241,32 +70,346 @@ function intervalToMs(value: number, unit: string): number {
     weeks: 604_800_000,
   };
   const ms = value * (multipliers[unit] || 60_000);
-  return Math.max(ms, 30_000); // minimum 30s
+  return Math.max(ms, 60_000); // minimum 1 minute
 }
 
 /**
- * Execute a single agent scan: generate a mock grant and write it to Firestore.
+ * Check Firestore for the last scan timestamp.
+ * Returns true if enough time has passed to scan again.
  */
-async function executeAgentScan(
+async function canScanNow(
   firestore: Firestore,
   agentId: string,
-  config: GrantAgentConfig
-): Promise<string | null> {
+  intervalMs: number
+): Promise<boolean> {
   try {
-    const grant = generateMockGrant(agentId, config);
-    const grantsRef = collection(firestore, "grant_suggestions");
-    const docRef = await addDoc(grantsRef, grant);
-    console.log(`[GrantAgent:${agentId}] Discovered grant: "${grant.title}" → ${docRef.id}`);
-    return docRef.id;
+    const configRef = doc(firestore, "grant_agent_config", "soltheory");
+    const snap = await getDoc(configRef);
+    if (!snap.exists()) return true;
+
+    const data = snap.data();
+    const lastScanTime = data?.lastScanTimes?.[agentId];
+
+    if (!lastScanTime) return true;
+
+    const lastMs = typeof lastScanTime.toMillis === "function"
+      ? lastScanTime.toMillis()
+      : new Date(lastScanTime).getTime();
+
+    const elapsed = Date.now() - lastMs;
+    const canScan = elapsed >= intervalMs;
+
+    if (!canScan) {
+      console.log(
+        `[GrantAgent:${agentId}] Scan blocked — only ${Math.round(elapsed / 1000)}s elapsed, need ${Math.round(intervalMs / 1000)}s`
+      );
+    }
+
+    return canScan;
   } catch (err) {
-    console.error(`[GrantAgent:${agentId}] Scan failed:`, err);
-    return null;
+    console.error(`[GrantAgent:${agentId}] Error checking scan time:`, err);
+    return false; // fail closed — don't scan if we can't verify
   }
 }
 
 /**
+ * Record the current time as the last scan time in Firestore.
+ * This is the single source of truth across all tabs/reloads.
+ */
+async function recordScanTime(firestore: Firestore, agentId: string): Promise<void> {
+  try {
+    const configRef = doc(firestore, "grant_agent_config", "soltheory");
+    await setDoc(configRef, {
+      lastScanTimes: { [agentId]: Timestamp.now() },
+    }, { merge: true });
+  } catch (err) {
+    console.error(`[GrantAgent:${agentId}] Failed to record scan time:`, err);
+  }
+}
+
+/**
+ * Call the /api/grants/search endpoint (Grants.gov + Tavily fallback).
+ */
+async function searchWebForGrants(config: GrantAgentConfig): Promise<
+  { title: string; url: string; description: string; source: string; agency?: string; closeDate?: string; awardCeiling?: number; opportunityNumber?: string }[]
+> {
+  try {
+    const res = await fetch("/api/grants/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grantTypes: config.grantTypes,
+        locationState: config.locationState,
+        locationCity: config.locationCity,
+        budgetMin: config.budgetMin,
+        budgetMax: config.budgetMax,
+        companyDescription: config.companyDescription,
+        welfareKeywords: config.welfareKeywords,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error(`[GrantAgent] Search API returned ${res.status}`);
+      return [];
+    }
+
+    const data = await res.json();
+    return data.grants || [];
+  } catch (err) {
+    console.error("[GrantAgent] Search API call failed:", err);
+    return [];
+  }
+}
+
+/**
+ * Build an actionable description with next steps for the user.
+ * Tells them exactly what to do when they open the grant page.
+ */
+function buildNextSteps(source: string, url: string, rawDescription: string): string {
+  // Clean up the raw description
+  const desc = rawDescription.slice(0, 300).trim();
+  
+  // Build source-specific instructions
+  let steps = "";
+  const domain = source.toLowerCase();
+
+  if (domain.includes("grants.gov") || domain.includes("sam.gov")) {
+    steps = `\n\nNext Steps:\n1. Click "Apply Now" to open this opportunity on ${source}\n2. Look for the "Apply" or "Application Package" button\n3. You will need a SAM.gov registration and UEI number to apply\n4. Download the full NOFO (Notice of Funding Opportunity) for eligibility details\n5. Note the application deadline and prepare your SF-424 form`;
+  } else if (domain.includes("hudexchange")) {
+    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit the HUD Exchange program page\n2. Look for "Funding Availability" or "NOFO" links for the current cycle\n3. Applications are typically submitted through e-snaps or Grants.gov\n4. Check your local Continuum of Care (CoC) for collaborative application requirements`;
+  } else if (domain.includes("samhsa.gov")) {
+    steps = `\n\nNext Steps:\n1. Click "Apply Now" to view the SAMHSA grant announcement\n2. Look for the "Apply for This Grant" or "View NOFO" button\n3. Applications are typically submitted through Grants.gov\n4. Review the eligibility criteria and match requirements before applying`;
+  } else if (domain.includes("denvergov.org")) {
+    steps = `\n\nNext Steps:\n1. Click "Apply Now" to view Denver's procurement/funding page\n2. Look for "Current Procurements" or "Submit An Application"\n3. Applications may be through Submittable or the city portal\n4. Watch for pre-bid meetings and note the submission deadline`;
+  } else if (domain.includes("colorado.gov") || domain.includes("cdola") || domain.includes("cdhs")) {
+    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit the Colorado state program page\n2. Look for the current funding cycle and application portal link\n3. Applications may be through Neighborly (DOLA) or the state grants portal\n4. Check for matching fund requirements`;
+  } else if (domain.includes("foundation") || domain.includes("trust") || domain.includes("rwjf") || domain.includes("kresge") || domain.includes("macfound")) {
+    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit the foundation's grants page\n2. Look for "How to Apply", "LOI" (Letter of Intent), or "Application Guidelines"\n3. Many foundations require an initial Letter of Intent before a full proposal\n4. Check if your organization's budget size and mission align with their criteria`;
+  } else {
+    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit this grant opportunity page\n2. Look for application instructions, eligibility requirements, and deadlines\n3. Download any RFP (Request for Proposals) or NOFO documents\n4. Prepare your organization's 501(c)(3) determination letter, budget, and program narrative`;
+  }
+
+  return desc + steps;
+}
+
+/**
+ * Execute a single scan: check timing gate, search the web, 
+ * pick ONE grant, write to Firestore.
+ */
+async function executeAgentScan(
+  firestore: Firestore,
+  handle: WorkerHandle
+): Promise<string | null> {
+  const { agentId, config, version } = handle;
+
+  // 1. Version check — am I still the active worker?
+  const workers = getWorkersMap();
+  const current = workers.get(agentId);
+  if (!current || current.version !== version) {
+    console.log(`[GrantAgent:${agentId}] Stale worker v${version} — dying`);
+    return null;
+  }
+
+  // 2. Lock check
+  if (handle.scanLock) {
+    console.log(`[GrantAgent:${agentId}] Scan in progress — skipping`);
+    return null;
+  }
+
+  handle.scanLock = true;
+
+  try {
+    const intervalMs = intervalToMs(config.intervalValue, config.intervalUnit);
+
+    // 3. Firestore timing gate — the REAL protection against duplicates
+    const allowed = await canScanNow(firestore, agentId, intervalMs);
+    if (!allowed) {
+      return null;
+    }
+
+    console.log(`[GrantAgent:${agentId}] ✓ Timing gate passed — searching the web...`);
+    if (typeof window !== "undefined") {
+      window.__lastGrantScanStatus = "searching";
+      window.__lastGrantScanMessage = "Scanning the web for grants...";
+    }
+
+    // 4. Record scan time FIRST (claim the slot before doing work)
+    await recordScanTime(firestore, agentId);
+
+    // 5. Search the web
+    const results = await searchWebForGrants(config);
+
+    if (results.length === 0) {
+      console.log(`[GrantAgent:${agentId}] No results from web search`);
+      if (typeof window !== "undefined") {
+        window.__lastGrantScanStatus = "no_new";
+        window.__lastGrantScanMessage = "No new grants found — continuing the search";
+      }
+      return null;
+    }
+
+    // 6. Load existing grant titles from Firestore to prevent duplicates
+    //    This is the REAL protection — survives restarts, HMR, tab refreshes
+    const grantsRef = collection(firestore, "grant_suggestions");
+    const existingSnap = await getDocs(
+      query(grantsRef, where("orgId", "==", "soltheory"))
+    );
+    const existingTitles = new Set<string>();
+    const existingUrls = new Set<string>();
+    existingSnap.forEach((d) => {
+      const data = d.data();
+      if (data.title) existingTitles.add(data.title.toLowerCase().trim());
+      if (data.url) existingUrls.add(data.url);
+      if (data.sourceUrl) existingUrls.add(data.sourceUrl);
+    });
+
+    // Also merge the in-memory sets (faster for within-session dedup)
+    handle.suggestedUrls.forEach((u) => existingUrls.add(u));
+    handle.suggestedTitles.forEach((t) => existingTitles.add(t));
+
+    const newResults = results.filter((r) => {
+      const normTitle = r.title.toLowerCase().trim();
+      return !existingUrls.has(r.url) && !existingTitles.has(normTitle);
+    });
+
+    if (newResults.length === 0) {
+      console.log(`[GrantAgent:${agentId}] All results already exist in Firestore`);
+      if (typeof window !== "undefined") {
+        window.__lastGrantScanStatus = "no_new";
+        window.__lastGrantScanMessage = "No new grants — all results already suggested";
+      }
+      return null;
+    }
+
+    // 7. Pick exactly ONE result
+    const selected = newResults[0];
+
+    // 8. Re-check version before Firestore write
+    const stillCurrent = workers.get(agentId);
+    if (!stillCurrent || stillCurrent.version !== version) {
+      console.log(`[GrantAgent:${agentId}] Stale before write — aborting`);
+      return null;
+    }
+
+    // 9. Build document with REAL data from Grants.gov when available
+    // Use real award ceiling if provided, otherwise estimate from config
+    let amount: number;
+    if (selected.awardCeiling) {
+      amount = selected.awardCeiling;
+    } else {
+      const minAmt = config.budgetMin ?? 10000;
+      const maxAmt = config.budgetMax ?? 500000;
+      amount = Math.round((minAmt + Math.random() * (maxAmt - minAmt)) / 1000) * 1000;
+    }
+
+    // Use real close date if provided, otherwise estimate
+    const now = new Date();
+    const openDate = new Date(now);
+    openDate.setDate(openDate.getDate() - Math.floor(Math.random() * 14));
+
+    let closeDateObj: Date;
+    if (selected.closeDate) {
+      closeDateObj = new Date(selected.closeDate);
+      if (isNaN(closeDateObj.getTime())) {
+        closeDateObj = new Date(now);
+        closeDateObj.setDate(closeDateObj.getDate() + 60);
+      }
+    } else {
+      closeDateObj = new Date(openDate);
+      closeDateObj.setDate(closeDateObj.getDate() + 30 + Math.floor(Math.random() * 90));
+    }
+
+    // Build an actionable description with next steps
+    const nextSteps = buildNextSteps(selected.source, selected.url, selected.description);
+
+    const grantDoc = {
+      title: selected.title,
+      description: nextSteps,
+      agency: selected.agency || selected.source,
+      amount,
+      status: "unapplied",
+      orgId: "soltheory",
+      agentId,
+      dateSuggested: Timestamp.now(),
+      createdAt: Timestamp.now(),
+      location_state: config.locationState || "Colorado",
+      location_city: config.locationCity || "Denver",
+      url: selected.url,
+      eligibility: "Nonprofits with 501(c)(3) status",
+      fundingInstrument: "Grant",
+      activityCategories: config.grantTypes,
+      grantStructures: ["Grant"],
+      agencyLevels: [selected.source === "grants.gov" ? "Federal" : "State/Local"],
+      classification: config.grantTypes[0] || "housing_shelter",
+      openDate: Timestamp.fromDate(openDate),
+      closeDate: Timestamp.fromDate(closeDateObj),
+      sourceWebsite: selected.source,
+      sourceUrl: selected.url,
+      opportunityNumber: selected.opportunityNumber || "",
+    };
+
+    // 10. Write exactly ONE grant
+    const docRef = await addDoc(grantsRef, grantDoc);
+
+    handle.suggestedUrls.add(selected.url);
+    handle.suggestedTitles.add(selected.title.toLowerCase().trim());
+
+    if (typeof window !== "undefined") {
+      window.__lastGrantScanStatus = "found";
+      window.__lastGrantScanMessage = `Found: ${selected.title}`;
+    }
+
+    console.log(
+      `[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selected.url}`
+    );
+    return docRef.id;
+  } catch (err) {
+    console.error(`[GrantAgent:${agentId}] Scan failed:`, err);
+    return null;
+  } finally {
+    handle.scanLock = false;
+  }
+}
+
+/**
+ * Schedule the next scan using setTimeout (NOT setInterval).
+ * If the version doesn't match when it fires, it dies silently
+ * without scheduling another timeout — no ghost intervals.
+ */
+function scheduleNextScan(
+  firestore: Firestore,
+  handle: WorkerHandle,
+  onGrantFound?: (grantId: string) => void
+) {
+  const ms = intervalToMs(handle.config.intervalValue, handle.config.intervalUnit);
+  const workers = getWorkersMap();
+
+  handle.timeoutId = setTimeout(async () => {
+    // Check if this worker is still current
+    const current = workers.get(handle.agentId);
+    if (!current || current.version !== handle.version) {
+      console.log(`[GrantAgent:${handle.agentId}] Stale timeout v${handle.version} — not rescheduling`);
+      return; // DIE — do not reschedule
+    }
+
+    // Run the scan
+    const id = await executeAgentScan(firestore, handle);
+    if (id && onGrantFound) onGrantFound(id);
+
+    // Re-check before scheduling next one
+    const stillCurrent = workers.get(handle.agentId);
+    if (stillCurrent && stillCurrent.version === handle.version) {
+      scheduleNextScan(firestore, handle, onGrantFound);
+    } else {
+      console.log(`[GrantAgent:${handle.agentId}] Worker replaced during scan — not rescheduling`);
+    }
+  }, ms);
+}
+
+/**
  * Start a background worker for a specific agent.
- * Runs the first scan immediately, then at the configured interval.
+ * Uses window-stored handles and setTimeout chains.
+ * No immediate scan. No setInterval. No race conditions.
  */
 export function startAgentWorker(
   firestore: Firestore,
@@ -274,38 +417,45 @@ export function startAgentWorker(
   config: GrantAgentConfig,
   onGrantFound?: (grantId: string) => void
 ) {
-  // Stop existing worker if any
+  // 1. Kill any existing worker (including from previous HMR)
   stopAgentWorker(agentId);
 
-  const ms = intervalToMs(config.intervalValue, config.intervalUnit);
+  // 2. Get a new globally-unique version
+  const version = getNextVersion();
 
+  const handle: WorkerHandle = {
+    agentId,
+    timeoutId: null,
+    config,
+    version,
+    suggestedUrls: new Set<string>(),
+    suggestedTitles: new Set<string>(),
+    scanLock: false,
+  };
+
+  const ms = intervalToMs(config.intervalValue, config.intervalUnit);
   console.log(
-    `[GrantAgent:${agentId}] Starting worker — scanning every ${config.intervalValue} ${config.intervalUnit} (${ms}ms)`
+    `[GrantAgent:${agentId}] Starting worker v${version} — next scan in ${config.intervalValue} ${config.intervalUnit} (${ms}ms)`
   );
 
-  // Run immediately on start
-  executeAgentScan(firestore, agentId, config).then((id) => {
-    if (id && onGrantFound) onGrantFound(id);
-  });
+  // 3. Register on window BEFORE scheduling (synchronous)
+  const workers = getWorkersMap();
+  workers.set(agentId, handle);
 
-  // Set up recurring interval
-  const intervalId = setInterval(async () => {
-    const id = await executeAgentScan(firestore, agentId, config);
-    if (id && onGrantFound) onGrantFound(id);
-  }, ms);
-
-  activeWorkers.set(agentId, { agentId, intervalId, config });
+  // 4. Schedule first scan (no immediate execution)
+  scheduleNextScan(firestore, handle, onGrantFound);
 }
 
 /**
  * Stop a specific agent's background worker.
  */
 export function stopAgentWorker(agentId: string) {
-  const handle = activeWorkers.get(agentId);
+  const workers = getWorkersMap();
+  const handle = workers.get(agentId);
   if (handle) {
-    clearInterval(handle.intervalId);
-    activeWorkers.delete(agentId);
-    console.log(`[GrantAgent:${agentId}] Worker stopped`);
+    if (handle.timeoutId) clearTimeout(handle.timeoutId);
+    workers.delete(agentId);
+    console.log(`[GrantAgent:${agentId}] Worker v${handle.version} stopped`);
   }
 }
 
@@ -313,10 +463,11 @@ export function stopAgentWorker(agentId: string) {
  * Stop all running agent workers.
  */
 export function stopAllAgentWorkers() {
-  activeWorkers.forEach((handle) => {
-    clearInterval(handle.intervalId);
+  const workers = getWorkersMap();
+  workers.forEach((handle) => {
+    if (handle.timeoutId) clearTimeout(handle.timeoutId);
   });
-  activeWorkers.clear();
+  workers.clear();
   console.log("[GrantAgent] All workers stopped");
 }
 
@@ -324,5 +475,5 @@ export function stopAllAgentWorkers() {
  * Get the count of currently running workers.
  */
 export function getActiveWorkerCount(): number {
-  return activeWorkers.size;
+  return getWorkersMap().size;
 }

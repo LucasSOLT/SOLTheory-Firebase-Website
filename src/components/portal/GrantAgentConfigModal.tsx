@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { X, Save, Loader2, Rocket, CheckCircle2, MapPin, DollarSign, Calendar, Timer } from "lucide-react";
+import { X, Save, Loader2, Rocket, CheckCircle2, MapPin, DollarSign, Calendar, Timer, FileText, Tag, Plus, Trash2 } from "lucide-react";
 
 /* ─── Updated Config Schema ─── */
 export interface GrantAgentConfig {
@@ -14,10 +14,14 @@ export interface GrantAgentConfig {
   closeDate: string;
   intervalValue: number;
   intervalUnit: "minutes" | "hours" | "days" | "weeks";
+  
+  // Custom filters for social welfare
+  companyDescription: string;
+  welfareKeywords: string[];
 }
 
 export const DEFAULT_CONFIG: GrantAgentConfig = {
-  grantTypes: [],
+  grantTypes: ["housing_shelter", "health_human_services"],
   locationState: "Colorado",
   locationCity: "Denver",
   budgetMin: null,
@@ -26,24 +30,28 @@ export const DEFAULT_CONFIG: GrantAgentConfig = {
   closeDate: "",
   intervalValue: 1,
   intervalUnit: "days",
+  
+  // Custom defaults for social welfare & NXT Chapter
+  companyDescription: "NXT Chapter is a non-profit programming/management company working with Advanced Pathways and their homeless shelters across Denver. We are a 501(c)(3) status company.",
+  welfareKeywords: ["501(c)(3) grants", "CoC grants", "HOME-ARP", "ESG", "SSBG", "SAMHSA", "social services", "homeless shelters"],
 };
 
-/* ─── Grant Type Options ─── */
-const GRANT_TYPE_OPTIONS = [
-  { key: "homeless_assistance", label: "Homeless Assistance Grants" },
-  { key: "esg", label: "Emergency Solutions Grants (ESG)" },
-  { key: "coc", label: "Continuum of Care (CoC) Program Grants" },
-  { key: "cdbg", label: "Community Development Block Grants (CDBG)" },
-  { key: "home_arp", label: "HOME Investment Partnerships Program (HOME-ARP)" },
-  { key: "hhs", label: "Health and Human Services (HHS) Discretionary Grants" },
-  { key: "ssbg", label: "Social Services Block Grants (SSBG)" },
-  { key: "thr", label: "Transformational Homelessness Response (THR) Colorado Grants" },
-  { key: "host", label: "Denver HOST Rapid Resolution Grants" },
-  { key: "samhsa", label: "SAMHSA Grants for Benefit of Homeless Individuals (GBHI)" },
-  { key: "private_foundation", label: "Private Foundation Program Grants" },
-  { key: "capacity_building", label: "Capacity Building and Operating Grants" },
-  { key: "capital_improvement", label: "Capital Improvement and Brick-and-Mortar Grants" },
+export const WELFARE_KEYWORD_OPTIONS = [
+  "501(c)(3) grants",
+  "CoC grants",
+  "HOME-ARP",
+  "ESG (Emergency Solutions)",
+  "SSBG (Social Services)",
+  "SAMHSA",
+  "social services",
+  "substance abuse",
+  "behavioral health",
+  "block grants",
+  "homeless shelters",
+  "food kitchens"
 ];
+
+
 
 /* ─── US State + City Dataset ─── */
 const US_STATES = [
@@ -151,46 +159,67 @@ export function GrantAgentConfigModal({
   initialConfig?: GrantAgentConfig;
   onSave?: (config: GrantAgentConfig) => void;
 }) {
-  const [config, setConfig] = useState<GrantAgentConfig>(initialConfig ?? DEFAULT_CONFIG);
+  const [config, setConfig] = useState<GrantAgentConfig>(() => {
+    const base = initialConfig ?? DEFAULT_CONFIG;
+    return {
+      ...DEFAULT_CONFIG,
+      ...base,
+      grantTypes: base.grantTypes && base.grantTypes.length > 0 ? base.grantTypes : DEFAULT_CONFIG.grantTypes,
+      welfareKeywords: base.welfareKeywords && base.welfareKeywords.length > 0 ? base.welfareKeywords : DEFAULT_CONFIG.welfareKeywords,
+    };
+  });
+  const [customKeywordInput, setCustomKeywordInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   const cityOptions = useMemo(() => {
     return CITY_DATABASE[config.locationState] || [];
   }, [config.locationState]);
 
-  function toggleGrantType(key: string) {
-    setConfig((prev) => ({
-      ...prev,
-      grantTypes: prev.grantTypes.includes(key)
-        ? prev.grantTypes.filter((k) => k !== key)
-        : [...prev.grantTypes, key],
-    }));
+  function toggleWelfareKeyword(keyword: string) {
+    setConfig((prev) => {
+      const current = prev.welfareKeywords || [];
+      const updated = current.includes(keyword)
+        ? current.filter((k) => k !== keyword)
+        : [...current, keyword];
+      return { ...prev, welfareKeywords: updated };
+    });
   }
 
-  function selectAllGrantTypes() {
-    setConfig((prev) => ({
-      ...prev,
-      grantTypes: GRANT_TYPE_OPTIONS.map((o) => o.key),
-    }));
+  function removeWelfareKeyword(keyword: string) {
+    setConfig((prev) => {
+      const current = prev.welfareKeywords || [];
+      return { ...prev, welfareKeywords: current.filter((k) => k !== keyword) };
+    });
   }
 
-  function clearAllGrantTypes() {
-    setConfig((prev) => ({ ...prev, grantTypes: [] }));
+  function addCustomKeyword() {
+    const trimmed = customKeywordInput.trim().toLowerCase();
+    if (!trimmed) return;
+    setConfig((prev) => {
+      const current = prev.welfareKeywords || [];
+      if (current.includes(trimmed)) return prev;
+      return { ...prev, welfareKeywords: [...current, trimmed] };
+    });
+    setCustomKeywordInput("");
   }
 
   async function handleSave() {
     if (onSave) {
       setSaving(true);
-      // Small delay for visual feedback
       await new Promise((r) => setTimeout(r, 400));
-      onSave(config);
+      // Ensure intervalValue is at least 1 on save
+      const finalConfig = {
+        ...config,
+        intervalValue: Math.max(1, config.intervalValue || 1),
+      };
+      onSave(finalConfig);
       setSaving(false);
       return;
     }
     onClose();
   }
 
-  const allSelected = config.grantTypes.length === GRANT_TYPE_OPTIONS.length;
+  const hasKeywords = !!(config.welfareKeywords && config.welfareKeywords.length > 0);
 
   return (
     <div
@@ -220,48 +249,112 @@ export function GrantAgentConfigModal({
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 min-h-0">
 
-          {/* ═══ Section 1: Grant Types ═══ */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Grant Type Classifications
+          {/* ═══ Section 1: Organization Profile & Mission ═══ */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4.5 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                <FileText className="w-3.5 h-3.5" />
+              </div>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Organization Profile & Mission
               </label>
-              <button
-                onClick={allSelected ? clearAllGrantTypes : selectAllGrantTypes}
-                className="text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 transition-colors cursor-pointer"
-              >
-                {allSelected ? "Clear All" : "Select All"}
-              </button>
             </div>
-            <p className="text-[11px] text-slate-400 mb-3">
-              Select the grant categories this agent should search for.
+            <p className="text-[11px] text-slate-500 leading-normal">
+              Describe your organization's mission, target demography, and status (e.g. 501(c)(3)). The agent uses this text to analyze and rank matching opportunities.
             </p>
-            <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
-              {GRANT_TYPE_OPTIONS.map((opt) => {
-                const checked = config.grantTypes.includes(opt.key);
+            <textarea
+              value={config.companyDescription || ""}
+              onChange={(e) => setConfig((prev) => ({ ...prev, companyDescription: e.target.value }))}
+              placeholder="e.g. NXT Chapter is a non-profit programming/management company working with Advanced Pathways and their homeless shelters across Denver..."
+              rows={3}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 leading-relaxed resize-none font-medium"
+            />
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* ═══ Section 2: Target Social Welfare Programs ═══ */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center">
+                  <Tag className="w-3.5 h-3.5" />
+                </div>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  Target Programs & Welfare Keywords
+                </label>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-normal">
+              Select key programs or funding streams you want to target. Active keywords will be used to generate web search queries.
+            </p>
+
+            {/* Keyword Pills Grid */}
+            <div className="flex flex-wrap gap-2">
+              {WELFARE_KEYWORD_OPTIONS.map((kw) => {
+                const active = config.welfareKeywords?.includes(kw.toLowerCase()) || config.welfareKeywords?.some(k => kw.toLowerCase().startsWith(k));
                 return (
-                  <label
-                    key={opt.key}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
-                      checked
-                        ? "bg-indigo-50/60 border-indigo-200 text-slate-800"
-                        : "bg-white border-slate-100 text-slate-600 hover:bg-slate-50"
+                  <button
+                    key={kw}
+                    type="button"
+                    onClick={() => toggleWelfareKeyword(kw.toLowerCase())}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      active
+                        ? "bg-gradient-to-r from-indigo-50 to-violet-50 border-indigo-200 text-indigo-700 shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleGrantType(opt.key)}
-                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 cursor-pointer"
-                    />
-                    <span className="text-[12px] font-medium leading-tight">{opt.label}</span>
-                  </label>
+                    {active && <CheckCircle2 className="w-3 h-3 text-indigo-600" />}
+                    {kw}
+                  </button>
                 );
               })}
+
+              {/* Display Custom Keywords that aren't in the default options */}
+              {config.welfareKeywords?.filter(
+                (k) => !WELFARE_KEYWORD_OPTIONS.map(o => o.toLowerCase()).some(o => o.startsWith(k) || k.startsWith(o))
+              ).map((kw) => (
+                <button
+                  key={kw}
+                  type="button"
+                  onClick={() => removeWelfareKeyword(kw)}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 text-emerald-700 shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  {kw}
+                  <X className="w-2.5 h-2.5 ml-1 text-emerald-500 hover:text-emerald-700 hover:scale-110 transition-transform" />
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Tag Creator Input */}
+            <div className="flex items-center gap-2 max-w-sm">
+              <input
+                type="text"
+                value={customKeywordInput}
+                onChange={(e) => setCustomKeywordInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomKeyword();
+                  }
+                }}
+                placeholder="Add custom keyword (e.g. food bank)..."
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400 font-medium"
+              />
+              <button
+                type="button"
+                onClick={addCustomKeyword}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
             </div>
           </div>
 
           <hr className="border-slate-100" />
+
+
 
           {/* ═══ Section 2: Location ═══ */}
           <div>
@@ -387,8 +480,18 @@ export function GrantAgentConfigModal({
                   type="number"
                   min={1}
                   max={999}
-                  value={config.intervalValue}
-                  onChange={(e) => setConfig((p) => ({ ...p, intervalValue: Math.max(1, Number(e.target.value) || 1) }))}
+                  value={config.intervalValue || ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setConfig((p) => ({ ...p, intervalValue: 0 }));
+                    } else {
+                      const num = parseInt(raw, 10);
+                      if (!isNaN(num) && num >= 0 && num <= 999) {
+                        setConfig((p) => ({ ...p, intervalValue: num }));
+                      }
+                    }
+                  }}
                   className="w-24 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
@@ -411,24 +514,26 @@ export function GrantAgentConfigModal({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0">
-          <div className="text-[10px] text-slate-400">
-            {config.grantTypes.length === 0 && (
-              <span className="text-amber-500 font-semibold">⚠ Select at least one grant type</span>
-            )}
-            {config.grantTypes.length > 0 && (
-              <span>{config.grantTypes.length} grant type{config.grantTypes.length !== 1 ? "s" : ""} selected</span>
+          <div className="text-[10px] text-slate-400 font-medium">
+            {!hasKeywords ? (
+              <span className="text-amber-500 font-semibold">⚠ Select at least one keyword or grant type</span>
+            ) : (
+              <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                {(config.welfareKeywords || []).length} keywords + {config.grantTypes.length} types active
+              </span>
             )}
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer font-medium"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || config.grantTypes.length === 0}
+              disabled={saving || !hasKeywords}
               className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {saving ? (
