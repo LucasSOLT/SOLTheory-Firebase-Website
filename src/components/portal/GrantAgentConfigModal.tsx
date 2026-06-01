@@ -292,12 +292,16 @@ export function GrantAgentConfigModal({
             {/* Keyword Pills Grid */}
             <div className="flex flex-wrap gap-2">
               {WELFARE_KEYWORD_OPTIONS.map((kw) => {
-                const active = config.welfareKeywords?.includes(kw.toLowerCase()) || config.welfareKeywords?.some(k => kw.toLowerCase().startsWith(k));
+                const kwLower = kw.toLowerCase();
+                const active = config.welfareKeywords?.some(k => {
+                  const kLower = k.toLowerCase();
+                  return kLower === kwLower || kwLower.startsWith(kLower) || kLower.startsWith(kwLower) || kwLower.includes(kLower) || kLower.includes(kwLower);
+                });
                 return (
                   <button
                     key={kw}
                     type="button"
-                    onClick={() => toggleWelfareKeyword(kw.toLowerCase())}
+                    onClick={() => toggleWelfareKeyword(kwLower)}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
                       active
                         ? "bg-gradient-to-r from-indigo-50 to-violet-50 border-indigo-200 text-indigo-700 shadow-sm"
@@ -312,7 +316,13 @@ export function GrantAgentConfigModal({
 
               {/* Display Custom Keywords that aren't in the default options */}
               {config.welfareKeywords?.filter(
-                (k) => !WELFARE_KEYWORD_OPTIONS.map(o => o.toLowerCase()).some(o => o.startsWith(k) || k.startsWith(o))
+                (k) => {
+                  const kLower = k.toLowerCase();
+                  return !WELFARE_KEYWORD_OPTIONS.some(o => {
+                    const oLower = o.toLowerCase();
+                    return kLower === oLower || oLower.startsWith(kLower) || kLower.startsWith(oLower) || oLower.includes(kLower) || kLower.includes(oLower);
+                  });
+                }
               ).map((kw) => (
                 <button
                   key={kw}

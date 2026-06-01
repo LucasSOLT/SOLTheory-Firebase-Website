@@ -155,7 +155,7 @@ export default function NxtChapterDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-5 items-stretch">
         {/* Left Integration Slots */}
         <div className="hidden xl:flex flex-col gap-5 h-full">
-          <IntegrationColumn side="left" />
+          <IntegrationColumn side="left" orgId="nxtchapter" />
           <div className="flex-1 flex flex-col min-h-0">
             <RecentPlaces />
           </div>
@@ -595,7 +595,7 @@ export default function NxtChapterDashboard() {
 
         {/* Right Integration Slots */}
         <div className="hidden xl:flex flex-col gap-5 h-full">
-          <IntegrationColumn side="right" />
+          <IntegrationColumn side="right" orgId="nxtchapter" />
           <div className="flex-1 flex flex-col min-h-0">
             <RadialGraphs />
           </div>

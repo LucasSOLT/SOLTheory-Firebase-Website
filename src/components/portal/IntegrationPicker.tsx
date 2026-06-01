@@ -291,7 +291,8 @@ export function IntegrationWidget({
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window !== "undefined" && user?.uid) {
-      return localStorage.getItem(`collapse-state-${user.uid}-${integration.id}`) === 'true';
+      const orgKey = (integration as any)._orgId || 'default';
+      return localStorage.getItem(`collapse-state-${user.uid}-${orgKey}-${integration.id}`) === 'true';
     }
     return false;
   });
@@ -300,7 +301,8 @@ export function IntegrationWidget({
     const next = !isCollapsed;
     setIsCollapsed(next);
     if (user?.uid) {
-      localStorage.setItem(`collapse-state-${user.uid}-${integration.id}`, next.toString());
+      const orgKey = (integration as any)._orgId || 'default';
+      localStorage.setItem(`collapse-state-${user.uid}-${orgKey}-${integration.id}`, next.toString());
     }
   };
 
@@ -450,7 +452,7 @@ export function IntegrationWidget({
    Integration Sidebar Column (6 slots)
    ═══════════════════════════════════════════════════════════════ */
 
-export function IntegrationColumn({ side, limit = 6 }: { side: "left" | "right", limit?: number }) {
+export function IntegrationColumn({ side, limit = 6, orgId = "default" }: { side: "left" | "right", limit?: number, orgId?: string }) {
   const [slots, setSlots] = useState<(Integration | null)[]>(Array(limit).fill(null));
   const [pickerOpen, setPickerOpen] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -458,7 +460,7 @@ export function IntegrationColumn({ side, limit = 6 }: { side: "left" | "right",
 
   useEffect(() => {
     if (user?.uid) {
-      const saved = localStorage.getItem(`integration-slots-${user.uid}-${side}`);
+      const saved = localStorage.getItem(`integration-slots-${user.uid}-${orgId}-${side}`);
       if (saved) {
         try {
           const parsedIds = JSON.parse(saved);
@@ -471,16 +473,17 @@ export function IntegrationColumn({ side, limit = 6 }: { side: "left" | "right",
       }
       setLoaded(true);
     }
-  }, [user?.uid, side, limit]);
+  }, [user?.uid, side, limit, orgId]);
 
   const selectedIds = slots.filter(Boolean).map(s => s!.id);
 
   const handleSelect = (index: number, integration: Integration) => {
     setSlots(prev => {
       const next = [...prev];
-      next[index] = integration;
+      // Attach orgId so widget collapse state is also scoped
+      next[index] = { ...integration, _orgId: orgId } as any;
       if (user?.uid) {
-        localStorage.setItem(`integration-slots-${user.uid}-${side}`, JSON.stringify(next.map(s => s?.id || null)));
+        localStorage.setItem(`integration-slots-${user.uid}-${orgId}-${side}`, JSON.stringify(next.map(s => s?.id || null)));
       }
       return next;
     });
@@ -491,7 +494,7 @@ export function IntegrationColumn({ side, limit = 6 }: { side: "left" | "right",
       const next = [...prev];
       next[index] = null;
       if (user?.uid) {
-        localStorage.setItem(`integration-slots-${user.uid}-${side}`, JSON.stringify(next.map(s => s?.id || null)));
+        localStorage.setItem(`integration-slots-${user.uid}-${orgId}-${side}`, JSON.stringify(next.map(s => s?.id || null)));
       }
       return next;
     });
