@@ -163,31 +163,12 @@ async function searchWebForGrants(config: GrantAgentConfig): Promise<
 
 /**
  * Build an actionable description with next steps for the user.
- * Tells them exactly what to do when they open the grant page.
+ * All results come from Grants.gov — instructions are consistent.
  */
 function buildNextSteps(source: string, url: string, rawDescription: string): string {
-  // Clean up the raw description
   const desc = rawDescription.slice(0, 300).trim();
   
-  // Build source-specific instructions
-  let steps = "";
-  const domain = source.toLowerCase();
-
-  if (domain.includes("grants.gov") || domain.includes("sam.gov")) {
-    steps = `\n\nNext Steps:\n1. Click "Apply Now" to open this opportunity on ${source}\n2. Look for the "Apply" or "Application Package" button\n3. You will need a SAM.gov registration and UEI number to apply\n4. Download the full NOFO (Notice of Funding Opportunity) for eligibility details\n5. Note the application deadline and prepare your SF-424 form`;
-  } else if (domain.includes("hudexchange")) {
-    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit the HUD Exchange program page\n2. Look for "Funding Availability" or "NOFO" links for the current cycle\n3. Applications are typically submitted through e-snaps or Grants.gov\n4. Check your local Continuum of Care (CoC) for collaborative application requirements`;
-  } else if (domain.includes("samhsa.gov")) {
-    steps = `\n\nNext Steps:\n1. Click "Apply Now" to view the SAMHSA grant announcement\n2. Look for the "Apply for This Grant" or "View NOFO" button\n3. Applications are typically submitted through Grants.gov\n4. Review the eligibility criteria and match requirements before applying`;
-  } else if (domain.includes("denvergov.org")) {
-    steps = `\n\nNext Steps:\n1. Click "Apply Now" to view Denver's procurement/funding page\n2. Look for "Current Procurements" or "Submit An Application"\n3. Applications may be through Submittable or the city portal\n4. Watch for pre-bid meetings and note the submission deadline`;
-  } else if (domain.includes("colorado.gov") || domain.includes("cdola") || domain.includes("cdhs")) {
-    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit the Colorado state program page\n2. Look for the current funding cycle and application portal link\n3. Applications may be through Neighborly (DOLA) or the state grants portal\n4. Check for matching fund requirements`;
-  } else if (domain.includes("foundation") || domain.includes("trust") || domain.includes("rwjf") || domain.includes("kresge") || domain.includes("macfound")) {
-    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit the foundation's grants page\n2. Look for "How to Apply", "LOI" (Letter of Intent), or "Application Guidelines"\n3. Many foundations require an initial Letter of Intent before a full proposal\n4. Check if your organization's budget size and mission align with their criteria`;
-  } else {
-    steps = `\n\nNext Steps:\n1. Click "Apply Now" to visit this grant opportunity page\n2. Look for application instructions, eligibility requirements, and deadlines\n3. Download any RFP (Request for Proposals) or NOFO documents\n4. Prepare your organization's 501(c)(3) determination letter, budget, and program narrative`;
-  }
+  const steps = `\n\nNext Steps:\n1. Click "Apply Now" to open this opportunity on Grants.gov\n2. Review the full NOFO (Notice of Funding Opportunity) for eligibility details\n3. Check that your organization has a SAM.gov registration and UEI number\n4. Note the application deadline and prepare your SF-424 form\n5. Download the full application package from the opportunity page`;
 
   return desc + steps;
 }
@@ -239,7 +220,21 @@ async function executeAgentScan(
     // 5. Search the web
     const results = await searchWebForGrants(config);
 
-    if (results.length === 0) {
+    // Safety guard: ONLY allow grants.gov URLs
+    const safeResults = results.filter(r => {
+      try {
+        const hostname = new URL(r.url).hostname;
+        return hostname === 'www.grants.gov' || hostname === 'grants.gov';
+      } catch { return false; }
+    });
+
+    if (safeResults.length < results.length) {
+      console.warn(
+        `[GrantAgent:${agentId}] Filtered out ${results.length - safeResults.length} non-grants.gov URLs`
+      );
+    }
+
+    if (safeResults.length === 0) {
       console.log(`[GrantAgent:${agentId}] No results from web search`);
       if (typeof window !== "undefined") {
         window.__lastGrantScanStatus = "no_new";
@@ -267,7 +262,7 @@ async function executeAgentScan(
     handle.suggestedUrls.forEach((u) => existingUrls.add(u));
     handle.suggestedTitles.forEach((t) => existingTitles.add(t));
 
-    const newResults = results.filter((r) => {
+    const newResults = safeResults.filter((r) => {
       const normTitle = r.title.toLowerCase().trim();
       return !existingUrls.has(r.url) && !existingTitles.has(normTitle);
     });

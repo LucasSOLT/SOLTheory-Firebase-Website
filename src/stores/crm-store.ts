@@ -341,7 +341,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid } = get();
     if (!_db || !_uid) return;
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "contacts"), id), updates as Record<string, unknown>);
+      await updateDoc(doc(_db, crmPath(_uid, "contacts"), id), updates as any);
     } catch (error) {
       console.error("updateCustomer error:", error);
       get().showToast("⚠️ Failed to update contact", "error");

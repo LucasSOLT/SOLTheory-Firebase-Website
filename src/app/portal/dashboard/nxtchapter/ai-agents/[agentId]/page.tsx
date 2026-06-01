@@ -63,6 +63,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isObserverFullScreen, setIsObserverFullScreen] = useState(false);
 
   const openVoiceSession = () => {
     if (typeof window !== "undefined") {
@@ -95,6 +96,8 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     }
     setIsVoiceModalOpen(true);
   };
+
+  const fetchPACTEntries = () => {};
   const [totalGroqTokens, setTotalGroqTokens] = useState(0);
   const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);

@@ -3,10 +3,15 @@ import { NextResponse } from "next/server";
 /**
  * POST /api/grants/search
  *
- * PRIMARY: Grants.gov REST API (free, no auth, structured federal grant data)
- * FALLBACK: Tavily web search (for state/local/foundation grants)
+ * Uses the Grants.gov REST API exclusively — the single largest and most
+ * reliable source of federal grant opportunities for 501(c)(3) nonprofits.
  *
- * Returns real, currently-open grant opportunities with direct application URLs.
+ * Grants.gov has thousands of active opportunities at any time covering
+ * CoC, HOME-ARP, ESG, SAMHSA, SSBG, CDBG and more. All structured data
+ * with direct application links, real close dates, and opportunity numbers.
+ *
+ * Tavily web search was removed because it returned generic org homepages
+ * and blog posts rather than actual grant applications.
  */
 
 interface SearchRequest {
@@ -30,32 +35,34 @@ interface GrantResult {
   opportunityNumber?: string;
 }
 
-/* ─── Map our 5 grant categories to Grants.gov search keywords ─── */
+/* ─── Map our grant categories to Grants.gov search keywords ─── */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   housing_shelter: [
     "homeless", "shelter", "housing", "CoC", "continuum of care",
     "rapid rehousing", "emergency solutions", "HOME-ARP",
+    "transitional housing", "permanent supportive housing",
   ],
   health_human_services: [
     "behavioral health", "substance abuse", "mental health",
     "social services", "SAMHSA", "health services",
+    "opioid", "community health", "prevention",
   ],
   community_development: [
     "community development", "CDBG", "neighborhood",
-    "infrastructure", "revitalization",
+    "infrastructure", "revitalization", "economic development",
   ],
   capacity_operations: [
     "capacity building", "technical assistance", "organizational",
-    "training", "nonprofit",
+    "training", "nonprofit", "workforce development",
   ],
   private_foundation: [
     "community", "foundation", "philanthropy", "charitable",
+    "community grant", "social impact",
   ],
 };
 
 /* ═══════════════════════════════════════════════════════
-   1. Grants.gov API (Primary Source)
-   Free, no auth, real structured data.
+   Grants.gov API — free, no auth, structured federal data
    POST https://api.grants.gov/v1/api/search2
    ═══════════════════════════════════════════════════════ */
 
@@ -66,8 +73,8 @@ async function searchGrantsGov(
   const allResults: GrantResult[] = [];
   const seenIds = new Set<string>();
 
-  // Run searches for each keyword (max 3 to avoid rate limits)
-  const searchKeywords = keywords.slice(0, 3);
+  // Search with up to 5 keywords for broader coverage
+  const searchKeywords = keywords.slice(0, 5);
 
   for (const keyword of searchKeywords) {
     try {
@@ -77,7 +84,7 @@ async function searchGrantsGov(
         body: JSON.stringify({
           keyword,
           oppStatuses: "posted",  // Only currently-open opportunities
-          rows: Math.min(rows, 10),
+          rows: Math.min(rows, 15),
           sortBy: "openDate|desc",
         }),
       });
@@ -121,84 +128,15 @@ async function searchGrantsGov(
 }
 
 /* ═══════════════════════════════════════════════════════
-   2. Tavily Search (Fallback for state/local/foundation)
+   Relevance Scoring Engine
    ═══════════════════════════════════════════════════════ */
 
-async function searchTavily(query: string): Promise<GrantResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return [];
-
-  try {
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        query,
-        search_depth: "basic",
-        max_results: 5,
-        include_answer: false,
-        include_raw_content: false,
-        include_domains: [
-          "cdola.colorado.gov",
-          "cdhs.colorado.gov",
-          "oedit.colorado.gov",
-          "denvergov.org",
-          "coloradohealth.org",
-          "denverfoundation.org",
-          "coloradotrust.org",
-          "rwjf.org",
-          "kresge.org",
-          "instrumentl.com",
-          "grantwatch.com",
-        ],
-        exclude_domains: [
-          "youtube.com", "twitter.com", "facebook.com",
-          "linkedin.com", "wikipedia.org", "reddit.com",
-        ],
-      }),
-    });
-
-    if (!response.ok) return [];
-
-    const data = await response.json();
-
-    return (data.results || [])
-      .filter((r: any) => {
-        const url = (r.url || "").toLowerCase();
-        // Reject PDFs, media files, blog posts
-        if (/\.(pdf|docx?|xlsx?|pptx?)$/i.test(url)) return false;
-        if (/\/(media|uploads|wp-content|blog|news)\//i.test(url)) return false;
-        return true;
-      })
-      .map((r: any) => {
-        let source = "unknown";
-        try { source = new URL(r.url).hostname.replace("www.", ""); } catch { /* */ }
-        return {
-          title: (r.title || "").trim(),
-          url: (r.url || "").trim(),
-          description: (r.content || "").slice(0, 500).trim(),
-          source,
-        };
-      });
-  } catch (err) {
-    console.error("[GrantSearch] Tavily fallback failed:", err);
-    return [];
-  }
-}
-
-/* ═══════════════════════════════════════════════════════
-   Combined Search Handler
-   ═══════════════════════════════════════════════════════ */
-
-// Relevance Scoring Engine
 function computeRelevanceScore(grant: GrantResult, companyDesc: string, targetKeywords: string[]): number {
   let score = 0;
   const titleLower = grant.title.toLowerCase();
   const descLower = grant.description.toLowerCase();
-  const combinedText = `${titleLower} ${descLower}`;
 
-  // 1. Tag matches (high weight)
+  // 1. Tag / keyword matches (high weight)
   if (targetKeywords && targetKeywords.length > 0) {
     targetKeywords.forEach((keyword) => {
       const kw = keyword.toLowerCase().trim();
@@ -214,13 +152,13 @@ function computeRelevanceScore(grant: GrantResult, companyDesc: string, targetKe
     });
   }
 
-  // 2. Company description semantic/term density matching
+  // 2. Company description term matching
   if (companyDesc) {
     const descWords = companyDesc
       .toLowerCase()
       .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "")
       .split(/\s+/)
-      .filter(word => word.length > 4); // only match meaningful long words
+      .filter(word => word.length > 4); // only meaningful words
 
     const uniqueWords = Array.from(new Set(descWords));
     uniqueWords.forEach((word) => {
@@ -237,26 +175,40 @@ function computeRelevanceScore(grant: GrantResult, companyDesc: string, targetKe
     });
   }
 
-  // 3. Negative filters (slight penalty for raw landing pages or generic lists)
-  if (combinedText.includes("list of grants") || combinedText.includes("directory")) {
-    score -= 10;
+  // 3. Bonus for grants with close dates (more actionable)
+  if (grant.closeDate) {
+    score += 5;
+  }
+
+  // 4. Bonus for grants with opportunity numbers (verified listings)
+  if (grant.opportunityNumber) {
+    score += 5;
   }
 
   return score;
 }
 
+/* ═══════════════════════════════════════════════════════
+   Combined Search Handler
+   ═══════════════════════════════════════════════════════ */
+
 export async function POST(request: Request) {
   try {
     const body: SearchRequest = await request.json();
 
-    // Build keyword list: use welfareKeywords if provided, else fallback to grantTypes checkboxes
+    // Build keyword list from welfare keywords + grant type categories
     const keywords: string[] = [];
+
+    // Primary: use user-defined welfare keywords
     if (body.welfareKeywords && body.welfareKeywords.length > 0) {
       const pool = body.welfareKeywords.map(k => k.trim()).filter(Boolean);
-      // Pick up to 3 diverse keywords (shuffled) to keep searches light and fast
+      // Pick up to 5 diverse keywords (shuffled) for broader coverage
       const shuffled = [...pool].sort(() => 0.5 - Math.random());
-      keywords.push(...shuffled.slice(0, 3));
-    } else {
+      keywords.push(...shuffled.slice(0, 5));
+    }
+
+    // Secondary: supplement from grant type categories if we have < 3 keywords
+    if (keywords.length < 3) {
       const types = body.grantTypes && body.grantTypes.length > 0
         ? body.grantTypes
         : Object.keys(CATEGORY_KEYWORDS);
@@ -264,8 +216,13 @@ export async function POST(request: Request) {
       for (const type of types) {
         const typeKeywords = CATEGORY_KEYWORDS[type] || [];
         if (typeKeywords.length > 0) {
-          keywords.push(typeKeywords[Math.floor(Math.random() * typeKeywords.length)]);
+          // Pick a random keyword from this category to vary results across scans
+          const kw = typeKeywords[Math.floor(Math.random() * typeKeywords.length)];
+          if (!keywords.includes(kw)) {
+            keywords.push(kw);
+          }
         }
+        if (keywords.length >= 5) break;
       }
     }
 
@@ -276,28 +233,20 @@ export async function POST(request: Request) {
 
     console.log(`[GrantSearch] Keywords: ${keywords.join(", ")}`);
 
-    // 1. Primary: Grants.gov API
-    const grantsGovResults = await searchGrantsGov(keywords);
+    // Search Grants.gov
+    const results = await searchGrantsGov(keywords);
 
-    // 2. Fallback: Tavily for state/local/foundation grants
-    const location = body.locationCity && body.locationState
-      ? `${body.locationCity} ${body.locationState}`
-      : body.locationState || "Colorado";
-    const tavilyQuery = `nonprofit 501(c)(3) grant application open ${location} ${keywords[0]} 2025 2026`;
-    const tavilyResults = await searchTavily(tavilyQuery);
-
-    // Merge, Deduplicate & Score Results
+    // Deduplicate & score
     const seenUrls = new Set<string>();
     const seenTitles = new Set<string>();
-    const merged: GrantResult[] = [];
+    const scored: GrantResult[] = [];
 
-    for (const r of [...grantsGovResults, ...tavilyResults]) {
+    for (const r of results) {
       const normalizedTitle = r.title.toLowerCase().trim();
       if (!seenUrls.has(r.url) && !seenTitles.has(normalizedTitle)) {
         seenUrls.add(r.url);
         seenTitles.add(normalizedTitle);
 
-        // Apply relevance scoring
         const score = computeRelevanceScore(
           r,
           body.companyDescription || "",
@@ -305,17 +254,17 @@ export async function POST(request: Request) {
         );
         (r as any).score = score;
 
-        merged.push(r);
+        scored.push(r);
       }
     }
 
-    // Sort by relevance score in descending order
-    merged.sort((a: any, b: any) => b.score - a.score);
+    // Sort by relevance score (best matches first)
+    scored.sort((a: any, b: any) => b.score - a.score);
 
-    console.log(`[GrantSearch] Total: ${merged.length} results (${grantsGovResults.length} federal + ${tavilyResults.length} state/local)`);
-    console.log(`[GrantSearch] Top 3 scored:`, merged.slice(0, 3).map(m => ({ title: m.title, score: (m as any).score })));
+    console.log(`[GrantSearch] Total: ${scored.length} federal results`);
+    console.log(`[GrantSearch] Top 3 scored:`, scored.slice(0, 3).map(m => ({ title: m.title, score: (m as any).score })));
 
-    return NextResponse.json({ grants: merged });
+    return NextResponse.json({ grants: scored });
   } catch (err: any) {
     console.error("[GrantSearch] Route error:", err);
     return NextResponse.json({ error: err.message, grants: [] }, { status: 500 });

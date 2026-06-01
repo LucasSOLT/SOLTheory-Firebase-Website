@@ -15,6 +15,7 @@ import {
   getDoc,
   serverTimestamp,
   Timestamp,
+  arrayUnion,
 } from "firebase/firestore";
 import {
   LayoutDashboard,
@@ -43,10 +44,11 @@ import {
   Timer,
   Zap,
   Mail,
-  MessageSquare as SlackIcon,
-  Link2,
   ChevronRight,
   Edit2,
+  MessageCircle,
+  ArchiveRestore,
+  Send,
 } from "lucide-react";
 
 // ── Types ──
@@ -55,6 +57,15 @@ type ColumnId = "todo" | "doing" | "done";
 type AssignmentStatus = "direct" | "pending_approval" | "accepted" | "denied";
 type ViewFilter = "my_tasks" | "specific_user" | "all_users";
 type LifecycleStatus = "new" | "in_progress" | "on_time" | "late";
+
+interface TaskComment {
+  id: string;
+  text: string;
+  authorUid: string;
+  authorName: string;
+  authorEmail: string;
+  createdAt: Timestamp | null;
+}
 
 interface ActionBoardTask {
   id: string;
@@ -81,13 +92,17 @@ interface ActionBoardTask {
   lateNotifiedAt?: Timestamp | null;
   // Automations
   automations?: TaskAutomations;
+  // Archive
+  isArchived?: boolean;
+  // Comments
+  comments?: TaskComment[];
 }
+
+type EmailTrigger = "assigned" | "in_progress" | "completed" | "overdue";
 
 interface TaskAutomations {
   emails?: string[];
-  slackWebhook?: string;
-  slackChannel?: string;
-  googleAction?: "calendar_event" | "draft_email" | null;
+  emailTriggers?: EmailTrigger[];
 }
 
 interface OrgMember {
@@ -245,11 +260,13 @@ export default function ActionBoardPage() {
   const [newStartDate, setNewStartDate] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
   // Automations form
-  const [autoEmails, setAutoEmails] = useState("");
-  const [autoSlackWebhook, setAutoSlackWebhook] = useState("");
-  const [autoSlackChannel, setAutoSlackChannel] = useState("");
-  const [autoGoogleAction, setAutoGoogleAction] = useState<string>("");
+  const [autoEmailChips, setAutoEmailChips] = useState<string[]>([]);
+  const [autoEmailInput, setAutoEmailInput] = useState("");
+  const [autoEmailTriggers, setAutoEmailTriggers] = useState<EmailTrigger[]>([]);
   const [isAutomationsOpen, setIsAutomationsOpen] = useState(false);
+  // Comments state
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [commentInput, setCommentInput] = useState("");
 
   // ── Derived ──
   const isAdmin = currentUserRole === "admin" || user?.email === SUPER_ADMIN_EMAIL;
@@ -337,6 +354,8 @@ export default function ActionBoardPage() {
           isLate: data.isLate || false,
           lateNotifiedAt: data.lateNotifiedAt || null,
           automations: data.automations || undefined,
+          isArchived: data.isArchived || false,
+          comments: data.comments || [],
         };
 
         // Auto-delete denied tasks older than 30 days
@@ -393,6 +412,8 @@ export default function ActionBoardPage() {
                 updatedAt: serverTimestamp(),
               });
               console.log(`[ActionBoard] Task "${task.title}" marked as LATE`);
+              // Fire overdue automations
+              fireAutomations({ ...task, isLate: true }, "overdue");
             }
           } catch (err) {
             // Remove from processed set so it can be retried
@@ -413,7 +434,7 @@ export default function ActionBoardPage() {
   const getVisibleBoardTasks = useCallback((): ActionBoardTask[] => {
     if (!user?.uid) return [];
     const boardStatuses: AssignmentStatus[] = ["direct", "accepted"];
-    let filtered = tasks.filter(t => boardStatuses.includes(t.assignmentStatus));
+    let filtered = tasks.filter(t => boardStatuses.includes(t.assignmentStatus) && !t.isArchived);
 
     if (viewFilter === "my_tasks") {
       filtered = filtered.filter(t => t.assignedTo === user.uid || t.createdBy === user.uid);
@@ -429,6 +450,10 @@ export default function ActionBoardPage() {
 
   const deniedTasks = tasks.filter(
     t => t.assignmentStatus === "denied" && (t.createdBy === user?.uid || t.assignedTo === user?.uid)
+  );
+
+  const archivedTasks = tasks.filter(
+    t => t.isArchived === true && (t.createdBy === user?.uid || t.assignedTo === user?.uid || isAdmin)
   );
 
   // Late task count for notification
@@ -466,8 +491,8 @@ export default function ActionBoardPage() {
       createdByEmail: user.email || "",
       createdByName: user.displayName || "",
       assignedTo: assigneeUid,
-      assignedToEmail: assigneeMember?.email || user.email || "",
-      assignedToName: assigneeMember?.displayName || user.displayName || "",
+      assignedToEmail: isSelfAssign ? (user.email || "") : (assigneeMember?.email || ""),
+      assignedToName: isSelfAssign ? (user.displayName || "") : (assigneeMember?.displayName || ""),
       assignmentStatus: status,
       startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
       dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
@@ -487,6 +512,16 @@ export default function ActionBoardPage() {
       console.log("[ActionBoard] Creating task:", taskData);
       const docRef = await addDoc(collection(firestore, "action_board_tasks"), taskData);
       console.log("[ActionBoard] Task created with ID:", docRef.id);
+      // Fire "assigned" trigger for new tasks
+      if (automationsData) {
+        fireAutomations({
+          ...taskData,
+          id: docRef.id,
+          automations: automationsData,
+          createdAt: null,
+          updatedAt: null,
+        } as ActionBoardTask, "assigned");
+      }
     } catch (err: any) {
       console.error("[ActionBoard] Failed to create task:", err);
       alert(`Failed to create task: ${err.message || err}`);
@@ -494,7 +529,8 @@ export default function ActionBoardPage() {
 
     setNewTitle(""); setNewDesc(""); setNewPriority("Medium"); setNewColumn("todo");
     setNewAssignee("self"); setAssigneeSearch(""); setNewStartDate(""); setNewDueDate("");
-    setAutoEmails(""); setAutoSlackWebhook(""); setAutoSlackChannel(""); setAutoGoogleAction(""); setIsAutomationsOpen(false);
+    setAutoEmailChips([]); setAutoEmailInput(""); setAutoEmailTriggers([]); setIsAutomationsOpen(false);
+    setIsCommentsOpen(false); setCommentInput("");
     setIsModalOpen(false);
   };
 
@@ -502,8 +538,9 @@ export default function ActionBoardPage() {
     setEditingTaskId(null);
     setNewTitle(""); setNewDesc(""); setNewPriority("Medium"); setNewColumn("todo");
     setNewAssignee("self"); setAssigneeSearch(""); setNewStartDate(""); setNewDueDate("");
-    setAutoEmails(""); setAutoSlackWebhook(""); setAutoSlackChannel(""); setAutoGoogleAction("");
+    setAutoEmailChips([]); setAutoEmailInput(""); setAutoEmailTriggers([]);
     setIsAutomationsOpen(false);
+    setIsCommentsOpen(false); setCommentInput("");
     setIsModalOpen(true);
   };
 
@@ -524,11 +561,12 @@ export default function ActionBoardPage() {
     setNewDueDate(task.dueDate ? toDatetimeLocalString(task.dueDate.toDate()) : "");
 
     const auto = task.automations || {};
-    setAutoEmails(auto.emails ? auto.emails.join(", ") : "");
-    setAutoSlackWebhook(auto.slackWebhook || "");
-    setAutoSlackChannel(auto.slackChannel || "");
-    setAutoGoogleAction(auto.googleAction || "");
-    setIsAutomationsOpen(!!(auto.emails || auto.slackWebhook || auto.googleAction));
+    setAutoEmailChips(auto.emails || []);
+    setAutoEmailInput("");
+    setAutoEmailTriggers(auto.emailTriggers || []);
+    setIsAutomationsOpen(!!(auto.emails && auto.emails.length > 0));
+    setIsCommentsOpen(false);
+    setCommentInput("");
 
     setIsModalOpen(true);
     setOpenMenuId(null);
@@ -539,8 +577,9 @@ export default function ActionBoardPage() {
     setEditingTaskId(null);
     setNewTitle(""); setNewDesc(""); setNewPriority("Medium"); setNewColumn("todo");
     setNewAssignee("self"); setAssigneeSearch(""); setNewStartDate(""); setNewDueDate("");
-    setAutoEmails(""); setAutoSlackWebhook(""); setAutoSlackChannel(""); setAutoGoogleAction("");
+    setAutoEmailChips([]); setAutoEmailInput(""); setAutoEmailTriggers([]);
     setIsAutomationsOpen(false);
+    setIsCommentsOpen(false); setCommentInput("");
   };
 
   const saveTask = async () => {
@@ -571,8 +610,8 @@ export default function ActionBoardPage() {
       priority: newPriority,
       column: newColumn,
       assignedTo: assigneeUid,
-      assignedToEmail: assigneeMember?.email || user.email || "",
-      assignedToName: assigneeMember?.displayName || user.displayName || "",
+      assignedToEmail: isSelfAssign ? (user.email || "") : (assigneeMember?.email || ""),
+      assignedToName: isSelfAssign ? (user.displayName || "") : (assigneeMember?.displayName || ""),
       assignmentStatus: status,
       startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
       dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
@@ -604,14 +643,28 @@ export default function ActionBoardPage() {
       console.log("[ActionBoard] Task updated successfully");
 
       if (newColumn === "done" && task && task.column !== "done") {
-        fireOnCompleteAutomations({
+        fireAutomations({
           ...task,
           ...taskData,
           column: "done",
           completedAt: Timestamp.now(),
           startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
           dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
-        } as ActionBoardTask);
+        } as ActionBoardTask, "completed");
+      }
+      if (newColumn === "doing" && task && task.column !== "doing") {
+        fireAutomations({
+          ...task,
+          ...taskData,
+          column: "doing",
+        } as ActionBoardTask, "in_progress");
+      }
+      if (newColumn === "todo" && task && task.column !== "todo") {
+        fireAutomations({
+          ...task,
+          ...taskData,
+          column: "todo",
+        } as ActionBoardTask, "assigned");
       }
     } catch (err: any) {
       console.error("[ActionBoard] Failed to update task:", err);
@@ -630,23 +683,25 @@ export default function ActionBoardPage() {
 
   // ── Build automations object from form ──
   const buildAutomations = (): TaskAutomations | null => {
-    const emails = autoEmails.split(",").map(e => e.trim()).filter(Boolean);
-    const hasAny = emails.length > 0 || autoSlackWebhook.trim() || autoGoogleAction;
+    const emails = autoEmailChips;
+    const hasAny = emails.length > 0;
     if (!hasAny) return null;
     const auto: TaskAutomations = {};
     if (emails.length > 0) auto.emails = emails;
-    if (autoSlackWebhook.trim()) auto.slackWebhook = autoSlackWebhook.trim();
-    if (autoSlackChannel.trim()) auto.slackChannel = autoSlackChannel.trim();
-    if (autoGoogleAction) auto.googleAction = autoGoogleAction as TaskAutomations["googleAction"];
+    if (autoEmailTriggers.length > 0) auto.emailTriggers = autoEmailTriggers;
     return auto;
   };
 
-  // ── Fire automations on task completion ──
-  const fireOnCompleteAutomations = async (task: ActionBoardTask) => {
+  // ── Fire automations for a specific trigger ──
+  const fireAutomations = async (task: ActionBoardTask, trigger: EmailTrigger) => {
     if (!task.automations) return;
-    const { emails, slackWebhook, slackChannel, googleAction } = task.automations;
-    const hasAutomations = (emails && emails.length > 0) || slackWebhook || googleAction;
-    if (!hasAutomations) return;
+    const { emails, emailTriggers } = task.automations;
+    if (!emails || emails.length === 0) return;
+    // Only fire if this trigger is enabled (or if no triggers are set, default to completed for backwards compat)
+    if (emailTriggers && emailTriggers.length > 0 && !emailTriggers.includes(trigger)) return;
+    if (!emailTriggers || emailTriggers.length === 0) {
+      if (trigger !== "completed") return;
+    }
 
     try {
       await fetch("/api/action-board/on-complete", {
@@ -664,13 +719,13 @@ export default function ActionBoardPage() {
             completedAt: new Date().toISOString(),
             isLate: task.isLate || false,
           },
-          automations: { emails, slackWebhook, slackChannel, googleAction },
+          automations: { emails },
+          trigger,
           userId: user?.uid || null,
         }),
       });
-      console.log(`[ActionBoard] Automations fired for "${task.title}"`);
+      console.log(`[ActionBoard] Automations fired for "${task.title}" (trigger: ${trigger})`);
     } catch (err) {
-      // Fail silently — never block the UI
       console.warn("[ActionBoard] Automation dispatch failed (silent):", err);
     }
   };
@@ -698,10 +753,56 @@ export default function ActionBoardPage() {
       await updateDoc(doc(firestore, "action_board_tasks", id), updateData);
       // Fire automations AFTER successful Firestore update
       if (to === "done" && task) {
-        fireOnCompleteAutomations({ ...task, column: "done", completedAt: Timestamp.now() });
+        fireAutomations({ ...task, column: "done", completedAt: Timestamp.now() }, "completed");
+      }
+      if (to === "doing" && task && task.column !== "doing") {
+        fireAutomations({ ...task, column: "doing" }, "in_progress");
+      }
+      if (to === "todo" && task && task.column !== "todo") {
+        fireAutomations({ ...task, column: "todo" }, "assigned");
       }
     } catch (err) { console.error("[ActionBoard] Move failed:", err); }
     setOpenMenuId(null);
+  };
+
+  const archiveTask = async (id: string) => {
+    if (!firestore) return;
+    try {
+      await updateDoc(doc(firestore, "action_board_tasks", id), {
+        isArchived: true,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) { console.error("[ActionBoard] Archive failed:", err); }
+    setOpenMenuId(null);
+  };
+
+  const restoreTask = async (id: string) => {
+    if (!firestore) return;
+    try {
+      await updateDoc(doc(firestore, "action_board_tasks", id), {
+        isArchived: false,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) { console.error("[ActionBoard] Restore failed:", err); }
+  };
+
+  const addComment = async (taskId: string) => {
+    if (!firestore || !user?.uid || !commentInput.trim()) return;
+    const comment: TaskComment = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      text: commentInput.trim(),
+      authorUid: user.uid,
+      authorName: user.displayName || "",
+      authorEmail: user.email || "",
+      createdAt: Timestamp.now(),
+    };
+    try {
+      await updateDoc(doc(firestore, "action_board_tasks", taskId), {
+        comments: arrayUnion(comment),
+        updatedAt: serverTimestamp(),
+      });
+      setCommentInput("");
+    } catch (err) { console.error("[ActionBoard] Add comment failed:", err); }
   };
 
   const acceptTask = async (id: string) => {
@@ -824,11 +925,11 @@ export default function ActionBoardPage() {
             )}
 
             {/* Archive */}
-            {deniedTasks.length > 0 && (
+            {(deniedTasks.length > 0 || archivedTasks.length > 0) && (
               <button onClick={() => setIsArchiveOpen(true)} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600 cursor-pointer">
                 <Archive className="w-4 h-4" />
                 <span className="hidden sm:inline">Archive</span>
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-500 text-white text-[10px] font-bold flex items-center justify-center">{deniedTasks.length}</span>
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-500 text-white text-[10px] font-bold flex items-center justify-center">{deniedTasks.length + archivedTasks.length}</span>
               </button>
             )}
 
@@ -972,6 +1073,11 @@ export default function ActionBoardPage() {
                                       <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
                                         <Edit2 className="w-3.5 h-3.5 text-slate-400" /> Edit Task
                                       </button>
+                                      {task.column === "done" && (
+                                        <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                          <Archive className="w-3.5 h-3.5 text-slate-400" /> Archive
+                                        </button>
+                                      )}
                                       <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
                                         <Trash2 className="w-3.5 h-3.5" /> Delete
                                       </button>
@@ -1197,7 +1303,7 @@ export default function ActionBoardPage() {
                   )}
                 </div>
               </div>
-              {/* ── Automations & Integrations ── */}
+              {/* ── Email Automations ── */}
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <button
                   type="button"
@@ -1205,73 +1311,178 @@ export default function ActionBoardPage() {
                   className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
                 >
                   <span className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    Automations & Integrations
-                    {(autoEmails || autoSlackWebhook || autoGoogleAction) && (
-                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <Mail className="w-3.5 h-3.5 text-blue-500" />
+                    Email Notifications
+                    {autoEmailChips.length > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
                     )}
                   </span>
                   <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isAutomationsOpen ? "rotate-90" : ""}`} />
                 </button>
 
                 {isAutomationsOpen && (
-                  <div className="p-4 space-y-4 border-t border-slate-200 bg-white">
-                    <p className="text-[11px] text-slate-400">Configure actions that fire when this task is moved to "Done".</p>
+                  <div className="p-4 space-y-5 border-t border-slate-200 bg-white">
+                    <p className="text-[11px] text-slate-400">Send email notifications to specified recipients when triggered.</p>
 
-                    {/* Email */}
+                    {/* Email Chip Input */}
                     <div>
                       <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                        <Mail className="w-3 h-3 text-blue-500" /> Send Email To
+                        <Mail className="w-3 h-3 text-blue-500" /> Recipients
                       </label>
-                      <input
-                        value={autoEmails}
-                        onChange={e => setAutoEmails(e.target.value)}
-                        placeholder="alice@team.com, bob@team.com"
-                        className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-700 placeholder:text-slate-400"
-                      />
-                      <p className="text-[10px] text-slate-300 mt-1">Comma-separated email addresses</p>
-                    </div>
-
-                    {/* Slack */}
-                    <div>
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                        <SlackIcon className="w-3 h-3 text-purple-500" /> Slack Webhook URL
-                      </label>
-                      <input
-                        value={autoSlackWebhook}
-                        onChange={e => setAutoSlackWebhook(e.target.value)}
-                        placeholder="https://hooks.slack.com/services/..."
-                        className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-700 placeholder:text-slate-400"
-                      />
-                      <input
-                        value={autoSlackChannel}
-                        onChange={e => setAutoSlackChannel(e.target.value)}
-                        placeholder="#channel-name (optional override)"
-                        className="w-full mt-1.5 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-700 placeholder:text-slate-400"
-                      />
-                    </div>
-
-                    {/* Google Suite */}
-                    <div>
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                        <Link2 className="w-3 h-3 text-emerald-500" /> Google Suite Action
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={autoGoogleAction}
-                          onChange={e => setAutoGoogleAction(e.target.value)}
-                          className="w-full appearance-none px-3 py-2.5 pr-8 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-700 cursor-pointer"
-                        >
-                          <option value="">None</option>
-                          <option value="calendar_event">📅 Log as Calendar Event</option>
-                          <option value="draft_email">✉️ Create Gmail Draft</option>
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      <div className="min-h-[42px] flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-200 bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all">
+                        {autoEmailChips.map((email, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 animate-in fade-in slide-in-from-left-1 duration-150">
+                            {email}
+                            <button type="button" onClick={() => setAutoEmailChips(prev => prev.filter((_, idx) => idx !== i))} className="w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-indigo-200 transition-colors ml-0.5">
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        ))}
+                        <input
+                          value={autoEmailInput}
+                          onChange={e => {
+                            const val = e.target.value;
+                            // If user types a comma, add the chip
+                            if (val.endsWith(",")) {
+                              const email = val.slice(0, -1).trim();
+                              if (email && email.includes("@") && !autoEmailChips.includes(email)) {
+                                setAutoEmailChips(prev => [...prev, email]);
+                              }
+                              setAutoEmailInput("");
+                            } else {
+                              setAutoEmailInput(val);
+                            }
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const email = autoEmailInput.trim();
+                              if (email && email.includes("@") && !autoEmailChips.includes(email)) {
+                                setAutoEmailChips(prev => [...prev, email]);
+                              }
+                              setAutoEmailInput("");
+                            }
+                            if (e.key === "Backspace" && !autoEmailInput && autoEmailChips.length > 0) {
+                              setAutoEmailChips(prev => prev.slice(0, -1));
+                            }
+                          }}
+                          placeholder={autoEmailChips.length === 0 ? "Type email and press Enter…" : "Add another…"}
+                          className="flex-1 min-w-[140px] bg-transparent outline-none text-xs text-slate-700 placeholder:text-slate-400 py-0.5"
+                        />
                       </div>
                     </div>
+
+                    {/* Trigger Buttons */}
+                    {autoEmailChips.length > 0 && (
+                      <div>
+                        <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          <Zap className="w-3 h-3 text-amber-500" /> Send When
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { id: "assigned" as EmailTrigger, label: "Task Assigned", icon: <Circle className="w-3.5 h-3.5" />, desc: "Moved to To Do", activeColor: "bg-blue-50 border-blue-300 text-blue-700", dotColor: "bg-blue-400" },
+                            { id: "in_progress" as EmailTrigger, label: "In Progress", icon: <Timer className="w-3.5 h-3.5" />, desc: "Moved to Doing", activeColor: "bg-amber-50 border-amber-300 text-amber-700", dotColor: "bg-amber-400" },
+                            { id: "completed" as EmailTrigger, label: "Completed", icon: <CheckCircle2 className="w-3.5 h-3.5" />, desc: "Moved to Done", activeColor: "bg-emerald-50 border-emerald-300 text-emerald-700", dotColor: "bg-emerald-400" },
+                            { id: "overdue" as EmailTrigger, label: "Overdue", icon: <AlertTriangle className="w-3.5 h-3.5" />, desc: "Past due date", activeColor: "bg-red-50 border-red-300 text-red-700", dotColor: "bg-red-400" },
+                          ]).map(trigger => {
+                            const isActive = autoEmailTriggers.includes(trigger.id);
+                            return (
+                              <button
+                                key={trigger.id}
+                                type="button"
+                                onClick={() => {
+                                  setAutoEmailTriggers(prev =>
+                                    prev.includes(trigger.id) ? prev.filter(t => t !== trigger.id) : [...prev, trigger.id]
+                                  );
+                                }}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 ${isActive ? trigger.activeColor : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"}`}
+                              >
+                                <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${isActive ? "border-current bg-current" : "border-slate-300"}`}>
+                                  {isActive && <Check className="w-2.5 h-2.5 text-white" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-xs font-semibold block">{trigger.label}</span>
+                                  <span className={`text-[10px] block ${isActive ? "opacity-70" : "text-slate-400"}`}>{trigger.desc}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {autoEmailTriggers.length === 0 && (
+                          <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Select at least one trigger to send emails.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* ── Comments Section (Edit mode only) ── */}
+              {editingTaskId && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                  >
+                    <span className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      <MessageCircle className="w-3.5 h-3.5 text-indigo-500" />
+                      Comments
+                      {(() => { const t = tasks.find(t => t.id === editingTaskId); return t?.comments && t.comments.length > 0 ? <span className="text-[10px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full ml-1">{t.comments.length}</span> : null; })()}
+                    </span>
+                    <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isCommentsOpen ? "rotate-90" : ""}`} />
+                  </button>
+
+                  {isCommentsOpen && (
+                    <div className="p-4 space-y-3 border-t border-slate-200 bg-white">
+                      {/* Existing comments */}
+                      {(() => {
+                        const task = tasks.find(t => t.id === editingTaskId);
+                        const comments = task?.comments || [];
+                        if (comments.length === 0) return (
+                          <p className="text-xs text-slate-400 text-center py-4">No comments yet. Be the first to add one!</p>
+                        );
+                        return comments.map((c: TaskComment) => (
+                          <div key={c.id} className="flex gap-2.5 animate-in fade-in duration-150">
+                            <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(c.authorUid)} flex items-center justify-center text-white text-[9px] font-bold shrink-0 mt-0.5`}>
+                              {getInitials(c.authorName, c.authorEmail)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-slate-700">{c.authorName || c.authorEmail}</span>
+                                <span className="text-[10px] text-slate-400">{c.createdAt ? c.createdAt.toDate().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{c.text}</p>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+
+                      {/* Add comment input */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                        <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(user?.uid || "")} flex items-center justify-center text-white text-[9px] font-bold shrink-0`}>
+                          {getInitials(user?.displayName || undefined, user?.email || undefined)}
+                        </div>
+                        <input
+                          value={commentInput}
+                          onChange={e => setCommentInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter" && commentInput.trim()) { e.preventDefault(); addComment(editingTaskId); } }}
+                          placeholder="Write a comment…"
+                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addComment(editingTaskId)}
+                          disabled={!commentInput.trim()}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
@@ -1343,12 +1554,42 @@ export default function ActionBoardPage() {
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
           <div className="relative w-full max-w-md bg-white shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Archive className="w-5 h-5 text-slate-400" /> Denied / Archived <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg">{deniedTasks.length}</span></h3>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Archive className="w-5 h-5 text-slate-400" /> Denied / Archived <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg">{deniedTasks.length + archivedTasks.length}</span></h3>
               <button onClick={() => setIsArchiveOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              <p className="text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-lg">Denied tasks are automatically deleted after 30 days.</p>
-              {deniedTasks.length === 0 ? (
+              {/* ── Completed & Archived Section ── */}
+              {archivedTasks.length > 0 && (
+                <>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Completed & Archived</p>
+                  {archivedTasks.map(task => (
+                    <div key={task.id} className="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200">Archived</span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-1">{task.title}</h4>
+                      {task.description && <p className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">{task.description}</p>}
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          Completed {task.completedAt ? formatDatetime(task.completedAt) : "recently"}
+                        </span>
+                        <button onClick={() => restoreTask(task.id)} className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-colors font-medium"><ArchiveRestore className="w-3 h-3" /> Restore</button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* ── Denied Section ── */}
+              {deniedTasks.length > 0 && (
+                <>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Denied Tasks</p>
+                  <p className="text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-lg">Denied tasks are automatically deleted after 30 days.</p>
+                </>
+              )}
+              {deniedTasks.length === 0 && archivedTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4"><Archive className="w-6 h-6 text-slate-300" /></div>
                   <p className="text-sm text-slate-400 font-medium">No archived tasks</p>

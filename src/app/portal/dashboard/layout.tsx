@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -26,6 +26,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const [latestNotifId, setLatestNotifId] = useState<string | null>(null);
+  const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
+  const orgSwitcherRef = useRef<HTMLDivElement>(null);
+  const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
+
+  const DUAL_ORG_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
+  const isDualOrgUser = DUAL_ORG_EMAILS.includes(user?.email || '');
+  const isNxtChapter = pathname.includes('/nxtchapter');
+
+  // Close org switcher on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        orgSwitcherRef.current && !orgSwitcherRef.current.contains(e.target as Node) &&
+        orgSwitcherMobileRef.current && !orgSwitcherMobileRef.current.contains(e.target as Node)
+      ) {
+        setIsOrgSwitcherOpen(false);
+      }
+      if (
+        !orgSwitcherRef.current && orgSwitcherMobileRef.current && !orgSwitcherMobileRef.current.contains(e.target as Node)
+      ) {
+        setIsOrgSwitcherOpen(false);
+      }
+      if (
+        orgSwitcherRef.current && !orgSwitcherRef.current.contains(e.target as Node) && !orgSwitcherMobileRef.current
+      ) {
+        setIsOrgSwitcherOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Collapsible section states (persisted in localStorage)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
@@ -303,21 +334,73 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 z-[55] bg-[#faf9f6] pt-14 overflow-y-auto">
           <aside className="w-full flex flex-col h-full">
             <div className="w-full flex flex-col h-full">
-              <Link href={dashboardHome} className="p-6 pt-6 pb-6 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}>
-                {pathname.includes('/nxtchapter') ? (
-                  <>
-                    <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-32 h-auto object-contain object-left" />
-                    <span className="font-bold text-xl text-slate-900 tracking-tight">NXT Chapter</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-12 h-12 object-contain" />
+              {isDualOrgUser ? (
+                <div ref={orgSwitcherMobileRef} className="relative p-4 pt-4 pb-4">
+                  <button
+                    onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    {isNxtChapter ? (
+                      <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
+                    ) : (
+                      <div className="bg-black p-1 rounded-lg flex items-center justify-center">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-6 h-6 object-contain" />
+                      </div>
+                    )}
+                    <span className="font-bold text-lg text-slate-900 tracking-tight flex-1 text-left">{isNxtChapter ? 'NXT Chapter' : 'SOL Theory'}</span>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isOrgSwitcherOpen && (
+                    <div className="absolute left-4 right-4 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                      {/* SOL Theory option */}
+                      <button
+                        onClick={() => {
+                          setIsOrgSwitcherOpen(false);
+                          setIsMobileMenuOpen(false);
+                          if (isNxtChapter) router.push('/portal/dashboard/soltheory');
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                      >
+                        <div className="bg-black p-1 rounded-lg flex items-center justify-center">
+                          <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-6 h-6 object-contain" />
+                        </div>
+                        <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? 'text-indigo-900' : 'text-slate-700'}`}>SOL Theory</span>
+                        {!isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
+                      </button>
+                      {/* NXT Chapter option */}
+                      <button
+                        onClick={() => {
+                          setIsOrgSwitcherOpen(false);
+                          setIsMobileMenuOpen(false);
+                          if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                      >
+                        <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
+                        <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? 'text-indigo-900' : 'text-slate-700'}`}>NXT Chapter</span>
+                        {isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
+                      </button>
                     </div>
-                    <span className="font-bold text-xl text-slate-900 tracking-tight">SOL Theory</span>
-                  </>
-                )}
-              </Link>
+                  )}
+                </div>
+              ) : (
+                <Link href={dashboardHome} className="p-6 pt-6 pb-6 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}>
+                  {isNxtChapter ? (
+                    <>
+                      <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-32 h-auto object-contain object-left" />
+                      <span className="font-bold text-xl text-slate-900 tracking-tight">NXT Chapter</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-12 h-12 object-contain" />
+                      </div>
+                      <span className="font-bold text-xl text-slate-900 tracking-tight">SOL Theory</span>
+                    </>
+                  )}
+                </Link>
+              )}
 
               <div className="flex-grow overflow-y-auto px-4 space-y-4 pb-8">
                 {/* Reuse the same nav items — these render the same sidebar links */}
@@ -508,21 +591,71 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <aside className="w-full bg-[#faf9f6] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
           <div className="w-64 flex flex-col h-full"> {/* Inner fixed width container */}
-            <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
-              {pathname.includes('/nxtchapter') ? (
-                <>
-                  <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain object-left" />
-                  <span className="font-bold text-2xl text-slate-900 tracking-tight">NXT Chapter</span>
-                </>
-              ) : (
-                <>
-                  <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
-                    <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-16 h-16 object-contain" />
+            {isDualOrgUser ? (
+              <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
+                <button
+                  onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  {isNxtChapter ? (
+                    <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
+                  ) : (
+                    <div className="bg-black p-1.5 rounded-xl flex items-center justify-center">
+                      <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
+                    </div>
+                  )}
+                  <span className="font-bold text-lg text-slate-900 tracking-tight flex-1 text-left">{isNxtChapter ? 'NXT Chapter' : 'SOL Theory'}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isOrgSwitcherOpen && (
+                  <div className="absolute left-5 right-5 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    {/* SOL Theory option */}
+                    <button
+                      onClick={() => {
+                        setIsOrgSwitcherOpen(false);
+                        if (isNxtChapter) router.push('/portal/dashboard/soltheory');
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                    >
+                      <div className="bg-black p-1.5 rounded-xl flex items-center justify-center">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
+                      </div>
+                      <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? 'text-indigo-900' : 'text-slate-700'}`}>SOL Theory</span>
+                      {!isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
+                    </button>
+                    {/* NXT Chapter option */}
+                    <button
+                      onClick={() => {
+                        setIsOrgSwitcherOpen(false);
+                        if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                    >
+                      <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
+                      <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? 'text-indigo-900' : 'text-slate-700'}`}>NXT Chapter</span>
+                      {isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
+                    </button>
                   </div>
-                  <span className="font-bold text-2xl text-slate-900 tracking-tight">SOL Theory</span>
-                </>
-              )}
-            </Link>
+                )}
+              </div>
+            ) : (
+              <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
+                {isNxtChapter ? (
+                  <>
+                    <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain object-left" />
+                    <span className="font-bold text-2xl text-slate-900 tracking-tight">NXT Chapter</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
+                      <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-16 h-16 object-contain" />
+                    </div>
+                    <span className="font-bold text-2xl text-slate-900 tracking-tight">SOL Theory</span>
+                  </>
+                )}
+              </Link>
+            )}
 
         <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Section 1 */}

@@ -1,6 +1,7 @@
 'use client';
 
 
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from '@/components/sections/header';
 import { SubscriptionSection } from '@/components/sections/subscription';
 import { Footer } from '@/components/sections/footer';
@@ -8,7 +9,7 @@ import Link from 'next/link';
 import { ArrowDown, Sparkles } from 'lucide-react';
 
 import { BlobHero } from '@/components/ui/blob-hero';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { StarBackground } from '@/components/ui/star-background';
 const whatQualifies = [
   {
@@ -28,6 +29,24 @@ const whatQualifies = [
 
 
 export default function Home() {
+  const [showSOLWords, setShowSOLWords] = useState(false);
+  const [hoveredWord, setHoveredWord] = useState<"self" | "others" | "life" | null>(null);
+  const solTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSOLHover = () => {
+    setShowSOLWords(true);
+    if (solTimerRef.current) clearTimeout(solTimerRef.current);
+    solTimerRef.current = setTimeout(() => {
+      setShowSOLWords(false);
+    }, 30000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (solTimerRef.current) clearTimeout(solTimerRef.current);
+    };
+  }, []);
+
   const tiles = [
     {
       num: "01",
@@ -124,7 +143,7 @@ export default function Home() {
 
 
             {/* Top Grey Section with text, custom tooltip, and gradient */}
-            <section className="relative w-full h-[40vh] bg-gradient-to-b from-transparent to-[#222222] z-20 flex items-end justify-center pt-24 pb-20 overflow-hidden">
+            <section className="relative w-full h-[40vh] bg-gradient-to-b from-transparent to-[#222222] z-20 flex items-end justify-center pt-24 pb-20 overflow-visible">
               {/* 5 Hand-placed twinkly stars at the top of the gradient */}
               <div className="absolute top-0 inset-x-0 h-32 overflow-hidden pointer-events-none z-0">
                 <div 
@@ -148,7 +167,93 @@ export default function Home() {
                   style={{ top: '20%', left: '58%', width: '1.5px', height: '1.5px', animationDuration: '4s' }} 
                 />
               </div>
-              <div className="relative z-10 max-w-5xl mx-auto text-center">
+              <div className="relative z-10 w-full flex flex-col items-center text-center overflow-visible">
+                <AnimatePresence>
+                  {showSOLWords && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                      className="flex justify-center items-center gap-16 md:gap-28 mb-6 overflow-visible"
+                    >
+                      {/* Self */}
+                      <div className="relative group/word">
+                        <AnimatePresence>
+                          {hoveredWord === "self" && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-80 text-center z-50 pointer-events-none"
+                            >
+                              <p className="text-xs md:text-sm font-light text-slate-300/90 leading-relaxed tracking-wide">
+                                SOLTheory improves the inner world of <span className="font-semibold text-white">Self</span> through cognitive elevation.
+                              </p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <span
+                          onMouseEnter={() => setHoveredWord("self")}
+                          onMouseLeave={() => setHoveredWord(null)}
+                          className="font-serif text-3xl md:text-5xl font-semibold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-fuchsia-300 hover:from-fuchsia-300 hover:to-fuchsia-200 transition-all duration-300 cursor-help"
+                        >
+                          Self
+                        </span>
+                      </div>
+
+                      {/* Others */}
+                      <div className="relative group/word">
+                        <AnimatePresence>
+                          {hoveredWord === "others" && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-80 text-center z-50 pointer-events-none"
+                            >
+                              <p className="text-xs md:text-sm font-light text-slate-300/90 leading-relaxed tracking-wide">
+                                SOLTheory improves the intrapersonal and interpersonal world of <span className="font-semibold text-white">Others</span>.
+                              </p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <span
+                          onMouseEnter={() => setHoveredWord("others")}
+                          onMouseLeave={() => setHoveredWord(null)}
+                          className="font-serif text-3xl md:text-5xl font-semibold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-indigo-300 hover:from-indigo-300 hover:to-indigo-200 transition-all duration-300 cursor-help"
+                        >
+                          Others
+                        </span>
+                      </div>
+
+                      {/* Life */}
+                      <div className="relative group/word">
+                        <AnimatePresence>
+                          {hoveredWord === "life" && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-80 text-center z-50 pointer-events-none"
+                            >
+                              <p className="text-xs md:text-sm font-light text-slate-300/90 leading-relaxed tracking-wide">
+                                SOLTheory systematically improves daily <span className="font-semibold text-white">Life</span> and operational workflows.
+                              </p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <span
+                          onMouseEnter={() => setHoveredWord("life")}
+                          onMouseLeave={() => setHoveredWord(null)}
+                          className="font-serif text-3xl md:text-5xl font-semibold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400 hover:from-fuchsia-300 hover:to-indigo-300 transition-all duration-300 cursor-help"
+                        >
+                          Life
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <motion.h2 
                   initial={{ opacity: 0, y: 40 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -162,22 +267,11 @@ export default function Home() {
                   <span className="relative inline-block group">
                     <Link 
                       href="/sol-explained" 
+                      onMouseEnter={handleSOLHover}
                       className="cursor-help font-serif italic text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400 hover:from-fuchsia-300 hover:to-indigo-300 border-b-2 border-dashed border-fuchsia-400/40 transition-all duration-300 pb-0.5"
                     >
                       (SOL)
                     </Link>
-                    {/* Minimal Tooltip - Decently big, lightish grey and floats above both lines */}
-                    <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-28 md:mb-32 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50">
-                      <Link 
-                        href="/sol-explained" 
-                        className="flex items-center gap-3 whitespace-nowrap text-lg md:text-xl font-sans font-medium text-slate-300 hover:text-white transition-all duration-300 py-2 px-6 bg-[#0A0A0B]/90 backdrop-blur-md rounded-full shadow-[0_15px_30px_rgba(0,0,0,0.6)] select-none cursor-pointer border border-white/5"
-                      >
-                        <span>SOL stands for: Self, Others, and Life</span>
-                        <div className="w-5.5 h-5.5 rounded-full border border-fuchsia-400/50 flex items-center justify-center bg-fuchsia-500/10 hover:bg-fuchsia-500/20 transition-colors">
-                          <span className="text-[11px] font-bold text-fuchsia-300 font-serif">i</span>
-                        </div>
-                      </Link>
-                    </span>
                   </span>{' '}
                   improvement.
                 </motion.h2>
@@ -222,7 +316,7 @@ export default function Home() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: "-50px" }}
                       transition={{ duration: 0.8, delay: idx * 0.15, ease: "easeOut" }}
-                      className={`relative group/tile overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br ${tile.color} backdrop-blur-md w-[20.5%] h-[440px] flex flex-col justify-between p-7 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)] hover:w-[28%] hover:h-[520px] hover:shadow-[0_0_35px_-5px_rgba(219,39,119,0.25)] hover:border-pink-500/25 hover:p-8 transition-all duration-500 ease-out cursor-pointer`}
+                      className={`relative group/tile overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br ${tile.color} backdrop-blur-md w-[20.5%] h-[440px] flex flex-col justify-between p-7 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)] hover:w-[28%] hover:h-[520px] hover:shadow-[0_0_35px_-5px_rgba(219,39,119,0.25)] hover:border-pink-500/25 transition-all duration-500 ease-out cursor-pointer`}
                     >
                       {/* Satin Matte Shine Reflection */}
                       <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-30 group-hover/tile:opacity-50 transition-opacity duration-500 pointer-events-none" />
@@ -281,21 +375,19 @@ export default function Home() {
           </div>
         </div>
 
-            {/* SECTION 2: SOL Theory The Etsy of Self Improvement */}
-            <section className="relative pt-8 md:pt-12 pb-24 md:pb-32 w-full flex flex-col items-center justify-center bg-[#0A0A0B] z-20 overflow-hidden">
-
-
+            {/* SECTION 2: SOL Theory Description */}
+            <section className="relative pt-20 md:pt-28 pb-24 md:pb-32 w-full flex flex-col items-center justify-center bg-[#0A0A0B] z-20 overflow-hidden">
               <div className="container mx-auto px-4 relative z-10">
-                <div className="text-center max-w-4xl mx-auto space-y-6">
-                  <h2 className="font-headline text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">The Etsy of Self Improvement</h2>
-                  <div className="h-1 bg-gradient-to-r from-fuchsia-600 via-indigo-500 to-transparent mx-auto rounded-full w-24 mb-6" />
-                  
-                  <p className="text-slate-200 text-xl md:text-2xl leading-relaxed font-medium">
-                    SOL Theory is a curated community of creators and an ecosystem of apps where members can discover and share their products, services, and knowledge.
-                  </p>
-                  <p className="text-slate-300 text-lg leading-relaxed max-w-3xl mx-auto border-t border-white/10 pt-6 mt-6 font-light">
-                    We provide a platform for A-Hope, B-Tools, C-Practice. Every product must demonstrate a <span className="text-fuchsia-300 font-semibold px-2 bg-fuchsia-500/10 rounded-md py-0.5 border border-fuchsia-500/20 shadow-sm shadow-fuchsia-500/10">SPF (Simple, Practical and Fun)</span> rating across its products and community.
-                  </p>
+                <div className="text-center max-w-4xl mx-auto">
+                  <div className="h-[2px] w-48 bg-gradient-to-r from-transparent via-indigo-500 via-fuchsia-500 to-transparent mx-auto mb-12 rounded-full" />
+                  <div className="space-y-6">
+                    <p className="text-slate-200 text-2xl md:text-3xl leading-[1.5] font-medium">
+                      SOL Theory is a curated community of creators and an ecosystem of apps where members can discover and share their products, services, and knowledge.
+                    </p>
+                    <p className="text-slate-300 text-lg leading-relaxed max-w-3xl mx-auto border-t border-white/10 pt-6 mt-6 font-light">
+                      We provide a platform for A-Hope, B-Tools, C-Practice. Every product must demonstrate a<br /><span className="text-fuchsia-300 font-semibold px-2 bg-fuchsia-500/10 rounded-md py-0.5 border border-fuchsia-500/20 shadow-sm shadow-fuchsia-500/10">SPF (Simple, Practical and Fun)</span> rating across its products and community.
+                    </p>
+                  </div>
                 </div>
               </div>
             </section>

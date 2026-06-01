@@ -572,7 +572,7 @@ export function DMChat() {
                    className="flex-1 bg-slate-100 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none"
                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && inputText.trim() && handleSendMessage()}
                  />
-                 <Button onClick={handleSendMessage} disabled={!inputText.trim()} size="icon" className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-md shrink-0">
+                 <Button onClick={() => handleSendMessage()} disabled={!inputText.trim()} size="icon" className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-md shrink-0">
                    <Send className="w-5 h-5 ml-0.5" />
                  </Button>
                </div>

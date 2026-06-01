@@ -477,22 +477,24 @@ export function GrantAgentConfigModal({
               <div className="relative">
                 <Timer className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 <input
-                  type="number"
-                  min={1}
-                  max={999}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={config.intervalValue || ""}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => {
-                    const raw = e.target.value;
+                    const raw = e.target.value.replace(/[^0-9]/g, "");
                     if (raw === "") {
                       setConfig((p) => ({ ...p, intervalValue: 0 }));
                     } else {
                       const num = parseInt(raw, 10);
-                      if (!isNaN(num) && num >= 0 && num <= 999) {
+                      if (!isNaN(num) && num <= 999) {
                         setConfig((p) => ({ ...p, intervalValue: num }));
                       }
                     }
                   }}
-                  className="w-24 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-24 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800"
                 />
               </div>
               <div className="relative">

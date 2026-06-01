@@ -241,7 +241,7 @@ export function OrgThread() {
       snap.forEach((d) => {
         const data = d.data() as Channel;
         if (!data.bannedUsers?.includes(safeEmail)) {
-          fetched.push({ id: d.id, ...data });
+          fetched.push({ ...data, id: d.id });
         }
       });
       fetched.sort((a, b) => a.name.localeCompare(b.name));
@@ -259,7 +259,7 @@ export function OrgThread() {
       snap.forEach((d) => {
         const data = d.data() as Channel;
         if (data.domain !== userDomain && !data.bannedUsers?.includes(user?.email || "")) {
-          fetched.push({ id: d.id, ...data });
+          fetched.push({ ...data, id: d.id });
         }
       });
       fetched.sort((a, b) => a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name));

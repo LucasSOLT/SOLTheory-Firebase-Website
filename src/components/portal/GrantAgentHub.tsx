@@ -271,8 +271,12 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
           {/* Description */}
           <div className="px-6 pt-4 pb-2 text-center">
             <p className="text-[12px] text-slate-500">
-              Configure your autonomous grant search agent. It will continuously scan the internet for 501(c)(3) opportunities matching your criteria.
+              Configure your autonomous grant search agent. All opportunities are sourced exclusively from Grants.gov — the official U.S. government grants database.
             </p>
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-semibold text-emerald-700 tracking-wide">Powered by Grants.gov</span>
+            </div>
           </div>
 
           {loading ? (

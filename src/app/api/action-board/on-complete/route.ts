@@ -1,264 +1,174 @@
 import { NextResponse } from "next/server";
-import { google } from "googleapis";
-import { getFirestore } from "firebase-admin/firestore";
-import { getApps, initializeApp, cert } from "firebase-admin/app";
+import sgMail from "@sendgrid/mail";
 
-// Initialize Firebase Admin (for server-side auth verification and Firestore access)
-function getAdminFirestore() {
-  if (!getApps().length) {
-    // Use application default credentials or service account
-    try {
-      initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-        }),
-      });
-    } catch {
-      // Already initialized or missing credentials — fall through
-      try { initializeApp(); } catch { /* already initialized */ }
-    }
-  }
-  return getFirestore();
+// Initialize SendGrid
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
+
+// Trigger-specific content configuration
+type EmailTrigger = "assigned" | "in_progress" | "completed" | "overdue";
+
+const TRIGGER_CONFIG: Record<EmailTrigger, { emoji: string; label: string; headerGradient: string; statusLine: string }> = {
+  assigned: {
+    emoji: "📋",
+    label: "Task Assigned",
+    headerGradient: "linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)",
+    statusLine: "A new task has been assigned on the Action Board.",
+  },
+  in_progress: {
+    emoji: "🔄",
+    label: "Task In Progress",
+    headerGradient: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)",
+    statusLine: "A task has been moved to In Progress on the Action Board.",
+  },
+  completed: {
+    emoji: "✅",
+    label: "Task Completed",
+    headerGradient: "linear-gradient(135deg, #7c3aed 0%, #db2777 100%)",
+    statusLine: "A task has been completed on the Action Board.",
+  },
+  overdue: {
+    emoji: "⚠️",
+    label: "Task Overdue",
+    headerGradient: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+    statusLine: "A task is overdue on the Action Board.",
+  },
+};
 
 /**
  * POST /api/action-board/on-complete
  *
- * Triggered when a task moves to "Done". Parses the configured automations
- * and dispatches emails via Gmail API / Slack webhooks.
+ * Triggered when a task changes state. Sends email notifications via SendGrid
+ * based on the configured trigger type.
  *
  * Request body:
- *   task: { title, description, priority, assignedToEmail, assignedToName, createdByEmail, createdByName, completedAt }
- *   automations: { emails?: string[], slackWebhook?: string, slackChannel?: string, googleAction?: string }
- *   userId?: string  (for server-side refresh token lookup)
+ *   task: { title, description, priority, assignedToEmail, assignedToName, createdByEmail, createdByName, completedAt, isLate }
+ *   automations: { emails?: string[] }
+ *   trigger?: "assigned" | "in_progress" | "completed" | "overdue"
+ *   userId?: string
  */
 
 export async function POST(req: Request) {
   try {
-    const { task, automations, userId } = await req.json();
+    const { task, automations, trigger = "completed" } = await req.json();
 
     if (!task || !automations) {
       return NextResponse.json({ error: "Missing task or automations" }, { status: 400 });
     }
 
     const results: { type: string; status: string; error?: string }[] = [];
+    const triggerKey = (trigger as EmailTrigger) || "completed";
+    const config = TRIGGER_CONFIG[triggerKey] || TRIGGER_CONFIG.completed;
 
-    // Look up refresh token server-side from Firestore (secure — never sent from client)
-    let refreshToken: string | null = null;
-    if (userId) {
-      try {
-        const adminDb = getAdminFirestore();
-        const userDoc = await adminDb.collection("users").doc(userId).get();
-        const userData = userDoc.data();
-        refreshToken = userData?.googleRefreshToken || 
-                       userData?.google?.refreshToken || 
-                       userData?.gmailOAuth_jarvis?.refreshToken || 
-                       userData?.gmailOAuth_morpheus?.refreshToken ||
-                       userData?.gmailOAuth_email?.refreshToken ||
-                       userData?.gmailOAuth?.refreshToken ||
-                       null;
-      } catch (err) {
-        console.warn("[ActionBoard/on-complete] Could not look up refresh token:", err);
-      }
-    }
-
-    // ── 1. Email Notifications via Gmail API ──
-    if (automations.emails && automations.emails.length > 0 && refreshToken) {
-      try {
-        const oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET
-        );
-        oauth2Client.setCredentials({ refresh_token: refreshToken });
-        const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+    // ── Email Notifications via SendGrid ──
+    if (automations.emails && automations.emails.length > 0) {
+      if (!process.env.SENDGRID_API_KEY) {
+        console.error("[ActionBoard] SENDGRID_API_KEY not configured");
+        results.push({ type: "email", status: "error", error: "SendGrid API key not configured" });
+      } else {
+        const fromEmail = process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com";
+        const fromName = process.env.SENDGRID_FROM_NAME || "SOL Theory";
 
         for (const email of automations.emails) {
           const trimmed = email.trim();
           if (!trimmed) continue;
 
-          const subject = `✅ Task Completed: ${task.title}`;
-          const body = [
-            `Hi,`,
-            ``,
-            `A task has been completed on the Action Board.`,
-            ``,
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-            `📋 Task: ${task.title}`,
-            task.description ? `📝 Description: ${task.description}` : null,
-            `⚡ Priority: ${task.priority}`,
-            `👤 Assigned to: ${task.assignedToName || task.assignedToEmail}`,
-            `🔧 Created by: ${task.createdByName || task.createdByEmail}`,
-            task.completedAt ? `✅ Completed: ${new Date(task.completedAt).toLocaleString("en-US", { timeZone: "America/Denver" })}` : `✅ Completed: Just now`,
-            task.isLate ? `⚠️ Status: Completed Late` : `🎯 Status: Completed On Time`,
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-            ``,
-            `— SOL Theory Action Board`,
-          ]
-            .filter(Boolean)
-            .join("\n");
+          try {
+            const subject = `${config.emoji} ${config.label}: ${task.title}`;
+            const textBody = [
+              `Hi,`,
+              ``,
+              config.statusLine,
+              ``,
+              `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+              `📋 Task: ${task.title}`,
+              task.description ? `📝 Description: ${task.description}` : null,
+              `⚡ Priority: ${task.priority}`,
+              `👤 Assigned to: ${task.assignedToName || task.assignedToEmail}`,
+              `🔧 Created by: ${task.createdByName || task.createdByEmail}`,
+              triggerKey === "completed" && task.completedAt
+                ? `✅ Completed: ${new Date(task.completedAt).toLocaleString("en-US", { timeZone: "America/Denver" })}`
+                : null,
+              triggerKey === "completed"
+                ? (task.isLate ? `⚠️ Status: Completed Late` : `🎯 Status: Completed On Time`)
+                : null,
+              triggerKey === "overdue" ? `⚠️ Status: OVERDUE — action required` : null,
+              `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+              ``,
+              `— SOL Theory Action Board`,
+            ]
+              .filter(Boolean)
+              .join("\n");
 
-          const rawEmail = [
-            `To: ${trimmed}`,
-            `Subject: ${subject}`,
-            `Content-Type: text/plain; charset=utf-8`,
-            ``,
-            body,
-          ].join("\n");
+            const statusColor = triggerKey === "overdue" ? "#ef4444" :
+                                triggerKey === "completed" ? (task.isLate ? "#f97316" : "#22c55e") :
+                                triggerKey === "in_progress" ? "#f59e0b" : "#3b82f6";
+            const statusText = triggerKey === "overdue" ? "⚠️ Overdue" :
+                               triggerKey === "completed" ? (task.isLate ? "⚠️ Completed Late" : "🎯 On Time") :
+                               triggerKey === "in_progress" ? "🔄 In Progress" : "📋 Assigned";
 
-          const encodedMessage = Buffer.from(rawEmail)
-            .toString("base64")
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "");
+            const htmlBody = `
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #0A0A0B; color: #e2e8f0; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+                <div style="background: ${config.headerGradient}; padding: 28px 32px;">
+                  <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.02em;">${config.emoji} ${config.label}</h1>
+                </div>
+                <div style="padding: 28px 32px;">
+                  <h2 style="margin: 0 0 20px 0; font-size: 22px; font-weight: 600; color: #f1f5f9;">${task.title}</h2>
+                  ${task.description ? `<p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">${task.description}</p>` : ""}
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Priority</td>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right; font-weight: 600;">${task.priority}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Assigned to</td>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right;">${task.assignedToName || task.assignedToEmail}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Created by</td>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right;">${task.createdByName || task.createdByEmail}</td>
+                    </tr>
+                    ${triggerKey === "completed" ? `
+                    <tr>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Completed</td>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right;">${task.completedAt ? new Date(task.completedAt).toLocaleString("en-US", { timeZone: "America/Denver" }) : "Just now"}</td>
+                    </tr>` : ""}
+                    <tr>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Status</td>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: ${statusColor}; font-size: 13px; text-align: right; font-weight: 600;">${statusText}</td>
+                    </tr>
+                  </table>
+                </div>
+                <div style="padding: 16px 32px; border-top: 1px solid rgba(255,255,255,0.06); text-align: center;">
+                  <p style="margin: 0; color: #64748b; font-size: 11px;">SOL Theory Action Board</p>
+                </div>
+              </div>
+            `;
 
-          await gmail.users.messages.send({
-            userId: "me",
-            requestBody: { raw: encodedMessage },
-          });
+            await sgMail.send({
+              to: trimmed,
+              from: { email: fromEmail, name: fromName },
+              subject,
+              text: textBody,
+              html: htmlBody,
+            });
 
-          results.push({ type: "email", status: "sent" });
+            results.push({ type: "email", status: "sent" });
+          } catch (err: any) {
+            console.error("[ActionBoard] SendGrid email error:", err?.response?.body || err.message);
+            results.push({ type: "email", status: "error", error: err?.response?.body?.errors?.[0]?.message || err.message });
+          }
         }
-      } catch (err: any) {
-        console.error("[ActionBoard/on-complete] Email error:", err.message);
-        results.push({ type: "email", status: "error", error: err.message });
-      }
-    }
-
-    // ── 2. Slack Webhook ──
-    if (automations.slackWebhook) {
-      try {
-        const slackPayload = {
-          blocks: [
-            {
-              type: "header",
-              text: { type: "plain_text", text: `✅ Task Completed: ${task.title}`, emoji: true },
-            },
-            {
-              type: "section",
-              fields: [
-                { type: "mrkdwn", text: `*Priority:*\n${task.priority}` },
-                { type: "mrkdwn", text: `*Status:*\n${task.isLate ? "⚠️ Late" : "🎯 On Time"}` },
-                { type: "mrkdwn", text: `*Assigned to:*\n${task.assignedToName || task.assignedToEmail}` },
-                { type: "mrkdwn", text: `*Created by:*\n${task.createdByName || task.createdByEmail}` },
-              ],
-            },
-            ...(task.description
-              ? [
-                  {
-                    type: "section",
-                    text: { type: "mrkdwn", text: `*Description:*\n${task.description}` },
-                  },
-                ]
-              : []),
-            {
-              type: "context",
-              elements: [
-                {
-                  type: "mrkdwn",
-                  text: `📅 Completed: ${task.completedAt ? new Date(task.completedAt).toLocaleString("en-US", { timeZone: "America/Denver" }) : "Just now"} | SOL Theory Action Board`,
-                },
-              ],
-            },
-          ],
-        };
-
-        // If a channel is specified, add it
-        if (automations.slackChannel) {
-          (slackPayload as any).channel = automations.slackChannel;
-        }
-
-        const slackRes = await fetch(automations.slackWebhook, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(slackPayload),
-        });
-
-        if (slackRes.ok) {
-          results.push({ type: "slack", status: "sent" });
-        } else {
-          const errText = await slackRes.text();
-          console.error("[ActionBoard/on-complete] Slack error:", errText);
-          results.push({ type: "slack", status: "error", error: errText });
-        }
-      } catch (err: any) {
-        console.error("[ActionBoard/on-complete] Slack error:", err.message);
-        results.push({ type: "slack", status: "error", error: err.message });
-      }
-    }
-
-    // ── 3. Google Suite Actions ──
-    if (automations.googleAction && refreshToken) {
-      try {
-        const oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET
-        );
-        oauth2Client.setCredentials({ refresh_token: refreshToken });
-
-        if (automations.googleAction === "calendar_event") {
-          const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-
-          const now = new Date();
-          const end = new Date(now.getTime() + 30 * 60000); // 30 min event
-
-          await calendar.events.insert({
-            calendarId: "primary",
-            requestBody: {
-              summary: `✅ Completed: ${task.title}`,
-              description: [
-                `Task completed on the Action Board.`,
-                task.description ? `\nDescription: ${task.description}` : "",
-                `\nPriority: ${task.priority}`,
-                `Assigned to: ${task.assignedToName || task.assignedToEmail}`,
-                `Created by: ${task.createdByName || task.createdByEmail}`,
-              ].join(""),
-              start: { dateTime: now.toISOString() },
-              end: { dateTime: end.toISOString() },
-              colorId: "10", // Basil (green)
-            },
-          });
-
-          results.push({ type: "google_calendar", status: "created" });
-        } else if (automations.googleAction === "draft_email") {
-          const gmail = google.gmail({ version: "v1", auth: oauth2Client });
-
-          const subject = `✅ Task Completed: ${task.title}`;
-          const body = `Task "${task.title}" has been completed.\n\nPriority: ${task.priority}\nAssigned to: ${task.assignedToName || task.assignedToEmail}\nCreated by: ${task.createdByName || task.createdByEmail}`;
-
-          const rawEmail = [
-            `Subject: ${subject}`,
-            `Content-Type: text/plain; charset=utf-8`,
-            ``,
-            body,
-          ].join("\n");
-
-          const encodedMessage = Buffer.from(rawEmail)
-            .toString("base64")
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "");
-
-          await gmail.users.drafts.create({
-            userId: "me",
-            requestBody: { message: { raw: encodedMessage } },
-          });
-
-          results.push({ type: "google_draft", status: "created" });
-        }
-      } catch (err: any) {
-        console.error("[ActionBoard/on-complete] Google Suite error:", err.message);
-        results.push({ type: "google_suite", status: "error", error: err.message });
       }
     }
 
     return NextResponse.json({ status: "ok", results });
   } catch (error: any) {
-    console.error("[ActionBoard/on-complete] Fatal error:", error.message);
+    console.error("[ActionBoard] Fatal error:", error.message);
     return NextResponse.json({
       status: "error",
-      message: "Automation dispatch failed, but the task was still completed.",
+      message: "Automation dispatch failed, but the task status was still updated.",
       error: error.message,
     }, { status: 500 });
   }

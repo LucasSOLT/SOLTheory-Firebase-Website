@@ -132,7 +132,7 @@ function MetricCard({
   label: string;
   value: string;
   subtext: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   trend?: string;
 }) {
   return (
@@ -1805,7 +1805,7 @@ export default function CRMPage() {
                     </label>
                     <input
                       value={integrations.googleCalendar}
-                      onChange={e => setIntegrations(prev => ({ ...prev, googleCalendar: e.target.value }))}
+                      onChange={e => setIntegrations({ ...integrations, googleCalendar: e.target.value })}
                       placeholder="AIzaSy..."
                       className="w-full h-10 px-4 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 font-mono"
                     />
@@ -1819,7 +1819,7 @@ export default function CRMPage() {
                     </label>
                     <input
                       value={integrations.mailProvider}
-                      onChange={e => setIntegrations(prev => ({ ...prev, mailProvider: e.target.value }))}
+                      onChange={e => setIntegrations({ ...integrations, mailProvider: e.target.value })}
                       placeholder="SG.xxxxx..."
                       className="w-full h-10 px-4 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 font-mono"
                     />
@@ -1833,7 +1833,7 @@ export default function CRMPage() {
                     </label>
                     <input
                       value={integrations.whatsapp}
-                      onChange={e => setIntegrations(prev => ({ ...prev, whatsapp: e.target.value }))}
+                      onChange={e => setIntegrations({ ...integrations, whatsapp: e.target.value })}
                       placeholder="whatsapp_business_xxxxx..."
                       className="w-full h-10 px-4 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 font-mono"
                     />

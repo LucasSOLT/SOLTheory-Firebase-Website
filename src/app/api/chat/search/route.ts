@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     }
 
     const queryLower = query.toLowerCase();
-    const queryTerms = queryLower.split(/\s+/).filter(t => t.length > 2);
+    const queryTerms = queryLower.split(/\s+/).filter((t: string) => t.length > 2);
 
     type SearchResult = {
       sessionId: string;
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         }
 
         // Individual term matches
-        queryTerms.forEach(term => {
+        queryTerms.forEach((term: string) => {
           if (text.includes(term)) {
             msgScore += 1;
           }

@@ -205,6 +205,8 @@ const defaultFormValues: SurveyFormValues = {
   submitted: false,
 };
 
+type SurveyStringFields = Exclude<keyof SurveyFormValues, 'submitted'>;
+
 function MasterRequirementsForm() {
   const { toast } = useToast();
   const { user } = useUser();
@@ -322,7 +324,7 @@ function MasterRequirementsForm() {
     });
   }
 
-  const renderQuestion = (name: keyof SurveyFormValues, label: string, options: string[], description?: string, otherName?: keyof SurveyFormValues, otherPlaceholder?: string) => (
+  const renderQuestion = (name: SurveyStringFields, label: string, options: string[], description?: string, otherName?: SurveyStringFields, otherPlaceholder?: string) => (
     <FormField control={form.control} name={name} render={({ field }) => (
         <FormItem className="space-y-3 p-4 rounded-lg bg-background/50 form-item-container">
           <FormLabel className="text-xl text-foreground">{label}</FormLabel>
@@ -353,7 +355,7 @@ function MasterRequirementsForm() {
     )} />
   );
   
-  const renderTextarea = (name: keyof SurveyFormValues, label: string, placeholder: string, description?: string) => (
+  const renderTextarea = (name: SurveyStringFields, label: string, placeholder: string, description?: string) => (
      <FormField control={form.control} name={name} render={({ field }) => (
         <FormItem className="p-4 rounded-lg bg-background/50">
             <FormLabel className="text-xl text-foreground">{label}</FormLabel>

@@ -22,7 +22,7 @@ export type Integration = {
   name: string;
   description: string;
   category: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   statusLabel: string;
   statusColor: string;
   badgeBg: string;

@@ -62,7 +62,7 @@ const HOURS = Array.from({ length: 24 }, (_, i) => {
   return `${h}:00 ${ampm}`;
 });
 
-const VIEW_MODES: { id: CalendarViewMode; label: string; icon: React.ElementType }[] = [
+const VIEW_MODES: { id: CalendarViewMode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "day", label: "Day", icon: Calendar },
   { id: "month", label: "Month", icon: CalendarDays },
   { id: "year", label: "Year", icon: Maximize2 },
