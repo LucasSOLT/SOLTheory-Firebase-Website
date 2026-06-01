@@ -23,7 +23,10 @@ const SLOT_COLORS = [
 ];
 
 const DEFAULT_AGENT_NAMES = [
-  "Global Grant Scout"
+  "Global Grant Scout",
+  "Health & Human Services",
+  "Community Development",
+  "Custom Agent",
 ];
 
 /* ─── Confirmation Dialog ─── */
@@ -284,7 +287,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
               <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             </div>
           ) : (
-            <div className="p-6 max-w-md mx-auto w-full">
+            <div className="p-6 max-w-3xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
               {slots.map((slot, index) => {
                 const colors = SLOT_COLORS[index];
                 const isActive = slot.active && slot.config;

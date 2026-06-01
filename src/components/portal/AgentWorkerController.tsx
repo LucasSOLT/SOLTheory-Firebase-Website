@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useFirestore } from "@/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
 import { startAgentWorker, stopAgentWorker, stopAllAgentWorkers } from "@/services/grantAgentWorker";
 
@@ -14,7 +14,10 @@ export interface AgentSlotData {
 }
 
 const DEFAULT_NAMES = [
-  "Global Grant Scout"
+  "Global Grant Scout",
+  "Health & Human Services",
+  "Community Development",
+  "Custom Agent",
 ];
 
 /**
@@ -76,8 +79,10 @@ export function AgentWorkerController({
           if (slot.active && slot.config) {
             const prevHash = startedRef.current.get(slot.id);
             if (prevHash !== configHash) {
-              // Config changed (interval, categories, location, etc.) — restart
-              console.log(`[Controller] Config changed for ${slot.id} — restarting worker`);
+              // Config changed — reset timing gate so new interval takes effect immediately
+              console.log(`[Controller] Config changed for ${slot.id} — resetting timer & restarting worker`);
+              const configRef = doc(firestore, "grant_agent_config", "soltheory");
+              setDoc(configRef, { lastScanTimes: { [slot.id]: null } }, { merge: true }).catch(() => {});
               startAgentWorker(firestore, slot.id, slot.config);
               startedRef.current.set(slot.id, configHash);
             }
