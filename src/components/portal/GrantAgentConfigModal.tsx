@@ -31,9 +31,9 @@ export const DEFAULT_CONFIG: GrantAgentConfig = {
   intervalValue: 1,
   intervalUnit: "days",
   
-  // Custom defaults for social welfare & NXT Chapter
-  companyDescription: "NXT Chapter is a non-profit programming/management company working with Advanced Pathways and their homeless shelters across Denver. We are a 501(c)(3) status company.",
-  welfareKeywords: ["501(c)(3) grants", "CoC grants", "HOME-ARP", "ESG", "SSBG", "SAMHSA", "social services", "homeless shelters"],
+  // Start blank — user fills in their own org info
+  companyDescription: "",
+  welfareKeywords: [],
 };
 
 export const WELFARE_KEYWORD_OPTIONS = [
@@ -165,7 +165,7 @@ export function GrantAgentConfigModal({
       ...DEFAULT_CONFIG,
       ...base,
       grantTypes: base.grantTypes && base.grantTypes.length > 0 ? base.grantTypes : DEFAULT_CONFIG.grantTypes,
-      welfareKeywords: base.welfareKeywords && base.welfareKeywords.length > 0 ? base.welfareKeywords : DEFAULT_CONFIG.welfareKeywords,
+      welfareKeywords: base.welfareKeywords ?? [],
     };
   });
   const [customKeywordInput, setCustomKeywordInput] = useState("");
@@ -304,11 +304,11 @@ export function GrantAgentConfigModal({
                     onClick={() => toggleWelfareKeyword(kwLower)}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
                       active
-                        ? "bg-gradient-to-r from-indigo-50 to-violet-50 border-indigo-200 text-indigo-700 shadow-sm"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "bg-violet-100 border-violet-300 text-violet-800 shadow-sm"
+                        : "bg-violet-50/60 border-violet-200/80 text-violet-500 hover:bg-violet-50"
                     }`}
                   >
-                    {active && <CheckCircle2 className="w-3 h-3 text-indigo-600" />}
+                    {active && <CheckCircle2 className="w-3 h-3 text-violet-600" />}
                     {kw}
                   </button>
                 );
@@ -324,16 +324,21 @@ export function GrantAgentConfigModal({
                   });
                 }
               ).map((kw) => (
-                <button
+                <div
                   key={kw}
-                  type="button"
-                  onClick={() => removeWelfareKeyword(kw)}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 text-emerald-700 shadow-sm cursor-pointer flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-violet-100 border border-violet-300 text-violet-800 shadow-sm flex items-center gap-1.5"
                 >
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  <CheckCircle2 className="w-3 h-3 text-violet-600" />
                   {kw}
-                  <X className="w-2.5 h-2.5 ml-1 text-emerald-500 hover:text-emerald-700 hover:scale-110 transition-transform" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeWelfareKeyword(kw); }}
+                    className="w-4 h-4 rounded-full bg-violet-200 hover:bg-red-200 flex items-center justify-center transition-colors ml-0.5 cursor-pointer"
+                    title="Remove keyword"
+                  >
+                    <X className="w-2.5 h-2.5 text-violet-600 hover:text-red-600" />
+                  </button>
+                </div>
               ))}
             </div>
 
