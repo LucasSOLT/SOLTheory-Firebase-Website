@@ -14,6 +14,7 @@ import { GrantAgentHub } from "@/components/portal/GrantAgentHub";
 import { useGrantsData } from "@/hooks/useGrantsData";
 import { AgentWorkerController, type AgentSlotData } from "@/components/portal/AgentWorkerController";
 import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
+import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
 
 export default function SolTheoryDashboard() {
   const { user } = useUser();
@@ -147,11 +148,9 @@ export default function SolTheoryDashboard() {
 
           {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
           <div className="flex flex-col lg:flex-row gap-5 w-full">
-            {/* Slot 3: Left (Aspect 16:9) -> Single Full-Height (Blank White Card - Tile 6) */}
-            <div className="relative group flex-1 aspect-[16/9] bg-white border border-slate-200/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow">
-              <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                Tile 6
-              </div>
+            {/* Slot 3: Left (Aspect 16:9) -> News Slideshow (Tile 6) */}
+            <div className="relative flex-1 aspect-[16/9] rounded-2xl overflow-hidden">
+              <NewsSlideshow />
             </div>
 
             {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank White Cards) */}
