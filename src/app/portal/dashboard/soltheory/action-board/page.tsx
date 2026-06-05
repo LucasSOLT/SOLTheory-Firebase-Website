@@ -242,6 +242,9 @@ export default function ActionBoardPage() {
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
+  const [archiveFilterUser, setArchiveFilterUser] = useState<string>("all");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [restoreDropdownId, setRestoreDropdownId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const draggedTaskRef = useRef<string | null>(null);
 
@@ -452,9 +455,14 @@ export default function ActionBoardPage() {
     t => t.assignmentStatus === "denied" && (t.createdBy === user?.uid || t.assignedTo === user?.uid)
   );
 
-  const archivedTasks = tasks.filter(
+  const allArchivedTasks = tasks.filter(
     t => t.isArchived === true && (t.createdBy === user?.uid || t.assignedTo === user?.uid || isAdmin)
   );
+
+  // Apply archive user filter (admin only)
+  const archivedTasks = isAdmin && archiveFilterUser !== "all"
+    ? allArchivedTasks.filter(t => t.assignedTo === archiveFilterUser || t.createdBy === archiveFilterUser)
+    : allArchivedTasks;
 
   // Late task count for notification
   const lateTasks = tasks.filter(t => {
@@ -666,6 +674,29 @@ export default function ActionBoardPage() {
           column: "todo",
         } as ActionBoardTask, "assigned");
       }
+      // If automations were UPDATED on a task that's already in a trigger column
+      // (e.g., task is already Done and user adds new email recipients),
+      // re-fire the automation so the new recipients get notified
+      if (automationsData && task && newColumn === task.column) {
+        const prevEmails = task.automations?.emails || [];
+        const newEmails = automationsData.emails || [];
+        const prevTriggers = task.automations?.emailTriggers || [];
+        const newTriggers = automationsData.emailTriggers || [];
+        const emailsChanged = JSON.stringify(prevEmails.sort()) !== JSON.stringify(newEmails.sort());
+        const triggersChanged = JSON.stringify(prevTriggers.sort()) !== JSON.stringify(newTriggers.sort());
+        if ((emailsChanged || triggersChanged) && newEmails.length > 0) {
+          const triggerForColumn: Record<string, EmailTrigger> = { done: "completed", doing: "in_progress", todo: "assigned" };
+          const currentTrigger = triggerForColumn[newColumn];
+          if (currentTrigger && (newTriggers.length === 0 || newTriggers.includes(currentTrigger))) {
+            console.log(`[ActionBoard] Automations changed on task in "${newColumn}" — re-firing ${currentTrigger} trigger`);
+            fireAutomations({
+              ...task,
+              ...taskData,
+              automations: automationsData,
+            } as ActionBoardTask, currentTrigger);
+          }
+        }
+      }
     } catch (err: any) {
       console.error("[ActionBoard] Failed to update task:", err);
       alert(`Failed to update task: ${err.message || err}`);
@@ -776,13 +807,22 @@ export default function ActionBoardPage() {
     setOpenMenuId(null);
   };
 
-  const restoreTask = async (id: string) => {
+  const restoreTask = async (id: string, targetUid?: string, targetEmail?: string, targetName?: string) => {
     if (!firestore) return;
     try {
-      await updateDoc(doc(firestore, "action_board_tasks", id), {
+      const updateData: Record<string, any> = {
         isArchived: false,
+        column: "done" as ColumnId,
         updatedAt: serverTimestamp(),
-      });
+      };
+      // If restoring to a different user (admin feature)
+      if (targetUid && targetEmail) {
+        updateData.assignedTo = targetUid;
+        updateData.assignedToEmail = targetEmail;
+        updateData.assignedToName = targetName || targetEmail;
+      }
+      await updateDoc(doc(firestore, "action_board_tasks", id), updateData);
+      setRestoreDropdownId(null);
     } catch (err) { console.error("[ActionBoard] Restore failed:", err); }
   };
 
@@ -924,14 +964,14 @@ export default function ActionBoardPage() {
               </div>
             )}
 
-            {/* Archive */}
-            {(deniedTasks.length > 0 || archivedTasks.length > 0) && (
-              <button onClick={() => setIsArchiveOpen(true)} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600 cursor-pointer">
-                <Archive className="w-4 h-4" />
-                <span className="hidden sm:inline">Archive</span>
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-500 text-white text-[10px] font-bold flex items-center justify-center">{deniedTasks.length + archivedTasks.length}</span>
-              </button>
-            )}
+            {/* Archive — always visible, left of Incoming */}
+            <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600 cursor-pointer">
+              <Archive className="w-4 h-4" />
+              <span className="hidden sm:inline">Archive</span>
+              {(deniedTasks.length + allArchivedTasks.length) > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-500 text-white text-[10px] font-bold flex items-center justify-center">{deniedTasks.length + allArchivedTasks.length}</span>
+              )}
+            </button>
 
             {/* Incoming Tasks */}
             <button onClick={() => setIsInboxOpen(true)} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600 cursor-pointer">
@@ -1073,10 +1113,20 @@ export default function ActionBoardPage() {
                                       <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
                                         <Edit2 className="w-3.5 h-3.5 text-slate-400" /> Edit Task
                                       </button>
-                                      {task.column === "done" && (
+                                      {task.column === "done" ? (
                                         <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
                                           <Archive className="w-3.5 h-3.5 text-slate-400" /> Archive
                                         </button>
+                                      ) : (
+                                        <div className="relative group/archive">
+                                          <button disabled className="w-full text-left px-3.5 py-2.5 text-sm text-slate-300 cursor-not-allowed flex items-center gap-2">
+                                            <Archive className="w-3.5 h-3.5" /> Archive
+                                          </button>
+                                          <div className="invisible group-hover/archive:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2.5 py-1.5 bg-slate-800 text-white text-[10px] font-medium rounded-lg whitespace-nowrap z-[60] shadow-lg pointer-events-none">
+                                            Archiving available once assignment has been marked as &apos;Done&apos;
+                                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800" />
+                                          </div>
+                                        </div>
                                       )}
                                       <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
                                         <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -1550,18 +1600,36 @@ export default function ActionBoardPage() {
 
       {/* ══ Archive Drawer ══ */}
       {isArchiveOpen && (
-        <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => setIsArchiveOpen(false)}>
+        <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => { setIsArchiveOpen(false); setConfirmDeleteId(null); setRestoreDropdownId(null); }}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
           <div className="relative w-full max-w-md bg-white shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Archive className="w-5 h-5 text-slate-400" /> Denied / Archived <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg">{deniedTasks.length + archivedTasks.length}</span></h3>
-              <button onClick={() => setIsArchiveOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X className="w-4 h-4" /></button>
+            <div className="px-6 py-5 border-b border-slate-100 shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Archive className="w-5 h-5 text-slate-400" /> Archive <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg">{allArchivedTasks.length}</span></h3>
+                <button onClick={() => { setIsArchiveOpen(false); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X className="w-4 h-4" /></button>
+              </div>
+              {/* Admin user filter */}
+              {isAdmin && (
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={archiveFilterUser}
+                    onChange={e => setArchiveFilterUser(e.target.value)}
+                    className="text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  >
+                    <option value="all">All Users</option>
+                    {orgMembers.map(m => (
+                      <option key={m.uid} value={m.uid}>{m.displayName || m.email}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* ── Completed & Archived Section ── */}
+              {/* ── Archived Section ── */}
               {archivedTasks.length > 0 && (
                 <>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Completed & Archived</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Archived Assignments</p>
                   {archivedTasks.map(task => (
                     <div key={task.id} className="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">
                       <div className="flex items-center gap-2 mb-2">
@@ -1570,12 +1638,52 @@ export default function ActionBoardPage() {
                       </div>
                       <h4 className="text-sm font-semibold text-slate-700 mb-1">{task.title}</h4>
                       {task.description && <p className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">{task.description}</p>}
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          Completed {task.completedAt ? formatDatetime(task.completedAt) : "recently"}
-                        </span>
-                        <button onClick={() => restoreTask(task.id)} className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-colors font-medium"><ArchiveRestore className="w-3 h-3" /> Restore</button>
+                      <div className="text-[10px] text-slate-400 mb-2 flex items-center gap-3">
+                        <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" /> {task.assignedToName || task.assignedToEmail}</span>
+                        {task.completedAt && <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> {formatDatetime(task.completedAt)}</span>}
+                      </div>
+                      <div className="flex items-center justify-between mt-2 gap-2">
+                        {/* Restore button with user picker for admins */}
+                        <div className="relative">
+                          {isAdmin ? (
+                            <>
+                              <button onClick={() => setRestoreDropdownId(restoreDropdownId === task.id ? null : task.id)} className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-colors font-medium cursor-pointer">
+                                <ArchiveRestore className="w-3 h-3" /> Restore
+                                <ChevronDown className={`w-3 h-3 transition-transform ${restoreDropdownId === task.id ? "rotate-180" : ""}`} />
+                              </button>
+                              {restoreDropdownId === task.id && (
+                                <div className="absolute left-0 bottom-full mb-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
+                                  <button onClick={() => restoreTask(task.id)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                    <ArchiveRestore className="w-3 h-3 text-indigo-400" /> Restore to original assignee
+                                  </button>
+                                  <div className="border-t border-slate-100" />
+                                  <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Restore to user:</p>
+                                  {orgMembers.map(m => (
+                                    <button key={m.uid} onClick={() => restoreTask(task.id, m.uid, m.email, m.displayName || m.email)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                      <UserIcon className="w-3 h-3 text-slate-400" /> {m.displayName || m.email}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <button onClick={() => restoreTask(task.id)} className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-colors font-medium cursor-pointer">
+                              <ArchiveRestore className="w-3 h-3" /> Restore
+                            </button>
+                          )}
+                        </div>
+                        {/* Permanent delete with confirmation */}
+                        {confirmDeleteId === task.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-red-500 font-medium">Delete forever?</span>
+                            <button onClick={() => { deleteTask(task.id); setConfirmDeleteId(null); }} className="text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded-md transition-colors cursor-pointer">Yes</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md transition-colors cursor-pointer">No</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteId(task.id)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer">
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1587,27 +1695,27 @@ export default function ActionBoardPage() {
                 <>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Denied Tasks</p>
                   <p className="text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-lg">Denied tasks are automatically deleted after 30 days.</p>
+                  {deniedTasks.map(task => (
+                    <div key={task.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm opacity-70">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-red-50 text-red-500 border border-red-200">Denied</span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-slate-600 mb-1 line-through">{task.title}</h4>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[10px] text-slate-400">Denied {task.deniedAt ? formatDate(task.deniedAt) : "recently"}</span>
+                        <button onClick={() => deleteTask(task.id)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"><Trash2 className="w-3 h-3" /> Delete now</button>
+                      </div>
+                    </div>
+                  ))}
                 </>
               )}
-              {deniedTasks.length === 0 && archivedTasks.length === 0 ? (
+              {deniedTasks.length === 0 && archivedTasks.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4"><Archive className="w-6 h-6 text-slate-300" /></div>
-                  <p className="text-sm text-slate-400 font-medium">No archived tasks</p>
+                  <p className="text-sm text-slate-400 font-medium">No archived assignments</p>
+                  <p className="text-xs text-slate-300 mt-1">Tasks moved to archive from Done will appear here</p>
                 </div>
-              ) : (
-                deniedTasks.map(task => (
-                  <div key={task.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm opacity-70">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-red-50 text-red-500 border border-red-200">Denied</span>
-                    </div>
-                    <h4 className="text-sm font-semibold text-slate-600 mb-1 line-through">{task.title}</h4>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-[10px] text-slate-400">Denied {task.deniedAt ? formatDate(task.deniedAt) : "recently"}</span>
-                      <button onClick={() => deleteTask(task.id)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"><Trash2 className="w-3 h-3" /> Delete now</button>
-                    </div>
-                  </div>
-                ))
               )}
             </div>
           </div>
