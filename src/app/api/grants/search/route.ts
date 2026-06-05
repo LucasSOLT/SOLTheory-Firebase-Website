@@ -62,6 +62,34 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 };
 
 /* ═══════════════════════════════════════════════════════
+   Smart Keyword Rewriting
+   
+   Transforms raw user keywords into more targeted search
+   queries that bias results toward grants FOR the user's
+   org type, not just grants that MENTION the keyword.
+   ═══════════════════════════════════════════════════════ */
+
+function rewriteKeyword(keyword: string): string {
+  const kw = keyword.toLowerCase().trim();
+  
+  // Organization-type keywords should be rewritten to search for
+  // grants targeting that org type, not just mentioning it
+  const orgTypeRewrites: Record<string, string> = {
+    "501(c)(3) grants": "grants eligible nonprofit 501c3 organizations",
+    "coc grants": "continuum of care homeless assistance grants",
+    "home-arp": "HOME American Rescue Plan housing assistance",
+    "esg (emergency solutions)": "emergency solutions grant homeless prevention",
+    "ssbg (social services)": "social services block grant state funding",
+  };
+  
+  // Check for exact match rewrites
+  if (orgTypeRewrites[kw]) return orgTypeRewrites[kw];
+  
+  // For generic keywords, keep as-is (they're already descriptive)
+  return keyword;
+}
+
+/* ═══════════════════════════════════════════════════════
    Grants.gov API — free, no auth, structured federal data
    POST https://api.grants.gov/v1/api/search2
    ═══════════════════════════════════════════════════════ */
@@ -135,6 +163,7 @@ function computeRelevanceScore(grant: GrantResult, companyDesc: string, targetKe
   let score = 0;
   const titleLower = grant.title.toLowerCase();
   const descLower = grant.description.toLowerCase();
+  const combinedText = `${titleLower} ${descLower}`;
 
   // 1. Tag / keyword matches (high weight)
   if (targetKeywords && targetKeywords.length > 0) {
@@ -185,6 +214,34 @@ function computeRelevanceScore(grant: GrantResult, companyDesc: string, targetKe
     score += 5;
   }
 
+  // 5. EXCLUSION LANGUAGE PENALTY — detect grants that exclude the user's org type
+  const exclusionPatterns = [
+    /(?:does not|do not|not eligible|ineligible|exclud(?:es?|ing)|not accept(?:ed|ing)?|cannot apply).*(?:501\(?c\)?\(?3\)?|nonprofit|non-profit)/i,
+    /(?:501\(?c\)?\(?3\)?|nonprofit|non-profit).*(?:not eligible|ineligible|exclud(?:es?|ing)|cannot|may not)/i,
+    /(?:for[- ]?profit only|for[- ]?profit companies only|limited to for[- ]?profit)/i,
+    /(?:only|exclusively|restricted to).*(?:for[- ]?profit|commercial|private sector)/i,
+  ];
+
+  // Check if the user is looking for nonprofit/501c3 grants
+  const isNonprofitSearch = targetKeywords.some(kw => {
+    const k = kw.toLowerCase();
+    return k.includes("501") || k.includes("nonprofit") || k.includes("non-profit");
+  }) || (companyDesc && /(?:nonprofit|non-profit|501\(?c\)?\(?3\)?)/.test(companyDesc.toLowerCase()));
+
+  if (isNonprofitSearch) {
+    for (const pattern of exclusionPatterns) {
+      if (pattern.test(combinedText)) {
+        score -= 50; // Heavy penalty for grants that exclude nonprofits
+        break;
+      }
+    }
+    
+    // Also penalize grants that are clearly for-profit only
+    if (combinedText.includes("for profit") && !combinedText.includes("nonprofit") && !combinedText.includes("non-profit") && !combinedText.includes("501")) {
+      score -= 30;
+    }
+  }
+
   return score;
 }
 
@@ -201,7 +258,7 @@ export async function POST(request: Request) {
 
     // Primary: use user-defined welfare keywords
     if (body.welfareKeywords && body.welfareKeywords.length > 0) {
-      const pool = body.welfareKeywords.map(k => k.trim()).filter(Boolean);
+      const pool = body.welfareKeywords.map(k => rewriteKeyword(k.trim())).filter(Boolean);
       // Pick up to 5 diverse keywords (shuffled) for broader coverage
       const shuffled = [...pool].sort(() => 0.5 - Math.random());
       keywords.push(...shuffled.slice(0, 5));

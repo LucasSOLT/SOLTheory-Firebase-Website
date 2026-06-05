@@ -174,8 +174,42 @@ function buildNextSteps(source: string, url: string, rawDescription: string): st
 }
 
 /**
- * Execute a single scan: check timing gate, search the web, 
- * pick ONE grant, write to Firestore.
+ * Call the AI eligibility validation endpoint to check if a grant
+ * is actually suitable for the user's organization.
+ */
+async function validateGrantEligibility(
+  grant: { title: string; description: string; agency?: string },
+  config: GrantAgentConfig
+): Promise<{ eligible: boolean; confidence: number; eligibilityText: string; reasoning: string }> {
+  try {
+    const res = await fetch("/api/grants/validate-eligibility", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grantTitle: grant.title,
+        grantDescription: grant.description,
+        grantAgency: grant.agency || "",
+        companyDescription: config.companyDescription || "",
+        welfareKeywords: config.welfareKeywords || [],
+        grantTypes: config.grantTypes || [],
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn(`[GrantAgent] Validation API returned ${res.status} — failing open`);
+      return { eligible: true, confidence: 0, eligibilityText: "Validation unavailable", reasoning: "API error" };
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.warn("[GrantAgent] Validation API call failed — failing open:", err);
+    return { eligible: true, confidence: 0, eligibilityText: "Validation unavailable", reasoning: "Network error" };
+  }
+}
+
+/**
+ * Execute a single scan: check timing gate, search the web,
+ * validate with AI, pick the best eligible grant, write to Firestore.
  */
 async function executeAgentScan(
   firestore: Firestore,
@@ -244,7 +278,6 @@ async function executeAgentScan(
     }
 
     // 6. Load existing grant titles from Firestore to prevent duplicates
-    //    This is the REAL protection — survives restarts, HMR, tab refreshes
     const grantsRef = collection(firestore, "grant_suggestions");
     const existingSnap = await getDocs(
       query(grantsRef, where("orgId", "==", "soltheory"))
@@ -276,8 +309,49 @@ async function executeAgentScan(
       return null;
     }
 
-    // 7. Pick exactly ONE result
-    const selected = newResults[0];
+    // 7. AI Eligibility Validation — check top candidates
+    //    Try up to 5 results to find one that passes validation
+    const candidateCount = Math.min(newResults.length, 5);
+    let selected: typeof newResults[0] | null = null;
+    let validationResult: { eligible: boolean; confidence: number; eligibilityText: string; reasoning: string } | null = null;
+
+    if (typeof window !== "undefined") {
+      window.__lastGrantScanMessage = "Validating grant eligibility with AI...";
+    }
+
+    for (let i = 0; i < candidateCount; i++) {
+      const candidate = newResults[i];
+      console.log(`[GrantAgent:${agentId}] Validating candidate ${i + 1}/${candidateCount}: "${candidate.title.substring(0, 60)}"`);
+
+      const validation = await validateGrantEligibility(candidate, config);
+      console.log(`[GrantAgent:${agentId}] Validation: eligible=${validation.eligible} confidence=${validation.confidence} — ${validation.reasoning.substring(0, 100)}`);
+
+      if (validation.eligible && validation.confidence >= 40) {
+        selected = candidate;
+        validationResult = validation;
+        break;
+      }
+
+      // If validation service is down (confidence=0), still accept the first result
+      // but mark it as unverified
+      if (validation.confidence === 0 && i === 0) {
+        selected = candidate;
+        validationResult = validation;
+        console.log(`[GrantAgent:${agentId}] Validation unavailable — accepting first result as unverified`);
+        break;
+      }
+
+      console.log(`[GrantAgent:${agentId}] Candidate ${i + 1} rejected: ${validation.reasoning.substring(0, 80)}`);
+    }
+
+    if (!selected || !validationResult) {
+      console.log(`[GrantAgent:${agentId}] No candidates passed eligibility validation`);
+      if (typeof window !== "undefined") {
+        window.__lastGrantScanStatus = "no_new";
+        window.__lastGrantScanMessage = "Found grants but none matched your eligibility — refining search";
+      }
+      return null;
+    }
 
     // 8. Re-check version before Firestore write
     const stillCurrent = workers.get(agentId);
@@ -286,8 +360,7 @@ async function executeAgentScan(
       return null;
     }
 
-    // 9. Build document with REAL data from Grants.gov when available
-    // Use real award ceiling if provided, otherwise estimate from config
+    // 9. Build document with REAL data from Grants.gov + AI validation
     let amount: number;
     if (selected.awardCeiling) {
       amount = selected.awardCeiling;
@@ -297,7 +370,6 @@ async function executeAgentScan(
       amount = Math.round((minAmt + Math.random() * (maxAmt - minAmt)) / 1000) * 1000;
     }
 
-    // Use real close date if provided, otherwise estimate
     const now = new Date();
     const openDate = new Date(now);
     openDate.setDate(openDate.getDate() - Math.floor(Math.random() * 14));
@@ -314,7 +386,6 @@ async function executeAgentScan(
       closeDateObj.setDate(closeDateObj.getDate() + 30 + Math.floor(Math.random() * 90));
     }
 
-    // Build an actionable description with next steps
     const nextSteps = buildNextSteps(selected.source, selected.url, selected.description);
 
     const grantDoc = {
@@ -330,7 +401,10 @@ async function executeAgentScan(
       location_state: config.locationState || "Colorado",
       location_city: config.locationCity || "Denver",
       url: selected.url,
-      eligibility: "Nonprofits with 501(c)(3) status",
+      eligibility: validationResult.eligibilityText,
+      eligibilityVerified: validationResult.confidence > 0,
+      eligibilityConfidence: validationResult.confidence,
+      eligibilityReason: validationResult.reasoning,
       fundingInstrument: "Grant",
       activityCategories: config.grantTypes,
       grantStructures: ["Grant"],
@@ -355,11 +429,15 @@ async function executeAgentScan(
     }
 
     console.log(
-      `[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selected.url}`
+      `[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selected.url} (eligibility: ${validationResult.eligibilityText})`
     );
     return docRef.id;
   } catch (err) {
     console.error(`[GrantAgent:${agentId}] Scan failed:`, err);
+    if (typeof window !== "undefined") {
+      window.__lastGrantScanStatus = "no_new";
+      window.__lastGrantScanMessage = "Scan encountered an error — will retry next cycle";
+    }
     return null;
   } finally {
     handle.scanLock = false;
@@ -404,7 +482,7 @@ function scheduleNextScan(
 /**
  * Start a background worker for a specific agent.
  * Uses window-stored handles and setTimeout chains.
- * No immediate scan. No setInterval. No race conditions.
+ * Runs an IMMEDIATE first scan, then schedules recurring scans.
  */
 export function startAgentWorker(
   firestore: Firestore,
@@ -430,15 +508,28 @@ export function startAgentWorker(
 
   const ms = intervalToMs(config.intervalValue, config.intervalUnit);
   console.log(
-    `[GrantAgent:${agentId}] Starting worker v${version} — next scan in ${config.intervalValue} ${config.intervalUnit} (${ms}ms)`
+    `[GrantAgent:${agentId}] Starting worker v${version} — immediate scan + then every ${config.intervalValue} ${config.intervalUnit} (${ms}ms)`
   );
 
   // 3. Register on window BEFORE scheduling (synchronous)
   const workers = getWorkersMap();
   workers.set(agentId, handle);
 
-  // 4. Schedule first scan (no immediate execution)
-  scheduleNextScan(firestore, handle, onGrantFound);
+  // 4. Run an IMMEDIATE first scan (with a small delay to let UI settle)
+  setTimeout(async () => {
+    const current = workers.get(agentId);
+    if (!current || current.version !== version) return;
+
+    console.log(`[GrantAgent:${agentId}] Running immediate first scan...`);
+    const id = await executeAgentScan(firestore, handle);
+    if (id && onGrantFound) onGrantFound(id);
+
+    // 5. Schedule recurring scans after the first one completes
+    const stillCurrent = workers.get(agentId);
+    if (stillCurrent && stillCurrent.version === version) {
+      scheduleNextScan(firestore, handle, onGrantFound);
+    }
+  }, 3000); // 3 second delay to let the page settle
 }
 
 /**
