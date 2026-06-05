@@ -21,6 +21,7 @@ export default {
         headline: ['var(--font-playfair)', 'sans-serif'],
         nunito: ['var(--font-nunito)', 'sans-serif'],
         jakarta: ['var(--font-jakarta)', 'sans-serif'],
+        cormorant: ['var(--font-cormorant)', 'serif'],
         code: ['monospace'],
       },
       colors: {

@@ -43,8 +43,8 @@ export default function SolTheoryDashboard() {
       <div className="space-y-6 min-w-0 w-full">
         {/* Dashboard Header */}
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Welcome back, {user?.displayName || "Lucas"}.
+          <h1 className="text-3xl font-light italic font-cormorant text-slate-800 tracking-wide">
+            Welcome back, <span className="not-italic font-semibold">{user?.displayName || "Lucas"}</span>.
           </h1>
           <p className="text-sm text-slate-500 font-medium">
             Here is your week at a glance.

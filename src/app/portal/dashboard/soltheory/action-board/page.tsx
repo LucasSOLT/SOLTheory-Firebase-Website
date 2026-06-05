@@ -167,7 +167,7 @@ const LIFECYCLE_BADGE: Record<LifecycleStatus, { label: string; style: string; i
   late: { label: "Late", style: "bg-red-50 text-red-600 border-red-200", icon: <AlertTriangle className="w-3 h-3" /> },
 };
 
-const SUPER_ADMIN_EMAIL = "lucas@soltheory.com";
+const ADMIN_EMAILS = ["lucas@soltheory.com", "steve@soltheory.com"];
 const ORG_ID = "soltheory";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const DEADLINE_CHECK_INTERVAL = 60_000; // Check every 60 seconds
@@ -269,7 +269,7 @@ export default function ActionBoardPage() {
   const [commentInput, setCommentInput] = useState("");
 
   // ── Derived ──
-  const isAdmin = currentUserRole === "admin" || user?.email === SUPER_ADMIN_EMAIL;
+  const isAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
 
   // Ref for deadline monitor to avoid re-running effect on every task change
   const tasksRef = useRef<ActionBoardTask[]>([]);

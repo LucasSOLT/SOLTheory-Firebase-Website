@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase';
 
-import { Playfair_Display, PT_Sans, Nunito, Sora } from 'next/font/google';
+import { Playfair_Display, PT_Sans, Nunito, Sora, Cormorant_Garamond } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
 const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440";
@@ -60,6 +60,14 @@ const jakarta = Sora({
   variable: '--font-jakarta',
 });
 
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-cormorant',
+});
+
 
 export default function RootLayout({
   children,
@@ -67,7 +75,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("dark", playfair.variable, ptSans.variable, nunito.variable, jakarta.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn("dark", playfair.variable, ptSans.variable, nunito.variable, jakarta.variable, cormorant.variable)}>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           {children}
