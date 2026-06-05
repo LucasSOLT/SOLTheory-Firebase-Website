@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
 import {
   collection,
@@ -168,7 +169,6 @@ const LIFECYCLE_BADGE: Record<LifecycleStatus, { label: string; style: string; i
 };
 
 const ADMIN_EMAILS = ["lucas@soltheory.com", "steve@soltheory.com"];
-const ORG_ID = "soltheory";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const DEADLINE_CHECK_INTERVAL = 60_000; // Check every 60 seconds
 
@@ -229,6 +229,10 @@ function getDueDelta(dueDate: Timestamp | null | undefined): { label: string; is
 export default function ActionBoardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const pathname = usePathname();
+
+  // Derive org from URL path — /portal/dashboard/nxtchapter/... vs /portal/dashboard/soltheory/...
+  const ORG_ID = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
 
   // ── Core State ──
   const [tasks, setTasks] = useState<ActionBoardTask[]>([]);

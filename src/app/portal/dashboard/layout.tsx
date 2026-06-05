@@ -428,10 +428,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <span>CRM</span>
                     </Link>
 
-                    <Link href="#" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-base">
-                      <BarChart3 className="w-5 h-5 text-slate-500" />
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 cursor-not-allowed font-semibold text-base">
+                      <BarChart3 className="w-5 h-5" />
                       <span>Business Intelligence</span>
-                    </Link>
+                    </div>
                     <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/action-board') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
                       <LayoutDashboard className="w-5 h-5 text-slate-500" />
                       <span>Action Board</span>
@@ -463,10 +463,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <MessageCircle className="w-5 h-5" />
                       <span>SMS</span>
                     </Link>
-                    <Link href={`${dashboardHome}/communications/whatsapp`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/whatsapp') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 cursor-not-allowed font-semibold text-base">
                       <MessageCircle className="w-5 h-5" />
                       <span>WhatsApp</span>
-                    </Link>
+                    </div>
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 cursor-not-allowed font-semibold text-base">
+                      <Hash className="w-5 h-5" />
+                      <span>Slack</span>
+                    </div>
                     <Link href={`${dashboardHome}/communications/dm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/dm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
                       <MessageSquare className="w-5 h-5" />
                       <span>Direct Messages</span>
@@ -476,7 +480,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Social Media */}
                 <div className="pt-3 border-t border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Social Media</span>
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Social Media <span className="text-blue-500 font-bold text-[10px] tracking-normal">BETA</span></span>
                   <div className="space-y-1 mt-2">
                     <Link href={`${dashboardHome}/upload-calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
                       <CalendarDays className="w-5 h-5" />
@@ -736,12 +740,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-sm font-medium">{t.crm}</span>
                 </Link>
 
-                <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-indigo-900 transition-colors cursor-pointer font-semibold group">
-                  <div className="w-6 h-6 rounded-md bg-transparent text-slate-500 group-hover:text-indigo-600 flex items-center justify-center transition-colors">
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 cursor-not-allowed font-semibold">
+                  <div className="w-6 h-6 rounded-md bg-transparent flex items-center justify-center">
                     <BarChart3 className="w-4 h-4" />
                   </div>
-                  <span className="text-sm font-medium">{"Business Intelligence"}</span>
-                </Link>
+                  <span className="text-sm font-medium">Business Intelligence</span>
+                </div>
 
                 <Link href={`${dashboardHome}/action-board`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/action-board') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
                   <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/action-board') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
@@ -789,10 +793,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <MessageCircle className="w-4 h-4 ml-1" />
                 <span className="text-sm">SMS</span>
               </Link>
-              <Link href={`${dashboardHome}/communications/whatsapp`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/communications/whatsapp') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-emerald-900'}`}>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 cursor-not-allowed mb-1">
                 <MessageCircle className="w-4 h-4 ml-1" />
                 <span className="text-sm">WhatsApp</span>
-              </Link>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 cursor-not-allowed mb-1">
+                <Hash className="w-4 h-4 ml-1" />
+                <span className="text-sm">Slack</span>
+              </div>
             </div>}
           </div>
 
@@ -800,7 +808,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="mb-2">
             <button onClick={() => toggleSection('social')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['social'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.socialMediaIntegrations}</span>
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.socialMediaIntegrations} <span className="text-blue-500 font-bold text-[10px] tracking-normal">BETA</span></span>
             </button>
             {!collapsedSections['social'] && <div className="space-y-1 animate-in fade-in duration-150">
               <Link href={`${dashboardHome}/upload-calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-emerald-900'}`}>
