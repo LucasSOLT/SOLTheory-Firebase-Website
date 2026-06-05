@@ -11,6 +11,7 @@ import { ArrowDown, Sparkles } from 'lucide-react';
 import { BlobHero } from '@/components/ui/blob-hero';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StarBackground } from '@/components/ui/star-background';
+
 const whatQualifies = [
   {
     title: "Scientific step-by-step method",
@@ -109,6 +110,7 @@ export default function Home() {
         <section className="relative min-h-[100dvh] w-full flex items-center justify-center overflow-hidden z-10">
           <StarBackground />
           <BlobHero />
+
           <div className="relative z-10 container mx-auto px-4 pointer-events-none mt-4 md:mt-10">
             <div className="flex flex-col items-center justify-center text-center gap-6">
 

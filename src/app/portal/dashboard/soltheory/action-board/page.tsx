@@ -51,6 +51,7 @@ import {
   ArchiveRestore,
   Send,
 } from "lucide-react";
+import { logActivity } from '@/lib/activity-logger';
 
 // ── Types ──
 type Priority = "High" | "Medium" | "Low";
@@ -524,6 +525,7 @@ export default function ActionBoardPage() {
       console.log("[ActionBoard] Creating task:", taskData);
       const docRef = await addDoc(collection(firestore, "action_board_tasks"), taskData);
       console.log("[ActionBoard] Task created with ID:", docRef.id);
+      logActivity(firestore, 'action_board_created', { email: user?.email || '', displayName: user?.displayName }, `Task: ${taskData.title}`);
       // Fire "assigned" trigger for new tasks
       if (automationsData) {
         fireAutomations({
@@ -927,7 +929,7 @@ export default function ActionBoardPage() {
   // ── Loading State ──
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#faf9f6]">
+      <div className="flex items-center justify-center h-full bg-[#faf6ed]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 animate-pulse">
             <LayoutDashboard className="w-5 h-5" />
@@ -939,7 +941,7 @@ export default function ActionBoardPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6] text-slate-900 font-sans overflow-hidden">
+    <div className="flex flex-col h-full bg-[#faf6ed] text-slate-900 font-sans overflow-hidden">
 
       {/* ══ Page Header ══ */}
       <div className="shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">

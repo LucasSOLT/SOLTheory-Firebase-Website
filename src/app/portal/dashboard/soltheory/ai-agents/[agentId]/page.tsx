@@ -1629,7 +1629,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   return (
     <>
-    <div className="flex w-full flex-1 min-h-0 bg-slate-50 text-slate-800 overflow-hidden font-sans selection:bg-fuchsia-500/30">
+    <div className="flex w-full flex-1 min-h-0 bg-slate-50 text-slate-800 overflow-hidden font-sans selection:bg-fuchsia-500/30" style={{ height: '100%', maxHeight: '100dvh' }}>
 
       {/* Sessions Sidebar */}
       <div className="hidden md:flex flex-col bg-white/80 backdrop-blur-3xl border-r border-slate-200 shrink-0 z-20 relative overflow-hidden" style={{ width: isChatSidebarCollapsed ? 0 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
@@ -2242,15 +2242,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               // Chat Screen
               <div className="flex-1 flex flex-col relative">
                 {/* Unified Token Tracking Pill */}
-                <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-6 right-6 z-50 px-4 h-9 rounded-full bg-white border border-slate-200 flex items-center gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
-                  <Bot className="w-4 h-4 text-emerald-500" />
-                  <span className="text-[10px] font-black tracking-wider text-slate-600 uppercase">
-                    {totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span> ≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
+                <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-3 right-3 sm:top-6 sm:right-6 z-50 px-2.5 sm:px-4 h-8 sm:h-9 rounded-full bg-white border border-slate-200 flex items-center gap-1.5 sm:gap-2.5 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors max-w-[calc(100%-24px)] sm:max-w-none">
+                  <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
+                  <span className="text-[9px] sm:text-[10px] font-black tracking-wider text-slate-600 uppercase truncate">
+                    <span className="hidden sm:inline">{totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span></span>
+                    <span className="sm:hidden">{totalGroqTokens.toLocaleString()} T <span className="opacity-30">|</span></span>
+                    {' '}≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
                   </span>
                 </button>
 
                 {showCostBreakdown && (
-                  <div data-popup="cost" className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div data-popup="cost" className="absolute top-12 sm:top-16 right-3 sm:right-6 z-[200] w-[calc(100%-24px)] sm:w-[340px] max-w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
                       <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -2294,7 +2296,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 pb-8">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-8 pt-14 sm:pt-16 pb-4 sm:pb-8">
                   <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'max-w-6xl' : 'max-w-3xl'}`}>
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
                       <div className="flex flex-col items-center justify-center pt-8 md:pt-32 lg:pt-40 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2377,70 +2379,70 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
                                <div onClick={() => setSelectedExploreItem("Email Agents")} className="border border-slate-200/80 rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-8 h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center text-blue-500">
-                                     <Mail className="w-5 h-5" />
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center text-blue-500">
+                                     <Mail className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
-                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Email Agents</h3>
+                                   <h3 className="font-semibold text-[12px] md:text-[14px] text-slate-800 whitespace-nowrap">Email Agents</h3>
                                  </div>
-                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Set up scheduled email campaigns!</p>
+                                 <p className="text-[11px] md:text-[13px] text-slate-500 leading-snug font-normal hidden md:block">Set up scheduled email campaigns!</p>
                                </div>
 
                                <div onClick={() => setSelectedExploreItem("Social Media Agents")} className="border border-slate-200/80 rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-8 h-8 rounded-lg bg-pink-50 group-hover:bg-pink-100 transition-colors flex items-center justify-center text-pink-500">
-                                     <Users className="w-5 h-5" />
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-pink-50 group-hover:bg-pink-100 transition-colors flex items-center justify-center text-pink-500">
+                                     <Users className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
-                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Social Media Agents</h3>
+                                   <h3 className="font-semibold text-[12px] md:text-[14px] text-slate-800 whitespace-nowrap">Social Media Agents</h3>
                                  </div>
-                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Set up scheduled social media posts.</p>
+                                 <p className="text-[11px] md:text-[13px] text-slate-500 leading-snug font-normal hidden md:block">Set up scheduled social media posts.</p>
                                </div>
 
                                <div onClick={() => setSelectedExploreItem("Message Agents")} className="border border-slate-200/80 rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-8 h-8 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex items-center justify-center text-emerald-500">
-                                     <MessageSquare className="w-5 h-5" />
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex items-center justify-center text-emerald-500">
+                                     <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
-                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Message Agents</h3>
+                                   <h3 className="font-semibold text-[12px] md:text-[14px] text-slate-800 whitespace-nowrap">Message Agents</h3>
                                  </div>
-                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Create messaging app integrations with AI.</p>
+                                 <p className="text-[11px] md:text-[13px] text-slate-500 leading-snug font-normal hidden md:block">Create messaging app integrations with AI.</p>
                                </div>
 
                                <div onClick={() => setSelectedExploreItem("Advertising Agents")} className="border border-slate-200/80 rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-8 h-8 rounded-lg bg-amber-50 group-hover:bg-amber-100 transition-colors flex items-center justify-center text-amber-500">
-                                     <Presentation className="w-5 h-5" />
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-50 group-hover:bg-amber-100 transition-colors flex items-center justify-center text-amber-500">
+                                     <Presentation className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
-                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Advertising Agents</h3>
+                                   <h3 className="font-semibold text-[12px] md:text-[14px] text-slate-800 whitespace-nowrap">Advertising Agents</h3>
                                  </div>
-                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Build cron jobs for advertising campagins - Coming Soon.</p>
+                                 <p className="text-[11px] md:text-[13px] text-slate-500 leading-snug font-normal hidden md:block">Build cron jobs for advertising campagins - Coming Soon.</p>
                                </div>
 
                                <div onClick={() => setIsAgentRequestModalOpen(true)} className="border border-slate-200/80 rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-8 h-8 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 transition-colors flex items-center justify-center text-indigo-500">
-                                     <Plus className="w-5 h-5" />
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 transition-colors flex items-center justify-center text-indigo-500">
+                                     <Plus className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
-                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Submit an Agent Request</h3>
+                                   <h3 className="font-semibold text-[12px] md:text-[14px] text-slate-800 whitespace-nowrap">Agent Request</h3>
                                  </div>
-                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Submit a new agent request to the team.</p>
+                                 <p className="text-[11px] md:text-[13px] text-slate-500 leading-snug font-normal hidden md:block">Submit a new agent request to the team.</p>
                                </div>
 
                                <div onClick={() => setSelectedExploreItem("Build your own Agent")} className="border border-slate-200/80 rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white/50 group flex flex-col justify-start">
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600">
-                                     <Settings className="w-5 h-5" />
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-slate-100 group-hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600">
+                                     <Settings className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
-                                   <h3 className="font-semibold text-[14px] text-slate-800 whitespace-nowrap">Build your own Agent</h3>
+                                   <h3 className="font-semibold text-[12px] md:text-[14px] text-slate-800 whitespace-nowrap">Build Agent</h3>
                                  </div>
-                                 <p className="text-[13px] text-slate-500 leading-snug font-normal">Configure a custom agent with our drag & drop system - Coming Soon.</p>
+                                 <p className="text-[11px] md:text-[13px] text-slate-500 leading-snug font-normal hidden md:block">Configure a custom agent with our drag & drop system - Coming Soon.</p>
                                </div>
                             </div>
                           )}
                         </div>
 
                         {/* Quick Chat + Voice */}
-                        <div className="w-full max-w-2xl mx-auto mt-6 md:mt-12">
-                          <p className="text-center text-xs md:text-sm text-slate-400 mb-3">Ask Jarvis anything — he's a jack of all trades.</p>
+                        <div className="w-full max-w-2xl mx-auto mt-4 sm:mt-6 md:mt-12">
+                          <p className="text-center text-[11px] sm:text-xs md:text-sm text-slate-400 mb-2 sm:mb-3">Ask Jarvis anything — he's a jack of all trades.</p>
                           <div className="flex items-center gap-2">
                             <form onSubmit={(e) => {
                               e.preventDefault();
@@ -2448,17 +2450,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               setSelectedExploreItem('Conversational AI');
                               // handleSendMessage will pick up inputValue and auto-create a session
                               setTimeout(() => handleSendMessage(), 50);
-                            }} className="flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-2xl shadow-sm px-4 py-3 hover:shadow-md transition-shadow">
-                              <Bot className="w-5 h-5 text-slate-400 shrink-0" />
+                            }} className="flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-2xl shadow-sm px-3 sm:px-4 py-2.5 sm:py-3 hover:shadow-md transition-shadow min-w-0">
+                              <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
                               <input
                                 type="text"
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 placeholder="What's on your mind?"
-                                className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400"
+                                className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400 min-w-0"
                               />
-                              <button type="submit" disabled={!inputValue.trim()} className="w-8 h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-200 text-white disabled:text-slate-400 flex items-center justify-center transition-colors shrink-0">
-                                <Send className="w-4 h-4" />
+                              <button type="submit" disabled={!inputValue.trim()} className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-200 text-white disabled:text-slate-400 flex items-center justify-center transition-colors shrink-0">
+                                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               </button>
                             </form>
                             <button
@@ -2466,12 +2468,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 setSelectedExploreItem('Conversational AI');
                                 openVoiceSession();
                               }}
-                              className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 shrink-0 cursor-pointer"
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 shrink-0 cursor-pointer"
                               title="Talk to Jarvis"
                             >
-                              <div className="relative flex items-center justify-center w-5 h-5">
-                                <AudioLines className="w-5 h-5" />
-                                <Sparkles className="w-2.5 h-2.5 absolute -top-1 -right-1 text-indigo-200" />
+                              <div className="relative flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5">
+                                <AudioLines className="w-4 h-4 sm:w-5 sm:h-5" />
+                                <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-indigo-200" />
                               </div>
                             </button>
                           </div>
@@ -2518,13 +2520,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
                 </div>
 
-                <div className="shrink-0 px-4 pb-6 pt-2 z-20">
+                <div className="shrink-0 px-3 sm:px-4 pb-3 sm:pb-6 pt-1 sm:pt-2 z-20">
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
                     </div>
 
-                    <div className="relative w-full border border-slate-300 rounded-[24px] overflow-hidden bg-white/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
+                    <div className="relative w-full border border-slate-300 rounded-[20px] sm:rounded-[24px] overflow-hidden bg-white/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
                       <div className="flex items-center pl-2 sm:pl-4 gap-1 sm:gap-2 shrink-0">
                         <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=soltheory`} className="hidden sm:flex p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
                           <Cloud className="w-5 h-5" />
@@ -2541,13 +2543,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                       <Input
                         placeholder="Instruct the agent..."
-                        className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 pr-20 sm:pr-24 min-h-[48px] sm:min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-sm sm:text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
+                        className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-1 sm:pl-2 pr-[72px] sm:pr-24 min-h-[44px] sm:min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-sm sm:text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
                         value={inputValue} onChange={e => setInputValue(e.target.value)} onPaste={handlePaste} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       />
 
                       <button
                         onClick={openVoiceSession}
-                        className="absolute right-14 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
+                        className="absolute right-12 sm:right-14 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
                         title="Start Voice Session"
                       >
                         <div className="relative flex items-center justify-center w-5 h-5">
@@ -2556,7 +2558,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
                       </button>
 
-                      <Button size="icon" onClick={handleSendMessage} disabled={!inputValue.trim() || isTyping} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white text-black hover:bg-slate-200 w-10 h-10 disabled:opacity-30">
+                      <Button size="icon" onClick={handleSendMessage} disabled={!inputValue.trim() || isTyping} className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full bg-white text-black hover:bg-slate-200 w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30">
                         {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
                       </Button>
                     </div>
@@ -2794,7 +2796,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Name *</label>
                 <Input placeholder="John Doe" value={agentRequestForm.name} onChange={e => setAgentRequestForm({...agentRequestForm, name: e.target.value})} className="mt-1" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Email *</label>
                   <Input placeholder="john@example.com" type="email" value={agentRequestForm.email} onChange={e => setAgentRequestForm({...agentRequestForm, email: e.target.value})} className="mt-1" />

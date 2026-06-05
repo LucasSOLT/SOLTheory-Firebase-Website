@@ -515,7 +515,7 @@ export default function GrantStatusesPage() {
   const allSelected = filteredGrants.length > 0 && selectedIds.size === filteredGrants.length;
 
   return (
-    <div className="h-full w-full flex flex-col bg-[#faf9f6]">
+    <div className="h-full w-full flex flex-col bg-[#faf6ed]">
       {/* Header */}
       <div className="shrink-0 px-8 pt-6 pb-4">
         <button

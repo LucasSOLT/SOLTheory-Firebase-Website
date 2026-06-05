@@ -90,7 +90,7 @@ export default function FacebookPage() {
   const publishedPosts = posts.filter(p => p.status === 'published');
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#faf9f6] overflow-y-auto">
+    <div className="flex-1 flex flex-col h-full bg-[#faf6ed] overflow-y-auto">
       {/* Header */}
       <header className="px-8 py-6 border-b border-slate-200 bg-white sticky top-0 z-10">
         <div className="flex items-center justify-between">

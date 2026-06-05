@@ -19,6 +19,7 @@ import {
   CalendarCheck, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
 } from "lucide-react";
+import { logActivity } from '@/lib/activity-logger';
 
 type SortKey = "name" | "email" | "phone" | "tags" | "status";
 type SortDir = "asc" | "desc";
@@ -489,7 +490,9 @@ export default function CRMPage() {
       const tagColors = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#ef4444"];
       setCustomTags((prev: any) => [...prev, ...newTags.map((name, i) => ({ name, color: tagColors[(prev.length + i) % tagColors.length] }))]);
     }
-    await addContact(c); resetForm(); setShowAddModal(false);
+    await addContact(c);
+    logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Added contact: ${c.firstName} ${c.lastName}`);
+    resetForm(); setShowAddModal(false);
   };
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortDir(d => d==="asc"?"desc":"asc"); else { setSortKey(key); setSortDir("asc"); } };
   const sortedCustomers = useMemo(() => {

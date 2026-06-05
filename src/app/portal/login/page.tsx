@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
-import { useAuth } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { logActivity } from '@/lib/activity-logger';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
 
   // Force dark mode on this page
   useEffect(() => {
@@ -34,6 +36,7 @@ export default function LoginPage() {
       
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      logActivity(firestore, 'login', { email, displayName: auth.currentUser?.displayName });
       
       const emailLower = email.toLowerCase();
       if (emailLower.endsWith("@soltheory.com")) {

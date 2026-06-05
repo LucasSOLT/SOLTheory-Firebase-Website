@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { X, Bot, Sparkles, Loader2, Plus, Trash2, RotateCcw } from "lucide-react";
 import { GrantAgentConfigModal, type GrantAgentConfig } from "./GrantAgentConfigModal";
 import { GrantAgentBrowserSim } from "./GrantAgentBrowserSim";
+import { logActivity } from '@/lib/activity-logger';
 
 /* ─── Types ─── */
 export interface AgentSlot {
@@ -184,6 +185,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
         };
       });
       await setDoc(docRef, { agents: agentsMap, updatedAt: new Date(), updatedBy: user?.uid || null }, { merge: true });
+      logActivity(firestore, 'grant_agent_created', { email: user?.email || '', displayName: user?.displayName }, `Created agent: ${slots[index]?.name || 'unnamed'}`);
     } catch (err) {
       console.error("Failed to save agent config:", err);
     }
@@ -222,6 +224,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
         };
       });
       await setDoc(docRef, { agents: agentsMap, updatedAt: new Date(), updatedBy: user?.uid || null }, { merge: true });
+      logActivity(firestore, 'grant_agent_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted agent: ${slots[index]?.name || 'unnamed'}`);
     } catch (err) {
       console.error("Failed to clear agent config:", err);
     }

@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useFirestore } from "@/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 
-/* ─── Mock slide data ─── */
-const SLIDES = [
+/* ─── Default slide data (fallback) ─── */
+const DEFAULT_SLIDES = [
   {
     headline: "NXT Chapter × Advanced Pathways",
     subtitle: "New Denver Shelter Partnership — Expanding capacity to 3 additional locations across the metro area.",
@@ -41,22 +43,55 @@ const SLIDES = [
   },
 ];
 
+export interface NewsSlideData {
+  headline: string;
+  subtitle: string;
+  gradient: string;
+  badge: string;
+  date: string;
+  backgroundImage?: string;
+  linkUrl?: string;
+}
+
 export function NewsSlideshow() {
+  const firestore = useFirestore();
+  const [slides, setSlides] = useState<NewsSlideData[]>(DEFAULT_SLIDES);
+  const [shuffleInterval, setShuffleInterval] = useState(15000);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [hoverZoneVisible, setHoverZoneVisible] = useState(false);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const totalSlides = SLIDES.length;
+  /* ─── Listen to Firestore for persisted slide data ─── */
+  useEffect(() => {
+    if (!firestore) return;
+    const docRef = doc(firestore, "cms_config", "news_slideshow");
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.slides && Array.isArray(data.slides) && data.slides.length > 0) {
+          setSlides(data.slides);
+        }
+        if (data.shuffleInterval && typeof data.shuffleInterval === 'number') {
+          setShuffleInterval(data.shuffleInterval);
+        }
+      }
+    }, () => {
+      // Silently handle missing doc/permissions — use defaults
+    });
+    return () => unsub();
+  }, [firestore]);
+
+  const totalSlides = slides.length;
 
   /* ─── Auto-advance (pauses on hover) ─── */
   const startAutoAdvance = useCallback(() => {
     if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
     autoAdvanceRef.current = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % totalSlides);
-    }, 15000);
-  }, [totalSlides]);
+    }, shuffleInterval);
+  }, [totalSlides, shuffleInterval]);
 
   useEffect(() => {
     if (!isHovered) {
@@ -69,6 +104,13 @@ export function NewsSlideshow() {
     };
   }, [isHovered, startAutoAdvance]);
 
+  // Reset currentSlide if it exceeds the new slide count
+  useEffect(() => {
+    if (currentSlide >= totalSlides) {
+      setCurrentSlide(0);
+    }
+  }, [totalSlides, currentSlide]);
+
   /* ─── Navigation ─── */
   const goTo = useCallback(
     (direction: "prev" | "next") => {
@@ -77,7 +119,6 @@ export function NewsSlideshow() {
           ? (prev + 1) % totalSlides
           : (prev - 1 + totalSlides) % totalSlides
       );
-      // Reset auto-advance timer on manual navigation
       if (!isHovered) startAutoAdvance();
     },
     [totalSlides, isHovered, startAutoAdvance]
@@ -95,7 +136,6 @@ export function NewsSlideshow() {
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    // Delay hiding hover zones by 1 second
     hoverTimeoutRef.current = setTimeout(() => {
       setHoverZoneVisible(false);
     }, 1000);
@@ -118,11 +158,26 @@ export function NewsSlideshow() {
         className="flex h-full transition-transform duration-500 ease-in-out"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {SLIDES.map((slide, i) => (
+        {slides.map((slide, i) => (
           <div
             key={i}
-            className={`w-full h-full flex-shrink-0 bg-gradient-to-br ${slide.gradient} flex flex-col justify-end p-6 sm:p-8 relative`}
+            className={`w-full h-full flex-shrink-0 ${slide.backgroundImage ? '' : `bg-gradient-to-br ${slide.gradient}`} flex flex-col justify-end p-6 sm:p-8 relative`}
+            style={slide.backgroundImage ? {
+              backgroundImage: `url(${slide.backgroundImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            } : undefined}
+            onClick={() => {
+              if (slide.linkUrl) {
+                window.open(slide.linkUrl, '_blank', 'noopener,noreferrer');
+              }
+            }}
           >
+            {/* Dark overlay for background images */}
+            {slide.backgroundImage && (
+              <div className="absolute inset-0 bg-black/40" />
+            )}
+
             {/* Decorative grid overlay */}
             <div className="absolute inset-0 opacity-[0.04]" style={{
               backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
@@ -156,8 +211,7 @@ export function NewsSlideshow() {
         ))}
       </div>
 
-      {/* ═══ Hover Zones (full height, edge → arrow) ═══ */}
-      {/* Left hover zone */}
+      {/* ═══ Hover Zones ═══ */}
       <div
         onClick={() => goTo("prev")}
         className={`absolute top-0 left-0 h-full cursor-pointer z-10 transition-opacity duration-300 ${
@@ -165,7 +219,6 @@ export function NewsSlideshow() {
         }`}
         style={{ width: "100px", background: "linear-gradient(to right, rgba(0,0,0,0.10), rgba(0,0,0,0.02))" }}
       />
-      {/* Right hover zone */}
       <div
         onClick={() => goTo("next")}
         className={`absolute top-0 right-0 h-full cursor-pointer z-10 transition-opacity duration-300 ${
@@ -174,8 +227,7 @@ export function NewsSlideshow() {
         style={{ width: "100px", background: "linear-gradient(to left, rgba(0,0,0,0.10), rgba(0,0,0,0.02))" }}
       />
 
-      {/* ═══ Arrow Buttons (always visible) ═══ */}
-      {/* Left arrow */}
+      {/* ═══ Arrow Buttons ═══ */}
       <button
         onClick={() => goTo("prev")}
         className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-14 flex items-center justify-center rounded-r-lg cursor-pointer transition-all hover:w-11 hover:h-16"
@@ -186,7 +238,6 @@ export function NewsSlideshow() {
           <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       </button>
-      {/* Right arrow */}
       <button
         onClick={() => goTo("next")}
         className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-10 h-14 flex items-center justify-center rounded-l-lg cursor-pointer transition-all hover:w-11 hover:h-16"
@@ -200,7 +251,7 @@ export function NewsSlideshow() {
 
       {/* ═══ Pane Indicator Dots ═══ */}
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
-        {SLIDES.map((_, i) => (
+        {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => {

@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Ticket, Plus, CheckCircle2, AlertCircle, Loader2, Inbox, Send, Archive, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { logActivity } from '@/lib/activity-logger';
 
 type TicketComment = {
   text: string;
@@ -119,6 +120,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
         comments: [],
         createdAt: serverTimestamp(),
       });
+      logActivity(firestore, 'support_ticket_created', { email: user?.email || '', displayName: user?.displayName }, `Ticket to ${toEmail}: ${subject}`);
 
       if (!savedEmails.includes(toEmail)) {
         const userRef = doc(firestore, "users", user.uid);

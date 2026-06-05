@@ -11,6 +11,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n";
 import { logDigestEntry } from "@/components/portal/DailyDigest";
+import { isAdmin } from "@/lib/admin";
+import { useContentManagerStore } from "@/stores/content-manager-store";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -27,12 +29,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const [latestNotifId, setLatestNotifId] = useState<string | null>(null);
   const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
   const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
 
   const DUAL_ORG_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
   const isDualOrgUser = DUAL_ORG_EMAILS.includes(user?.email || '');
   const isNxtChapter = pathname.includes('/nxtchapter');
+  const userIsAdmin = isAdmin(user?.email);
+  const contentManagerActive = useContentManagerStore((s) => s.active);
+  const setContentManagerActive = useContentManagerStore((s) => s.setActive);
 
   // Close org switcher on click outside
   useEffect(() => {
@@ -297,11 +303,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen bg-[#faf9f6] overflow-hidden text-slate-900 font-sans">
+    <div className="flex h-screen bg-[#faf6ed] overflow-hidden text-slate-900 font-sans">
 
       {/* ========== MOBILE TOP BAR ========== */}
       {isMobile && (
-        <div className="fixed top-0 left-0 right-0 h-14 bg-[#faf9f6] border-b border-slate-200/80 flex items-center justify-between px-4 z-[60] shadow-sm">
+        <div className="fixed top-0 left-0 right-0 h-14 bg-[#faf6ed] border-b border-slate-200/80 flex items-center justify-between px-4 z-[60] shadow-sm">
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"
@@ -331,7 +337,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ========== MOBILE FULLSCREEN MENU OVERLAY ========== */}
       {isMobile && isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[55] bg-[#faf9f6] pt-14 overflow-y-auto">
+        <div className="fixed inset-0 z-[55] bg-[#faf6ed] pt-14 overflow-y-auto">
           <aside className="w-full flex flex-col h-full">
             <div className="w-full flex flex-col h-full">
               {isDualOrgUser ? (
@@ -581,25 +587,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }}
           title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <div className="w-[28px] h-[72px] rounded-full bg-white border border-slate-200/80 shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] cursor-grab active:cursor-grabbing group hover:border-indigo-300 hover:bg-indigo-50/50 transition-all duration-200 select-none">
+          <div className="w-[28px] h-[72px] rounded-full bg-[#f5f0e1] border border-[#ddd3b8]/80 shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] cursor-grab active:cursor-grabbing group hover:border-[#c9be9f] hover:bg-[#ece4cf] transition-all duration-200 select-none">
             <div className="flex flex-col items-center gap-[2px] mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
               <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
               <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
               <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
             </div>
-            <svg className={`w-3 h-3 text-slate-400 group-hover:text-indigo-500 transition-all duration-300 ${isSidebarCollapsed ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className={`w-3 h-3 text-stone-500 group-hover:text-stone-700 transition-all duration-300 ${isSidebarCollapsed ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </div>
         </div>
 
-        <aside className="w-full bg-[#faf9f6] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
+        <aside className="w-full bg-[#f5f0e1] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
           <div className="w-64 flex flex-col h-full"> {/* Inner fixed width container */}
             {isDualOrgUser ? (
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
                 <button
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-[#ddd3b8] bg-[#ece4cf] shadow-sm hover:bg-[#e8dfc8] transition-colors cursor-pointer"
                 >
                   {isNxtChapter ? (
                     <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
@@ -613,19 +619,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </button>
 
                 {isOrgSwitcherOpen && (
-                  <div className="absolute left-5 right-5 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute left-5 right-5 top-full mt-1 bg-white rounded-xl border border-[#ddd3b8] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                     {/* SOL Theory option */}
                     <button
                       onClick={() => {
                         setIsOrgSwitcherOpen(false);
                         if (isNxtChapter) router.push('/portal/dashboard/soltheory');
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-[#e8dfc8]' : 'hover:bg-[#ece4cf]'}`}
                     >
                       <div className="bg-black p-1.5 rounded-xl flex items-center justify-center">
                         <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
                       </div>
-                      <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? 'text-indigo-900' : 'text-slate-700'}`}>SOL Theory</span>
+                      <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? 'text-stone-900' : 'text-slate-700'}`}>SOL Theory</span>
                       {!isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
                     </button>
                     {/* NXT Chapter option */}
@@ -634,17 +640,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         setIsOrgSwitcherOpen(false);
                         if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-[#e8dfc8]' : 'hover:bg-[#ece4cf]'}`}
                     >
                       <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
-                      <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? 'text-indigo-900' : 'text-slate-700'}`}>NXT Chapter</span>
+                      <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? 'text-stone-900' : 'text-slate-700'}`}>NXT Chapter</span>
                       {isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
+              <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-[#ece4cf] transition-colors cursor-pointer">
                 {isNxtChapter ? (
                   <>
                     <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain object-left" />
@@ -661,29 +667,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             )}
 
-        <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onClick={(e) => {
+          // Exit CMS mode when any sidebar link is clicked
+          if (contentManagerActive) {
+            const target = e.target as HTMLElement;
+            const link = target.closest('a');
+            if (link) setContentManagerActive(false);
+          }
+        }}>
           {/* Section 1 */}
           <div>
-            <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.menu}</span>
             </button>
             {!collapsedSections['menu'] && <div className="animate-in fade-in duration-150">
               <div className="space-y-1 mb-4 pt-1">
-              <Link href={`${dashboardHome}`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname === dashboardHome ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname === dashboardHome ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+              {/* Admin: Content Manager sidebar item */}
+              {userIsAdmin && (
+                <button
+                  onClick={() => setContentManagerActive(!contentManagerActive)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${contentManagerActive ? 'bg-stone-800 text-white shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700'}`}
+                >
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${contentManagerActive ? 'bg-white/20 text-white' : 'bg-transparent text-slate-500'}`}>
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium leading-tight">Content Manager</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-widest ${contentManagerActive ? 'text-white/60' : 'text-slate-400'}`}>(Admin)</span>
+                  </div>
+                </button>
+              )}
+              <Link href={`${dashboardHome}`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname === dashboardHome ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname === dashboardHome ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Home className="w-4 h-4" />
                 </div>
                 <span className="text-sm font-medium">Homepage</span>
               </Link>
-              <Link href={`${dashboardHome}/ai-agents/jarvis`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.includes('/ai-agents') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.includes('/ai-agents') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+              <Link href={`${dashboardHome}/ai-agents/jarvis`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.includes('/ai-agents') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.includes('/ai-agents') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Users className="w-4 h-4" />
                 </div>
                 <span className="text-sm font-medium">Agent Manager</span>
               </Link>
-              <Link href={`${dashboardHome}/faq`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/faq') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/faq') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+              <Link href={`${dashboardHome}/faq`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/faq') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/faq') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <HelpCircle className="w-4 h-4" />
                 </div>
                 <span className="text-sm font-medium">FAQ</span>
@@ -694,28 +722,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="mt-2">
               <button 
                 onClick={() => setIsMessagesOpen(!isMessagesOpen)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors cursor-pointer mb-1 group"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#ece4cf] transition-colors cursor-pointer mb-1 group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-[#e8dfc8] flex items-center justify-center text-stone-700 group-hover:bg-stone-800 group-hover:text-white transition-colors">
                     <MessageSquare className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-900 transition-colors">{t.messages}</span>
+                  <span className="text-sm font-semibold text-slate-700 group-hover:text-stone-900 transition-colors">{t.messages}</span>
                 </div>
                 {isMessagesOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
               </button>
               
               {isMessagesOpen && (
                 <div className="pl-12 pr-3 py-1 space-y-1 animate-in slide-in-from-top-1 fade-in duration-200">
-                  <Link href={`${dashboardHome}/communications/dm`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/dm') ? 'bg-indigo-50 text-indigo-900 font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}>
+                  <Link href={`${dashboardHome}/communications/dm`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/dm') ? 'bg-[#e8dfc8] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#ece4cf] text-slate-600 hover:text-slate-900'}`}>
                     <UserSquare className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/dm') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.dm}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/communications/org-thread`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/org-thread') ? 'bg-indigo-50 text-indigo-900 font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}>
+                  <Link href={`${dashboardHome}/communications/org-thread`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/org-thread') ? 'bg-[#e8dfc8] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#ece4cf] text-slate-600 hover:text-slate-900'}`}>
                     <Hash className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.orgThread}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/communications/contacts`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/contacts') ? 'bg-indigo-50 text-indigo-900 font-semibold shadow-sm' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}>
+                  <Link href={`${dashboardHome}/communications/contacts`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/contacts') ? 'bg-[#e8dfc8] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#ece4cf] text-slate-600 hover:text-slate-900'}`}>
                     <BookUser className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/contacts') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">Contacts</span>
                   </Link>
@@ -727,14 +755,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Section: Flagship Tools */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['flagship'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.flagshipTools}</span>
             </button>
             {!collapsedSections['flagship'] && (
               <div className="space-y-1 animate-in fade-in duration-150">
-                <Link href={`${dashboardHome}/crm`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/crm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/crm') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                <Link href={`${dashboardHome}/crm`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/crm') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/crm') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                     <Users className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">{t.crm}</span>
@@ -747,8 +775,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-sm font-medium">Business Intelligence</span>
                 </div>
 
-                <Link href={`${dashboardHome}/action-board`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/action-board') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/action-board') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+                <Link href={`${dashboardHome}/action-board`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/action-board') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/action-board') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                     <LayoutDashboard className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">{t.actionBoard}</span>
@@ -759,22 +787,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           {/* Section 2 */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('reports')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('reports')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['reports'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.reports}</span>
             </button>
             {!collapsedSections['reports'] &&
             <div className="space-y-1 animate-in fade-in duration-150">
 
-              <Link href={`${dashboardHome}/support-tickets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/support-tickets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/support-tickets') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+              <Link href={`${dashboardHome}/support-tickets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/support-tickets') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/support-tickets') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Ticket className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm font-medium">Submit a support ticket</span>
               </Link>
 
-              <Link href={`${dashboardHome}/surveys`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/surveys') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/surveys') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+              <Link href={`${dashboardHome}/surveys`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/surveys') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/surveys') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <ClipboardList className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm font-medium">Surveys</span>
@@ -784,7 +812,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Communications */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('comms')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('comms')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['comms'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Communications</span>
             </button>
@@ -806,30 +834,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Social Media Integrations */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('social')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('social')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['social'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.socialMediaIntegrations} <span className="text-blue-500 font-bold text-[10px] tracking-normal">BETA</span></span>
             </button>
             {!collapsedSections['social'] && <div className="space-y-1 animate-in fade-in duration-150">
-              <Link href={`${dashboardHome}/upload-calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-emerald-900'}`}>
+              <Link href={`${dashboardHome}/upload-calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-emerald-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-emerald-600'}`}>
                   <CalendarDays className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">Upload Calendar</span>
               </Link>
-              <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-fuchsia-900'}`}>
+              <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-fuchsia-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/youtube') ? 'bg-fuchsia-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-fuchsia-600'}`}>
                   <Youtube className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">YouTube</span>
               </Link>
-              <Link href={`${dashboardHome}/instagram`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-rose-900'}`}>
+              <Link href={`${dashboardHome}/instagram`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-rose-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/instagram') ? 'bg-rose-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-rose-600'}`}>
                   <Instagram className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">Instagram</span>
               </Link>
-              <Link href={`${dashboardHome}/facebook`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-blue-900'}`}>
+              <Link href={`${dashboardHome}/facebook`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-blue-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/facebook') ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-blue-600'}`}>
                   <Facebook className="w-4 h-4 ml-1" />
                 </div>
@@ -840,29 +868,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Section 3 - Google Integrations */}
           <div>
-            <button onClick={() => toggleSection('google')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('google')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['google'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.googleIntegrations}</span>
             </button>
             {!collapsedSections['google'] && <div className="space-y-1 animate-in fade-in duration-150">
             
-            <Link href={`${dashboardHome}/calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/calendar') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-              <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/calendar') ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+            <Link href={`${dashboardHome}/calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/calendar') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/calendar') ? 'bg-stone-800 text-white' : 'bg-slate-100 text-slate-500'}`}>
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>
               </div>
               <span className="text-sm">{t.googleCalendar}</span>
             </Link>
 
            <div className="space-y-1 mb-2">
-             <Link href={`${dashboardHome}/docs`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/docs') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+             <Link href={`${dashboardHome}/docs`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/docs') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
                <FileText className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleDocs}</span>
              </Link>
-             <Link href={`${dashboardHome}/slides`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/slides') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+             <Link href={`${dashboardHome}/slides`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/slides') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
                <Presentation className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleSlides}</span>
              </Link>
-             <Link href={`${dashboardHome}/sheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/sheets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+             <Link href={`${dashboardHome}/sheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/sheets') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
                <Table className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleSheets}</span>
              </Link>
@@ -872,8 +900,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <Video className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Meet</span>
              </div>
-             <Link href={`${dashboardHome}/google-ads`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/google-ads') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
-               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/google-ads') ? 'bg-indigo-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-indigo-600'}`}>
+             <Link href={`${dashboardHome}/google-ads`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/google-ads') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/google-ads') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                  <Megaphone className="w-4 h-4 ml-1" />
                </div>
                <span className="text-sm">Google Ads</span>
@@ -886,7 +914,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <Globe className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Earth</span>
              </div>
-              <Link href={`${dashboardHome}/drive`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/drive') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-indigo-900'}`}>
+              <Link href={`${dashboardHome}/drive`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/drive') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
                 <HardDrive className="w-4 h-4 ml-1 text-slate-500" />
                 <span className="text-sm font-medium">Google Drive</span>
               </Link>
@@ -900,7 +928,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Microsoft Suite */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('microsoft')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-slate-100 transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('microsoft')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['microsoft'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Microsoft Suite</span>
             </button>
@@ -935,10 +963,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* User Footer Profile */}
         <div className="p-4 mt-auto mb-4 flex items-center gap-2">
-          <Link href={`${dashboardHome}/settings?tab=general`} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors shrink-0 text-slate-400 hover:text-slate-900 bg-white border border-slate-100 shadow-sm">
+          <Link href={`${dashboardHome}/settings?tab=general`} className="p-2.5 hover:bg-[#e8dfc8] rounded-xl transition-colors shrink-0 text-slate-400 hover:text-slate-900 bg-[#ece4cf] border border-[#ddd3b8] shadow-sm">
              <Settings className="w-5 h-5" />
           </Link>
-          <Link href={`${dashboardHome}/settings?tab=profile`} className="flex-1 flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden hover:bg-slate-50 transition-colors cursor-pointer group">
+          <Link href={`${dashboardHome}/settings?tab=profile`} className="flex-1 flex items-center gap-3 px-3 py-2 rounded-xl border border-[#ddd3b8] bg-[#ece4cf] shadow-sm overflow-hidden hover:bg-[#e8dfc8] transition-colors cursor-pointer group">
             <Avatar className="h-8 w-8 shrink-0 group-hover:scale-105 transition-transform">
               <AvatarImage src={user?.photoURL || ""} />
               <AvatarFallback className="bg-slate-100 font-bold text-sm text-slate-600">{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
@@ -965,10 +993,59 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
           </div>
           <div className="flex items-center gap-3">
-              <Link href="/" className="flex items-center gap-2 px-4 py-2 bg-rose-500/90 hover:bg-rose-600 text-white text-sm font-semibold rounded-full transition-colors shadow-sm">
-                <LogOut className="h-3.5 w-3.5" />
-                {t.exitDashboard}
-              </Link>
+              {/* User Profile Dropdown */}
+              <div className="relative" ref={(el) => { if (el) (el as any)._profileDropdown = true; }}>
+                <button
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-100"
+                >
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarImage src={user?.photoURL || ""} />
+                    <AvatarFallback className="bg-slate-200 font-bold text-sm text-slate-700">{user?.displayName?.split(' ').map(n => n.charAt(0)).join('') || "U"}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-semibold text-slate-800 hidden lg:inline">{user?.displayName || "User"}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown */}
+                {isProfileDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-4 py-2.5 border-b border-slate-100">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{user?.displayName || "User"}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{user?.email || ""}</p>
+                      </div>
+                      <Link
+                        href={`${dashboardHome}/settings?tab=profile`}
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                      >
+                        <UserSquare className="w-4 h-4 text-slate-400" />
+                        Profile
+                      </Link>
+                      <Link
+                        href={`${dashboardHome}/settings?tab=general`}
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                      >
+                        <Settings className="w-4 h-4 text-slate-400" />
+                        Settings
+                      </Link>
+                      <Link
+                        href={`${dashboardHome}/faq`}
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                      >
+                        <HelpCircle className="w-4 h-4 text-slate-400" />
+                        Help
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Notifications Bell */}
               <div className="relative">
                 <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-white transition-colors bg-white shadow-sm border border-slate-100 rounded-full flex items-center justify-center relative">
                   <Bell className="h-4 w-4" />
@@ -1037,8 +1114,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
              <div className="h-8 w-px bg-slate-200 mx-2"></div>
-             <div className="flex flex-col items-end justify-center cursor-pointer select-none">
+             <div className="flex items-center gap-3 select-none">
                 <span className="text-2xl font-black text-slate-800 leading-none tracking-[0.15em]" style={{ fontFamily: "'Sofia Soft Pro', 'Sofia Pro', sans-serif" }}>INSiGHT</span>
+                <Link href="/" className="flex items-center justify-center w-9 h-9 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition-colors shadow-sm" title="Exit Dashboard">
+                  <LogOut className="h-4 w-4" />
+                </Link>
              </div>
           </div>
         </header>
