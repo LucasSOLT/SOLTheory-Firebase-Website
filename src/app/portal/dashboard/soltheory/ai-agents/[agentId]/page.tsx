@@ -3653,10 +3653,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                       </div>
                                       <span className={`text-[11px] shrink-0 tabular-nums ${isRead ? 'text-slate-300' : 'font-semibold text-slate-500'}`}>{dateStr}</span>
                                     </div>
-                                    <p className={`text-[12.5px] truncate mt-0.5 ${isRead ? 'font-normal text-slate-400' : 'font-bold text-slate-800'}`}>{email.subject || '(no subject)'}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <p className={`text-[12.5px] truncate ${isRead ? 'font-normal text-slate-400' : 'font-bold text-slate-800'}`}>{email.subject || '(no subject)'}</p>
+                                      {email.labelIds?.includes('IMPORTANT') && (
+                                        <span className="text-[8px] font-bold uppercase tracking-wider text-amber-500 bg-amber-50 px-1 py-0.5 rounded shrink-0">!</span>
+                                      )}
+                                    </div>
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                       <p className={`text-[11.5px] truncate leading-snug flex-1 ${isRead ? 'text-slate-300' : 'text-slate-500'}`}>{email.snippet}</p>
-                                      {hasAttachments && <Paperclip className={`w-3 h-3 shrink-0 ${isRead ? 'text-slate-200' : 'text-slate-400'}`} />}
+                                      {hasAttachments && (
+                                        <div className={`flex items-center gap-0.5 shrink-0 ${isRead ? 'text-slate-200' : 'text-slate-400'}`}>
+                                          <Paperclip className="w-3 h-3" />
+                                          {(email.attachments?.length || 0) > 1 && <span className="text-[10px]">{email.attachments?.length}</span>}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
 
