@@ -85,7 +85,7 @@ export default function SolTheoryCommunications() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[700px]">
         
         {/* Left Column: Inbound Email Feed */}
-        <Card className="lg:col-span-5 bg-white border border-slate-200 flex flex-col overflow-hidden shadow-sm rounded-2xl">
+        <Card className="lg:col-span-5 bg-[#fefcf6] border border-slate-200 flex flex-col overflow-hidden shadow-sm rounded-2xl">
           <CardHeader className="border-b border-slate-100 pb-4">
             <CardTitle className="text-lg text-slate-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -100,11 +100,11 @@ export default function SolTheoryCommunications() {
               {inbox.map((email, idx) => (
                 <div 
                   key={idx} 
-                  className={`p-4 hover:bg-slate-50 transition-all cursor-pointer group border-l-2 ${email.status === 'new' ? 'border-amber-400 bg-amber-50/50' : email.status === 'processing' ? 'border-indigo-500 bg-indigo-50/50' : 'border-transparent'}`}
+                  className={`p-4 hover:bg-[#faf6ed] transition-all cursor-pointer group border-l-2 ${email.status === 'new' ? 'border-amber-400 bg-amber-50/50' : email.status === 'processing' ? 'border-indigo-500 bg-indigo-50/50' : 'border-transparent'}`}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
-                      <Avatar className="w-8 h-8 border border-slate-200 bg-slate-50">
+                      <Avatar className="w-8 h-8 border border-slate-200 bg-[#faf6ed]">
                         <AvatarFallback className="text-xs font-bold text-slate-600">
                           {email.sender.charAt(0).toUpperCase()}
                         </AvatarFallback>
@@ -136,7 +136,7 @@ export default function SolTheoryCommunications() {
         </Card>
 
         {/* Right Column: Outbound AI Agent */}
-        <Card className="lg:col-span-7 bg-white border border-slate-200 flex flex-col shadow-sm relative overflow-hidden rounded-2xl">
+        <Card className="lg:col-span-7 bg-[#fefcf6] border border-slate-200 flex flex-col shadow-sm relative overflow-hidden rounded-2xl">
           <CardHeader className="border-b border-slate-100 pb-4 relative z-10">
             <CardTitle className="text-lg text-slate-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -192,7 +192,7 @@ export default function SolTheoryCommunications() {
               <form onSubmit={(e) => { e.preventDefault(); handleSendDraft(); }} className="flex gap-3 relative">
                 <Input 
                   placeholder="Prompt the AI to modify drafts or send direct commands..." 
-                  className="bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-indigo-500 h-12 rounded-xl"
+                  className="bg-[#fefcf6] border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-indigo-500 h-12 rounded-xl"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                 />

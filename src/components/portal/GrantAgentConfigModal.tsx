@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { X, Save, Loader2, Rocket, CheckCircle2, MapPin, DollarSign, Calendar, Timer, FileText, Tag, Plus, Trash2 } from "lucide-react";
 
-/* ─── Updated Config Schema ─── */
+/* â”€â”€â”€ Updated Config Schema â”€â”€â”€ */
 export interface GrantAgentConfig {
   grantTypes: string[];
   locationState: string;
@@ -31,7 +31,7 @@ export const DEFAULT_CONFIG: GrantAgentConfig = {
   intervalValue: 1,
   intervalUnit: "days",
   
-  // Start blank — user fills in their own org info
+  // Start blank â€” user fills in their own org info
   companyDescription: "",
   welfareKeywords: [],
 };
@@ -53,7 +53,7 @@ export const WELFARE_KEYWORD_OPTIONS = [
 
 
 
-/* ─── US State + City Dataset ─── */
+/* â”€â”€â”€ US State + City Dataset â”€â”€â”€ */
 const US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
   "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa",
@@ -81,7 +81,7 @@ const CITY_DATABASE: Record<string, string[]> = {
   "Massachusetts": ["Boston","Worcester","Springfield","Lowell","Cambridge","New Bedford","Brockton","Quincy","Lynn","Fall River"],
 };
 
-/* ─── Autocomplete Component ─── */
+/* â”€â”€â”€ Autocomplete Component â”€â”€â”€ */
 function LocationAutocomplete({
   label,
   value,
@@ -127,17 +127,17 @@ function LocationAutocomplete({
           onChange={(e) => { setQuery(e.target.value); setFocused(true); }}
           onFocus={() => setFocused(true)}
           placeholder={placeholder}
-          className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400"
+          className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400"
         />
       </div>
       {focused && filtered.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-[70] bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-[180px] overflow-y-auto">
+        <div className="absolute left-0 right-0 top-full mt-1 z-[70] bg-[#fefcf6] border border-slate-200 rounded-xl shadow-lg py-1 max-h-[180px] overflow-y-auto">
           {filtered.map((opt) => (
             <button
               key={opt}
               onClick={() => { onChange(opt); setQuery(opt); setFocused(false); }}
               className={`w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer ${
-                opt === value ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-700 hover:bg-slate-50"
+                opt === value ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-700 hover:bg-[#faf6ed]"
               }`}
             >
               {opt}
@@ -149,7 +149,7 @@ function LocationAutocomplete({
   );
 }
 
-/* ─── Modal ─── */
+/* â”€â”€â”€ Modal â”€â”€â”€ */
 export function GrantAgentConfigModal({
   onClose,
   initialConfig,
@@ -227,7 +227,7 @@ export function GrantAgentConfigModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
+        className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -249,8 +249,8 @@ export function GrantAgentConfigModal({
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 min-h-0">
 
-          {/* ═══ Section 1: Organization Profile & Mission ═══ */}
-          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4.5 space-y-3">
+          {/* â•â•â• Section 1: Organization Profile & Mission â•â•â• */}
+          <div className="bg-[#faf6ed] border border-slate-100 rounded-2xl p-4.5 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
                 <FileText className="w-3.5 h-3.5" />
@@ -267,13 +267,13 @@ export function GrantAgentConfigModal({
               onChange={(e) => setConfig((prev) => ({ ...prev, companyDescription: e.target.value }))}
               placeholder="e.g. NXT Chapter is a non-profit programming/management company working with Advanced Pathways and their homeless shelters across Denver..."
               rows={3}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 leading-relaxed resize-none font-medium"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 leading-relaxed resize-none font-medium"
             />
           </div>
 
           <hr className="border-slate-100" />
 
-          {/* ═══ Section 2: Target Social Welfare Programs ═══ */}
+          {/* â•â•â• Section 2: Target Social Welfare Programs â•â•â• */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -355,7 +355,7 @@ export function GrantAgentConfigModal({
                   }
                 }}
                 placeholder="Add custom keyword (e.g. food bank)..."
-                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400 font-medium"
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400 font-medium"
               />
               <button
                 type="button"
@@ -371,7 +371,7 @@ export function GrantAgentConfigModal({
 
 
 
-          {/* ═══ Section 2: Location ═══ */}
+          {/* â•â•â• Section 2: Location â•â•â• */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
               Target Location
@@ -396,7 +396,7 @@ export function GrantAgentConfigModal({
 
           <hr className="border-slate-100" />
 
-          {/* ═══ Section 3: Budget Range ═══ */}
+          {/* â•â•â• Section 3: Budget Range â•â•â• */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
               Target Budget Range
@@ -414,7 +414,7 @@ export function GrantAgentConfigModal({
                     value={config.budgetMin ?? ""}
                     onChange={(e) => setConfig((p) => ({ ...p, budgetMin: e.target.value ? Number(e.target.value) : null }))}
                     placeholder="0"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -430,7 +430,7 @@ export function GrantAgentConfigModal({
                     value={config.budgetMax ?? ""}
                     onChange={(e) => setConfig((p) => ({ ...p, budgetMax: e.target.value ? Number(e.target.value) : null }))}
                     placeholder="No limit"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -439,7 +439,7 @@ export function GrantAgentConfigModal({
 
           <hr className="border-slate-100" />
 
-          {/* ═══ Section 4: Application Window ═══ */}
+          {/* â•â•â• Section 4: Application Window â•â•â• */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
               Application Window
@@ -455,7 +455,7 @@ export function GrantAgentConfigModal({
                     type="date"
                     value={config.openDate}
                     onChange={(e) => setConfig((p) => ({ ...p, openDate: e.target.value }))}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
                   />
                 </div>
               </div>
@@ -470,7 +470,7 @@ export function GrantAgentConfigModal({
                     value={config.closeDate}
                     onChange={(e) => setConfig((p) => ({ ...p, closeDate: e.target.value }))}
                     min={config.openDate || undefined}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
                   />
                 </div>
               </div>
@@ -479,7 +479,7 @@ export function GrantAgentConfigModal({
 
           <hr className="border-slate-100" />
 
-          {/* ═══ Section 5: Agent Scan Interval ═══ */}
+          {/* â•â•â• Section 5: Agent Scan Interval â•â•â• */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
               Agent Scan Interval
@@ -509,14 +509,14 @@ export function GrantAgentConfigModal({
                       }
                     }
                   }}
-                  className="w-24 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800"
+                  className="w-24 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800"
                 />
               </div>
               <div className="relative">
                 <select
                   value={config.intervalUnit}
                   onChange={(e) => setConfig((p) => ({ ...p, intervalUnit: e.target.value as GrantAgentConfig["intervalUnit"] }))}
-                  className="appearance-none pl-4 pr-8 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
+                  className="appearance-none pl-4 pr-8 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
                 >
                   <option value="minutes">Minutes</option>
                   <option value="hours">Hours</option>
@@ -533,7 +533,7 @@ export function GrantAgentConfigModal({
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0">
           <div className="text-[10px] text-slate-400 font-medium">
             {!hasKeywords ? (
-              <span className="text-amber-500 font-semibold">⚠ Select at least one keyword or grant type</span>
+              <span className="text-amber-500 font-semibold">âš  Select at least one keyword or grant type</span>
             ) : (
               <span className="text-emerald-600 font-semibold flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
@@ -544,7 +544,7 @@ export function GrantAgentConfigModal({
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer font-medium"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer font-medium"
             >
               Cancel
             </button>

@@ -52,9 +52,9 @@ export default function InstagramPage() {
     setIsGenerating(true);
     await new Promise(resolve => setTimeout(resolve, 1500));
     const suggestions = [
-      "✨ Living my best life, one photo at a time 📸\n\n#Aesthetic #InstaDaily #LifeStyle #PhotoOfTheDay #Instagood",
-      "🌅 Chasing sunsets and making memories ❤️ What's your favorite time of day?\n\n#Sunset #GoldenHour #NatureLover #Beautiful #MoodGram",
-      "💫 New day, new opportunities. Let's make it count!\n\nDouble-tap if you agree 👇\n\n#Motivation #DailyInspiration #GoodVibes #PositiveEnergy",
+      "âœ¨ Living my best life, one photo at a time ðŸ“¸\n\n#Aesthetic #InstaDaily #LifeStyle #PhotoOfTheDay #Instagood",
+      "ðŸŒ… Chasing sunsets and making memories â¤ï¸ What's your favorite time of day?\n\n#Sunset #GoldenHour #NatureLover #Beautiful #MoodGram",
+      "ðŸ’« New day, new opportunities. Let's make it count!\n\nDouble-tap if you agree ðŸ‘‡\n\n#Motivation #DailyInspiration #GoodVibes #PositiveEnergy",
     ];
     setCaption(suggestions[Math.floor(Math.random() * suggestions.length)]);
     setIsGenerating(false);
@@ -92,7 +92,7 @@ export default function InstagramPage() {
   return (
     <div className="flex-1 flex flex-col h-full bg-[#faf6ed] overflow-y-auto">
       {/* Header */}
-      <header className="px-8 py-6 border-b border-slate-200 bg-white sticky top-0 z-10">
+      <header className="px-8 py-6 border-b border-slate-200 bg-[#fefcf6] sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-yellow-400 via-rose-500 to-fuchsia-600 flex items-center justify-center text-white shadow-sm">
@@ -122,7 +122,7 @@ export default function InstagramPage() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === tab.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  activeTab === tab.key ? 'bg-[#fefcf6] text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -135,9 +135,9 @@ export default function InstagramPage() {
 
       <div className="p-8 max-w-5xl mx-auto w-full">
 
-        {/* ── NOT CONNECTED ── */}
+        {/* â”€â”€ NOT CONNECTED â”€â”€ */}
         {!isConnected && (
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-10 text-center max-w-lg mx-auto">
+          <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-sm p-10 text-center max-w-lg mx-auto">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-yellow-400 via-rose-500 to-fuchsia-600 flex items-center justify-center text-white mx-auto mb-5 shadow-md">
               <Instagram className="w-8 h-8" />
             </div>
@@ -161,11 +161,11 @@ export default function InstagramPage() {
           </div>
         )}
 
-        {/* ── CONNECTED: CREATE TAB ── */}
+        {/* â”€â”€ CONNECTED: CREATE TAB â”€â”€ */}
         {isConnected && activeTab === 'create' && (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div className="lg:col-span-3 space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-sm p-6">
                 <h2 className="text-lg font-bold text-slate-800 mb-4">New Post</h2>
                 <div className="space-y-5">
                   <div>
@@ -174,20 +174,20 @@ export default function InstagramPage() {
                       <div 
                         onDragOver={handleDragOver} onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full h-52 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-rose-50/30 hover:border-rose-300 transition-all flex flex-col items-center justify-center cursor-pointer group"
+                        className="w-full h-52 border-2 border-dashed border-slate-300 rounded-xl bg-[#faf6ed] hover:bg-rose-50/30 hover:border-rose-300 transition-all flex flex-col items-center justify-center cursor-pointer group"
                       >
-                        <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-slate-100">
+                        <div className="w-12 h-12 bg-[#fefcf6] rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-slate-100">
                           <UploadCloud className="w-5 h-5 text-rose-500" />
                         </div>
                         <p className="font-semibold text-slate-700 text-sm">Click or drag media to upload</p>
-                        <p className="text-xs text-slate-400 mt-1">JPG, PNG, MP4, GIF — Max 50MB</p>
+                        <p className="text-xs text-slate-400 mt-1">JPG, PNG, MP4, GIF â€” Max 50MB</p>
                         <div className="flex gap-4 mt-4">
                           <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full"><ImageIcon className="w-3.5 h-3.5" /> Photos</span>
                           <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full"><Video className="w-3.5 h-3.5" /> Reels</span>
                         </div>
                       </div>
                     ) : (
-                      <div className="w-full relative rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                      <div className="w-full relative rounded-xl border border-slate-200 bg-[#faf6ed] overflow-hidden">
                         {preview && <div className="w-full h-48 bg-slate-100"><img src={preview} alt="Preview" className="w-full h-full object-cover" /></div>}
                         <div className="p-4 flex items-center gap-4">
                           <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center shrink-0">
@@ -211,7 +211,7 @@ export default function InstagramPage() {
                         {isGenerating ? 'Generating...' : 'AI Write'}
                       </button>
                     </div>
-                    <textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a catchy caption... Use # for hashtags. Let AI help!" className="w-full h-32 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all outline-none resize-none text-sm" />
+                    <textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a catchy caption... Use # for hashtags. Let AI help!" className="w-full h-32 px-4 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all outline-none resize-none text-sm" />
                     <p className="text-[11px] text-slate-400 mt-1.5 text-right">{caption.length} / 2,200</p>
                   </div>
                 </div>
@@ -219,21 +219,21 @@ export default function InstagramPage() {
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-sm p-6">
                 <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-rose-600" /> Schedule</h3>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1.5">Date</label>
                     <div className="relative">
                       <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all outline-none text-sm" />
+                      <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all outline-none text-sm" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1.5">Time</label>
                     <div className="relative">
                       <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all outline-none text-sm" />
+                      <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all outline-none text-sm" />
                     </div>
                   </div>
                 </div>
@@ -243,16 +243,16 @@ export default function InstagramPage() {
                   </div>
                 )}
               </div>
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
+              <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
                 <button onClick={handleCreatePost} disabled={!caption.trim() && !file} className="w-full px-5 py-3 text-sm font-bold text-white bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:opacity-90 rounded-xl transition-opacity flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
                   {scheduleDate ? <Clock className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                   {scheduleDate ? 'Schedule Post' : 'Post Now'}
                 </button>
                 <button className="w-full px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 cursor-pointer">Save as Draft</button>
               </div>
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-sm p-6">
                 <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Eye className="w-4 h-4 text-slate-500" /> Preview</h3>
-                <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                <div className="rounded-xl border border-slate-200 overflow-hidden bg-[#fefcf6]">
                   <div className="p-3 flex items-center gap-2 border-b border-slate-100">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 via-rose-500 to-fuchsia-600 flex items-center justify-center"><Instagram className="w-4 h-4 text-white" /></div>
                     <p className="text-xs font-bold text-slate-800">yourpage</p>
@@ -265,11 +265,11 @@ export default function InstagramPage() {
           </div>
         )}
 
-        {/* ── SCHEDULED TAB ── */}
+        {/* â”€â”€ SCHEDULED TAB â”€â”€ */}
         {isConnected && activeTab === 'scheduled' && (
           <div>
             {scheduledPosts.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+              <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl p-12 text-center">
                 <Clock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-slate-700 mb-1">No scheduled posts</h3>
                 <p className="text-sm text-slate-500 max-w-sm mx-auto">Create a post and set a date & time to schedule it for automatic publishing.</p>
@@ -277,7 +277,7 @@ export default function InstagramPage() {
             ) : (
               <div className="space-y-4">
                 {scheduledPosts.map(post => (
-                  <div key={post.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-start gap-4 group hover:border-rose-300 transition-colors">
+                  <div key={post.id} className="bg-[#fefcf6] border border-slate-200 rounded-2xl p-5 shadow-sm flex items-start gap-4 group hover:border-rose-300 transition-colors">
                     <div className="w-16 h-16 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 overflow-hidden">
                       {post.previewUrl ? <img src={post.previewUrl} alt="" className="w-full h-full object-cover" /> : (post.fileType === 'video' ? <Video className="w-6 h-6 text-rose-500" /> : <ImageIcon className="w-6 h-6 text-rose-500" />)}
                     </div>
@@ -299,9 +299,9 @@ export default function InstagramPage() {
           </div>
         )}
 
-        {/* ── PUBLISHED TAB ── */}
+        {/* â”€â”€ PUBLISHED TAB â”€â”€ */}
         {isConnected && activeTab === 'published' && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+          <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl p-12 text-center">
             <Eye className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-slate-700 mb-1">No published posts yet</h3>
             <p className="text-sm text-slate-500 max-w-sm mx-auto">Posts will appear here once they are published to your Instagram account.</p>

@@ -53,7 +53,7 @@ import {
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
-// ── Types ──
+// â”€â”€ Types â”€â”€
 type Priority = "High" | "Medium" | "Low";
 type ColumnId = "todo" | "doing" | "done";
 type AssignmentStatus = "direct" | "pending_approval" | "accepted" | "denied";
@@ -125,7 +125,7 @@ interface ColumnDef {
   dropBorder: string;
 }
 
-// ── Constants ──
+// â”€â”€ Constants â”€â”€
 const COLUMNS: ColumnDef[] = [
   {
     id: "todo",
@@ -173,7 +173,7 @@ const ADMIN_EMAILS = ["lucas@soltheory.com", "steve@soltheory.com"];
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const DEADLINE_CHECK_INTERVAL = 60_000; // Check every 60 seconds
 
-// ── Helper: compute lifecycle status ──
+// â”€â”€ Helper: compute lifecycle status â”€â”€
 function getLifecycleStatus(task: ActionBoardTask): LifecycleStatus {
   const now = Date.now();
 
@@ -212,7 +212,7 @@ function toDatetimeLocalString(date: Date): string {
   return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
 }
 
-// ── Helper: days until/since due ──
+// â”€â”€ Helper: days until/since due â”€â”€
 function getDueDelta(dueDate: Timestamp | null | undefined): { label: string; isOverdue: boolean; daysLeft: number } | null {
   if (!dueDate) return null;
   const now = Date.now();
@@ -232,16 +232,16 @@ export default function ActionBoardPage() {
   const firestore = useFirestore();
   const pathname = usePathname();
 
-  // Derive org from URL path — /portal/dashboard/nxtchapter/... vs /portal/dashboard/soltheory/...
+  // Derive org from URL path â€” /portal/dashboard/nxtchapter/... vs /portal/dashboard/soltheory/...
   const ORG_ID = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
 
-  // ── Core State ──
+  // â”€â”€ Core State â”€â”€
   const [tasks, setTasks] = useState<ActionBoardTask[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string>("member");
   const [isLoading, setIsLoading] = useState(true);
 
-  // ── UI State ──
+  // â”€â”€ UI State â”€â”€
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
@@ -253,12 +253,12 @@ export default function ActionBoardPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const draggedTaskRef = useRef<string | null>(null);
 
-  // ── Filter State (Admin) ──
+  // â”€â”€ Filter State (Admin) â”€â”€
   const [viewFilter, setViewFilter] = useState<ViewFilter>("my_tasks");
   const [filterUserId, setFilterUserId] = useState<string>("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // ── Form State ──
+  // â”€â”€ Form State â”€â”€
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newPriority, setNewPriority] = useState<Priority>("Medium");
@@ -276,7 +276,7 @@ export default function ActionBoardPage() {
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentInput, setCommentInput] = useState("");
 
-  // ── Derived ──
+  // â”€â”€ Derived â”€â”€
   const isAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
 
   // Ref for deadline monitor to avoid re-running effect on every task change
@@ -284,7 +284,7 @@ export default function ActionBoardPage() {
   tasksRef.current = tasks;
   const lateProcessedRef = useRef<Set<string>>(new Set());
 
-  // ── Fetch current user role ──
+  // â”€â”€ Fetch current user role â”€â”€
   useEffect(() => {
     if (!firestore || !user?.uid) return;
     const fetchRole = async () => {
@@ -297,7 +297,7 @@ export default function ActionBoardPage() {
     fetchRole();
   }, [firestore, user?.uid]);
 
-  // ── Fetch org members for assignee picker ──
+  // â”€â”€ Fetch org members for assignee picker â”€â”€
   useEffect(() => {
     if (!firestore) return;
     const fetchMembers = async () => {
@@ -325,7 +325,7 @@ export default function ActionBoardPage() {
     fetchMembers();
   }, [firestore]);
 
-  // ── Real-time task listener ──
+  // â”€â”€ Real-time task listener â”€â”€
   useEffect(() => {
     if (!firestore || !user?.uid) return;
 
@@ -388,7 +388,7 @@ export default function ActionBoardPage() {
     return () => unsub();
   }, [firestore, user?.uid]);
 
-  // ── Background deadline monitor ──
+  // â”€â”€ Background deadline monitor â”€â”€
   // Checks every minute for tasks that have passed their due date and flags them
   useEffect(() => {
     if (!firestore || !user?.uid) return;
@@ -438,7 +438,7 @@ export default function ActionBoardPage() {
     return () => { clearTimeout(timeout); clearInterval(interval); };
   }, [firestore, user?.uid]);
 
-  // ── Task filtering logic ──
+  // â”€â”€ Task filtering logic â”€â”€
   const getVisibleBoardTasks = useCallback((): ActionBoardTask[] => {
     if (!user?.uid) return [];
     const boardStatuses: AssignmentStatus[] = ["direct", "accepted"];
@@ -476,7 +476,7 @@ export default function ActionBoardPage() {
     return t.dueDate.toMillis() < Date.now() && (t.assignedTo === user?.uid || t.createdBy === user?.uid);
   });
 
-  // ── Handlers ──
+  // â”€â”€ Handlers â”€â”€
   const addTask = async () => {
     if (!newTitle.trim() || !user?.uid || !firestore) return;
 
@@ -694,7 +694,7 @@ export default function ActionBoardPage() {
           const triggerForColumn: Record<string, EmailTrigger> = { done: "completed", doing: "in_progress", todo: "assigned" };
           const currentTrigger = triggerForColumn[newColumn];
           if (currentTrigger && (newTriggers.length === 0 || newTriggers.includes(currentTrigger))) {
-            console.log(`[ActionBoard] Automations changed on task in "${newColumn}" — re-firing ${currentTrigger} trigger`);
+            console.log(`[ActionBoard] Automations changed on task in "${newColumn}" â€” re-firing ${currentTrigger} trigger`);
             fireAutomations({
               ...task,
               ...taskData,
@@ -718,7 +718,7 @@ export default function ActionBoardPage() {
     setOpenMenuId(null);
   };
 
-  // ── Build automations object from form ──
+  // â”€â”€ Build automations object from form â”€â”€
   const buildAutomations = (): TaskAutomations | null => {
     const emails = autoEmailChips;
     const hasAny = emails.length > 0;
@@ -729,7 +729,7 @@ export default function ActionBoardPage() {
     return auto;
   };
 
-  // ── Fire automations for a specific trigger ──
+  // â”€â”€ Fire automations for a specific trigger â”€â”€
   const fireAutomations = async (task: ActionBoardTask, trigger: EmailTrigger) => {
     if (!task.automations) return;
     const { emails, emailTriggers } = task.automations;
@@ -869,7 +869,7 @@ export default function ActionBoardPage() {
     } catch (err) { console.error("[ActionBoard] Deny failed:", err); }
   };
 
-  // ── Drag & Drop ──
+  // â”€â”€ Drag & Drop â”€â”€
   const onDragStart = (e: React.DragEvent, taskId: string) => {
     draggedTaskRef.current = taskId;
     e.dataTransfer.effectAllowed = "move";
@@ -889,7 +889,7 @@ export default function ActionBoardPage() {
     setDragOverColumn(null);
   };
 
-  // ── Helpers ──
+  // â”€â”€ Helpers â”€â”€
   const formatDate = (ts: Timestamp | null) => {
     if (!ts) return "Just now";
     return ts.toDate().toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -926,7 +926,7 @@ export default function ActionBoardPage() {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // ── Loading State ──
+  // â”€â”€ Loading State â”€â”€
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-[#faf6ed]">
@@ -943,7 +943,7 @@ export default function ActionBoardPage() {
   return (
     <div className="flex flex-col h-full bg-[#faf6ed] text-slate-900 font-sans overflow-hidden">
 
-      {/* ══ Page Header ══ */}
+      {/* â•â• Page Header â•â• */}
       <div className="shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -970,8 +970,8 @@ export default function ActionBoardPage() {
               </div>
             )}
 
-            {/* Archive — always visible, left of Incoming */}
-            <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600 cursor-pointer">
+            {/* Archive â€” always visible, left of Incoming */}
+            <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] transition-colors text-sm font-medium text-slate-600 cursor-pointer">
               <Archive className="w-4 h-4" />
               <span className="hidden sm:inline">Archive</span>
               {(deniedTasks.length + allArchivedTasks.length) > 0 && (
@@ -980,7 +980,7 @@ export default function ActionBoardPage() {
             </button>
 
             {/* Incoming Tasks */}
-            <button onClick={() => setIsInboxOpen(true)} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600 cursor-pointer">
+            <button onClick={() => setIsInboxOpen(true)} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] transition-colors text-sm font-medium text-slate-600 cursor-pointer">
               <Inbox className="w-4 h-4" />
               <span className="hidden sm:inline">Incoming</span>
               {pendingTasks.length > 0 && (
@@ -993,26 +993,26 @@ export default function ActionBoardPage() {
               <div className="relative">
                 <button
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${viewFilter !== "my_tasks" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"}`}
+                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${viewFilter !== "my_tasks" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600"}`}
                 >
                   <Filter className="w-4 h-4" />
                   <span className="hidden sm:inline">{viewFilter === "my_tasks" ? "My Tasks" : viewFilter === "all_users" ? "All Users" : "Filtered"}</span>
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
                 {isFilterOpen && (
-                  <div className="absolute right-0 top-12 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="absolute right-0 top-12 w-64 bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="p-2">
-                      <button onClick={() => { setViewFilter("my_tasks"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "my_tasks" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
+                      <button onClick={() => { setViewFilter("my_tasks"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "my_tasks" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
                         <UserIcon className="w-4 h-4" /> My Tasks
                       </button>
-                      <button onClick={() => { setViewFilter("all_users"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "all_users" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
+                      <button onClick={() => { setViewFilter("all_users"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "all_users" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
                         <Users className="w-4 h-4" /> All Users
                       </button>
                     </div>
                     <div className="border-t border-slate-100 p-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3.5 py-1">Specific User</p>
                       {orgMembers.filter(m => m.uid !== user?.uid).slice(0, 8).map(m => (
-                        <button key={m.uid} onClick={() => { setViewFilter("specific_user"); setFilterUserId(m.uid); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "specific_user" && filterUserId === m.uid ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
+                        <button key={m.uid} onClick={() => { setViewFilter("specific_user"); setFilterUserId(m.uid); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "specific_user" && filterUserId === m.uid ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
                           <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${getAvatarColor(m.uid)} flex items-center justify-center text-white text-[9px] font-bold`}>{getInitials(m.displayName, m.email)}</div>
                           <span className="truncate">{m.displayName || m.email}</span>
                         </button>
@@ -1031,7 +1031,7 @@ export default function ActionBoardPage() {
         </div>
       </div>
 
-      {/* ══ Board Columns ══ */}
+      {/* â•â• Board Columns â•â• */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden px-4 sm:px-8 pb-6">
         <div className="flex gap-4 sm:gap-6 h-full min-w-[720px]">
           {COLUMNS.map(col => {
@@ -1083,7 +1083,7 @@ export default function ActionBoardPage() {
                           draggable
                           onDragStart={e => onDragStart(e, task.id)}
                           onDragEnd={onDragEnd}
-                          className={`group bg-white rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.02] relative border ${
+                          className={`group bg-[#fefcf6] rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.02] relative border ${
                             openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
                           } ${
                             isLateTask && task.column !== "done"
@@ -1107,20 +1107,20 @@ export default function ActionBoardPage() {
                                 <MoreHorizontal className="w-4 h-4" />
                               </button>
                               {openMenuId === task.id && (
-                                <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 w-44 bg-[#fefcf6] border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
                                   {COLUMNS.filter(c => c.id !== task.column).map(c => (
-                                    <button key={c.id} onClick={(e) => { e.stopPropagation(); moveTask(task.id, c.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                    <button key={c.id} onClick={(e) => { e.stopPropagation(); moveTask(task.id, c.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
                                       <ArrowRight className="w-3.5 h-3.5 text-slate-400" /> Move to {c.label}
                                     </button>
                                   ))}
                                   <div className="border-t border-slate-100" />
                                   {(task.createdBy === user?.uid || isAdmin) && (
                                     <>
-                                      <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                      <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
                                         <Edit2 className="w-3.5 h-3.5 text-slate-400" /> Edit Task
                                       </button>
                                       {task.column === "done" ? (
-                                        <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                        <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
                                           <Archive className="w-3.5 h-3.5 text-slate-400" /> Archive
                                         </button>
                                       ) : (
@@ -1178,14 +1178,14 @@ export default function ActionBoardPage() {
                           {task.column === "done" && task.completedAt && !task.isLate && (
                             <div className="flex items-center gap-1 mb-2">
                               <span className="text-[10px] text-emerald-500 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Completed on time · {formatDatetime(task.completedAt)}
+                                <CheckCircle2 className="w-3 h-3" /> Completed on time Â· {formatDatetime(task.completedAt)}
                               </span>
                             </div>
                           )}
                           {task.column === "done" && task.isLate && (
                             <div className="flex items-center gap-1 mb-2">
                               <span className="text-[10px] text-red-500 font-medium bg-red-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Completed late · {formatDatetime(task.completedAt)}
+                                <AlertTriangle className="w-3 h-3" /> Completed late Â· {formatDatetime(task.completedAt)}
                               </span>
                             </div>
                           )}
@@ -1208,7 +1208,7 @@ export default function ActionBoardPage() {
                                   task.automations.emails?.length ? `${task.automations.emails.length} email${task.automations.emails.length > 1 ? "s" : ""}` : null,
                                   task.automations.slackWebhook ? "Slack" : null,
                                   task.automations.googleAction === "calendar_event" ? "Calendar" : task.automations.googleAction === "draft_email" ? "Gmail Draft" : null,
-                                ].filter(Boolean).join(" · ")} on complete
+                                ].filter(Boolean).join(" Â· ")} on complete
                               </span>
                             </div>
                           )}
@@ -1233,7 +1233,7 @@ export default function ActionBoardPage() {
 
                 {/* Quick Add */}
                 <div className="p-3 pt-0">
-                  <button onClick={() => openNewTaskModalInColumn(col.id)} className="w-full py-2.5 rounded-xl border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5">
+                  <button onClick={() => openNewTaskModalInColumn(col.id)} className="w-full py-2.5 rounded-xl border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-[#faf6ed] transition-all flex items-center justify-center gap-1.5">
                     <Plus className="w-3.5 h-3.5" /> Add card
                   </button>
                 </div>
@@ -1243,12 +1243,12 @@ export default function ActionBoardPage() {
         </div>
       </div>
 
-      {/* ══ Add Task Modal ══ */}
+      {/* â•â• Add Task Modal â•â• */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={handleCloseModal}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-[#fefcf6] rounded-t-2xl z-10">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 {editingTaskId ? (
                   <>
@@ -1269,13 +1269,13 @@ export default function ActionBoardPage() {
               {/* Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Title <span className="text-red-400">*</span></label>
-                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && (editingTaskId ? saveTask() : addTask())} placeholder="What needs to be done?" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
+                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && (editingTaskId ? saveTask() : addTask())} placeholder="What needs to be done?" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
               </div>
 
               {/* Description */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Description <span className="text-slate-300 font-normal normal-case">(optional)</span></label>
-                <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Add any details or context..." rows={3} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 resize-none" />
+                <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Add any details or context..." rows={3} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 resize-none" />
               </div>
 
               {/* Priority + Column */}
@@ -1283,10 +1283,10 @@ export default function ActionBoardPage() {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Priority</label>
                   <div className="relative">
-                    <select value={newPriority} onChange={e => setNewPriority(e.target.value as Priority)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer">
-                      <option value="High">🔴 High</option>
-                      <option value="Medium">🟡 Medium</option>
-                      <option value="Low">🔵 Low</option>
+                    <select value={newPriority} onChange={e => setNewPriority(e.target.value as Priority)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer">
+                      <option value="High">ðŸ”´ High</option>
+                      <option value="Medium">ðŸŸ¡ Medium</option>
+                      <option value="Low">ðŸ”µ Low</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
@@ -1294,7 +1294,7 @@ export default function ActionBoardPage() {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Column</label>
                   <div className="relative">
-                    <select value={newColumn} onChange={e => setNewColumn(e.target.value as ColumnId)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer">
+                    <select value={newColumn} onChange={e => setNewColumn(e.target.value as ColumnId)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer">
                       <option value="todo">To Do</option>
                       <option value="doing">Doing</option>
                       <option value="done">Done</option>
@@ -1310,13 +1310,13 @@ export default function ActionBoardPage() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                     <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> Start Date</span>
                   </label>
-                  <input type="datetime-local" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer" />
+                  <input type="datetime-local" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due Date</span>
                   </label>
-                  <input type="datetime-local" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} min={newStartDate || undefined} className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer" />
+                  <input type="datetime-local" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} min={newStartDate || undefined} className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer" />
                 </div>
               </div>
 
@@ -1324,7 +1324,7 @@ export default function ActionBoardPage() {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assign To</label>
                 <div className="space-y-2">
-                  <button onClick={() => setNewAssignee("self")} className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${newAssignee === "self" ? "border-indigo-300 bg-indigo-50 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 hover:bg-white"}`}>
+                  <button onClick={() => setNewAssignee("self")} className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${newAssignee === "self" ? "border-indigo-300 bg-indigo-50 ring-2 ring-indigo-500/20" : "border-slate-200 bg-[#faf6ed] hover:bg-[#fefcf6]"}`}>
                     <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${getAvatarColor(user?.uid || "")} flex items-center justify-center text-white text-[10px] font-bold`}>{getInitials(user?.displayName || undefined, user?.email || undefined)}</div>
                     <div><span className="text-sm font-medium text-slate-800">Myself</span><span className="text-xs text-slate-400 ml-2">{user?.email}</span></div>
                     {newAssignee === "self" && <CheckCircle2 className="w-4 h-4 text-indigo-500 ml-auto" />}
@@ -1332,12 +1332,12 @@ export default function ActionBoardPage() {
 
                   <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input value={assigneeSearch} onChange={e => setAssigneeSearch(e.target.value)} placeholder="Search team members..." className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
+                    <input value={assigneeSearch} onChange={e => setAssigneeSearch(e.target.value)} placeholder="Search team members..." className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
                   </div>
 
                   <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-slate-100 p-1">
                     {filteredAssignees.filter(m => m.uid !== user?.uid).slice(0, 10).map(m => (
-                      <button key={m.uid} onClick={() => setNewAssignee(m.uid)} className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${newAssignee === m.uid ? "bg-indigo-50 ring-1 ring-indigo-200" : "hover:bg-slate-50"}`}>
+                      <button key={m.uid} onClick={() => setNewAssignee(m.uid)} className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${newAssignee === m.uid ? "bg-indigo-50 ring-1 ring-indigo-200" : "hover:bg-[#faf6ed]"}`}>
                         <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(m.uid)} flex items-center justify-center text-white text-[9px] font-bold`}>{getInitials(m.displayName, m.email)}</div>
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium text-slate-700 truncate block">{m.displayName || m.email}</span>
@@ -1354,17 +1354,17 @@ export default function ActionBoardPage() {
 
                   {newAssignee !== "self" && (
                     <div className={`text-xs px-3 py-2 rounded-lg ${isAdmin ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                      {isAdmin ? "✓ As an admin, this task will be assigned directly." : "⏳ This task will require the recipient's approval."}
+                      {isAdmin ? "âœ“ As an admin, this task will be assigned directly." : "â³ This task will require the recipient's approval."}
                     </div>
                   )}
                 </div>
               </div>
-              {/* ── Email Automations ── */}
+              {/* â”€â”€ Email Automations â”€â”€ */}
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setIsAutomationsOpen(!isAutomationsOpen)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-4 py-3 bg-[#faf6ed] hover:bg-slate-100 transition-colors text-left"
                 >
                   <span className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
                     <Mail className="w-3.5 h-3.5 text-blue-500" />
@@ -1377,7 +1377,7 @@ export default function ActionBoardPage() {
                 </button>
 
                 {isAutomationsOpen && (
-                  <div className="p-4 space-y-5 border-t border-slate-200 bg-white">
+                  <div className="p-4 space-y-5 border-t border-slate-200 bg-[#fefcf6]">
                     <p className="text-[11px] text-slate-400">Send email notifications to specified recipients when triggered.</p>
 
                     {/* Email Chip Input */}
@@ -1385,7 +1385,7 @@ export default function ActionBoardPage() {
                       <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                         <Mail className="w-3 h-3 text-blue-500" /> Recipients
                       </label>
-                      <div className="min-h-[42px] flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-200 bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all">
+                      <div className="min-h-[42px] flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-200 bg-[#faf6ed] focus-within:bg-[#fefcf6] focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all">
                         {autoEmailChips.map((email, i) => (
                           <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 animate-in fade-in slide-in-from-left-1 duration-150">
                             {email}
@@ -1422,7 +1422,7 @@ export default function ActionBoardPage() {
                               setAutoEmailChips(prev => prev.slice(0, -1));
                             }
                           }}
-                          placeholder={autoEmailChips.length === 0 ? "Type email and press Enter…" : "Add another…"}
+                          placeholder={autoEmailChips.length === 0 ? "Type email and press Enterâ€¦" : "Add anotherâ€¦"}
                           className="flex-1 min-w-[140px] bg-transparent outline-none text-xs text-slate-700 placeholder:text-slate-400 py-0.5"
                         />
                       </div>
@@ -1451,7 +1451,7 @@ export default function ActionBoardPage() {
                                     prev.includes(trigger.id) ? prev.filter(t => t !== trigger.id) : [...prev, trigger.id]
                                   );
                                 }}
-                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 ${isActive ? trigger.activeColor : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"}`}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 ${isActive ? trigger.activeColor : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-[#faf6ed]"}`}
                               >
                                 <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${isActive ? "border-current bg-current" : "border-slate-300"}`}>
                                   {isActive && <Check className="w-2.5 h-2.5 text-white" />}
@@ -1473,13 +1473,13 @@ export default function ActionBoardPage() {
                 )}
               </div>
 
-              {/* ── Comments Section (Edit mode only) ── */}
+              {/* â”€â”€ Comments Section (Edit mode only) â”€â”€ */}
               {editingTaskId && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setIsCommentsOpen(!isCommentsOpen)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-[#faf6ed] hover:bg-slate-100 transition-colors text-left"
                   >
                     <span className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
                       <MessageCircle className="w-3.5 h-3.5 text-indigo-500" />
@@ -1490,7 +1490,7 @@ export default function ActionBoardPage() {
                   </button>
 
                   {isCommentsOpen && (
-                    <div className="p-4 space-y-3 border-t border-slate-200 bg-white">
+                    <div className="p-4 space-y-3 border-t border-slate-200 bg-[#fefcf6]">
                       {/* Existing comments */}
                       {(() => {
                         const task = tasks.find(t => t.id === editingTaskId);
@@ -1523,8 +1523,8 @@ export default function ActionBoardPage() {
                           value={commentInput}
                           onChange={e => setCommentInput(e.target.value)}
                           onKeyDown={e => { if (e.key === "Enter" && commentInput.trim()) { e.preventDefault(); addComment(editingTaskId); } }}
-                          placeholder="Write a comment…"
-                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400"
+                          placeholder="Write a commentâ€¦"
+                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400"
                         />
                         <button
                           type="button"
@@ -1542,7 +1542,7 @@ export default function ActionBoardPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white rounded-b-2xl">
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-[#fefcf6] rounded-b-2xl">
               <button onClick={handleCloseModal} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
               {editingTaskId ? (
                 <button onClick={saveTask} disabled={!newTitle.trim()} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer">Save Changes</button>
@@ -1554,11 +1554,11 @@ export default function ActionBoardPage() {
         </div>
       )}
 
-      {/* ══ Incoming Tasks Drawer ══ */}
+      {/* â•â• Incoming Tasks Drawer â•â• */}
       {isInboxOpen && (
         <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => setIsInboxOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
-          <div className="relative w-full max-w-md bg-white shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="relative w-full max-w-md bg-[#fefcf6] shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Inbox className="w-5 h-5 text-amber-500" /> Incoming Tasks
@@ -1575,7 +1575,7 @@ export default function ActionBoardPage() {
                 </div>
               ) : (
                 pendingTasks.map(task => (
-                  <div key={task.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                  <div key={task.id} className="bg-[#fefcf6] border border-slate-200 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200">Pending</span>
@@ -1594,7 +1594,7 @@ export default function ActionBoardPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => acceptTask(task.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer"><Check className="w-4 h-4" /> Accept</button>
-                      <button onClick={() => denyTask(task.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors cursor-pointer"><XCircle className="w-4 h-4" /> Deny</button>
+                      <button onClick={() => denyTask(task.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#fefcf6] border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors cursor-pointer"><XCircle className="w-4 h-4" /> Deny</button>
                     </div>
                   </div>
                 ))
@@ -1604,11 +1604,11 @@ export default function ActionBoardPage() {
         </div>
       )}
 
-      {/* ══ Archive Drawer ══ */}
+      {/* â•â• Archive Drawer â•â• */}
       {isArchiveOpen && (
         <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => { setIsArchiveOpen(false); setConfirmDeleteId(null); setRestoreDropdownId(null); }}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
-          <div className="relative w-full max-w-md bg-white shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="relative w-full max-w-md bg-[#fefcf6] shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 border-b border-slate-100 shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Archive className="w-5 h-5 text-slate-400" /> Archive <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg">{allArchivedTasks.length}</span></h3>
@@ -1621,7 +1621,7 @@ export default function ActionBoardPage() {
                   <select
                     value={archiveFilterUser}
                     onChange={e => setArchiveFilterUser(e.target.value)}
-                    className="text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    className="text-xs font-medium text-slate-600 bg-[#faf6ed] border border-slate-200 rounded-lg px-2.5 py-1.5 flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                   >
                     <option value="all">All Users</option>
                     {orgMembers.map(m => (
@@ -1632,12 +1632,12 @@ export default function ActionBoardPage() {
               )}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* ── Archived Section ── */}
+              {/* â”€â”€ Archived Section â”€â”€ */}
               {archivedTasks.length > 0 && (
                 <>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Archived Assignments</p>
                   {archivedTasks.map(task => (
-                    <div key={task.id} className="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">
+                    <div key={task.id} className="bg-[#fefcf6] border border-emerald-200 rounded-xl p-4 shadow-sm">
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200">Archived</span>
@@ -1658,14 +1658,14 @@ export default function ActionBoardPage() {
                                 <ChevronDown className={`w-3 h-3 transition-transform ${restoreDropdownId === task.id ? "rotate-180" : ""}`} />
                               </button>
                               {restoreDropdownId === task.id && (
-                                <div className="absolute left-0 bottom-full mb-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
-                                  <button onClick={() => restoreTask(task.id)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                <div className="absolute left-0 bottom-full mb-1 w-52 bg-[#fefcf6] border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
+                                  <button onClick={() => restoreTask(task.id)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
                                     <ArchiveRestore className="w-3 h-3 text-indigo-400" /> Restore to original assignee
                                   </button>
                                   <div className="border-t border-slate-100" />
                                   <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Restore to user:</p>
                                   {orgMembers.map(m => (
-                                    <button key={m.uid} onClick={() => restoreTask(task.id, m.uid, m.email, m.displayName || m.email)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                    <button key={m.uid} onClick={() => restoreTask(task.id, m.uid, m.email, m.displayName || m.email)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
                                       <UserIcon className="w-3 h-3 text-slate-400" /> {m.displayName || m.email}
                                     </button>
                                   ))}
@@ -1696,13 +1696,13 @@ export default function ActionBoardPage() {
                 </>
               )}
 
-              {/* ── Denied Section ── */}
+              {/* â”€â”€ Denied Section â”€â”€ */}
               {deniedTasks.length > 0 && (
                 <>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Denied Tasks</p>
-                  <p className="text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-lg">Denied tasks are automatically deleted after 30 days.</p>
+                  <p className="text-xs text-slate-400 bg-[#faf6ed] px-3 py-2 rounded-lg">Denied tasks are automatically deleted after 30 days.</p>
                   {deniedTasks.map(task => (
-                    <div key={task.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm opacity-70">
+                    <div key={task.id} className="bg-[#fefcf6] border border-slate-200 rounded-xl p-4 shadow-sm opacity-70">
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-red-50 text-red-500 border border-red-200">Denied</span>

@@ -12,7 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 
-/* ── helpers ── */
+/* â”€â”€ helpers â”€â”€ */
 function getWeekRange(offset: number) {
   const now = new Date();
   const dayOfWeek = now.getDay(); // 0=Sun
@@ -62,7 +62,7 @@ function getColor(name: string) {
   return key ? EMPLOYEE_COLORS[key] : "#94a3b8";
 }
 
-/* ── custom tooltip ── */
+/* â”€â”€ custom tooltip â”€â”€ */
 function TimesheetTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -79,7 +79,7 @@ function TimesheetTooltip({ active, payload, label }: any) {
   );
 }
 
-/* ═══════ Main Component ═══════ */
+/* â•â•â•â•â•â•â• Main Component â•â•â•â•â•â•â• */
 export function TimeSheets() {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -148,7 +148,7 @@ export function TimeSheets() {
     fetchTimesheets();
   }, [fetchTimesheets]);
 
-  /* ── Parse into chart-ready data ── */
+  /* â”€â”€ Parse into chart-ready data â”€â”€ */
   const { chartData, employees, totalByEmployee } = useMemo(() => {
     const employeeSet = new Set<string>();
 
@@ -199,7 +199,7 @@ export function TimeSheets() {
         {/* Custom date range picker */}
         <Popover>
           <PopoverTrigger asChild>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#faf6ed] border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
               <CalendarDays className="w-3.5 h-3.5 text-slate-500" />
               {dateRange?.from ? (
                 dateRange.to ? (
@@ -290,7 +290,7 @@ export function TimeSheets() {
               {/* Summary cards */}
               <div className="grid grid-cols-2 gap-3 mt-4">
                 {employees.map(emp => (
-                  <div key={emp} className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-slate-50">
+                  <div key={emp} className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-[#faf6ed]">
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
                       style={{ background: getColor(emp) }}

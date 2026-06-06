@@ -4,18 +4,18 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useFirestore } from "@/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
-/* ─── Default slide data (fallback) ─── */
+/* â”€â”€â”€ Default slide data (fallback) â”€â”€â”€ */
 const DEFAULT_SLIDES = [
   {
-    headline: "NXT Chapter × Advanced Pathways",
-    subtitle: "New Denver Shelter Partnership — Expanding capacity to 3 additional locations across the metro area.",
+    headline: "NXT Chapter Ã— Advanced Pathways",
+    subtitle: "New Denver Shelter Partnership â€” Expanding capacity to 3 additional locations across the metro area.",
     gradient: "from-indigo-600 via-violet-600 to-purple-700",
     badge: "PARTNERSHIP",
     date: "June 2025",
   },
   {
     headline: "AI Grant Discovery Launched",
-    subtitle: "SOL Theory's autonomous grant agents now scan Grants.gov 24/7 — surfacing federal funding opportunities in real time.",
+    subtitle: "SOL Theory's autonomous grant agents now scan Grants.gov 24/7 â€” surfacing federal funding opportunities in real time.",
     gradient: "from-emerald-600 via-teal-600 to-cyan-700",
     badge: "PRODUCT",
     date: "May 2025",
@@ -28,14 +28,14 @@ const DEFAULT_SLIDES = [
     date: "April 2025",
   },
   {
-    headline: "Community Resource Fair — July 2025",
+    headline: "Community Resource Fair â€” July 2025",
     subtitle: "Save the date: Denver Community Resource Fair bringing together 40+ service providers, employers, and housing partners.",
     gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
     badge: "EVENT",
     date: "Upcoming",
   },
   {
-    headline: "Dashboard v2.0 — Real-Time Analytics",
+    headline: "Dashboard v2.0 â€” Real-Time Analytics",
     subtitle: "New grant status tracking, Action Board with email triggers, and AI-powered insights rolling out across all client dashboards.",
     gradient: "from-sky-500 via-blue-600 to-indigo-700",
     badge: "TECH UPDATE",
@@ -63,7 +63,7 @@ export function NewsSlideshow() {
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /* ─── Listen to Firestore for persisted slide data ─── */
+  /* â”€â”€â”€ Listen to Firestore for persisted slide data â”€â”€â”€ */
   useEffect(() => {
     if (!firestore) return;
     const docRef = doc(firestore, "cms_config", "news_slideshow");
@@ -78,14 +78,14 @@ export function NewsSlideshow() {
         }
       }
     }, () => {
-      // Silently handle missing doc/permissions — use defaults
+      // Silently handle missing doc/permissions â€” use defaults
     });
     return () => unsub();
   }, [firestore]);
 
   const totalSlides = slides.length;
 
-  /* ─── Auto-advance (pauses on hover) ─── */
+  /* â”€â”€â”€ Auto-advance (pauses on hover) â”€â”€â”€ */
   const startAutoAdvance = useCallback(() => {
     if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
     autoAdvanceRef.current = setInterval(() => {
@@ -111,7 +111,7 @@ export function NewsSlideshow() {
     }
   }, [totalSlides, currentSlide]);
 
-  /* ─── Navigation ─── */
+  /* â”€â”€â”€ Navigation â”€â”€â”€ */
   const goTo = useCallback(
     (direction: "prev" | "next") => {
       setCurrentSlide((prev) =>
@@ -124,7 +124,7 @@ export function NewsSlideshow() {
     [totalSlides, isHovered, startAutoAdvance]
   );
 
-  /* ─── Hover zone delayed fade-out ─── */
+  /* â”€â”€â”€ Hover zone delayed fade-out â”€â”€â”€ */
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
@@ -153,7 +153,7 @@ export function NewsSlideshow() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* ═══ Slide Strip ═══ */}
+      {/* â•â•â• Slide Strip â•â•â• */}
       <div
         className="flex h-full transition-transform duration-500 ease-in-out"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -211,7 +211,7 @@ export function NewsSlideshow() {
         ))}
       </div>
 
-      {/* ═══ Hover Zones ═══ */}
+      {/* â•â•â• Hover Zones â•â•â• */}
       <div
         onClick={() => goTo("prev")}
         className={`absolute top-0 left-0 h-full cursor-pointer z-10 transition-opacity duration-300 ${
@@ -227,7 +227,7 @@ export function NewsSlideshow() {
         style={{ width: "100px", background: "linear-gradient(to left, rgba(0,0,0,0.10), rgba(0,0,0,0.02))" }}
       />
 
-      {/* ═══ Arrow Buttons ═══ */}
+      {/* â•â•â• Arrow Buttons â•â•â• */}
       <button
         onClick={() => goTo("prev")}
         className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-14 flex items-center justify-center rounded-r-lg cursor-pointer transition-all hover:w-11 hover:h-16"
@@ -249,7 +249,7 @@ export function NewsSlideshow() {
         </svg>
       </button>
 
-      {/* ═══ Pane Indicator Dots ═══ */}
+      {/* â•â•â• Pane Indicator Dots â•â•â• */}
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
         {slides.map((_, i) => (
           <button
@@ -260,7 +260,7 @@ export function NewsSlideshow() {
             }}
             className={`rounded-full transition-all duration-300 cursor-pointer ${
               i === currentSlide
-                ? "w-6 h-2 bg-white shadow-lg"
+                ? "w-6 h-2 bg-[#fefcf6] shadow-lg"
                 : "w-2 h-2 bg-white/40 hover:bg-white/60"
             }`}
             aria-label={`Go to slide ${i + 1}`}
@@ -268,7 +268,7 @@ export function NewsSlideshow() {
         ))}
       </div>
 
-      {/* ═══ "NEWS" persistent label ═══ */}
+      {/* â•â•â• "NEWS" persistent label â•â•â• */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
         <span className="text-[9px] font-extrabold tracking-[0.25em] uppercase text-white/30">
           Sol Theory News

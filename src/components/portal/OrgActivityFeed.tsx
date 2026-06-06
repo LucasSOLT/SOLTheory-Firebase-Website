@@ -119,7 +119,7 @@ export function OrgActivityFeed() {
             {filtered.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start gap-3 px-2 py-2.5 rounded-lg hover:bg-slate-50/70 transition-colors group"
+                className="flex items-start gap-3 px-2 py-2.5 rounded-lg hover:bg-[#faf6ed]/70 transition-colors group"
               >
                 {/* Icon */}
                 <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-slate-200/70 transition-colors">
@@ -139,7 +139,7 @@ export function OrgActivityFeed() {
 
                 {/* Time */}
                 <span className="text-[11px] text-slate-400 font-medium shrink-0 mt-1 tabular-nums">
-                  {item.timestamp ? timeAgo(item.timestamp.seconds) : '—'}
+                  {item.timestamp ? timeAgo(item.timestamp.seconds) : 'â€”'}
                 </span>
               </div>
             ))}

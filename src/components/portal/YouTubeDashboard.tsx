@@ -156,11 +156,11 @@ export function YouTubeDashboard() {
     
     // Check auth state
     if (!user) { 
-      setYtTestResult("❌ User is null — you may not be logged in. Please sign in and refresh."); 
+      setYtTestResult("âŒ User is null â€” you may not be logged in. Please sign in and refresh."); 
       return; 
     }
     if (!firestore) { 
-      setYtTestResult("❌ Firestore is null — Firebase services not ready."); 
+      setYtTestResult("âŒ Firestore is null â€” Firebase services not ready."); 
       return; 
     }
     
@@ -169,7 +169,7 @@ export function YouTubeDashboard() {
       const docData = docSnap.data();
       
       if (!docData) {
-        setYtTestResult(`❌ No user document found in Firestore for UID: ${user.uid}`);
+        setYtTestResult(`âŒ No user document found in Firestore for UID: ${user.uid}`);
         return;
       }
       
@@ -183,7 +183,7 @@ export function YouTubeDashboard() {
       const rToken = tokenLocations.gmailOAuth_jarvis || tokenLocations.gmailOAuth_morpheus || tokenLocations.gmailOAuth;
       
       if (!rToken) { 
-        setYtTestResult(`❌ No Google OAuth token found.\n\nToken locations checked:\n- gmailOAuth_jarvis: ${tokenLocations.gmailOAuth_jarvis ? '✅ found' : '❌ empty'}\n- gmailOAuth_morpheus: ${tokenLocations.gmailOAuth_morpheus ? '✅ found' : '❌ empty'}\n- gmailOAuth: ${tokenLocations.gmailOAuth ? '✅ found' : '❌ empty'}\n\n→ Go to Dashboard Settings and connect your Google account.`); 
+        setYtTestResult(`âŒ No Google OAuth token found.\n\nToken locations checked:\n- gmailOAuth_jarvis: ${tokenLocations.gmailOAuth_jarvis ? 'âœ… found' : 'âŒ empty'}\n- gmailOAuth_morpheus: ${tokenLocations.gmailOAuth_morpheus ? 'âœ… found' : 'âŒ empty'}\n- gmailOAuth: ${tokenLocations.gmailOAuth ? 'âœ… found' : 'âŒ empty'}\n\nâ†’ Go to Dashboard Settings and connect your Google account.`); 
         return; 
       }
       
@@ -194,14 +194,14 @@ export function YouTubeDashboard() {
       });
       const data = await res.json();
       if (data.hasYouTubeScope && data.channelInfo?.success) {
-        setYtTestResult(`✅ Connected! Channel: ${data.channelInfo.channelTitle}`);
+        setYtTestResult(`âœ… Connected! Channel: ${data.channelInfo.channelTitle}`);
       } else if (!data.hasYouTubeScope) {
-        setYtTestResult(`❌ Missing YouTube scope. Disconnect and reconnect Google in Dashboard Settings.\n\nCurrent scopes:\n${(data.scopes || "none").split(" ").join("\n")}`);
+        setYtTestResult(`âŒ Missing YouTube scope. Disconnect and reconnect Google in Dashboard Settings.\n\nCurrent scopes:\n${(data.scopes || "none").split(" ").join("\n")}`);
       } else {
-        setYtTestResult(`⚠️ YouTube scope present but API failed: ${data.channelInfo?.error}`);
+        setYtTestResult(`âš ï¸ YouTube scope present but API failed: ${data.channelInfo?.error}`);
       }
     } catch (err: any) {
-      setYtTestResult(`❌ Error: ${err.message}`);
+      setYtTestResult(`âŒ Error: ${err.message}`);
     }
   };
 
@@ -386,35 +386,35 @@ CRITICAL: When the user requests to make a VIDEO with an attached file, DO NOT c
 
 [ABSOLUTE RULES - YOU MUST FOLLOW THESE]:
 
-RULE 1 — DESCRIPTION FORMATTING: When generating the final description for the tool, format it dynamically based on this structure:
+RULE 1 â€” DESCRIPTION FORMATTING: When generating the final description for the tool, format it dynamically based on this structure:
 Video Title: [Title]
 [1-2 sentences hooked based on user input]
-🎯 [Optional CTA link]
+ðŸŽ¯ [Optional CTA link]
 In this video, you will learn:
-🥕 [Bullet 1]
-🥕 [Bullet 2]
-🥕 [Bullet 3]
-⏰ Timestamps:
+ðŸ¥• [Bullet 1]
+ðŸ¥• [Bullet 2]
+ðŸ¥• [Bullet 3]
+â° Timestamps:
 [User provided timestamps]
-📱 Connect with me:
+ðŸ“± Connect with me:
 ${strategy.socialLinks || "Instagram/TikTok: @YourChannelName"}
-☕ Support the Channel:
+â˜• Support the Channel:
 [Include permanent description/support links if user said yes to Q2]
 [Hashtags]
 
-RULE 2 — BREVITY: Your chat responses must be concise. You live in a tiny popup. NEVER output scripts, JSON, final descriptions, hashtags, or any video metadata in your chat reply. Ask the 5 questions clearly and wait for their answers. The dashboard handles displaying the final drafted data separately.
+RULE 2 â€” BREVITY: Your chat responses must be concise. You live in a tiny popup. NEVER output scripts, JSON, final descriptions, hashtags, or any video metadata in your chat reply. Ask the 5 questions clearly and wait for their answers. The dashboard handles displaying the final drafted data separately.
 
-RULE 3 — TOOL USAGE: When the user asks to draft or make a video AND has provided the answers to your 5 questions (if a video file is attached), you MUST call the \`draft_youtube_video\` tool. Pass the title, description, tags, and full script ONLY through the tool parameters. Do NOT write ANY of that content in your chat message.
+RULE 3 â€” TOOL USAGE: When the user asks to draft or make a video AND has provided the answers to your 5 questions (if a video file is attached), you MUST call the \`draft_youtube_video\` tool. Pass the title, description, tags, and full script ONLY through the tool parameters. Do NOT write ANY of that content in your chat message.
 
-RULE 4 — RESPONSE FORMAT: After calling the tool, your ENTIRE chat reply must be ONLY a brief confirmation like: "Done! I've pushed your draft to YouTube Studio and your Concept Board." Then append the tracking marker at the very end.
+RULE 4 â€” RESPONSE FORMAT: After calling the tool, your ENTIRE chat reply must be ONLY a brief confirmation like: "Done! I've pushed your draft to YouTube Studio and your Concept Board." Then append the tracking marker at the very end.
 
-RULE 5 — TRACKING MARKER: You MUST extract the ID and TYPE from the [YOUTUBE_METADATA] tag in the tool result, and append this marker to the very end of your brief confirmation: [DRAFT_CREATED: <Title> | <Description> | <Tags> | <YouTubeId> | <Type>]
-Full example of a correct response: "Done! Your video draft has been pushed to YouTube Studio — check your Concept Board! [DRAFT_CREATED: How To Start A Business | A beginner guide to entrepreneurship | business, startup, entrepreneur | ABC123XYZ | video]"
+RULE 5 â€” TRACKING MARKER: You MUST extract the ID and TYPE from the [YOUTUBE_METADATA] tag in the tool result, and append this marker to the very end of your brief confirmation: [DRAFT_CREATED: <Title> | <Description> | <Tags> | <YouTubeId> | <Type>]
+Full example of a correct response: "Done! Your video draft has been pushed to YouTube Studio â€” check your Concept Board! [DRAFT_CREATED: How To Start A Business | A beginner guide to entrepreneurship | business, startup, entrepreneur | ABC123XYZ | video]"
 
-RULE 6 — DEMOGRAPHIC UPDATES: If the user asks to change their target audience, confirm briefly and append: [DEMOGRAPHIC_UPDATED: <New Audience>]
+RULE 6 â€” DEMOGRAPHIC UPDATES: If the user asks to change their target audience, confirm briefly and append: [DEMOGRAPHIC_UPDATED: <New Audience>]
 
 NEVER output the script content, video metadata, JSON objects, or any long-form content in the chat.`,
-          brain: `You have real API tools. ALWAYS use draft_youtube_video tool when asked to make a video AND all requirements are met. Your chat reply must be concise. NEVER output scripts or metadata in chat. ${uploadedVideo ? 'A VIDEO FILE IS READY — Ask the 5 required questions FIRST before calling the tool. Once answered, call the tool.' : 'No video file uploaded yet.'}`,
+          brain: `You have real API tools. ALWAYS use draft_youtube_video tool when asked to make a video AND all requirements are met. Your chat reply must be concise. NEVER output scripts or metadata in chat. ${uploadedVideo ? 'A VIDEO FILE IS READY â€” Ask the 5 required questions FIRST before calling the tool. Once answered, call the tool.' : 'No video file uploaded yet.'}`,
           uid: user?.uid,
           refreshToken: rToken,
           contacts: [],
@@ -428,7 +428,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
       let aiResponseText = data.response || "No response generated.";
 
       // Parse AI response for tracking markers and update the Concept Board
-      // Parse Draft Concept — ALWAYS update local UI state first
+      // Parse Draft Concept â€” ALWAYS update local UI state first
       const draftMatch = aiResponseText.match(/\[DRAFT_CREATED:\s*(.*?)\s*\|\s*(.*?)(?:\s*\|\s*(.*?))?(?:\s*\|\s*(.*?))?(?:\s*\|\s*(.*?))?\]/);
       if (draftMatch) {
         const title = draftMatch[1].trim();
@@ -456,7 +456,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
           setUploadedVideo(null);
         }
         
-        // Also attempt to persist to Firestore (may fail if rules aren't deployed — that's okay)
+        // Also attempt to persist to Firestore (may fail if rules aren't deployed â€” that's okay)
         if (user && firestore) {
           try {
             await addDoc(collection(firestore, "users", user.uid, "youtube_drafts"), {
@@ -495,9 +495,9 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative">
+    <div className="flex flex-col h-full w-full bg-[#fefcf6] rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative">
       {/* Top Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white shrink-0">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-[#fefcf6] shrink-0">
         <div className="flex items-center gap-4">
           <button className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors">
             <Menu className="w-5 h-5" />
@@ -520,7 +520,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
       </header>
 
       {/* Main Content Layout */}
-      <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6">
+      <div className="flex-1 overflow-y-auto bg-[#faf6ed]/50 p-6">
         
         {/* Unified 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -530,7 +530,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
             
             {/* Top Summary Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+               <div className="bg-[#fefcf6] p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
                  <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
                    <Video className="w-6 h-6 text-indigo-600" />
                  </div>
@@ -543,7 +543,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                  </div>
                </div>
 
-               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+               <div className="bg-[#fefcf6] p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
                  <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
                    <Users className="w-6 h-6 text-red-600" />
                  </div>
@@ -559,7 +559,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
 
             {/* Channel Branding Header */}
             {channelBranding && (
-              <div className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-200 bg-white">
+              <div className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-200 bg-[#fefcf6]">
                 <div 
                   className="h-32 w-full bg-cover bg-center bg-slate-200" 
                   style={{ backgroundImage: `url(${channelBranding.bannerUrl})` }} 
@@ -585,7 +585,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                 className={`rounded-2xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center p-6 h-32 ${
                   isDragging 
                     ? 'border-fuchsia-400 bg-fuchsia-50/50 scale-[1.01]' 
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    : 'border-slate-200 bg-[#fefcf6] hover:border-slate-300 hover:bg-[#faf6ed]'
                 }`}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -619,7 +619,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                   className={`rounded-2xl border p-4 transition-all duration-300 cursor-pointer flex flex-col justify-center h-32 group hover:shadow-lg hover:shadow-fuchsia-500/20 hover:border-fuchsia-300 hover:scale-[1.02] active:scale-95 relative overflow-hidden ${
                     uploadedVideo?.id === vid.id 
                       ? 'border-fuchsia-500 bg-fuchsia-50 ring-2 ring-fuchsia-500/50 ring-offset-2' 
-                      : 'border-slate-200 bg-white'
+                      : 'border-slate-200 bg-[#fefcf6]'
                   }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -655,15 +655,15 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
             </div>
             {ytTestResult && (
               <div className={`text-xs p-3 rounded-lg whitespace-pre-wrap ${
-                ytTestResult.startsWith('✅') ? 'bg-green-50 text-green-700 border border-green-200' :
-                ytTestResult.startsWith('❌') ? 'bg-red-50 text-red-700 border border-red-200' :
+                ytTestResult.startsWith('âœ…') ? 'bg-green-50 text-green-700 border border-green-200' :
+                ytTestResult.startsWith('âŒ') ? 'bg-red-50 text-red-700 border border-red-200' :
                 'bg-blue-50 text-blue-700 border border-blue-200'
               }`}>
                 {ytTestResult}
               </div>
             )}
             
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100 min-h-[200px]">
+            <div className="bg-[#fefcf6] rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100 min-h-[200px]">
               {isFetchingDrafts ? (
                 <div className="p-8 flex items-center justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -678,7 +678,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                 const isExpanded = expandedDraftId === draft.id;
                 const isEditing = editingDraftId === draft.id;
                 return (
-                <div key={draft.id} className="p-5 hover:bg-slate-50/50 transition-colors">
+                <div key={draft.id} className="p-5 hover:bg-[#faf6ed]/50 transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center justify-between w-full">
@@ -719,7 +719,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                                 <textarea
                                   value={editForm.description}
                                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                  className="w-full min-h-[120px] text-xs text-slate-800 leading-relaxed bg-white p-3 rounded-xl border border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100 outline-none resize-y"
+                                  className="w-full min-h-[120px] text-xs text-slate-800 leading-relaxed bg-[#fefcf6] p-3 rounded-xl border border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100 outline-none resize-y"
                                   placeholder="Write your description here..."
                                 />
                               </div>
@@ -729,7 +729,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                                   type="text"
                                   value={editForm.tags}
                                   onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
-                                  className="w-full text-xs text-slate-800 bg-white p-3 rounded-xl border border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100 outline-none"
+                                  className="w-full text-xs text-slate-800 bg-[#fefcf6] p-3 rounded-xl border border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100 outline-none"
                                   placeholder="e.g. business, startup, entrepreneur"
                                 />
                               </div>
@@ -738,7 +738,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                             <>
                               <div>
                                 <p className="text-xs font-semibold text-slate-500 mb-1">Description</p>
-                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-white p-3 rounded-xl border border-slate-100">
+                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-[#fefcf6] p-3 rounded-xl border border-slate-100">
                                   {draft.description}
                                 </p>
                               </div>
@@ -783,7 +783,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                                 <button 
                                   onClick={() => setEditingDraftId(null)}
                                   disabled={isSavingDraft === draft.id}
-                                  className="px-3 py-1.5 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-md text-xs font-semibold transition-colors"
+                                  className="px-3 py-1.5 bg-[#fefcf6] text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed] border border-slate-200 rounded-md text-xs font-semibold transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -815,7 +815,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                                 <button 
                                   onClick={() => handleDeleteDraft(draft.id, draft.youtubeId, draft.youtubeType)}
                                   disabled={isDeletingDraft === draft.id}
-                                  className="px-3 py-1.5 bg-white text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-100 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5"
+                                  className="px-3 py-1.5 bg-[#fefcf6] text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-100 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5"
                                 >
                                   {isDeletingDraft === draft.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                   Delete Concept
@@ -852,10 +852,10 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
           <div className="lg:col-span-1 space-y-6">
             
             {/* Moved Strategy Control to Right Row */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-[#fefcf6] rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <button 
                 onClick={() => setIsStrategyExpanded(!isStrategyExpanded)}
-                className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                className="w-full flex items-center justify-between p-4 bg-[#faf6ed] hover:bg-slate-100 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <UserCheck className="w-4 h-4 text-fuchsia-500" />
@@ -865,7 +865,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
               </button>
               
               {isStrategyExpanded && (
-                <div className="p-4 relative bg-white border-t border-slate-100">
+                <div className="p-4 relative bg-[#fefcf6] border-t border-slate-100">
                   <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-fuchsia-50 rounded-full blur-3xl pointer-events-none" />
                   
                   <form onSubmit={handleUpdateStrategy} className="space-y-4 relative z-10">
@@ -875,7 +875,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                          type="text"
                          value={strategy.targetDemographic}
                          onChange={(e) => setStrategy({...strategy, targetDemographic: e.target.value})}
-                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
+                         className="w-full px-3 py-2 bg-[#faf6ed] border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -885,7 +885,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                            type="text"
                            value={strategy.tone}
                            onChange={(e) => setStrategy({...strategy, tone: e.target.value})}
-                           className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
+                           className="w-full px-3 py-2 bg-[#faf6ed] border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
                         />
                       </div>
                       <div>
@@ -894,7 +894,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                            type="text"
                            value={strategy.purpose}
                            onChange={(e) => setStrategy({...strategy, purpose: e.target.value})}
-                           className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
+                           className="w-full px-3 py-2 bg-[#faf6ed] border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
                         />
                       </div>
                     </div>
@@ -903,7 +903,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                       <textarea 
                          value={strategy.permanentDescription}
                          onChange={(e) => setStrategy({...strategy, permanentDescription: e.target.value})}
-                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none resize-none h-14 text-xs"
+                         className="w-full px-3 py-2 bg-[#faf6ed] border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none resize-none h-14 text-xs"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -912,7 +912,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                         <textarea 
                            value={strategy.socialLinks}
                            onChange={(e) => setStrategy({...strategy, socialLinks: e.target.value})}
-                           className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none resize-none h-10 text-xs"
+                           className="w-full px-3 py-2 bg-[#faf6ed] border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none resize-none h-10 text-xs"
                         />
                       </div>
                       <div>
@@ -921,7 +921,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                            type="email"
                            value={strategy.contactEmail}
                            onChange={(e) => setStrategy({...strategy, contactEmail: e.target.value})}
-                           className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
+                           className="w-full px-3 py-2 bg-[#faf6ed] border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-fuchsia-500 transition-all outline-none text-xs"
                         />
                       </div>
                     </div>
@@ -934,7 +934,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
            </div>
 
              {/* In-flow Chat Interface Window */}
-             <div className="w-full h-[500px] bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative z-20">
+             <div className="w-full h-[500px] bg-[#fefcf6] rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative z-20">
                <div className="bg-slate-900 text-white p-4 flex items-center justify-between shrink-0">
                  <div className="flex items-center gap-3">
                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
@@ -950,12 +950,12 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                </div>
                  
                  {/* Chat History Area */}
-                 <div className="flex-1 overflow-y-auto p-4 bg-slate-50 flex flex-col gap-4">
+                 <div className="flex-1 overflow-y-auto p-4 bg-[#faf6ed] flex flex-col gap-4">
                     <div className="flex gap-3">
                        <div className="w-8 h-8 rounded-full bg-fuchsia-100 flex items-center justify-center shrink-0">
                          <Sparkles className="w-4 h-4 text-fuchsia-600" />
                        </div>
-                       <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
+                       <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%]">
                           <p className="text-sm text-slate-700 leading-relaxed">
                             Select a video file on the left to begin preparing an upload.
                           </p>
@@ -978,7 +978,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.isSelf ? 'bg-slate-200 text-slate-600' : 'bg-fuchsia-100 text-fuchsia-600'}`}>
                            {msg.isSelf ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
                          </div>
-                         <div className={`border rounded-2xl p-3 shadow-sm max-w-[85%] ${msg.isSelf ? 'bg-slate-100 border-slate-200 rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
+                         <div className={`border rounded-2xl p-3 shadow-sm max-w-[85%] ${msg.isSelf ? 'bg-slate-100 border-slate-200 rounded-tr-sm' : 'bg-[#fefcf6] border-slate-200 rounded-tl-sm'}`}>
                             <div className={`text-sm text-slate-700 leading-relaxed`}>
                               {msg.isSelf ? msg.text : (
                                 <ReactMarkdown 
@@ -1001,7 +1001,7 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                          <div className="w-8 h-8 rounded-full bg-fuchsia-100 flex items-center justify-center shrink-0">
                            <Sparkles className="w-4 h-4 text-fuchsia-600" />
                          </div>
-                         <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm flex items-center gap-2">
+                         <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                             <span className="text-sm text-slate-500">Brainstorming...</span>
                          </div>
@@ -1011,14 +1011,14 @@ NEVER output the script content, video metadata, JSON objects, or any long-form 
                  </div>
 
                  {/* Input Area */}
-                 <div className="p-3 border-t border-slate-100 bg-white">
+                 <div className="p-3 border-t border-slate-100 bg-[#fefcf6]">
                     <div className="relative">
                       <input 
                         type="text" 
                         value={chatMessage}
                         onChange={(e) => setChatMessage(e.target.value)}
                         placeholder="Ask the Director..."
-                        className="w-full pl-4 pr-10 py-2.5 bg-slate-100 border-transparent focus:bg-white border focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100 rounded-xl text-sm transition-all outline-none text-slate-700"
+                        className="w-full pl-4 pr-10 py-2.5 bg-slate-100 border-transparent focus:bg-[#fefcf6] border focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100 rounded-xl text-sm transition-all outline-none text-slate-700"
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && chatMessage.trim()) {
                             handleSendMessage();

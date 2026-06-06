@@ -101,8 +101,8 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white z-10 shrink-0">
+      <div className="bg-[#fefcf6] rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-[#fefcf6] z-10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
               <Bot className="w-5 h-5 text-indigo-600" />
@@ -123,7 +123,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
 
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left Panel */}
-          <div className="w-full md:w-1/2 p-6 flex flex-col border-r border-slate-100 bg-slate-50 overflow-y-auto">
+          <div className="w-full md:w-1/2 p-6 flex flex-col border-r border-slate-100 bg-[#faf6ed] overflow-y-auto">
             {step === 2 && savedUrl ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
                 <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
@@ -131,7 +131,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
                 </div>
                 <h3 className="text-2xl font-black text-slate-800">Survey Published</h3>
                 <p className="text-slate-500 font-medium">Share this link with anyone to gather responses.</p>
-                <div className="flex items-center gap-2 mt-4 bg-white border border-slate-200 p-2 rounded-xl w-full">
+                <div className="flex items-center gap-2 mt-4 bg-[#fefcf6] border border-slate-200 p-2 rounded-xl w-full">
                   <input readOnly value={savedUrl} className="flex-1 text-sm bg-transparent outline-none px-2 font-medium text-slate-600" />
                   <Button onClick={handleCopyUrl} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg gap-2">
                     <Copy className="w-4 h-4" /> Copy
@@ -144,7 +144,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
                 <div className="flex-1">
                   <label className="block text-sm font-bold text-slate-700 mb-2">What do you want to survey people about?</label>
                   <textarea
-                    className="w-full h-48 md:h-full resize-none rounded-2xl border border-slate-200 p-4 outline-none focus:ring-2 focus:ring-indigo-500/50 bg-white text-sm font-medium text-slate-800"
+                    className="w-full h-48 md:h-full resize-none rounded-2xl border border-slate-200 p-4 outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#fefcf6] text-sm font-medium text-slate-800"
                     placeholder="E.g. I want to ask my team about how they felt regarding the recent office redesign. Did they like the open spaces? Is it too loud? What snacks do they want in the breakroom? Make it fun and casual..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -184,7 +184,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
                   <div className="space-y-2">
                     <button
                       onClick={() => setVisibility("organization")}
-                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "organization" ? "border-indigo-600 bg-indigo-50" : "border-slate-100 bg-white hover:border-slate-200"}`}
+                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "organization" ? "border-indigo-600 bg-indigo-50" : "border-slate-100 bg-[#fefcf6] hover:border-slate-200"}`}
                     >
                       <div className="flex items-center gap-3">
                         <Globe className={`w-5 h-5 ${visibility === "organization" ? "text-indigo-600" : "text-slate-400"}`} />
@@ -197,7 +197,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
 
                     <button
                       onClick={() => setVisibility("specific")}
-                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "specific" ? "border-indigo-600 bg-indigo-50" : "border-slate-100 bg-white hover:border-slate-200"}`}
+                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "specific" ? "border-indigo-600 bg-indigo-50" : "border-slate-100 bg-[#fefcf6] hover:border-slate-200"}`}
                     >
                       <div className="flex items-center gap-3">
                         <Lock className={`w-5 h-5 ${visibility === "specific" ? "text-indigo-600" : "text-slate-400"}`} />
@@ -252,7 +252,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
           </div>
 
           {/* Right Panel: Preview */}
-          <div className="w-full md:w-1/2 bg-white flex flex-col overflow-hidden relative">
+          <div className="w-full md:w-1/2 bg-[#fefcf6] flex flex-col overflow-hidden relative">
             {isLoading && step === 0 && (
               <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -282,19 +282,19 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
                           {i + 1}. {q.prompt}
                         </label>
                         {q.type === "text" && (
-                          <input disabled placeholder="Text response..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" />
+                          <input disabled placeholder="Text response..." className="w-full bg-[#faf6ed] border border-slate-200 rounded-xl px-4 py-3 text-sm" />
                         )}
                         {q.type === "rating" && (
                           <div className="flex gap-2">
                             {[1, 2, 3, 4, 5].map(n => (
-                              <div key={n} className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 font-bold bg-slate-50">{n}</div>
+                              <div key={n} className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 font-bold bg-[#faf6ed]">{n}</div>
                             ))}
                           </div>
                         )}
                         {q.type === "choice" && q.options && (
                           <div className="space-y-2">
                             {q.options.map((opt: string) => (
-                              <div key={opt} className="flex items-center gap-3 p-3 border border-slate-200 rounded-xl bg-slate-50">
+                              <div key={opt} className="flex items-center gap-3 p-3 border border-slate-200 rounded-xl bg-[#faf6ed]">
                                 <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
                                 <span className="text-sm font-medium text-slate-600">{opt}</span>
                               </div>
@@ -307,7 +307,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
                 </div>
 
                 {step === 1 && (
-                  <div className="p-6 border-t border-slate-100 bg-white flex gap-4 shrink-0">
+                  <div className="p-6 border-t border-slate-100 bg-[#fefcf6] flex gap-4 shrink-0">
                     <Button onClick={() => { setGeneratedSurvey(null); setStep(0); }} variant="outline" className="flex-1 h-12 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200 font-bold gap-2">
                       <Trash2 className="w-4 h-4" /> Delete Draft
                     </Button>

@@ -43,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   "Sale Completed": "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
-/* ─────────────────────────── NAV CONFIG ─────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ NAV CONFIG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 const crmNavItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -56,7 +56,7 @@ const crmNavItems = [
 
 type CrmView = (typeof crmNavItems)[number]["id"];
 
-/* ─────────────────────────── EMPTY STATES ────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ EMPTY STATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function EmptyContacts({ onAdd }: { onAdd: () => void }) {
   return (
@@ -121,7 +121,7 @@ function EmptyAnalytics() {
   );
 }
 
-/* ─────────────────────────── METRIC CARD ─────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ METRIC CARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function MetricCard({
   label,
@@ -137,10 +137,10 @@ function MetricCard({
   trend?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 flex flex-col gap-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)]">
+    <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] p-5 flex flex-col gap-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)]">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</span>
-        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-[#faf6ed] flex items-center justify-center">
           <Icon className="w-4 h-4 text-slate-400" />
         </div>
       </div>
@@ -164,7 +164,7 @@ export default function CRMPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
 
-  /* ─────────── ZUSTAND STORE ─────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ ZUSTAND STORE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const store = useCRMStore();
   const { customers, meetings, notifications, conversations, chatMessages, customTags, integrations,
     isLoading, isAddingContact, isDeducing, isSendingReply,
@@ -174,7 +174,7 @@ export default function CRMPage() {
     addJarvisMessage, runDeduction,
     setCustomTags, setIntegrations, showToast } = store;
 
-  /* ─────────── LOCAL UI STATE ─────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ LOCAL UI STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const [activeView, setActiveView] = useState<CrmView>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -301,7 +301,7 @@ export default function CRMPage() {
     const contactParts = [];
     if (emailSignature.phone) contactParts.push(emailSignature.phone);
     if (emailSignature.website) contactParts.push(emailSignature.website);
-    if (contactParts.length > 0) parts.push(`<p style="margin:2px 0 0 0;color:#9ca3af;font-size:12px;">${contactParts.join(" · ")}</p>`);
+    if (contactParts.length > 0) parts.push(`<p style="margin:2px 0 0 0;color:#9ca3af;font-size:12px;">${contactParts.join(" Â· ")}</p>`);
     return parts.length > 0 ? `<br/><div style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px;">${parts.join("")}</div>` : "";
   };
   const [showNotifications, setShowNotifications] = useState(false);
@@ -361,7 +361,7 @@ export default function CRMPage() {
       const data = await res.json();
       
       if (res.ok) {
-        showToast(`✅ Successfully sent ${data.sentCount} emails!`);
+        showToast(`âœ… Successfully sent ${data.sentCount} emails!`);
         setShowEmailModal(false);
         setEmailSubject("");
         setEmailBody("");
@@ -376,7 +376,7 @@ export default function CRMPage() {
     }
   };
 
-  /* ─────────── INITIALIZE FIRESTORE ─────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ INITIALIZE FIRESTORE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   useEffect(() => {
     if (user?.uid && db) {
       initializeStore(db, user.uid);
@@ -391,7 +391,7 @@ export default function CRMPage() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  /* ─────────── INBOX LOCAL UI ─────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ INBOX LOCAL UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const [activeConversation, setActiveConversation] = useState<string>("conv-1");
   const [inboxReply, setInboxReply] = useState("");
   const inboxChatEndRef = useRef<HTMLDivElement>(null);
@@ -420,7 +420,7 @@ export default function CRMPage() {
     updateTicketStatus(convId, status);
   };
 
-  /* ─────────── OMNI-SEARCH ─────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ OMNI-SEARCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -532,7 +532,7 @@ export default function CRMPage() {
   const SortIcon = ({k}:{k:SortKey}) => sortKey===k ? (sortDir==="asc" ? <ChevronUp className="w-3 h-3 inline ml-1"/> : <ChevronDown className="w-3 h-3 inline ml-1"/>) : null;
   const getRowTint = (tags: string[]) => { for (const t of tags) { if (TAG_ROW_TINTS[t]) return TAG_ROW_TINTS[t]; } return ""; };
 
-  /* ─────────── JARVIS AI COPILOT STATE ─────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ JARVIS AI COPILOT STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const [isJarvisOpen, setIsJarvisOpen] = useState(false);
   const [jarvisInput, setJarvisInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -546,24 +546,24 @@ export default function CRMPage() {
     const lower = input.toLowerCase().trim();
     addJarvisMessage({ id: `u-${Date.now()}`, role: "user", content: input, timestamp: new Date() });
 
-    // READ — show all
+    // READ â€” show all
     if (lower.includes("show") && (lower.includes("all") || lower.includes("contacts") || lower.includes("everyone"))) {
       if (customers.length === 0) { addJarvisMsg("Your contact list is currently empty. Want me to add someone?"); return; }
-      const summary = customers.map(c => `• **${c.firstName} ${c.lastName}** (${c.id}) — ${c.leadStatus}${c.tags.length ? ` [${c.tags.join(", ")}]` : ""}`).join("\n");
+      const summary = customers.map(c => `â€¢ **${c.firstName} ${c.lastName}** (${c.id}) â€” ${c.leadStatus}${c.tags.length ? ` [${c.tags.join(", ")}]` : ""}`).join("\n");
       addJarvisMsg(`Here are all ${customers.length} contacts:\n\n${summary}`); return;
     }
 
-    // READ — find specific contact
+    // READ â€” find specific contact
     if (lower.match(/\b(find|lookup|look up|show|who is|get)\s+/)) {
       const nameQuery = input.replace(/.*?\b(find|lookup|look up|show|who is|get)\s+/i, "").trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
-        addJarvisMsg(`📋 **${match.firstName} ${match.lastName}** (${match.id})\n\n📧 ${match.email || "No email"}\n📞 ${match.phone || "No phone"}\n🎂 ${match.birthday || "No birthday"}\n📊 Status: ${match.leadStatus}\n🏷️ Tags: ${match.tags.length ? match.tags.join(", ") : "None"}\n💰 Revenue: $${match.totalRevenue.toFixed(2)}\n🧠 AI Notes: ${match.aiNotes || "None yet"}`); return;
+        addJarvisMsg(`ðŸ“‹ **${match.firstName} ${match.lastName}** (${match.id})\n\nðŸ“§ ${match.email || "No email"}\nðŸ“ž ${match.phone || "No phone"}\nðŸŽ‚ ${match.birthday || "No birthday"}\nðŸ“Š Status: ${match.leadStatus}\nðŸ·ï¸ Tags: ${match.tags.length ? match.tags.join(", ") : "None"}\nðŸ’° Revenue: $${match.totalRevenue.toFixed(2)}\nðŸ§  AI Notes: ${match.aiNotes || "None yet"}`); return;
       }
       addJarvisMsg(`I couldn't find anyone matching "${nameQuery}". Try \"show all contacts\" to see who's in the system.`); return;
     }
 
-    // CREATE — add contact
+    // CREATE â€” add contact
     if (lower.match(/\b(add|create)\s+/)) {
       const parts = input.replace(/.*?\b(add|create)\s+(?:contact\s+)?/i, "").trim().split(/\s+/);
       if (parts.length < 2) { addJarvisMsg("Please provide at least a first and last name. Example: \"Add contact Jane Doe jane@test.com\""); return; }
@@ -573,10 +573,10 @@ export default function CRMPage() {
       const newId = `CUST-${String(customers.length + 1).padStart(3, "0")}`;
       const newCustomer: Customer = { id: newId, firstName, lastName, phone: phoneMatch || "", email: emailMatch || "", birthday: "", leadStatus: "Cold Lead", tags: [], totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
       addContact(newCustomer);
-      addJarvisMsg(`✅ Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
+      addJarvisMsg(`âœ… Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
     }
 
-    // UPDATE STATUS — set X to Y
+    // UPDATE STATUS â€” set X to Y
     if (lower.match(/\b(set|change|move|update status)\b/)) {
       const statusMap: Record<string, Customer["leadStatus"]> = { "cold": "Cold Lead", "cold lead": "Cold Lead", "warm": "Warm Lead", "warm lead": "Warm Lead", "interested": "Interested", "sale": "Sale Completed", "sale completed": "Sale Completed", "completed": "Sale Completed" };
       let foundStatus: Customer["leadStatus"] | null = null;
@@ -586,7 +586,7 @@ export default function CRMPage() {
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(cleaned.toLowerCase()));
       if (match) {
         handleStatusChange(match.id, foundStatus);
-        addJarvisMsg(`🔄 Updated **${match.firstName} ${match.lastName}** from ${match.leadStatus} → **${foundStatus}**.`); return;
+        addJarvisMsg(`ðŸ”„ Updated **${match.firstName} ${match.lastName}** from ${match.leadStatus} â†’ **${foundStatus}**.`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${cleaned}".`); return;
     }
@@ -597,16 +597,16 @@ export default function CRMPage() {
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
         deleteContact(match.id);
-        addJarvisMsg(`🗑️ Deleted **${match.firstName} ${match.lastName}** (${match.id}) from the CRM.`); return;
+        addJarvisMsg(`ðŸ—‘ï¸ Deleted **${match.firstName} ${match.lastName}** (${match.id}) from the CRM.`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}" to delete.`); return;
     }
 
-    // ANALYZE — add AI notes
+    // ANALYZE â€” add AI notes
     if (lower.match(/\b(analyze|note|insight)\b/)) {
       const body = input.replace(/.*?\b(analyze|note|insight)\s+/i, "").trim();
       const colonIdx = body.indexOf(":");
-      if (colonIdx === -1) { addJarvisMsg("Use the format: \"Analyze [Name]: [Your note]\" — e.g., \"Analyze Jane Doe: Very interested in automation\""); return; }
+      if (colonIdx === -1) { addJarvisMsg("Use the format: \"Analyze [Name]: [Your note]\" â€” e.g., \"Analyze Jane Doe: Very interested in automation\""); return; }
       const nameQuery = body.slice(0, colonIdx).trim();
       const noteText = body.slice(colonIdx + 1).trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
@@ -614,7 +614,7 @@ export default function CRMPage() {
         const stamp = `Jarvis Deduction (${new Date().toLocaleDateString()}): ${noteText}`;
         const newNotes = match.aiNotes ? match.aiNotes + "\n" + stamp : stamp;
         store.updateCustomer(match.id, { aiNotes: newNotes });
-        addJarvisMsg(`🧠 Added AI note to **${match.firstName} ${match.lastName}**:\n\n_${stamp}_`); return;
+        addJarvisMsg(`ðŸ§  Added AI note to **${match.firstName} ${match.lastName}**:\n\n_${stamp}_`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}".`); return;
     }
@@ -667,7 +667,7 @@ export default function CRMPage() {
       const capitalTitle = meetTitle.charAt(0).toUpperCase() + meetTitle.slice(1);
 
       scheduleMeeting(customer.id, `${customer.firstName} ${customer.lastName}`, capitalTitle, meetDate, meetTime, true, "jarvis");
-      addJarvisMsg(`📅 Done! I've scheduled a **${capitalTitle}** with **${customer.firstName} ${customer.lastName}** for **${meetDate}** at **${meetTime}**.\n\n✅ Synced to Google Calendar\n🔔 Notification created`); return;
+      addJarvisMsg(`ðŸ“… Done! I've scheduled a **${capitalTitle}** with **${customer.firstName} ${customer.lastName}** for **${meetDate}** at **${meetTime}**.\n\nâœ… Synced to Google Calendar\nðŸ”” Notification created`); return;
     }
 
     // FINANCIAL QUERIES
@@ -676,8 +676,8 @@ export default function CRMPage() {
       const numMatch = lower.match(/(\d+)/);
       const count = numMatch ? parseInt(numMatch[1]) : 5;
       const sorted = [...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, count);
-      const list = sorted.map((c, i) => `${i + 1}. **${c.firstName} ${c.lastName}** — $${c.totalRevenue.toFixed(2)}`).join("\n");
-      addJarvisMsg(`💰 Top ${count} customers by revenue:\n\n${list}`); return;
+      const list = sorted.map((c, i) => `${i + 1}. **${c.firstName} ${c.lastName}** â€” $${c.totalRevenue.toFixed(2)}`).join("\n");
+      addJarvisMsg(`ðŸ’° Top ${count} customers by revenue:\n\n${list}`); return;
     }
 
     if ((lower.includes("how much") || lower.includes("revenue") || lower.includes("money") || lower.includes("total")) && (lower.includes("cold") || lower.includes("warm") || lower.includes("interested") || lower.includes("completed") || lower.includes("sale"))) {
@@ -687,18 +687,18 @@ export default function CRMPage() {
       if (qStatus) {
         const filtered = customers.filter(c => c.leadStatus === qStatus);
         const total = filtered.reduce((sum, c) => sum + c.totalRevenue, 0);
-        addJarvisMsg(`💰 **${qStatus}** column:\n\n• Contacts: ${filtered.length}\n• Total Revenue: **$${total.toFixed(2)}**\n• Avg Revenue: $${filtered.length ? (total / filtered.length).toFixed(2) : "0.00"}`); return;
+        addJarvisMsg(`ðŸ’° **${qStatus}** column:\n\nâ€¢ Contacts: ${filtered.length}\nâ€¢ Total Revenue: **$${total.toFixed(2)}**\nâ€¢ Avg Revenue: $${filtered.length ? (total / filtered.length).toFixed(2) : "0.00"}`); return;
       }
     }
 
     if (lower.includes("total revenue") || lower.includes("overall revenue") || (lower.includes("how much") && lower.includes("total"))) {
       const total = customers.reduce((sum, c) => sum + c.totalRevenue, 0);
       const outstanding = customers.reduce((sum, c) => sum + c.outstandingBalance, 0);
-      addJarvisMsg(`💰 **Financial Summary**\n\n• Total Revenue: **$${total.toFixed(2)}**\n• Outstanding Balances: **$${outstanding.toFixed(2)}**\n• Contacts: ${customers.length}\n• Avg Revenue/Contact: $${customers.length ? (total / customers.length).toFixed(2) : "0.00"}`); return;
+      addJarvisMsg(`ðŸ’° **Financial Summary**\n\nâ€¢ Total Revenue: **$${total.toFixed(2)}**\nâ€¢ Outstanding Balances: **$${outstanding.toFixed(2)}**\nâ€¢ Contacts: ${customers.length}\nâ€¢ Avg Revenue/Contact: $${customers.length ? (total / customers.length).toFixed(2) : "0.00"}`); return;
     }
 
     // FALLBACK
-    addJarvisMsg("I'm not sure what you mean. Here's what I can do:\n\n• **show all contacts** — list everyone\n• **find [name]** — look up a contact\n• **add [first] [last] [email]** — create a contact\n• **set [name] to [status]** — update status\n• **delete [name]** — remove a contact\n• **analyze [name]: [note]** — add AI insight\n• **schedule meeting with [name] for [date] at [time]**\n• **top 5 customers by revenue** — leaderboard\n• **how much revenue in Warm Leads?** — status breakdown\n• **total revenue** — financial summary");
+    addJarvisMsg("I'm not sure what you mean. Here's what I can do:\n\nâ€¢ **show all contacts** â€” list everyone\nâ€¢ **find [name]** â€” look up a contact\nâ€¢ **add [first] [last] [email]** â€” create a contact\nâ€¢ **set [name] to [status]** â€” update status\nâ€¢ **delete [name]** â€” remove a contact\nâ€¢ **analyze [name]: [note]** â€” add AI insight\nâ€¢ **schedule meeting with [name] for [date] at [time]**\nâ€¢ **top 5 customers by revenue** â€” leaderboard\nâ€¢ **how much revenue in Warm Leads?** â€” status breakdown\nâ€¢ **total revenue** â€” financial summary");
   }, [customers, addJarvisMsg, handleStatusChange, setCustomers, scheduleMeeting]);
 
   const handleJarvisSend = () => {
@@ -707,7 +707,7 @@ export default function CRMPage() {
     setJarvisInput("");
   };
 
-  /* ─────────── AUTH GATE ─────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ AUTH GATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
@@ -722,7 +722,7 @@ export default function CRMPage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-xl p-10 max-w-md w-full mx-4 text-center space-y-6">
+        <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-xl p-10 max-w-md w-full mx-4 text-center space-y-6">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto shadow-lg">
             <Users className="w-8 h-8 text-white" />
           </div>
@@ -753,15 +753,15 @@ export default function CRMPage() {
       {/* Load cursive font for email signatures */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet" />
-      {/* ──── Mobile Sidebar Overlay ──── */}
+      {/* â”€â”€â”€â”€ Mobile Sidebar Overlay â”€â”€â”€â”€ */}
       {isMobileSidebarOpen && (
         <div className="fixed inset-0 z-[80] lg:hidden" onClick={() => setIsMobileSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
         </div>
       )}
 
-      {/* ──── CRM Sidebar ──── */}
-      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] bg-white border-r border-[#E5E7EB] shrink-0 transition-transform duration-200 ease-in-out ${
+      {/* â”€â”€â”€â”€ CRM Sidebar â”€â”€â”€â”€ */}
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] bg-[#fefcf6] border-r border-[#E5E7EB] shrink-0 transition-transform duration-200 ease-in-out ${
         isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}>
         {/* Sidebar Header */}
@@ -813,7 +813,7 @@ export default function CRMPage() {
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
                   isActive
                     ? "bg-indigo-50 text-indigo-700 font-semibold"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed]"
                 }`}
               >
                 <item.icon className={`w-[18px] h-[18px] ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
@@ -824,14 +824,14 @@ export default function CRMPage() {
         </nav>
       </aside>
 
-      {/* ──── Main Content Area ──── */}
+      {/* â”€â”€â”€â”€ Main Content Area â”€â”€â”€â”€ */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* ──── Top Navigation Bar ──── */}
-        <header className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-6 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)]">
+        {/* â”€â”€â”€â”€ Top Navigation Bar â”€â”€â”€â”€ */}
+        <header className="h-16 bg-[#fefcf6] border-b border-[#E5E7EB] flex items-center justify-between px-6 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)]">
           {/* Mobile nav toggle + breadcrumb */}
           <div className="flex items-center gap-3">
             {/* Hamburger menu (mobile) */}
-            <button onClick={() => setIsMobileSidebarOpen(true)} className="lg:hidden w-9 h-9 rounded-lg hover:bg-slate-50 flex items-center justify-center text-slate-500 cursor-pointer">
+            <button onClick={() => setIsMobileSidebarOpen(true)} className="lg:hidden w-9 h-9 rounded-lg hover:bg-[#faf6ed] flex items-center justify-center text-slate-500 cursor-pointer">
               <Menu className="w-5 h-5" />
             </button>
             {/* Breadcrumb (desktop) */}
@@ -857,7 +857,7 @@ export default function CRMPage() {
               />
               {/* Omni-Search Dropdown */}
               {isSearchFocused && searchQuery.trim() && (
-                <div className="absolute top-full left-0 mt-2 w-[420px] bg-white rounded-xl border border-[#E5E7EB] shadow-2xl z-[70] overflow-hidden">
+                <div className="absolute top-full left-0 mt-2 w-[420px] bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-2xl z-[70] overflow-hidden">
                   {!hasResults ? (
                     <div className="py-12 text-center">
                       <SearchX className="w-10 h-10 text-slate-200 mx-auto mb-3" />
@@ -869,15 +869,15 @@ export default function CRMPage() {
                       {/* Contacts */}
                       {omniResults && omniResults.contacts.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 bg-slate-50/80 border-b border-[#E5E7EB]">
+                          <div className="px-4 py-2 bg-[#faf6ed]/80 border-b border-[#E5E7EB]">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Users className="w-3 h-3" /> Contacts</span>
                           </div>
                           {omniResults.contacts.map(c => (
-                            <button key={c.id} onClick={() => { setViewingCustomer(c.id); setSearchQuery(""); setIsSearchFocused(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3 border-b border-slate-50">
+                            <button key={c.id} onClick={() => { setViewingCustomer(c.id); setSearchQuery(""); setIsSearchFocused(false); }} className="w-full text-left px-4 py-2.5 hover:bg-[#faf6ed] transition-colors cursor-pointer flex items-center gap-3 border-b border-slate-50">
                               <div className="w-7 h-7 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-[9px] border border-indigo-100 shrink-0">{c.firstName[0]}{c.lastName[0]}</div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-slate-800 truncate">{c.firstName} {c.lastName}</p>
-                                <p className="text-[10px] text-slate-400 truncate">{c.email} · {c.leadStatus}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{c.email} Â· {c.leadStatus}</p>
                               </div>
                               <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[c.leadStatus]||""}`}>{c.leadStatus}</span>
                             </button>
@@ -887,15 +887,15 @@ export default function CRMPage() {
                       {/* Calendar Events */}
                       {omniResults && omniResults.meetings.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 bg-slate-50/80 border-b border-[#E5E7EB]">
+                          <div className="px-4 py-2 bg-[#faf6ed]/80 border-b border-[#E5E7EB]">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Calendar Events</span>
                           </div>
                           {omniResults.meetings.map(m => (
-                            <div key={m.id} className="px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-3 border-b border-slate-50">
+                            <div key={m.id} className="px-4 py-2.5 hover:bg-[#faf6ed] transition-colors flex items-center gap-3 border-b border-slate-50">
                               <CalendarCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-slate-800 truncate">{m.title}</p>
-                                <p className="text-[10px] text-slate-400">{m.customerName} · {m.date} at {m.time}</p>
+                                <p className="text-[10px] text-slate-400">{m.customerName} Â· {m.date} at {m.time}</p>
                               </div>
                             </div>
                           ))}
@@ -904,11 +904,11 @@ export default function CRMPage() {
                       {/* Support Tickets */}
                       {omniResults && omniResults.tickets.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 bg-slate-50/80 border-b border-[#E5E7EB]">
+                          <div className="px-4 py-2 bg-[#faf6ed]/80 border-b border-[#E5E7EB]">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><MessageCircle className="w-3 h-3" /> Support Tickets</span>
                           </div>
                           {omniResults.tickets.map(t => (
-                            <button key={t.id} onClick={() => { setActiveView("inbox"); setActiveConversation(t.id); setSearchQuery(""); setIsSearchFocused(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3 border-b border-slate-50">
+                            <button key={t.id} onClick={() => { setActiveView("inbox"); setActiveConversation(t.id); setSearchQuery(""); setIsSearchFocused(false); }} className="w-full text-left px-4 py-2.5 hover:bg-[#faf6ed] transition-colors cursor-pointer flex items-center gap-3 border-b border-slate-50">
                               {channelIcon(t.channel)}
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-slate-800 truncate">{t.customerName}</p>
@@ -927,12 +927,12 @@ export default function CRMPage() {
 
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
-              <button onClick={() => setShowNotifications(!showNotifications)} className="relative w-9 h-9 rounded-lg hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+              <button onClick={() => setShowNotifications(!showNotifications)} className="relative w-9 h-9 rounded-lg hover:bg-[#faf6ed] flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
                 <Bell className="w-[18px] h-[18px]" />
                 {unreadCount > 0 && <span className="absolute top-1 right-1 w-4 h-4 bg-indigo-500 rounded-full ring-2 ring-white text-[9px] font-bold text-white flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-xl border border-[#E5E7EB] shadow-2xl z-[60] overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-96 bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-2xl z-[60] overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E7EB]">
                     <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
                     {notifications.length > 0 && <button onClick={() => markNotificationsRead()} className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer">Mark all read</button>}
@@ -942,7 +942,7 @@ export default function CRMPage() {
                       <div className="py-10 text-center"><Bell className="w-8 h-8 text-slate-200 mx-auto mb-2" /><p className="text-xs text-slate-400">No notifications yet</p></div>
                     ) : (
                       notifications.slice(0, 20).map(n => (
-                        <div key={n.id} className={`px-4 py-3 border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${!n.read ? "bg-indigo-50/30" : ""}`}>
+                        <div key={n.id} className={`px-4 py-3 border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors ${!n.read ? "bg-indigo-50/30" : ""}`}>
                           <div className="flex items-start gap-2.5">
                             <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${n.type === "meeting" ? "bg-emerald-50" : "bg-indigo-50"}`}>
                               {n.type === "meeting" ? <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Bell className="w-3.5 h-3.5 text-indigo-600" />}
@@ -964,7 +964,7 @@ export default function CRMPage() {
             <div className="w-px h-7 bg-[#E5E7EB] hidden md:block" />
 
             {/* User Profile */}
-            <button className="flex items-center gap-2.5 hover:bg-slate-50 rounded-lg py-1.5 px-2 transition-colors cursor-pointer">
+            <button className="flex items-center gap-2.5 hover:bg-[#faf6ed] rounded-lg py-1.5 px-2 transition-colors cursor-pointer">
               <Avatar className="h-8 w-8 ring-1 ring-slate-200">
                 <AvatarImage src={user?.photoURL || undefined} />
                 <AvatarFallback className="bg-indigo-50 text-indigo-600 font-bold text-xs">
@@ -982,7 +982,7 @@ export default function CRMPage() {
           </div>
         </header>
 
-        {/* ──── Scrollable Content ──── */}
+        {/* â”€â”€â”€â”€ Scrollable Content â”€â”€â”€â”€ */}
         <main className="flex-1 overflow-y-auto p-5 md:p-8">
           {/* Skeleton Loading */}
           {isLoading ? (
@@ -993,7 +993,7 @@ export default function CRMPage() {
             <DashboardSkeleton />
           ) : (
           <>
-          {/* ═══════════ DASHBOARD VIEW ═══════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â• DASHBOARD VIEW â•â•â•â•â•â•â•â•â•â•â• */}
           {activeView === "dashboard" && (
             <div className="max-w-[1400px] mx-auto space-y-6">
               {/* Page Title */}
@@ -1005,7 +1005,7 @@ export default function CRMPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-[0_1px_2px_0_rgba(0,0,0,0.04)] cursor-pointer">
+                  <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-sm font-medium text-slate-600 hover:bg-[#faf6ed] transition-colors shadow-[0_1px_2px_0_rgba(0,0,0,0.04)] cursor-pointer">
                     <Download className="w-3.5 h-3.5" />
                     Export
                   </button>
@@ -1048,7 +1048,7 @@ export default function CRMPage() {
               </div>
 
               {/* Recent Contacts Table Card */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
                   <h2 className="text-sm font-bold text-slate-700">Recent Contacts</h2>
                   <button className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer">
@@ -1061,7 +1061,7 @@ export default function CRMPage() {
                 ) : (
                   <div className="overflow-x-auto"><table className="w-full text-sm"><tbody>
                     {customers.slice(0,5).map(c => (
-                      <tr key={c.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
+                      <tr key={c.id} className={`border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
                         <td className="py-3 pl-6 pr-2 w-10">
                           <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                         </td>
@@ -1076,7 +1076,7 @@ export default function CRMPage() {
             </div>
           )}
 
-          {/* ═══════════ CONTACTS VIEW ═══════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â• CONTACTS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
           {activeView === "contacts" && (
             <div className="max-w-[1400px] mx-auto space-y-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1086,17 +1086,17 @@ export default function CRMPage() {
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-                    <button onClick={() => setContactsViewMode("table")} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors cursor-pointer ${contactsViewMode === "table" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Table View</button>
-                    <button onClick={() => setContactsViewMode("pipeline")} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors cursor-pointer ${contactsViewMode === "pipeline" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Pipeline View</button>
+                    <button onClick={() => setContactsViewMode("table")} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors cursor-pointer ${contactsViewMode === "table" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Table View</button>
+                    <button onClick={() => setContactsViewMode("pipeline")} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors cursor-pointer ${contactsViewMode === "pipeline" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Pipeline View</button>
                   </div>
                   <div className="hidden sm:block w-px h-6 bg-slate-200"></div>
                   <div className="relative">
-                    <button onClick={() => setShowFilterPanel(!showFilterPanel)} className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${hasActiveFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}>
+                    <button onClick={() => setShowFilterPanel(!showFilterPanel)} className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${hasActiveFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'}`}>
                       <Filter className="w-3.5 h-3.5" />Filter
                       {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
                     </button>
                     {showFilterPanel && (
-                      <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-[#E5E7EB] shadow-xl z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
+                      <div className="absolute right-0 top-full mt-2 w-80 bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-xl z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                           <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filters</h4>
                           <div className="flex items-center gap-2">
@@ -1110,7 +1110,7 @@ export default function CRMPage() {
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Tags</label>
                             <div className="flex flex-wrap gap-1.5">
                               {allTags.map(tag => (
-                                <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all cursor-pointer ${tagFilter === tag ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                                <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all cursor-pointer ${tagFilter === tag ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-[#faf6ed] border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
                                   {tag}
                                 </button>
                               ))}
@@ -1122,7 +1122,7 @@ export default function CRMPage() {
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Lead Status</label>
                             <div className="grid grid-cols-2 gap-1.5">
                               {['New', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost'].map(status => (
-                                <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${statusFilter === status ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                                <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${statusFilter === status ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-[#faf6ed] border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
                                   {status}
                                 </button>
                               ))}
@@ -1140,7 +1140,7 @@ export default function CRMPage() {
                         </div>
                         {/* Active filter summary */}
                         {hasActiveFilters && (
-                          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/50">
+                          <div className="px-4 py-2.5 border-t border-slate-100 bg-[#faf6ed]/50">
                             <p className="text-[10px] text-slate-500">
                               Showing {filteredSortedCustomers.length} of {customers.length} contacts
                             </p>
@@ -1154,7 +1154,7 @@ export default function CRMPage() {
               </div>
               
               {contactsViewMode === "table" ? (
-                <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+                <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
                   {/* Search + Tag Filter Bar */}
                   <div className="px-6 py-4 border-b border-[#E5E7EB] flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <div className="relative w-full sm:w-72">
@@ -1177,7 +1177,7 @@ export default function CRMPage() {
                   ) : (
                     <div className="overflow-x-auto -mx-0">
                       <table className="w-full text-sm min-w-[700px]">
-                        <thead className="bg-slate-50/60">
+                        <thead className="bg-[#faf6ed]/60">
                           <tr className="border-b border-[#E5E7EB]">
                             <th className="w-12 py-3.5 pl-5">
                               <input 
@@ -1197,7 +1197,7 @@ export default function CRMPage() {
                         </thead>
                         <tbody>
                           {filteredSortedCustomers.map(c => (
-                            <tr key={c.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
+                            <tr key={c.id} className={`border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
                               <td className="py-3.5 pl-5">
                                 <input 
                                   type="checkbox" 
@@ -1214,7 +1214,7 @@ export default function CRMPage() {
                               </td>
                               <td className="py-3.5 px-4 text-slate-600">{c.email}</td>
                               <td className="py-3.5 px-4 text-slate-600">{c.phone}</td>
-                              <td className="py-3.5 px-4"><div className="flex flex-wrap gap-1">{c.tags.map(t=>(<span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${TAG_COLORS[t]||"bg-slate-50 text-slate-600 border-slate-200"}`}>{t}</span>))}</div></td>
+                              <td className="py-3.5 px-4"><div className="flex flex-wrap gap-1">{c.tags.map(t=>(<span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${TAG_COLORS[t]||"bg-[#faf6ed] text-slate-600 border-slate-200"}`}>{t}</span>))}</div></td>
                               <td className="py-3.5 px-4">
                                 <select value={c.leadStatus} onChange={(e) => handleStatusChange(c.id, e.target.value as Customer["leadStatus"])} className={`text-[10px] font-semibold px-2 py-1 rounded-full border outline-none cursor-pointer appearance-none ${STATUS_COLORS[c.leadStatus]||""}`}>
                                   <option value="Cold Lead">Cold Lead</option><option value="Warm Lead">Warm Lead</option><option value="Interested">Interested</option><option value="Sale Completed">Sale Completed</option>
@@ -1243,7 +1243,7 @@ export default function CRMPage() {
                           status === "Warm Lead" ? "text-orange-700" :
                           status === "Interested" ? "text-purple-700" : "text-emerald-700"
                         }`}>{status}</h3>
-                        <span className="text-xs font-semibold text-slate-400 bg-white px-2 py-0.5 rounded-md shadow-sm">
+                        <span className="text-xs font-semibold text-slate-400 bg-[#fefcf6] px-2 py-0.5 rounded-md shadow-sm">
                           {customers.filter(c => c.leadStatus === status).length}
                         </span>
                       </div>
@@ -1253,7 +1253,7 @@ export default function CRMPage() {
                             key={c.id}
                             draggable
                             onDragStart={(e) => handleDragStart(e, c.id)}
-                            className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors"
+                            className="bg-[#fefcf6] p-4 rounded-lg shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors"
                           >
                             <div className="flex justify-between items-start mb-2">
                               <h4 className="font-semibold text-slate-800 text-sm">{c.firstName} {c.lastName}</h4>
@@ -1265,9 +1265,9 @@ export default function CRMPage() {
                             </div>
                             <div className="flex flex-wrap gap-1">
                               {c.tags.slice(0, 2).map(t => (
-                                <span key={t} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${TAG_COLORS[t]||"bg-slate-50 text-slate-600 border-slate-200"}`}>{t}</span>
+                                <span key={t} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${TAG_COLORS[t]||"bg-[#faf6ed] text-slate-600 border-slate-200"}`}>{t}</span>
                               ))}
-                              {c.tags.length > 2 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-600 border-slate-200">+{c.tags.length - 2}</span>}
+                              {c.tags.length > 2 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-[#faf6ed] text-slate-600 border-slate-200">+{c.tags.length - 2}</span>}
                             </div>
                           </div>
                         ))}
@@ -1285,14 +1285,14 @@ export default function CRMPage() {
           )}
 
 
-          {/* ═══════════ CUSTOMER PROFILE VIEW ═══════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â• CUSTOMER PROFILE VIEW â•â•â•â•â•â•â•â•â•â•â• */}
           {viewingCustomer && (() => {
             const c = customers.find(x => x.id === viewingCustomer);
             if (!c) return null;
             const customerMeetings = meetings.filter(m => m.customerId === c.id);
             return (
               <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setViewingCustomer(null)}>
-                <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                   {/* Profile Header */}
                   <div className="px-6 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -1312,15 +1312,15 @@ export default function CRMPage() {
                   <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
                     {/* Contact Info */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Email</span><span className="text-sm text-slate-700">{c.email || "—"}</span></div>
-                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Phone</span><span className="text-sm text-slate-700">{c.phone || "—"}</span></div>
-                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Birthday</span><span className="text-sm text-slate-700">{c.birthday || "—"}</span></div>
+                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Email</span><span className="text-sm text-slate-700">{c.email || "â€”"}</span></div>
+                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Phone</span><span className="text-sm text-slate-700">{c.phone || "â€”"}</span></div>
+                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Birthday</span><span className="text-sm text-slate-700">{c.birthday || "â€”"}</span></div>
                       <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Revenue</span><span className="text-sm text-slate-700">${c.totalRevenue.toFixed(2)}</span></div>
                     </div>
 
                     {/* Tags */}
                     {c.tags.length > 0 && (
-                      <div><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Tags</span><div className="flex flex-wrap gap-1.5">{c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${TAG_COLORS[t]||"bg-slate-50 text-slate-600 border-slate-200"}`}>{t}</span>)}</div></div>
+                      <div><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Tags</span><div className="flex flex-wrap gap-1.5">{c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${TAG_COLORS[t]||"bg-[#faf6ed] text-slate-600 border-slate-200"}`}>{t}</span>)}</div></div>
                     )}
 
                     {/* AI Notes + Deduce Button */}
@@ -1349,7 +1349,7 @@ export default function CRMPage() {
                       )}
                     </div>
 
-                    {/* ── Financials Card ── */}
+                    {/* â”€â”€ Financials Card â”€â”€ */}
                     <div className="border-t border-[#E5E7EB] pt-5">
                       <div className="flex items-center gap-2 mb-4">
                         <DollarSign className="w-4 h-4 text-emerald-600" />
@@ -1388,7 +1388,7 @@ export default function CRMPage() {
                       </div>
                     </div>
 
-                    {/* ── Schedule Meeting Section ── */}
+                    {/* â”€â”€ Schedule Meeting Section â”€â”€ */}
                     <div className="border-t border-[#E5E7EB] pt-5">
                       <div className="flex items-center gap-2 mb-4">
                         <Calendar className="w-4 h-4 text-indigo-600" />
@@ -1442,7 +1442,7 @@ export default function CRMPage() {
                                 <CalendarCheck className="w-4 h-4 text-emerald-600" />
                                 <div>
                                   <p className="text-xs font-semibold text-slate-700">{m.title}</p>
-                                  <p className="text-[10px] text-slate-400">{m.date} at {m.time} {m.syncToGoogle && "· Google Calendar"}</p>
+                                  <p className="text-[10px] text-slate-400">{m.date} at {m.time} {m.syncToGoogle && "Â· Google Calendar"}</p>
                                 </div>
                               </div>
                               <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{m.createdBy === "jarvis" ? "Via Jarvis" : "Manual"}</span>
@@ -1457,7 +1457,7 @@ export default function CRMPage() {
             );
           })()}
 
-          {/* ═══════════ INBOX VIEW ═══════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â• INBOX VIEW â•â•â•â•â•â•â•â•â•â•â• */}
           {activeView === "inbox" && (() => {
             const activeConv = conversations.find(c => c.id === activeConversation);
             return (
@@ -1466,7 +1466,7 @@ export default function CRMPage() {
                   <h1 className="text-xl font-bold text-slate-800 tracking-tight">Unified Inbox</h1>
                   <p className="text-sm text-slate-400 mt-0.5">All customer communications in one place.</p>
                 </div>
-                <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden flex" style={{ height: "calc(100vh - 220px)" }}>
+                <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden flex" style={{ height: "calc(100vh - 220px)" }}>
                   {/* Left: Conversation List */}
                   <div className="w-[340px] shrink-0 border-r border-[#E5E7EB] flex flex-col">
                     <div className="px-4 py-3 border-b border-[#E5E7EB]">
@@ -1480,7 +1480,7 @@ export default function CRMPage() {
                         <button
                           key={conv.id}
                           onClick={() => { setActiveConversation(conv.id); markConversationRead(conv.id); }}
-                          className={`w-full text-left px-4 py-3.5 border-b border-slate-50 hover:bg-slate-50/70 transition-colors cursor-pointer flex gap-3 ${
+                          className={`w-full text-left px-4 py-3.5 border-b border-slate-50 hover:bg-[#faf6ed]/70 transition-colors cursor-pointer flex gap-3 ${
                             activeConversation === conv.id ? "bg-indigo-50/40" : ""
                           }`}
                         >
@@ -1516,7 +1516,7 @@ export default function CRMPage() {
                     {activeConv ? (
                       <>
                         {/* Ticket Header */}
-                        <div className="px-5 py-3.5 bg-white border-b border-[#E5E7EB] flex items-center justify-between shrink-0">
+                        <div className="px-5 py-3.5 bg-[#fefcf6] border-b border-[#E5E7EB] flex items-center justify-between shrink-0">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-[10px] border border-slate-200">
                               {activeConv.customerName.split(" ").map(n => n[0]).join("")}
@@ -1525,7 +1525,7 @@ export default function CRMPage() {
                               <h3 className="text-sm font-bold text-slate-800">{activeConv.customerName}</h3>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 {channelIcon(activeConv.channel)}
-                                <span className="text-[10px] text-slate-400">{channelLabel(activeConv.channel)} · Case #{activeConv.id.replace("conv-", "")}</span>
+                                <span className="text-[10px] text-slate-400">{channelLabel(activeConv.channel)} Â· Case #{activeConv.id.replace("conv-", "")}</span>
                               </div>
                             </div>
                           </div>
@@ -1550,7 +1550,7 @@ export default function CRMPage() {
                               <div className={`max-w-[70%] px-4 py-2.5 rounded-xl text-[13px] leading-relaxed ${
                                 msg.sender === "agent"
                                   ? "bg-indigo-600 text-white rounded-br-md"
-                                  : "bg-white text-slate-700 border border-[#E5E7EB] rounded-bl-md shadow-sm"
+                                  : "bg-[#fefcf6] text-slate-700 border border-[#E5E7EB] rounded-bl-md shadow-sm"
                               }`}>
                                 <p>{msg.text}</p>
                                 <p className={`text-[9px] mt-1.5 ${msg.sender === "agent" ? "text-indigo-200" : "text-slate-400"}`}>
@@ -1563,7 +1563,7 @@ export default function CRMPage() {
                         </div>
 
                         {/* Reply Input */}
-                        <div className="px-5 py-3.5 bg-white border-t border-[#E5E7EB] shrink-0">
+                        <div className="px-5 py-3.5 bg-[#fefcf6] border-t border-[#E5E7EB] shrink-0">
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
@@ -1597,7 +1597,7 @@ export default function CRMPage() {
             );
           })()}
 
-          {/* ═══════════ ANALYTICS VIEW ═══════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â• ANALYTICS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
           {activeView === "analytics" && (() => {
             const totalRevenue = customers.reduce((s, c) => s + c.totalRevenue, 0);
             const totalOutstanding = customers.reduce((s, c) => s + c.outstandingBalance, 0);
@@ -1645,8 +1645,8 @@ export default function CRMPage() {
 
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Bar Chart — Revenue by Lead Status */}
-                  <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] p-6">
+                  {/* Bar Chart â€” Revenue by Lead Status */}
+                  <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] p-6">
                     <h2 className="text-sm font-bold text-slate-700 mb-1">Revenue by Lead Status</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Breakdown of total revenue across pipeline stages</p>
                     {customers.length === 0 ? (
@@ -1668,8 +1668,8 @@ export default function CRMPage() {
                     )}
                   </div>
 
-                  {/* Line Chart — Revenue Over Time */}
-                  <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] p-6">
+                  {/* Line Chart â€” Revenue Over Time */}
+                  <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] p-6">
                     <h2 className="text-sm font-bold text-slate-700 mb-1">Revenue Over Time</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Monthly revenue trend from transactions</p>
                     <ResponsiveContainer width="100%" height={260}>
@@ -1685,7 +1685,7 @@ export default function CRMPage() {
                 </div>
 
                 {/* Revenue Leaderboard Table */}
-                <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+                <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
                   <div className="px-6 py-4 border-b border-[#E5E7EB]">
                     <h2 className="text-sm font-bold text-slate-700">Top Customers by Revenue</h2>
                   </div>
@@ -1694,7 +1694,7 @@ export default function CRMPage() {
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-slate-50/60">
+                        <thead className="bg-[#faf6ed]/60">
                           <tr className="border-b border-[#E5E7EB]">
                             <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3 pl-6 pr-4">Rank</th>
                             <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3 px-4">Customer</th>
@@ -1705,7 +1705,7 @@ export default function CRMPage() {
                         </thead>
                         <tbody>
                           {[...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 10).map((c, i) => (
-                            <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <tr key={c.id} className="border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors">
                               <td className="py-3 pl-6 pr-4"><span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${i < 3 ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500"}`}>{i + 1}</span></td>
                               <td className="py-3 px-4 font-semibold text-slate-800">{c.firstName} {c.lastName}</td>
                               <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[c.leadStatus]||""}`}>{c.leadStatus}</span></td>
@@ -1721,7 +1721,7 @@ export default function CRMPage() {
               </div>
             );
           })()}
-          {/* ═══════════ SETTINGS VIEW ═══════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â• SETTINGS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
           {activeView === "settings" && (
             <div className="max-w-[900px] mx-auto space-y-6">
               <div>
@@ -1730,7 +1730,7 @@ export default function CRMPage() {
               </div>
 
               {/* Tag Manager */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
                 <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center gap-2">
                   <Palette className="w-4 h-4 text-indigo-600" />
                   <h2 className="text-sm font-bold text-slate-700">Tag Manager</h2>
@@ -1746,7 +1746,7 @@ export default function CRMPage() {
                             <input
                               value={tag.name}
                               onChange={e => setCustomTags(prev => prev.map((t, i) => i === idx ? { ...t, name: e.target.value } : t))}
-                              className="flex-1 h-8 px-2 text-sm rounded-md border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                              className="flex-1 h-8 px-2 text-sm rounded-md border border-[#E5E7EB] bg-[#fefcf6] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                             <input
                               type="color"
@@ -1760,7 +1760,7 @@ export default function CRMPage() {
                           <>
                             <span className="flex-1 text-sm font-medium text-slate-700">{tag.name}</span>
                             <span className="text-[10px] text-slate-400 font-mono">{tag.color}</span>
-                            <button onClick={() => setEditingTagIdx(idx)} className="w-7 h-7 rounded-md hover:bg-white flex items-center justify-center text-slate-400 hover:text-indigo-600 cursor-pointer"><Edit3 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => setEditingTagIdx(idx)} className="w-7 h-7 rounded-md hover:bg-[#fefcf6] flex items-center justify-center text-slate-400 hover:text-indigo-600 cursor-pointer"><Edit3 className="w-3.5 h-3.5" /></button>
                             <button onClick={() => setCustomTags(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 rounded-md hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 cursor-pointer"><Trash className="w-3.5 h-3.5" /></button>
                           </>
                         )}
@@ -1795,7 +1795,7 @@ export default function CRMPage() {
               </div>
 
               {/* Integrations */}
-              <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
                 <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center gap-2">
                   <Link2 className="w-4 h-4 text-indigo-600" />
                   <h2 className="text-sm font-bold text-slate-700">Integrations</h2>
@@ -1853,7 +1853,7 @@ export default function CRMPage() {
             </div>
           )}
 
-          {/* ═══════════ CAMPAIGNS VIEW ═══════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â• CAMPAIGNS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
           {activeView === "campaigns" && (
             <CampaignCalendar />
           )}
@@ -1864,9 +1864,9 @@ export default function CRMPage() {
 
       <ToastContainer />
 
-      {/* ══════ FLOATING BULK ACTIONS BAR ══════ */}
+      {/* â•â•â•â•â•â• FLOATING BULK ACTIONS BAR â•â•â•â•â•â• */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[85] bg-white rounded-xl border border-[#E5E7EB] shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[85] bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200">
           <span className="text-sm font-semibold text-slate-700">{selectedIds.size} selected</span>
           <div className="w-px h-6 bg-slate-200"></div>
           <button onClick={() => setShowEmailModal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer">
@@ -1885,10 +1885,10 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* ══════ EMAIL CAMPAIGN MODAL ══════ */}
+      {/* â•â•â•â•â•â• EMAIL CAMPAIGN MODAL â•â•â•â•â•â• */}
       {showEmailModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setShowSignatureEditor(false); setShowDrafts(false); }}>
-          <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col" style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
+          <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col" style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] shrink-0 bg-gradient-to-r from-indigo-50/50 to-white">
               <div className="flex items-center gap-3">
@@ -1899,7 +1899,7 @@ export default function CRMPage() {
                   <h2 className="text-lg font-bold text-slate-800">Email Campaign</h2>
                   <p className="text-xs text-slate-400 flex items-center gap-2">
                     <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedCustomers.filter(c => c.email).length} recipients</span>
-                    <span className="text-slate-300">·</span>
+                    <span className="text-slate-300">Â·</span>
                     <span>{selectedCustomers.length} selected</span>
                   </p>
                 </div>
@@ -1907,19 +1907,19 @@ export default function CRMPage() {
               <div className="flex items-center gap-2">
                 {/* Tab Switcher */}
                 <div className="flex bg-slate-100 rounded-lg p-0.5">
-                  <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Compose</button>
-                  <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Preview</button>
+                  <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Compose</button>
+                  <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Preview</button>
                 </div>
                 <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
               </div>
             </div>
 
             {/* Recipients Bar */}
-            <div className="px-6 py-3 border-b border-[#E5E7EB] bg-slate-50/50 shrink-0">
+            <div className="px-6 py-3 border-b border-[#E5E7EB] bg-[#faf6ed]/50 shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To:</span>
                 {selectedCustomers.slice(0, 8).map(c => (
-                  <span key={c.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-600 shadow-sm">
+                  <span key={c.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fefcf6] border border-slate-200 text-[11px] font-medium text-slate-600 shadow-sm">
                     <span className="w-3.5 h-3.5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[7px] font-bold">{c.firstName[0]}</span>
                     {c.firstName} {c.lastName}
                   </span>
@@ -1930,24 +1930,24 @@ export default function CRMPage() {
 
             {/* Body */}
             <div className="flex-1 overflow-hidden flex">
-              {/* Compose Panel — hidden when Preview tab is active on mobile */}
+              {/* Compose Panel â€” hidden when Preview tab is active on mobile */}
               <div className={`flex-1 flex flex-col overflow-y-auto ${emailTab === "preview" ? "hidden" : ""}`}>
                 <div className="px-6 py-5 space-y-4 flex-1">
                   {/* Subject */}
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Subject Line</label>
-                    <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full h-11 px-4 text-sm font-medium rounded-lg border border-[#E5E7EB] bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" placeholder="e.g. Exciting update for our valued partners" />
+                    <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full h-11 px-4 text-sm font-medium rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" placeholder="e.g. Exciting update for our valued partners" />
                   </div>
 
-                  {/* Email Body — LARGER */}
+                  {/* Email Body â€” LARGER */}
                   <div className="flex-1 flex flex-col">
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Email Body</label>
-                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className="w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed" placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
+                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className="w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed" placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
                   </div>
 
                   {/* Signature Block */}
                   <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-[#faf6ed]">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Edit3 className="w-3 h-3" />Email Signature</span>
                       <button onClick={() => setShowSignatureEditor(!showSignatureEditor)} className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer">
                         {emailSignature ? "Edit" : "+ Add Signature"}
@@ -1961,7 +1961,7 @@ export default function CRMPage() {
                           <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-slate-800" : "font-bold"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
                         )}
                         {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
-                        {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" · ")}</p>}
+                        {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Â· ")}</p>}
                       </div>
                     )}
                     {showSignatureEditor && (
@@ -1972,11 +1972,11 @@ export default function CRMPage() {
                           <div className="flex items-center gap-3">
                             {sigForm.logoUrl ? (
                               <div className="relative group">
-                                <img src={sigForm.logoUrl} alt="Logo" className="h-10 max-w-[120px] rounded border border-slate-200 object-contain bg-white p-1" />
+                                <img src={sigForm.logoUrl} alt="Logo" className="h-10 max-w-[120px] rounded border border-slate-200 object-contain bg-[#fefcf6] p-1" />
                                 <button onClick={() => setSigForm(f => ({...f, logoUrl: ""}))} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><X className="w-2.5 h-2.5" /></button>
                               </div>
                             ) : null}
-                            <label className="px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-[11px] font-medium text-slate-500 hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 transition-colors">
+                            <label className="px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-[11px] font-medium text-slate-500 hover:bg-[#faf6ed] cursor-pointer flex items-center gap-1.5 transition-colors">
                               <ImagePlus className="w-3 h-3" />{isUploadingLogo ? "Uploading..." : sigForm.logoUrl ? "Change" : "Upload Logo"}
                               <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                             </label>
@@ -1994,7 +1994,7 @@ export default function CRMPage() {
                           </div>
                         </div>
                         {/* Cursive toggle */}
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#faf6ed] border border-slate-100">
                           <PenTool className="w-3.5 h-3.5 text-indigo-500" />
                           <div className="flex-1">
                             <p className="text-[11px] font-semibold text-slate-600">Cursive Signature</p>
@@ -2005,7 +2005,7 @@ export default function CRMPage() {
                           </button>
                         </div>
                         {sigForm.useCursive && sigForm.name && (
-                          <div className="px-3 py-2 bg-white rounded-lg border border-slate-200">
+                          <div className="px-3 py-2 bg-[#fefcf6] rounded-lg border border-slate-200">
                             <p className="text-[9px] text-slate-400 mb-1 uppercase tracking-wider font-semibold">Preview</p>
                             <p className="text-2xl text-slate-800" style={{ fontFamily: "'Dancing Script', cursive" }}>{sigForm.name}</p>
                           </div>
@@ -2032,7 +2032,7 @@ export default function CRMPage() {
                         </div>
                         <div className="flex items-center gap-2 pt-1">
                           <button onClick={saveSignature} className="px-4 py-1.5 rounded-lg bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer">Save Signature</button>
-                          <button onClick={() => setShowSignatureEditor(false)} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-medium text-slate-500 hover:bg-slate-50 cursor-pointer">Cancel</button>
+                          <button onClick={() => setShowSignatureEditor(false)} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-medium text-slate-500 hover:bg-[#faf6ed] cursor-pointer">Cancel</button>
                         </div>
                       </div>
                     )}
@@ -2040,15 +2040,15 @@ export default function CRMPage() {
                 </div>
               </div>
 
-              {/* Preview Panel — full-width when Preview tab is active */}
-              <div className={`flex flex-col overflow-y-auto ${emailTab === "preview" ? "flex-1" : "hidden lg:flex lg:w-[380px] lg:shrink-0"} border-l border-[#E5E7EB] bg-slate-50`}>
-                <div className="px-5 py-3 border-b border-slate-200 bg-white">
+              {/* Preview Panel â€” full-width when Preview tab is active */}
+              <div className={`flex flex-col overflow-y-auto ${emailTab === "preview" ? "flex-1" : "hidden lg:flex lg:w-[380px] lg:shrink-0"} border-l border-[#E5E7EB] bg-[#faf6ed]`}>
+                <div className="px-5 py-3 border-b border-slate-200 bg-[#fefcf6]">
                   <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />Email Preview</h4>
                 </div>
                 <div className="flex-1 p-5 flex justify-center">
-                  <div className={`bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full ${emailTab === "preview" ? "max-w-2xl" : ""}`}>
+                  <div className={`bg-[#fefcf6] rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full ${emailTab === "preview" ? "max-w-2xl" : ""}`}>
                     {/* Fake email header */}
-                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <div className="px-6 py-4 border-b border-slate-100 bg-[#faf6ed]/50">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">{(emailSignature?.name || user?.displayName || "Y")[0]}</div>
                         <div>
@@ -2071,7 +2071,7 @@ export default function CRMPage() {
                             <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-slate-800" : "font-bold text-slate-700"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
                           )}
                           {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
-                          {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" · ")}</p>}
+                          {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Â· ")}</p>}
                         </div>
                       )}
                     </div>
@@ -2081,7 +2081,7 @@ export default function CRMPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-3 border-t border-[#E5E7EB] bg-slate-50/80 shrink-0">
+            <div className="flex items-center justify-between px-6 py-3 border-t border-[#E5E7EB] bg-[#faf6ed]/80 shrink-0">
               <div className="flex items-center gap-3">
                 <span className="text-[11px] text-slate-400 font-medium">{selectedCustomers.filter(c => c.email).length} of {selectedCustomers.length} have email</span>
                 {/* Draft controls */}
@@ -2090,7 +2090,7 @@ export default function CRMPage() {
                     <Download className="w-3 h-3" />{campaignDrafts.length > 0 ? `Drafts (${campaignDrafts.length})` : "Drafts"}
                   </button>
                   {showDrafts && (
-                    <div className="absolute bottom-full left-0 mb-2 w-72 bg-white rounded-xl border border-slate-200 shadow-xl z-10 overflow-hidden">
+                    <div className="absolute bottom-full left-0 mb-2 w-72 bg-[#fefcf6] rounded-xl border border-slate-200 shadow-xl z-10 overflow-hidden">
                       <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-700">Saved Drafts</span>
                         <button onClick={() => setShowDrafts(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
@@ -2099,7 +2099,7 @@ export default function CRMPage() {
                         {campaignDrafts.length === 0 ? (
                           <p className="px-4 py-4 text-xs text-slate-400 text-center">No drafts saved yet</p>
                         ) : campaignDrafts.map(draft => (
-                          <div key={draft.id} className="px-4 py-2.5 border-b border-slate-50 hover:bg-slate-50 flex items-center justify-between group cursor-pointer" onClick={() => loadDraft(draft)}>
+                          <div key={draft.id} className="px-4 py-2.5 border-b border-slate-50 hover:bg-[#faf6ed] flex items-center justify-between group cursor-pointer" onClick={() => loadDraft(draft)}>
                             <div className="min-w-0">
                               <p className="text-xs font-semibold text-slate-700 truncate">{draft.subject || "(No subject)"}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">{new Date(draft.savedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
@@ -2113,8 +2113,8 @@ export default function CRMPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={saveDraft} disabled={!emailSubject.trim()} className="px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"><Download className="w-3 h-3" />Save Draft</button>
-                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
+                <button onClick={saveDraft} disabled={!emailSubject.trim()} className="px-3 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-xs font-medium text-slate-600 hover:bg-[#faf6ed] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"><Download className="w-3 h-3" />Save Draft</button>
+                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-xs font-medium text-slate-600 hover:bg-[#faf6ed] cursor-pointer">Cancel</button>
                 <button disabled={!emailSubject.trim() || !emailBody.trim() || isSendingCampaign} onClick={handleSendCampaign} className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-xs font-bold text-white hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer">
                   {isSendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   {isSendingCampaign ? "Sending..." : "Send Campaign"}
@@ -2125,7 +2125,7 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* ══════ JARVIS COPILOT TOGGLE ══════ */}
+      {/* â•â•â•â•â•â• JARVIS COPILOT TOGGLE â•â•â•â•â•â• */}
       <button
         onClick={() => setIsJarvisOpen(!isJarvisOpen)}
         className={`fixed bottom-6 right-6 z-[90] w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all cursor-pointer ${isJarvisOpen ? "bg-slate-700 hover:bg-slate-800" : "bg-indigo-600 hover:bg-indigo-700"} text-white`}
@@ -2133,9 +2133,9 @@ export default function CRMPage() {
         {isJarvisOpen ? <X className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
       </button>
 
-      {/* ══════ JARVIS COPILOT SIDEBAR ══════ */}
+      {/* â•â•â•â•â•â• JARVIS COPILOT SIDEBAR â•â•â•â•â•â• */}
       <div className={`fixed top-0 right-0 h-full z-[80] transition-transform duration-300 ease-in-out ${isJarvisOpen ? "translate-x-0" : "translate-x-full"}`}>
-        <div className="w-[380px] h-full bg-white border-l border-[#E5E7EB] shadow-2xl flex flex-col">
+        <div className="w-[380px] h-full bg-[#fefcf6] border-l border-[#E5E7EB] shadow-2xl flex flex-col">
           {/* Header */}
           <div className="h-16 flex items-center justify-between px-5 border-b border-[#E5E7EB] shrink-0">
             <div className="flex items-center gap-2.5">
@@ -2169,7 +2169,7 @@ export default function CRMPage() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-[#E5E7EB] px-4 py-3 shrink-0 bg-white">
+          <div className="border-t border-[#E5E7EB] px-4 py-3 shrink-0 bg-[#fefcf6]">
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -2192,10 +2192,10 @@ export default function CRMPage() {
         </div>
       </div>
 
-      {/* ══════ ADD CONTACT MODAL ══════ */}
+      {/* â•â•â•â•â•â• ADD CONTACT MODAL â•â•â•â•â•â• */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={()=>{setShowAddModal(false);resetForm();}}>
-          <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e=>e.stopPropagation()}>
+          <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e=>e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#E5E7EB]">
               <h2 className="text-lg font-bold text-slate-800">Add New Contact</h2>
               <button onClick={()=>{setShowAddModal(false);resetForm();}} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer"><X className="w-4 h-4"/></button>
@@ -2215,15 +2215,15 @@ export default function CRMPage() {
                 <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Tags</label><input value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="VIP, Enterprise"/></div>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#E5E7EB] bg-slate-50/50">
-              <button onClick={()=>{setShowAddModal(false);resetForm();}} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#E5E7EB] bg-[#faf6ed]/50">
+              <button onClick={()=>{setShowAddModal(false);resetForm();}} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-sm font-medium text-slate-600 hover:bg-[#faf6ed] cursor-pointer">Cancel</button>
               <button onClick={handleAddContact} disabled={!form.firstName.trim()||!form.lastName.trim()} className="px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer">Add Contact</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ══════ TOAST NOTIFICATIONS ══════ */}
+      {/* â•â•â•â•â•â• TOAST NOTIFICATIONS â•â•â•â•â•â• */}
       <ToastContainer />
     </div>
   );

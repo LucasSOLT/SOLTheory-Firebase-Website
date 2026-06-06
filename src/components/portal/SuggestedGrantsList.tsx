@@ -39,7 +39,7 @@ const STATUS_PILLS: Record<
   },
   unapplied: {
     label: "Un-Applied",
-    bg: "bg-slate-50",
+    bg: "bg-[#faf6ed]",
     text: "text-slate-500",
     border: "border-slate-200",
   },
@@ -52,12 +52,12 @@ function getCardBg(status: string): string {
     case "denied":
       return "bg-red-50/40 border-red-100/70";
     default:
-      return "bg-white border-slate-100";
+      return "bg-[#fefcf6] border-slate-100";
   }
 }
 
 function formatCurrency(amount: number | null): string {
-  if (amount == null) return "—";
+  if (amount == null) return "â€”";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -134,7 +134,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
         result = result.filter((g) => g.status === "approved" || g.status === "denied");
         break;
       default:
-        break; // "none" — show all
+        break; // "none" â€” show all
     }
 
     // Sort: most recently suggested first
@@ -172,7 +172,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-1 text-[8px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg px-2 py-1 transition-colors cursor-pointer"
+            className="flex items-center gap-1 text-[8px] font-bold text-slate-500 uppercase tracking-wider bg-[#faf6ed] hover:bg-slate-100 border border-slate-200/80 rounded-lg px-2 py-1 transition-colors cursor-pointer"
           >
             <span>{activeFilterLabel}</span>
             <ChevronDown
@@ -181,7 +181,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 z-[60] bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[120px] animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="absolute right-0 top-full mt-1 z-[60] bg-[#fefcf6] border border-slate-200 rounded-xl shadow-lg py-1 min-w-[120px] animate-in fade-in slide-in-from-top-1 duration-150">
               {FILTER_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
@@ -192,7 +192,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                   className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-[9px] font-semibold transition-colors cursor-pointer ${
                     filter === opt.key
                       ? "text-indigo-600 bg-indigo-50/60"
-                      : "text-slate-600 hover:bg-slate-50"
+                      : "text-slate-600 hover:bg-[#faf6ed]"
                   }`}
                 >
                   <span>{opt.label}</span>
@@ -213,7 +213,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
 
       {/* Scrollable list */}
       {filteredGrants.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200/60">
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-[#faf6ed]/50 rounded-xl border border-dashed border-slate-200/60">
           <ScrollText className="w-5 h-5 text-slate-300 mb-1.5" />
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
             {filter === "none" ? "No Suggested Grants" : `No ${activeFilterLabel} Grants`}
@@ -280,7 +280,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                   >
                     {pill.label}
                   </span>
-                  {/* Delete button — visible on hover */}
+                  {/* Delete button â€” visible on hover */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

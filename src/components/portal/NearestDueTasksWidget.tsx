@@ -35,9 +35,9 @@ function formatDueLabel(dueDate: any) {
   const days = Math.floor(absDiff / (1000 * 60 * 60 * 24));
 
   if (isOverdue) {
-    if (days > 0) return `Overdue · ${days}d`;
-    if (hours > 0) return `Overdue · ${hours}h`;
-    if (mins > 0) return `Overdue · ${mins}m`;
+    if (days > 0) return `Overdue Â· ${days}d`;
+    if (hours > 0) return `Overdue Â· ${hours}h`;
+    if (mins > 0) return `Overdue Â· ${mins}m`;
     return "Overdue";
   } else {
     if (days > 0) return `Due in ${days}d`;
@@ -48,12 +48,12 @@ function formatDueLabel(dueDate: any) {
 }
 
 function formatTimestamp(ts: any): string {
-  if (!ts) return "—";
+  if (!ts) return "â€”";
   try {
     const d = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   } catch {
-    return "—";
+    return "â€”";
   }
 }
 
@@ -219,7 +219,7 @@ export function NearestDueTasksWidget() {
                 onClick={() => setFilter(f)}
                 className={`px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer capitalize ${
                   filter === f
-                    ? 'bg-white text-slate-900 shadow-sm'
+                    ? 'bg-[#fefcf6] text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -253,7 +253,7 @@ export function NearestDueTasksWidget() {
                 <div
                   key={task.id}
                   onClick={() => setSelectedTask(task)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50/60 transition-colors group cursor-pointer"
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-[#faf6ed]/60 transition-colors group cursor-pointer"
                 >
                   {/* Priority indicator bar */}
                   <div className={`w-1 h-10 rounded-full shrink-0 ${isOverdue ? 'bg-rose-400' : 'bg-amber-400'}`} />
@@ -264,7 +264,7 @@ export function NearestDueTasksWidget() {
                       {task.title}
                     </p>
                     <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
-                      {task.assignedToName || "Unassigned"} · {task.column}
+                      {task.assignedToName || "Unassigned"} Â· {task.column}
                     </p>
                   </div>
 
@@ -276,7 +276,7 @@ export function NearestDueTasksWidget() {
                         : "bg-amber-50 text-amber-600 border border-amber-200"
                     }`}
                   >
-                    {isOverdue && "🔴 "}{dueLabel}
+                    {isOverdue && "ðŸ”´ "}{dueLabel}
                   </span>
 
                   {/* Assignee avatar */}
@@ -284,7 +284,7 @@ export function NearestDueTasksWidget() {
                     {task.assignedToName ? task.assignedToName.charAt(0) : "?"}
                   </div>
 
-                  {/* Open arrow — navigates to action board */}
+                  {/* Open arrow â€” navigates to action board */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -301,14 +301,14 @@ export function NearestDueTasksWidget() {
         </div>
       </div>
 
-      {/* ══ Task Detail Popup ══ */}
+      {/* â•â• Task Detail Popup â•â• */}
       {selectedTask && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
           onClick={() => setSelectedTask(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-hidden flex flex-col"
+            className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -421,7 +421,7 @@ export function NearestDueTasksWidget() {
                   </h4>
                   <div className="space-y-2">
                     {selectedTask.comments.map((c, i) => (
-                      <div key={i} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                      <div key={i} className="bg-[#faf6ed] rounded-xl p-3 border border-slate-100">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-semibold text-slate-800">{c.authorName}</span>
                           <span className="text-[10px] text-slate-400">{formatTimestamp(c.createdAt)}</span>

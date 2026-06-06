@@ -25,7 +25,7 @@ export default function UploadCalendarPage() {
   return (
     <div className="flex-1 flex flex-col h-full bg-[#faf6ed] overflow-y-auto">
       {/* Header */}
-      <header className="px-8 py-6 border-b border-slate-200 bg-white sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="px-8 py-6 border-b border-slate-200 bg-[#fefcf6] sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-200">
             <CalendarDays className="w-6 h-6" />
@@ -45,7 +45,7 @@ export default function UploadCalendarPage() {
       {/* Main Content */}
       <div className="p-8 max-w-7xl mx-auto w-full">
         {/* Calendar Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           {/* Calendar Toolbar */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <h2 className="text-xl font-bold text-slate-800">
@@ -76,7 +76,7 @@ export default function UploadCalendarPage() {
             
             <div className="grid grid-cols-7 gap-2">
               {blanks.map(blank => (
-                <div key={`blank-${blank}`} className="aspect-square rounded-xl border border-dashed border-slate-100 bg-slate-50/30" />
+                <div key={`blank-${blank}`} className="aspect-square rounded-xl border border-dashed border-slate-100 bg-[#faf6ed]/30" />
               ))}
               
               {days.map(day => {
@@ -86,7 +86,7 @@ export default function UploadCalendarPage() {
                   <div 
                     key={day} 
                     className={`aspect-square p-2 rounded-xl border flex flex-col group transition-all hover:border-emerald-300 hover:shadow-md cursor-pointer ${
-                      isToday ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50/50'
+                      isToday ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-[#fefcf6] border-slate-200 hover:bg-[#faf6ed]/50'
                     }`}
                   >
                     <div className="flex justify-between items-start">
@@ -104,7 +104,7 @@ export default function UploadCalendarPage() {
           </div>
 
           {/* Legend */}
-          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center gap-6 text-xs font-medium text-slate-500">
+          <div className="px-6 py-4 border-t border-slate-100 bg-[#faf6ed]/50 flex items-center gap-6 text-xs font-medium text-slate-500">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500" />
               <span>Today</span>
@@ -121,7 +121,7 @@ export default function UploadCalendarPage() {
         </div>
 
         {/* Empty State */}
-        <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-8 text-center">
+        <div className="mt-6 bg-[#fefcf6] border border-slate-200 rounded-2xl p-8 text-center">
           <CalendarDays className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-slate-700 mb-1">No scheduled posts yet</h3>
           <p className="text-sm text-slate-500 max-w-md mx-auto">Click on any calendar day or use the "Schedule Post" button to plan your first automated upload across Instagram, Facebook, and YouTube.</p>

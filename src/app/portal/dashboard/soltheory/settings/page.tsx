@@ -35,7 +35,7 @@ const t = {
     integrations: "Integrations",
     gmailConnection: "Google Account Connection",
     gmailDesc: "Connect your Google account to let the AI agent read and reply to your inbound emails automatically.",
-    gmailConnected: "✓ Google Account Connected Successfully",
+    gmailConnected: "âœ“ Google Account Connected Successfully",
     connectGmail: "Connect Google Account",
     connected: "Connected",
     syncInbox: "Refresh Account",
@@ -58,51 +58,51 @@ const t = {
     languageSelect: "Select Interface Language",
     languageSelectDesc: "Choose your preferred language for the entire platform interface.",
     english: "English (US)",
-    spanish: "Español (ES)"
+    spanish: "EspaÃ±ol (ES)"
   },
   es: {
-    settings: "Configuración",
+    settings: "ConfiguraciÃ³n",
     profile: "Perfil",
     notifications: "Notificaciones",
     security: "Seguridad",
-    regionLanguage: "Región e Idioma",
-    publicProfile: "Perfil Público",
-    personalizeInfo: "Personaliza cómo te presentas ante tu organización y los agentes de IA.",
+    regionLanguage: "RegiÃ³n e Idioma",
+    publicProfile: "Perfil PÃºblico",
+    personalizeInfo: "Personaliza cÃ³mo te presentas ante tu organizaciÃ³n y los agentes de IA.",
     displayName: "Nombre para Mostrar",
     accountEmail: "Correo de la Cuenta (Solo Lectura)",
-    location: "Ubicación / Zona Horaria",
-    bio: "Biografía y Contexto",
-    bioPlaceholder: "Escribe una breve biografía. Los agentes de IA internos pueden usar esto para entender tu contexto.",
+    location: "UbicaciÃ³n / Zona Horaria",
+    bio: "BiografÃ­a y Contexto",
+    bioPlaceholder: "Escribe una breve biografÃ­a. Los agentes de IA internos pueden usar esto para entender tu contexto.",
     cancel: "Cancelar",
     saveChanges: "Guardar Cambios",
     saving: "Guardando...",
     integrations: "Integraciones",
-    gmailConnection: "Conexión de Google",
-    gmailDesc: "Conecta tu cuenta de Google para permitir que el agente de IA lea y responda tus correos entrantes automáticamente.",
-    gmailConnected: "✓ Google Conectado Exitosamente",
+    gmailConnection: "ConexiÃ³n de Google",
+    gmailDesc: "Conecta tu cuenta de Google para permitir que el agente de IA lea y responda tus correos entrantes automÃ¡ticamente.",
+    gmailConnected: "âœ“ Google Conectado Exitosamente",
     connectGmail: "Conectar Google",
     connected: "Conectado",
     syncInbox: "Sincronizar Bandeja",
     syncing: "Sincronizando...",
     dailyDigest: "Resumen Diario",
-    dailyDigestDesc: "Recibe un resumen diario de las métricas de tu organización.",
+    dailyDigestDesc: "Recibe un resumen diario de las mÃ©tricas de tu organizaciÃ³n.",
     systemAlerts: "Alertas del Sistema",
-    systemAlertsDesc: "Notificaciones críticas sobre actualizaciones de la plataforma.",
+    systemAlertsDesc: "Notificaciones crÃ­ticas sobre actualizaciones de la plataforma.",
     smsAlerts: "Alertas SMS",
     smsAlertsDesc: "Recibe mensajes de texto para eventos urgentes de seguridad.",
-    passwordReset: "Restablecer Contraseña",
-    passwordResetDesc: "Actualiza la contraseña de tu cuenta de forma segura.",
+    passwordReset: "Restablecer ContraseÃ±a",
+    passwordResetDesc: "Actualiza la contraseÃ±a de tu cuenta de forma segura.",
     sendResetLink: "Enviar Enlace",
-    twoFactor: "Autenticación de Dos Factores",
-    twoFactorDesc: "Añade una capa extra de seguridad a tu cuenta.",
+    twoFactor: "AutenticaciÃ³n de Dos Factores",
+    twoFactorDesc: "AÃ±ade una capa extra de seguridad a tu cuenta.",
     enable2fa: "Activar 2FA",
     activeSessions: "Sesiones Activas",
-    activeSessionsDesc: "Gestiona los dispositivos con sesión iniciada en tu cuenta.",
+    activeSessionsDesc: "Gestiona los dispositivos con sesiÃ³n iniciada en tu cuenta.",
     logoutAll: "Cerrar Todas las Sesiones",
     languageSelect: "Seleccionar Idioma de la Interfaz",
     languageSelectDesc: "Elige tu idioma preferido para toda la interfaz de la plataforma.",
-    english: "Inglés (US)",
-    spanish: "Español (ES)"
+    english: "InglÃ©s (US)",
+    spanish: "EspaÃ±ol (ES)"
   }
 };
 
@@ -224,7 +224,7 @@ function SettingsContent() {
     }
   }, [searchParams, user, firestore, isUserLoading]);
 
-  // ── QuickBooks OAuth callback handling ──
+  // â”€â”€ QuickBooks OAuth callback handling â”€â”€
   useEffect(() => {
     if (isUserLoading) return;
 
@@ -327,7 +327,7 @@ function SettingsContent() {
     }
   };
 
-  // ── iMessage / BlueBubbles handlers ──
+  // â”€â”€ iMessage / BlueBubbles handlers â”€â”€
   const handleTestImessage = async () => {
     if (!imServerUrl.trim() || !imPassword.trim()) {
       setImMessage("Please enter both server URL and password.");
@@ -339,12 +339,12 @@ function SettingsContent() {
       const res = await fetch(`/api/imessage/ping?serverUrl=${encodeURIComponent(imServerUrl.trim())}&password=${encodeURIComponent(imPassword.trim())}`);
       const data = await res.json();
       if (data.connected) {
-        setImMessage("✓ Connection successful!");
+        setImMessage("âœ“ Connection successful!");
       } else {
-        setImMessage(`✗ ${data.message || "Connection failed."}`);
+        setImMessage(`âœ— ${data.message || "Connection failed."}`);
       }
     } catch (err: any) {
-      setImMessage(`✗ ${err.message}`);
+      setImMessage(`âœ— ${err.message}`);
     } finally {
       setImTesting(false);
     }
@@ -360,9 +360,9 @@ function SettingsContent() {
         imessagePassword: imPassword.trim(),
       }, { merge: true });
       setImConnected(true);
-      setImMessage("✓ iMessage connection saved!");
+      setImMessage("âœ“ iMessage connection saved!");
     } catch (err: any) {
-      setImMessage(`✗ Failed to save: ${err.message}`);
+      setImMessage(`âœ— Failed to save: ${err.message}`);
     } finally {
       setImSaving(false);
       setTimeout(() => setImMessage(""), 4000);
@@ -381,7 +381,7 @@ function SettingsContent() {
       setImPassword("");
       setImMessage("");
     } catch (err: any) {
-      setImMessage(`✗ Failed to disconnect: ${err.message}`);
+      setImMessage(`âœ— Failed to disconnect: ${err.message}`);
     }
   };
 
@@ -418,7 +418,7 @@ function SettingsContent() {
   const dict = t[lang];
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-slate-50 text-slate-800">
+    <div className="flex flex-col h-full overflow-y-auto bg-[#faf6ed] text-slate-800">
       <main className="flex-grow py-8 px-4 md:px-8 relative">
         <div className="w-full max-w-5xl mx-auto space-y-6">
           <div className="flex items-center gap-4 relative z-20">
@@ -431,7 +431,7 @@ function SettingsContent() {
             <div className="w-full md:w-64 flex flex-col gap-6 shrink-0">
               
               {/* User Profile Box */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col items-center text-center">
+              <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col items-center text-center">
                 <div className="w-20 h-20 rounded-full bg-slate-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center text-2xl font-bold text-slate-700 mb-3">
                   {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : (user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                 </div>
@@ -442,31 +442,31 @@ function SettingsContent() {
               <div className="space-y-2">
                 <button 
                   onClick={() => setActiveTab('general')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'general' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'general' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
                 >
                   <Settings className="w-5 h-5" /> General
                 </button>
                 <button 
                   onClick={() => setActiveTab('profile')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'profile' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'profile' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
                 >
                   <User className="w-5 h-5" /> {dict.profile}
                 </button>
                 <button 
                   onClick={() => setActiveTab('notifications')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'notifications' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'notifications' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
                 >
                   <Bell className="w-5 h-5" /> {dict.notifications}
                 </button>
                 <button 
                   onClick={() => setActiveTab('security')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'security' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'security' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
                 >
                   <Lock className="w-5 h-5" /> {dict.security}
                 </button>
                 <button 
                   onClick={() => setActiveTab('language')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'language' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'language' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
                 >
                   <Globe className="w-5 h-5" /> {dict.regionLanguage}
                 </button>
@@ -478,13 +478,13 @@ function SettingsContent() {
               
               {activeTab === 'general' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-white border-slate-200 shadow-xl">
+                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
                     <CardHeader className="px-8 pt-8">
                       <CardTitle className="text-xl text-slate-900">General Settings</CardTitle>
                       <CardDescription>Manage your overarching platform preferences here.</CardDescription>
                     </CardHeader>
                     <CardContent className="px-8 pb-8 space-y-6">
-                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <div className="flex items-center justify-between p-4 bg-[#faf6ed] rounded-xl border border-slate-200">
                         <div className="space-y-1">
                           <Label className="text-base font-bold text-slate-800">Compact Mode</Label>
                           <p className="text-sm text-slate-500">Reduce spacing and padding across the dashboard interface.</p>
@@ -498,7 +498,7 @@ function SettingsContent() {
 
               {activeTab === 'profile' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-white border-slate-200 overflow-hidden shadow-2xl relative">
+                  <Card className="bg-[#fefcf6] border-slate-200 overflow-hidden shadow-2xl relative">
                     <div className="h-32 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 relative">
                       <div className="absolute -bottom-10 left-6">
                         <div className="w-20 h-20 rounded-full border-4 border-slate-900 bg-slate-100 flex items-center justify-center text-3xl font-bold text-slate-900 shadow-lg overflow-hidden">
@@ -516,25 +516,25 @@ function SettingsContent() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label htmlFor="name" className="text-slate-700">{dict.displayName}</Label>
-                          <Input id="name" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. Jane Doe" className="bg-slate-50/50 border-slate-300/50 focus-visible:ring-indigo-500 h-11 text-slate-800" />
+                          <Input id="name" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. Jane Doe" className="bg-[#faf6ed]/50 border-slate-300/50 focus-visible:ring-indigo-500 h-11 text-slate-800" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="email" className="text-slate-700">{dict.accountEmail}</Label>
-                          <Input id="email" type="email" value={user?.email || ""} readOnly className="bg-slate-50/50 border-slate-200 text-slate-500 cursor-not-allowed h-11" />
+                          <Input id="email" type="email" value={user?.email || ""} readOnly className="bg-[#faf6ed]/50 border-slate-200 text-slate-500 cursor-not-allowed h-11" />
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="location" className="text-slate-700">{dict.location}</Label>
-                          <Input id="location" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. New York, NY (EST)" className="bg-slate-50/50 border-slate-300/50 focus-visible:ring-indigo-500 h-11 text-slate-800" />
+                          <Input id="location" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. New York, NY (EST)" className="bg-[#faf6ed]/50 border-slate-300/50 focus-visible:ring-indigo-500 h-11 text-slate-800" />
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="bio" className="text-slate-700">{dict.bio}</Label>
-                          <textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} placeholder={dict.bioPlaceholder} className="w-full h-28 p-3 rounded-xl bg-slate-50/50 border border-slate-300/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-800 resize-none placeholder:text-slate-600 transition-all" />
+                          <textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} placeholder={dict.bioPlaceholder} className="w-full h-28 p-3 rounded-xl bg-[#faf6ed]/50 border border-slate-300/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-800 resize-none placeholder:text-slate-600 transition-all" />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white border-slate-200 shadow-xl">
+                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
                     <CardHeader className="px-8 pt-8">
                       <CardTitle className="text-xl text-slate-900">{dict.integrations}</CardTitle>
                     </CardHeader>
@@ -544,8 +544,8 @@ function SettingsContent() {
                           <Label className="text-base text-slate-800">{dict.gmailConnection}</Label>
                           <p className="text-sm text-slate-500 leading-relaxed">{dict.gmailDesc}</p>
                           {gmailConnected && <p className="text-sm text-emerald-400 font-medium mt-2">{dict.gmailConnected}</p>}
-                          {oauthError && <p className="text-sm text-red-400 font-medium mt-2">✗ {oauthError}</p>}
-                          {syncMessage && <p className={`text-sm font-medium mt-2 ${syncMessage.includes('Error') ? 'text-red-400' : 'text-blue-400'}`}>ℹ️ {syncMessage === 'OK' ? dict.syncInbox + ' OK' : syncMessage}</p>}
+                          {oauthError && <p className="text-sm text-red-400 font-medium mt-2">âœ— {oauthError}</p>}
+                          {syncMessage && <p className={`text-sm font-medium mt-2 ${syncMessage.includes('Error') ? 'text-red-400' : 'text-blue-400'}`}>â„¹ï¸ {syncMessage === 'OK' ? dict.syncInbox + ' OK' : syncMessage}</p>}
                         </div>
                         
                         <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
@@ -598,8 +598,8 @@ function SettingsContent() {
                         <div className="space-y-1.5 max-w-sm">
                           <Label className="text-base text-slate-800">QuickBooks Connection</Label>
                           <p className="text-sm text-slate-500 leading-relaxed">Connect your QuickBooks account to sync financial data (expenses, P&L, invoices, bank accounts) into your dashboard. <span className="font-medium text-slate-700">Read-only access.</span></p>
-                          {qbConnected && <p className="text-sm text-emerald-400 font-medium mt-2">✓ QuickBooks Connected Successfully</p>}
-                          {qbError && <p className="text-sm text-red-400 font-medium mt-2">✗ {qbError}</p>}
+                          {qbConnected && <p className="text-sm text-emerald-400 font-medium mt-2">âœ“ QuickBooks Connected Successfully</p>}
+                          {qbError && <p className="text-sm text-red-400 font-medium mt-2">âœ— {qbError}</p>}
                         </div>
                         <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
                           {qbConnected ? (
@@ -609,7 +609,7 @@ function SettingsContent() {
                                 className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
                                 onClick={(e) => e.preventDefault()}
                               >
-                                ✓ Connected
+                                âœ“ Connected
                               </Button>
 
                               <Button 
@@ -677,11 +677,11 @@ function SettingsContent() {
                             Text Messaging
                           </Label>
                           <p className="text-sm text-slate-500 leading-relaxed">
-                            Get a dedicated phone number so Jarvis can send and receive text messages on your behalf. Works with any phone — iPhone or Android.
+                            Get a dedicated phone number so Jarvis can send and receive text messages on your behalf. Works with any phone â€” iPhone or Android.
                           </p>
                           {imConnected && imServerUrl && (
                             <p className="text-sm text-emerald-500 font-medium mt-1 flex items-center gap-1">
-                              <Wifi className="w-3.5 h-3.5" /> Active · <span className="font-mono text-emerald-600">{imServerUrl}</span>
+                              <Wifi className="w-3.5 h-3.5" /> Active Â· <span className="font-mono text-emerald-600">{imServerUrl}</span>
                             </p>
                           )}
                         </div>
@@ -693,7 +693,7 @@ function SettingsContent() {
                                 className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
                                 onClick={(e) => e.preventDefault()}
                               >
-                                ✓ Active
+                                âœ“ Active
                               </Button>
 
                               <Button 
@@ -742,7 +742,7 @@ function SettingsContent() {
 
               {activeTab === 'notifications' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-white border-slate-200 shadow-xl">
+                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
                     <CardHeader className="px-8 pt-8">
                       <CardTitle className="text-xl text-slate-900">{dict.notifications}</CardTitle>
                     </CardHeader>
@@ -769,7 +769,7 @@ function SettingsContent() {
 
               {activeTab === 'security' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-white border-slate-200 shadow-xl">
+                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
                     <CardHeader className="px-8 pt-8">
                       <CardTitle className="text-xl text-slate-900">{dict.security}</CardTitle>
                     </CardHeader>
@@ -804,7 +804,7 @@ function SettingsContent() {
 
               {activeTab === 'language' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-white border-slate-200 shadow-xl">
+                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
                     <CardHeader className="px-8 pt-8">
                       <CardTitle className="text-xl text-slate-900">{dict.regionLanguage}</CardTitle>
                     </CardHeader>
@@ -815,15 +815,15 @@ function SettingsContent() {
                           <p className="text-sm text-slate-500">{dict.languageSelectDesc}</p>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                           <button onClick={() => changeLang('en')} className={`px-6 py-4 rounded-xl border flex-1 text-left transition-all relative overflow-hidden ${lang === 'en' ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:bg-slate-100'}`}>
+                           <button onClick={() => changeLang('en')} className={`px-6 py-4 rounded-xl border flex-1 text-left transition-all relative overflow-hidden ${lang === 'en' ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-slate-200 bg-[#fefcf6] shadow-sm hover:border-slate-300 hover:bg-slate-100'}`}>
                              <div className="font-semibold text-slate-900">{dict.english}</div>
                              <div className="text-xs text-slate-500 mt-1">Default UI</div>
-                             {lang === 'en' && <div className="absolute top-4 right-4 text-indigo-400">✓</div>}
+                             {lang === 'en' && <div className="absolute top-4 right-4 text-indigo-400">âœ“</div>}
                            </button>
-                           <button onClick={() => changeLang('es')} className={`px-6 py-4 rounded-xl border flex-1 text-left transition-all relative overflow-hidden ${lang === 'es' ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:bg-slate-100'}`}>
+                           <button onClick={() => changeLang('es')} className={`px-6 py-4 rounded-xl border flex-1 text-left transition-all relative overflow-hidden ${lang === 'es' ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-slate-200 bg-[#fefcf6] shadow-sm hover:border-slate-300 hover:bg-slate-100'}`}>
                              <div className="font-semibold text-slate-900">{dict.spanish}</div>
-                             <div className="text-xs text-slate-500 mt-1">Traducción oficial</div>
-                             {lang === 'es' && <div className="absolute top-4 right-4 text-indigo-400">✓</div>}
+                             <div className="text-xs text-slate-500 mt-1">TraducciÃ³n oficial</div>
+                             {lang === 'es' && <div className="absolute top-4 right-4 text-indigo-400">âœ“</div>}
                            </button>
                         </div>
                       </div>

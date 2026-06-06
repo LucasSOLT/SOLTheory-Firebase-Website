@@ -10,7 +10,7 @@ import {
   FileText, ShieldCheck, Layers, Globe, ExternalLink, Trash2, CheckSquare,
 } from "lucide-react";
 
-/* ─── Types ─── */
+/* â”€â”€â”€ Types â”€â”€â”€ */
 interface GrantRecord {
   id: string;
   title: string;
@@ -31,14 +31,14 @@ interface GrantRecord {
   fundingAgencyLevels?: string[];
 }
 
-/* ─── Helpers ─── */
+/* â”€â”€â”€ Helpers â”€â”€â”€ */
 function formatCurrency(amount: number | null): string {
-  if (amount == null) return "—";
+  if (amount == null) return "â€”";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 }
 
 function formatDate(ts: any): string {
-  if (!ts) return "—";
+  if (!ts) return "â€”";
   const d = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -73,14 +73,14 @@ const STATUS_STYLES: Record<string, { label: string; bg: string; text: string; b
   approved: { label: "Approved", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   denied: { label: "Denied", bg: "bg-red-50", text: "text-red-600", border: "border-red-200" },
   applied: { label: "Pending", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  unapplied: { label: "Un-Applied", bg: "bg-slate-50", text: "text-slate-500", border: "border-slate-200" },
+  unapplied: { label: "Un-Applied", bg: "bg-[#faf6ed]", text: "text-slate-500", border: "border-slate-200" },
 };
 
-/* ─── Detail Field Component ─── */
+/* â”€â”€â”€ Detail Field Component â”€â”€â”€ */
 function DetailField({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-3">
-      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+      <div className="w-8 h-8 rounded-lg bg-[#faf6ed] border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
         <Icon className="w-4 h-4 text-slate-400" />
       </div>
       <div className="min-w-0">
@@ -91,7 +91,7 @@ function DetailField({ icon: Icon, label, value }: { icon: any; label: string; v
   );
 }
 
-/* ─── Expandable Row ─── */
+/* â”€â”€â”€ Expandable Row â”€â”€â”€ */
 function GrantRow({
   grant,
   isExpanded,
@@ -128,7 +128,7 @@ function GrantRow({
       ? "bg-emerald-50/30 border-emerald-100/60"
       : grant.status === "denied"
       ? "bg-red-50/20 border-red-100/50"
-      : "bg-white border-slate-100";
+      : "bg-[#fefcf6] border-slate-100";
 
   const isUpdating = updatingId === grant.id;
 
@@ -196,7 +196,7 @@ function GrantRow({
               ? "bg-emerald-50/20 border-emerald-100/60"
               : grant.status === "denied"
               ? "bg-red-50/10 border-red-100/50"
-              : "bg-slate-50/40 border-slate-100"
+              : "bg-[#faf6ed]/40 border-slate-100"
           }`}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -276,7 +276,7 @@ function GrantRow({
             </div>
           </div>
 
-          {/* ═══ Action Buttons ═══ */}
+          {/* â•â•â• Action Buttons â•â•â• */}
           <div className="mt-6 pt-5 border-t border-slate-200/60 flex flex-wrap items-center gap-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-2">Update Status:</span>
 
@@ -286,11 +286,11 @@ function GrantRow({
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 grant.status === "applied"
                   ? "bg-amber-100 border-amber-300 text-amber-800"
-                  : "bg-white border-amber-200 text-amber-700 hover:bg-amber-50"
+                  : "bg-[#fefcf6] border-amber-200 text-amber-700 hover:bg-amber-50"
               }`}
             >
               <Send className="w-3.5 h-3.5" />
-              {grant.status === "applied" ? "Applied ✓" : "Mark as Applied"}
+              {grant.status === "applied" ? "Applied âœ“" : "Mark as Applied"}
             </button>
 
             <button
@@ -299,11 +299,11 @@ function GrantRow({
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 grant.status === "approved"
                   ? "bg-emerald-100 border-emerald-300 text-emerald-800"
-                  : "bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  : "bg-[#fefcf6] border-emerald-200 text-emerald-700 hover:bg-emerald-50"
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {grant.status === "approved" ? "Approved ✓" : "Approved / Received"}
+              {grant.status === "approved" ? "Approved âœ“" : "Approved / Received"}
             </button>
 
             <button
@@ -312,18 +312,18 @@ function GrantRow({
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 grant.status === "denied"
                   ? "bg-red-100 border-red-300 text-red-800"
-                  : "bg-white border-red-200 text-red-700 hover:bg-red-50"
+                  : "bg-[#fefcf6] border-red-200 text-red-700 hover:bg-red-50"
               }`}
             >
               <XCircle className="w-3.5 h-3.5" />
-              {grant.status === "denied" ? "Denied ✓" : "Denied"}
+              {grant.status === "denied" ? "Denied âœ“" : "Denied"}
             </button>
 
             {(grant.status === "applied" || grant.status === "approved" || grant.status === "denied") && (
               <button
                 onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "unapplied"); }}
                 disabled={isUpdating}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-[#faf6ed] transition-colors cursor-pointer"
               >
                 Reset
               </button>
@@ -353,9 +353,9 @@ function GrantRow({
   );
 }
 
-/* ═══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    Page Component
-   ═══════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 export default function GrantStatusesPage() {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -428,7 +428,7 @@ export default function GrantStatusesPage() {
     return () => unsub();
   }, [firestore, user?.uid]);
 
-  /* ─── Status Update Handler ─── */
+  /* â”€â”€â”€ Status Update Handler â”€â”€â”€ */
   async function handleUpdateStatus(grantId: string, newStatus: GrantRecord["status"]) {
     if (!firestore) return;
     setUpdatingId(grantId);
@@ -453,7 +453,7 @@ export default function GrantStatusesPage() {
     }
   }
 
-  /* ─── Delete Handler ─── */
+  /* â”€â”€â”€ Delete Handler â”€â”€â”€ */
   async function handleDeleteGrant(grantId: string) {
     if (!firestore) return;
     setUpdatingId(grantId);
@@ -477,7 +477,7 @@ export default function GrantStatusesPage() {
       )
     : grants;
 
-  /* ─── Selection Handlers ─── */
+  /* â”€â”€â”€ Selection Handlers â”€â”€â”€ */
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -544,7 +544,7 @@ export default function GrantStatusesPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search grants by name or agency..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 shadow-sm"
           />
         </div>
       </div>

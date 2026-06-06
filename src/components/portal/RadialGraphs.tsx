@@ -21,7 +21,7 @@ const mockData3 = [
 
 function RadialItem({ title, value, label, data, color }: { title: string, value: string, label: string, data: any[], color: string }) {
   return (
-    <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+    <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-[#faf6ed] transition-colors">
       <div className="w-16 h-16 shrink-0 relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -78,7 +78,7 @@ export function RadialGraphs() {
           data={mockData1} 
           color="#6366f1" 
         />
-        <div className="h-px w-full bg-slate-50" />
+        <div className="h-px w-full bg-[#faf6ed]" />
         <RadialItem 
           title="Agent Activity" 
           value="0 hrs" 
@@ -86,7 +86,7 @@ export function RadialGraphs() {
           data={mockData2} 
           color="#10b981" 
         />
-        <div className="h-px w-full bg-slate-50" />
+        <div className="h-px w-full bg-[#faf6ed]" />
         <RadialItem 
           title="Client Sentiment" 
           value="N/A" 

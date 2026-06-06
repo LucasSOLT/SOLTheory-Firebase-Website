@@ -8,7 +8,7 @@ import { GrantAgentConfigModal, type GrantAgentConfig } from "./GrantAgentConfig
 import { GrantAgentBrowserSim } from "./GrantAgentBrowserSim";
 import { logActivity } from '@/lib/activity-logger';
 
-/* ─── Types ─── */
+/* â”€â”€â”€ Types â”€â”€â”€ */
 export interface AgentSlot {
   id: string;
   name: string;
@@ -30,7 +30,7 @@ const DEFAULT_AGENT_NAMES = [
   "Custom Agent",
 ];
 
-/* ─── Confirmation Dialog ─── */
+/* â”€â”€â”€ Confirmation Dialog â”€â”€â”€ */
 function ConfirmDialog({
   title,
   message,
@@ -60,7 +60,7 @@ function ConfirmDialog({
       onClick={(e) => { e.stopPropagation(); onCancel(); }}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-150 overflow-hidden"
+        className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-150 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 pt-5 pb-3">
@@ -88,7 +88,7 @@ function ConfirmDialog({
         <div className="px-5 py-3.5 border-t border-slate-100 flex items-center justify-end gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onCancel(); }}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -104,7 +104,7 @@ function ConfirmDialog({
   );
 }
 
-/* ─── Hub Component ─── */
+/* â”€â”€â”€ Hub Component â”€â”€â”€ */
 export function GrantAgentHub({ onClose }: { onClose: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -171,7 +171,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
     setSlots(updatedSlots);
     setConfiguringSlotIndex(null);
 
-    // Persist to Firestore — the AgentWorkerController will detect the
+    // Persist to Firestore â€” the AgentWorkerController will detect the
     // change via onSnapshot and start/stop workers automatically
     if (!firestore) return;
     try {
@@ -230,7 +230,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
     }
   }
 
-  // Delete agent — remove without reopening config
+  // Delete agent â€” remove without reopening config
   async function handleDeleteAgent(purgeGrants: boolean) {
     if (confirmDialog === null) return;
     const index = confirmDialog.index;
@@ -238,7 +238,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
     await clearAgentSlot(index, purgeGrants);
   }
 
-  // Reset agent — clear and immediately reopen config modal for reconfiguration
+  // Reset agent â€” clear and immediately reopen config modal for reconfiguration
   async function handleResetAgent(purgeGrants: boolean) {
     if (confirmDialog === null) return;
     const index = confirmDialog.index;
@@ -255,11 +255,11 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
         onClick={onClose}
       >
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+          className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-3xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-[#fefcf6] rounded-t-2xl z-10">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
                 <Bot className="w-4.5 h-4.5 text-white" />
@@ -277,7 +277,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
           {/* Description */}
           <div className="px-6 pt-4 pb-2 text-center">
             <p className="text-[12px] text-slate-500">
-              Configure your autonomous grant search agent. All opportunities are sourced exclusively from Grants.gov — the official U.S. government grants database.
+              Configure your autonomous grant search agent. All opportunities are sourced exclusively from Grants.gov â€” the official U.S. government grants database.
             </p>
             <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -301,13 +301,13 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
                     onClick={() => setConfiguringSlotIndex(index)}
                     className={`group relative rounded-2xl border-2 p-5 text-left transition-all cursor-pointer ${
                       isActive
-                        ? `border-transparent ring-2 ${colors.ring} bg-white shadow-md hover:shadow-lg`
-                        : "border-dashed border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300 hover:shadow-sm"
+                        ? `border-transparent ring-2 ${colors.ring} bg-[#fefcf6] shadow-md hover:shadow-lg`
+                        : "border-dashed border-slate-200 bg-[#faf6ed]/50 hover:bg-[#fefcf6] hover:border-slate-300 hover:shadow-sm"
                     }`}
                   >
                     {isActive ? (
                       <>
-                        {/* Active agent card — browser sim */}
+                        {/* Active agent card â€” browser sim */}
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${colors.bg} flex items-center justify-center shadow-sm`}>
@@ -331,7 +331,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
                         <div className="flex-1 min-h-[120px] relative">
                           <GrantAgentBrowserSim config={slot.config!} colorTheme={{ dot: colors.dot, label: colors.label }} />
                         </div>
-                        {/* Action buttons — Reset & Delete */}
+                        {/* Action buttons â€” Reset & Delete */}
                         <div className="absolute top-2 right-2 z-30 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                           {/* Reset & Reconfigure */}
                           <button
@@ -387,7 +387,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
             >
               Close
             </button>
@@ -395,7 +395,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* Nested filter config modal — rendered OUTSIDE the hub backdrop */}
+      {/* Nested filter config modal â€” rendered OUTSIDE the hub backdrop */}
       {configuringSlotIndex !== null && (
         <GrantAgentConfigModal
           initialConfig={slots[configuringSlotIndex].config ?? undefined}
@@ -404,7 +404,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
         />
       )}
 
-      {/* Confirmation Dialogs — rendered OUTSIDE the hub backdrop */}
+      {/* Confirmation Dialogs â€” rendered OUTSIDE the hub backdrop */}
       {confirmDialog?.type === "delete" && (
         <ConfirmDialog
           title={`Delete ${slots[confirmDialog.index].name}?`}

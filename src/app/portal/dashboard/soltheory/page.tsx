@@ -175,7 +175,7 @@ export default function SolTheoryDashboard() {
             </div>
 
             {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
-            <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
+            <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5 overflow-hidden">
               {/* Card 2A: Grant Agent Interface (Tile 3) */}
               <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
               <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">

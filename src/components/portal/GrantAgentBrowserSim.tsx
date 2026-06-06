@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { FolderArchive } from "lucide-react";
 import type { GrantAgentConfig } from "./GrantAgentConfigModal";
 
-/* ─── Animation Phases ─── */
+/* â”€â”€â”€ Animation Phases â”€â”€â”€ */
 type Phase =
   | "waiting"       // idle countdown until next scan
   | "cursor_move"
@@ -17,14 +17,14 @@ type Phase =
 
 import { GRANT_DATABASE } from "@/data/grantDatabase";
 
-/* ─── Pull real URLs and names from the grant database ─── */
+/* â”€â”€â”€ Pull real URLs and names from the grant database â”€â”€â”€ */
 const SEARCH_URLS = GRANT_DATABASE.slice(0, 20).map((g) =>
   g.url.replace(/^https?:\/\//, "").replace(/\/$/, "")
 );
 
 const GRANT_NAMES = GRANT_DATABASE.slice(0, 20).map((g) => g.title);
 
-/* ─── Convert config interval to milliseconds ─── */
+/* â”€â”€â”€ Convert config interval to milliseconds â”€â”€â”€ */
 function intervalToMs(value: number, unit: string): number {
   const multipliers: Record<string, number> = {
     minutes: 60_000,
@@ -35,7 +35,7 @@ function intervalToMs(value: number, unit: string): number {
   return value * (multipliers[unit] || 60_000);
 }
 
-/* ─── Format remaining time for display ─── */
+/* â”€â”€â”€ Format remaining time for display â”€â”€â”€ */
 function formatCountdown(ms: number): string {
   if (ms <= 0) return "now";
   const totalSec = Math.ceil(ms / 1000);
@@ -48,10 +48,10 @@ function formatCountdown(ms: number): string {
   return `${remSecs}s`;
 }
 
-/* ─── Animation phase total duration (approx) ─── */
+/* â”€â”€â”€ Animation phase total duration (approx) â”€â”€â”€ */
 const SCAN_ANIMATION_DURATION_MS = 7_200; // sum of all phase durations
 
-/* ─── Component ─── */
+/* â”€â”€â”€ Component â”€â”€â”€ */
 export function GrantAgentBrowserSim({
   config,
   colorTheme,
@@ -94,7 +94,7 @@ export function GrantAgentBrowserSim({
         let targetTime = win?.__grantNextScanTime as number | undefined;
 
         if (!targetTime || targetTime <= Date.now()) {
-          // No shared time exists or it expired — set a new one
+          // No shared time exists or it expired â€” set a new one
           targetTime = Date.now() + configIntervalMs;
           if (win) win.__grantNextScanTime = targetTime;
         }
@@ -158,7 +158,7 @@ export function GrantAgentBrowserSim({
         if (lastScanFoundGrant) {
           timerRef.current = setTimeout(() => setPhase("minimizing"), 2000);
         } else {
-          // No grant found — skip minimizing, go straight to resetting
+          // No grant found â€” skip minimizing, go straight to resetting
           timerRef.current = setTimeout(() => setPhase("resetting"), 2500);
         }
         break;
@@ -198,9 +198,9 @@ export function GrantAgentBrowserSim({
 
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden select-none">
-      {/* ═══ Mini Browser Window ═══ */}
+      {/* â•â•â• Mini Browser Window â•â•â• */}
       <div
-        className={`flex-1 flex flex-col rounded-lg border border-slate-200/80 bg-white shadow-sm overflow-hidden transition-all origin-bottom-right ${
+        className={`flex-1 flex flex-col rounded-lg border border-slate-200/80 bg-[#fefcf6] shadow-sm overflow-hidden transition-all origin-bottom-right ${
           isMinimizing
             ? "scale-[0.08] opacity-0 translate-x-[60%] translate-y-[60%]"
             : isStored
@@ -223,13 +223,13 @@ export function GrantAgentBrowserSim({
             <div className="w-[7px] h-[7px] rounded-full bg-emerald-400" />
           </div>
           {/* Tab */}
-          <div className="bg-white rounded-t-md px-2 py-0.5 text-[7px] font-semibold text-slate-500 border border-b-0 border-slate-200/60 max-w-[80px] truncate">
+          <div className="bg-[#fefcf6] rounded-t-md px-2 py-0.5 text-[7px] font-semibold text-slate-500 border border-b-0 border-slate-200/60 max-w-[80px] truncate">
             Grant Search
           </div>
         </div>
 
         {/* URL Bar */}
-        <div className="shrink-0 px-2 py-1 bg-slate-50/80 border-b border-slate-100 flex items-center gap-1.5">
+        <div className="shrink-0 px-2 py-1 bg-[#faf6ed]/80 border-b border-slate-100 flex items-center gap-1.5">
           {/* Nav buttons */}
           <div className="flex items-center gap-0.5">
             <div className="w-3.5 h-3.5 rounded flex items-center justify-center text-slate-400">
@@ -244,7 +244,7 @@ export function GrantAgentBrowserSim({
             </div>
           </div>
           {/* Address bar */}
-          <div className={`flex-1 bg-white rounded-md px-2 py-0.5 text-[7px] font-mono border transition-colors overflow-hidden whitespace-nowrap ${
+          <div className={`flex-1 bg-[#fefcf6] rounded-md px-2 py-0.5 text-[7px] font-mono border transition-colors overflow-hidden whitespace-nowrap ${
             phase === "cursor_move" || phase === "typing"
               ? "border-indigo-300 ring-1 ring-indigo-200"
               : "border-slate-200"
@@ -262,7 +262,7 @@ export function GrantAgentBrowserSim({
         </div>
 
         {/* Browser Viewport */}
-        <div className="flex-1 relative min-h-[50px] overflow-hidden bg-white">
+        <div className="flex-1 relative min-h-[50px] overflow-hidden bg-[#fefcf6]">
           {/* Waiting: show countdown */}
           {isWaiting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
@@ -307,7 +307,7 @@ export function GrantAgentBrowserSim({
                   <div className="h-1.5 bg-slate-100 rounded-full w-2/3" />
                 </div>
                 {lastScanFoundGrant ? (
-                  /* ── Grant found toast ── */
+                  /* â”€â”€ Grant found toast â”€â”€ */
                   <div className="bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5 animate-in slide-in-from-bottom-2 fade-in duration-300">
                     <div className="flex items-center gap-1 mb-0.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex items-center justify-center">
@@ -320,7 +320,7 @@ export function GrantAgentBrowserSim({
                     <p className="text-[6px] text-emerald-600 font-semibold truncate pl-3.5">{currentGrant}</p>
                   </div>
                 ) : (
-                  /* ── No new grants toast ── */
+                  /* â”€â”€ No new grants toast â”€â”€ */
                   <div className="bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 animate-in slide-in-from-bottom-2 fade-in duration-300">
                     <div className="flex items-center gap-1 mb-0.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-amber-400 flex items-center justify-center">
@@ -346,7 +346,7 @@ export function GrantAgentBrowserSim({
         </div>
       </div>
 
-      {/* ═══ Animated SVG Cursor ═══ */}
+      {/* â•â•â• Animated SVG Cursor â•â•â• */}
       {(phase === "cursor_move" || phase === "typing") && (
         <div
           className={`absolute pointer-events-none z-20 transition-all ${
@@ -365,13 +365,13 @@ export function GrantAgentBrowserSim({
         </div>
       )}
 
-      {/* ═══ Storage Folder (bottom-right) ═══ */}
+      {/* â•â•â• Storage Folder (bottom-right) â•â•â• */}
       <div className="absolute bottom-1 right-1 flex items-center gap-1 z-10">
         <div
           className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-all ${
             isMinimizing || isStored
               ? "bg-indigo-50 border border-indigo-200 scale-110"
-              : "bg-slate-50/80 border border-slate-200/60 scale-100"
+              : "bg-[#faf6ed]/80 border border-slate-200/60 scale-100"
           }`}
           style={{ transitionDuration: "300ms" }}
         >

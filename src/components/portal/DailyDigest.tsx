@@ -130,7 +130,7 @@ export function DailyDigest() {
             return (
               <div
                 key={entry.id}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${i === 0 ? "bg-indigo-50/60 border border-indigo-100" : "hover:bg-slate-50"}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${i === 0 ? "bg-indigo-50/60 border border-indigo-100" : "hover:bg-[#faf6ed]"}`}
                 style={{ animationDelay: `${i * 40}ms` }}
               >
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isChat ? "bg-fuchsia-100 text-fuchsia-600" : "bg-indigo-100 text-indigo-600"}`}>

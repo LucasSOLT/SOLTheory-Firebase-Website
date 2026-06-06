@@ -155,9 +155,9 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative">
+    <div className="flex flex-col h-full w-full bg-[#fefcf6] rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative">
       {/* Top Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white shrink-0">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-[#fefcf6] shrink-0">
         <div className="flex items-center gap-4">
           <button className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors">
             <Menu className="w-5 h-5" />
@@ -180,11 +180,11 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
       </header>
 
       {/* Main Content Layout */}
-      <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto bg-[#faf6ed]/50 p-6 space-y-6">
         
         {/* Top Summary Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+           <div className="bg-[#fefcf6] p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
              <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
                <MousePointerClick className="w-6 h-6 text-indigo-600" />
              </div>
@@ -197,7 +197,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
              </div>
            </div>
 
-           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+           <div className="bg-[#fefcf6] p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
              <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
                <DollarSign className="w-6 h-6 text-red-600" />
              </div>
@@ -210,7 +210,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
              </div>
            </div>
 
-           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+           <div className="bg-[#fefcf6] p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
              <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
                <Clock className="w-6 h-6 text-amber-600" />
              </div>
@@ -234,7 +234,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
               </h3>
             </div>
             
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100 min-h-[200px]">
+            <div className="bg-[#fefcf6] rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100 min-h-[200px]">
               {isFetchingCronjobs ? (
                 <div className="p-8 flex items-center justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -246,7 +246,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
                   <p className="text-xs mt-1">Use the Assistant chat to schedule one.</p>
                 </div>
               ) : cronjobs.map((job) => (
-                <div key={job.id} className="p-5 hover:bg-slate-50 transition-colors">
+                <div key={job.id} className="p-5 hover:bg-[#faf6ed] transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col min-w-0">
                       <p className="text-sm font-semibold text-slate-800 leading-snug">
@@ -265,7 +265,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
               ))}
               
               <div className="p-4 bg-indigo-50 flex items-center gap-3 border-t border-indigo-100 cursor-pointer hover:bg-indigo-100 transition-colors">
-                 <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                 <div className="w-8 h-8 rounded-full bg-[#fefcf6] flex items-center justify-center shadow-sm">
                    <Sparkles className="w-4 h-4 text-indigo-600" />
                  </div>
                  <div>
@@ -282,7 +282,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
                 <DollarSign className="w-5 h-5 text-emerald-500" />
                 Budget Configuration
               </h3>
-             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 relative overflow-hidden">
+             <div className="bg-[#fefcf6] rounded-2xl border border-slate-200 shadow-sm p-6 relative overflow-hidden">
                {/* Decorative background element */}
                <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-emerald-50 rounded-full blur-3xl pointer-events-none" />
                
@@ -301,7 +301,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
                         step="0.01"
                         value={budget}
                         onChange={(e) => setBudget(e.target.value)}
-                        className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
+                        className="w-full pl-8 pr-4 py-3 bg-[#faf6ed] border border-slate-200 rounded-xl text-slate-800 font-bold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
                      />
                    </div>
                  </div>
@@ -314,7 +314,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
         </div>
       </div>
 
-      {/* ══════ AI COPILOT TOGGLE ══════ */}
+      {/* â•â•â•â•â•â• AI COPILOT TOGGLE â•â•â•â•â•â• */}
       <button
         onClick={() => setIsChatOpen(!isChatOpen)}
         className={`fixed bottom-6 right-6 z-[90] w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all cursor-pointer ${isChatOpen ? "bg-slate-700 hover:bg-slate-800" : "bg-indigo-600 hover:bg-indigo-700"} text-white`}
@@ -322,9 +322,9 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
         {isChatOpen ? <X className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
       </button>
 
-      {/* ══════ AI COPILOT SIDEBAR ══════ */}
+      {/* â•â•â•â•â•â• AI COPILOT SIDEBAR â•â•â•â•â•â• */}
       <div className={`fixed top-0 right-0 h-full z-[80] transition-transform duration-300 ease-in-out ${isChatOpen ? "translate-x-0" : "translate-x-full"}`}>
-        <div className="w-[380px] h-full bg-white border-l border-[#E5E7EB] shadow-2xl flex flex-col">
+        <div className="w-[380px] h-full bg-[#fefcf6] border-l border-[#E5E7EB] shadow-2xl flex flex-col">
           {/* Header */}
           <div className="h-16 flex items-center justify-between px-5 border-b border-[#E5E7EB] shrink-0">
             <div className="flex items-center gap-2.5">
@@ -384,7 +384,7 @@ Example: I have updated your daily limit. [BUDGET_UPDATED: 100.00]`,
           </div>
 
           {/* Input */}
-          <div className="border-t border-[#E5E7EB] px-4 py-3 shrink-0 bg-white">
+          <div className="border-t border-[#E5E7EB] px-4 py-3 shrink-0 bg-[#fefcf6]">
             <div className="flex items-center gap-2">
               <input
                 type="text"

@@ -222,7 +222,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6 animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-        <DialogContent className="sm:max-w-[400px] border-slate-200 shadow-2xl rounded-2xl bg-white text-center flex flex-col items-center justify-center p-8 [&>button]:hidden">
+        <DialogContent className="sm:max-w-[400px] border-slate-200 shadow-2xl rounded-2xl bg-[#fefcf6] text-center flex flex-col items-center justify-center p-8 [&>button]:hidden">
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
             <CheckCircle2 className="w-8 h-8" />
           </div>
@@ -246,21 +246,21 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
             <Button 
               variant="ghost" size="sm"
               onClick={() => setViewMode("inbox")}
-              className={`rounded-lg ${viewMode === "inbox" ? "bg-white shadow-sm text-indigo-600" : "text-slate-500"}`}
+              className={`rounded-lg ${viewMode === "inbox" ? "bg-[#fefcf6] shadow-sm text-indigo-600" : "text-slate-500"}`}
             >
               <Inbox className="w-4 h-4 mr-2" /> Inbox
             </Button>
             <Button 
               variant="ghost" size="sm"
               onClick={() => setViewMode("sent")}
-              className={`rounded-lg ${viewMode === "sent" ? "bg-white shadow-sm text-indigo-600" : "text-slate-500"}`}
+              className={`rounded-lg ${viewMode === "sent" ? "bg-[#fefcf6] shadow-sm text-indigo-600" : "text-slate-500"}`}
             >
               <Send className="w-4 h-4 mr-2" /> Sent
             </Button>
             <Button 
               variant="ghost" size="sm"
               onClick={() => setViewMode("archived")}
-              className={`rounded-lg ${viewMode === "archived" ? "bg-white shadow-sm text-indigo-600" : "text-slate-500"}`}
+              className={`rounded-lg ${viewMode === "archived" ? "bg-[#fefcf6] shadow-sm text-indigo-600" : "text-slate-500"}`}
             >
               <Archive className="w-4 h-4 mr-2" /> Archived
             </Button>
@@ -293,7 +293,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                     autoComplete="off"
                     list="savedEmailsList"
                     required
-                    className="bg-white text-slate-900 font-medium focus-visible:ring-green-500 border-slate-300 placeholder:text-slate-400"
+                    className="bg-[#fefcf6] text-slate-900 font-medium focus-visible:ring-green-500 border-slate-300 placeholder:text-slate-400"
                   />
                   <datalist id="savedEmailsList">
                     {savedEmails.map((email) => (
@@ -309,7 +309,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                     onChange={(e) => setSubject(e.target.value)} 
                     placeholder="Brief description of the issue" 
                     required
-                    className="bg-white text-slate-900 font-medium focus-visible:ring-green-500 border-slate-300 placeholder:text-slate-400"
+                    className="bg-[#fefcf6] text-slate-900 font-medium focus-visible:ring-green-500 border-slate-300 placeholder:text-slate-400"
                   />
                 </div>
                 <div className="space-y-2">
@@ -319,12 +319,12 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                     value={message} 
                     onChange={(e) => setMessage(e.target.value)} 
                     placeholder="Detail your request or communication here..." 
-                    className="bg-white text-slate-900 min-h-[120px] resize-none font-medium focus-visible:ring-green-500 border-slate-300 placeholder:text-slate-400"
+                    className="bg-[#fefcf6] text-slate-900 min-h-[120px] resize-none font-medium focus-visible:ring-green-500 border-slate-300 placeholder:text-slate-400"
                     required
                   />
                 </div>
                 <DialogFooter className="pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="font-semibold text-slate-600 border-slate-300 bg-white hover:bg-slate-50 rounded-xl">
+                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="font-semibold text-slate-600 border-slate-300 bg-[#fefcf6] hover:bg-[#faf6ed] rounded-xl">
                     Cancel
                   </Button>
                   <Button type="submit" disabled={submitting} className="bg-green-600 hover:bg-green-700 font-semibold text-white rounded-xl">
@@ -339,7 +339,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
+        <Card className="bg-[#fefcf6] border border-slate-100 shadow-sm rounded-2xl">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
             <Ticket className="w-8 h-8 text-indigo-500" />
             <span className="text-3xl font-black text-slate-900">{stats.total}</span>
@@ -348,14 +348,14 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
             </span>
           </CardContent>
         </Card>
-        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl opacity-80">
+        <Card className="bg-[#fefcf6] border border-slate-100 shadow-sm rounded-2xl opacity-80">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
             <AlertCircle className="w-8 h-8 text-amber-500" />
             <span className="text-3xl font-black text-slate-900">{stats.open}</span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Open / Review</span>
           </CardContent>
         </Card>
-        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl opacity-80">
+        <Card className="bg-[#fefcf6] border border-slate-100 shadow-sm rounded-2xl opacity-80">
           <CardContent className="p-6 flex flex-col items-center justify-center gap-2">
             <CheckCircle2 className="w-8 h-8 text-green-500" />
             <span className="text-3xl font-black text-slate-900">{stats.resolved}</span>
@@ -364,8 +364,8 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
         </Card>
       </div>
 
-      <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-        <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
+      <Card className="bg-[#fefcf6] border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+        <CardHeader className="bg-[#faf6ed] border-b border-slate-100 pb-4">
           <CardTitle className="text-sm font-bold text-slate-700 uppercase tracking-wide">
             {viewMode === "sent" ? "Sent Tickets" : viewMode === "inbox" ? "Tickets Received" : "Archived Tickets"}
           </CardTitle>
@@ -377,7 +377,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
             </div>
           ) : filteredTickets.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-[#faf6ed] flex items-center justify-center mb-4">
                 <Ticket className="w-8 h-8 text-slate-300" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">No tickets found</h3>
@@ -393,7 +393,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                 
                 return (
                 <div key={ticket.id} className={`flex flex-col p-5 transition-colors cursor-pointer
-                  ${(isUnanswered || isUnderReview) && !ticket.isArchived ? 'bg-amber-50/10 hover:bg-amber-50/30' : !ticket.isArchived ? 'bg-green-50/10 hover:bg-green-50/30' : 'bg-white hover:bg-slate-50'}
+                  ${(isUnanswered || isUnderReview) && !ticket.isArchived ? 'bg-amber-50/10 hover:bg-amber-50/30' : !ticket.isArchived ? 'bg-green-50/10 hover:bg-green-50/30' : 'bg-[#fefcf6] hover:bg-[#faf6ed]'}
                 `} onClick={() => setExpandedTicketId(isExpanded ? null : ticket.id)}>
                   
                   {/* Ticket Header Row */}
@@ -412,7 +412,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                           ) : (
                             <>From: <span className="text-slate-700">{ticket.fromEmail}</span></>
                           )}
-                          <span className="mx-2 text-slate-300">•</span>
+                          <span className="mx-2 text-slate-300">â€¢</span>
                           {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString() : "Just now"}
                         </p>
                       </div>
@@ -422,7 +422,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                         <Button 
                           variant="outline" size="sm" 
                           onClick={(e) => handleArchive(ticket, e)}
-                          className="h-7 text-xs bg-white text-slate-600 hover:text-slate-900 border-slate-200"
+                          className="h-7 text-xs bg-[#fefcf6] text-slate-600 hover:text-slate-900 border-slate-200"
                         >
                           <Archive className="w-3 h-3 mr-1" /> Archive
                         </Button>
@@ -449,7 +449,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                   {/* Expanded Ticket Body & Comments */}
                   {isExpanded && (
                     <div className="mt-5 ml-9 border-t border-slate-100 pt-5 animate-in slide-in-from-top-2 fade-in" onClick={e => e.stopPropagation()}>
-                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6">
+                      <div className="bg-[#faf6ed] border border-slate-100 rounded-xl p-4 mb-6">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 block">Original Request</span>
                         <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                           {ticket.message}
@@ -463,7 +463,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                         </h4>
                         
                         {(ticket.comments || []).length === 0 ? (
-                          <div className="text-sm text-slate-500 italic p-4 bg-white border border-slate-100 border-dashed rounded-xl text-center">
+                          <div className="text-sm text-slate-500 italic p-4 bg-[#fefcf6] border border-slate-100 border-dashed rounded-xl text-center">
                             No comments yet. Start the conversation!
                           </div>
                         ) : (
@@ -472,7 +472,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                               <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 text-xs">
                                 {comment.senderEmail.charAt(0).toUpperCase()}
                               </div>
-                              <div className="flex-1 bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+                              <div className="flex-1 bg-[#fefcf6] border border-slate-100 rounded-xl p-3 shadow-sm">
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-xs font-bold text-slate-800">{comment.senderEmail}</span>
                                   <span className="text-[10px] font-semibold text-slate-400">
@@ -497,7 +497,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
                               value={commentInputs[ticket.id] || ""}
                               onChange={(e) => setCommentInputs(prev => ({...prev, [ticket.id]: e.target.value}))}
                               placeholder="Type a response..."
-                              className="bg-white border-slate-200 text-slate-900 focus-visible:ring-indigo-500 rounded-xl"
+                              className="bg-[#fefcf6] border-slate-200 text-slate-900 focus-visible:ring-indigo-500 rounded-xl"
                               onKeyDown={e => {
                                 if (e.key === 'Enter') {
                                   e.preventDefault();

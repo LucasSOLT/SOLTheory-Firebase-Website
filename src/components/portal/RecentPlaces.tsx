@@ -89,9 +89,9 @@ export function RecentPlaces() {
               <Link 
                 key={place.id}
                 href={place.path || "#"}
-                className="flex items-center gap-3 p-3 rounded-xl border border-slate-50 hover:border-indigo-100 bg-slate-50/50 hover:bg-indigo-50/30 transition-all group"
+                className="flex items-center gap-3 p-3 rounded-xl border border-slate-50 hover:border-indigo-100 bg-[#faf6ed]/50 hover:bg-indigo-50/30 transition-all group"
               >
-                <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-[#fefcf6] shadow-sm flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <IconComp className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                 </div>
                 <div className="flex-1 min-w-0">

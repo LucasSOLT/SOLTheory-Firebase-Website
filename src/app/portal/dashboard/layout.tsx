@@ -131,7 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const getNavInfo = (p: string): { icon: string; label: string } => {
       if (p.includes('/ai-agents/')) {
         const agentName = p.split('/ai-agents/')[1]?.split('/')[0] || 'Agent';
-        return { icon: 'Bot', label: `AI Chat — ${agentName.charAt(0).toUpperCase() + agentName.slice(1)}` };
+        return { icon: 'Bot', label: `AI Chat â€” ${agentName.charAt(0).toUpperCase() + agentName.slice(1)}` };
       }
       if (p.includes('/youtube')) return { icon: 'Youtube', label: 'YouTube Creator' };
       if (p.includes('/calendar')) return { icon: 'CalendarDays', label: 'Google Calendar' };
@@ -295,7 +295,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const renderSkeletonBoxes = (count: number) => {
     return Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer mb-2">
+      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#faf6ed] transition-colors cursor-pointer mb-2">
         <div className="w-5 h-5 rounded-md bg-slate-200"></div>
         <div className="h-2.5 w-24 rounded-full bg-slate-200"></div>
       </div>
@@ -310,7 +310,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed top-0 left-0 right-0 h-14 bg-[#faf6ed] border-b border-slate-200/80 flex items-center justify-between px-4 z-[60] shadow-sm">
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"
+            className="w-10 h-10 rounded-xl bg-[#fefcf6] border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"
           >
             {isMobileMenuOpen ? (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -344,7 +344,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div ref={orgSwitcherMobileRef} className="relative p-4 pt-4 pb-4">
                   <button
                     onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
-                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-slate-200 bg-[#fefcf6] shadow-sm hover:bg-[#faf6ed] transition-colors cursor-pointer"
                   >
                     {isNxtChapter ? (
                       <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
@@ -358,7 +358,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </button>
 
                   {isOrgSwitcherOpen && (
-                    <div className="absolute left-4 right-4 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="absolute left-4 right-4 top-full mt-1 bg-[#fefcf6] rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                       {/* SOL Theory option */}
                       <button
                         onClick={() => {
@@ -366,7 +366,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           setIsMobileMenuOpen(false);
                           if (isNxtChapter) router.push('/portal/dashboard/soltheory');
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-indigo-50' : 'hover:bg-[#faf6ed]'}`}
                       >
                         <div className="bg-black p-1 rounded-lg flex items-center justify-center">
                           <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-6 h-6 object-contain" />
@@ -381,7 +381,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           setIsMobileMenuOpen(false);
                           if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-indigo-50' : 'hover:bg-[#faf6ed]'}`}
                       >
                         <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
                         <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? 'text-indigo-900' : 'text-slate-700'}`}>NXT Chapter</span>
@@ -391,7 +391,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                 </div>
               ) : (
-                <Link href={dashboardHome} className="p-6 pt-6 pb-6 flex flex-col items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href={dashboardHome} className="p-6 pt-6 pb-6 flex flex-col items-start gap-3 hover:bg-[#faf6ed] transition-colors cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}>
                   {isNxtChapter ? (
                     <>
                       <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-32 h-auto object-contain object-left" />
@@ -409,17 +409,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
 
               <div className="flex-grow overflow-y-auto px-4 space-y-4 pb-8">
-                {/* Reuse the same nav items — these render the same sidebar links */}
+                {/* Reuse the same nav items â€” these render the same sidebar links */}
                 <div className="space-y-1">
-                  <Link href={`${dashboardHome}`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname === dashboardHome ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                  <Link href={`${dashboardHome}`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname === dashboardHome ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                     <Home className="w-5 h-5" />
                     <span>Homepage</span>
                   </Link>
-                  <Link href={`${dashboardHome}/ai-agents/jarvis`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-agents') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                  <Link href={`${dashboardHome}/ai-agents/jarvis`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-agents') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                     <Users className="w-5 h-5" />
                     <span>Agent Manager</span>
                   </Link>
-                  <Link href={`${dashboardHome}/faq`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/faq') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                  <Link href={`${dashboardHome}/faq`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/faq') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                     <HelpCircle className="w-5 h-5" />
                     <span>FAQ</span>
                   </Link>
@@ -429,7 +429,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="pt-3 border-t border-slate-200">
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Flagship Tools</span>
                   <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/crm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/crm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <Users className="w-5 h-5 text-slate-500" />
                       <span>CRM</span>
                     </Link>
@@ -438,7 +438,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <BarChart3 className="w-5 h-5" />
                       <span>Business Intelligence</span>
                     </div>
-                    <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/action-board') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/action-board') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <LayoutDashboard className="w-5 h-5 text-slate-500" />
                       <span>Action Board</span>
                     </Link>
@@ -450,11 +450,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Reports</span>
                   <div className="space-y-1 mt-2">
 
-                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/support-tickets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/support-tickets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <Ticket className="w-5 h-5" />
                       <span>Support Tickets</span>
                     </Link>
-                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/surveys') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/surveys') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <ClipboardList className="w-5 h-5" />
                       <span>Surveys</span>
                     </Link>
@@ -465,7 +465,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="pt-3 border-t border-slate-200">
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Communications</span>
                   <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/communications/imessage`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/imessage') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/communications/imessage`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/imessage') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <MessageCircle className="w-5 h-5" />
                       <span>SMS</span>
                     </Link>
@@ -477,7 +477,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Hash className="w-5 h-5" />
                       <span>Slack</span>
                     </div>
-                    <Link href={`${dashboardHome}/communications/dm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/dm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/communications/dm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/dm') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <MessageSquare className="w-5 h-5" />
                       <span>Direct Messages</span>
                     </Link>
@@ -488,19 +488,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="pt-3 border-t border-slate-200">
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Social Media <span className="text-blue-500 font-bold text-[10px] tracking-normal">BETA</span></span>
                   <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/upload-calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/upload-calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <CalendarDays className="w-5 h-5" />
                       <span>Upload Calendar</span>
                     </Link>
-                    <Link href={`${dashboardHome}/youtube`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/youtube`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <Youtube className="w-5 h-5" />
                       <span>YouTube</span>
                     </Link>
-                    <Link href={`${dashboardHome}/instagram`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/instagram`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <Instagram className="w-5 h-5" />
                       <span>Instagram</span>
                     </Link>
-                    <Link href={`${dashboardHome}/facebook`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/facebook`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <Facebook className="w-5 h-5" />
                       <span>Facebook</span>
                     </Link>
@@ -511,19 +511,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="pt-3 border-t border-slate-200">
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Google Integrations</span>
                   <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/calendar') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/calendar') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <CalendarDays className="w-5 h-5" />
                       <span>Google Calendar</span>
                     </Link>
-                    <Link href={`${dashboardHome}/docs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/docs') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/docs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/docs') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <FileText className="w-5 h-5" />
                       <span>Google Docs</span>
                     </Link>
-                    <Link href={`${dashboardHome}/slides`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/slides') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/slides`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/slides') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <Presentation className="w-5 h-5" />
                       <span>Google Slides</span>
                     </Link>
-                    <Link href={`${dashboardHome}/sheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/sheets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                    <Link href={`${dashboardHome}/sheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/sheets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <Table className="w-5 h-5" />
                       <span>Google Sheets</span>
                     </Link>
@@ -532,7 +532,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Settings */}
                 <div className="pt-3 border-t border-slate-200">
-                  <Link href={`${dashboardHome}/settings`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/settings') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700'}`}>
+                  <Link href={`${dashboardHome}/settings`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/settings') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                     <Settings className="w-5 h-5" />
                     <span>Settings</span>
                   </Link>
@@ -619,7 +619,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </button>
 
                 {isOrgSwitcherOpen && (
-                  <div className="absolute left-5 right-5 top-full mt-1 bg-white rounded-xl border border-[#ddd3b8] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute left-5 right-5 top-full mt-1 bg-[#fefcf6] rounded-xl border border-[#ddd3b8] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                     {/* SOL Theory option */}
                     <button
                       onClick={() => {
@@ -817,7 +817,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Communications</span>
             </button>
             {!collapsedSections['comms'] && <div className="space-y-1 animate-in fade-in duration-150">
-              <Link href={`${dashboardHome}/communications/imessage`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/communications/imessage') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:text-blue-900'}`}>
+              <Link href={`${dashboardHome}/communications/imessage`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/communications/imessage') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700 hover:text-blue-900'}`}>
                 <MessageCircle className="w-4 h-4 ml-1" />
                 <span className="text-sm">SMS</span>
               </Link>
@@ -983,13 +983,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0 ${isMobile ? 'pt-14' : ''}`}>
-        {/* Top Navbar — hidden on mobile */}
+        {/* Top Navbar â€” hidden on mobile */}
         <header className="h-[88px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex">
           <div className="flex-grow max-w-[480px] relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
               placeholder={t.searchPlaceholder}
-              className="pl-12 bg-white border border-slate-100 shadow-sm focus-visible:ring-1 focus-visible:ring-slate-200 rounded-full h-12 w-full text-sm font-medium text-slate-700 placeholder:text-slate-400"
+              className="pl-12 bg-[#fefcf6] border border-slate-100 shadow-sm focus-visible:ring-1 focus-visible:ring-slate-200 rounded-full h-12 w-full text-sm font-medium text-slate-700 placeholder:text-slate-400"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -997,7 +997,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="relative" ref={(el) => { if (el) (el as any)._profileDropdown = true; }}>
                 <button
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-100"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#faf6ed] transition-colors cursor-pointer border border-transparent hover:border-slate-100"
                 >
                   <Avatar className="h-8 w-8 shrink-0">
                     <AvatarImage src={user?.photoURL || ""} />
@@ -1011,7 +1011,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {isProfileDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute right-0 top-full mt-2 w-52 bg-[#fefcf6] border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-4 py-2.5 border-b border-slate-100">
                         <p className="text-sm font-semibold text-slate-900 truncate">{user?.displayName || "User"}</p>
                         <p className="text-[11px] text-slate-400 truncate">{user?.email || ""}</p>
@@ -1019,7 +1019,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link
                         href={`${dashboardHome}/settings?tab=profile`}
                         onClick={() => setIsProfileDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
                       >
                         <UserSquare className="w-4 h-4 text-slate-400" />
                         Profile
@@ -1027,7 +1027,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link
                         href={`${dashboardHome}/settings?tab=general`}
                         onClick={() => setIsProfileDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
                       >
                         <Settings className="w-4 h-4 text-slate-400" />
                         Settings
@@ -1035,7 +1035,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link
                         href={`${dashboardHome}/faq`}
                         onClick={() => setIsProfileDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
                       >
                         <HelpCircle className="w-4 h-4 text-slate-400" />
                         Help
@@ -1047,7 +1047,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {/* Notifications Bell */}
               <div className="relative">
-                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-white transition-colors bg-white shadow-sm border border-slate-100 rounded-full flex items-center justify-center relative">
+                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-[#fefcf6] transition-colors bg-[#fefcf6] shadow-sm border border-slate-100 rounded-full flex items-center justify-center relative">
                   <Bell className="h-4 w-4" />
                   {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
                     <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
@@ -1058,7 +1058,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {isNotificationsOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-[380px] bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute right-0 top-full mt-2 w-[380px] bg-[#fefcf6] rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
@@ -1085,7 +1085,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   setIsNotificationsOpen(false);
                                   if (n.link) router.push(n.link);
                                 }}
-                                className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors mb-1.5 cursor-pointer border border-transparent hover:border-slate-100"
+                                className="flex items-start gap-3 p-3 rounded-xl hover:bg-[#faf6ed] transition-colors mb-1.5 cursor-pointer border border-transparent hover:border-slate-100"
                               >
                                 <div className={`w-8 h-8 rounded-lg ${n.bg} flex items-center justify-center shrink-0 mt-0.5`}>
                                   {n.icon}
@@ -1104,7 +1104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                       </div>
 
-                      <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+                      <div className="px-5 py-3 border-t border-slate-100 bg-[#faf6ed]/50">
                         <button className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors py-1">
                           View All Notifications
                         </button>

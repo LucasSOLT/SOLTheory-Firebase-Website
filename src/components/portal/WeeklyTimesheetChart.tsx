@@ -8,7 +8,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 
-/* ── helpers ── */
+/* â”€â”€ helpers â”€â”€ */
 function formatDate(d: Date) {
   return d.toISOString().split("T")[0]; // YYYY-MM-DD
 }
@@ -116,7 +116,7 @@ export function WeeklyTimesheetChart() {
 
   if (error === "QuickBooks not connected") {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center text-center p-5 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200/60 min-h-[140px]">
+      <div className="h-full w-full flex flex-col items-center justify-center text-center p-5 bg-[#faf6ed]/50 rounded-2xl border border-dashed border-slate-200/60 min-h-[140px]">
         <Clock className="w-6 h-6 text-slate-400 mb-1.5" />
         <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">QuickBooks Not Connected</h4>
         <p className="text-[9px] text-slate-500 mt-1 max-w-[180px] leading-relaxed">
@@ -140,7 +140,7 @@ export function WeeklyTimesheetChart() {
 
   if (chartData.length === 0) {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center text-center p-5 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200/60 min-h-[140px]">
+      <div className="h-full w-full flex flex-col items-center justify-center text-center p-5 bg-[#faf6ed]/50 rounded-2xl border border-dashed border-slate-200/60 min-h-[140px]">
         <Clock className="w-6 h-6 text-slate-300 mb-1.5" />
         <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">No Weekly Hours Worked</h4>
         <p className="text-[9px] text-slate-400 mt-1 max-w-[180px] leading-relaxed">

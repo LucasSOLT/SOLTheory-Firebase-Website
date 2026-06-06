@@ -49,7 +49,7 @@ export function ActiveAgentsPreview({
             <button
               key={slot.id}
               onClick={onOpenHub}
-              className="rounded-xl border border-dashed border-slate-200 bg-slate-50/30 flex items-center justify-center hover:bg-slate-50/60 transition-colors cursor-pointer min-h-[60px]"
+              className="rounded-xl border border-dashed border-slate-200 bg-[#faf6ed]/30 flex items-center justify-center hover:bg-[#faf6ed]/60 transition-colors cursor-pointer min-h-[60px]"
             >
               <span className="text-[7px] text-slate-300 font-bold uppercase tracking-wider">
                 Empty
@@ -62,7 +62,7 @@ export function ActiveAgentsPreview({
           <button
             key={slot.id}
             onClick={onOpenHub}
-            className="rounded-xl border border-slate-200/60 bg-white shadow-sm p-2 flex flex-col min-h-[60px] hover:shadow transition-shadow cursor-pointer text-left overflow-hidden"
+            className="rounded-xl border border-slate-200/60 bg-[#fefcf6] shadow-sm p-2 flex flex-col min-h-[60px] hover:shadow transition-shadow cursor-pointer text-left overflow-hidden"
           >
             {/* Mini header */}
             <div className="flex items-center justify-between mb-1 shrink-0">
