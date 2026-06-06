@@ -535,6 +535,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [emailSearchQuery, setEmailSearchQuery] = useState('');
 
   const [exploreTab, setExploreTab] = useState<"models" | "agents">("models");
   const [selectedExploreItem, setSelectedExploreItem] = useState<string | null>(null);
@@ -596,6 +597,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       setSelectedEmails(new Set(incomingEmails.filter(e => !agentContacts.find(c => c.ignore && c.email.toLowerCase() === (e.from.split('<').pop()?.replace('>', '') || '').toLowerCase())).map(e => e.id)));
     }
   };
+
+  // Escape key to close email detail view
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && expandedEmailId) {
+        setExpandedEmailId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expandedEmailId]);
+
   // Agent Knowledge Base Config
   const [agentConfig, setAgentConfig] = useState({ soul: "", brain: "", heartbeat: "manual" });
   const [orgBrain, setOrgBrain] = useState<string>("");
@@ -3033,6 +3046,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   {agentEyeTab === 'sms' && 'SMS'}
                   {agentEyeTab === 'jarvis-view' && 'Jarvis View'}
                 </span>
+                {agentEyeTab === 'gmail' && (() => {
+                  const unreadCount = incomingEmails.filter(e => !readEmails.has(e.id)).length;
+                  return unreadCount > 0 ? (
+                    <span className="ml-1 px-1.5 py-0.5 text-[9px] font-bold bg-red-500 text-white rounded-full min-w-[18px] text-center">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                  ) : null;
+                })()}
               </div>
               <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${agentEyeDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -3158,13 +3177,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                     <button onClick={() => { setGmailActiveFilters(new Set()); setActiveTagFilter(null); }} className="text-[9px] font-semibold text-amber-600 hover:underline">Clear all</button>
                                   )}
                                 </div>
-                                {([
-                                  { id: 'unread', label: 'Unread', icon: <MailOpen className="w-3.5 h-3.5" />, desc: 'Not yet opened', conflicts: [] as string[] },
-                                  { id: 'unreplied', label: 'Awaiting Reply', icon: <Clock className="w-3.5 h-3.5" />, desc: 'No response sent', conflicts: ['replied'] },
-                                  { id: 'replied', label: 'Replied', icon: <Reply className="w-3.5 h-3.5" />, desc: 'Response sent', conflicts: ['unreplied'] },
-                                  { id: 'starred', label: 'Starred', icon: <Star className="w-3.5 h-3.5" />, desc: 'Marked important', conflicts: [] as string[] },
-                                  { id: 'has-attachments', label: 'Has Attachments', icon: <Paperclip className="w-3.5 h-3.5" />, desc: 'Contains files', conflicts: [] as string[] },
-                                ]).map(item => {
+                                {(() => {
+                                  // Pre-compute counts for each filter
+                                  const counts: Record<string, number> = { unread: 0, unreplied: 0, replied: 0, starred: 0, 'has-attachments': 0 };
+                                  incomingEmails.forEach(email => {
+                                    const se = email.from.split('<').pop()?.replace('>', '') || '';
+                                    const ignored = agentContacts.find(c => c.ignore && c.email.toLowerCase() === se.toLowerCase());
+                                    if (ignored) return;
+                                    if (!readEmails.has(email.id)) counts.unread++;
+                                    if (starredEmails.has(email.id)) counts.starred++;
+                                    if (email.attachments && email.attachments.length > 0) counts['has-attachments']++;
+                                    const labels = email.labelIds || [];
+                                    const hasReply = labels.includes('SENT') || labels.includes('CATEGORY_SENT');
+                                    if (hasReply) counts.replied++; else counts.unreplied++;
+                                  });
+                                  return ([
+                                    { id: 'unread', label: 'Unread', icon: <MailOpen className="w-3.5 h-3.5" />, desc: 'Not yet opened', conflicts: [] as string[], count: counts.unread },
+                                    { id: 'unreplied', label: 'Awaiting Reply', icon: <Clock className="w-3.5 h-3.5" />, desc: 'No response sent', conflicts: ['replied'], count: counts.unreplied },
+                                    { id: 'replied', label: 'Replied', icon: <Reply className="w-3.5 h-3.5" />, desc: 'Response sent', conflicts: ['unreplied'], count: counts.replied },
+                                    { id: 'starred', label: 'Starred', icon: <Star className="w-3.5 h-3.5" />, desc: 'Marked important', conflicts: [] as string[], count: counts.starred },
+                                    { id: 'has-attachments', label: 'Has Attachments', icon: <Paperclip className="w-3.5 h-3.5" />, desc: 'Contains files', conflicts: [] as string[], count: counts['has-attachments'] },
+                                  ]).map(item => {
                                   const isActive = gmailActiveFilters.has(item.id);
                                   return (
                                     <button
@@ -3199,9 +3232,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                         <div className="text-xs font-semibold">{item.label}</div>
                                         <div className="text-[10px] text-slate-400">{item.desc}</div>
                                       </div>
+                                      <span className={`text-[10px] tabular-nums font-medium ${isActive ? 'text-amber-500' : 'text-slate-300'}`}>{item.count}</span>
                                     </button>
                                   );
-                                })}
+                                });
+                                })()}
                                 <div className="border-t border-[#ede8da]">
                                   <button
                                     onClick={() => { setGmailFilterMenuOpen(false); }}
@@ -3383,9 +3418,45 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             </button>
                           </>
                         )}
-                        <span className="text-[11px] text-slate-400 tabular-nums ml-1">
-                          {incomingEmails.length} email{incomingEmails.length !== 1 ? 's' : ''}
-                        </span>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <span className="text-[11px] text-slate-400 tabular-nums">
+                            {incomingEmails.length} email{incomingEmails.length !== 1 ? 's' : ''}
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (!user?.uid) return;
+                              setIncomingEmails([]);
+                              // Trigger re-fetch by re-running the effect
+                              const ev = new CustomEvent('gmail-refresh');
+                              window.dispatchEvent(ev);
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors"
+                            title="Refresh"
+                          >
+                            <RefreshCw className="w-3 h-3 text-slate-400" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="px-3 py-1.5 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
+                        <input
+                          value={emailSearchQuery}
+                          onChange={e => setEmailSearchQuery(e.target.value)}
+                          placeholder="Search emails..."
+                          className="w-full text-xs pl-8 pr-8 py-1.5 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 focus:bg-white focus:ring-1 focus:ring-amber-300 focus:border-amber-300 outline-none transition-all text-slate-700 placeholder:text-slate-300"
+                        />
+                        {emailSearchQuery && (
+                          <button
+                            onClick={() => setEmailSearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors"
+                          >
+                            <X className="w-3 h-3 text-slate-400" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -3397,6 +3468,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
                           const isIgnored = agentContacts.find(c => c.ignore && c.email.toLowerCase() === senderEmail.toLowerCase());
                           if (isIgnored) return false;
+
+                          // Search filter
+                          if (emailSearchQuery.trim()) {
+                            const q = emailSearchQuery.toLowerCase();
+                            const senderName = email.from.split('<')[0].trim().toLowerCase();
+                            const matchesSender = senderName.includes(q) || senderEmail.toLowerCase().includes(q);
+                            const matchesSubject = (email.subject || '').toLowerCase().includes(q);
+                            const matchesSnippet = (email.snippet || '').toLowerCase().includes(q);
+                            if (!matchesSender && !matchesSubject && !matchesSnippet) return false;
+                          }
 
                           const isRead = readEmails.has(email.id);
                           const isStarred = starredEmails.has(email.id);
