@@ -20,7 +20,7 @@ const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(3
 
 type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
-type EmailMeta = { id: string; subject: string; snippet: string; from: string; date: string; internalDate?: number; };
+type EmailMeta = { id: string; subject: string; snippet: string; from: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
 
 
@@ -505,6 +505,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [starredEmails, setStarredEmails] = useState<Set<string>>(new Set());
+  const [readEmails, setReadEmails] = useState<Set<string>>(new Set());
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
@@ -2996,11 +2998,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </button>
                         <button
                           onClick={fetchPulse}
-                          disabled={isPolling}
                           className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors"
-                          title="Refresh"
+                          title="Tags (coming soon)"
                         >
-                          <RefreshCw className={`w-4 h-4 text-slate-400 ${isPolling ? 'animate-spin' : ''}`} />
+                          <Filter className="w-4 h-4 text-slate-400" />
                         </button>
 
                         {/* Filter Menu */}
@@ -3100,72 +3101,228 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                     </div>
 
-                    {/* Email List — Gmail-style */}
+                    {/* Email List — Gmail-style with filters */}
                     <div className="flex-1 overflow-y-auto">
-                      {incomingEmails.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                          <Inbox className="w-12 h-12 text-slate-200 mb-3" />
-                          <p className="text-sm font-medium text-slate-400">Inbox is empty</p>
-                          <p className="text-xs text-slate-300 mt-1">New emails will appear here</p>
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-slate-100">
-                          {incomingEmails.map(email => {
-                            const isSelected = selectedEmails.has(email.id);
-                            const senderName = email.from.split('<')[0].trim().replace(/"/g, '') || email.from;
-                            const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
-                            const isIgnored = agentContacts.find(c => c.ignore && c.email.toLowerCase() === senderEmail.toLowerCase());
-                            if (isIgnored) return null;
-                            const dateStr = (() => {
-                              try {
-                                const d = email.internalDate ? new Date(Number(email.internalDate)) : new Date(email.date);
-                                const now = new Date();
-                                if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                                return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                              } catch { return ''; }
-                            })();
-                            return (
-                              <div
-                                key={email.id}
-                                onClick={() => toggleSelection({ stopPropagation: () => {} } as any, email.id)}
-                                className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors group ${
-                                  isSelected ? 'bg-blue-50' : 'hover:bg-[#faf6ed]'
-                                }`}
-                              >
-                                {/* Checkbox */}
-                                <div className="pt-0.5 shrink-0">
-                                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                                    isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover:border-slate-400'
-                                  }`}>
-                                    {isSelected && (
-                                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                      </svg>
-                                    )}
-                                  </div>
-                                </div>
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[13px] font-semibold text-slate-800 truncate">{senderName}</span>
-                                    <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">{dateStr}</span>
-                                  </div>
-                                  <p className="text-[12.5px] font-medium text-slate-700 truncate mt-0.5">{email.subject || '(no subject)'}</p>
-                                  <p className="text-[11.5px] text-slate-400 truncate mt-0.5 leading-snug">{email.snippet}</p>
-                                </div>
-                                {/* Delete */}
+                      {(() => {
+                        // Apply active filter
+                        const visibleEmails = incomingEmails.filter(email => {
+                          const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
+                          const isIgnored = agentContacts.find(c => c.ignore && c.email.toLowerCase() === senderEmail.toLowerCase());
+                          if (isIgnored) return false;
+
+                          const isRead = readEmails.has(email.id);
+                          const isStarred = starredEmails.has(email.id);
+                          const labels = email.labelIds || [];
+                          const isUnread = labels.includes('UNREAD') || !isRead;
+                          const hasReply = labels.includes('SENT') || labels.includes('CATEGORY_SENT');
+
+                          switch (gmailActiveFilter) {
+                            case 'unread': return !isRead;
+                            case 'unreplied': return !hasReply;
+                            case 'replied': return hasReply;
+                            case 'starred': return isStarred;
+                            case 'has-attachments': return (email.attachments && email.attachments.length > 0);
+                            default: return true;
+                          }
+                        });
+
+                        if (expandedEmailId) {
+                          // Detail view for a single email
+                          const email = incomingEmails.find(e => e.id === expandedEmailId);
+                          if (!email) return null;
+                          const senderName = email.from.split('<')[0].trim().replace(/"/g, '') || email.from;
+                          const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
+                          const dateStr = (() => {
+                            try {
+                              const d = email.internalDate ? new Date(Number(email.internalDate)) : new Date(email.date);
+                              return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                            } catch { return ''; }
+                          })();
+                          const isStarred = starredEmails.has(email.id);
+                          return (
+                            <div className="flex flex-col h-full">
+                              {/* Detail Header */}
+                              <div className="flex items-center gap-2 px-3 py-2 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); }}
-                                  className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 rounded transition-all shrink-0 mt-0.5"
-                                  title="Delete"
+                                  onClick={() => setExpandedEmailId(null)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#faf6ed] transition-colors"
                                 >
-                                  {isDeletingEmail === email.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" /> : <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />}
+                                  <ArrowLeft className="w-4 h-4 text-slate-500" />
+                                </button>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold text-slate-700 truncate">{email.subject || '(no subject)'}</p>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setStarredEmails(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(email.id)) next.delete(email.id);
+                                      else next.add(email.id);
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 transition-colors"
+                                >
+                                  <Star className={`w-4 h-4 ${isStarred ? 'text-amber-400 fill-amber-400' : 'text-slate-300'}`} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); setExpandedEmailId(null); }}
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
                                 </button>
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                              {/* Sender Info */}
+                              <div className="px-4 py-3 border-b border-[#ede8da]/50">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                    {senderName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-slate-800">{senderName}</p>
+                                    <p className="text-[11px] text-slate-400 truncate">{senderEmail}</p>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 shrink-0">{dateStr}</span>
+                                </div>
+                              </div>
+                              {/* Email Body */}
+                              <div className="flex-1 overflow-y-auto px-4 py-4">
+                                {email.body ? (
+                                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: email.body }} />
+                                ) : (
+                                  <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{email.snippet || 'No content available.'}</p>
+                                )}
+                                {/* Attachments */}
+                                {email.attachments && email.attachments.length > 0 && (
+                                  <div className="mt-4 pt-3 border-t border-[#ede8da]/50">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Attachments ({email.attachments.length})</p>
+                                    <div className="space-y-1.5">
+                                      {email.attachments.map((att, i) => (
+                                        <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 hover:bg-[#faf6ed] transition-colors">
+                                          <Paperclip className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium text-slate-700 truncate">{att.filename}</p>
+                                            <p className="text-[10px] text-slate-400">{(att.size / 1024).toFixed(1)} KB · {att.mimeType.split('/').pop()}</p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (visibleEmails.length === 0) {
+                          return (
+                            <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                              {gmailActiveFilter !== 'all' ? (
+                                <>
+                                  <Filter className="w-10 h-10 text-slate-200 mb-3" />
+                                  <p className="text-sm font-medium text-slate-400">No emails match this filter</p>
+                                  <button onClick={() => setGmailActiveFilter('all')} className="text-xs text-amber-600 font-semibold mt-2 hover:underline cursor-pointer">Clear filter</button>
+                                </>
+                              ) : (
+                                <>
+                                  <Inbox className="w-12 h-12 text-slate-200 mb-3" />
+                                  <p className="text-sm font-medium text-slate-400">Inbox is empty</p>
+                                  <p className="text-xs text-slate-300 mt-1">New emails will appear here</p>
+                                </>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="divide-y divide-[#ede8da]/50">
+                            {visibleEmails.map(email => {
+                              const isSelected = selectedEmails.has(email.id);
+                              const isRead = readEmails.has(email.id);
+                              const isStarred = starredEmails.has(email.id);
+                              const senderName = email.from.split('<')[0].trim().replace(/"/g, '') || email.from;
+                              const dateStr = (() => {
+                                try {
+                                  const d = email.internalDate ? new Date(Number(email.internalDate)) : new Date(email.date);
+                                  const now = new Date();
+                                  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                                  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                                } catch { return ''; }
+                              })();
+                              const hasAttachments = email.attachments && email.attachments.length > 0;
+
+                              return (
+                                <div
+                                  key={email.id}
+                                  onClick={() => {
+                                    // Mark as read and open detail
+                                    setReadEmails(prev => new Set(prev).add(email.id));
+                                    setExpandedEmailId(email.id);
+                                  }}
+                                  className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer transition-all group ${
+                                    isSelected
+                                      ? 'bg-blue-50'
+                                      : isRead
+                                        ? 'bg-[#faf6ed]/30 hover:bg-[#faf6ed]/60'
+                                        : 'bg-[#fefcf6] hover:bg-[#faf6ed]'
+                                  }`}
+                                >
+                                  {/* Checkbox */}
+                                  <div className="pt-0.5 shrink-0" onClick={e => { e.stopPropagation(); toggleSelection(e as any, email.id); }}>
+                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                                      isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover:border-slate-400'
+                                    }`}>
+                                      {isSelected && (
+                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Star */}
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      setStarredEmails(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(email.id)) next.delete(email.id);
+                                        else next.add(email.id);
+                                        return next;
+                                      });
+                                    }}
+                                    className="pt-0.5 shrink-0"
+                                  >
+                                    <Star className={`w-4 h-4 transition-colors ${isStarred ? 'text-amber-400 fill-amber-400' : 'text-slate-200 hover:text-amber-300'}`} />
+                                  </button>
+
+                                  {/* Content */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className={`text-[13px] truncate ${isRead ? 'font-normal text-slate-500' : 'font-bold text-slate-800'}`}>{senderName}</span>
+                                      <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">{dateStr}</span>
+                                    </div>
+                                    <p className={`text-[12.5px] truncate mt-0.5 ${isRead ? 'font-normal text-slate-500' : 'font-semibold text-slate-700'}`}>{email.subject || '(no subject)'}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <p className={`text-[11.5px] truncate leading-snug flex-1 ${isRead ? 'text-slate-300' : 'text-slate-400'}`}>{email.snippet}</p>
+                                      {hasAttachments && <Paperclip className="w-3 h-3 text-slate-300 shrink-0" />}
+                                    </div>
+                                  </div>
+
+                                  {/* Delete */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); }}
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 rounded transition-all shrink-0 mt-0.5"
+                                    title="Delete"
+                                  >
+                                    {isDeletingEmail === email.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" /> : <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
