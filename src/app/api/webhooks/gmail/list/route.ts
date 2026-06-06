@@ -16,14 +16,15 @@ function findParts(payload: any, mimeType: string): any[] {
 }
 
 // Collect attachment metadata
-function getAttachments(payload: any): { filename: string; mimeType: string; size: number }[] {
-  const attachments: { filename: string; mimeType: string; size: number }[] = [];
+function getAttachments(payload: any): { filename: string; mimeType: string; size: number; attachmentId: string }[] {
+  const attachments: { filename: string; mimeType: string; size: number; attachmentId: string }[] = [];
   function walk(part: any) {
     if (part.filename && part.filename.length > 0 && part.body) {
       attachments.push({
         filename: part.filename,
         mimeType: part.mimeType || 'application/octet-stream',
         size: part.body.size || 0,
+        attachmentId: part.body.attachmentId || '',
       });
     }
     if (part.parts) part.parts.forEach(walk);

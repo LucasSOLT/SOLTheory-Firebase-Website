@@ -145,6 +145,16 @@ service cloud.firestore {
         }
       }
 
+      /**
+       * @description Persistent email tag configuration per agent.
+       * Stores custom tags, sender-to-tag mappings, read/starred state.
+       * @path /users/{userId}/email_settings/{agentId}
+       * @allow (read, write) A user can manage their own email settings.
+       */
+      match /email_settings/{agentId} {
+        allow read, write: if isOwner(userId);
+      }
+
       match /contacts/{contactId} {
         allow read, write: if isOwner(userId);
       }

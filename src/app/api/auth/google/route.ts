@@ -22,11 +22,14 @@ export async function GET(req: Request) {
 
   // Generate a url that asks permissions for Gmail scopes
   const scopes = [
+    'https://mail.google.com/',                             // Full Gmail access (read, send, delete, manage)
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/gmail.settings.basic',
+    'https://www.googleapis.com/auth/gmail.labels',         // Manage labels
     'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/contacts.readonly',    // Read contacts
     'https://www.googleapis.com/auth/documents',
     'https://www.googleapis.com/auth/presentations',
     'https://www.googleapis.com/auth/spreadsheets',

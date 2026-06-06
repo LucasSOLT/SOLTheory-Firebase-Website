@@ -20,7 +20,7 @@ const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(3
 
 type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
-type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number }[]; };
+type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number; attachmentId?: string }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
 
 
@@ -862,14 +862,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     if (savedContacts) {
       try { setAgentContacts(JSON.parse(savedContacts)); } catch { }
     }
-    const savedTags = localStorage.getItem(`st_email_tags_${params.agentId}`);
-    if (savedTags) {
-      try { setEmailTags(JSON.parse(savedTags)); } catch { }
-    }
-    const savedSenderTags = localStorage.getItem(`st_sender_tag_map_${params.agentId}`);
-    if (savedSenderTags) {
-      try { setSenderTagMap(JSON.parse(savedSenderTags)); } catch { }
-    }
     const savedRead = localStorage.getItem(`st_read_emails_${params.agentId}`);
     if (savedRead) {
       try { setReadEmails(new Set(JSON.parse(savedRead))); } catch { }
@@ -878,16 +870,57 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     if (savedStarred) {
       try { setStarredEmails(new Set(JSON.parse(savedStarred))); } catch { }
     }
+
+    // Load tags from Firestore (persists across sessions/devices)
+    if (user?.uid && firestore) {
+      getDoc(doc(firestore, "users", user.uid, "email_settings", params.agentId)).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.emailTags) setEmailTags(data.emailTags);
+          if (data.senderTagMap) setSenderTagMap(data.senderTagMap);
+        } else {
+          // Migrate from localStorage if Firestore has no data yet
+          const savedTags = localStorage.getItem(`st_email_tags_${params.agentId}`);
+          if (savedTags) { try { setEmailTags(JSON.parse(savedTags)); } catch { } }
+          const savedSenderTags = localStorage.getItem(`st_sender_tag_map_${params.agentId}`);
+          if (savedSenderTags) { try { setSenderTagMap(JSON.parse(savedSenderTags)); } catch { } }
+        }
+      }).catch(() => {
+        // Fallback to localStorage if Firestore fails
+        const savedTags = localStorage.getItem(`st_email_tags_${params.agentId}`);
+        if (savedTags) { try { setEmailTags(JSON.parse(savedTags)); } catch { } }
+        const savedSenderTags = localStorage.getItem(`st_sender_tag_map_${params.agentId}`);
+        if (savedSenderTags) { try { setSenderTagMap(JSON.parse(savedSenderTags)); } catch { } }
+      });
+    }
   }, [params.agentId, firestore, user?.uid]);
 
+  // Save config + contacts to localStorage
   useEffect(() => {
     localStorage.setItem(`st_agent_config_${params.agentId}`, JSON.stringify(agentConfig));
     localStorage.setItem(`st_agent_contacts_${params.agentId}`, JSON.stringify(agentContacts));
-    localStorage.setItem(`st_email_tags_${params.agentId}`, JSON.stringify(emailTags));
-    localStorage.setItem(`st_sender_tag_map_${params.agentId}`, JSON.stringify(senderTagMap));
     localStorage.setItem(`st_read_emails_${params.agentId}`, JSON.stringify(Array.from(readEmails)));
     localStorage.setItem(`st_starred_emails_${params.agentId}`, JSON.stringify(Array.from(starredEmails)));
-  }, [agentConfig, agentContacts, emailTags, senderTagMap, readEmails, starredEmails, params.agentId]);
+  }, [agentConfig, agentContacts, readEmails, starredEmails, params.agentId]);
+
+  // Save tags to Firestore (debounced) — persists across sessions/devices/accounts
+  const tagSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!user?.uid || !firestore) return;
+    // Also write to localStorage as a fast cache
+    localStorage.setItem(`st_email_tags_${params.agentId}`, JSON.stringify(emailTags));
+    localStorage.setItem(`st_sender_tag_map_${params.agentId}`, JSON.stringify(senderTagMap));
+    // Debounced Firestore write (1s)
+    if (tagSaveTimerRef.current) clearTimeout(tagSaveTimerRef.current);
+    tagSaveTimerRef.current = setTimeout(() => {
+      setDoc(doc(firestore, "users", user.uid, "email_settings", params.agentId), {
+        emailTags,
+        senderTagMap,
+        updatedAt: Date.now(),
+      }, { merge: true }).catch(err => console.error("Failed to save email tags to Firestore:", err));
+    }, 1000);
+    return () => { if (tagSaveTimerRef.current) clearTimeout(tagSaveTimerRef.current); };
+  }, [emailTags, senderTagMap, params.agentId, user?.uid, firestore]);
 
   // Load Lifetime Usage
   useEffect(() => {
@@ -1459,6 +1492,52 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         if (file) processAgentFile(file);
         break;
       }
+    }
+  };
+
+  // Attachment download / preview handler
+  const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
+  const handleAttachmentAction = async (messageId: string, att: { filename: string; mimeType: string; size: number; attachmentId?: string }, mode: 'download' | 'preview') => {
+    if (!att.attachmentId || !user?.uid || !firestore) return;
+    setDownloadingAttachment(`${messageId}-${att.attachmentId}`);
+    try {
+      const docSnap = await getDoc(doc(firestore, "users", user.uid));
+      const userData = docSnap.data();
+      let rToken = userData?.[`gmailOAuth_${params.agentId}`]?.refreshToken
+        || (userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken)
+        || userData?.gmailOAuth_email?.refreshToken
+        || userData?.[`gmailOAuth_inbound-email`]?.refreshToken
+        || userData?.gmailOAuth?.refreshToken;
+      if (!rToken) throw new Error("Missing Refresh Token");
+
+      const res = await fetch("/api/webhooks/gmail/attachment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user.uid, refreshToken: rToken, messageId, attachmentId: att.attachmentId }),
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch attachment");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      if (mode === 'preview') {
+        // Open in new tab for previewable types
+        window.open(url, '_blank');
+      } else {
+        // Download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = att.filename || 'attachment';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      console.error("Attachment error:", err);
+    } finally {
+      setDownloadingAttachment(null);
     }
   };
 
@@ -3655,9 +3734,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                       {email.attachments.map((att: any, i: number) => {
                                         const isImage = att.mimeType?.startsWith('image/');
                                         const isPdf = att.mimeType === 'application/pdf';
+                                        const isPreviewable = isImage || isPdf;
                                         const sizeStr = att.size > 1048576 ? `${(att.size / 1048576).toFixed(1)} MB` : `${(att.size / 1024).toFixed(1)} KB`;
+                                        const isLoading = downloadingAttachment === `${email.id}-${att.attachmentId}`;
                                         return (
-                                          <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 hover:bg-[#faf6ed] transition-colors cursor-pointer">
+                                          <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 hover:bg-[#faf6ed] transition-colors group">
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isImage ? 'bg-pink-50 text-pink-500' : isPdf ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
                                               {isImage ? <ImageIcon className="w-4 h-4" /> : isPdf ? <FileText className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
                                             </div>
@@ -3665,6 +3746,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                               <p className="text-xs font-semibold text-slate-700 truncate">{att.filename}</p>
                                               <p className="text-[10px] text-slate-400">{sizeStr} · {att.mimeType?.split('/').pop()?.toUpperCase()}</p>
                                             </div>
+                                            {att.attachmentId && (
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                {isPreviewable && (
+                                                  <button
+                                                    onClick={() => handleAttachmentAction(email.id, att, 'preview')}
+                                                    disabled={isLoading}
+                                                    className="px-2 py-1 text-[10px] font-semibold rounded-md bg-white border border-[#ede8da] text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors disabled:opacity-40"
+                                                    title="Preview"
+                                                  >
+                                                    {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                                                  </button>
+                                                )}
+                                                <button
+                                                  onClick={() => handleAttachmentAction(email.id, att, 'download')}
+                                                  disabled={isLoading}
+                                                  className="px-2 py-1 text-[10px] font-semibold rounded-md bg-white border border-[#ede8da] text-slate-600 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors disabled:opacity-40"
+                                                  title="Download"
+                                                >
+                                                  {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowLeft className="w-3 h-3 rotate-[-90deg]" />}
+                                                </button>
+                                              </div>
+                                            )}
                                           </div>
                                         );
                                       })}
