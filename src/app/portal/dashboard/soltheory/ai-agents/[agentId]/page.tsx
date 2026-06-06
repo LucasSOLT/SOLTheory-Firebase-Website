@@ -3114,6 +3114,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         >
                           <CheckSquare className={`w-4 h-4 ${selectedEmails.size > 0 ? 'text-blue-600' : 'text-slate-400'}`} />
                         </button>
+                        {selectedEmails.size > 0 && (
+                          <span className="text-[10px] font-bold text-blue-600 tabular-nums">{selectedEmails.size}</span>
+                        )}
                         {/* Tag filter dropdown */}
                         <div className="relative">
                           <button
@@ -3417,6 +3420,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             >
                               {isBatchSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Reply className="w-3.5 h-3.5" />}
                               Auto-reply {selectedEmails.size}
+                            </button>
+                            {/* Mark as read */}
+                            <button
+                              onClick={() => {
+                                setReadEmails(prev => {
+                                  const next = new Set(prev);
+                                  selectedEmails.forEach(id => next.add(id));
+                                  return next;
+                                });
+                                setSelectedEmails(new Set());
+                              }}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-[#ede8da] text-slate-600 hover:bg-[#faf6ed] transition-colors"
+                              title="Mark selected as read"
+                            >
+                              <MailOpen className="w-3.5 h-3.5" />
                             </button>
                           </>
                         )}
