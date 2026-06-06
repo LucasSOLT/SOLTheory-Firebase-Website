@@ -192,13 +192,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [agentEyePos, setAgentEyePos] = useState(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 8, y: 60 };
     if (typeof window !== 'undefined' && window.innerWidth < 768) return { x: 16, y: 80 };
-    const bottomY = typeof window !== 'undefined' ? Math.max(window.innerHeight - 480, 100) : 300;
-    return { x: 240, y: bottomY };
+    const bottomY = typeof window !== 'undefined' ? Math.max(window.innerHeight - 620, 60) : 200;
+    return { x: 200, y: bottomY };
   });
   const [agentEyeSize, setAgentEyeSize] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(window.innerWidth - 16, 360), h: 280 };
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return { w: Math.min(340, window.innerWidth - 32), h: 340 };
-    return { w: 420, h: 420 };
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(window.innerWidth - 16, 380), h: 360 };
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return { w: Math.min(400, window.innerWidth - 32), h: 420 };
+    return { w: 620, h: 560 };
   });
   const [agentEyeExpanded, setAgentEyeExpanded] = useState(false);
   const [jarvisNavQueue, setJarvisNavQueue] = useState<JarvisViewNavigation[]>([]);
@@ -406,12 +406,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   // Double-click header to toggle 2x expanded size
   const onAgentEyeDoubleClick = useCallback(() => {
     if (agentEyeExpanded) {
-      setAgentEyeSize({ w: 420, h: 420 });
+      const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 620;
+      const defaultH = window.innerWidth < 640 ? 360 : 560;
+      setAgentEyeSize({ w: defaultW, h: defaultH });
       setAgentEyeExpanded(false);
     } else {
-      const targetW = 780, targetH = 680;
-      const x = Math.max(0, Math.min(agentEyePos.x, window.innerWidth - targetW));
-      const y = Math.max(0, Math.min(agentEyePos.y, window.innerHeight - targetH));
+      const targetW = Math.min(window.innerWidth - 80, 1400);
+      const targetH = Math.min(window.innerHeight - 80, 900);
+      const x = Math.max(40, (window.innerWidth - targetW) / 2);
+      const y = Math.max(40, (window.innerHeight - targetH) / 2);
       setAgentEyeSize({ w: targetW, h: targetH });
       setAgentEyePos({ x, y });
       setAgentEyeExpanded(true);
@@ -2875,14 +2878,35 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               setAgentEyeMinRight(newRight);
             } : onAgentEyeDragMove}
             onPointerUp={isAgentEyeMinimized ? (e: React.PointerEvent) => {
+              const wasDrag = agentEyeMinDragRef.current && Math.abs(e.clientX - agentEyeMinDragRef.current.startX) > 5;
               agentEyeMinDragRef.current = null;
               (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+              // If it was a click (not a drag), restore and expand
+              if (!wasDrag) {
+                setIsAgentEyeMinimized(false);
+                setIsAgentEyeOpen(true);
+                const targetW = Math.min(window.innerWidth - 80, 1400);
+                const targetH = Math.min(window.innerHeight - 80, 900);
+                const x = Math.max(40, (window.innerWidth - targetW) / 2);
+                const y = Math.max(40, (window.innerHeight - targetH) / 2);
+                setAgentEyeSize({ w: targetW, h: targetH });
+                setAgentEyePos({ x, y });
+                setAgentEyeExpanded(true);
+              }
             } : onAgentEyeDragEnd}
             onDoubleClick={isAgentEyeMinimized ? () => {
+              // Single click on bar handles restore; double-click also works
               setIsAgentEyeMinimized(false);
               setIsAgentEyeOpen(true);
+              const targetW = Math.min(window.innerWidth - 80, 1400);
+              const targetH = Math.min(window.innerHeight - 80, 900);
+              const x = Math.max(40, (window.innerWidth - targetW) / 2);
+              const y = Math.max(40, (window.innerHeight - targetH) / 2);
+              setAgentEyeSize({ w: targetW, h: targetH });
+              setAgentEyePos({ x, y });
+              setAgentEyeExpanded(true);
             } : onAgentEyeDoubleClick}
-            className="flex items-center justify-between h-11 px-4 shrink-0 select-none cursor-grab active:cursor-grabbing"
+            className={`flex items-center justify-between h-11 px-4 shrink-0 select-none ${isAgentEyeMinimized ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
             style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
           >
             <div className="flex items-center gap-2">
@@ -2907,26 +2931,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <button
                 onClick={() => {
                   if (isAgentEyeMinimized) {
-                    // Restore from minimized to expanded
+                    // Restore from minimized to near-fullscreen
                     setIsAgentEyeMinimized(false);
                     setIsAgentEyeOpen(true);
-                    const targetW = 780, targetH = 680;
-                    const x = Math.max(0, (window.innerWidth - targetW) / 2);
-                    const y = Math.max(0, (window.innerHeight - targetH) / 2);
+                    const targetW = Math.min(window.innerWidth - 80, 1400);
+                    const targetH = Math.min(window.innerHeight - 80, 900);
+                    const x = Math.max(40, (window.innerWidth - targetW) / 2);
+                    const y = Math.max(40, (window.innerHeight - targetH) / 2);
                     setAgentEyeSize({ w: targetW, h: targetH });
                     setAgentEyePos({ x, y });
                     setAgentEyeExpanded(true);
                   } else if (agentEyeExpanded) {
                     // Shrink back to default
-                    const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 360) : 420;
-                    const defaultH = window.innerWidth < 640 ? 280 : 420;
+                    const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 620;
+                    const defaultH = window.innerWidth < 640 ? 360 : 560;
                     setAgentEyeSize({ w: defaultW, h: defaultH });
                     setAgentEyeExpanded(false);
                   } else {
-                    // Expand to large
-                    const targetW = 780, targetH = 680;
-                    const x = Math.max(0, Math.min(agentEyePos.x, window.innerWidth - targetW));
-                    const y = Math.max(0, Math.min(agentEyePos.y, window.innerHeight - targetH));
+                    // Expand to near-fullscreen
+                    const targetW = Math.min(window.innerWidth - 80, 1400);
+                    const targetH = Math.min(window.innerHeight - 80, 900);
+                    const x = Math.max(40, (window.innerWidth - targetW) / 2);
+                    const y = Math.max(40, (window.innerHeight - targetH) / 2);
                     setAgentEyeSize({ w: targetW, h: targetH });
                     setAgentEyePos({ x, y });
                     setAgentEyeExpanded(true);
