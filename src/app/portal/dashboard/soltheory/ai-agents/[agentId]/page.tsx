@@ -3265,7 +3265,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                       }).filter(Boolean);
                                       const allHaveTag = selectedSenders.every(s => senderTagMap[s]?.includes(tag.name));
                                       return (
-                                        <button
+                                        <div
                                           key={tag.name}
                                           onClick={() => {
                                             setSenderTagMap(prev => {
@@ -3281,14 +3281,37 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                               return next;
                                             });
                                           }}
-                                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${allHaveTag ? 'bg-purple-50' : 'hover:bg-[#faf6ed]'}`}
+                                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors cursor-pointer group ${allHaveTag ? 'bg-purple-50' : 'hover:bg-[#faf6ed]'}`}
                                         >
                                           <div className="w-3.5 h-3.5 rounded-full shrink-0 border-2" style={{ background: allHaveTag ? tag.color : 'transparent', borderColor: tag.color }} />
                                           <span className={`flex-1 ${allHaveTag ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>{tag.name}</span>
                                           {allHaveTag && <CheckCircle2 className="w-3.5 h-3.5 text-purple-500" />}
-                                        </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEmailTags(prev => prev.filter(t => t.name !== tag.name));
+                                              setSenderTagMap(prev => {
+                                                const next = { ...prev };
+                                                Object.keys(next).forEach(k => { next[k] = next[k].filter(t => t !== tag.name); });
+                                                return next;
+                                              });
+                                              if (activeTagFilter === tag.name) setActiveTagFilter(null);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-red-100 transition-all shrink-0"
+                                            title="Delete tag"
+                                          >
+                                            <X className="w-3 h-3 text-slate-300 hover:text-red-500" />
+                                          </button>
+                                        </div>
                                       );
                                     })}
+                                    {emailTags.length === 0 && (
+                                      <div className="px-3 py-4 text-center">
+                                        <Tag className="w-5 h-5 text-slate-200 mx-auto mb-1.5" />
+                                        <p className="text-[11px] text-slate-400">No tags yet</p>
+                                        <p className="text-[10px] text-slate-300">Create one below</p>
+                                      </div>
+                                    )}
                                   </div>
                                   {/* Create new tag */}
                                   <div className="border-t border-[#ede8da] px-3 py-2.5">
