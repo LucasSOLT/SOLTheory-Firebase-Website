@@ -3423,17 +3423,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             {incomingEmails.length} email{incomingEmails.length !== 1 ? 's' : ''}
                           </span>
                           <button
-                            onClick={() => {
-                              if (!user?.uid) return;
-                              setIncomingEmails([]);
-                              // Trigger re-fetch by re-running the effect
-                              const ev = new CustomEvent('gmail-refresh');
-                              window.dispatchEvent(ev);
-                            }}
-                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors"
+                            onClick={() => fetchPulse()}
+                            disabled={isPolling}
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors disabled:opacity-40"
                             title="Refresh"
                           >
-                            <RefreshCw className="w-3 h-3 text-slate-400" />
+                            <RefreshCw className={`w-3 h-3 text-slate-400 ${isPolling ? 'animate-spin' : ''}`} />
                           </button>
                         </div>
                       </div>
@@ -3463,6 +3458,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     {/* Email List — Gmail-style with filters */}
                     <div className="flex-1 overflow-y-auto">
                       {(() => {
+                        // Loading skeleton
+                        if (isPolling && incomingEmails.length === 0) {
+                          return (
+                            <div className="divide-y divide-[#ede8da]/50">
+                              {[...Array(6)].map((_, i) => (
+                                <div key={i} className="flex items-start gap-2 px-3 py-3 animate-pulse">
+                                  <div className="w-5 h-5 rounded bg-slate-100 shrink-0 mt-0.5" />
+                                  <div className="w-4 h-4 rounded bg-slate-100 shrink-0 mt-0.5" />
+                                  <div className="flex-1 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-3 bg-slate-100 rounded w-24" />
+                                      <div className="ml-auto h-2.5 bg-slate-100 rounded w-12" />
+                                    </div>
+                                    <div className="h-3 bg-slate-100 rounded w-3/4" />
+                                    <div className="h-2.5 bg-slate-50 rounded w-full" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
                         // Apply active filter
                         const visibleEmails = incomingEmails.filter(email => {
                           const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
@@ -3514,7 +3530,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           })();
                           const isStarred = starredEmails.has(email.id);
                           return (
-                            <div className="flex flex-col h-full">
+                            <div className="flex flex-col h-full email-detail-enter">
                               {/* Detail Header */}
                               <div className="flex items-center gap-2 px-3 py-2 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
                                 <button
