@@ -48,9 +48,24 @@ export default function Home() {
     };
   }, []);
 
+  // 125% zoom on desktop screens
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const apply = () => {
+      document.documentElement.style.zoom = mq.matches ? '1.25' : '1';
+    };
+    apply();
+    mq.addEventListener('change', apply);
+    return () => {
+      mq.removeEventListener('change', apply);
+      document.documentElement.style.zoom = '1';
+    };
+  }, []);
+
   const tiles = [
     {
       num: "01",
+      slug: "email-tools",
       title: "Email Tools",
       desc: "Automated outreach, drip campaigns, and smart email sequencing.",
       color: "from-[#3b0764]/40 via-[#4c0519]/40 to-[#2e1065]/40",
@@ -60,6 +75,7 @@ export default function Home() {
     },
     {
       num: "02",
+      slug: "sms-tools",
       title: "SMS Tools",
       desc: "Instant text messaging, scheduling, and conversational automation.",
       color: "from-[#4c0519]/40 via-[#701a75]/40 to-[#470024]/40",
@@ -70,6 +86,7 @@ export default function Home() {
     },
     {
       num: "03",
+      slug: "google-suite-integrations",
       title: "Google Suite Integrations",
       desc: "Seamless connections to Sheets, Docs, Calendar, and Drive.",
       color: "from-[#2e1065]/40 via-[#4c0519]/40 to-[#1e1b4b]/40",
@@ -79,6 +96,7 @@ export default function Home() {
     },
     {
       num: "04",
+      slug: "nxt-dashboard",
       title: "NXT Dashboard",
       desc: "Real-time analytics, KPI tracking, and performance insights.",
       color: "from-[#3b0764]/40 via-[#881337]/40 to-[#311042]/40",
@@ -89,6 +107,7 @@ export default function Home() {
     },
     {
       num: "05",
+      slug: "customized-is-solutions",
       title: "Customized I.S. Solutions",
       desc: "Tailored information systems built for your unique workflow.",
       color: "from-[#470024]/40 via-[#3b0764]/40 to-[#2e1065]/40",
@@ -312,8 +331,8 @@ export default function Home() {
                 {/* Desktop Flexbox Hover Scale layout */}
                 <div className="hidden md:flex flex-row items-end justify-center gap-7 xl:gap-9 w-full h-[540px]">
                   {tiles.map((tile, idx) => (
+                    <Link href={`/products/${tile.slug}`} key={idx} className="contents">
                     <motion.div
-                      key={idx}
                       initial={{ opacity: 0, y: 50 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: "-50px" }}
@@ -340,19 +359,20 @@ export default function Home() {
                         )}
                       </div>
                     </motion.div>
+                    </Link>
                   ))}
                 </div>
 
                 {/* Mobile Grid Layout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full md:hidden">
                   {tiles.map((tile, idx) => (
+                    <Link href={`/products/${tile.slug}`} key={idx}>
                     <motion.div
-                      key={idx}
                       initial={{ opacity: 0, y: 30 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: "-30px" }}
                       transition={{ duration: 0.6, delay: idx * 0.1 }}
-                      className={`relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br ${tile.color} backdrop-blur-md h-[300px] flex flex-col justify-end p-6 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)]`}
+                      className={`relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br ${tile.color} backdrop-blur-md h-[300px] flex flex-col justify-end p-6 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)] cursor-pointer`}
                     >
                       <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-30 pointer-events-none" />
                       {tile.icon && (
@@ -368,6 +388,7 @@ export default function Home() {
                         )}
                       </div>
                     </motion.div>
+                    </Link>
                   ))}
                 </div>
 
@@ -406,11 +427,11 @@ export default function Home() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-fuchsia-500/10 via-transparent to-transparent opacity-60"></div>
                   
-                  <div className="flex flex-col items-center text-slate-500 group-hover:text-fuchsia-400 transition-colors duration-500 z-10 group-hover:scale-105 transform">
+                  <div className="flex flex-col items-center justify-center text-center text-slate-500 group-hover:text-fuchsia-400 transition-colors duration-500 z-10 group-hover:scale-105 transform">
                     <div className="w-24 h-24 rounded-full border-2 border-dashed border-current flex items-center justify-center mb-6 backdrop-blur-md bg-white/5 shadow-lg group-hover:bg-fuchsia-500/10 transition-colors duration-500">
                       <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-current border-b-[12px] border-b-transparent ml-2" />
                     </div>
-                    <p className="font-headline tracking-[0.2em] text-sm md:text-base font-semibold uppercase group-hover:text-fuchsia-300">Instructional content coming soon<br />via DRiVE LMS</p>
+                    <p className="font-headline tracking-[0.2em] text-sm md:text-base font-semibold uppercase group-hover:text-fuchsia-300 text-center">Instructional content coming soon<br />via DRiVE LMS</p>
                   </div>
                 </motion.div>
               </div>
