@@ -48,20 +48,6 @@ export default function Home() {
     };
   }, []);
 
-  // 125% zoom on desktop screens
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const apply = () => {
-      document.documentElement.style.zoom = mq.matches ? '1.25' : '1';
-    };
-    apply();
-    mq.addEventListener('change', apply);
-    return () => {
-      mq.removeEventListener('change', apply);
-      document.documentElement.style.zoom = '1';
-    };
-  }, []);
-
   const tiles = [
     {
       num: "01",
