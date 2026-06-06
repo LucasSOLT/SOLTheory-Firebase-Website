@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { JarvisViewBrowser, type JarvisViewNavigation } from "@/components/ui/jarvis-view-browser";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
@@ -187,7 +187,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [agentEyeTab, setAgentEyeTab] = useState<'gmail' | 'outlook' | 'sms' | 'jarvis-view'>('gmail');
   const [agentEyeDropdownOpen, setAgentEyeDropdownOpen] = useState(false);
   const [gmailFilterMenuOpen, setGmailFilterMenuOpen] = useState(false);
-  const [gmailActiveFilter, setGmailActiveFilter] = useState<'all' | 'unread' | 'unreplied' | 'replied' | 'starred' | 'has-attachments'>('all');
+  const [gmailActiveFilter, setGmailActiveFilter] = useState<'all' | 'unread' | 'unreplied' | 'replied' | 'starred' | 'has-attachments' | 'tag'>('all');
   const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
   const [agentEyePos, setAgentEyePos] = useState(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 8, y: 40 };
@@ -517,6 +517,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [starredEmails, setStarredEmails] = useState<Set<string>>(new Set());
   const [readEmails, setReadEmails] = useState<Set<string>>(new Set());
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
+  // Tag system — tags are assigned to sender email addresses
+  const [emailTags, setEmailTags] = useState<{ name: string; color: string }[]>([
+    { name: 'Client', color: '#3b82f6' },
+    { name: 'Vendor', color: '#8b5cf6' },
+    { name: 'Internal', color: '#10b981' },
+    { name: 'Lead', color: '#f59e0b' },
+  ]);
+  const [senderTagMap, setSenderTagMap] = useState<Record<string, string[]>>({});
+  const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#3b82f6');
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionInstructions, setSessionInstructions] = useState("");
@@ -3059,13 +3071,47 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         >
                           <CheckSquare className={`w-4 h-4 ${selectedEmails.size > 0 ? 'text-blue-600' : 'text-slate-400'}`} />
                         </button>
-                        <button
-                          onClick={fetchPulse}
-                          className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors"
-                          title="Tags (coming soon)"
-                        >
-                          <Filter className="w-4 h-4 text-slate-400" />
-                        </button>
+                        {/* Tag filter dropdown */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setGmailFilterMenuOpen(prev => !prev ? false : false) || setIsTagPopupOpen(false)}
+                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors group relative"
+                            title="Filter by tag"
+                            onClickCapture={(e) => {
+                              e.stopPropagation();
+                              const el = e.currentTarget.nextElementSibling;
+                              if (el) el.classList.toggle('hidden');
+                            }}
+                          >
+                            <Filter className={`w-4 h-4 ${activeTagFilter ? 'text-amber-500' : 'text-slate-400'}`} />
+                            {activeTagFilter && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                          </button>
+                          <div className="hidden absolute top-full left-0 z-50 mt-1 w-48 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl overflow-hidden">
+                            <div className="px-3 py-2 border-b border-[#ede8da]">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Filter by Tag</p>
+                            </div>
+                            <button
+                              onClick={(e) => { setActiveTagFilter(null); setGmailActiveFilter('all'); (e.currentTarget.parentElement as HTMLElement)?.classList.add('hidden'); }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${!activeTagFilter ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
+                            >
+                              <Inbox className="w-3.5 h-3.5" />
+                              All Emails
+                            </button>
+                            {emailTags.map(tag => (
+                              <button
+                                key={tag.name}
+                                onClick={(e) => { setActiveTagFilter(tag.name); setGmailActiveFilter('tag'); (e.currentTarget.parentElement as HTMLElement)?.classList.add('hidden'); }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${activeTagFilter === tag.name ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
+                              >
+                                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: tag.color }} />
+                                {tag.name}
+                                <span className="ml-auto text-[10px] text-slate-400">
+                                  {Object.values(senderTagMap).filter(tags => tags.includes(tag.name)).length}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
 
                         {/* Filter Menu */}
                         <div className="relative">
@@ -3145,18 +3191,120 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             {gmailActiveFilter === 'replied' && 'Replied'}
                             {gmailActiveFilter === 'starred' && 'Starred'}
                             {gmailActiveFilter === 'has-attachments' && 'Attachments'}
+                            {gmailActiveFilter === 'tag' && activeTagFilter}
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                        {activeTagFilter && gmailActiveFilter !== 'tag' && (
+                          <button
+                            onClick={() => { setActiveTagFilter(null); }}
+                            className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-purple-600 bg-purple-50 rounded-full border border-purple-200 hover:bg-purple-100 transition-colors"
+                          >
+                            <Tag className="w-3 h-3" />
+                            {activeTagFilter}
                             <X className="w-3 h-3" />
                           </button>
                         )}
                         {selectedEmails.size > 0 && (
-                          <button
-                            onClick={handleProcessInbox}
-                            disabled={isBatchSyncing}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
-                          >
-                            {isBatchSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                            Process {selectedEmails.size}
-                          </button>
+                          <>
+                            {/* Add Tag button */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setIsTagPopupOpen(!isTagPopupOpen)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
+                              >
+                                <Tag className="w-3.5 h-3.5" />
+                                Tag
+                              </button>
+                              {isTagPopupOpen && (
+                                <div className="absolute top-full right-0 z-50 mt-1 w-64 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                                  <div className="px-3 py-2.5 border-b border-[#ede8da] bg-gradient-to-r from-purple-50 to-[#fefcf6]">
+                                    <p className="text-[11px] font-bold text-purple-700">Tag Selected Senders</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">{selectedEmails.size} email{selectedEmails.size > 1 ? 's' : ''} selected</p>
+                                  </div>
+                                  {/* Existing tags to assign */}
+                                  <div className="max-h-40 overflow-y-auto">
+                                    {emailTags.map(tag => {
+                                      // Check if all selected senders already have this tag
+                                      const selectedSenders = Array.from(selectedEmails).map(id => {
+                                        const email = incomingEmails.find(e => e.id === id);
+                                        return email?.from.split('<').pop()?.replace('>', '')?.toLowerCase() || '';
+                                      }).filter(Boolean);
+                                      const allHaveTag = selectedSenders.every(s => senderTagMap[s]?.includes(tag.name));
+                                      return (
+                                        <button
+                                          key={tag.name}
+                                          onClick={() => {
+                                            setSenderTagMap(prev => {
+                                              const next = { ...prev };
+                                              selectedSenders.forEach(sender => {
+                                                if (!next[sender]) next[sender] = [];
+                                                if (allHaveTag) {
+                                                  next[sender] = next[sender].filter(t => t !== tag.name);
+                                                } else if (!next[sender].includes(tag.name)) {
+                                                  next[sender] = [...next[sender], tag.name];
+                                                }
+                                              });
+                                              return next;
+                                            });
+                                          }}
+                                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${allHaveTag ? 'bg-purple-50' : 'hover:bg-[#faf6ed]'}`}
+                                        >
+                                          <div className="w-3.5 h-3.5 rounded-full shrink-0 border-2" style={{ background: allHaveTag ? tag.color : 'transparent', borderColor: tag.color }} />
+                                          <span className={`flex-1 ${allHaveTag ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>{tag.name}</span>
+                                          {allHaveTag && <CheckCircle2 className="w-3.5 h-3.5 text-purple-500" />}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {/* Create new tag */}
+                                  <div className="border-t border-[#ede8da] px-3 py-2.5">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Create New Tag</p>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        value={newTagColor}
+                                        onChange={e => setNewTagColor(e.target.value)}
+                                        className="w-7 h-7 rounded-lg border border-[#ede8da] cursor-pointer p-0.5"
+                                      />
+                                      <input
+                                        value={newTagName}
+                                        onChange={e => setNewTagName(e.target.value)}
+                                        placeholder="Tag name..."
+                                        className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-[#ede8da] bg-[#fefcf6] focus:ring-1 focus:ring-purple-300 outline-none"
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' && newTagName.trim()) {
+                                            setEmailTags(prev => [...prev, { name: newTagName.trim(), color: newTagColor }]);
+                                            setNewTagName('');
+                                          }
+                                        }}
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          if (!newTagName.trim()) return;
+                                          setEmailTags(prev => [...prev, { name: newTagName.trim(), color: newTagColor }]);
+                                          setNewTagName('');
+                                        }}
+                                        disabled={!newTagName.trim()}
+                                        className="px-2.5 py-1.5 text-[10px] font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-40"
+                                      >
+                                        Add
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {/* Auto-reply button */}
+                            <button
+                              onClick={handleProcessInbox}
+                              disabled={isBatchSyncing}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            >
+                              {isBatchSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Reply className="w-3.5 h-3.5" />}
+                              Auto-reply {selectedEmails.size}
+                            </button>
+                          </>
                         )}
                         <span className="text-[11px] text-slate-400 tabular-nums ml-1">
                           {incomingEmails.length} email{incomingEmails.length !== 1 ? 's' : ''}
@@ -3185,6 +3333,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             case 'replied': return hasReply;
                             case 'starred': return isStarred;
                             case 'has-attachments': return (email.attachments && email.attachments.length > 0);
+                            case 'tag': return activeTagFilter ? (senderTagMap[senderEmail.toLowerCase()]?.includes(activeTagFilter) || false) : true;
                             default: return true;
                           }
                         });
@@ -3304,6 +3453,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               const isRead = readEmails.has(email.id);
                               const isStarred = starredEmails.has(email.id);
                               const senderName = email.from.split('<')[0].trim().replace(/"/g, '') || email.from;
+                              const senderEmail = email.from.split('<').pop()?.replace('>', '')?.toLowerCase() || '';
+                              const senderTags = senderTagMap[senderEmail] || [];
                               const dateStr = (() => {
                                 try {
                                   const d = email.internalDate ? new Date(Number(email.internalDate)) : new Date(email.date);
@@ -3318,18 +3469,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 <div
                                   key={email.id}
                                   onClick={() => {
-                                    // Mark as read and open detail
                                     setReadEmails(prev => new Set(prev).add(email.id));
                                     setExpandedEmailId(email.id);
                                   }}
-                                  className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer transition-all group ${
+                                  className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer transition-all group relative ${
                                     isSelected
                                       ? 'bg-blue-50'
                                       : isRead
-                                        ? 'bg-[#faf6ed]/30 hover:bg-[#faf6ed]/60'
+                                        ? 'bg-[#f5f0e4]/40 hover:bg-[#f5f0e4]/70'
                                         : 'bg-[#fefcf6] hover:bg-[#faf6ed]'
                                   }`}
                                 >
+                                  {/* Unread indicator — bold blue left border */}
+                                  {!isRead && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-500 rounded-r" />}
+
                                   {/* Checkbox */}
                                   <div className="pt-0.5 shrink-0" onClick={e => { e.stopPropagation(); toggleSelection(e as any, email.id); }}>
                                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
@@ -3362,13 +3515,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                   {/* Content */}
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className={`text-[13px] truncate ${isRead ? 'font-normal text-slate-500' : 'font-bold text-slate-800'}`}>{senderName}</span>
-                                      <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">{dateStr}</span>
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className={`text-[13px] truncate ${isRead ? 'font-normal text-slate-400' : 'font-extrabold text-slate-900'}`}>{senderName}</span>
+                                        {/* Sender tags */}
+                                        {senderTags.length > 0 && (
+                                          <div className="flex items-center gap-0.5 shrink-0">
+                                            {senderTags.slice(0, 3).map(tagName => {
+                                              const tag = emailTags.find(t => t.name === tagName);
+                                              return tag ? <div key={tagName} className="w-2 h-2 rounded-full shrink-0" style={{ background: tag.color }} title={tagName} /> : null;
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <span className={`text-[11px] shrink-0 tabular-nums ${isRead ? 'text-slate-300' : 'font-semibold text-slate-500'}`}>{dateStr}</span>
                                     </div>
-                                    <p className={`text-[12.5px] truncate mt-0.5 ${isRead ? 'font-normal text-slate-500' : 'font-semibold text-slate-700'}`}>{email.subject || '(no subject)'}</p>
+                                    <p className={`text-[12.5px] truncate mt-0.5 ${isRead ? 'font-normal text-slate-400' : 'font-bold text-slate-800'}`}>{email.subject || '(no subject)'}</p>
                                     <div className="flex items-center gap-1.5 mt-0.5">
-                                      <p className={`text-[11.5px] truncate leading-snug flex-1 ${isRead ? 'text-slate-300' : 'text-slate-400'}`}>{email.snippet}</p>
-                                      {hasAttachments && <Paperclip className="w-3 h-3 text-slate-300 shrink-0" />}
+                                      <p className={`text-[11.5px] truncate leading-snug flex-1 ${isRead ? 'text-slate-300' : 'text-slate-500'}`}>{email.snippet}</p>
+                                      {hasAttachments && <Paperclip className={`w-3 h-3 shrink-0 ${isRead ? 'text-slate-200' : 'text-slate-400'}`} />}
                                     </div>
                                   </div>
 
