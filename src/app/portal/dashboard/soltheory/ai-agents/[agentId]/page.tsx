@@ -20,7 +20,7 @@ const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(3
 
 type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
-type EmailMeta = { id: string; subject: string; snippet: string; from: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number }[]; };
+type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
 
 
@@ -3248,6 +3248,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 Tag
                               </button>
                               {isTagPopupOpen && (
+                                <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsTagPopupOpen(false)} />
                                 <div className="absolute top-full right-0 z-50 mt-1 w-64 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                                   <div className="px-3 py-2.5 border-b border-[#ede8da] bg-gradient-to-r from-purple-50 to-[#fefcf6]">
                                     <p className="text-[11px] font-bold text-purple-700">Tag Selected Senders</p>
@@ -3324,6 +3326,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                     </div>
                                   </div>
                                 </div>
+                                </>
                               )}
                             </div>
                             {/* Auto-reply button */}
@@ -3421,15 +3424,53 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               </div>
                               {/* Sender Info */}
                               <div className="px-4 py-3 border-b border-[#ede8da]/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                <div className="flex items-start gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-0.5">
                                     {senderName.charAt(0).toUpperCase()}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-slate-800">{senderName}</p>
-                                    <p className="text-[11px] text-slate-400 truncate">{senderEmail}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-bold text-slate-800">{senderName}</p>
+                                      {/* Sender tags */}
+                                      {(() => {
+                                        const tags = senderTagMap[senderEmail.toLowerCase()] || [];
+                                        return tags.length > 0 ? (
+                                          <div className="flex items-center gap-1">
+                                            {tags.map(tagName => {
+                                              const tag = emailTags.find(t => t.name === tagName);
+                                              return tag ? (
+                                                <span key={tagName} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white" style={{ background: tag.color }}>
+                                                  {tagName}
+                                                </span>
+                                              ) : null;
+                                            })}
+                                          </div>
+                                        ) : null;
+                                      })()}
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 truncate">&lt;{senderEmail}&gt;</p>
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                      <span className="text-[10px] text-slate-400">to {email.to ? email.to.split('<')[0].trim().replace(/"/g, '') || 'me' : 'me'}</span>
+                                      {email.cc && (
+                                        <>
+                                          <span className="text-[10px] text-slate-300">·</span>
+                                          <span className="text-[10px] text-slate-400">cc: {email.cc.split(',').length > 2 ? `${email.cc.split(',')[0].split('<')[0].trim()} +${email.cc.split(',').length - 1}` : email.cc.split('<')[0].trim()}</span>
+                                        </>
+                                      )}
+                                      <span className="text-[10px] text-slate-300">·</span>
+                                      <span className="text-[10px] text-slate-400">{dateStr}</span>
+                                    </div>
+                                    {/* Gmail labels */}
+                                    {email.labelIds && email.labelIds.length > 0 && (
+                                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                                        {email.labelIds.filter(l => !['INBOX', 'CATEGORY_PRIMARY', 'CATEGORY_UPDATES', 'CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS'].includes(l)).slice(0, 4).map(label => (
+                                          <span key={label} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 font-medium">
+                                            {label.replace('CATEGORY_', '').replace('_', ' ')}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                  <span className="text-[10px] text-slate-400 shrink-0">{dateStr}</span>
                                 </div>
                               </div>
                               {/* Email Body */}

@@ -97,3 +97,113 @@
     font-size: 16px !important; /* Prevent iOS zoom on input focus */
   }
 }
+
+/* Email body sandboxing — prevents HTML email content from breaking Agent Eye layout */
+.email-body-container {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.email-body-container img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 6px;
+}
+
+.email-body-container table {
+  max-width: 100% !important;
+  width: auto !important;
+  border-collapse: collapse;
+  overflow-x: auto;
+  display: block;
+}
+
+.email-body-container td,
+.email-body-container th {
+  max-width: 300px;
+  word-break: break-word;
+}
+
+.email-body-container a {
+  color: #2563eb;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.email-body-container a:hover {
+  color: #1d4ed8;
+}
+
+.email-body-container blockquote {
+  border-left: 3px solid #d1d5db;
+  padding-left: 12px;
+  margin: 12px 0;
+  color: #64748b;
+  font-style: italic;
+}
+
+.email-body-container pre,
+.email-body-container code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.email-body-container pre {
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.email-body-container hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 16px 0;
+}
+
+.email-body-container h1,
+.email-body-container h2,
+.email-body-container h3 {
+  font-weight: 700;
+  color: #1e293b;
+  margin: 16px 0 8px;
+}
+
+.email-body-container ul,
+.email-body-container ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+/* Gmail signature separator */
+.email-body-container .gmail_signature,
+.email-body-container [data-smartmail="gmail_signature"] {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+  margin-top: 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* Prevent fixed/absolute positioned elements inside email body */
+.email-body-container * {
+  position: static !important;
+  float: none !important;
+}
+
+.email-body-container div,
+.email-body-container span,
+.email-body-container p {
+  max-width: 100% !important;
+}
+
+/* iframe containment */
+.email-body-container iframe {
+  max-width: 100% !important;
+  border-radius: 6px;
+}

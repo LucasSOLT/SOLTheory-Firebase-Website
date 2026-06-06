@@ -84,6 +84,9 @@ export async function POST(req: Request) {
         const headers = detail.data.payload?.headers || [];
         const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
         const from = headers.find(h => h.name === 'From')?.value || 'Unknown Sender';
+        const to = headers.find(h => h.name === 'To')?.value || '';
+        const cc = headers.find(h => h.name === 'Cc')?.value || '';
+        const replyTo = headers.find(h => h.name === 'Reply-To')?.value || '';
         const date = headers.find(h => h.name === 'Date')?.value || '';
         const internalDate = detail.data.internalDate ? parseInt(detail.data.internalDate, 10) : 0;
         const labelIds = detail.data.labelIds || [];
@@ -115,6 +118,9 @@ export async function POST(req: Request) {
           snippet: detail.data.snippet,
           subject,
           from,
+          to,
+          cc,
+          replyTo,
           date,
           internalDate,
           labelIds,
