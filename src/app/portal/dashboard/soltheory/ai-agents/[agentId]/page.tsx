@@ -187,7 +187,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [agentEyeTab, setAgentEyeTab] = useState<'gmail' | 'outlook' | 'sms' | 'jarvis-view'>('gmail');
   const [agentEyeDropdownOpen, setAgentEyeDropdownOpen] = useState(false);
   const [gmailFilterMenuOpen, setGmailFilterMenuOpen] = useState(false);
-  const [gmailActiveFilter, setGmailActiveFilter] = useState<'all' | 'unread' | 'unreplied' | 'replied' | 'starred' | 'has-attachments' | 'tag'>('all');
+  const [gmailActiveFilters, setGmailActiveFilters] = useState<Set<string>>(new Set());
   const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
   const [agentEyePos, setAgentEyePos] = useState(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 8, y: 40 };
@@ -3074,46 +3074,48 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         {/* Tag filter dropdown */}
                         <div className="relative">
                           <button
-                            onClick={() => setGmailFilterMenuOpen(prev => !prev ? false : false) || setIsTagPopupOpen(false)}
-                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors group relative"
-                            title="Filter by tag"
-                            onClickCapture={(e) => {
-                              e.stopPropagation();
-                              const el = e.currentTarget.nextElementSibling;
+                            onClick={() => {
+                              const el = document.getElementById('tag-filter-dropdown');
                               if (el) el.classList.toggle('hidden');
                             }}
+                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors group relative"
+                            title="Filter by tag"
                           >
                             <Filter className={`w-4 h-4 ${activeTagFilter ? 'text-amber-500' : 'text-slate-400'}`} />
                             {activeTagFilter && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                           </button>
-                          <div className="hidden absolute top-full left-0 z-50 mt-1 w-48 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl overflow-hidden">
-                            <div className="px-3 py-2 border-b border-[#ede8da]">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Filter by Tag</p>
-                            </div>
-                            <button
-                              onClick={(e) => { setActiveTagFilter(null); setGmailActiveFilter('all'); (e.currentTarget.parentElement as HTMLElement)?.classList.add('hidden'); }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${!activeTagFilter ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
-                            >
-                              <Inbox className="w-3.5 h-3.5" />
-                              All Emails
-                            </button>
-                            {emailTags.map(tag => (
+                          {/* Click-outside overlay */}
+                          <div id="tag-filter-dropdown" className="hidden">
+                            <div className="fixed inset-0 z-40" onClick={() => document.getElementById('tag-filter-dropdown')?.classList.add('hidden')} />
+                            <div className="absolute top-full left-0 z-50 mt-1 w-48 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl overflow-hidden">
+                              <div className="px-3 py-2 border-b border-[#ede8da]">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Filter by Tag</p>
+                              </div>
                               <button
-                                key={tag.name}
-                                onClick={(e) => { setActiveTagFilter(tag.name); setGmailActiveFilter('tag'); (e.currentTarget.parentElement as HTMLElement)?.classList.add('hidden'); }}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${activeTagFilter === tag.name ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
+                                onClick={() => { setActiveTagFilter(null); setGmailActiveFilters(prev => { const next = new Set(prev); next.delete('tag'); return next; }); document.getElementById('tag-filter-dropdown')?.classList.add('hidden'); }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${!activeTagFilter ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
                               >
-                                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: tag.color }} />
-                                {tag.name}
-                                <span className="ml-auto text-[10px] text-slate-400">
-                                  {Object.values(senderTagMap).filter(tags => tags.includes(tag.name)).length}
-                                </span>
+                                <Inbox className="w-3.5 h-3.5" />
+                                All Senders
                               </button>
-                            ))}
+                              {emailTags.map(tag => (
+                                <button
+                                  key={tag.name}
+                                  onClick={() => { setActiveTagFilter(tag.name); setGmailActiveFilters(prev => new Set(prev).add('tag')); document.getElementById('tag-filter-dropdown')?.classList.add('hidden'); }}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${activeTagFilter === tag.name ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
+                                >
+                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: tag.color }} />
+                                  {tag.name}
+                                  <span className="ml-auto text-[10px] text-slate-400">
+                                    {Object.values(senderTagMap).filter(tags => tags.includes(tag.name)).length}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Filter Menu */}
+                        {/* Filter Menu — multi-select with compatibility */}
                         <div className="relative">
                           <button
                             onClick={() => setGmailFilterMenuOpen(!gmailFilterMenuOpen)}
@@ -3121,88 +3123,117 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             title="Filter & Sort"
                           >
                             <Menu className="w-4 h-4" />
-                            {gmailActiveFilter !== 'all' && (
+                            {gmailActiveFilters.size > 0 && (
                               <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" />
                             )}
                           </button>
 
                           {gmailFilterMenuOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-56 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                              <div className="px-3 py-2 border-b border-[#ede8da]">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter Emails</p>
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setGmailFilterMenuOpen(false)} />
+                              <div className="absolute top-full left-0 mt-1 w-56 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                <div className="px-3 py-2 border-b border-[#ede8da] flex items-center justify-between">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter Emails</p>
+                                  {gmailActiveFilters.size > 0 && (
+                                    <button onClick={() => { setGmailActiveFilters(new Set()); setActiveTagFilter(null); }} className="text-[9px] font-semibold text-amber-600 hover:underline">Clear all</button>
+                                  )}
+                                </div>
+                                {([
+                                  { id: 'unread', label: 'Unread', icon: <MailOpen className="w-3.5 h-3.5" />, desc: 'Not yet opened', conflicts: [] as string[] },
+                                  { id: 'unreplied', label: 'Awaiting Reply', icon: <Clock className="w-3.5 h-3.5" />, desc: 'No response sent', conflicts: ['replied'] },
+                                  { id: 'replied', label: 'Replied', icon: <Reply className="w-3.5 h-3.5" />, desc: 'Response sent', conflicts: ['unreplied'] },
+                                  { id: 'starred', label: 'Starred', icon: <Star className="w-3.5 h-3.5" />, desc: 'Marked important', conflicts: [] as string[] },
+                                  { id: 'has-attachments', label: 'Has Attachments', icon: <Paperclip className="w-3.5 h-3.5" />, desc: 'Contains files', conflicts: [] as string[] },
+                                ]).map(item => {
+                                  const isActive = gmailActiveFilters.has(item.id);
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      onClick={() => {
+                                        setGmailActiveFilters(prev => {
+                                          const next = new Set(prev);
+                                          if (isActive) {
+                                            next.delete(item.id);
+                                          } else {
+                                            next.add(item.id);
+                                            // Remove conflicting filters
+                                            item.conflicts.forEach(c => next.delete(c));
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                                        isActive ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-[#faf6ed]'
+                                      }`}
+                                    >
+                                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                                        isActive ? 'bg-amber-500 border-amber-500' : 'border-slate-300'
+                                      }`}>
+                                        {isActive && (
+                                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                          </svg>
+                                        )}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-semibold">{item.label}</div>
+                                        <div className="text-[10px] text-slate-400">{item.desc}</div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                                <div className="border-t border-[#ede8da]">
+                                  <button
+                                    onClick={() => { setGmailFilterMenuOpen(false); }}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-slate-600 hover:bg-[#faf6ed] transition-colors"
+                                  >
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-500">
+                                      <Zap className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-semibold">Smart Priority</div>
+                                      <div className="text-[10px] text-slate-400">AI-ranked by urgency</div>
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-full">Beta</span>
+                                  </button>
+                                </div>
                               </div>
-                              {([
-                                { id: 'all' as const, label: 'All Emails', icon: <Mail className="w-3.5 h-3.5" />, desc: 'Show everything' },
-                                { id: 'unread' as const, label: 'Unread', icon: <MailOpen className="w-3.5 h-3.5" />, desc: 'Not yet opened' },
-                                { id: 'unreplied' as const, label: 'Awaiting Reply', icon: <Clock className="w-3.5 h-3.5" />, desc: 'No response sent' },
-                                { id: 'replied' as const, label: 'Replied', icon: <Reply className="w-3.5 h-3.5" />, desc: 'Response sent' },
-                                { id: 'starred' as const, label: 'Starred', icon: <Star className="w-3.5 h-3.5" />, desc: 'Marked important' },
-                                { id: 'has-attachments' as const, label: 'Has Attachments', icon: <Paperclip className="w-3.5 h-3.5" />, desc: 'Contains files' },
-                              ]).map(item => (
-                                <button
-                                  key={item.id}
-                                  onClick={() => { setGmailActiveFilter(item.id); setGmailFilterMenuOpen(false); }}
-                                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                                    gmailActiveFilter === item.id
-                                      ? 'bg-amber-50 text-amber-700'
-                                      : 'text-slate-600 hover:bg-[#faf6ed]'
-                                  }`}
-                                >
-                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                                    gmailActiveFilter === item.id ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'
-                                  }`}>
-                                    {item.icon}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-semibold">{item.label}</div>
-                                    <div className="text-[10px] text-slate-400">{item.desc}</div>
-                                  </div>
-                                  {gmailActiveFilter === item.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
-                                </button>
-                              ))}
-                              <div className="border-t border-[#ede8da]">
-                                <button
-                                  onClick={() => { setGmailFilterMenuOpen(false); }}
-                                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-slate-600 hover:bg-[#faf6ed] transition-colors"
-                                >
-                                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-500">
-                                    <Zap className="w-3.5 h-3.5" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-semibold">Smart Priority</div>
-                                    <div className="text-[10px] text-slate-400">AI-ranked by urgency</div>
-                                  </div>
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-full">Beta</span>
-                                </button>
-                              </div>
-                            </div>
+                            </>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {gmailActiveFilter !== 'all' && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {/* Active filter chips */}
+                        {Array.from(gmailActiveFilters).filter(f => f !== 'tag').map(f => {
+                          const labels: Record<string, string> = { unread: 'Unread', unreplied: 'Awaiting Reply', replied: 'Replied', starred: 'Starred', 'has-attachments': 'Attachments' };
+                          return (
+                            <button
+                              key={f}
+                              onClick={() => setGmailActiveFilters(prev => { const next = new Set(prev); next.delete(f); return next; })}
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-full border border-amber-200 hover:bg-amber-100 transition-colors"
+                            >
+                              <Filter className="w-3 h-3" />
+                              {labels[f] || f}
+                              <X className="w-3 h-3" />
+                            </button>
+                          );
+                        })}
+                        {activeTagFilter && (
                           <button
-                            onClick={() => setGmailActiveFilter('all')}
-                            className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-full border border-amber-200 hover:bg-amber-100 transition-colors"
-                          >
-                            <Filter className="w-3 h-3" />
-                            {gmailActiveFilter === 'unread' && 'Unread'}
-                            {gmailActiveFilter === 'unreplied' && 'Awaiting Reply'}
-                            {gmailActiveFilter === 'replied' && 'Replied'}
-                            {gmailActiveFilter === 'starred' && 'Starred'}
-                            {gmailActiveFilter === 'has-attachments' && 'Attachments'}
-                            {gmailActiveFilter === 'tag' && activeTagFilter}
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                        {activeTagFilter && gmailActiveFilter !== 'tag' && (
-                          <button
-                            onClick={() => { setActiveTagFilter(null); }}
+                            onClick={() => { setActiveTagFilter(null); setGmailActiveFilters(prev => { const next = new Set(prev); next.delete('tag'); return next; }); }}
                             className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-purple-600 bg-purple-50 rounded-full border border-purple-200 hover:bg-purple-100 transition-colors"
                           >
                             <Tag className="w-3 h-3" />
                             {activeTagFilter}
                             <X className="w-3 h-3" />
+                          </button>
+                        )}
+                        {gmailActiveFilters.size > 0 && (
+                          <button
+                            onClick={() => { setGmailActiveFilters(new Set()); setActiveTagFilter(null); }}
+                            className="text-[10px] text-slate-400 hover:text-slate-600 font-semibold ml-1 cursor-pointer"
+                          >
+                            Clear all
                           </button>
                         )}
                         {selectedEmails.size > 0 && (
@@ -3327,15 +3358,19 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           const isUnread = labels.includes('UNREAD') || !isRead;
                           const hasReply = labels.includes('SENT') || labels.includes('CATEGORY_SENT');
 
-                          switch (gmailActiveFilter) {
-                            case 'unread': return !isRead;
-                            case 'unreplied': return !hasReply;
-                            case 'replied': return hasReply;
-                            case 'starred': return isStarred;
-                            case 'has-attachments': return (email.attachments && email.attachments.length > 0);
-                            case 'tag': return activeTagFilter ? (senderTagMap[senderEmail.toLowerCase()]?.includes(activeTagFilter) || false) : true;
-                            default: return true;
+                          // Apply all active filters (AND logic — email must match ALL)
+                          if (gmailActiveFilters.size === 0) return true;
+                          for (const f of gmailActiveFilters) {
+                            switch (f) {
+                              case 'unread': if (isRead) return false; break;
+                              case 'unreplied': if (hasReply) return false; break;
+                              case 'replied': if (!hasReply) return false; break;
+                              case 'starred': if (!isStarred) return false; break;
+                              case 'has-attachments': if (!(email.attachments && email.attachments.length > 0)) return false; break;
+                              case 'tag': if (!activeTagFilter || !(senderTagMap[senderEmail.toLowerCase()]?.includes(activeTagFilter))) return false; break;
+                            }
                           }
+                          return true;
                         });
 
                         if (expandedEmailId) {
@@ -3400,24 +3435,38 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               {/* Email Body */}
                               <div className="flex-1 overflow-y-auto px-4 py-4">
                                 {email.body ? (
-                                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: email.body }} />
+                                  <div
+                                    className="email-body-container text-sm text-slate-700 leading-relaxed break-words"
+                                    style={{ maxWidth: '100%', overflow: 'hidden', wordBreak: 'break-word' }}
+                                    dangerouslySetInnerHTML={{ __html: email.body }}
+                                  />
                                 ) : (
                                   <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{email.snippet || 'No content available.'}</p>
                                 )}
                                 {/* Attachments */}
                                 {email.attachments && email.attachments.length > 0 && (
                                   <div className="mt-4 pt-3 border-t border-[#ede8da]/50">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Attachments ({email.attachments.length})</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                                      <Paperclip className="w-3 h-3 inline mr-1" />
+                                      Attachments ({email.attachments.length})
+                                    </p>
                                     <div className="space-y-1.5">
-                                      {email.attachments.map((att, i) => (
-                                        <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 hover:bg-[#faf6ed] transition-colors">
-                                          <Paperclip className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                          <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-medium text-slate-700 truncate">{att.filename}</p>
-                                            <p className="text-[10px] text-slate-400">{(att.size / 1024).toFixed(1)} KB · {att.mimeType.split('/').pop()}</p>
+                                      {email.attachments.map((att: any, i: number) => {
+                                        const isImage = att.mimeType?.startsWith('image/');
+                                        const isPdf = att.mimeType === 'application/pdf';
+                                        const sizeStr = att.size > 1048576 ? `${(att.size / 1048576).toFixed(1)} MB` : `${(att.size / 1024).toFixed(1)} KB`;
+                                        return (
+                                          <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 hover:bg-[#faf6ed] transition-colors cursor-pointer">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isImage ? 'bg-pink-50 text-pink-500' : isPdf ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
+                                              {isImage ? <ImageIcon className="w-4 h-4" /> : isPdf ? <FileText className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-xs font-semibold text-slate-700 truncate">{att.filename}</p>
+                                              <p className="text-[10px] text-slate-400">{sizeStr} · {att.mimeType?.split('/').pop()?.toUpperCase()}</p>
+                                            </div>
                                           </div>
-                                        </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 )}
@@ -3429,11 +3478,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         if (visibleEmails.length === 0) {
                           return (
                             <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                              {gmailActiveFilter !== 'all' ? (
+                              {gmailActiveFilters.size > 0 ? (
                                 <>
                                   <Filter className="w-10 h-10 text-slate-200 mb-3" />
-                                  <p className="text-sm font-medium text-slate-400">No emails match this filter</p>
-                                  <button onClick={() => setGmailActiveFilter('all')} className="text-xs text-amber-600 font-semibold mt-2 hover:underline cursor-pointer">Clear filter</button>
+                                  <p className="text-sm font-medium text-slate-400">No emails match these filters</p>
+                                  <button onClick={() => { setGmailActiveFilters(new Set()); setActiveTagFilter(null); }} className="text-xs text-amber-600 font-semibold mt-2 hover:underline cursor-pointer">Clear filters</button>
                                 </>
                               ) : (
                                 <>

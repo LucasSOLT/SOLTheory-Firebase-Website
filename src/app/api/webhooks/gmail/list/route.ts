@@ -1,6 +1,37 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
+// Recursively find parts in MIME tree
+function findParts(payload: any, mimeType: string): any[] {
+  const results: any[] = [];
+  if (payload.mimeType === mimeType && payload.body?.data) {
+    results.push(payload);
+  }
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      results.push(...findParts(part, mimeType));
+    }
+  }
+  return results;
+}
+
+// Collect attachment metadata
+function getAttachments(payload: any): { filename: string; mimeType: string; size: number }[] {
+  const attachments: { filename: string; mimeType: string; size: number }[] = [];
+  function walk(part: any) {
+    if (part.filename && part.filename.length > 0 && part.body) {
+      attachments.push({
+        filename: part.filename,
+        mimeType: part.mimeType || 'application/octet-stream',
+        size: part.body.size || 0,
+      });
+    }
+    if (part.parts) part.parts.forEach(walk);
+  }
+  walk(payload);
+  return attachments;
+}
+
 export async function POST(req: Request) {
   try {
     const { uid, refreshToken } = await req.json();
@@ -47,16 +78,36 @@ export async function POST(req: Request) {
         const detail = await gmail.users.messages.get({
           userId: 'me',
           id: msg.id as string,
-          format: 'metadata',
-          metadataHeaders: ['Subject', 'From', 'Date']
+          format: 'full',
         });
         
         const headers = detail.data.payload?.headers || [];
         const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
         const from = headers.find(h => h.name === 'From')?.value || 'Unknown Sender';
         const date = headers.find(h => h.name === 'Date')?.value || '';
-        // internalDate is a reliable unix ms timestamp from Google, much more accurate than RFC 2822 Date headers
         const internalDate = detail.data.internalDate ? parseInt(detail.data.internalDate, 10) : 0;
+        const labelIds = detail.data.labelIds || [];
+
+        // Extract body — prefer HTML, fallback to plain text
+        let body = '';
+        const payload = detail.data.payload;
+        if (payload) {
+          const htmlParts = findParts(payload, 'text/html');
+          const textParts = findParts(payload, 'text/plain');
+          
+          if (htmlParts.length > 0 && htmlParts[0].body?.data) {
+            body = Buffer.from(htmlParts[0].body.data, 'base64url').toString('utf-8');
+          } else if (textParts.length > 0 && textParts[0].body?.data) {
+            const plainText = Buffer.from(textParts[0].body.data, 'base64url').toString('utf-8');
+            // Wrap plain text in basic HTML for consistent rendering
+            body = `<div style="white-space:pre-wrap;font-family:sans-serif;font-size:14px;line-height:1.6">${plainText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+          } else if (payload.body?.data) {
+            body = Buffer.from(payload.body.data, 'base64url').toString('utf-8');
+          }
+        }
+
+        // Extract attachments
+        const attachments = payload ? getAttachments(payload) : [];
         
         return {
           id: detail.data.id,
@@ -65,7 +116,10 @@ export async function POST(req: Request) {
           subject,
           from,
           date,
-          internalDate
+          internalDate,
+          labelIds,
+          body,
+          attachments,
         };
       })
     );
