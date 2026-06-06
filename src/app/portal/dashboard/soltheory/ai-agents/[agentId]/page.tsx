@@ -3695,7 +3695,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         if (visibleEmails.length === 0) {
                           return (
                             <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                              {gmailActiveFilters.size > 0 ? (
+                              {emailSearchQuery.trim() ? (
+                                <>
+                                  <Search className="w-10 h-10 text-slate-200 mb-3" />
+                                  <p className="text-sm font-medium text-slate-400">No results for &quot;{emailSearchQuery}&quot;</p>
+                                  <p className="text-xs text-slate-300 mt-1">Try a different search term</p>
+                                  <button onClick={() => setEmailSearchQuery('')} className="text-xs text-amber-600 font-semibold mt-2 hover:underline cursor-pointer">Clear search</button>
+                                </>
+                              ) : gmailActiveFilters.size > 0 ? (
                                 <>
                                   <Filter className="w-10 h-10 text-slate-200 mb-3" />
                                   <p className="text-sm font-medium text-slate-400">No emails match these filters</p>
