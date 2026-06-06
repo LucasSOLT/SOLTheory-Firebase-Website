@@ -3512,6 +3512,40 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                   </div>
                                 )}
                               </div>
+                              {/* Quick Actions Footer */}
+                              <div className="shrink-0 border-t border-[#ede8da] bg-[#fefcf6] px-4 py-2.5 flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    // Select this email and trigger auto-reply
+                                    setSelectedEmails(new Set([email.id]));
+                                    setTimeout(() => handleProcessInbox(), 100);
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                >
+                                  <Reply className="w-3.5 h-3.5" />
+                                  Reply
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setReadEmails(prev => {
+                                      const next = new Set(prev);
+                                      next.delete(email.id);
+                                      return next;
+                                    });
+                                    setExpandedEmailId(null);
+                                  }}
+                                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-[#ede8da] text-slate-600 hover:bg-[#faf6ed] transition-colors"
+                                >
+                                  <MailOpen className="w-3.5 h-3.5" />
+                                  Mark Unread
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); setExpandedEmailId(null); }}
+                                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           );
                         }
