@@ -301,6 +301,7 @@ export default function ActionBoardPage() {
   const tasksRef = useRef<ActionBoardTask[]>([]);
   tasksRef.current = tasks;
   const lateProcessedRef = useRef<Set<string>>(new Set());
+  const fireAutomationsRef = useRef<(task: ActionBoardTask, trigger: EmailTrigger) => Promise<void>>();
 
   // â”€â”€ Fetch current user role â”€â”€
   useEffect(() => {
@@ -439,7 +440,7 @@ export default function ActionBoardPage() {
               });
               console.log(`[ActionBoard] Task "${task.title}" marked as LATE`);
               // Fire overdue automations
-              fireAutomations({ ...task, isLate: true }, "overdue");
+              if (fireAutomationsRef.current) fireAutomationsRef.current({ ...task, isLate: true }, "overdue");
             }
           } catch (err) {
             // Remove from processed set so it can be retried
@@ -784,6 +785,7 @@ export default function ActionBoardPage() {
       console.warn("[ActionBoard] Automation dispatch failed (silent):", err);
     }
   };
+  fireAutomationsRef.current = fireAutomations;
 
   const moveTask = async (id: string, to: ColumnId) => {
     if (!firestore) return;

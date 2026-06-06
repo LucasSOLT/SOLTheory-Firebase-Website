@@ -2890,29 +2890,60 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <span className="text-xs font-bold uppercase tracking-widest text-white/95">Agent Eye</span>
             </div>
             <div className="flex items-center gap-1.5">
-              {/* Minimize / Maximize button */}
+              {/* Minimize to tray */}
+              {!isAgentEyeMinimized && (
+                <button
+                  onClick={() => {
+                    setIsAgentEyeMinimized(true);
+                    setIsAgentEyeOpen(false);
+                  }}
+                  className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
+                  title="Minimize to tray"
+                >
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14H5" /></svg>
+                </button>
+              )}
+              {/* Expand / Restore toggle */}
               <button
                 onClick={() => {
                   if (isAgentEyeMinimized) {
+                    // Restore from minimized to expanded
                     setIsAgentEyeMinimized(false);
                     setIsAgentEyeOpen(true);
+                    const targetW = 780, targetH = 680;
+                    const x = Math.max(0, (window.innerWidth - targetW) / 2);
+                    const y = Math.max(0, (window.innerHeight - targetH) / 2);
+                    setAgentEyeSize({ w: targetW, h: targetH });
+                    setAgentEyePos({ x, y });
+                    setAgentEyeExpanded(true);
+                  } else if (agentEyeExpanded) {
+                    // Shrink back to default
+                    const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 360) : 420;
+                    const defaultH = window.innerWidth < 640 ? 280 : 420;
+                    setAgentEyeSize({ w: defaultW, h: defaultH });
+                    setAgentEyeExpanded(false);
                   } else {
-                    setIsAgentEyeMinimized(true);
-                    setIsAgentEyeOpen(false);
+                    // Expand to large
+                    const targetW = 780, targetH = 680;
+                    const x = Math.max(0, Math.min(agentEyePos.x, window.innerWidth - targetW));
+                    const y = Math.max(0, Math.min(agentEyePos.y, window.innerHeight - targetH));
+                    setAgentEyeSize({ w: targetW, h: targetH });
+                    setAgentEyePos({ x, y });
+                    setAgentEyeExpanded(true);
                   }
                 }}
                 className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
-                title={isAgentEyeMinimized ? 'Maximize' : 'Minimize'}
+                title={isAgentEyeMinimized ? 'Restore & Expand' : agentEyeExpanded ? 'Restore size' : 'Expand'}
               >
-                {isAgentEyeMinimized ? (
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 14h6m0 0v6m0-6L3 21M20 10h-6m0 0V4m0 6l7-7" /></svg>
+                {(isAgentEyeMinimized || !agentEyeExpanded) ? (
+                  <Maximize2 className="w-3 h-3 text-white" />
                 ) : (
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14H5" /></svg>
+                  <Minimize2 className="w-3 h-3 text-white" />
                 )}
               </button>
               {/* Close button */}
               <button
-                onClick={() => { setIsAgentEyeOpen(false); setIsAgentEyeMinimized(false); }}
+                onClick={() => { setIsAgentEyeOpen(false); setIsAgentEyeMinimized(false); setAgentEyeExpanded(false); }}
                 className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
               >
                 <X className="w-3.5 h-3.5 text-white" />
