@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
 import {
   collection,
@@ -231,11 +231,29 @@ export default function ActionBoardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  // Derive org from URL path â€” /portal/dashboard/nxtchapter/... vs /portal/dashboard/soltheory/...
+  // Derive org from URL path – /portal/dashboard/nxtchapter/... vs /portal/dashboard/soltheory/...
   const ORG_ID = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
 
-  // â”€â”€ Core State â”€â”€
+  // Highlight task from "Needs your attention" widget
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  useEffect(() => {
+    const hId = searchParams.get('highlight');
+    if (hId) {
+      setHighlightedTaskId(hId);
+      // Scroll to it after a brief delay for DOM to render
+      setTimeout(() => {
+        const el = document.getElementById(`task-card-${hId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+      // Remove highlight after 2.5 seconds
+      const timer = setTimeout(() => setHighlightedTaskId(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
+
+  // ––– Core State –––
   const [tasks, setTasks] = useState<ActionBoardTask[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string>("member");
@@ -1080,15 +1098,18 @@ export default function ActionBoardPage() {
                       return (
                         <div
                           key={task.id}
+                          id={`task-card-${task.id}`}
                           draggable
                           onDragStart={e => onDragStart(e, task.id)}
                           onDragEnd={onDragEnd}
                           className={`group bg-[#fefcf6] rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.02] relative border ${
                             openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
                           } ${
-                            isLateTask && task.column !== "done"
-                              ? "border-red-300 bg-red-50/30 ring-1 ring-red-200/50"
-                              : "border-slate-200"
+                            highlightedTaskId === task.id
+                              ? "border-indigo-400 ring-2 ring-indigo-300/60 shadow-lg shadow-indigo-200/40 animate-pulse"
+                              : isLateTask && task.column !== "done"
+                                ? "border-red-300 bg-red-50/30 ring-1 ring-red-200/50"
+                                : "border-slate-200"
                           }`}
                         >
                           {/* Priority + Lifecycle + Menu */}

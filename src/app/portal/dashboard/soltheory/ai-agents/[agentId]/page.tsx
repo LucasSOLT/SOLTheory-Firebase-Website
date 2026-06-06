@@ -2441,7 +2441,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
 
                         {/* Quick Chat + Voice */}
-                        <div className="w-full max-w-2xl mx-auto mt-4 sm:mt-6 md:mt-12">
+                        <div className="w-full max-w-2xl mx-auto mt-8 sm:mt-14 md:mt-20">
                           <p className="text-center text-[11px] sm:text-xs md:text-sm text-slate-400 mb-2 sm:mb-3">Ask Jarvis anything — he's a jack of all trades.</p>
                           <div className="flex items-center gap-2">
                             <form onSubmit={(e) => {
@@ -2520,13 +2520,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
                 </div>
 
+                {(selectedExploreItem || activeSessionId || messages.length > 0) && (
                 <div className="shrink-0 px-3 sm:px-4 pb-3 sm:pb-6 pt-1 sm:pt-2 z-20">
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
                     </div>
 
-                    <div className="relative w-full border border-slate-300 rounded-[20px] sm:rounded-[24px] overflow-hidden bg-white/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
+                    <div className="flex items-center gap-2">
+                    <div className="relative flex-1 border border-slate-300 rounded-[20px] sm:rounded-[24px] overflow-hidden bg-white/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex items-center">
                       <div className="flex items-center pl-2 sm:pl-4 gap-1 sm:gap-2 shrink-0">
                         <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=soltheory`} className="hidden sm:flex p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
                           <Cloud className="w-5 h-5" />
@@ -2543,27 +2545,30 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                       <Input
                         placeholder="Instruct the agent..."
-                        className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-1 sm:pl-2 pr-[72px] sm:pr-24 min-h-[44px] sm:min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-sm sm:text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
+                        className="border-0 focus-visible:ring-0 shadow-none flex-1 pl-1 sm:pl-2 pr-12 sm:pr-14 min-h-[44px] sm:min-h-[64px] bg-transparent text-slate-900  placeholder:text-slate-500 text-sm sm:text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0"
                         value={inputValue} onChange={e => setInputValue(e.target.value)} onPaste={handlePaste} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                       />
-
-                      <button
-                        onClick={openVoiceSession}
-                        className="absolute right-12 sm:right-14 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors"
-                        title="Start Voice Session"
-                      >
-                        <div className="relative flex items-center justify-center w-5 h-5">
-                          <AudioLines className="w-5 h-5 text-indigo-500" />
-                          <Sparkles className="w-2.5 h-2.5 absolute -top-1 -right-1 text-indigo-400" />
-                        </div>
-                      </button>
 
                       <Button size="icon" onClick={handleSendMessage} disabled={!inputValue.trim() || isTyping} className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full bg-white text-black hover:bg-slate-200 w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30">
                         {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
                       </Button>
                     </div>
+
+                    {/* Voice-to-Voice button — always outside the text box */}
+                    <button
+                      onClick={openVoiceSession}
+                      className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 shrink-0 cursor-pointer"
+                      title="Start Voice Session"
+                    >
+                      <div className="relative flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5">
+                        <AudioLines className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-indigo-200" />
+                      </div>
+                    </button>
+                    </div>
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>

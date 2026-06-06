@@ -35,9 +35,9 @@ function formatDueLabel(dueDate: any) {
   const days = Math.floor(absDiff / (1000 * 60 * 60 * 24));
 
   if (isOverdue) {
-    if (days > 0) return `Overdue Â· ${days}d`;
-    if (hours > 0) return `Overdue Â· ${hours}h`;
-    if (mins > 0) return `Overdue Â· ${mins}m`;
+    if (days > 0) return `Overdue · ${days}d`;
+    if (hours > 0) return `Overdue · ${hours}h`;
+    if (mins > 0) return `Overdue · ${mins}m`;
     return "Overdue";
   } else {
     if (days > 0) return `Due in ${days}d`;
@@ -48,12 +48,12 @@ function formatDueLabel(dueDate: any) {
 }
 
 function formatTimestamp(ts: any): string {
-  if (!ts) return "â€”";
+  if (!ts) return "—";
   try {
     const d = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   } catch {
-    return "â€”";
+    return "—";
   }
 }
 
@@ -264,7 +264,7 @@ export function NearestDueTasksWidget() {
                       {task.title}
                     </p>
                     <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
-                      {task.assignedToName || "Unassigned"} Â· {task.column}
+                      {task.assignedToName || "Unassigned"} · {task.column}
                     </p>
                   </div>
 
@@ -288,7 +288,7 @@ export function NearestDueTasksWidget() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push("/portal/dashboard/soltheory/action-board");
+                      router.push(`/portal/dashboard/soltheory/action-board?highlight=${task.id}`);
                     }}
                     className="text-[10px] font-semibold text-slate-400 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-0.5 shrink-0 cursor-pointer"
                   >
