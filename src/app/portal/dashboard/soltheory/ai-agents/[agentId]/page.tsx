@@ -190,15 +190,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [gmailActiveFilter, setGmailActiveFilter] = useState<'all' | 'unread' | 'unreplied' | 'replied' | 'starred' | 'has-attachments'>('all');
   const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
   const [agentEyePos, setAgentEyePos] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 8, y: 60 };
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return { x: 16, y: 80 };
-    const bottomY = typeof window !== 'undefined' ? Math.max(window.innerHeight - 620, 60) : 200;
-    return { x: 200, y: bottomY };
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 8, y: 40 };
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return { x: 16, y: 60 };
+    // Center in the visible area (after the ~240px sidebar)
+    const sidebarW = 240;
+    const defaultW = 780, defaultH = 620;
+    const availableW = typeof window !== 'undefined' ? window.innerWidth - sidebarW : 800;
+    const availableH = typeof window !== 'undefined' ? window.innerHeight : 700;
+    const x = sidebarW + Math.max(20, (availableW - defaultW) / 2);
+    const y = Math.max(40, (availableH - defaultH) / 2);
+    return { x, y };
   });
   const [agentEyeSize, setAgentEyeSize] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(window.innerWidth - 16, 380), h: 360 };
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return { w: Math.min(400, window.innerWidth - 32), h: 420 };
-    return { w: 620, h: 560 };
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(window.innerWidth - 16, 380), h: 400 };
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return { w: Math.min(420, window.innerWidth - 32), h: 480 };
+    return { w: 780, h: 620 };
   });
   const [agentEyeExpanded, setAgentEyeExpanded] = useState(false);
   const [jarvisNavQueue, setJarvisNavQueue] = useState<JarvisViewNavigation[]>([]);
@@ -406,8 +412,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   // Double-click header to toggle 2x expanded size
   const onAgentEyeDoubleClick = useCallback(() => {
     if (agentEyeExpanded) {
-      const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 620;
-      const defaultH = window.innerWidth < 640 ? 360 : 560;
+      const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 780;
+      const defaultH = window.innerWidth < 640 ? 400 : 620;
       setAgentEyeSize({ w: defaultW, h: defaultH });
       setAgentEyeExpanded(false);
     } else {
@@ -2943,8 +2949,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     setAgentEyeExpanded(true);
                   } else if (agentEyeExpanded) {
                     // Shrink back to default
-                    const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 620;
-                    const defaultH = window.innerWidth < 640 ? 360 : 560;
+                    const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 780;
+                    const defaultH = window.innerWidth < 640 ? 400 : 620;
                     setAgentEyeSize({ w: defaultW, h: defaultH });
                     setAgentEyeExpanded(false);
                   } else {
