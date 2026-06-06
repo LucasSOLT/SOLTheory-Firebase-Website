@@ -536,6 +536,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [emailSearchQuery, setEmailSearchQuery] = useState('');
+  const [tagFilterOpen, setTagFilterOpen] = useState(false);
 
   const [exploreTab, setExploreTab] = useState<"models" | "agents">("models");
   const [selectedExploreItem, setSelectedExploreItem] = useState<string | null>(null);
@@ -3056,7 +3057,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${agentEyeDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             {agentEyeDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 z-50 bg-[#fefcf6] border border-slate-200 rounded-b-xl shadow-xl overflow-hidden">
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setAgentEyeDropdownOpen(false)} />
+                <div className="absolute top-full left-0 right-0 z-50 bg-[#fefcf6] border border-slate-200 rounded-b-xl shadow-xl overflow-hidden">
                 {[
                   { id: 'gmail' as const, label: 'Gmail', icon: <Mail className="w-4 h-4 text-red-500" />, ready: true },
                   { id: 'outlook' as const, label: 'Outlook', icon: <Mail className="w-4 h-4 text-blue-500" />, ready: false },
@@ -3079,6 +3082,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </button>
                 ))}
               </div>
+              </>
             )}
           </div>
 
@@ -3113,45 +3117,43 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         {/* Tag filter dropdown */}
                         <div className="relative">
                           <button
-                            onClick={() => {
-                              const el = document.getElementById('tag-filter-dropdown');
-                              if (el) el.classList.toggle('hidden');
-                            }}
+                            onClick={() => setTagFilterOpen(!tagFilterOpen)}
                             className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors group relative"
                             title="Filter by tag"
                           >
                             <Filter className={`w-4 h-4 ${activeTagFilter ? 'text-amber-500' : 'text-slate-400'}`} />
                             {activeTagFilter && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                           </button>
-                          {/* Click-outside overlay */}
-                          <div id="tag-filter-dropdown" className="hidden">
-                            <div className="fixed inset-0 z-40" onClick={() => document.getElementById('tag-filter-dropdown')?.classList.add('hidden')} />
-                            <div className="absolute top-full left-0 z-50 mt-1 w-48 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl overflow-hidden">
-                              <div className="px-3 py-2 border-b border-[#ede8da]">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Filter by Tag</p>
-                              </div>
-                              <button
-                                onClick={() => { setActiveTagFilter(null); setGmailActiveFilters(prev => { const next = new Set(prev); next.delete('tag'); return next; }); document.getElementById('tag-filter-dropdown')?.classList.add('hidden'); }}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${!activeTagFilter ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
-                              >
-                                <Inbox className="w-3.5 h-3.5" />
-                                All Senders
-                              </button>
-                              {emailTags.map(tag => (
+                          {tagFilterOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setTagFilterOpen(false)} />
+                              <div className="absolute top-full left-0 z-50 mt-1 w-48 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl overflow-hidden">
+                                <div className="px-3 py-2 border-b border-[#ede8da]">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Filter by Tag</p>
+                                </div>
                                 <button
-                                  key={tag.name}
-                                  onClick={() => { setActiveTagFilter(tag.name); setGmailActiveFilters(prev => new Set(prev).add('tag')); document.getElementById('tag-filter-dropdown')?.classList.add('hidden'); }}
-                                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${activeTagFilter === tag.name ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
+                                  onClick={() => { setActiveTagFilter(null); setGmailActiveFilters(prev => { const next = new Set(prev); next.delete('tag'); return next; }); setTagFilterOpen(false); }}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${!activeTagFilter ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
                                 >
-                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: tag.color }} />
-                                  {tag.name}
-                                  <span className="ml-auto text-[10px] text-slate-400">
-                                    {Object.values(senderTagMap).filter(tags => tags.includes(tag.name)).length}
-                                  </span>
+                                  <Inbox className="w-3.5 h-3.5" />
+                                  All Senders
                                 </button>
-                              ))}
-                            </div>
-                          </div>
+                                {emailTags.map(tag => (
+                                  <button
+                                    key={tag.name}
+                                    onClick={() => { setActiveTagFilter(tag.name); setGmailActiveFilters(prev => new Set(prev).add('tag')); setTagFilterOpen(false); }}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${activeTagFilter === tag.name ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
+                                  >
+                                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: tag.color }} />
+                                    {tag.name}
+                                    <span className="ml-auto text-[10px] text-slate-400">
+                                      {Object.values(senderTagMap).filter(tags => tags.includes(tag.name)).length}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
                         </div>
 
                         {/* Filter Menu — multi-select with compatibility */}
