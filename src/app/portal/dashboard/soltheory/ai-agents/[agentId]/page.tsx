@@ -848,12 +848,32 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     if (savedContacts) {
       try { setAgentContacts(JSON.parse(savedContacts)); } catch { }
     }
+    const savedTags = localStorage.getItem(`st_email_tags_${params.agentId}`);
+    if (savedTags) {
+      try { setEmailTags(JSON.parse(savedTags)); } catch { }
+    }
+    const savedSenderTags = localStorage.getItem(`st_sender_tag_map_${params.agentId}`);
+    if (savedSenderTags) {
+      try { setSenderTagMap(JSON.parse(savedSenderTags)); } catch { }
+    }
+    const savedRead = localStorage.getItem(`st_read_emails_${params.agentId}`);
+    if (savedRead) {
+      try { setReadEmails(new Set(JSON.parse(savedRead))); } catch { }
+    }
+    const savedStarred = localStorage.getItem(`st_starred_emails_${params.agentId}`);
+    if (savedStarred) {
+      try { setStarredEmails(new Set(JSON.parse(savedStarred))); } catch { }
+    }
   }, [params.agentId, firestore, user?.uid]);
 
   useEffect(() => {
     localStorage.setItem(`st_agent_config_${params.agentId}`, JSON.stringify(agentConfig));
     localStorage.setItem(`st_agent_contacts_${params.agentId}`, JSON.stringify(agentContacts));
-  }, [agentConfig, agentContacts, params.agentId]);
+    localStorage.setItem(`st_email_tags_${params.agentId}`, JSON.stringify(emailTags));
+    localStorage.setItem(`st_sender_tag_map_${params.agentId}`, JSON.stringify(senderTagMap));
+    localStorage.setItem(`st_read_emails_${params.agentId}`, JSON.stringify(Array.from(readEmails)));
+    localStorage.setItem(`st_starred_emails_${params.agentId}`, JSON.stringify(Array.from(starredEmails)));
+  }, [agentConfig, agentContacts, emailTags, senderTagMap, readEmails, starredEmails, params.agentId]);
 
   // Load Lifetime Usage
   useEffect(() => {
