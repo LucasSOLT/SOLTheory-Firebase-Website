@@ -75,21 +75,21 @@ export default function SmsOptInPage() {
       <Header />
 
       <main className="flex-grow flex items-center justify-center px-4 py-28 md:py-32">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-xl">
 
           {/* Header text */}
           <div className="mb-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-3">SMS Notifications</p>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight leading-tight">
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
               Stay in the loop
             </h1>
-            <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+            <p className="text-[15px] text-slate-400 mt-3 leading-relaxed">
               Receive important updates, reminders, and announcements directly to your phone.
             </p>
           </div>
 
           {/* Form card */}
-          <div className="bg-[#111113] border border-[#1e1e22] rounded-xl p-6 md:p-8">
+          <div className="bg-[#111113] border border-[#1e1e22] rounded-xl p-7 md:p-10">
             {submitted ? (
               <div className="flex flex-col items-center text-center py-6">
                 <div className="w-12 h-12 rounded-full bg-emerald-900/40 flex items-center justify-center mb-5">
@@ -111,9 +111,9 @@ export default function SmsOptInPage() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Name row */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="firstName" className="block text-xs font-medium text-slate-400 mb-1.5">
+                    <label htmlFor="firstName" className="block text-sm font-medium text-slate-400 mb-2">
                       First Name <span className="text-red-400">*</span>
                     </label>
                     <input
@@ -123,11 +123,11 @@ export default function SmsOptInPage() {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Jane"
-                      className="w-full px-3.5 py-2.5 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-sm focus:outline-none focus:border-[#333] transition-colors"
+                      className="w-full px-4 py-3 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-[15px] focus:outline-none focus:border-[#333] transition-colors"
                     />
                   </div>
                   <div>
-                    <label htmlFor="lastName" className="block text-xs font-medium text-slate-400 mb-1.5">
+                    <label htmlFor="lastName" className="block text-sm font-medium text-slate-400 mb-2">
                       Last Name
                     </label>
                     <input
@@ -136,14 +136,14 @@ export default function SmsOptInPage() {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Doe"
-                      className="w-full px-3.5 py-2.5 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-sm focus:outline-none focus:border-[#333] transition-colors"
+                      className="w-full px-4 py-3 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-[15px] focus:outline-none focus:border-[#333] transition-colors"
                     />
                   </div>
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label htmlFor="email" className="block text-xs font-medium text-slate-400 mb-1.5">
+                  <label htmlFor="email" className="block text-sm font-medium text-slate-400 mb-2">
                     Email Address
                   </label>
                   <input
@@ -152,13 +152,13 @@ export default function SmsOptInPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="jane@example.com"
-                    className="w-full px-3.5 py-2.5 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-sm focus:outline-none focus:border-[#333] transition-colors"
+                    className="w-full px-4 py-3 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-[15px] focus:outline-none focus:border-[#333] transition-colors"
                   />
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label htmlFor="phone" className="block text-xs font-medium text-slate-400 mb-1.5">
+                  <label htmlFor="phone" className="block text-sm font-medium text-slate-400 mb-2">
                     Mobile Phone <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -168,7 +168,7 @@ export default function SmsOptInPage() {
                     value={phone}
                     onChange={handlePhoneChange}
                     placeholder="(123) 456-7890"
-                    className="w-full px-3.5 py-2.5 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-sm focus:outline-none focus:border-[#333] transition-colors"
+                    className="w-full px-4 py-3 bg-[#09090b] border border-[#1e1e22] rounded-lg text-white placeholder-slate-600 text-[15px] focus:outline-none focus:border-[#333] transition-colors"
                   />
                 </div>
 
@@ -182,9 +182,9 @@ export default function SmsOptInPage() {
                     type="checkbox"
                     checked={consent}
                     onChange={(e) => setConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-[#333] bg-[#09090b] cursor-pointer accent-white"
+                    className="mt-0.5 h-[18px] w-[18px] rounded border-[#333] bg-[#09090b] cursor-pointer accent-white shrink-0"
                   />
-                  <label htmlFor="consent" className="text-[11px] text-slate-500 leading-relaxed cursor-pointer">
+                  <label htmlFor="consent" className="text-[13px] text-slate-500 leading-relaxed cursor-pointer">
                     I agree to receive automated, business-related text messages (such as appointment reminders, invoice updates, and general customer communications) from SOLTheory at the mobile number provided. I understand that consent is not a condition of any purchase. Message & data rates may apply. Message frequency varies. I can unsubscribe at any time by replying STOP, or text HELP for assistance. View our{' '}
                     <Link href="/privacy-policy" className="text-slate-300 hover:text-white underline underline-offset-2">
                       Privacy Policy
@@ -214,7 +214,7 @@ export default function SmsOptInPage() {
                 <button
                   type="submit"
                   disabled={!isValid || submitting}
-                  className="w-full py-2.5 rounded-lg font-medium text-sm text-white bg-white/[0.08] hover:bg-white/[0.12] border border-[#1e1e22] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-lg font-medium text-[15px] text-white bg-white/[0.08] hover:bg-white/[0.12] border border-[#1e1e22] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {submitting ? (
                     <>

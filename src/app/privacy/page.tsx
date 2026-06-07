@@ -43,10 +43,13 @@ export default function PrivacyPage() {
           <li>We do not sell or share your messaging data with third parties for marketing purposes</li>
         </ul>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">4. Data Storage and Security</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">4. SMS Compliance / Mobile Privacy</h2>
+        <p>No mobile information will be shared with third parties/affiliates for marketing/promotional purposes. All the above categories exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.</p>
+
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">5. Data Storage and Security</h2>
         <p>All data is stored securely using Google Firebase and Cloud Firestore with industry-standard encryption at rest and in transit (TLS 1.2+). Authentication tokens are stored in your private user document and are not accessible to other users. We implement commercially reasonable security measures to protect your personal information, but no method of electronic storage is 100% secure.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">5. Third-Party Services</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">6. Third-Party Services</h2>
         <p>The Platform integrates with the following third-party services, each governed by their own privacy policies:</p>
         <ul className="list-disc pl-6 space-y-1">
           <li><strong>Google Workspace</strong> (Gmail, Calendar, Drive) — for email and scheduling integration</li>
@@ -57,7 +60,7 @@ export default function PrivacyPage() {
         </ul>
         <p>We encourage you to review the privacy policies of these third-party services.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">6. Data Sharing and Disclosure</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">7. Data Sharing and Disclosure</h2>
         <p>We do <strong>not</strong> sell, trade, rent, or share your personal information with third parties for their marketing purposes. We may disclose your information only in the following circumstances:</p>
         <ul className="list-disc pl-6 space-y-1">
           <li><strong>Service Providers:</strong> To trusted third-party service providers who assist us in operating the Platform (e.g., Twilio for messaging, Firebase for hosting), subject to confidentiality agreements</li>
@@ -66,13 +69,13 @@ export default function PrivacyPage() {
           <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets, in which case your data would remain subject to this Privacy Policy</li>
         </ul>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">7. Cookies and Tracking</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">8. Cookies and Tracking</h2>
         <p>We use essential cookies and local storage to maintain your authentication session and remember your preferences. We do not use third-party advertising cookies or tracking pixels.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">8. Data Retention</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">9. Data Retention</h2>
         <p>We retain your personal information for as long as your account is active or as needed to provide you services. You may request deletion of your account and associated data at any time by contacting us. Upon account deletion, we will remove your personal data within 30 days, except where retention is required by law.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">9. Your Rights</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">10. Your Rights</h2>
         <p>Depending on your jurisdiction, you may have the following rights regarding your personal data:</p>
         <ul className="list-disc pl-6 space-y-1">
           <li><strong>Access:</strong> Request a copy of the personal data we hold about you</li>
@@ -83,16 +86,16 @@ export default function PrivacyPage() {
         </ul>
         <p>To exercise any of these rights, contact us at <strong>lucas@soltheory.com</strong>.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">10. California Residents (CCPA)</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">11. California Residents (CCPA)</h2>
         <p>If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA), including the right to know what personal information we collect and how it is used, the right to request deletion, and the right to opt out of the sale of personal information. We do not sell personal information.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">11. Children&apos;s Privacy</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">12. Children&apos;s Privacy</h2>
         <p>The Platform is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware that we have collected data from a child under 13, we will delete it promptly.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">12. Changes to This Policy</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">13. Changes to This Policy</h2>
         <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated &quot;Last updated&quot; date. Your continued use of the Platform after any changes constitutes your acceptance of the revised policy.</p>
 
-        <h2 className="text-lg font-semibold text-slate-800 mt-8">13. Contact Us</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mt-8">14. Contact Us</h2>
         <p>If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:</p>
         <p><strong>SOL Theory LLC</strong><br />Email: lucas@soltheory.com<br />Website: soltheory.com</p>
       </div>
