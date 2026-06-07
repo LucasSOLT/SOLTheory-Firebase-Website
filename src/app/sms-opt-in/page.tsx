@@ -158,10 +158,10 @@ export default function SmsOptInPage() {
                         <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                       </div>
                       <h2 className="text-2xl font-bold text-white mb-3">
-                        You are all set!
+                        Thank you!
                       </h2>
                       <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-                        Thank you for signing up. You will start receiving SMS updates from SOL Theory. Reply STOP at any time to unsubscribe.
+                        You are now subscribed to SOLTheory notifications. Message & data rates may apply. Reply STOP at any time to unsubscribe, or text HELP for assistance.
                       </p>
                       <Link
                         href="/"
@@ -246,18 +246,26 @@ export default function SmsOptInPage() {
                           className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-fuchsia-500 focus:ring-fuchsia-500/50 focus:ring-offset-0 cursor-pointer accent-fuchsia-500"
                         />
                         <label htmlFor="consent" className="text-xs text-slate-400 leading-relaxed cursor-pointer">
-                          By submitting this form, you consent to receive SMS messages from SOL Theory.
-                          Message and data rates may apply. Reply STOP to unsubscribe at any time.
-                          View our{' '}
-                          <Link href="/privacy" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
+                          I agree to receive automated, business-related text messages (such as appointment reminders, invoice updates, and general customer communications) from SOLTheory at the mobile number provided. I understand that consent is not a condition of any purchase. Message & data rates may apply. Message frequency varies. I can unsubscribe at any time by replying STOP, or text HELP for assistance. View our{' '}
+                          <Link href="/privacy-policy" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
                             Privacy Policy
                           </Link>{' '}
                           and{' '}
-                          <Link href="/terms" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
-                            Terms of Service
+                          <Link href="/terms-and-conditions" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
+                            Terms & Conditions
                           </Link>.
                         </label>
                       </div>
+
+                      {/* Validation Warning */}
+                      {stripPhone(phone).length === 10 && !consent && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.072 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          <p className="text-xs text-amber-400 font-medium">Please check the consent box above to continue.</p>
+                        </div>
+                      )}
 
                       {/* Error */}
                       {error && (
@@ -278,7 +286,7 @@ export default function SmsOptInPage() {
                             Submitting...
                           </>
                         ) : (
-                          'Sign Up for SMS Updates'
+                          'Opt-In to Notifications'
                         )}
                       </button>
                     </form>
