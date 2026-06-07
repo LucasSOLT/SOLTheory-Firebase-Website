@@ -1,53 +1,79 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-
-import { IntegrationColumn } from "@/components/portal/IntegrationPicker";
-import { CollapsibleTile } from "@/components/ui/collapsible-tile";
-import { DailyDigest } from "@/components/portal/DailyDigest";
-import { RecentPlaces } from "@/components/portal/RecentPlaces";
-import { RadialGraphs } from "@/components/portal/RadialGraphs";
-import { TimeSheets } from "@/components/portal/TimeSheets";
-import { useTranslation } from "@/lib/i18n";
+import { useEffect, useState, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, onSnapshot, query, where, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
-import {
-  Eye, DollarSign, TrendingDown, ArrowUpRight, Filter, ArrowDownUp,
-  Settings, CalendarDays, ChevronDown, Download, BarChart3, Users, Zap, Smile, Lock, Wallet, UserPlus, PieChart as PieChartIcon, Blocks, User, Globe, Activity, Database, Mail, HardDrive, Landmark, Clock, FileText, Maximize2, Minimize2, RefreshCw
-} from "lucide-react";
-import Link from "next/link";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart
-} from "recharts";
+import { useRouter } from "next/navigation";
+import { doc, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
+import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
+import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
+import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
+import { GrantStatusPieChart } from "@/components/portal/GrantStatusPieChart";
+import { SuggestedGrantsList } from "@/components/portal/SuggestedGrantsList";
+import { GrantAgentHub } from "@/components/portal/GrantAgentHub";
+import { useGrantsData } from "@/hooks/useGrantsData";
+import { AgentWorkerController, type AgentSlotData } from "@/components/portal/AgentWorkerController";
+import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
+import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
+import { OrgActivityFeed } from "@/components/portal/OrgActivityFeed";
+import { ContentManagerBar } from "@/components/admin/ContentManagerBar";
+import { useContentManagerStore } from "@/stores/content-manager-store";
+import { TileSettingsPopup } from "@/components/admin/TileSettingsPopup";
+import { NewsSlideshowSettings, type SlideData, type SlideshowSettings } from "@/components/admin/NewsSlideshowSettings";
 
-/* ───── static mock data to match the reference design ───── */
-const salesData: any[] = [];
-
-const subscriberData = [
-  { day: "Sun", value: 0 },
-  { day: "Mon", value: 0 },
-  { day: "Tue", value: 0 },
-  { day: "Wed", value: 0 },
-  { day: "Thu", value: 0 },
-  { day: "Fri", value: 0 },
-  { day: "Sat", value: 0 },
-];
-
-const distributionData: any[] = [];
-
-const integrations: any[] = [];
-
-/* ───── component ───── */
 export default function NxtChapterDashboard() {
-  const { t } = useTranslation();
   const { user } = useUser();
   const firestore = useFirestore();
-  const [isQuickBooksLinked, setIsQuickBooksLinked] = useState(false);
-  const [qbData, setQbData] = useState<any>(null);
-  const [isAllCollapsed, setIsAllCollapsed] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const router = useRouter();
+  const [isGrantConfigOpen, setIsGrantConfigOpen] = useState(false);
+  const { grants: grantsData, loading: grantsLoading } = useGrantsData();
+  const [agentSlots, setAgentSlots] = useState<AgentSlotData[]>([]);
+  const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
+  const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
 
-  /* presence tracking (keep existing logic) */
+  // Admin Content Manager state (from shared store)
+  const contentManagerActive = useContentManagerStore((s) => s.active);
+  const setContentManagerActive = useContentManagerStore((s) => s.setActive);
+  const selectedOrgs = useContentManagerStore((s) => s.selectedOrgs);
+  const handleToggleOrg = useContentManagerStore((s) => s.toggleOrg);
+  const handleSelectAll = useContentManagerStore((s) => s.selectAll);
+  const handleDeselectAll = useContentManagerStore((s) => s.deselectAll);
+
+  // News slideshow data from Firestore
+  const DEFAULT_SLIDES: SlideData[] = [
+    { headline: "NXT Chapter x Advanced Pathways", subtitle: "New Denver Shelter Partnership -- Expanding capacity to 3 additional locations across the metro area.", gradient: "from-indigo-600 via-violet-600 to-purple-700", badge: "PARTNERSHIP", date: "June 2025" },
+    { headline: "AI Grant Discovery Launched", subtitle: "SOL Theory's autonomous grant agents now scan Grants.gov 24/7 -- surfacing federal funding opportunities in real time.", gradient: "from-emerald-600 via-teal-600 to-cyan-700", badge: "PRODUCT", date: "May 2025" },
+    { headline: "Q2 Impact Report: 1,200+ Served", subtitle: "Across all partner shelters, NXT Chapter programs reached over 1,200 individuals with housing, workforce, and behavioral health services.", gradient: "from-amber-500 via-orange-500 to-red-500", badge: "IMPACT", date: "April 2025" },
+    { headline: "Community Resource Fair -- July 2025", subtitle: "Save the date: Denver Community Resource Fair bringing together 40+ service providers, employers, and housing partners.", gradient: "from-rose-500 via-pink-500 to-fuchsia-600", badge: "EVENT", date: "Upcoming" },
+    { headline: "Dashboard v2.0 -- Real-Time Analytics", subtitle: "New grant status tracking, Action Board with email triggers, and AI-powered insights rolling out across all client dashboards.", gradient: "from-sky-500 via-blue-600 to-indigo-700", badge: "TECH UPDATE", date: "June 2025" },
+  ];
+  const [newsSlides, setNewsSlides] = useState<SlideData[]>(DEFAULT_SLIDES);
+  const [newsShuffleInterval, setNewsShuffleInterval] = useState(15000);
+
+  // Listen for Firestore news slideshow config
+  useEffect(() => {
+    if (!firestore) return;
+    const docRef = doc(firestore, "cms_config", "news_slideshow");
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.slides?.length) setNewsSlides(data.slides);
+        if (data.shuffleInterval) setNewsShuffleInterval(data.shuffleInterval);
+      }
+    }, () => {});
+    return () => unsub();
+  }, [firestore]);
+
+  // Save news slideshow to Firestore
+  const handleSaveNewsSlideshow = useCallback(async (slides: SlideData[], settings: SlideshowSettings) => {
+    if (!firestore) throw new Error('Firestore not available');
+    const docRef = doc(firestore, "cms_config", "news_slideshow");
+    console.log('[CMS] Saving slideshow to Firestore...', { slides: slides.length, interval: settings.shuffleInterval });
+    await setDoc(docRef, { slides, shuffleInterval: settings.shuffleInterval, updatedAt: new Date().toISOString() });
+    console.log('[CMS] Slideshow saved successfully!');
+  }, [firestore]);
+
+  /* presence tracking */
   useEffect(() => {
     if (!firestore || !user?.uid) return;
     const userRef = doc(firestore, "users", user.uid);
@@ -60,547 +86,287 @@ export default function NxtChapterDashboard() {
     };
   }, [firestore, user?.uid]);
 
-  /* Fetch QuickBooks Data */
-  const fetchQbData = useCallback(async () => {
-    if (!firestore || !user?.uid) return;
-    try {
-      setIsRefreshing(true);
-      const userDoc = await getDoc(doc(firestore, "users", user.uid));
-      if (userDoc.exists() && userDoc.data()?.quickbooksOAuth?.refreshToken) {
-        setIsQuickBooksLinked(true);
-        // Fetch all QuickBooks data
-        const qb = userDoc.data().quickbooksOAuth;
-        const endpoints = ["accounts", "profit_loss", "expenses", "transactions", "invoices"];
-        const results = await Promise.all(endpoints.map(ep =>
-          fetch("/api/quickbooks/data", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              realmId: qb.realmId,
-              accessToken: qb.accessToken,
-              refreshToken: qb.refreshToken,
-              endpoint: ep,
-            }),
-          }).then(r => r.json()).then(d => ({ endpoint: ep, ...d }))
-            .catch(() => ({ endpoint: ep, error: true }))
-        ));
-        const mapped: any = {};
-        results.forEach(r => { mapped[r.endpoint] = r; });
-        setQbData(mapped);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [firestore, user?.uid]);
-
-  useEffect(() => {
-    fetchQbData();
-    const interval = setInterval(fetchQbData, 5 * 60 * 1000); // 5 minutes
-    return () => clearInterval(interval);
-  }, [fetchQbData]);
-
-  /* ─── Parse QuickBooks data into usable formats ─── */
-  const qbParsed = useMemo(() => {
-    if (!qbData) return null;
-
-    // Expenses
-    const purchases = qbData.expenses?.data?.QueryResponse?.Purchase || [];
-    const totalExpenses = purchases.reduce((sum: number, p: any) => sum + (p.TotalAmt || 0), 0);
-    const expenseCategories: Record<string, number> = {};
-    purchases.forEach((p: any) => {
-      const category = p.Line?.[0]?.AccountBasedExpenseLineDetail?.AccountRef?.name || p.EntityRef?.name || "Other";
-      expenseCategories[category] = (expenseCategories[category] || 0) + (p.TotalAmt || 0);
-    });
-
-    // P&L Report
-    let plIncome = 0, plExpenses = 0, plNet = 0;
-    const plReport = qbData.profit_loss?.data;
-    if (plReport?.Rows?.Row) {
-      for (const row of plReport.Rows.Row) {
-        if (row.group === "Income") {
-          plIncome = parseFloat(row.Summary?.ColData?.[1]?.value || "0");
-        } else if (row.group === "Expenses") {
-          plExpenses = parseFloat(row.Summary?.ColData?.[1]?.value || "0");
-        } else if (row.type === "Section" && row.group === "NetIncome") {
-          plNet = parseFloat(row.Summary?.ColData?.[1]?.value || "0");
-        }
-      }
-      if (plNet === 0) plNet = plIncome - plExpenses;
-    }
-
-    // Bank Accounts
-    const accounts = qbData.accounts?.data?.QueryResponse?.Account || [];
-    const totalBalance = accounts.reduce((sum: number, a: any) => sum + (a.CurrentBalance || 0), 0);
-
-    // Invoices
-    const invoices = qbData.invoices?.data?.QueryResponse?.Invoice || [];
-    const totalUnpaid = invoices.reduce((sum: number, i: any) => sum + (i.Balance || 0), 0);
-
-    // Transactions
-    const transactions = qbData.transactions?.data?.QueryResponse?.Purchase || [];
-
-    return {
-      purchases, totalExpenses, expenseCategories,
-      plIncome, plExpenses, plNet,
-      accounts, totalBalance,
-      invoices, totalUnpaid,
-      transactions,
-    };
-  }, [qbData]);
+  const CmsTileWrapper = useCallback(({ tileId, tileName, children, className }: { tileId: string; tileName: string; children: React.ReactNode; className?: string }) => {
+    if (!contentManagerActive) return <div className={className}>{children}</div>;
+    return (
+      <div
+        className={`relative cursor-pointer group/cms-tile ${className || ''}`}
+        onClick={(e) => { e.stopPropagation(); setActiveTilePopup(tileId); }}
+      >
+        <div className="h-full transition-all duration-300 group-hover/cms-tile:grayscale-0 group-hover/cms-tile:opacity-100 group-hover/cms-tile:ring-2 group-hover/cms-tile:ring-indigo-400 group-hover/cms-tile:ring-offset-2 rounded-2xl overflow-hidden">
+          {children}
+        </div>
+        {/* Edit indicator */}
+        <div className="absolute top-2 right-2 z-50 opacity-0 group-hover/cms-tile:opacity-100 transition-opacity">
+          <div className="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center shadow-lg">
+            <Settings className="w-3.5 h-3.5 text-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }, [contentManagerActive]);
 
   return (
-    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10">
-      <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-5 items-stretch">
-        {/* Left Integration Slots */}
-        <div className="hidden xl:flex flex-col gap-5 h-full">
-          <IntegrationColumn side="left" orgId="nxtchapter" />
-          <div className="flex-1 flex flex-col min-h-0">
-            <RecentPlaces />
-          </div>
+    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4 sm:px-8 focus:outline-none" tabIndex={-1}>
+      <div className="space-y-6 min-w-0 w-full">
+        {/* Content Manager Bar */}
+        {contentManagerActive && (
+          <ContentManagerBar
+            selectedOrgs={selectedOrgs}
+            onToggleOrg={handleToggleOrg}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onExit={() => setContentManagerActive(false)}
+          />
+        )}
+
+        {/* Dashboard Header */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-light italic font-cormorant text-slate-800 tracking-wide">
+            Welcome back, <span className="not-italic font-semibold">{user?.displayName || "User"}</span>.
+          </h1>
+          <p className="text-sm text-slate-500 font-medium">
+            Here is your week at a glance.
+          </p>
         </div>
 
-        {/* Center Dashboard Content */}
-        <div className="space-y-6 min-w-0">
+        {/* Uniform Grid Layout with Solid White Structural Tiles & Hover Bookmarks */}
+        <div className={`space-y-5 transition-all duration-500 ${contentManagerActive ? 'opacity-80 saturate-[0.6] select-none' : ''}`}>
+          {/* CMS overlay label */}
+          {contentManagerActive && (
+            <div className="!pointer-events-none flex items-center justify-center py-4">
+              <div className="px-5 py-2.5 bg-slate-900/5 border border-slate-200 rounded-xl">
+                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Click any tile to configure</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
+          <div className="flex flex-col lg:flex-row gap-5 w-full">
+            {/* Slot 1: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards */}
+            <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
+              {/* Card 1A: Weekly Timesheet Hours */}
+              <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 1
+                </div>
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Hours Worked</span>
+                  <Clock className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div className="flex-1 min-h-0 w-full">
+                  <WeeklyTimesheetChart />
+                </div>
+              </div>
+              </CmsTileWrapper>
 
-      {/* ─── Dashboard Header ─── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button 
-            onClick={() => {
-              const next = !isAllCollapsed;
-              setIsAllCollapsed(next);
-              window.dispatchEvent(new CustomEvent('dashboard-toggle-collapse', { detail: { collapsed: next } }));
-            }}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            {isAllCollapsed ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
-            {isAllCollapsed ? "Maximize All" : "Collapse All"}
-          </button>
-          <button 
-            onClick={fetchQbData}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} /> 
-            Refresh
-          </button>
+              {/* Card 1B: Needs Your Attention (Action Board tasks) */}
+              <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-1 min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 2
+                </div>
+                <div className="flex-1 min-h-0 w-full">
+                  <NearestDueTasksWidget />
+                </div>
+              </div>
+              </CmsTileWrapper>
+            </div>
+
+            {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
+            <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5 overflow-hidden">
+              {/* Card 2A: Grant Agent Interface (Tile 3) */}
+              <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
+              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 3
+                </div>
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Agent Interface</span>
+                  <button onClick={() => setIsGrantConfigOpen(true)} className="p-1 rounded-lg bg-indigo-50 border border-indigo-200/60 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors shadow-sm cursor-pointer">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <ActiveAgentsPreview slots={agentSlots} onOpenHub={() => setIsGrantConfigOpen(true)} />
+              </div>
+              </CmsTileWrapper>
+
+              {/* Card 2B: Grant Statuses (Manual) (Tile 4) */}
+              <CmsTileWrapper tileId="tile-4" tileName="Grant Statuses">
+              <div
+                onClick={() => router.push("/portal/dashboard/nxtchapter/grant-statuses")}
+                className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px] cursor-pointer"
+              >
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 4
+                </div>
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Statuses (Manual)</span>
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                </div>
+                <div className="flex-1 flex items-center justify-center border border-dashed border-indigo-100 bg-indigo-50/20 rounded-xl min-h-[40px] py-1 px-2 group-hover:bg-indigo-50/40 transition-colors">
+                  <span className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider">View All Statuses</span>
+                </div>
+              </div>
+              </CmsTileWrapper>
+
+              {/* Card 2C / Tile 5: Bottom span-2 - Grant Analytics */}
+              <CmsTileWrapper tileId="tile-5" tileName="Grant Analytics" className="col-span-2">
+              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] max-h-full overflow-hidden p-5 flex gap-5">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 5
+                </div>
+                
+                {/* Left Column (50% width) - Split vertically into Top-Left and Bottom-Left */}
+                <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
+                  {/* Top-Left: Grant Completions Line Graph */}
+                  <div className="flex-1 min-h-0">
+                    <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                  </div>
+                  {/* Bottom-Left: Grant Status Pie/Donut Chart */}
+                  <div className="flex-1 min-h-0">
+                    <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
+                  </div>
+                </div>
+
+                {/* Right Column (50% width) - Suggested Grants scrollable list */}
+                <div className="flex-1 flex flex-col h-full min-h-0">
+                  <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
+                </div>
+              </div>
+              </CmsTileWrapper>
+            </div>
+          </div>
+
+          {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
+          <div className="flex flex-col lg:flex-row gap-5 w-full">
+            {/* Slot 3: Left (Aspect 16:9) -> News Slideshow (Tile 6) */}
+            <CmsTileWrapper tileId="tile-6" tileName="Company News" className="flex-1">
+            <div className="relative h-full aspect-[16/9] rounded-2xl overflow-hidden">
+              <NewsSlideshow />
+              {/* Very light pastel yellow overlay to blend with earthy theme */}
+              <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
+            </div>
+            </CmsTileWrapper>
+
+            {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 */}
+            <div className="flex-1 aspect-[16/9] flex flex-col gap-5">
+              {/* Card 4A (2/3 Height): Organization Activity Feed (Tile 7) */}
+              <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-0 overflow-hidden">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 7
+                </div>
+                <OrgActivityFeed />
+              </div>
+              </CmsTileWrapper>
+
+              {/* Card 4B (1/3 Height): Blank Tile 8 */}
+              <CmsTileWrapper tileId="tile-8" tileName="Tile 8" className="flex-[1] min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-0">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 8
+                </div>
+              </div>
+              </CmsTileWrapper>
+            </div>
+          </div>
+
+          {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked) */}
+          <div className="flex flex-col lg:flex-row gap-5 w-full">
+            {/* Slot 5: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
+            <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
+              {/* Tile 9 */}
+              <CmsTileWrapper tileId="tile-9" tileName="Tile 9">
+              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 9
+                </div>
+              </div>
+              </CmsTileWrapper>
+
+              {/* Tile 10 */}
+              <CmsTileWrapper tileId="tile-10" tileName="Tile 10">
+              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 10
+                </div>
+              </div>
+              </CmsTileWrapper>
+
+              {/* Tile 11 */}
+              <CmsTileWrapper tileId="tile-11" tileName="Tile 11" className="col-span-2">
+              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 11
+                </div>
+              </div>
+              </CmsTileWrapper>
+            </div>
+
+            {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards */}
+            <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
+              {/* Tile 12 */}
+              <CmsTileWrapper tileId="tile-12" tileName="Tile 12" className="flex-1">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 12
+                </div>
+              </div>
+              </CmsTileWrapper>
+
+              {/* Tile 13 */}
+              <CmsTileWrapper tileId="tile-13" tileName="Tile 13" className="flex-1">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                  Tile 13
+                </div>
+              </div>
+              </CmsTileWrapper>
+            </div>
+          </div>
+
         </div>
       </div>
+      {/* Grant Agent Hub Modal */}
+      {isGrantConfigOpen && (
+        <GrantAgentHub onClose={() => setIsGrantConfigOpen(false)} />
+      )}
+      {/* Persistent background worker controller -- always mounted */}
+      <AgentWorkerController onSlotsChange={handleSlotsChange} />
 
-      {/* ─── Top 3 Metric Cards ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Page Views */}
-        <CollapsibleTile id="st-page-views" title="Page Views" icon={<Eye className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
-                <Eye className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-xs font-semibold text-slate-700">Page Views</span>
-            </div>
-            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-slate-800 tracking-tight">0</span>
-            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">0%</span>
-          </div>
-        </CollapsibleTile>
-
-        {/* Transactions */}
-        <CollapsibleTile id="nc-transactions" title="Transactions" icon={<DollarSign className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
-                <DollarSign className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-xs font-semibold text-slate-700">Transactions</span>
-            </div>
-            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
-            </div>
-          </div>
-          {!isQuickBooksLinked ? (
-            <div className="flex flex-col items-center justify-center py-2 text-slate-400">
-               <Lock className="w-5 h-5 mb-1 opacity-50" />
-               <span className="text-[10px] font-medium text-center leading-tight">Connect QuickBooks<br/>to view transactions</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center py-4">
-              <span className="text-xs font-medium text-slate-400">No recent transactions</span>
-            </div>
-          )}
-        </CollapsibleTile>
-
-        {/* Survey Response Temperature */}
-        <CollapsibleTile id="st-survey-response" title="Survey Response Temperature" icon={<Smile className="w-4 h-4 text-indigo-500" />} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
-                <Smile className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-xs font-semibold text-slate-700">Response Temperature</span>
-            </div>
-            <div className="w-7 h-7 rounded-full border border-slate-100 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-slate-800 tracking-tight text-slate-300">N/A</span>
-            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">0% Avg</span>
-          </div>
-        </CollapsibleTile>
-      </div>
-
-      {/* ─── Middle Row: Sales Overview + Total Subscribers ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Expenses — 3 cols */}
-        <CollapsibleTile id="nc-expenses" title="Expenses" icon={<Wallet className="w-4 h-4 text-slate-500" />} className="lg:col-span-3 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
-                <Wallet className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Expenses</h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-                Last 30 days <ChevronDown className="w-3 h-3" />
-              </button>
-              <button className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
-                •••
-              </button>
-            </div>
-          </div>
-          {!isQuickBooksLinked ? (
-             <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 mt-4">
-               <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
-                 <Lock className="w-5 h-5 text-slate-400" />
-               </div>
-               <div>
-                 <h4 className="text-sm font-semibold text-slate-700">QuickBooks Not Linked</h4>
-                 <p className="text-xs text-slate-500 mt-1">Connect your QuickBooks account to view expenses.</p>
-               </div>
-             </div>
-          ) : (
-            <div className="flex flex-col mt-4">
-              <div className="flex items-baseline gap-3 mb-1">
-                <span className="text-3xl font-bold text-slate-800">${qbParsed ? qbParsed.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</span>
-              </div>
-              <div className="text-xs text-slate-500 font-medium mb-6">
-                {qbParsed ? `${qbParsed.purchases.length} expense transaction${qbParsed.purchases.length !== 1 ? 's' : ''} found` : 'Loading...'}
-              </div>
-    
-              <div className="flex-1 space-y-2 max-h-[200px] overflow-y-auto">
-                {qbParsed && qbParsed.purchases.length > 0 ? qbParsed.purchases.slice(0, 10).map((p: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-700 truncate">{p.EntityRef?.name || p.Line?.[0]?.Description || 'Expense'}</p>
-                      <p className="text-[10px] text-slate-400">{new Date(p.TxnDate).toLocaleDateString()}</p>
-                    </div>
-                    <span className="text-sm font-bold text-slate-800 ml-3">${(p.TotalAmt || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )) : (
-                  <div className="text-sm text-slate-500 text-center py-4">No expenses recorded.</div>
-                )}
-              </div>
-            </div>
-          )}
-        </CollapsibleTile>
-
-        {/* Profit & Loss — 2 cols */}
-        <CollapsibleTile id="nc-profit-loss" title="Profit & Loss" icon={<Activity className="w-4 h-4 text-slate-500" />} className="lg:col-span-2 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
-                <Activity className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Profit & Loss</h3>
-            </div>
-            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-              This month <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-          {!isQuickBooksLinked ? (
-             <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 mt-4">
-               <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
-                 <Lock className="w-5 h-5 text-slate-400" />
-               </div>
-               <div>
-                 <p className="text-xs text-slate-500 mt-1">QuickBooks Required</p>
-               </div>
-             </div>
-          ) : (
-            <div className="flex flex-col mt-4">
-              <div className="text-xs text-slate-500 font-medium mb-1">Net profit for this month</div>
-              <div className="flex items-baseline gap-3 mb-1">
-                <span className={`text-3xl font-bold ${qbParsed && qbParsed.plNet >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {qbParsed && qbParsed.plNet < 0 ? '-' : ''}${qbParsed ? Math.abs(qbParsed.plNet).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                </span>
-              </div>
-              
-              <div className="space-y-6 flex-1 min-h-[160px] mt-4">
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-800">${qbParsed ? qbParsed.plIncome.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'} <span className="font-medium text-slate-500 ml-1">Income</span></span>
-                  </div>
-                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                     <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${qbParsed && qbParsed.plIncome > 0 ? Math.min(100, (qbParsed.plIncome / Math.max(qbParsed.plIncome, qbParsed.plExpenses)) * 100) : 0}%` }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-800">${qbParsed ? qbParsed.plExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'} <span className="font-medium text-slate-500 ml-1">Expenses</span></span>
-                  </div>
-                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                     <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${qbParsed && qbParsed.plExpenses > 0 ? Math.min(100, (qbParsed.plExpenses / Math.max(qbParsed.plIncome, qbParsed.plExpenses)) * 100) : 0}%` }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </CollapsibleTile>
-      </div>
-
-      {/* ─── Bottom Row: Sales Distribution + List of Integration ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Bank Accounts */}
-        <CollapsibleTile id="nc-bank-accounts" title="Bank Accounts" icon={<Landmark className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
-                <Landmark className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Bank Accounts</h3>
-            </div>
-            <span className="text-xs font-medium text-slate-500">As of today</span>
-          </div>
-
-          {!isQuickBooksLinked ? (
-             <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
-                 <Lock className="w-4 h-4 text-slate-400" />
-               </div>
-               <div>
-                 <p className="text-xs text-slate-500 mt-1">QuickBooks Required</p>
-               </div>
-             </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="text-xs text-slate-500">
-                Today&apos;s bank balance
-              </div>
-              <div className="text-3xl font-bold text-slate-800">${qbParsed ? qbParsed.totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</div>
-              
-              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-3">
-                {qbParsed && qbParsed.accounts.length > 0 ? qbParsed.accounts.map((a: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
-                        <Landmark className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-700">{a.Name}</p>
-                        <p className="text-[10px] text-slate-400">{a.AccountSubType || a.AccountType}</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-slate-800">${(a.CurrentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )) : (
-                  <div className="text-sm text-slate-500 text-center py-4">No bank accounts linked.</div>
-                )}
-              </div>
-            </div>
-          )}
-        </CollapsibleTile>
-
-        {/* Invoices */}
-        <CollapsibleTile id="nc-invoices" title="Invoices" icon={<FileText className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
-                <FileText className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Invoices</h3>
-            </div>
-            <span className="text-xs font-medium text-slate-500">Last 365 days</span>
-          </div>
-
-          {!isQuickBooksLinked ? (
-             <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] text-center gap-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100">
-                 <Lock className="w-4 h-4 text-slate-400" />
-               </div>
-               <div>
-                 <p className="text-xs text-slate-500 mt-1">QuickBooks Required</p>
-               </div>
-             </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="text-xs text-slate-500">
-                Unpaid invoices
-              </div>
-              <div className="text-3xl font-bold text-slate-800">${qbParsed ? qbParsed.totalUnpaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</div>
-              
-              <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-3">
-                {qbParsed && qbParsed.invoices.length > 0 ? qbParsed.invoices.slice(0, 8).map((inv: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-700 truncate">{inv.CustomerRef?.name || `Invoice #${inv.DocNumber || i + 1}`}</p>
-                      <p className="text-[10px] text-slate-400">Due: {inv.DueDate ? new Date(inv.DueDate).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                    <span className="text-sm font-bold text-red-600 ml-3">${(inv.Balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )) : (
-                  <div className="text-sm text-slate-500 text-center py-4">No unpaid invoices.</div>
-                )}
-              </div>
-            </div>
-          )}
-        </CollapsibleTile>
-
-        {/* List of Integration */}
-        <CollapsibleTile id="nc-list-int" title="List of Integration" icon={<Blocks className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
-                <Blocks className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">List of Integration</h3>
-            </div>
-            <button className="text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors">
-              See All
-            </button>
-          </div>
-
-          {/* Table Header */}
-          <div className="grid grid-cols-4 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">
-            <span>Application</span>
-            <span>Type</span>
-            <span>Rate</span>
-            <span className="text-right">Profit</span>
-          </div>
-
-          {/* Table Rows */}
-          <div className="space-y-4">
-            {integrations.length === 0 ? (
-               <div className="text-xs text-center text-slate-400 py-6 border border-dashed border-slate-200 rounded-xl">No active integrations found.</div>
-            ) : integrations.map((item) => (
-              <div key={item.app} className="grid grid-cols-4 gap-4 items-center px-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                    <span className="text-xs font-bold text-slate-500">{item.app.charAt(0)}</span>
-                  </div>
-                  <span className="text-sm font-semibold text-slate-700">{item.app}</span>
-                </div>
-                <span className="text-xs text-slate-500 font-medium">{item.type}</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-300 rounded-full" style={{ width: `${item.rate}%` }} />
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium">{item.rate}%</span>
-                </div>
-                <span className="text-sm font-semibold text-slate-700 text-right">{item.profit}</span>
-              </div>
-            ))}
-          </div>
-        </CollapsibleTile>
-        {/* Team Activity (mock) */}
-        <CollapsibleTile id="nc-team-activity" title="Team Activity" icon={<User className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-500">
-                <User className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Team Activity</h3>
-            </div>
-            <button className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
-              This Week <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="space-y-4">
-            {[
-              { name: user?.displayName || "You", role: "Admin", status: "Online", color: "bg-emerald-500" }
-            ].map((m) => (
-              <div key={m.name} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">{(m.name || "U").charAt(0)}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-700 truncate">{m.name}</p>
-                  <p className="text-[10px] text-slate-400 font-medium">{m.role}</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${m.color}`} />
-                  <span className="text-[10px] text-slate-500 font-medium">{m.status}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleTile>
-
-        {/* Time Sheets */}
-        <CollapsibleTile id="nc-time-sheets" title="Time Sheets" icon={<Clock className="w-4 h-4 text-slate-500" />} className="p-6">
-          <TimeSheets />
-        </CollapsibleTile>
-        {/* Upcoming Events (mock) */}
-        <CollapsibleTile id="st-upcoming" title="Upcoming Events" icon={<CalendarDays className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
-                <CalendarDays className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Upcoming Events</h3>
-            </div>
-            <button className="text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors">View Calendar</button>
-          </div>
-          <div className="space-y-3">
-            <div className="text-xs text-center text-slate-400 py-6 border border-dashed border-slate-200 rounded-xl">No upcoming events scheduled.</div>
-          </div>
-        </CollapsibleTile>
-
-        {/* Active Services */}
-        <CollapsibleTile id="nc-active-services" title="Active Services" icon={<Activity className="w-4 h-4 text-slate-500" />} className="p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
-                <Activity className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700 leading-none">Active Services</h3>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Email Sync", status: "Active", Icon: Mail, color: "text-blue-500", bg: "bg-blue-50" },
-              { label: "Drive Indexer", status: "Idle", Icon: HardDrive, color: "text-slate-500", bg: "bg-slate-50" },
-              { label: "Cal Sync", status: "Active", Icon: CalendarDays, color: "text-emerald-500", bg: "bg-emerald-50" },
-              { label: "Backup", status: "2h ago", Icon: Database, color: "text-amber-500", bg: "bg-amber-50" },
-            ].map((s) => (
-              <div key={s.label} className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-shadow">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.bg} ${s.color}`}>
-                  <s.Icon className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-700 truncate">{s.label}</p>
-                  <p className="text-[10px] text-slate-400 font-medium">{s.status}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleTile>
-      </div>
-        </div>
-
-        {/* Right Integration Slots */}
-        <div className="hidden xl:flex flex-col gap-5 h-full">
-          <IntegrationColumn side="right" orgId="nxtchapter" />
-          <div className="flex-1 flex flex-col min-h-0">
-            <RadialGraphs />
-          </div>
-        </div>
-      </div>
+      {/* CMS Tile Settings Popups */}
+      {activeTilePopup && activeTilePopup !== 'tile-6' && (
+        <TileSettingsPopup
+          tileId={activeTilePopup}
+          tileName={{
+            'tile-1': 'Weekly Hours Worked',
+            'tile-2': 'Nearest Due Tasks',
+            'tile-3': 'Grant Agent Interface',
+            'tile-4': 'Grant Statuses',
+            'tile-5': 'Grant Analytics',
+            'tile-7': 'Tile 7',
+            'tile-8': 'Tile 8',
+            'tile-9': 'Tile 9',
+            'tile-10': 'Tile 10',
+            'tile-11': 'Tile 11',
+            'tile-12': 'Tile 12',
+            'tile-13': 'Tile 13',
+          }[activeTilePopup] || activeTilePopup}
+          isOpen={true}
+          onClose={() => setActiveTilePopup(null)}
+        />
+      )}
+      {activeTilePopup === 'tile-6' && (
+        <NewsSlideshowSettings
+          isOpen={true}
+          onClose={() => setActiveTilePopup(null)}
+          slides={newsSlides}
+          shuffleInterval={newsShuffleInterval}
+          onSave={handleSaveNewsSlideshow}
+        />
+      )}
     </div>
   );
 }
