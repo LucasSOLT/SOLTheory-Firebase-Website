@@ -721,7 +721,7 @@ function ActionBoardContent() {
           const triggerForColumn: Record<string, EmailTrigger> = { done: "completed", doing: "in_progress", todo: "assigned" };
           const currentTrigger = triggerForColumn[newColumn];
           if (currentTrigger && (newTriggers.length === 0 || newTriggers.includes(currentTrigger))) {
-            console.log(`[ActionBoard] Automations changed on task in "${newColumn}" â€” re-firing ${currentTrigger} trigger`);
+            console.log(`[ActionBoard] Automations changed on task in "${newColumn}" - re-firing ${currentTrigger} trigger`);
             fireAutomations({
               ...task,
               ...taskData,
@@ -745,7 +745,7 @@ function ActionBoardContent() {
     setOpenMenuId(null);
   };
 
-  // â”€â”€ Build automations object from form â”€â”€
+  // Build automations object from form
   const buildAutomations = (): TaskAutomations | null => {
     const emails = autoEmailChips;
     const hasAny = emails.length > 0;
@@ -756,7 +756,7 @@ function ActionBoardContent() {
     return auto;
   };
 
-  // â”€â”€ Fire automations for a specific trigger â”€â”€
+  // Fire automations for a specific trigger
   const fireAutomations = async (task: ActionBoardTask, trigger: EmailTrigger) => {
     if (!task.automations) return;
     const { emails, emailTriggers } = task.automations;
@@ -897,7 +897,7 @@ function ActionBoardContent() {
     } catch (err) { console.error("[ActionBoard] Deny failed:", err); }
   };
 
-  // â”€â”€ Drag & Drop â”€â”€
+  // Drag & Drop
   const onDragStart = (e: React.DragEvent, taskId: string) => {
     draggedTaskRef.current = taskId;
     e.dataTransfer.effectAllowed = "move";
@@ -917,7 +917,7 @@ function ActionBoardContent() {
     setDragOverColumn(null);
   };
 
-  // â”€â”€ Helpers â”€â”€
+  // Helpers
   const formatDate = (ts: Timestamp | null) => {
     if (!ts) return "Just now";
     return ts.toDate().toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -954,7 +954,7 @@ function ActionBoardContent() {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // â”€â”€ Loading State â”€â”€
+  // Loading State
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-[#faf6ed]">
@@ -971,7 +971,7 @@ function ActionBoardContent() {
   return (
     <div className="flex flex-col h-full bg-[#faf6ed] text-slate-900 font-sans overflow-hidden">
 
-      {/* â•â• Page Header â•â• */}
+      {/* Page Header */}
       <div className="shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -998,7 +998,7 @@ function ActionBoardContent() {
               </div>
             )}
 
-            {/* Archive â€” always visible, left of Incoming */}
+            {/* Archive - always visible, left of Incoming */}
             <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] transition-colors text-sm font-medium text-slate-600 cursor-pointer">
               <Archive className="w-4 h-4" />
               <span className="hidden sm:inline">Archive</span>
@@ -1453,7 +1453,7 @@ function ActionBoardContent() {
                               setAutoEmailChips(prev => prev.slice(0, -1));
                             }
                           }}
-                          placeholder={autoEmailChips.length === 0 ? "Type email and press Enterâ€¦" : "Add anotherâ€¦"}
+                          placeholder={autoEmailChips.length === 0 ? "Type email and press Enter..." : "Add another..."}
                           className="flex-1 min-w-[140px] bg-transparent outline-none text-xs text-slate-700 placeholder:text-slate-400 py-0.5"
                         />
                       </div>
@@ -1554,7 +1554,7 @@ function ActionBoardContent() {
                           value={commentInput}
                           onChange={e => setCommentInput(e.target.value)}
                           onKeyDown={e => { if (e.key === "Enter" && commentInput.trim()) { e.preventDefault(); addComment(editingTaskId); } }}
-                          placeholder="Write a commentâ€¦"
+                          placeholder="Write a comment..."
                           className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400"
                         />
                         <button
