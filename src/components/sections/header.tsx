@@ -56,15 +56,15 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-            {/* Client Portal Button — LEFT */}
-            <Button asChild variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm font-semibold tracking-wide text-xs md:text-sm rounded-xl px-3 md:px-5">
+            {/* Client Portal Button */}
+            <Button asChild variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 font-semibold tracking-wide text-xs md:text-sm rounded-lg px-3 md:px-5">
                 <Link href="/portal">
                     <span className="hidden md:inline">Client Portal</span>
                     <span className="md:hidden">Portal</span>
                 </Link>
             </Button>
 
-            {/* Hamburger Menu Button — RIGHT of Client Portal */}
+            {/* Menu Button */}
             <div className="relative">
               <Button
                 variant="ghost"
@@ -88,67 +88,61 @@ export function Header() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-[51] bg-black/60 backdrop-blur-sm"
+                      className="fixed inset-0 z-[51] bg-black/50"
                       onClick={() => setMenuOpen(false)}
                     />
 
-                    {/* Compact Panel */}
+                    {/* Dropdown */}
                     <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                      transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="absolute right-0 top-full mt-2 z-[52] w-[280px] md:w-[320px] rounded-xl border border-white/10 bg-[#0f0f10]/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
+                      className="absolute right-0 top-full mt-2 z-[52] w-[260px] rounded-lg border border-[#222] bg-[#111113] shadow-xl overflow-hidden"
                     >
                       {/* Platforms */}
-                      <div className="px-2.5 pt-3 pb-1.5">
-                        <p className="text-[9px] font-bold text-fuchsia-400/80 uppercase tracking-[0.2em] px-2 mb-1.5">Platforms</p>
+                      <div className="px-1.5 pt-2 pb-1">
+                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] px-2.5 mb-1">Platforms</p>
                         <Link
                           href="/portal/login/insight"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center shrink-0 group-hover:bg-fuchsia-500/20 transition-colors">
-                            <Sparkles className="w-3.5 h-3.5 text-fuchsia-400" />
-                          </div>
+                          <Sparkles className="w-3.5 h-3.5 text-fuchsia-400 shrink-0" />
                           <div>
-                            <p className="text-[13px] font-semibold text-white leading-tight">INSiGHT</p>
-                            <p className="text-[10px] text-slate-400">Analytics dashboard & org tools</p>
+                            <p className="text-[13px] font-medium text-white leading-none">INSiGHT</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Analytics & org tools</p>
                           </div>
                         </Link>
                         <Link
                           href="/portal/login/drive"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0 group-hover:bg-indigo-500/20 transition-colors">
-                            <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
-                          </div>
+                          <ArrowRight className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                           <div>
-                            <p className="text-[13px] font-semibold text-white leading-tight">DRiVE</p>
-                            <p className="text-[10px] text-slate-400">Learning management system</p>
+                            <p className="text-[13px] font-medium text-white leading-none">DRiVE</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Learning management</p>
                           </div>
                         </Link>
                       </div>
 
-                      <div className="h-px bg-white/5 mx-4" />
+                      <div className="h-px bg-[#1e1e22] mx-3" />
 
                       {/* Community */}
-                      <div className="px-2.5 py-1.5">
-                        <p className="text-[9px] font-bold text-indigo-400/80 uppercase tracking-[0.2em] px-2 mb-1.5">Community</p>
+                      <div className="px-1.5 py-1">
+                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] px-2.5 mb-1">Community</p>
                         <a
                           href="https://www.lifenavigation.ai"
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20 transition-colors">
-                            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-                          </div>
+                          <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                           <div>
-                            <p className="text-[13px] font-semibold text-white leading-tight">LifeNavigationU</p>
-                            <p className="text-[10px] text-slate-400">Life design & navigation tools</p>
+                            <p className="text-[13px] font-medium text-white leading-none">LifeNavigationU</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Life design tools</p>
                           </div>
                         </a>
                         <a
@@ -156,76 +150,51 @@ export function Header() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 group-hover:bg-amber-500/20 transition-colors">
-                            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                          </div>
+                          <ExternalLink className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                           <div>
-                            <p className="text-[13px] font-semibold text-white leading-tight">Thrive Coaching</p>
-                            <p className="text-[10px] text-slate-400">AI-powered personal coaching</p>
+                            <p className="text-[13px] font-medium text-white leading-none">Thrive Coaching</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">AI-powered coaching</p>
                           </div>
                         </a>
                       </div>
 
-                      <div className="h-px bg-white/5 mx-4" />
+                      <div className="h-px bg-[#1e1e22] mx-3" />
 
-                      {/* Quick Links */}
-                      <div className="px-2.5 py-1.5">
-                        <p className="text-[9px] font-bold text-emerald-400/80 uppercase tracking-[0.2em] px-2 mb-1.5">Quick Links</p>
+                      {/* Links */}
+                      <div className="px-1.5 py-1">
                         <Link
                           href="/sms-opt-in"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20 transition-colors">
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                          </div>
-                          <div>
-                            <p className="text-[13px] font-semibold text-white leading-tight">SMS Opt-in</p>
-                            <p className="text-[10px] text-slate-400">Subscribe to SMS updates</p>
-                          </div>
+                          <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <p className="text-[13px] font-medium text-white leading-none">SMS Opt-in</p>
                         </Link>
-                      </div>
-
-                      <div className="h-px bg-white/5 mx-4" />
-
-                      {/* Support */}
-                      <div className="px-2.5 py-1.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] px-2 mb-1.5">Support</p>
                         <button
                           onClick={() => { setMenuOpen(false); setShowHelpModal(true); }}
-                          className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group text-left cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors text-left cursor-pointer"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center shrink-0 group-hover:bg-slate-500/20 transition-colors">
-                            <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-                          </div>
-                          <div>
-                            <p className="text-[13px] font-semibold text-white leading-tight">Help & FAQ</p>
-                            <p className="text-[10px] text-slate-400">Questions & troubleshooting</p>
-                          </div>
+                          <HelpCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <p className="text-[13px] font-medium text-white leading-none">Help & FAQ</p>
                         </button>
                         <Link
                           href="/contact"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center shrink-0 group-hover:bg-slate-500/20 transition-colors">
-                            <Mail className="w-3.5 h-3.5 text-slate-400" />
-                          </div>
-                          <div>
-                            <p className="text-[13px] font-semibold text-white leading-tight">Contact</p>
-                            <p className="text-[10px] text-slate-400">Get in touch with our team</p>
-                          </div>
+                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <p className="text-[13px] font-medium text-white leading-none">Contact</p>
                         </Link>
                       </div>
 
-                      {/* Footer — Client Portal CTA */}
-                      <div className="px-3 py-2.5 border-t border-white/5 bg-white/[0.02]">
+                      {/* Footer */}
+                      <div className="px-2 py-2 border-t border-[#1e1e22]">
                         <Link
                           href="/portal"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all shadow-lg shadow-fuchsia-500/20"
+                          className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white/[0.06] hover:bg-white/[0.10] text-white text-[13px] font-medium transition-colors"
                         >
                           Client Portal
                           <ArrowRight className="w-3.5 h-3.5" />
