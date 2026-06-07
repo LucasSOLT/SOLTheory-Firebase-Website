@@ -426,6 +426,31 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow update, delete: if false;
     }
+
+    /**
+     * @description Timesheet entries for tracking team hours.
+     * @path /timesheet_entries/{entryId}
+     * @allow (read, create, update, delete) Any signed-in user can manage timesheet entries.
+     */
+    match /timesheet_entries/{entryId} {
+      allow read, create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Custom customers for timesheet categorization.
+     * @path /timesheet_customers/{customerId}
+     */
+    match /timesheet_customers/{customerId} {
+      allow read, create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Custom services for timesheet categorization.
+     * @path /timesheet_services/{serviceId}
+     */
+    match /timesheet_services/{serviceId} {
+      allow read, create, update, delete: if isSignedIn();
+    }
   }
 }
     

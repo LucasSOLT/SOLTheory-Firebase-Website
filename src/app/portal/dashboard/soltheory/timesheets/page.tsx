@@ -1,4 +1,7 @@
+"use client";
+
 import { TimesheetGrid } from "@/components/portal/TimesheetGrid";
+import { useFirestore, useUser } from "@/firebase";
 
 const SOL_THEORY_USERS = [
   { name: "Lucas Huff", initials: "LH", color: "#2563eb" },
@@ -7,5 +10,14 @@ const SOL_THEORY_USERS = [
 ];
 
 export default function SolTheoryTimesheetsPage() {
-  return <TimesheetGrid users={SOL_THEORY_USERS} />;
+  const firestore = useFirestore();
+  const { user } = useUser();
+  return (
+    <TimesheetGrid
+      users={SOL_THEORY_USERS}
+      firestore={firestore}
+      orgDomain="soltheory.com"
+      userEmail={user?.email || ""}
+    />
+  );
 }
