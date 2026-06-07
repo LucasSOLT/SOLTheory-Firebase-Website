@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
 import {
@@ -228,6 +228,14 @@ function getDueDelta(dueDate: Timestamp | null | undefined): { label: string; is
 
 
 export default function ActionBoardPage() {
+  return (
+    <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" /></div>}>
+      <ActionBoardContent />
+    </Suspense>
+  );
+}
+
+function ActionBoardContent() {
   const { user } = useUser();
   const firestore = useFirestore();
   const pathname = usePathname();
