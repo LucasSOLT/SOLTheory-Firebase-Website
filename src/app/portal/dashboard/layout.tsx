@@ -5,7 +5,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -306,6 +306,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         snap.docs.forEach(d => {
           const data = d.data();
           const createdAt = data.createdAt?.toMillis?.() || data.createdAt || 0;
+
+          // Check for overdue tasks (regardless of who created them)
+          if (data.dueDate && data.column !== 'done') {
+            const dueMs = data.dueDate?.toMillis?.() || (typeof data.dueDate === 'number' ? data.dueDate : 0);
+            if (dueMs && dueMs < Date.now()) {
+              taskNotifs.push({
+                id: `task-overdue-${d.id}`,
+                title: 'Task overdue',
+                desc: `"${data.title || 'Untitled task'}" is past due`,
+                time: dueMs,
+                icon: <AlertTriangle className="w-4 h-4 text-red-600" />,
+                bg: 'bg-red-100',
+                link: `${dashboardHome}/action-board`
+              });
+            }
+          }
+
           if (!createdAt || Date.now() - createdAt > SEVEN_DAYS) return;
           // Only notify if the task was NOT created by the current user (incoming assignment)
           if (data.createdBy === user.uid || data.createdByEmail === user.email) return;
@@ -420,6 +437,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       });
     } catch (e) {
       console.warn('Survey notification listener setup failed (non-fatal):', e);
+    }
+    return () => unsub?.();
+  }, [firestore, user?.email]);
+
+  // Listen for org channel @messages activity
+  React.useEffect(() => {
+    if (!firestore || !user?.email) return;
+    const userDomain = user.email.split('@')[1];
+    if (!userDomain) return;
+    let unsub: (() => void) | undefined;
+    try {
+      const channelsRef = collection(firestore, "org_channels");
+      const q = query(channelsRef, where("domain", "==", userDomain));
+      unsub = onSnapshot(q, (snap) => {
+        const msgNotifs: any[] = [];
+        const ONE_HOUR = 60 * 60 * 1000;
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const updatedAt = data.updatedAt?.toMillis?.() || data.lastMessageAt?.toMillis?.() || 0;
+          if (!updatedAt || Date.now() - updatedAt > ONE_HOUR) return;
+          // Only notify if the last message was from someone else
+          if (data.lastMessageBy && data.lastMessageBy !== user.email) {
+            msgNotifs.push({
+              id: `org-msg-${d.id}-${updatedAt}`,
+              title: 'New channel message',
+              desc: `New message in #${data.name || 'channel'} from ${data.lastMessageBy?.split('@')[0] || 'someone'}`,
+              time: updatedAt,
+              icon: <Hash className="w-4 h-4 text-indigo-600" />,
+              bg: 'bg-indigo-100',
+              link: `${dashboardHome}/communications/org-thread`
+            });
+          }
+        });
+        if (msgNotifs.length > 0) {
+          setNotifications(prev => {
+            const filtered = prev.filter(n => !n.id.startsWith('org-msg-'));
+            return [...filtered, ...msgNotifs].sort((a, b) => b.time - a.time);
+          });
+        }
+      }, (error) => {
+        console.warn('Org channel notification listener error (non-fatal):', error.message);
+      });
+    } catch (e) {
+      console.warn('Org channel notification listener setup failed (non-fatal):', e);
     }
     return () => unsub?.();
   }, [firestore, user?.email]);

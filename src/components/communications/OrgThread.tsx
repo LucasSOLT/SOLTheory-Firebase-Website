@@ -453,6 +453,11 @@ export function OrgThread() {
       };
       if (customImageUrl) payload.imageUrl = customImageUrl;
       await addDoc(collection(firestore, `org_channels/${activeChannelId}/messages`), payload);
+      // Update channel metadata for notification bell
+      await updateDoc(doc(firestore, "org_channels", activeChannelId), {
+        lastMessageBy: user.email,
+        lastMessageAt: serverTimestamp(),
+      }).catch(() => {});
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (e) {
       console.error(e);

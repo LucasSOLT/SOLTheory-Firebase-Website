@@ -132,19 +132,7 @@ export function Header() {
                       {/* Community */}
                       <div className="px-1.5 py-1">
                         <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] px-2.5 mb-1">Community</p>
-                        <a
-                          href="https://www.lifenavigation.ai"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <div>
-                            <p className="text-[13px] font-medium text-white leading-none">LifeNavigationU</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Life design tools</p>
-                          </div>
-                        </a>
+
                         <a
                           href="https://www.thrivecoaching.ai"
                           target="_blank"

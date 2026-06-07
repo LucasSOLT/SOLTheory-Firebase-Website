@@ -102,7 +102,7 @@ export default function IMessagePage() {
         if (!convMap.has(contact)) {
           convMap.set(contact, {
             contact,
-            lastMessage: data.body || (data.mediaUrls?.length ? "ðŸ“Ž Media" : ""),
+            lastMessage: data.body || (data.mediaUrls?.length ? "Media" : ""),
             lastTime: data.createdAt,
             direction: data.direction,
             unreadCount: 0,
@@ -518,7 +518,7 @@ export default function IMessagePage() {
                               ? "bg-[#DCF8C6] text-slate-900 rounded-tr-none"
                               : "bg-[#fefcf6] text-slate-900 rounded-tl-none"
                           }`}>
-                            {msg.body || "ðŸ“Ž Media"}
+                            {msg.body || "Media"}
                             <div className={`flex items-center gap-1 mt-1 ${isMe ? "justify-end" : ""}`}>
                               <span className="text-[9px] text-slate-500">
                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

@@ -276,7 +276,7 @@ export function NearestDueTasksWidget() {
                         : "bg-amber-50 text-amber-600 border border-amber-200"
                     }`}
                   >
-                    {isOverdue && "ðŸ”´ "}{dueLabel}
+                    {dueLabel}
                   </span>
 
                   {/* Assignee avatar */}
@@ -284,7 +284,7 @@ export function NearestDueTasksWidget() {
                     {task.assignedToName ? task.assignedToName.charAt(0) : "?"}
                   </div>
 
-                  {/* Open arrow â€” navigates to action board */}
+                  {/* Open arrow - navigates to action board */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -301,7 +301,7 @@ export function NearestDueTasksWidget() {
         </div>
       </div>
 
-      {/* â•â• Task Detail Popup â•â• */}
+      {/* Task Detail Popup */}
       {selectedTask && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
