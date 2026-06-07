@@ -54,6 +54,8 @@ export default function SmsOptInPage() {
         lastName: lastName.trim() || null,
         email: email.trim() || null,
         phone: stripPhone(phone),
+        sms_opt_in: true,
+        optedOut: false,
         consentGiven: true,
         consentTimestamp: serverTimestamp(),
         createdAt: serverTimestamp(),

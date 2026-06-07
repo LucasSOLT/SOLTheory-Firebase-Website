@@ -1,6 +1,8 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs, query, where, limit } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, query, where, limit, updateDoc, doc } from "firebase/firestore";
 import { firebaseConfig } from "@/firebase/config";
+import { initializeApp as initAdmin, cert, getApps as getAdminApps } from "firebase-admin/app";
+import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
 
 // Use a named app to avoid conflicts with other Firebase instances
 const WEBHOOK_APP_NAME = "sms-webhook";
@@ -13,11 +15,23 @@ function getWebhookApp() {
   }
 }
 
+function ensureAdmin() {
+  if (getAdminApps().length === 0) {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_KEY");
+    const serviceAccount = JSON.parse(raw);
+    initAdmin({ credential: cert(serviceAccount) });
+  }
+}
+
+// Opt-out keywords per CTIA guidelines
+const OPT_OUT_KEYWORDS = ["stop", "unsubscribe", "cancel", "end", "quit"];
+const HELP_KEYWORDS = ["help", "info"];
+
 /**
  * POST /api/sms/webhook
  * Twilio inbound SMS webhook. Receives messages and stores them in Firestore.
- * Uses Firebase Client SDK with the hardcoded config from @/firebase/config.
- * Firestore security rules allow unauthenticated creates with direction == "inbound".
+ * Handles STOP/HELP keywords for A2P compliance.
  */
 export async function POST(req: Request) {
   try {
@@ -54,7 +68,7 @@ export async function POST(req: Request) {
       if (mediaUrl) mediaUrls.push(mediaUrl);
     }
 
-    // Store the incoming message — Firestore rule allows create when direction == "inbound"
+    // Store the incoming message
     const docRef = await addDoc(collection(db, "users", uid, "sms_messages"), {
       sid: messageSid,
       from,
@@ -67,6 +81,61 @@ export async function POST(req: Request) {
     });
 
     console.log(`[SMS Webhook] Stored inbound message ${docRef.id} for user ${uid}`);
+
+    // --- Handle STOP / HELP keywords for A2P compliance ---
+    const normalizedBody = (body || "").trim().toLowerCase();
+    const senderDigits = from.replace(/\D/g, "");
+    const tenDigit = senderDigits.length === 11 && senderDigits.startsWith("1")
+      ? senderDigits.slice(1) : senderDigits;
+
+    if (OPT_OUT_KEYWORDS.includes(normalizedBody)) {
+      console.log(`[SMS Webhook] OPT-OUT received from ${from}. Updating sms_optins...`);
+      try {
+        ensureAdmin();
+        const adminDb = getAdminFirestore();
+
+        // Update sms_optins collection
+        const optinsSnap = await adminDb.collection("sms_optins")
+          .where("phone", "==", tenDigit)
+          .get();
+
+        const batch = adminDb.batch();
+        optinsSnap.docs.forEach((d) => {
+          batch.update(d.ref, {
+            optedOut: true,
+            optOutTimestamp: new Date(),
+            optOutKeyword: normalizedBody,
+          });
+        });
+
+        // Also update any user doc with matching phone
+        const usersAdminSnap = await adminDb.collection("users")
+          .where("phone", "==", tenDigit)
+          .get();
+
+        usersAdminSnap.docs.forEach((d) => {
+          batch.update(d.ref, { sms_opt_in: false });
+        });
+
+        await batch.commit();
+        console.log(`[SMS Webhook] Opt-out processed for ${tenDigit}. Updated ${optinsSnap.size} opt-in records, ${usersAdminSnap.size} user records.`);
+      } catch (optOutErr: any) {
+        console.error(`[SMS Webhook] Error processing opt-out: ${optOutErr.message}`);
+      }
+
+      // Twilio auto-handles STOP responses, but we return an empty TwiML
+      return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
+    }
+
+    if (HELP_KEYWORDS.includes(normalizedBody)) {
+      console.log(`[SMS Webhook] HELP received from ${from}. Sending help response.`);
+      // Respond with help text via TwiML
+      const helpText = "SOLTheory SMS: Reply STOP to unsubscribe. For support, email support@soltheory.com or visit soltheory.com. Msg & data rates may apply.";
+      return new Response(
+        `<Response><Message>${helpText}</Message></Response>`,
+        { headers: { "Content-Type": "text/xml" } }
+      );
+    }
 
     return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
   } catch (err: any) {

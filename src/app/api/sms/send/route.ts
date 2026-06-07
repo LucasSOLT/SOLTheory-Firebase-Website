@@ -1,5 +1,54 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+
+function initAdmin() {
+  if (getApps().length === 0) {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_KEY");
+    const serviceAccount = JSON.parse(raw);
+    initializeApp({ credential: cert(serviceAccount) });
+  }
+}
+
+/**
+ * Check if a phone number has an active SMS opt-in.
+ * Looks in the `sms_optins` collection for a matching phone with consentGiven === true.
+ * Also checks the `users` collection for sms_opt_in === true on the user doc.
+ */
+async function hasOptIn(phone: string): Promise<boolean> {
+  const digits = phone.replace(/\D/g, "");
+  // Normalize: strip leading 1 for US numbers to get 10-digit form
+  const tenDigit = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+
+  initAdmin();
+  const db = getFirestore();
+
+  // Check sms_optins collection
+  const optinsSnap = await db.collection("sms_optins")
+    .where("phone", "==", tenDigit)
+    .limit(1)
+    .get();
+
+  if (!optinsSnap.empty) {
+    const doc = optinsSnap.docs[0].data();
+    if (doc.consentGiven === true && doc.optedOut !== true) return true;
+  }
+
+  // Also check if user doc has sms_opt_in: true (for users who opted in via other flows)
+  const usersSnap = await db.collection("users")
+    .where("phone", "==", tenDigit)
+    .limit(1)
+    .get();
+
+  if (!usersSnap.empty) {
+    const userData = usersSnap.docs[0].data();
+    if (userData.sms_opt_in === true) return true;
+  }
+
+  return false;
+}
 
 /**
  * POST /api/sms/send
@@ -12,6 +61,22 @@ export async function POST(req: Request) {
     const { from, to, message } = await req.json();
     if (!to) return NextResponse.json({ error: "Missing 'to' phone number" }, { status: 400 });
     if (!message) return NextResponse.json({ error: "Missing message" }, { status: 400 });
+
+    // Validate SMS opt-in before sending
+    try {
+      const recipientOptedIn = await hasOptIn(to);
+      if (!recipientOptedIn) {
+        console.warn(`[SMS Send] Blocked: ${to} has not opted in to SMS.`);
+        return NextResponse.json(
+          { error: "Recipient has not opted in to receive SMS messages. They must consent via the SMS Opt-In page first." },
+          { status: 403 }
+        );
+      }
+    } catch (optInErr: any) {
+      console.warn(`[SMS Send] Opt-in check failed (allowing send): ${optInErr.message}`);
+      // If the opt-in check fails (e.g. Firestore error), log but allow the send
+      // to avoid blocking legitimate messages due to infrastructure issues
+    }
 
     const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
 
