@@ -293,6 +293,135 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => unsub?.();
   }, [firestore, user?.email]);
 
+  // Listen for Action Board tasks assigned to this user
+  React.useEffect(() => {
+    if (!firestore || !user?.uid || !user?.email) return;
+    let unsub: (() => void) | undefined;
+    try {
+      const tasksRef = collection(firestore, "action_board_tasks");
+      const q = query(tasksRef, where("assignedToEmail", "==", user.email));
+      unsub = onSnapshot(q, (snap) => {
+        const taskNotifs: any[] = [];
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const createdAt = data.createdAt?.toMillis?.() || data.createdAt || 0;
+          if (!createdAt || Date.now() - createdAt > SEVEN_DAYS) return;
+          // Only notify if the task was NOT created by the current user (incoming assignment)
+          if (data.createdBy === user.uid || data.createdByEmail === user.email) return;
+          // Show tasks in the incoming/pending column
+          if (data.column === 'incoming' || data.column === 'pending' || !data.column) {
+            taskNotifs.push({
+              id: `task-${d.id}-${createdAt}`,
+              title: 'New task assigned',
+              desc: `${data.createdByName || 'Someone'} assigned you: ${data.title || 'Untitled task'}`,
+              time: typeof createdAt === 'number' ? createdAt : Date.now(),
+              icon: <LayoutDashboard className="w-4 h-4 text-amber-600" />,
+              bg: 'bg-amber-100',
+              link: `${dashboardHome}/action-board`
+            });
+          }
+        });
+        setNotifications(prev => {
+          const filtered = prev.filter(n => !n.id.startsWith('task-'));
+          return [...filtered, ...taskNotifs].sort((a, b) => b.time - a.time);
+        });
+      }, (error) => {
+        console.warn('Action Board notification listener error (non-fatal):', error.message);
+      });
+    } catch (e) {
+      console.warn('Action Board notification listener setup failed (non-fatal):', e);
+    }
+    return () => unsub?.();
+  }, [firestore, user?.uid, user?.email]);
+
+  // Listen for new support tickets where user is the recipient
+  React.useEffect(() => {
+    if (!firestore || !user?.email) return;
+    let unsub: (() => void) | undefined;
+    try {
+      const ticketsRef = collection(firestore, "support_tickets");
+      const q = query(ticketsRef, where("toEmail", "==", user.email));
+      unsub = onSnapshot(q, (snap) => {
+        const ticketNotifs: any[] = [];
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const createdAt = data.createdAt?.toMillis?.() || 0;
+          if (!createdAt || Date.now() - createdAt > SEVEN_DAYS) return;
+          // New incoming ticket (not from self)
+          if (data.fromEmail !== user.email && data.status === 'Unanswered') {
+            ticketNotifs.push({
+              id: `new-ticket-${d.id}`,
+              title: 'New support ticket',
+              desc: `From ${data.fromName || data.fromEmail}: ${data.subject || 'No subject'}`,
+              time: createdAt,
+              icon: <Ticket className="w-4 h-4 text-rose-600" />,
+              bg: 'bg-rose-100',
+              link: `${dashboardHome}/support-tickets`
+            });
+          }
+        });
+        if (ticketNotifs.length > 0) {
+          setNotifications(prev => {
+            const filtered = prev.filter(n => !n.id.startsWith('new-ticket-'));
+            return [...filtered, ...ticketNotifs].sort((a, b) => b.time - a.time);
+          });
+        }
+      }, (error) => {
+        console.warn('Support ticket notification listener error (non-fatal):', error.message);
+      });
+    } catch (e) {
+      console.warn('Support ticket notification listener setup failed (non-fatal):', e);
+    }
+    return () => unsub?.();
+  }, [firestore, user?.email]);
+
+  // Listen for surveys assigned to this user
+  React.useEffect(() => {
+    if (!firestore || !user?.email) return;
+    let unsub: (() => void) | undefined;
+    try {
+      const surveysRef = collection(firestore, "custom_surveys");
+      unsub = onSnapshot(surveysRef, (snap) => {
+        const surveyNotifs: any[] = [];
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const createdAt = data.createdAt?.toMillis?.() || data.createdAt || 0;
+          if (!createdAt || Date.now() - createdAt > SEVEN_DAYS) return;
+          // Check if this survey targets the current user
+          const targets = data.targetEmails || data.assignedTo || [];
+          const isTargeted = Array.isArray(targets) && targets.includes(user.email);
+          // Also check if it's a general survey sent recently (within 1 day)
+          const isRecent = Date.now() - (typeof createdAt === 'number' ? createdAt : 0) < 24 * 60 * 60 * 1000;
+          if (isTargeted || (data.creatorEmail !== user.email && isRecent && !data.isPrivate)) {
+            surveyNotifs.push({
+              id: `survey-${d.id}`,
+              title: 'New survey available',
+              desc: `${data.title || 'Untitled survey'}${data.creatorName ? ` by ${data.creatorName}` : ''}`,
+              time: typeof createdAt === 'number' ? createdAt : Date.now(),
+              icon: <ClipboardList className="w-4 h-4 text-emerald-600" />,
+              bg: 'bg-emerald-100',
+              link: `${dashboardHome}/surveys`
+            });
+          }
+        });
+        if (surveyNotifs.length > 0) {
+          setNotifications(prev => {
+            const filtered = prev.filter(n => !n.id.startsWith('survey-'));
+            return [...filtered, ...surveyNotifs].sort((a, b) => b.time - a.time);
+          });
+        }
+      }, (error) => {
+        console.warn('Survey notification listener error (non-fatal):', error.message);
+      });
+    } catch (e) {
+      console.warn('Survey notification listener setup failed (non-fatal):', e);
+    }
+    return () => unsub?.();
+  }, [firestore, user?.email]);
+
   const renderSkeletonBoxes = (count: number) => {
     return Array.from({ length: count }).map((_, i) => (
       <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#faf6ed] transition-colors cursor-pointer mb-2">

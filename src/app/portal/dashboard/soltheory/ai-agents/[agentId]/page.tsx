@@ -1976,6 +1976,59 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Token Count Pill */}
+            <div className="relative">
+              <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full bg-[#fefcf6] border border-slate-200 shadow-sm cursor-pointer hover:bg-[#faf6ed] transition-colors">
+                <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-wider text-slate-600 uppercase truncate">
+                  <span className="hidden sm:inline">{totalGroqTokens.toLocaleString()} T <span className="opacity-30">|</span></span>
+                  <span className="sm:hidden">{totalGroqTokens.toLocaleString()} T <span className="opacity-30">|</span></span>
+                  {' '}≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
+                </span>
+              </button>
+              {showCostBreakdown && (
+                <div data-popup="cost" className="absolute top-full right-0 mt-2 z-[200] w-[320px] sm:w-[340px] bg-[#fefcf6] border border-slate-200 rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
+                    <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="p-3 bg-[#faf6ed] border border-slate-100 rounded-[4px]">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
+                      </div>
+                      <div className="text-xs text-slate-500 space-y-1">
+                        <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
+                        <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{totalGroqTokens.toLocaleString()}</span></div>
+                        <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
+                        <div className="h-px bg-slate-200 my-1" />
+                        <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalGroqTokens * 0.00000006).toFixed(6)}</span></div>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-[#faf6ed] border border-slate-100 rounded-[4px]">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Voice</span>
+                      </div>
+                      <div className="text-xs text-slate-500 space-y-1">
+                        <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
+                        <div className="flex justify-between"><span>Chars Used</span><span className="font-bold text-slate-700">{totalElevenLabsChars.toLocaleString()}</span></div>
+                        <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
+                        <div className="h-px bg-slate-200 my-1" />
+                        <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalElevenLabsChars * 0.000167).toFixed(6)}</span></div>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-900 rounded-[4px]">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
+                        <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setIsAgentEyeOpen(!isAgentEyeOpen)}
               className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? 'bg-amber-50 text-amber-600 border-amber-300' : 'bg-[#fefcf6] text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'}`}
@@ -2379,62 +2432,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             ) : (
               // Chat Screen
               <div className="flex-1 flex flex-col relative">
-                {/* Unified Token Tracking Pill */}
-                <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="absolute top-3 right-3 sm:top-6 sm:right-6 z-50 px-2.5 sm:px-4 h-8 sm:h-9 rounded-full bg-[#fefcf6] border border-slate-200 flex items-center gap-1.5 sm:gap-2.5 shadow-sm cursor-pointer hover:bg-[#faf6ed] transition-colors max-w-[calc(100%-24px)] sm:max-w-none">
-                  <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
-                  <span className="text-[9px] sm:text-[10px] font-black tracking-wider text-slate-600 uppercase truncate">
-                    <span className="hidden sm:inline">{totalGroqTokens.toLocaleString()} TOKENS (GROQ) <span className="opacity-30 mx-1">|</span> {totalElevenLabsChars.toLocaleString()} CHARS (VOICE) <span className="opacity-30 mx-1">|</span></span>
-                    <span className="sm:hidden">{totalGroqTokens.toLocaleString()} T <span className="opacity-30">|</span></span>
-                    {' '}≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
-                  </span>
-                </button>
-
-                {showCostBreakdown && (
-                  <div data-popup="cost" className="absolute top-12 sm:top-16 right-3 sm:right-6 z-[200] w-[calc(100%-24px)] sm:w-[340px] max-w-[340px] bg-[#fefcf6] border border-slate-200 rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
-                      <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="p-3 bg-[#faf6ed] border border-slate-100 rounded-[4px]">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
-                        </div>
-                        <div className="text-xs text-slate-500 space-y-1">
-                          <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
-                          <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{totalGroqTokens.toLocaleString()}</span></div>
-                          <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
-                          <div className="h-px bg-slate-200 my-1" />
-                          <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalGroqTokens * 0.00000006).toFixed(6)}</span></div>
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-[#faf6ed] border border-slate-100 rounded-[4px]">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Voice</span>
-                        </div>
-                        <div className="text-xs text-slate-500 space-y-1">
-                          <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
-                          <div className="flex justify-between"><span>Chars Used</span><span className="font-bold text-slate-700">{totalElevenLabsChars.toLocaleString()}</span></div>
-                          <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
-                          <div className="h-px bg-slate-200 my-1" />
-                          <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalElevenLabsChars * 0.000167).toFixed(6)}</span></div>
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-slate-900 rounded-[4px]">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
-                          <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-8 pt-14 sm:pt-16 pb-4 sm:pb-8">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-8 pt-4 sm:pt-6 pb-4 sm:pb-8">
                   <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'max-w-6xl' : 'max-w-3xl'}`}>
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
                       <div className="flex flex-col items-center justify-center pt-8 md:pt-32 lg:pt-40 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
