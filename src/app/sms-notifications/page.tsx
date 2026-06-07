@@ -1,11 +1,23 @@
 "use client";
 
 import { Header } from '@/components/sections/header';
-import { useState, useCallback } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useCallback, useMemo } from 'react';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { firebaseConfig } from '@/firebase/config';
 import Link from 'next/link';
 import { CheckCircle2, Loader2 } from 'lucide-react';
+
+function getPublicFirestore() {
+  const appName = 'sms-optin-public';
+  let app;
+  try {
+    app = getApp(appName);
+  } catch {
+    app = initializeApp(firebaseConfig, appName);
+  }
+  return getFirestore(app);
+}
 
 function formatPhoneNumber(value: string): string {
   const digits = value.replace(/\D/g, '');
@@ -20,7 +32,7 @@ function stripPhone(value: string): string {
 }
 
 export default function SmsOptInPage() {
-  const firestore = useFirestore();
+  const firestore = useMemo(() => getPublicFirestore(), []);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
