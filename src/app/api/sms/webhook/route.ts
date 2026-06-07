@@ -176,7 +176,7 @@ export async function POST(req: Request) {
 
     if (HELP_KEYWORDS.includes(normalizedBody)) {
       console.log(`[SMS Webhook] HELP received from ${from}. Sending help response.`);
-      const helpText = "SOLTheory Support: For assistance, please email support@soltheory.com. Msg & data rates may apply. Reply STOP to unsubscribe.";
+      const helpText = "SOLTheory Support: For assistance, please email team@soltheory.com. Msg & data rates may apply. Reply STOP to unsubscribe.";
       return new Response(
         `<Response><Message>${helpText}</Message></Response>`,
         { headers: { "Content-Type": "text/xml" } }
