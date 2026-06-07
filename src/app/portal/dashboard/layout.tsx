@@ -102,6 +102,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Detect which org the user is in based on the current path
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
 
+  // Guest mode: admins visiting orgs that aren't their home org
+  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
+  const isAdminUser = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
+  const isOnHomeOrg = pathname.includes('/soltheory');
+  const isGuestMode = isAdminUser && !isOnHomeOrg;
+  const guestDisplayName = isGuestMode ? 'Guest' : (user?.displayName || 'User');
+  const guestEmail = isGuestMode ? '' : (user?.email || '');
+  const guestInitials = isGuestMode ? 'G' : (user?.displayName?.split(' ').map((n: string) => n.charAt(0)).join('') || 'U');
+  const guestAvatar = isGuestMode ? '' : (user?.photoURL || '');
+
   React.useEffect(() => {
     document.documentElement.classList.remove('dark');
   }, []);
@@ -739,12 +749,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="border-t border-slate-200 pt-4 mt-4">
                   <div className="flex items-center gap-3 px-4 py-3">
                     <Avatar className="h-10 w-10 ring-2 ring-slate-200">
-                      <AvatarImage src={user?.photoURL || undefined} />
-                      <AvatarFallback className="bg-slate-100 text-slate-600 font-bold text-sm">{user?.displayName?.[0] || user?.email?.[0] || '?'}</AvatarFallback>
+                      <AvatarImage src={guestAvatar || undefined} />
+                      <AvatarFallback className="bg-slate-100 text-slate-600 font-bold text-sm">{guestInitials?.[0] || '?'}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-900">{user?.displayName || 'User'}</span>
-                      <span className="text-xs text-slate-500 truncate">{user?.email || ''}</span>
+                      <span className="text-sm font-bold text-slate-900">{guestDisplayName}</span>
+                      <span className="text-xs text-slate-500 truncate">{guestEmail}</span>
                     </div>
                   </div>
                 </div>
@@ -1172,12 +1182,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Link>
           <Link href={`${dashboardHome}/settings?tab=profile`} className="flex-1 flex items-center gap-3 px-3 py-2 rounded-xl border border-[#ddd3b8] bg-[#ece4cf] shadow-sm overflow-hidden hover:bg-[#e8dfc8] transition-colors cursor-pointer group">
             <Avatar className="h-8 w-8 shrink-0 group-hover:scale-105 transition-transform">
-              <AvatarImage src={user?.photoURL || ""} />
-              <AvatarFallback className="bg-slate-100 font-bold text-sm text-slate-600">{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
+              <AvatarImage src={guestAvatar} />
+              <AvatarFallback className="bg-slate-100 font-bold text-sm text-slate-600">{guestInitials?.[0] || 'G'}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-bold truncate text-slate-900 group-hover:text-indigo-600 transition-colors">{user?.displayName || "User"}</span>
-              <span className="text-[10px] text-slate-500 truncate">{user?.email || ""}</span>
+              <span className="text-sm font-bold truncate text-slate-900 group-hover:text-indigo-600 transition-colors">{guestDisplayName}</span>
+              <span className="text-[10px] text-slate-500 truncate">{guestEmail}</span>
             </div>
           </Link>
         </div>
@@ -1204,10 +1214,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#faf6ed] transition-colors cursor-pointer border border-transparent hover:border-slate-100"
                 >
                   <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarImage src={user?.photoURL || ""} />
-                    <AvatarFallback className="bg-slate-200 font-bold text-sm text-slate-700">{user?.displayName?.split(' ').map(n => n.charAt(0)).join('') || "U"}</AvatarFallback>
+                    <AvatarImage src={guestAvatar} />
+                    <AvatarFallback className="bg-slate-200 font-bold text-sm text-slate-700">{guestInitials || 'G'}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-semibold text-slate-800 hidden lg:inline">{user?.displayName || "User"}</span>
+                  <span className="text-sm font-semibold text-slate-800 hidden lg:inline">{guestDisplayName}</span>
                   <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -1217,8 +1227,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)} />
                     <div className="absolute right-0 top-full mt-2 w-52 bg-[#fefcf6] border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-4 py-2.5 border-b border-slate-100">
-                        <p className="text-sm font-semibold text-slate-900 truncate">{user?.displayName || "User"}</p>
-                        <p className="text-[11px] text-slate-400 truncate">{user?.email || ""}</p>
+                        <p className="text-sm font-semibold text-slate-900 truncate">{guestDisplayName}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{guestEmail}</p>
                       </div>
                       <Link
                         href={`${dashboardHome}/settings?tab=profile`}

@@ -31,6 +31,10 @@ export default function NxtChapterDashboard() {
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
 
+  // Guest mode: admins from soltheory visiting NXT Chapter
+  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
+  const isGuestMode = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
+
   // Admin Content Manager state (from shared store)
   const contentManagerActive = useContentManagerStore((s) => s.active);
   const setContentManagerActive = useContentManagerStore((s) => s.setActive);
@@ -123,10 +127,10 @@ export default function NxtChapterDashboard() {
         {/* Dashboard Header */}
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-light italic font-cormorant text-slate-800 tracking-wide">
-            Welcome back, <span className="not-italic font-semibold">{user?.displayName || "User"}</span>.
+            Welcome back, <span className="not-italic font-semibold">{isGuestMode ? 'Guest' : (user?.displayName || 'User')}</span>.
           </h1>
           <p className="text-sm text-slate-500 font-medium">
-            Here is your week at a glance.
+            {isGuestMode ? 'You are viewing this organization as a guest.' : 'Here is your week at a glance.'}
           </p>
         </div>
 
@@ -156,7 +160,13 @@ export default function NxtChapterDashboard() {
                   <Clock className="w-4 h-4 text-indigo-500" />
                 </div>
                 <div className="flex-1 min-h-0 w-full">
-                  <WeeklyTimesheetChart />
+                  {isGuestMode ? (
+                    <div className="flex items-center justify-center h-full">
+                      <span className="text-xs text-slate-300 font-medium">No data in guest mode</span>
+                    </div>
+                  ) : (
+                    <WeeklyTimesheetChart />
+                  )}
                 </div>
               </div>
               </CmsTileWrapper>
@@ -168,7 +178,14 @@ export default function NxtChapterDashboard() {
                   Tile 2
                 </div>
                 <div className="flex-1 min-h-0 w-full">
-                  <NearestDueTasksWidget />
+                  {isGuestMode ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-2">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Needs Your Attention</span>
+                      <span className="text-xs text-slate-300 font-medium">No tasks in guest mode</span>
+                    </div>
+                  ) : (
+                    <NearestDueTasksWidget />
+                  )}
                 </div>
               </div>
               </CmsTileWrapper>
@@ -184,11 +201,19 @@ export default function NxtChapterDashboard() {
                 </div>
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Agent Interface</span>
-                  <button onClick={() => setIsGrantConfigOpen(true)} className="p-1 rounded-lg bg-indigo-50 border border-indigo-200/60 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors shadow-sm cursor-pointer">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
+                  {!isGuestMode && (
+                    <button onClick={() => setIsGrantConfigOpen(true)} className="p-1 rounded-lg bg-indigo-50 border border-indigo-200/60 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors shadow-sm cursor-pointer">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-                <ActiveAgentsPreview slots={agentSlots} onOpenHub={() => setIsGrantConfigOpen(true)} />
+                {isGuestMode ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-xs text-slate-300 font-medium">No agents in guest mode</span>
+                  </div>
+                ) : (
+                  <ActiveAgentsPreview slots={agentSlots} onOpenHub={() => setIsGrantConfigOpen(true)} />
+                )}
               </div>
               </CmsTileWrapper>
 
@@ -217,23 +242,27 @@ export default function NxtChapterDashboard() {
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 5
                 </div>
-                
-                {/* Left Column (50% width) - Split vertically into Top-Left and Bottom-Left */}
-                <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
-                  {/* Top-Left: Grant Completions Line Graph */}
-                  <div className="flex-1 min-h-0">
-                    <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                {isGuestMode ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-xs text-slate-300 font-medium">No grant data in guest mode</span>
                   </div>
-                  {/* Bottom-Left: Grant Status Pie/Donut Chart */}
-                  <div className="flex-1 min-h-0">
-                    <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
-                  </div>
-                </div>
-
-                {/* Right Column (50% width) - Suggested Grants scrollable list */}
-                <div className="flex-1 flex flex-col h-full min-h-0">
-                  <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
-                </div>
+                ) : (
+                  <>
+                    {/* Left Column (50% width) */}
+                    <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
+                      <div className="flex-1 min-h-0">
+                        <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                      </div>
+                      <div className="flex-1 min-h-0">
+                        <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
+                      </div>
+                    </div>
+                    {/* Right Column (50% width) */}
+                    <div className="flex-1 flex flex-col h-full min-h-0">
+                      <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
+                    </div>
+                  </>
+                )}
               </div>
               </CmsTileWrapper>
             </div>
@@ -330,11 +359,11 @@ export default function NxtChapterDashboard() {
         </div>
       </div>
       {/* Grant Agent Hub Modal */}
-      {isGrantConfigOpen && (
+      {!isGuestMode && isGrantConfigOpen && (
         <GrantAgentHub onClose={() => setIsGrantConfigOpen(false)} />
       )}
-      {/* Persistent background worker controller -- always mounted */}
-      <AgentWorkerController onSlotsChange={handleSlotsChange} />
+      {/* Persistent background worker controller -- only when not guest */}
+      {!isGuestMode && <AgentWorkerController onSlotsChange={handleSlotsChange} />}
 
       {/* CMS Tile Settings Popups */}
       {activeTilePopup && activeTilePopup !== 'tile-6' && (
