@@ -4,7 +4,7 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import { SolTheoryLogoText } from '../sol-theory-logo-text';
 import { Button } from '@/components/ui/button';
-import { Menu, HelpCircle, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, X, ArrowRight, ExternalLink, Mail, Sparkles } from 'lucide-react';
+import { Menu, HelpCircle, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, X, ArrowRight, ExternalLink, Mail, Sparkles, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import { FAQ_LIST } from '@/components/portal/FAQView';
 import { StarBackground } from '@/components/ui/star-background';
@@ -56,19 +56,26 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+            {/* Client Portal Button — LEFT */}
+            <Button asChild variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm font-semibold tracking-wide text-xs md:text-sm rounded-xl px-3 md:px-5">
+                <Link href="/portal">
+                    <span className="hidden md:inline">Client Portal</span>
+                    <span className="md:hidden">Portal</span>
+                </Link>
+            </Button>
 
-            {/* Professional Menu Panel */}
+            {/* Hamburger Menu Button — RIGHT of Client Portal */}
             <div className="relative">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="relative z-[60]"
+                className="relative z-[60] w-9 h-9"
               >
                 {menuOpen ? (
-                  <X className="h-6 w-6 text-white" />
+                  <X className="h-5 w-5 text-white" />
                 ) : (
-                  <Menu className="h-8 w-8 text-white" />
+                  <Menu className="h-6 w-6 text-white" />
                 )}
                 <span className="sr-only">Open menu</span>
               </Button>
@@ -85,69 +92,63 @@ export function Header() {
                       onClick={() => setMenuOpen(false)}
                     />
 
-                    {/* Panel */}
+                    {/* Compact Panel */}
                     <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                      className="absolute right-0 top-full mt-3 z-[52] w-[340px] md:w-[420px] rounded-2xl border border-white/10 bg-[#0f0f10]/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden"
+                      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      className="absolute right-0 top-full mt-2 z-[52] w-[280px] md:w-[320px] rounded-xl border border-white/10 bg-[#0f0f10]/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden"
                     >
-                      {/* Header */}
-                      <div className="px-5 pt-5 pb-3 border-b border-white/5">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Navigation</p>
-                      </div>
-
-                      {/* Platforms Section */}
-                      <div className="px-3 py-3">
-                        <p className="text-[9px] font-bold text-fuchsia-400/80 uppercase tracking-[0.2em] px-2 mb-2">Platforms</p>
+                      {/* Platforms */}
+                      <div className="px-2.5 pt-3 pb-1.5">
+                        <p className="text-[9px] font-bold text-fuchsia-400/80 uppercase tracking-[0.2em] px-2 mb-1.5">Platforms</p>
                         <Link
                           href="/portal/login/insight"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center shrink-0 group-hover:bg-fuchsia-500/20 transition-colors">
-                            <Sparkles className="w-4 h-4 text-fuchsia-400" />
+                          <div className="w-8 h-8 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center shrink-0 group-hover:bg-fuchsia-500/20 transition-colors">
+                            <Sparkles className="w-3.5 h-3.5 text-fuchsia-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-white">INSiGHT</p>
-                            <p className="text-[11px] text-slate-400">Analytics dashboard & org tools</p>
+                            <p className="text-[13px] font-semibold text-white leading-tight">INSiGHT</p>
+                            <p className="text-[10px] text-slate-400">Analytics dashboard & org tools</p>
                           </div>
                         </Link>
                         <Link
                           href="/portal/login/drive"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0 group-hover:bg-indigo-500/20 transition-colors">
-                            <ArrowRight className="w-4 h-4 text-indigo-400" />
+                          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0 group-hover:bg-indigo-500/20 transition-colors">
+                            <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-white">DRiVE</p>
-                            <p className="text-[11px] text-slate-400">Learning management system</p>
+                            <p className="text-[13px] font-semibold text-white leading-tight">DRiVE</p>
+                            <p className="text-[10px] text-slate-400">Learning management system</p>
                           </div>
                         </Link>
                       </div>
 
-                      {/* Divider */}
-                      <div className="h-px bg-white/5 mx-5" />
+                      <div className="h-px bg-white/5 mx-4" />
 
                       {/* Community */}
-                      <div className="px-3 py-3">
-                        <p className="text-[9px] font-bold text-indigo-400/80 uppercase tracking-[0.2em] px-2 mb-2">Community</p>
+                      <div className="px-2.5 py-1.5">
+                        <p className="text-[9px] font-bold text-indigo-400/80 uppercase tracking-[0.2em] px-2 mb-1.5">Community</p>
                         <a
                           href="https://www.lifenavigation.ai"
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20 transition-colors">
-                            <ExternalLink className="w-4 h-4 text-emerald-400" />
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+                            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-white">LifeNavigationU</p>
-                            <p className="text-[11px] text-slate-400">Life design & navigation tools</p>
+                            <p className="text-[13px] font-semibold text-white leading-tight">LifeNavigationU</p>
+                            <p className="text-[10px] text-slate-400">Life design & navigation tools</p>
                           </div>
                         </a>
                         <a
@@ -155,60 +156,79 @@ export function Header() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 group-hover:bg-amber-500/20 transition-colors">
-                            <ExternalLink className="w-4 h-4 text-amber-400" />
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 group-hover:bg-amber-500/20 transition-colors">
+                            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-white">Thrive Coaching</p>
-                            <p className="text-[11px] text-slate-400">AI-powered personal coaching</p>
+                            <p className="text-[13px] font-semibold text-white leading-tight">Thrive Coaching</p>
+                            <p className="text-[10px] text-slate-400">AI-powered personal coaching</p>
                           </div>
                         </a>
                       </div>
 
-                      {/* Divider */}
-                      <div className="h-px bg-white/5 mx-5" />
+                      <div className="h-px bg-white/5 mx-4" />
 
-                      {/* Support */}
-                      <div className="px-3 py-3">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] px-2 mb-2">Support</p>
-                        <button
-                          onClick={() => { setMenuOpen(false); setShowHelpModal(true); }}
-                          className="w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group text-left cursor-pointer"
+                      {/* Quick Links */}
+                      <div className="px-2.5 py-1.5">
+                        <p className="text-[9px] font-bold text-emerald-400/80 uppercase tracking-[0.2em] px-2 mb-1.5">Quick Links</p>
+                        <Link
+                          href="/sms-opt-in"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center shrink-0 group-hover:bg-slate-500/20 transition-colors">
-                            <HelpCircle className="w-4 h-4 text-slate-400" />
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-white">Help & FAQ</p>
-                            <p className="text-[11px] text-slate-400">Common questions & troubleshooting</p>
+                            <p className="text-[13px] font-semibold text-white leading-tight">SMS Opt-in</p>
+                            <p className="text-[10px] text-slate-400">Subscribe to SMS updates</p>
+                          </div>
+                        </Link>
+                      </div>
+
+                      <div className="h-px bg-white/5 mx-4" />
+
+                      {/* Support */}
+                      <div className="px-2.5 py-1.5">
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] px-2 mb-1.5">Support</p>
+                        <button
+                          onClick={() => { setMenuOpen(false); setShowHelpModal(true); }}
+                          className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group text-left cursor-pointer"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center shrink-0 group-hover:bg-slate-500/20 transition-colors">
+                            <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                          </div>
+                          <div>
+                            <p className="text-[13px] font-semibold text-white leading-tight">Help & FAQ</p>
+                            <p className="text-[10px] text-slate-400">Questions & troubleshooting</p>
                           </div>
                         </button>
                         <Link
                           href="/contact"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
+                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center shrink-0 group-hover:bg-slate-500/20 transition-colors">
-                            <Mail className="w-4 h-4 text-slate-400" />
+                          <div className="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center shrink-0 group-hover:bg-slate-500/20 transition-colors">
+                            <Mail className="w-3.5 h-3.5 text-slate-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-white">Contact</p>
-                            <p className="text-[11px] text-slate-400">Get in touch with our team</p>
+                            <p className="text-[13px] font-semibold text-white leading-tight">Contact</p>
+                            <p className="text-[10px] text-slate-400">Get in touch with our team</p>
                           </div>
                         </Link>
                       </div>
 
-                      {/* Footer */}
-                      <div className="px-5 py-3 border-t border-white/5 bg-white/[0.02]">
+                      {/* Footer — Client Portal CTA */}
+                      <div className="px-3 py-2.5 border-t border-white/5 bg-white/[0.02]">
                         <Link
                           href="/portal"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all shadow-lg shadow-fuchsia-500/20"
+                          className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all shadow-lg shadow-fuchsia-500/20"
                         >
                           Client Portal
-                          <ArrowRight className="w-4 h-4" />
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </Link>
                       </div>
                     </motion.div>
@@ -216,13 +236,6 @@ export function Header() {
                 )}
               </AnimatePresence>
             </div>
-
-            <Button asChild variant="outline" className="ml-2 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm font-semibold tracking-wide text-xs md:text-sm rounded-xl px-3 md:px-5">
-                <Link href="/portal">
-                    <span className="hidden md:inline">Client Portal</span>
-                    <span className="md:hidden">Portal</span>
-                </Link>
-            </Button>
         </div>
       </div>
     </header>

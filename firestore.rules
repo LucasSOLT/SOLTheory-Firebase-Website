@@ -413,6 +413,19 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if false;
     }
+
+    /**
+     * @description SMS opt-in submissions from the public website.
+     * @path /sms_optins/{optinId}
+     * @allow (create) Anyone can submit an SMS opt-in (public form, no auth required).
+     * @allow (read) Only signed-in users (admins) can read opt-in data.
+     * @deny (update, delete) Opt-in records are immutable from the client.
+     */
+    match /sms_optins/{optinId} {
+      allow create: if true;
+      allow read: if isSignedIn();
+      allow update, delete: if false;
+    }
   }
 }
     
