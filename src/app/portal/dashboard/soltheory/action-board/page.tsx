@@ -1307,9 +1307,9 @@ export default function ActionBoardPage() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Priority</label>
                   <div className="relative">
                     <select value={newPriority} onChange={e => setNewPriority(e.target.value as Priority)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer">
-                      <option value="High">ðŸ”´ High</option>
-                      <option value="Medium">ðŸŸ¡ Medium</option>
-                      <option value="Low">ðŸ”µ Low</option>
+                      <option value="High">{"\uD83D\uDD34"} High</option>
+                      <option value="Medium">{"\uD83D\uDFE1"} Medium</option>
+                      <option value="Low">{"\uD83D\uDD35"} Low</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>

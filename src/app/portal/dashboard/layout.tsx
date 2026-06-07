@@ -309,11 +309,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           if (!createdAt || Date.now() - createdAt > SEVEN_DAYS) return;
           // Only notify if the task was NOT created by the current user (incoming assignment)
           if (data.createdBy === user.uid || data.createdByEmail === user.email) return;
-          // Show tasks in the incoming/pending column
-          if (data.column === 'incoming' || data.column === 'pending' || !data.column) {
+          // Notify for: pending approval tasks (in their inbox) or recently direct-assigned tasks not yet done
+          const isPending = data.assignmentStatus === 'pending_approval';
+          const isNewDirectAssign = data.assignmentStatus === 'direct' && data.column !== 'done';
+          if (isPending || isNewDirectAssign) {
             taskNotifs.push({
               id: `task-${d.id}-${createdAt}`,
-              title: 'New task assigned',
+              title: isPending ? 'New task request' : 'New task assigned',
               desc: `${data.createdByName || 'Someone'} assigned you: ${data.title || 'Untitled task'}`,
               time: typeof createdAt === 'number' ? createdAt : Date.now(),
               icon: <LayoutDashboard className="w-4 h-4 text-amber-600" />,
