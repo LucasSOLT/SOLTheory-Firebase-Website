@@ -25,7 +25,8 @@ function ensureAdmin() {
 }
 
 // Opt-out keywords per CTIA guidelines
-const OPT_OUT_KEYWORDS = ["stop", "unsubscribe", "cancel", "end", "quit"];
+const OPT_OUT_KEYWORDS = ["stop", "stopall", "unsubscribe", "cancel", "end", "quit", "optout", "revoke"];
+const OPT_IN_KEYWORDS = ["start", "yes"];
 const HELP_KEYWORDS = ["help", "info"];
 
 /**
@@ -123,14 +124,59 @@ export async function POST(req: Request) {
         console.error(`[SMS Webhook] Error processing opt-out: ${optOutErr.message}`);
       }
 
-      // Twilio auto-handles STOP responses, but we return an empty TwiML
-      return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
+      // Return the exact opt-out confirmation from A2P registration
+      const optOutMsg = "You have successfully been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.";
+      return new Response(
+        `<Response><Message>${optOutMsg}</Message></Response>`,
+        { headers: { "Content-Type": "text/xml" } }
+      );
+    }
+
+    // --- Handle START / YES opt-in keywords ---
+    if (OPT_IN_KEYWORDS.includes(normalizedBody)) {
+      console.log(`[SMS Webhook] OPT-IN received from ${from}. Re-activating...`);
+      try {
+        ensureAdmin();
+        const adminDb = getAdminFirestore();
+
+        const optinsSnap = await adminDb.collection("sms_optins")
+          .where("phone", "==", tenDigit)
+          .get();
+
+        const batch = adminDb.batch();
+        optinsSnap.docs.forEach((d) => {
+          batch.update(d.ref, {
+            optedOut: false,
+            sms_opt_in: true,
+            reOptInTimestamp: new Date(),
+            reOptInKeyword: normalizedBody,
+          });
+        });
+
+        const usersAdminSnap = await adminDb.collection("users")
+          .where("phone", "==", tenDigit)
+          .get();
+
+        usersAdminSnap.docs.forEach((d) => {
+          batch.update(d.ref, { sms_opt_in: true });
+        });
+
+        await batch.commit();
+        console.log(`[SMS Webhook] Opt-in re-activated for ${tenDigit}.`);
+      } catch (optInErr: any) {
+        console.error(`[SMS Webhook] Error processing opt-in: ${optInErr.message}`);
+      }
+
+      const optInMsg = "SOLTheory: You are now opted in to receive messages. For help, reply HELP. To stop, reply STOP. Msg & data rates may apply.";
+      return new Response(
+        `<Response><Message>${optInMsg}</Message></Response>`,
+        { headers: { "Content-Type": "text/xml" } }
+      );
     }
 
     if (HELP_KEYWORDS.includes(normalizedBody)) {
       console.log(`[SMS Webhook] HELP received from ${from}. Sending help response.`);
-      // Respond with help text via TwiML
-      const helpText = "SOLTheory SMS: Reply STOP to unsubscribe. For support, email support@soltheory.com or visit soltheory.com. Msg & data rates may apply.";
+      const helpText = "SOLTheory Support: For assistance, please email support@soltheory.com. Msg & data rates may apply. Reply STOP to unsubscribe.";
       return new Response(
         `<Response><Message>${helpText}</Message></Response>`,
         { headers: { "Content-Type": "text/xml" } }

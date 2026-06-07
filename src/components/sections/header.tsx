@@ -165,7 +165,7 @@ export function Header() {
                       {/* Links */}
                       <div className="px-1.5 py-1">
                         <Link
-                          href="/sms-opt-in"
+                          href="/sms-notifications"
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
