@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Privacy Policy | SOL Theory",
-  description: "SOL Theory privacy policy — how we collect, use, store, and protect your personal information.",
+  title: "Privacy Policy | SOLTheory",
+  description: "SOLTheory privacy policy — how we collect, use, store, and protect your personal information.",
 };
 
 export default function PrivacyPage() {
@@ -10,7 +10,7 @@ export default function PrivacyPage() {
       <p className="text-sm text-slate-500 mb-8">Last updated: May 10, 2026</p>
 
       <div className="prose prose-slate text-sm space-y-4 text-slate-700 leading-relaxed">
-        <p>SOL Theory LLC (&quot;SOL Theory,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website at <strong>soltheory.com</strong> and related services (the &quot;Platform&quot;). By accessing or using the Platform, you agree to this Privacy Policy.</p>
+        <p>MyTaj LLC d/b/a SOLTheory (&quot;SOLTheory,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website at <strong>soltheory.com</strong> and related services (the &quot;Platform&quot;). By accessing or using the Platform, you agree to this Privacy Policy.</p>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">1. Information We Collect</h2>
         <p><strong>Personal Information:</strong> When you create an account, we may collect your name, email address, phone number, business name, billing address, and payment information.</p>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-6 space-y-1">
           <li><strong>Service Providers:</strong> To trusted third-party service providers who assist us in operating the Platform (e.g., Twilio for messaging, Firebase for hosting), subject to confidentiality agreements</li>
           <li><strong>Legal Requirements:</strong> When required by law, regulation, legal process, or governmental request</li>
-          <li><strong>Protection:</strong> To protect the rights, property, or safety of SOL Theory, our users, or the public</li>
+          <li><strong>Protection:</strong> To protect the rights, property, or safety of SOLTheory, our users, or the public</li>
           <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets, in which case your data would remain subject to this Privacy Policy</li>
         </ul>
 
@@ -97,7 +97,7 @@ export default function PrivacyPage() {
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">14. Contact Us</h2>
         <p>If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:</p>
-        <p><strong>SOL Theory LLC</strong><br />Email: lucas@soltheory.com<br />Website: soltheory.com</p>
+        <p><strong>MyTaj LLC d/b/a SOLTheory</strong><br />Email: lucas@soltheory.com<br />Website: soltheory.com</p>
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ export function Footer() {
             <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <Logo className="h-5 w-5 opacity-70" />
-                    <span className="text-sm text-slate-500 font-medium">&copy; {new Date().getFullYear()} SOL Theory. All Rights Reserved.</span>
+                    <span className="text-sm text-slate-500 font-medium">&copy; {new Date().getFullYear()} MyTaj LLC d/b/a SOLTheory. All Rights Reserved.</span>
                 </div>
                 <div className="flex items-center gap-4">
                     <Link href="/privacy" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Privacy Policy</Link>

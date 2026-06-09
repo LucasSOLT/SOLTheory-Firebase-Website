@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Terms of Service | SOL Theory",
-  description: "SOL Theory terms of service — rules and guidelines governing your use of our platform.",
+  title: "Terms of Service | SOLTheory",
+  description: "SOLTheory terms of service — rules and guidelines governing your use of our platform.",
 };
 
 export default function TermsPage() {
@@ -10,7 +10,7 @@ export default function TermsPage() {
       <p className="text-sm text-slate-500 mb-8">Last updated: May 10, 2026</p>
 
       <div className="prose prose-slate text-sm space-y-4 text-slate-700 leading-relaxed">
-        <p>Welcome to SOL Theory. These Terms of Service (&quot;Terms&quot;) govern your access to and use of the SOL Theory platform at <strong>soltheory.com</strong> and all related services (the &quot;Platform&quot;), operated by SOL Theory LLC (&quot;SOL Theory,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). By accessing or using the Platform, you agree to be bound by these Terms.</p>
+        <p>Welcome to SOLTheory. These Terms of Service (&quot;Terms&quot;) govern your access to and use of the SOLTheory platform at <strong>soltheory.com</strong> and all related services (the &quot;Platform&quot;), operated by MyTaj LLC d/b/a SOLTheory (&quot;SOLTheory,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). By accessing or using the Platform, you agree to be bound by these Terms.</p>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">1. Eligibility</h2>
         <p>You must be at least 18 years old and have the legal authority to enter into these Terms. If you are using the Platform on behalf of a business or organization, you represent that you have the authority to bind that entity to these Terms.</p>
@@ -32,9 +32,9 @@ export default function TermsPage() {
         <h2 className="text-lg font-semibold text-slate-800 mt-8">4. Third-Party Integrations</h2>
         <p>The Platform integrates with third-party services including but not limited to Google Workspace, QuickBooks Online, Twilio, and others. By connecting these services, you:</p>
         <ul className="list-disc pl-6 space-y-1">
-          <li>Authorize SOL Theory to access your data on those services as needed to provide Platform functionality</li>
+          <li>Authorize SOLTheory to access your data on those services as needed to provide Platform functionality</li>
           <li>Acknowledge that your use of third-party services is also subject to their respective terms of service and privacy policies</li>
-          <li>Understand that SOL Theory is not responsible for the availability, accuracy, or security of third-party services</li>
+          <li>Understand that SOLTheory is not responsible for the availability, accuracy, or security of third-party services</li>
           <li>May revoke access to any connected service at any time through your Settings page</li>
         </ul>
 
@@ -47,7 +47,7 @@ export default function TermsPage() {
           <li>You are solely responsible for the content of messages you send through the Platform</li>
           <li>Standard message and data rates from your mobile carrier may apply to messages sent and received</li>
           <li>Message frequency varies based on your usage of the Platform</li>
-          <li>SOL Theory reserves the right to suspend or terminate your messaging capabilities if you violate these terms or applicable laws</li>
+          <li>SOLTheory reserves the right to suspend or terminate your messaging capabilities if you violate these terms or applicable laws</li>
         </ul>
         <p>To opt out of receiving messages, reply <strong>STOP</strong> to any message. To get help, reply <strong>HELP</strong> to any message or contact lucas@soltheory.com.</p>
 
@@ -65,7 +65,7 @@ export default function TermsPage() {
         </ul>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">8. Intellectual Property</h2>
-        <p>The Platform, including its design, code, features, logos, and content, is the intellectual property of SOL Theory LLC and is protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, or create derivative works based on the Platform without our express written consent.</p>
+        <p>The Platform, including its design, code, features, logos, and content, is the intellectual property of MyTaj LLC d/b/a SOLTheory and is protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, or create derivative works based on the Platform without our express written consent.</p>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">9. Payment and Billing</h2>
         <p>Certain features of the Platform may require payment. By subscribing to a paid plan, you agree to pay all applicable fees as described at the time of purchase. Fees are non-refundable except as required by law. We reserve the right to change pricing with 30 days&apos; notice.</p>
@@ -80,7 +80,7 @@ export default function TermsPage() {
         <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, SOL THEORY LLC AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, DATA, OR BUSINESS OPPORTUNITIES, ARISING OUT OF OR RELATED TO YOUR USE OF THE PLATFORM, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. OUR TOTAL LIABILITY SHALL NOT EXCEED THE AMOUNT PAID BY YOU TO SOL THEORY IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.</p>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">13. Indemnification</h2>
-        <p>You agree to indemnify, defend, and hold harmless SOL Theory LLC and its officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, and expenses (including reasonable attorneys&apos; fees) arising out of or related to your use of the Platform, your violation of these Terms, or your violation of any law or rights of a third party.</p>
+        <p>You agree to indemnify, defend, and hold harmless MyTaj LLC d/b/a SOLTheory and its officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, and expenses (including reasonable attorneys&apos; fees) arising out of or related to your use of the Platform, your violation of these Terms, or your violation of any law or rights of a third party.</p>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">14. Termination</h2>
         <p>We may suspend or terminate your access to the Platform at any time, with or without cause, and with or without notice. Upon termination, your right to use the Platform will immediately cease. Provisions of these Terms that by their nature should survive termination will remain in effect.</p>
@@ -93,7 +93,7 @@ export default function TermsPage() {
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">17. Contact Us</h2>
         <p>If you have any questions about these Terms, please contact us at:</p>
-        <p><strong>SOL Theory LLC</strong><br />Email: lucas@soltheory.com<br />Website: soltheory.com</p>
+        <p><strong>MyTaj LLC d/b/a SOLTheory</strong><br />Email: lucas@soltheory.com<br />Website: soltheory.com</p>
       </div>
     </div>
   );
