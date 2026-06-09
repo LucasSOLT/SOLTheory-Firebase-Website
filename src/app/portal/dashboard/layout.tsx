@@ -5,7 +5,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -30,6 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [latestNotifId, setLatestNotifId] = useState<string | null>(null);
   const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
   const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
 
@@ -654,7 +655,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Reports */}
                 <div className="pt-3 border-t border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Reports</span>
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Reporting</span>
                   <div className="space-y-1 mt-2">
 
                     <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/support-tickets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
@@ -664,6 +665,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/surveys') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
                       <ClipboardList className="w-5 h-5" />
                       <span>Surveys</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/activity-log`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/activity-log') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
+                      <Activity className="w-5 h-5" />
+                      <span>Activity Log</span>
                     </Link>
                   </div>
                 </div>
@@ -890,21 +895,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
             {!collapsedSections['menu'] && <div className="animate-in fade-in duration-150">
               <div className="space-y-1 mb-4 pt-1">
-              {/* Admin: Content Manager sidebar item */}
-              {userIsAdmin && (
-                <button
-                  onClick={() => setContentManagerActive(!contentManagerActive)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${contentManagerActive ? 'bg-stone-800 text-white shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700'}`}
-                >
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${contentManagerActive ? 'bg-white/20 text-white' : 'bg-transparent text-slate-500'}`}>
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium leading-tight">Content Manager</span>
-                    <span className={`text-[9px] font-bold uppercase tracking-widest ${contentManagerActive ? 'text-white/60' : 'text-slate-400'}`}>(Admin)</span>
-                  </div>
-                </button>
-              )}
+              {/* Content Manager moved to Dev Tools dropdown in header */}
               <Link href={`${dashboardHome}`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname === dashboardHome ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname === dashboardHome ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Home className="w-4 h-4" />
@@ -1020,6 +1011,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <ClipboardList className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm font-medium">Surveys</span>
+              </Link>
+
+              <Link href={`${dashboardHome}/activity-log`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/activity-log') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/activity-log') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
+                  <Activity className="w-4 h-4 ml-1" />
+                </div>
+                <span className="text-sm font-medium">Activity Log</span>
               </Link>
             </div>}
           </div>
@@ -1327,6 +1325,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </>
                 )}
               </div>
+
+              {/* Developer Tools — Admin Only */}
+              {userIsAdmin && (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsDevToolsOpen(!isDevToolsOpen)}
+                    className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-[#fefcf6] transition-colors bg-[#fefcf6] shadow-sm border border-slate-100 rounded-full flex items-center justify-center relative group"
+                    title="Dev Tools"
+                  >
+                    <Monitor className="h-4 w-4" />
+                    {/* Tooltip */}
+                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-white text-[10px] font-medium rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">Dev Tools</span>
+                  </button>
+
+                  {/* Dev Tools Dropdown */}
+                  {isDevToolsOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsDevToolsOpen(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-52 bg-[#fefcf6] border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                        <div className="px-4 py-2 border-b border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Developer Tools</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setContentManagerActive(!contentManagerActive);
+                            setIsDevToolsOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
+                        >
+                          <ShieldCheck className={`w-4 h-4 ${contentManagerActive ? 'text-green-600' : 'text-slate-400'}`} />
+                          <span>Content Manager</span>
+                          {contentManagerActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-green-500" />}
+                        </button>
+                        <Link
+                          href={`${dashboardHome}/activity-log`}
+                          onClick={() => setIsDevToolsOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
+                        >
+                          <Activity className="w-4 h-4 text-slate-400" />
+                          Session Auditor
+                        </Link>
+                        <Link
+                          href={`${dashboardHome}/end-users`}
+                          onClick={() => setIsDevToolsOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
+                        >
+                          <Users className="w-4 h-4 text-slate-400" />
+                          End User Dashboard
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
              <div className="h-8 w-px bg-slate-200 mx-2"></div>
              <div className="flex items-center gap-3 select-none">
                 <span className="text-2xl font-black text-slate-800 leading-none tracking-[0.15em]" style={{ fontFamily: "'Sofia Soft Pro', 'Sofia Pro', sans-serif" }}>INSiGHT</span>

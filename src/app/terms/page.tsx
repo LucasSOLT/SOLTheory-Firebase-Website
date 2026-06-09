@@ -53,7 +53,7 @@ export default function TermsPage() {
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">6. SOLTheory SMS Program Terms</h2>
         <p>By opting in to receive SMS notifications from SOLTheory, you consent to receive business notifications, appointment reminders, invoice updates, and customer support messages. Message frequency varies based on your interactions with us. Message and data rates may apply.</p>
-        <p>You can cancel the SMS service at any time. Simply reply &quot;STOP&quot; to any text message we send. Upon receiving &quot;STOP,&quot; we will confirm your unsubscribe status via SMS. Following this, you will no longer receive SMS messages from us unless you re-register. For help, you can reply &quot;HELP&quot; or contact us directly at <strong>support@soltheory.com</strong>.</p>
+        <p>You can cancel the SMS service at any time. Simply reply &quot;STOP&quot; to any text message we send. Upon receiving &quot;STOP,&quot; we will confirm your unsubscribe status via SMS. Following this, you will no longer receive SMS messages from us unless you re-register. For help, you can reply &quot;HELP&quot; or contact us directly at <strong>lucas@soltheory.com</strong>.</p>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8">7. AI Assistant (Jarvis)</h2>
         <p>The Platform includes an AI-powered assistant (&quot;Jarvis&quot;) that can perform tasks on your behalf, including drafting communications, managing calendars, and providing business insights. You acknowledge that:</p>

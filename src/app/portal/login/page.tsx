@@ -9,7 +9,9 @@ import { Footer } from "@/components/sections/footer";
 import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import { useAuth, useFirestore } from "@/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
+import { getDefaultAccessLevel } from '@/lib/rbac';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -35,8 +37,43 @@ export default function LoginPage() {
     setError("");
       
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      logActivity(firestore, 'login', { email, displayName: auth.currentUser?.displayName });
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      logActivity(firestore, 'login', { email, displayName: cred.user?.displayName });
+
+      // Upsert user profile in Firestore for End User Dashboard
+      try {
+        const uid = cred.user.uid;
+        const userRef = doc(firestore, 'users', uid);
+        const userSnap = await getDoc(userRef);
+        const displayName = cred.user.displayName || '';
+        const nameParts = displayName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        if (userSnap.exists()) {
+          // Update last login and display info
+          await setDoc(userRef, {
+            email: email.toLowerCase(),
+            displayName,
+            firstName,
+            lastName,
+            lastLogin: serverTimestamp(),
+          }, { merge: true });
+        } else {
+          // First login — create full profile
+          await setDoc(userRef, {
+            email: email.toLowerCase(),
+            displayName,
+            firstName,
+            lastName,
+            accessLevel: getDefaultAccessLevel(email.toLowerCase()),
+            lastLogin: serverTimestamp(),
+            createdAt: serverTimestamp(),
+          });
+        }
+      } catch (profileErr) {
+        console.warn('[Login] Failed to upsert user profile:', profileErr);
+      }
       
       const emailLower = email.toLowerCase();
       if (emailLower.endsWith("@soltheory.com")) {

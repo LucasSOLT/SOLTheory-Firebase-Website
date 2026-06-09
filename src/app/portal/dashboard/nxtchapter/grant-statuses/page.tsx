@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where, doc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { logActivity } from "@/lib/activity-logger";
 import {
   ArrowLeft, ChevronDown, Loader2, AlertCircle, ScrollText, Search,
   Send, CheckCircle2, XCircle, Building2, Calendar, DollarSign, Tag,
@@ -446,6 +447,8 @@ export default function GrantStatusesPage() {
       }
 
       await updateDoc(grantRef, updateData);
+      const grantTitle = grants.find((g) => g.id === grantId)?.title || grantId;
+      logActivity(firestore, 'grant_status_changed', { email: user?.email || '', displayName: user?.displayName || '' }, `Changed grant "${grantTitle}" status to ${newStatus}`);
     } catch (err) {
       console.error("Failed to update grant status:", err);
     } finally {
@@ -459,7 +462,9 @@ export default function GrantStatusesPage() {
     setUpdatingId(grantId);
     try {
       const grantRef = doc(firestore, "grant_suggestions", grantId);
+      const grantTitle = grants.find((g) => g.id === grantId)?.title || grantId;
       await deleteDoc(grantRef);
+      logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName || '' }, `Deleted grant "${grantTitle}"`);
       // Collapse if this row was expanded
       if (expandedId === grantId) setExpandedId(null);
     } catch (err) {
@@ -503,6 +508,7 @@ export default function GrantStatusesPage() {
         deleteDoc(doc(firestore, "grant_suggestions", id))
       );
       await Promise.all(deletePromises);
+      logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName || '' }, `Bulk deleted ${selectedIds.size} grant(s)`);
       setSelectedIds(new Set());
       if (expandedId && selectedIds.has(expandedId)) setExpandedId(null);
     } catch (err) {

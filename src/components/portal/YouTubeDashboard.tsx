@@ -8,6 +8,7 @@ import { doc, getDoc, setDoc, collection, onSnapshot, addDoc, deleteDoc } from "
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { logActivity } from '@/lib/activity-logger';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -144,6 +145,7 @@ export function YouTubeDashboard() {
     if (!user || !firestore) return;
     try {
        await setDoc(doc(firestore, "users", user.uid, "settings", "youtube_director"), { strategy }, { merge: true });
+       logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Updated YouTube audience strategy');
        alert("Strategy updated successfully!");
        setIsStrategyExpanded(false);
     } catch(err) {
@@ -241,6 +243,7 @@ export function YouTubeDashboard() {
         });
         setUploadedVideo({ id: docRef.id, name: file.name, url: downloadUrl, storagePath });
         setUploadProgress(null);
+        logActivity(firestore, 'file_uploaded', { email: user?.email || '', displayName: user?.displayName }, 'Uploaded video file: ' + file.name);
       }
     );
   };
@@ -253,6 +256,7 @@ export function YouTubeDashboard() {
     } catch (e) { console.error('Failed to delete from storage:', e); }
     try {
       await deleteDoc(doc(firestore, "users", user.uid, "youtube_videos", vid.id));
+      logActivity(firestore, 'file_deleted', { email: user?.email || '', displayName: user?.displayName }, 'Deleted video: ' + (vid.name || vid.id));
     } catch(e) { console.error('Failed to delete from Firestore:', e); }
     if (uploadedVideo?.id === vid.id) setUploadedVideo(null);
   };
@@ -279,6 +283,7 @@ export function YouTubeDashboard() {
       }
       
       await deleteDoc(doc(firestore, "users", user.uid, "youtube_drafts", draftId));
+      logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, 'Deleted YouTube draft concept');
       
       if (draftId.startsWith('local_')) {
         setDrafts(prev => prev.filter(d => d.id !== draftId));
@@ -326,6 +331,7 @@ export function YouTubeDashboard() {
           tags: editForm.tags
         }, { merge: true });
       }
+      logActivity(firestore, 'item_updated', { email: user?.email || '', displayName: user?.displayName }, 'Updated YouTube draft: ' + (draft.title || draft.id));
       
       setDrafts(prev => prev.map(d => d.id === draft.id ? { ...d, description: editForm.description, tags: editForm.tags } : d));
       setEditingDraftId(null);
@@ -340,10 +346,12 @@ export function YouTubeDashboard() {
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || isTyping) return;
 
+    const inputMessage = chatMessage;
     const userMsg = { id: uid(), text: chatMessage, isSelf: true };
     setMessages(prev => [...prev, userMsg]);
     setIsTyping(true);
     setChatMessage("");
+    logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent message in YouTube dashboard', { messagePreview: inputMessage.substring(0, 200) });
 
     try {
       let rToken = null;

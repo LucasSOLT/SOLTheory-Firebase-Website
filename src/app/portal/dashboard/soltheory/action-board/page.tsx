@@ -105,6 +105,8 @@ type EmailTrigger = "assigned" | "in_progress" | "completed" | "overdue";
 interface TaskAutomations {
   emails?: string[];
   emailTriggers?: EmailTrigger[];
+  slackWebhook?: string;
+  googleAction?: string;
 }
 
 interface OrgMember {
@@ -309,7 +311,7 @@ function ActionBoardContent() {
   const tasksRef = useRef<ActionBoardTask[]>([]);
   tasksRef.current = tasks;
   const lateProcessedRef = useRef<Set<string>>(new Set());
-  const fireAutomationsRef = useRef<(task: ActionBoardTask, trigger: EmailTrigger) => Promise<void>>();
+  const fireAutomationsRef = useRef<(task: ActionBoardTask, trigger: EmailTrigger) => Promise<void>>(null!);
 
   // â”€â”€ Fetch current user role â”€â”€
   useEffect(() => {
@@ -682,6 +684,7 @@ function ActionBoardContent() {
       console.log("[ActionBoard] Updating task:", editingTaskId, taskData);
       await updateDoc(doc(firestore, "action_board_tasks", editingTaskId), taskData);
       console.log("[ActionBoard] Task updated successfully");
+      logActivity(firestore, 'action_board_updated', { email: user?.email || '', displayName: user?.displayName }, `Updated task: ${newTitle.trim()}`);
 
       if (newColumn === "done" && task && task.column !== "done") {
         fireAutomations({
@@ -740,7 +743,11 @@ function ActionBoardContent() {
 
   const deleteTask = async (id: string) => {
     if (!firestore) return;
-    try { await deleteDoc(doc(firestore, "action_board_tasks", id)); }
+    const task = tasks.find(t => t.id === id);
+    try {
+      await deleteDoc(doc(firestore, "action_board_tasks", id));
+      logActivity(firestore, 'action_board_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted task: ${task?.title || id}`);
+    }
     catch (err) { console.error("[ActionBoard] Delete failed:", err); }
     setOpenMenuId(null);
   };
@@ -816,8 +823,10 @@ function ActionBoardContent() {
 
     try {
       await updateDoc(doc(firestore, "action_board_tasks", id), updateData);
+      logActivity(firestore, 'action_board_updated', { email: user?.email || '', displayName: user?.displayName }, `Moved task "${task?.title || id}" to ${to}`);
       // Fire automations AFTER successful Firestore update
       if (to === "done" && task) {
+        logActivity(firestore, 'action_board_completed', { email: user?.email || '', displayName: user?.displayName }, `Completed task: ${task.title}`);
         fireAutomations({ ...task, column: "done", completedAt: Timestamp.now() }, "completed");
       }
       if (to === "doing" && task && task.column !== "doing") {

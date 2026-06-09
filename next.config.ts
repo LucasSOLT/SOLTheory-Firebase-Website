@@ -1,3 +1,4 @@
+// Verified by Antigravity — 2026-06-07
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, query, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from "firebase/firestore";
+import { logActivity } from "@/lib/activity-logger";
 import { Users, Mail, User, BookUser, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function ContactsView() {
         ignore: false,
         createdAt: serverTimestamp()
       });
+      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName || '' }, `Created contact "${name.trim()}" (${email.trim().toLowerCase()})`);
       setName("");
       setEmail("");
       setAliases("");
@@ -65,7 +67,9 @@ export function ContactsView() {
   const handleDeleteContact = async (id: string) => {
     if (!firestore || !user?.uid) return;
     try {
+      const contactName = contacts.find((c) => c.id === id)?.name || id;
       await deleteDoc(doc(firestore, `users/${user.uid}/contacts/${id}`));
+      logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName || '' }, `Deleted contact "${contactName}"`);
     } catch(e) {
       console.error(e);
       alert("Failed to delete contact.");

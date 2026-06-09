@@ -13,6 +13,7 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { logActivity } from "@/lib/activity-logger";
 
 // Translation Dictionary
 const t = {
@@ -158,6 +159,7 @@ function SettingsContent() {
   const changeLang = (l: Lang) => {
     setLang(l);
     localStorage.setItem('agent_language', l);
+    logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Changed language to ' + l);
   };
 
   useEffect(() => {
@@ -189,6 +191,7 @@ function SettingsContent() {
       }, { merge: true }).then(() => {
         window.history.replaceState({}, document.title, window.location.pathname + `?gmail_connected=true&agent=${agent}`);
         setGmailConnected(true);
+        logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Connected Google account');
       }).catch(err => setOauthError("Failed to save credentials: " + err.message));
     } else if (isConnectedParam) {
       setGmailConnected(true);
@@ -229,6 +232,7 @@ function SettingsContent() {
         const cleanUrl = window.location.pathname + "?tab=profile&qb_connected=true";
         window.history.replaceState({}, document.title, cleanUrl);
         setQbConnected(true);
+        logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Connected QuickBooks account');
       }).catch(err => {
         setQbError("Failed to save QuickBooks credentials: " + err.message);
       });
@@ -254,6 +258,7 @@ function SettingsContent() {
       await updateProfile(auth.currentUser, { displayName });
       await setDoc(doc(firestore, "users", user.uid), { bio, location }, { merge: true });
       setProfileMessage("OK");
+      logActivity(firestore, 'profile_updated', { email: user?.email || '', displayName }, 'Updated profile: display name, bio, location');
     } catch (err: any) {
       console.error(err);
       setProfileMessage("Error");
@@ -287,6 +292,7 @@ function SettingsContent() {
     try {
       await setDoc(doc(firestore, "users", user.uid), { quickbooksOAuth: null }, { merge: true });
       setQbConnected(false);
+      logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Disconnected QuickBooks account');
     } catch (err: any) {
       setQbError("Failed to disconnect: " + err.message);
     }

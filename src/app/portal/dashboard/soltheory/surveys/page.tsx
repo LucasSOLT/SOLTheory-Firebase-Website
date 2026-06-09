@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useFirestore } from "@/firebase";
 import { getAuth } from "firebase/auth";
+import { logActivity } from '@/lib/activity-logger';
 import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -365,6 +366,7 @@ export default function SolTheorySurveysPage() {
                             if (!confirm(`Delete response from ${resp.participantName || 'Anonymous'}?`)) return;
                             try {
                               await deleteDoc(doc(firestore, "custom_survey_responses", resp.id));
+                              logActivity(firestore, 'item_deleted', { email: auth.currentUser?.email || '', displayName: auth.currentUser?.displayName }, `Deleted survey response from ${resp.participantName || 'Anonymous'} on survey: ${resp.surveyTitle || survey.title}`);
                               setAllResponses(prev => prev.filter(r => r.id !== resp.id));
                             } catch (err) {
                               console.error("Failed to delete response:", err);

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { FileText, LogIn, Bot, Ticket, ClipboardList, Users } from 'lucide-react';
+import { FileText, LogIn, LogOut, Bot, Ticket, ClipboardList, Users, Clock, MessageSquare, Settings, Upload, Trash2, Edit, Plus } from 'lucide-react';
 import type { ActivityType } from '@/lib/activity-logger';
 
 interface ActivityItem {
@@ -15,13 +15,29 @@ interface ActivityItem {
   timestamp: { seconds: number; nanoseconds: number } | null;
 }
 
-const ICON_MAP: Record<ActivityType, React.ReactNode> = {
+const ICON_MAP: Partial<Record<ActivityType, React.ReactNode>> = {
   login: <LogIn className="w-4 h-4 text-slate-400" />,
+  logout: <LogOut className="w-4 h-4 text-slate-400" />,
   grant_agent_created: <Bot className="w-4 h-4 text-slate-400" />,
   grant_agent_deleted: <Bot className="w-4 h-4 text-slate-400" />,
+  grant_agent_started: <Bot className="w-4 h-4 text-slate-400" />,
+  grant_agent_stopped: <Bot className="w-4 h-4 text-slate-400" />,
   support_ticket_created: <Ticket className="w-4 h-4 text-slate-400" />,
+  support_ticket_replied: <MessageSquare className="w-4 h-4 text-slate-400" />,
   action_board_created: <ClipboardList className="w-4 h-4 text-slate-400" />,
+  action_board_updated: <Edit className="w-4 h-4 text-slate-400" />,
+  action_board_deleted: <Trash2 className="w-4 h-4 text-slate-400" />,
   crm_entry_created: <Users className="w-4 h-4 text-slate-400" />,
+  crm_entry_updated: <Edit className="w-4 h-4 text-slate-400" />,
+  timesheet_entry_created: <Clock className="w-4 h-4 text-slate-400" />,
+  timesheet_customer_created: <Users className="w-4 h-4 text-slate-400" />,
+  timesheet_service_created: <Settings className="w-4 h-4 text-slate-400" />,
+  ai_chat_sent: <MessageSquare className="w-4 h-4 text-slate-400" />,
+  settings_changed: <Settings className="w-4 h-4 text-slate-400" />,
+  file_uploaded: <Upload className="w-4 h-4 text-slate-400" />,
+  file_deleted: <Trash2 className="w-4 h-4 text-slate-400" />,
+  item_created: <Plus className="w-4 h-4 text-slate-400" />,
+  item_deleted: <Trash2 className="w-4 h-4 text-slate-400" />,
 };
 
 function timeAgo(seconds: number): string {
@@ -45,6 +61,7 @@ export function OrgActivityFeed() {
 
   useEffect(() => {
     if (!firestore || !orgDomain) return;
+    let fallbackUnsub: (() => void) | null = null;
 
     const colRef = collection(firestore, 'activity_log');
     const q = query(
@@ -62,11 +79,26 @@ export function OrgActivityFeed() {
       setActivities(items);
       setLoading(false);
     }, (err) => {
-      console.warn('[Activity Feed] Listener error:', err);
-      setLoading(false);
+      console.warn('[Activity Feed] Index query failed, using fallback:', err.message);
+      // Fallback: no where clause, filter client-side
+      const fallbackQ = query(colRef, orderBy('timestamp', 'desc'), limit(200));
+      fallbackUnsub = onSnapshot(fallbackQ, (snap) => {
+        const filtered: ActivityItem[] = [];
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          if (data.orgDomain === orgDomain) {
+            filtered.push({ id: d.id, ...data } as ActivityItem);
+          }
+        });
+        setActivities(filtered.slice(0, 50));
+        setLoading(false);
+      }, () => setLoading(false));
     });
 
-    return () => unsub();
+    return () => {
+      unsub();
+      if (fallbackUnsub) fallbackUnsub();
+    };
   }, [firestore, orgDomain]);
 
   const filtered = filter === 'all'
@@ -96,6 +128,8 @@ export function OrgActivityFeed() {
           <option value="support_ticket_created">Tickets</option>
           <option value="action_board_created">Tasks</option>
           <option value="crm_entry_created">CRM</option>
+          <option value="timesheet_entry_created">Timesheets</option>
+          <option value="ai_chat_sent">AI Chat</option>
         </select>
       </div>
 

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { logActivity } from "@/lib/activity-logger";
 
 interface TimesheetCustomerModalProps {
   isOpen: boolean;
@@ -74,6 +75,7 @@ export function TimesheetCustomerModal({
       setTopic("");
       setDescription("");
       onSaved();
+      logActivity(firestore, 'timesheet_customer_created', { email: userEmail }, `Added customer: ${trimmedName}`);
       onClose();
     } catch (err) {
       console.error("Failed to save customer:", err);

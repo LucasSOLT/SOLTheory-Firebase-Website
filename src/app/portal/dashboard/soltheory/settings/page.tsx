@@ -1,5 +1,6 @@
 "use client";
 
+import { logActivity } from '@/lib/activity-logger';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -167,6 +168,7 @@ function SettingsContent() {
   const changeLang = (l: Lang) => {
     setLang(l);
     localStorage.setItem('agent_language', l);
+    if (firestore) logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Changed language to ' + l);
   };
 
   useEffect(() => {
@@ -210,6 +212,7 @@ function SettingsContent() {
       }, { merge: true }).then(() => {
         window.history.replaceState({}, document.title, window.location.pathname + `?gmail_connected=true&agent=${agent}`);
         setGmailConnected(true);
+        logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Connected Google account');
       }).catch(err => setOauthError("Failed to save credentials: " + err.message));
     } else if (isConnectedParam) {
       setGmailConnected(true);
@@ -248,6 +251,7 @@ function SettingsContent() {
         const cleanUrl = window.location.pathname + "?tab=profile&qb_connected=true";
         window.history.replaceState({}, document.title, cleanUrl);
         setQbConnected(true);
+        logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Connected QuickBooks account');
       }).catch(err => {
         setQbError("Failed to save QuickBooks credentials: " + err.message);
       });
@@ -271,6 +275,7 @@ function SettingsContent() {
     try {
       await updateProfile(auth.currentUser, { displayName });
       await setDoc(doc(firestore, "users", user.uid), { bio, location }, { merge: true });
+      logActivity(firestore, 'profile_updated', { email: user?.email || '', displayName }, 'Updated profile: display name, bio, location');
       setProfileMessage("OK");
     } catch (err: any) {
       console.error(err);
@@ -304,6 +309,7 @@ function SettingsContent() {
     if (!user?.uid || !firestore) return;
     try {
       await setDoc(doc(firestore, "users", user.uid), { quickbooksOAuth: null }, { merge: true });
+      logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Disconnected QuickBooks account');
       setQbConnected(false);
     } catch (err: any) {
       setQbError("Failed to disconnect: " + err.message);
@@ -321,6 +327,7 @@ function SettingsContent() {
         gmailOAuth_email: null,
         gmailOAuth: null,
       }, { merge: true });
+      logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Disconnected Google account');
       setGmailConnected(false);
     } catch (err: any) {
       setOauthError("Failed to disconnect: " + err.message);
@@ -359,10 +366,11 @@ function SettingsContent() {
         imessageServerUrl: imServerUrl.trim(),
         imessagePassword: imPassword.trim(),
       }, { merge: true });
+      logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Saved iMessage connection');
       setImConnected(true);
-      setImMessage("âœ“ iMessage connection saved!");
+      setImMessage("✓ iMessage connection saved!");
     } catch (err: any) {
-      setImMessage(`âœ— Failed to save: ${err.message}`);
+      setImMessage(`✗ Failed to save: ${err.message}`);
     } finally {
       setImSaving(false);
       setTimeout(() => setImMessage(""), 4000);
@@ -376,6 +384,7 @@ function SettingsContent() {
         imessageServerUrl: null,
         imessagePassword: null,
       }, { merge: true });
+      logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Disconnected iMessage');
       setImConnected(false);
       setImServerUrl("");
       setImPassword("");

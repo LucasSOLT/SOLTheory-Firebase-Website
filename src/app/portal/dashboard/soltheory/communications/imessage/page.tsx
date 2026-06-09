@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc, setDoc, addDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { logActivity } from "@/lib/activity-logger";
 import { playMessageSendSound } from "@/lib/send-sound";
 import {
   Send,
@@ -185,6 +186,8 @@ export default function IMessagePage() {
         status: "sent",
         createdAt: new Date().toISOString(),
       });
+
+      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName || '' }, `Sent SMS message to ${targetNumber}`, { messagePreview: newMessage.substring(0, 200) });
 
       setNewMessage("");
       if (showNewConversation) {

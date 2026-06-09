@@ -7,6 +7,7 @@ import { Send, UserCircle, Plus, Search, MessageSquareX, Paperclip, X, Wrench } 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { playMessageSendSound } from "@/lib/send-sound";
+import { logActivity } from '@/lib/activity-logger';
 
 interface Chat {
   id: string;
@@ -314,6 +315,7 @@ export function DMChat() {
       };
       if (customImageUrl) payload.imageUrl = customImageUrl;
       const docRef = await addDoc(collection(firestore, `dms/${activeChatId}/messages`), payload);
+      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent DM message', { messagePreview: textToSend.substring(0, 200) });
       // Track sent message for animation
       setJustSentIds(prev => new Set(prev).add(docRef.id));
       setTimeout(() => {

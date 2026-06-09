@@ -11,6 +11,7 @@ import { Logo } from "@/components/logo";
 import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc, addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
+import { logActivity } from '@/lib/activity-logger';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -197,20 +198,30 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
     });
   }, [user, firestore, params.agentId]);
 
-  // Load Lifetime Usage
+  // Load Platform-Wide Usage (all users)
   useEffect(() => {
-    if (!user?.uid || !firestore) return;
-    import("firebase/firestore").then(({ doc, onSnapshot }) => {
-      const unsub = onSnapshot(doc(firestore, "users", user.uid), (docSnap) => {
-        const data = docSnap.data();
-        if (data) {
-          setTotalGroqTokens(data.groqTokens || 0);
-          setTotalElevenLabsChars(data.elevenLabsChars || 0);
-        }
+    if (!firestore) return;
+    import("firebase/firestore").then(({ collection, onSnapshot, query, orderBy }) => {
+      const q = query(collection(firestore, "ai_usage"), orderBy("timestamp", "desc"));
+      const unsub = onSnapshot(q, (snap) => {
+        let totalTokens = 0;
+        let totalChars = 0;
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data.provider === "groq") {
+            totalTokens += data.totalTokens || 0;
+          } else if (data.provider === "elevenlabs") {
+            totalChars += data.characters || 0;
+          }
+        });
+        setTotalGroqTokens(totalTokens);
+        setTotalElevenLabsChars(totalChars);
+      }, (err) => {
+        console.error("[AI Usage] Failed to load platform usage:", err);
       });
       return () => unsub();
     });
-  }, [user, firestore]);
+  }, [firestore]);
 
 
 
@@ -430,6 +441,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
       };
 
       setMessages(prev => [...prev, aiMsg]);
+      logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent AI chat message to ' + (agent?.name || params.agentId), { messagePreview: inputValue.substring(0, 200) });
 
       // Generate AI title for new sessions after first exchange
       const currentSessionId = activeSessionId;
@@ -737,7 +749,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
             {showCostBreakdown && (
               <div className="absolute top-16 right-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[6px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
+                  <h3 className="text-sm font-black text-slate-900 tracking-tight">Platform Usage — All Users</h3>
                   <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
                 </div>
                 <div className="space-y-4">
@@ -771,7 +783,7 @@ export default function AgentChatbotPage(props: { params: Promise<{ agentId: str
 
                   <div className="p-3 bg-slate-900 rounded-[4px]">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Platform Cost</span>
                       <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
                     </div>
                   </div>

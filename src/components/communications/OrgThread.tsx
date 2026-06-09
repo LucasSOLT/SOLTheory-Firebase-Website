@@ -7,6 +7,7 @@ import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, Ch
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { playMessageSendSound } from "@/lib/send-sound";
+import { logActivity } from '@/lib/activity-logger';
 
 interface Channel {
   id: string;
@@ -453,6 +454,7 @@ export function OrgThread() {
       };
       if (customImageUrl) payload.imageUrl = customImageUrl;
       await addDoc(collection(firestore, `org_channels/${activeChannelId}/messages`), payload);
+      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent org thread message', { messagePreview: textToSend.substring(0, 200) });
       // Update channel metadata for notification bell
       await updateDoc(doc(firestore, "org_channels", activeChannelId), {
         lastMessageBy: user.email,

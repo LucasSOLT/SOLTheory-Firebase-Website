@@ -104,6 +104,33 @@ function formatMoney(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+/** Interpolate between two RGB colors */
+function lerpColor(
+  c1: [number, number, number],
+  c2: [number, number, number],
+  t: number
+): string {
+  const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+  const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+  const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** Get heatmap color from light blue to dark blue based on value relative to min/max */
+function getHeatmapColor(value: number, min: number, max: number): string {
+  if (max === min) return "rgb(96, 165, 250)"; // blue-400 fallback
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const lightBlue: [number, number, number] = [219, 234, 254]; // #dbeafe
+  const medBlue: [number, number, number] = [96, 165, 250];    // #60a5fa
+  const darkBlue: [number, number, number] = [30, 64, 175];    // #1e40af
+
+  if (t <= 0.5) {
+    return lerpColor(lightBlue, medBlue, t * 2);
+  } else {
+    return lerpColor(medBlue, darkBlue, (t - 0.5) * 2);
+  }
+}
+
 export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: TimesheetGridProps) {
   const today = useMemo(() => {
     const d = new Date();
@@ -118,6 +145,25 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
   const [addTimeOpen, setAddTimeOpen] = useState(false);
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; date: string; userName: string } | null>(null);
+
+  // Prefill state for entry modal
+  const [prefillDate, setPrefillDate] = useState<string | undefined>(undefined);
+  const [prefillUser, setPrefillUser] = useState<string | undefined>(undefined);
+
+  // Close context menu on click outside or scroll
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [contextMenu]);
 
   // Listen to timesheet entries from Firestore
   useEffect(() => {
@@ -142,7 +188,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
         });
         setEntries(docs);
       },
-      () => {}
+      (err: any) => { console.error('[Timesheet] Entries listener error:', err); }
     );
     return () => unsub();
   }, [firestore, orgDomain]);
@@ -264,6 +310,22 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
   const grandTotal = useMemo(() => {
     return userSummaries.reduce((acc, s) => ({ mins: acc.mins + s.totalMins, earnings: acc.earnings + s.totalEarnings }), { mins: 0, earnings: 0 });
   }, [userSummaries]);
+
+  // Heatmap: compute min/max of all cell minutes across the visible range
+  const heatmapRange = useMemo(() => {
+    const allMinutes: number[] = [];
+    users.forEach((user) => {
+      dates.forEach((date) => {
+        const key = `${user.name}|${dateToString(date)}`;
+        const cell = cellData[key];
+        if (cell && cell.minutes > 0) {
+          allMinutes.push(cell.minutes);
+        }
+      });
+    });
+    if (allMinutes.length === 0) return { min: 0, max: 0 };
+    return { min: Math.min(...allMinutes), max: Math.max(...allMinutes) };
+  }, [users, dates, cellData]);
 
   const nameColWidth = 180;
   const summaryColWidth = 100;
@@ -450,13 +512,16 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                   const key = `${user.name}|${dateToString(date)}`;
                   const cell = cellData[key];
                   const hasData = cell && cell.minutes > 0;
+                  const cellBgColor = hasData
+                    ? getHeatmapColor(cell.minutes, heatmapRange.min, heatmapRange.max)
+                    : undefined;
+                  const cellDateStr = dateToString(date);
                   return (
                     <div
                       key={colIdx}
                       className={`py-2 px-1 flex flex-col items-center justify-center border-r border-slate-100 transition-colors duration-150 cursor-pointer ${
-                        hasData
-                          ? "bg-blue-50/80 hover:bg-blue-100/80"
-                          : isToday
+                        !hasData
+                          ? isToday
                             ? "bg-blue-50/40 hover:bg-blue-100/40"
                             : isWeekend
                               ? rowIdx % 2 === 0
@@ -465,13 +530,24 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                               : rowIdx % 2 === 0
                                 ? "bg-white hover:bg-blue-50/40"
                                 : "bg-[#faf9f5] hover:bg-blue-50/30"
+                          : ""
                       }`}
+                      style={hasData ? { backgroundColor: cellBgColor } : undefined}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({ x: e.clientX, y: e.clientY, date: cellDateStr, userName: user.name });
+                      }}
+                      onDoubleClick={() => {
+                        setPrefillDate(cellDateStr);
+                        setPrefillUser(user.name);
+                        setEntryModalOpen(true);
+                      }}
                     >
                       {hasData ? (
                         <>
-                          <span className="text-[11px] font-semibold text-slate-700 leading-tight">{formatDuration(cell.minutes)}</span>
+                          <span className={`text-[11px] font-semibold leading-tight ${heatmapRange.max > 0 && cell.minutes > (heatmapRange.min + heatmapRange.max) / 2 ? "text-white" : "text-slate-800"}`}>{formatDuration(cell.minutes)}</span>
                           {cell.earnings > 0 && (
-                            <span className="text-[9px] font-semibold text-green-600 leading-tight">{formatMoney(cell.earnings)}</span>
+                            <span className={`text-[9px] font-semibold leading-tight ${heatmapRange.max > 0 && cell.minutes > (heatmapRange.min + heatmapRange.max) / 2 ? "text-blue-100" : "text-green-600"}`}>{formatMoney(cell.earnings)}</span>
                           )}
                         </>
                       ) : (
@@ -581,13 +657,59 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
       {firestore && orgDomain && userEmail && (
         <TimesheetEntryModal
           isOpen={entryModalOpen}
-          onClose={() => setEntryModalOpen(false)}
+          onClose={() => { setEntryModalOpen(false); setPrefillDate(undefined); setPrefillUser(undefined); }}
           firestore={firestore}
           orgDomain={orgDomain}
           userEmail={userEmail}
           users={users}
           onSaved={() => {}}
+          prefillDate={prefillDate}
+          prefillUser={prefillUser}
         />
+      )}
+
+      {/* Right-click Context Menu */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed z-[70] bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-56 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+          >
+            <div className="px-4 py-2 border-b border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Add time for {contextMenu.userName}</p>
+              <p className="text-[10px] text-slate-500 font-medium">{contextMenu.date}</p>
+            </div>
+            <button
+              onClick={() => {
+                setPrefillDate(contextMenu.date);
+                setPrefillUser(contextMenu.userName);
+                setEntryModalOpen(true);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+            >
+              Single Timesheet Activity
+            </button>
+            <button
+              disabled
+              className="w-full text-left px-4 py-2.5 text-sm text-slate-300 font-medium cursor-not-allowed"
+            >
+              Weekly Timesheet
+            </button>
+            <button
+              onClick={() => {
+                setPrefillDate(contextMenu.date);
+                setPrefillUser(contextMenu.userName);
+                setEntryModalOpen(true);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+            >
+              STT Timesheet Entry
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

@@ -361,7 +361,8 @@ export default function CRMPage() {
       const data = await res.json();
       
       if (res.ok) {
-        showToast(`âœ… Successfully sent ${data.sentCount} emails!`);
+        showToast(`✅ Successfully sent ${data.sentCount} emails!`);
+        logActivity(db, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent email campaign: ' + emailSubject);
         setShowEmailModal(false);
         setEmailSubject("");
         setEmailBody("");
@@ -412,6 +413,7 @@ export default function CRMPage() {
   const handleSendInboxReply = async () => {
     if (!inboxReply.trim() || !activeConversation) return;
     await storeSendReply(activeConversation, inboxReply.trim());
+    logActivity(db, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent inbox reply', { messagePreview: inboxReply.substring(0, 200) });
     setInboxReply("");
     setTimeout(() => inboxChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };

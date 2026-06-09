@@ -213,7 +213,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 2C / Tile 5: Bottom span-2 - Blank White Card with seamless internal grid layout */}
               <CmsTileWrapper tileId="tile-5" tileName="Grant Analytics" className="col-span-2">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] max-h-full overflow-hidden p-5 flex gap-5">
+              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] overflow-hidden p-5 flex gap-5">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 5
                 </div>
@@ -221,11 +221,11 @@ export default function SolTheoryDashboard() {
                 {/* Left Column (50% width) - Split vertically into Top-Left and Bottom-Left */}
                 <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
                   {/* Top-Left: Grant Completions Line Graph */}
-                  <div className="flex-1 min-h-0">
+                  <div className="flex-1 min-h-[100px]">
                     <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
                   </div>
                   {/* Bottom-Left: Grant Status Pie/Donut Chart */}
-                  <div className="flex-1 min-h-0">
+                  <div className="flex-1 min-h-[100px]">
                     <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
                   </div>
                 </div>

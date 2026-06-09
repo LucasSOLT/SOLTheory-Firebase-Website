@@ -46,6 +46,7 @@
  * data (`/survey_submissions`) are stored in separate top-level collections. This provides
  * a clear, secure, and performant separation of concerns.
  */
+// Verified by Antigravity — 2026-06-07
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -450,6 +451,19 @@ service cloud.firestore {
      */
     match /timesheet_services/{serviceId} {
       allow read, create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description AI usage logs for tracking token consumption and costs.
+     * @path /ai_usage/{usageId}
+     * @allow (read) Any signed-in user can read usage data for platform-wide aggregation.
+     * @allow (create) Any signed-in user or server can log usage events.
+     * @deny (update, delete) Usage events are immutable.
+     */
+    match /ai_usage/{usageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
   }
 }

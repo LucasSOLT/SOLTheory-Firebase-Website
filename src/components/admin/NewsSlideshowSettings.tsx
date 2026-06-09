@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useStorage } from '@/firebase';
+import { useStorage, useUser, useFirestore } from '@/firebase';
+import { logActivity } from '@/lib/activity-logger';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { X, Trash2, Plus, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 
@@ -71,6 +72,8 @@ export function NewsSlideshowSettings({
   shuffleInterval,
 }: NewsSlideshowSettingsProps) {
   const storage = useStorage();
+  const { user } = useUser();
+  const firestore = useFirestore();
 
   // ---- local state ----
   const [localSlides, setLocalSlides] = useState<SlideData[]>([]);
@@ -159,6 +162,7 @@ export function NewsSlideshowSettings({
       await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(storageRef);
       updateSlideField('backgroundImage', downloadURL);
+      logActivity(firestore, 'file_uploaded', { email: user?.email || '', displayName: user?.displayName }, 'Uploaded slideshow image');
     } catch (err) {
       console.error('Image upload failed:', err);
     } finally {

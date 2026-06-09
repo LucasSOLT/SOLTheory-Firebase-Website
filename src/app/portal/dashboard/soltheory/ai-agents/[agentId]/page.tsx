@@ -14,6 +14,7 @@ import { doc, getDoc, setDoc, addDoc, collection, getDocs, query, orderBy, where
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
+import { logActivity } from '@/lib/activity-logger';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -707,6 +708,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     try {
       const { doc, setDoc } = await import("firebase/firestore");
       await setDoc(doc(firestore, "organizations", "soltheory"), { orgBrain }, { merge: true });
+      logActivity(firestore, 'ai_agent_config_changed', { email: user?.email || '', displayName: user?.displayName }, 'Updated org brain for soltheory');
     } catch (err) { console.error("Failed to save org brain", err); alert("Failed to save. Check Firestore rules."); }
     finally { setOrgBrainSaving(false); }
   };
@@ -922,20 +924,30 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     return () => { if (tagSaveTimerRef.current) clearTimeout(tagSaveTimerRef.current); };
   }, [emailTags, senderTagMap, params.agentId, user?.uid, firestore]);
 
-  // Load Lifetime Usage
+  // Load Platform-Wide Usage (all users)
   useEffect(() => {
-    if (!user?.uid || !firestore) return;
-    import("firebase/firestore").then(({ doc, onSnapshot }) => {
-      const unsub = onSnapshot(doc(firestore, "users", user.uid), (docSnap) => {
-        const data = docSnap.data();
-        if (data) {
-          setTotalGroqTokens(data.groqTokens || 0);
-          setTotalElevenLabsChars(data.elevenLabsChars || 0);
-        }
+    if (!firestore) return;
+    import("firebase/firestore").then(({ collection, onSnapshot, query, orderBy }) => {
+      const q = query(collection(firestore, "ai_usage"), orderBy("timestamp", "desc"));
+      const unsub = onSnapshot(q, (snap) => {
+        let totalTokens = 0;
+        let totalChars = 0;
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data.provider === "groq") {
+            totalTokens += data.totalTokens || 0;
+          } else if (data.provider === "elevenlabs") {
+            totalChars += data.characters || 0;
+          }
+        });
+        setTotalGroqTokens(totalTokens);
+        setTotalElevenLabsChars(totalChars);
+      }, (err) => {
+        console.error("[AI Usage] Failed to load platform usage:", err);
       });
       return () => unsub();
     });
-  }, [user, firestore]);
+  }, [firestore]);
 
   // Auth Binding Verification Map
   useEffect(() => {
@@ -1033,6 +1045,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     // Delete from Firestore if saved
     if (firestore && user?.uid) {
       deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(() => { });
+      logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted chat session: ${session?.title || id}`);
     }
     if (activeSessionId === id) {
       // Return to blank screen
@@ -1201,6 +1214,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       // Show response (animation is already running in parallel)
       setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
+      logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent AI chat message to ' + (agent?.name || params.agentId), { messagePreview: inputValue.substring(0, 200) });
 
       // Generate AI title for new sessions after first exchange
       const activeSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
@@ -1989,7 +2003,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               {showCostBreakdown && (
                 <div data-popup="cost" className="absolute top-full right-0 mt-2 z-[200] w-[320px] sm:w-[340px] bg-[#fefcf6] border border-slate-200 rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black text-slate-900 tracking-tight">Lifetime Cost Breakdown</h3>
+                    <h3 className="text-sm font-black text-slate-900 tracking-tight">Platform Usage — All Users</h3>
                     <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
                   </div>
                   <div className="space-y-4">
@@ -2021,7 +2035,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
                     <div className="p-3 bg-slate-900 rounded-[4px]">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Lifetime Cost</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Platform Cost</span>
                         <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
                       </div>
                     </div>
@@ -2321,6 +2335,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                   if (!user?.uid || !firestore) return;
                                   try {
                                     await deleteDoc(doc(firestore, "users", user.uid, "pact_entries", entry.id));
+                                    logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted PACT entry: ${entry.question}`);
                                     setPactEntries(prev => prev.filter(e => e.id !== entry.id));
                                   } catch (err) { console.error("Failed to delete PACT entry", err); }
                                 }}>
@@ -2368,6 +2383,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 createdAt: new Date().toISOString()
                               });
                               alert(`Saved! Document stored in Knowledge Base.`);
+                              logActivity(firestore, 'file_uploaded', { email: user?.email || '', displayName: user?.displayName }, `Uploaded knowledge doc: ${ragTitle}`);
                               setRagTitle(''); setRagTextContent(''); fetchRAGDocs();
                             } catch (err) { alert('Failed to save text.'); console.error(err); }
                             finally { setIsRAGUploading(false); }
@@ -2415,6 +2431,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                         }
                                       } catch { }
                                       fetchRAGDocs();
+                                      logActivity(firestore!, 'file_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted knowledge doc: ${ragDoc.title}`);
                                     } catch (err) { alert('Failed to delete.'); }
                                   }
                                 }}>

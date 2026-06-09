@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { logActivity } from "@/lib/activity-logger";
 
 interface TimesheetServiceModalProps {
   isOpen: boolean;
@@ -94,6 +95,7 @@ export function TimesheetServiceModal({
       setTopic("");
       setDescription("");
       onSaved();
+      logActivity(firestore, 'timesheet_service_created', { email: userEmail }, `Added service: ${trimmedName}`);
       onClose();
     } catch (err) {
       console.error("Failed to save service:", err);

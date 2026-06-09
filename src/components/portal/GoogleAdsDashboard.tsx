@@ -7,6 +7,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc, setDoc, collection, onSnapshot } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { logActivity } from '@/lib/activity-logger';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -63,10 +64,12 @@ export function GoogleAdsDashboard() {
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || isTyping) return;
 
+    const inputMessage = chatMessage;
     const userMsg = { id: uid(), text: chatMessage, isSelf: true };
     setMessages(prev => [...prev, userMsg]);
     setIsTyping(true);
     setChatMessage("");
+    logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent message in Google Ads dashboard', { messagePreview: inputMessage.substring(0, 200) });
 
     try {
       let rToken = null;

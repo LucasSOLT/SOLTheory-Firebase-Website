@@ -17,6 +17,7 @@ import * as z from 'zod';
 import { useAuthStore } from '@/hooks/use-auth-store';
 import { useFirestore, useUser, useStorage } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { logActivity } from '@/lib/activity-logger';
 import { doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -177,6 +178,7 @@ export function ProfileSetupDialog() {
     setDocumentNonBlocking(userRef, profileData, { merge: true });
     
     toast({ title: 'Profile Configured Successfully!' });
+    logActivity(firestore, 'profile_updated', { email: user?.email || '', displayName: user?.displayName }, 'Completed profile setup');
     closeProfileSetupDialog();
     
     if (redirectPath) {

@@ -5,6 +5,7 @@ import { X, Clock, ChevronDown, Plus, Calendar } from "lucide-react";
 import { collection, addDoc, onSnapshot, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { TimesheetCustomerModal } from "./TimesheetCustomerModal";
 import { TimesheetServiceModal } from "./TimesheetServiceModal";
+import { logActivity } from "@/lib/activity-logger";
 
 interface TimesheetUser {
   name: string;
@@ -20,6 +21,8 @@ interface TimesheetEntryModalProps {
   userEmail: string;
   users: TimesheetUser[];
   onSaved: () => void;
+  prefillDate?: string;
+  prefillUser?: string;
 }
 
 interface CustomerDoc {
@@ -64,10 +67,13 @@ export function TimesheetEntryModal({
   userEmail,
   users,
   onSaved,
+  prefillDate,
+  prefillUser,
 }: TimesheetEntryModalProps) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [saveDropdownOpen, setSaveDropdownOpen] = useState(false);
 
   // Customer / Service state
@@ -93,7 +99,7 @@ export function TimesheetEntryModal({
       snap.forEach((d: any) => docs.push({ id: d.id, ...d.data() }));
       docs.sort((a, b) => a.name.localeCompare(b.name));
       setCustomers(docs);
-    }, () => {});
+    }, (err: any) => { console.error('[Timesheet] Customer listener error:', err); });
     return () => unsub();
   }, [firestore, orgDomain]);
 
@@ -109,18 +115,23 @@ export function TimesheetEntryModal({
       snap.forEach((d: any) => docs.push({ id: d.id, ...d.data() }));
       docs.sort((a, b) => a.name.localeCompare(b.name));
       setServices(docs);
-    }, () => {});
+    }, (err: any) => { console.error('[Timesheet] Service listener error:', err); });
     return () => unsub();
   }, [firestore, orgDomain]);
 
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setForm({ ...EMPTY_FORM });
+      setForm({
+        ...EMPTY_FORM,
+        startDate: prefillDate || todayString(),
+        userName: prefillUser || "",
+      });
       setErrors({});
       setSaveDropdownOpen(false);
+      setSaveError("");
     }
-  }, [isOpen]);
+  }, [isOpen, prefillDate, prefillUser]);
 
   const updateField = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -143,6 +154,7 @@ export function TimesheetEntryModal({
   const saveEntry = async (): Promise<boolean> => {
     if (!validate()) return false;
     setSaving(true);
+    setSaveError("");
     try {
       const h = parseInt(form.durationHours) || 0;
       const m = parseInt(form.durationMinutes) || 0;
@@ -161,9 +173,11 @@ export function TimesheetEntryModal({
         createdBy: userEmail,
       });
       onSaved();
+      logActivity(firestore, 'timesheet_entry_created', { email: userEmail, displayName: form.userName }, `Logged ${form.durationHours || 0}h ${form.durationMinutes || 0}m for ${form.customerName} on ${form.startDate}`);
       return true;
     } catch (e) {
       console.error("Failed to save timesheet entry:", e);
+      setSaveError("Failed to save entry. Please try again.");
       return false;
     } finally {
       setSaving(false);
@@ -171,7 +185,8 @@ export function TimesheetEntryModal({
   };
 
   const handleSave = async () => {
-    await saveEntry();
+    const ok = await saveEntry();
+    if (ok) onClose();
   };
 
   const handleSaveAndNew = async () => {
@@ -480,12 +495,17 @@ export function TimesheetEntryModal({
 
           {/* Footer */}
           <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-            <button
-              onClick={onClose}
-              className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              Cancel
-            </button>
+            <div className="flex items-center gap-3">
+              {saveError && (
+                <p className="text-xs text-red-500 font-medium animate-in fade-in duration-200">{saveError}</p>
+              )}
+              <button
+                onClick={onClose}
+                className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
 
             <div className="flex items-center gap-2">
               {/* Save (outline) */}

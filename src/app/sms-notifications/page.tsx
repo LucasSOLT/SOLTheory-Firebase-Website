@@ -7,6 +7,7 @@ import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/fire
 import { firebaseConfig } from '@/firebase/config';
 import Link from 'next/link';
 import { CheckCircle2, Loader2 } from 'lucide-react';
+import { Footer } from '@/components/sections/footer';
 
 function getPublicFirestore() {
   const appName = 'sms-optin-public';
@@ -73,6 +74,16 @@ export default function SmsOptInPage() {
         createdAt: serverTimestamp(),
         source: 'website_sms_optin_page',
       });
+
+      // Send confirmation SMS (fire-and-forget, don't block the UI)
+      fetch('/api/sms/opt-in-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: stripPhone(phone) }),
+      }).catch((smsErr) => {
+        console.warn('Confirmation SMS failed (non-blocking):', smsErr);
+      });
+
       setSubmitted(true);
     } catch (err) {
       console.error('SMS opt-in submission error:', err);
@@ -113,7 +124,7 @@ export default function SmsOptInPage() {
                   Thank you!
                 </h2>
                 <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
-                  You are now subscribed to SOLTheory notifications. Message & data rates may apply. Reply STOP at any time to unsubscribe, or text HELP for assistance.
+                  You are now subscribed to SOLTheory notifications. A confirmation text has been sent to your phone. Message and data rates may apply. Reply STOP at any time to unsubscribe, or text HELP for assistance.
                 </p>
                 <Link
                   href="/"
@@ -199,7 +210,7 @@ export default function SmsOptInPage() {
                     className="mt-0.5 h-[18px] w-[18px] rounded border-[#333] bg-[#09090b] cursor-pointer accent-white shrink-0"
                   />
                   <label htmlFor="consent" className="text-[13px] text-slate-500 leading-relaxed cursor-pointer">
-                    I agree to receive automated, business-related text messages (such as appointment reminders, invoice updates, and general customer communications) from SOLTheory at the mobile number provided. I understand that consent is not a condition of any purchase. Message & data rates may apply. Message frequency varies. I can unsubscribe at any time by replying STOP, or text HELP for assistance. View our{' '}
+                    I agree to receive automated, business-related text messages (such as appointment reminders, invoice updates, and general customer communications) from SOLTheory at the mobile number provided. I understand that consent is not a condition of any purchase. Message and data rates may apply. Message frequency varies. I can unsubscribe at any time by replying STOP, or text HELP for assistance. View our{' '}
                     <Link href="/privacy-policy" className="text-slate-300 hover:text-white underline underline-offset-2">
                       Privacy Policy
                     </Link>{' '}
@@ -249,6 +260,8 @@ export default function SmsOptInPage() {
           </p>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
