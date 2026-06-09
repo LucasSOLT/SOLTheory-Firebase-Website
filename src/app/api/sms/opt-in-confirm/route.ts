@@ -76,23 +76,41 @@ export async function POST(req: Request) {
           from: process.env.TWILIO_PHONE_NUMBER,
         });
         console.log(
-          `[Opt-In Confirm] Sent via direct number → ${normalizedTo}: ${sent.sid}`
+          `[Opt-In Confirm] Sent via env TWILIO_PHONE_NUMBER → ${normalizedTo}: ${sent.sid}`
         );
       } catch (directErr: any) {
-        console.error(
-          `[Opt-In Confirm] Direct send also failed: ${directErr.message}`
+        console.warn(
+          `[Opt-In Confirm] Env phone number failed: ${directErr.message}. Trying account numbers...`
         );
-        return NextResponse.json(
-          { error: "Failed to send confirmation SMS." },
-          { status: 500 }
+      }
+    }
+
+    // Strategy 3: List Twilio account phone numbers and use the first one
+    if (!sent) {
+      try {
+        const incomingNumbers = await client.incomingPhoneNumbers.list({ limit: 1 });
+        if (incomingNumbers.length > 0) {
+          const fromNumber = incomingNumbers[0].phoneNumber;
+          sent = await client.messages.create({
+            body: confirmationMessage,
+            to: normalizedTo,
+            from: fromNumber,
+          });
+          console.log(
+            `[Opt-In Confirm] Sent via account number ${fromNumber} → ${normalizedTo}: ${sent.sid}`
+          );
+        }
+      } catch (acctErr: any) {
+        console.error(
+          `[Opt-In Confirm] Account number fallback failed: ${acctErr.message}`
         );
       }
     }
 
     if (!sent) {
-      console.error("[Opt-In Confirm] No Twilio sending method available.");
+      console.error("[Opt-In Confirm] All sending strategies failed.");
       return NextResponse.json(
-        { error: "SMS service not fully configured." },
+        { error: "Failed to send confirmation SMS. No available sending method." },
         { status: 500 }
       );
     }
