@@ -669,35 +669,53 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     try {
       audio.onended = () => {
         setPhase("listening");
+        // Clean up blob URL to prevent memory leak
+        if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
         audioRef.current = null;
         if (!isMicMuted && !isPaused) startRecognition();
       };
 
-      // Play as soon as enough audio is buffered (don't wait for full download)
+      // MOBILE FIX: Fetch TTS as blob for reliable mobile playback
+      // Direct URL streaming often silently fails on iOS Safari and Chrome Android
+      const ttsResponse = await fetch(audioUrl);
+      if (!ttsResponse.ok) throw new Error(`TTS fetch failed: ${ttsResponse.status}`);
+      const audioBlob = await ttsResponse.blob();
+      const blobUrl = URL.createObjectURL(audioBlob);
+
+      if (cancelledRef.current) { URL.revokeObjectURL(blobUrl); return; }
+
+      audio.src = blobUrl;
+      audio.volume = 1.0;
+      audio.muted = false;
+      audio.load();
+
+      // Ensure AudioContext is active before playing (iOS requirement)
+      if (audioCtxRef.current?.state === 'suspended') {
+        await audioCtxRef.current.resume().catch(() => {});
+      }
+
       await new Promise<void>((resolve, reject) => {
         let played = false;
         const tryPlay = () => {
           if (played) return;
           played = true;
-          // Ensure AudioContext is active (iOS requirement)
-          if (audioCtxRef.current?.state === 'suspended') {
-            audioCtxRef.current.resume().catch(() => {});
-          }
           audio.play().then(resolve).catch((e) => {
-            // Mobile fallback: retry once after a short delay
             console.warn('Audio play blocked, retrying:', e.message);
+            // Mobile fallback: retry with user gesture unlock attempt
             setTimeout(() => {
+              if (audioCtxRef.current?.state === 'suspended') {
+                audioCtxRef.current.resume().catch(() => {});
+              }
               audio.play().then(resolve).catch(reject);
-            }, 200);
+            }, 250);
           });
         };
         audio.oncanplay = () => tryPlay();
         audio.oncanplaythrough = () => tryPlay();
         audio.onerror = () => reject(new Error("Audio load failed"));
-        // Safety: if canplay already fired (cached), play immediately
         if (audio.readyState >= 3) tryPlay();
-        // Ultimate fallback: if canplay never fires within 5s, try anyway
-        setTimeout(() => { if (!played) tryPlay(); }, 5000);
+        // Faster fallback: blob is fully loaded so try after 500ms
+        setTimeout(() => { if (!played) tryPlay(); }, 500);
       });
     } catch (err) {
       console.error(err);
@@ -938,7 +956,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity font-bold tracking-widest"
             title="Adjust how long Jarvis waits before responding"
           >
-            <option value={300} className="text-slate-900">Rapid (0.3s pause)</option>
+            <option value={750} className="text-slate-900">Rapid (0.75s pause)</option>
             <option value={500} className="text-slate-900">Fast (0.5s pause)</option>
             <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
             <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
@@ -951,7 +969,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         <p className="text-slate-400 text-sm font-medium">{formatTime(elapsed)}</p>
 
         {/* Waveform */}
-        <div className="w-full max-w-[280px] sm:max-w-2xl mt-4 mb-20 relative">
+        <div className="w-full max-w-[280px] sm:max-w-2xl mt-2 mb-6 relative">
           <div className="relative h-32 sm:h-48 flex items-center justify-center">
             {/* Ambient Background Glow */}
             <div className={`absolute inset-0 rounded-full blur-[80px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
@@ -988,7 +1006,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-2 mb-12">
+        <div className="flex flex-col items-center gap-2 mb-8">
           <span className={`text-sm font-black uppercase tracking-[0.25em] ${g.text[ac]} transition-colors duration-500`}>{statusLabel}</span>
         </div>
 
