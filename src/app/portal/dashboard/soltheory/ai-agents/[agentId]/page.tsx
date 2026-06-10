@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { JarvisViewBrowser, type JarvisViewNavigation } from "@/components/ui/jarvis-view-browser";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Bell, ExternalLink} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
@@ -637,6 +637,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [heartbeatRunning, setHeartbeatRunning] = useState(false);
   const [heartbeatPulseVisible, setHeartbeatPulseVisible] = useState(false);
   const heartbeatPulseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [heartbeatNotification, setHeartbeatNotification] = useState<{ count: number; timestamp: number } | null>(null);
+  const [showHeartbeatNotif, setShowHeartbeatNotif] = useState(false);
   const [lastHeartbeatRun, setLastHeartbeatRun] = useState<number | null>(null);
   const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatLockRef = useRef(false);
@@ -770,6 +772,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           return e;
         });
         await updateDoc(userDocRef, { pact_entries_soltheory: updated });
+
+        // Store notification for when user returns
+        const notif = { count: discardIndices.size, timestamp: Date.now() };
+        localStorage.setItem(`st_heartbeat_notif_${params.agentId}`, JSON.stringify(notif));
+        setHeartbeatNotification(notif);
       }
 
       setLastHeartbeatRun(Date.now());
@@ -789,6 +796,29 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     if (saved) setHeartbeatInterval(saved);
     const savedPact = localStorage.getItem(`st_pact_enabled_${params.agentId}`);
     if (savedPact !== null) setPactEnabled(savedPact === 'true');
+    // Check for pending heartbeat notification
+    const savedNotif = localStorage.getItem(`st_heartbeat_notif_${params.agentId}`);
+    if (savedNotif) {
+      try {
+        const notif = JSON.parse(savedNotif);
+        if (notif.count > 0) {
+          setHeartbeatNotification(notif);
+          setShowHeartbeatNotif(true);
+          // Play notification ding
+          try {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+            osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5);
+          } catch {} // Audio might be blocked before interaction
+        }
+      } catch {}
+    }
     const savedLastRun = localStorage.getItem(`st_heartbeat_lastrun_${params.agentId}`);
     if (savedLastRun) setLastHeartbeatRun(parseInt(savedLastRun));
   }, [params.agentId]);
@@ -906,6 +936,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         if (lightboxImage) setLightboxImage(null);
         if (isObserverFullScreen) setIsObserverFullScreen(false);
         if (isKnowledgeBaseOpen) setIsKnowledgeBaseOpen(false);
+        if (showHeartbeatNotif) setShowHeartbeatNotif(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -914,7 +945,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isModelDropdownOpen, showCostBreakdown, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
+  }, [isModelDropdownOpen, showCostBreakdown, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen, showHeartbeatNotif]);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string }> = {
     "jarvis": {
@@ -2217,6 +2248,57 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Agent Eye</span>
             </button>
+
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setShowHeartbeatNotif(!showHeartbeatNotif)}
+                className={`relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all border ${heartbeatNotification ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-[#fefcf6] text-slate-400 border-slate-200 hover:text-slate-600'}`}
+                title="Notifications"
+              >
+                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                {heartbeatNotification && heartbeatNotification.count > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center animate-in zoom-in-50 duration-200">{heartbeatNotification.count}</span>
+                )}
+              </button>
+
+              {/* Notification Popup */}
+              {showHeartbeatNotif && heartbeatNotification && heartbeatNotification.count > 0 && (
+                <div className="absolute top-full right-0 mt-2 z-[200] w-[300px] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+                        <RefreshCw className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-slate-900 leading-tight">{agent.name.split(' ')[0]} cleaned {heartbeatNotification.count} P.A.C.T. {heartbeatNotification.count === 1 ? 'entry' : 'entries'}</p>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Review what was flagged before it auto-deletes.</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowHeartbeatNotif(false);
+                        setIsKnowledgeBaseOpen(true);
+                        setActiveSettingsTab('pact');
+                        // Clear notification
+                        localStorage.removeItem(`st_heartbeat_notif_${params.agentId}`);
+                        setHeartbeatNotification(null);
+                      }}
+                      className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      View in P.A.C.T.
+                    </button>
+                  </div>
+                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-100">
+                    <button onClick={() => { setShowHeartbeatNotif(false); localStorage.removeItem(`st_heartbeat_notif_${params.agentId}`); setHeartbeatNotification(null); }} className="text-[10px] text-slate-400 hover:text-slate-600 font-medium transition-colors">
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => { setIsKnowledgeBaseOpen(!isKnowledgeBaseOpen); }}
               className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-[#fefcf6] text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'}`}
