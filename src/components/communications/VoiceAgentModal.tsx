@@ -405,18 +405,20 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               // Real Mic Input — use time-domain waveform data for true oscilloscope visualization
               if (analyserRef.current) {
                 analyserRef.current.getByteTimeDomainData(timeDataArray);
-                // Sample evenly across the waveform buffer
+                // Sample evenly across the waveform buffer — use PEAK for dramatic movement
                 const samplesPerBar = Math.floor(timeDataArray.length / barCount);
-                let sum = 0;
+                let peak = 0;
                 for (let j = 0; j < samplesPerBar; j++) {
                   const idx = i * samplesPerBar + j;
                   // 128 is the center (silence). Displacement from center gives waveform shape.
-                  sum += (timeDataArray[idx] || 128) - 128;
+                  const val = (timeDataArray[idx] || 128) - 128;
+                  if (Math.abs(val) > Math.abs(peak)) peak = val;
                 }
-                // Average displacement, normalized to -1..+1 range, then scaled
-                const avgDisplacement = sum / samplesPerBar;
-                const normalized = avgDisplacement / 128; // -1 to +1
-                newBars.push(normalized * 95); // Scale to percentage
+                // Amplify significantly — voice typically only deviates ±20 from center
+                // 6x amplification makes the waveform visually responsive
+                const amplified = (peak / 128) * 6;
+                const clamped = Math.max(-95, Math.min(95, amplified * 95));
+                newBars.push(clamped);
               } else {
                 newBars.push(0);
               }

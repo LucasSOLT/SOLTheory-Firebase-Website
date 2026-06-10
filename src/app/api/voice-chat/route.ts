@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     }
 
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      systemPrompt += "\n\n[P.A.C.T. — PERSONALIZED USER CONTEXT]\nYou have learned the following facts about this specific user from previous conversations. Use this knowledge naturally when relevant. Do not repeat these facts unprompted.\n\n" + pactText.substring(0, 5000);
+      systemPrompt += "\n\n[P.A.C.T. — PERSONALIZED USER CONTEXT]\nYou have learned the following facts about this specific user from previous conversations. RULES FOR USING THIS CONTEXT:\n1. NEVER proactively bring up, reference, or ask about any of these facts. Do NOT say things like \"How did X go?\" or \"Last time you mentioned Y.\"\n2. ONLY use this information if the user EXPLICITLY brings up the topic first in the CURRENT conversation.\n3. If the user mentions a topic that relates to a fact below, you may use it to give a more informed response.\n4. Treat this as passive background knowledge, NOT as a conversation starter or follow-up list.\n5. These facts may be outdated. Do not assume they are still current.\n\n" + pactText.substring(0, 5000);
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });

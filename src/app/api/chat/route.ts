@@ -553,7 +553,7 @@ RESPONSE QUALITY REFERENCE:
       const cappedPact = pactText.substring(0, 12000);
       groqMessages.push({
         role: "system",
-        content: `[P.A.C.T. — PERSONALIZED USER CONTEXT / LONG-TERM MEMORY]\nYou have learned the following facts about this specific user from ALL previous conversations. This is your long-term memory — treat it as ground truth about this person. Use this knowledge naturally, proactively, and contextually:\n- Reference their preferences, interests, and history when relevant\n- Connect new questions to things you know about them\n- Personalize recommendations based on their background\n- Never say "I don't know anything about you" if facts exist here\n\n${cappedPact}`
+        content: `[P.A.C.T. — PERSONALIZED USER CONTEXT / LONG-TERM MEMORY]\nYou have learned the following facts about this specific user from previous conversations. RULES FOR USING THIS CONTEXT:\n1. NEVER proactively bring up, reference, or ask about any of these facts unprompted. Do NOT say things like "How did X go?" or "Last time you mentioned Y" or "By the way, how was Z?"\n2. ONLY use this information if the user EXPLICITLY brings up the topic first in the CURRENT conversation.\n3. If the user mentions a topic that relates to a fact below, you may use it to give a more personalized, informed response.\n4. Treat this as passive background knowledge — NOT as a conversation starter, follow-up checklist, or list of things to ask about.\n5. These facts may be outdated. Do not assume they are still current or relevant.\n6. Never say "I don't know anything about you" if facts exist here — but wait for the user to raise the topic.\n\n${cappedPact}`
       });
     }
 
