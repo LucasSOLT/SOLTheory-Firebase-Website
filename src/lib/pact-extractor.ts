@@ -7,15 +7,18 @@ import { Groq } from "groq-sdk";
  * Uses a cheap, fast model (llama-3.1-8b-instant) to avoid latency.
  */
 
-const EXTRACTION_PROMPT = `You are a fact extractor. Given a conversation exchange between a user and an AI assistant, extract any personal facts, preferences, relationships, or biographical details the user revealed about themselves.
+const EXTRACTION_PROMPT = `You are a fact extractor. Given a conversation exchange between a user and an AI assistant, extract any personal facts, preferences, relationships, context, or details the user revealed about themselves.
 
 Return a JSON array of objects with "question" and "answer" fields. The question should be phrased as if asking about the user. The answer should be a concise factual statement.
 
 Rules:
-- Only extract DECLARATIVE, FACTUAL information the user explicitly stated (names, ages, relationships, preferences, locations, job details, etc.)
-- CRITICAL: Do NOT extract information if the user is asking a question (e.g. "How old am I?", "Where do I live?"). These are not facts.
-- Do NOT extract opinions, greetings, small talk, or task requests (like "send an email" or "schedule a meeting")
+- Extract any fact, preference, detail, habit, or context about the user that could be useful later
+- Be liberal — capture anything that feels like a real detail about this person
+- The system will automatically clean up low-quality entries, so err on the side of capturing more
+- Examples of things to store: name, location, job, family, preferences, goals, interests, relationships, contact info, past events, opinions, habits, hobbies
+- CRITICAL: Do NOT extract information if the user is asking a question (e.g. "How old am I?"). These are not facts.
 - Do NOT extract information about the AI or system — only about the HUMAN user
+- Do NOT extract task requests (like "send an email" or "schedule a meeting")
 - If no personal facts were shared, return an empty array []
 - Keep questions and answers concise (1 sentence max each)
 - Use the user's name if known

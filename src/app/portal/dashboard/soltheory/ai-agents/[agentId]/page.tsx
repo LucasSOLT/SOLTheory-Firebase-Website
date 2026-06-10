@@ -625,9 +625,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [ragTextContent, setRagTextContent] = useState("");
 
   // P.A.C.T. — Personalized AI Conversation Training
-  type PACTEntry = { id: string; question: string; answer: string; source: string; orgId: string; createdAt: number; updatedAt: number };
+  type PACTEntry = { id: string; question: string; answer: string; source: string; orgId: string; createdAt: number; updatedAt: number; markedForDeletion?: number; deletionReason?: string };
   const [pactEntries, setPactEntries] = useState<PACTEntry[]>([]);
   const [pactLoaded, setPactLoaded] = useState(false);
+
+  // Heartbeat — autonomous PACT cleanup
+  const [heartbeatInterval, setHeartbeatInterval] = useState<string>("off");
+  const [heartbeatRunning, setHeartbeatRunning] = useState(false);
+  const [lastHeartbeatRun, setLastHeartbeatRun] = useState<number | null>(null);
+  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatLockRef = useRef(false);
 
   const fetchRAGDocs = async () => {
     if (!user?.uid || !firestore) return;
@@ -665,7 +672,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           source: item.source || "server_background",
           orgId: "soltheory",
           createdAt: item.createdAt || Date.now(),
-          updatedAt: item.updatedAt || Date.now()
+          updatedAt: item.updatedAt || Date.now(),
+          markedForDeletion: item.markedForDeletion || undefined,
+          deletionReason: item.deletionReason || undefined
         });
       });
 
@@ -682,10 +691,128 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   }, [user?.uid, firestore]);
 
-  // Build PACT text for API injection
+  // Build PACT text for API injection — exclude soft-deleted entries
   const pactText = pactEntries.length > 0
-    ? pactEntries.map(e => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")
+    ? pactEntries.filter(e => !e.markedForDeletion).map(e => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")
     : "";
+
+  // Heartbeat — autonomous PACT cleanup
+  const runHeartbeatCleanup = useCallback(async () => {
+    if (heartbeatLockRef.current || !user?.uid || !firestore) return;
+    heartbeatLockRef.current = true;
+    setHeartbeatRunning(true);
+    try {
+      const { getDoc, doc, updateDoc } = await import("firebase/firestore");
+      const userDocRef = doc(firestore, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      let currentEntries: any[] = userDocSnap.data()?.pact_entries_soltheory || [];
+
+      // Phase 1: Auto-purge entries marked > 24 hours ago
+      const now = Date.now();
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+      const beforePurge = currentEntries.length;
+      currentEntries = currentEntries.filter((e: any) => {
+        if (e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS) return false;
+        return true;
+      });
+      if (currentEntries.length !== beforePurge) {
+        await updateDoc(userDocRef, { pact_entries_soltheory: currentEntries });
+      }
+
+      // Phase 2: Evaluate active (non-marked) entries via LLM
+      const activeEntries = currentEntries.filter((e: any) => !e.markedForDeletion);
+      if (activeEntries.length === 0) {
+        setLastHeartbeatRun(Date.now());
+        setHeartbeatRunning(false);
+        heartbeatLockRef.current = false;
+        await fetchPACTEntries();
+        return;
+      }
+
+      const res = await fetch("/api/pact-evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries: activeEntries.map((e: any) => ({ question: e.question, answer: e.answer })),
+          userName: user?.displayName || undefined
+        })
+      });
+      const data = await res.json();
+      const decisions: any[] = data.decisions || [];
+
+      // Build a map of active entry indices that should be discarded
+      const discardIndices = new Set<number>();
+      const reasonMap = new Map<number, string>();
+      decisions.forEach((d: any) => {
+        if (!d.keep && typeof d.index === "number") {
+          discardIndices.add(d.index);
+          reasonMap.set(d.index, d.reason || "Low value");
+        }
+      });
+
+      if (discardIndices.size > 0) {
+        // Map active entry indices back to the full array
+        let activeIdx = 0;
+        const updated = currentEntries.map((e: any) => {
+          if (!e.markedForDeletion) {
+            if (discardIndices.has(activeIdx)) {
+              const reason = reasonMap.get(activeIdx) || "Low value";
+              activeIdx++;
+              return { ...e, markedForDeletion: Date.now(), deletionReason: reason };
+            }
+            activeIdx++;
+          }
+          return e;
+        });
+        await updateDoc(userDocRef, { pact_entries_soltheory: updated });
+      }
+
+      setLastHeartbeatRun(Date.now());
+      await fetchPACTEntries();
+    } catch (err) {
+      console.error("[Heartbeat] Cleanup error:", err);
+    } finally {
+      setHeartbeatRunning(false);
+      heartbeatLockRef.current = false;
+    }
+  }, [user?.uid, firestore, user?.displayName]);
+
+  // Heartbeat interval management
+  useEffect(() => {
+    // Load saved interval
+    const saved = localStorage.getItem(`st_heartbeat_interval_${params.agentId}`);
+    if (saved) setHeartbeatInterval(saved);
+    const savedLastRun = localStorage.getItem(`st_heartbeat_lastrun_${params.agentId}`);
+    if (savedLastRun) setLastHeartbeatRun(parseInt(savedLastRun));
+  }, [params.agentId]);
+
+  useEffect(() => {
+    localStorage.setItem(`st_heartbeat_interval_${params.agentId}`, heartbeatInterval);
+  }, [heartbeatInterval, params.agentId]);
+
+  useEffect(() => {
+    if (lastHeartbeatRun) localStorage.setItem(`st_heartbeat_lastrun_${params.agentId}`, String(lastHeartbeatRun));
+  }, [lastHeartbeatRun, params.agentId]);
+
+  useEffect(() => {
+    if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+    if (heartbeatInterval === "off") return;
+
+    const intervalMs: Record<string, number> = {
+      "5m": 5 * 60 * 1000, "10m": 10 * 60 * 1000, "15m": 15 * 60 * 1000,
+      "30m": 30 * 60 * 1000, "1h": 60 * 60 * 1000, "2h": 2 * 60 * 60 * 1000, "4h": 4 * 60 * 60 * 1000
+    };
+    const ms = intervalMs[heartbeatInterval];
+    if (!ms) return;
+
+    heartbeatTimerRef.current = setInterval(() => {
+      runHeartbeatCleanup();
+    }, ms);
+
+    return () => {
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+    };
+  }, [heartbeatInterval, runHeartbeatCleanup]);
 
 
 
@@ -2176,6 +2303,77 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
                       </div>
 
+                      {/* Heartbeat Section */}
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center relative">
+                              <Bot className="w-4 h-4 text-white" />
+                              {heartbeatInterval !== "off" && <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900 text-sm">The Heartbeat</h4>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Autonomous Memory Cleanup</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">Step 3</span>
+                        </div>
+                        <div className="p-6 pt-4 space-y-4">
+                          <p className="text-xs text-slate-500 leading-relaxed">Periodically evaluates P.A.C.T. entries and soft-deletes low-value facts. Marked entries auto-purge after 24 hours unless you cancel.</p>
+
+                          {/* Interval Slider */}
+                          <div>
+                            <label className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-2 block">Cleanup Interval</label>
+                            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl p-1 gap-0">
+                              {[
+                                { value: "off", label: "Off" },
+                                { value: "5m", label: "5m" },
+                                { value: "10m", label: "10m" },
+                                { value: "15m", label: "15m" },
+                                { value: "30m", label: "30m" },
+                                { value: "1h", label: "1h" },
+                                { value: "2h", label: "2h" },
+                                { value: "4h", label: "4h" },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => setHeartbeatInterval(opt.value)}
+                                  className={`flex-1 py-2 text-[11px] font-bold rounded-lg transition-all ${
+                                    heartbeatInterval === opt.value
+                                      ? "bg-slate-900 text-white shadow-sm"
+                                      : "text-slate-500 hover:text-slate-700"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Status + Run Now */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${heartbeatInterval === "off" ? "bg-slate-100 text-slate-500" : "bg-blue-50 text-blue-600 border border-blue-200"}`}>
+                                <div className={`w-2 h-2 rounded-full ${heartbeatInterval === "off" ? "bg-slate-400" : "bg-blue-500 animate-pulse"}`} />
+                                {heartbeatInterval === "off" ? "Inactive" : "Active"}
+                              </div>
+                              {lastHeartbeatRun && (
+                                <span className="text-[10px] text-slate-400">Last run: {new Date(lastHeartbeatRun).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={heartbeatRunning || !user?.uid}
+                              onClick={() => runHeartbeatCleanup()}
+                              className="text-xs font-bold text-slate-600 hover:text-slate-900 gap-1.5 h-8"
+                            >
+                              {heartbeatRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                              {heartbeatRunning ? "Running..." : "Run Now"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* Save Button */}
                       <div className="flex justify-center pt-2 pb-8">
@@ -2244,7 +2442,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                     </div>
                   ) : activeSettingsTab === "pact" ? (
-                    /* ═══ P.A.C.T. TAB ═══ */
                     <div className="space-y-5 animate-in fade-in duration-300">
                       <div className="border border-slate-200 rounded-2xl p-6 bg-white">
                         <div className="flex items-center justify-between">
@@ -2256,12 +2453,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               P.A.C.T. Memory
                             </h3>
                             <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
-                              Facts {agent.name.split(' ')[0]} has learned about you. Automatically extracted from conversations and used as passive context.
+                              Facts {agent.name.split(' ')[0]} has learned about you. The Heartbeat periodically reviews and cleans up low-value entries.
                             </p>
                           </div>
-                          <div className="text-right shrink-0 ml-6 border border-slate-200 rounded-xl px-4 py-2">
-                            <div className="text-xl font-black text-slate-900 tabular-nums">{pactEntries.length}</div>
-                            <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">{pactEntries.length === 1 ? 'Fact' : 'Facts'}</div>
+                          <div className="flex items-center gap-3 shrink-0 ml-6">
+                            <div className="border border-slate-200 rounded-xl px-4 py-2 text-center">
+                              <div className="text-xl font-black text-slate-900 tabular-nums">{pactEntries.filter(e => !e.markedForDeletion).length}</div>
+                              <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Active</div>
+                            </div>
+                            {pactEntries.filter(e => e.markedForDeletion).length > 0 && (
+                              <div className="border border-red-200 bg-red-50 rounded-xl px-4 py-2 text-center">
+                                <div className="text-xl font-black text-red-500 tabular-nums">{pactEntries.filter(e => e.markedForDeletion).length}</div>
+                                <div className="text-[9px] text-red-400 uppercase tracking-wider font-bold">Expiring</div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2276,39 +2481,89 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                          {pactEntries.map((entry, idx) => (
-                            <div key={entry.id} className="border border-slate-200 rounded-xl bg-white px-5 py-4 hover:bg-slate-50/50 hover:border-slate-300 transition-all group">
+                          {[...pactEntries].sort((a, b) => {
+                            // Active entries first, marked entries last
+                            if (a.markedForDeletion && !b.markedForDeletion) return 1;
+                            if (!a.markedForDeletion && b.markedForDeletion) return -1;
+                            return 0;
+                          }).map((entry, idx) => {
+                            const isMarked = !!entry.markedForDeletion;
+                            const hoursLeft = isMarked ? Math.max(0, Math.ceil((24 * 60 * 60 * 1000 - (Date.now() - entry.markedForDeletion!)) / (60 * 60 * 1000))) : 0;
+
+                            return (
+                            <div key={entry.id} className={`border rounded-xl px-5 py-4 transition-all group ${
+                              isMarked
+                                ? "border-red-200 bg-red-50/30"
+                                : "border-slate-200 bg-white hover:bg-slate-50/50 hover:border-slate-300"
+                            }`}>
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="text-[10px] font-black text-white bg-slate-900 w-5 h-5 rounded flex items-center justify-center shrink-0">{idx + 1}</span>
-                                    <span className="text-sm font-semibold text-slate-900 leading-tight">{entry.question}</span>
+                                    <span className={`text-[10px] font-black w-5 h-5 rounded flex items-center justify-center shrink-0 ${isMarked ? "bg-red-500 text-white" : "bg-slate-900 text-white"}`}>{idx + 1}</span>
+                                    <span className={`text-sm font-semibold leading-tight ${isMarked ? "line-through text-slate-400" : "text-slate-900"}`}>{entry.question}</span>
                                   </div>
-                                  <p className="text-sm text-slate-600 pl-7 leading-relaxed">{entry.answer}</p>
-                                  <div className="flex items-center gap-2 mt-2 pl-7">
+                                  <p className={`text-sm pl-7 leading-relaxed ${isMarked ? "line-through text-slate-400" : "text-slate-600"}`}>{entry.answer}</p>
+                                  <div className="flex items-center gap-2 mt-2 pl-7 flex-wrap">
                                     <span className="text-[10px] text-slate-400 font-medium">{entry.source === "voice" ? "Voice" : "Text"}</span>
                                     <span className="text-[10px] text-slate-300">·</span>
                                     <span className="text-[10px] text-slate-400 font-medium">{new Date(entry.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                    {isMarked && (
+                                      <>
+                                        <span className="text-[10px] text-slate-300">·</span>
+                                        <span className="text-[9px] font-bold text-red-500 bg-red-100 px-1.5 py-0.5 rounded">{entry.deletionReason || "Flagged"}</span>
+                                        <span className="text-[10px] text-red-400 font-medium">Auto-deletes in {hoursLeft}h</span>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
-                                <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 rounded-lg h-8 w-8" onClick={async () => {
-                                  if (!user?.uid || !firestore) return;
-                                  try {
-                                    const { getDoc, doc, updateDoc } = await import("firebase/firestore");
-                                    const userDocRef = doc(firestore, "users", user.uid);
-                                    const userDocSnap = await getDoc(userDocRef);
-                                    const currentEntries: any[] = userDocSnap.data()?.pact_entries_soltheory || [];
-                                    const filtered = currentEntries.filter((e: any) => !(e.question === entry.question && e.answer === entry.answer));
-                                    await updateDoc(userDocRef, { pact_entries_soltheory: filtered });
-                                    logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted PACT entry: ${entry.question}`);
-                                    setPactEntries(prev => prev.filter(e => e.id !== entry.id));
-                                  } catch (err) { console.error("Failed to delete PACT entry", err); }
-                                }}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
+                                {isMarked ? (
+                                  /* Cancel button — ⊘ restores entry */
+                                  <Button variant="ghost" size="icon" className="text-red-400 hover:text-slate-900 hover:bg-slate-100 transition-all shrink-0 rounded-lg h-8 w-8" title="Cancel deletion — keep this fact" onClick={async () => {
+                                    if (!user?.uid || !firestore) return;
+                                    try {
+                                      const { getDoc, doc, updateDoc } = await import("firebase/firestore");
+                                      const userDocRef = doc(firestore, "users", user.uid);
+                                      const userDocSnap = await getDoc(userDocRef);
+                                      const currentEntries: any[] = userDocSnap.data()?.pact_entries_soltheory || [];
+                                      const updated = currentEntries.map((e: any) =>
+                                        (e.question === entry.question && e.answer === entry.answer)
+                                          ? { ...e, markedForDeletion: undefined, deletionReason: undefined }
+                                          : e
+                                      );
+                                      // Clean up undefined fields
+                                      const cleaned = updated.map((e: any) => {
+                                        const { markedForDeletion, deletionReason, ...rest } = e;
+                                        if (markedForDeletion) return e;
+                                        return rest;
+                                      });
+                                      await updateDoc(userDocRef, { pact_entries_soltheory: cleaned });
+                                      setPactEntries(prev => prev.map(e => e.id === entry.id ? { ...e, markedForDeletion: undefined, deletionReason: undefined } : e));
+                                    } catch (err) { console.error("Failed to restore PACT entry", err); }
+                                  }}>
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                                  </Button>
+                                ) : (
+                                  /* Delete button */
+                                  <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 rounded-lg h-8 w-8" onClick={async () => {
+                                    if (!user?.uid || !firestore) return;
+                                    try {
+                                      const { getDoc, doc, updateDoc } = await import("firebase/firestore");
+                                      const userDocRef = doc(firestore, "users", user.uid);
+                                      const userDocSnap = await getDoc(userDocRef);
+                                      const currentEntries: any[] = userDocSnap.data()?.pact_entries_soltheory || [];
+                                      const filtered = currentEntries.filter((e: any) => !(e.question === entry.question && e.answer === entry.answer));
+                                      await updateDoc(userDocRef, { pact_entries_soltheory: filtered });
+                                      logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted PACT entry: ${entry.question}`);
+                                      setPactEntries(prev => prev.filter(e => e.id !== entry.id));
+                                    } catch (err) { console.error("Failed to delete PACT entry", err); }
+                                  }}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
