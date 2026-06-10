@@ -1980,7 +1980,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     <div className="flex w-full flex-1 min-h-0 bg-[#faf6ed] text-slate-800 overflow-hidden font-sans selection:bg-fuchsia-500/30" style={{ height: '100%', maxHeight: '100dvh' }}>
 
       {/* Sessions Sidebar */}
-      <div className="hidden md:flex flex-col bg-white/80 backdrop-blur-3xl border-r border-slate-200 shrink-0 z-20 relative overflow-hidden" style={{ width: isChatSidebarCollapsed ? 0 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
+      <div className="hidden md:flex flex-col bg-[#fefcf6]/90 backdrop-blur-3xl border-r border-slate-200 shrink-0 z-20 relative overflow-hidden" style={{ width: isChatSidebarCollapsed ? 0 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
         {/* Sidebar header unchanged for brevity (Using standard implementation) */}
         <div className="p-4 flex flex-col gap-3 border-b border-slate-200">
           {/* Model Selector */}
