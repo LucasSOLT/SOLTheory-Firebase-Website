@@ -26,7 +26,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState<Phase>("listening");
-  const [bars, setBars] = useState<number[]>(Array(32).fill(4));
+  const [bars, setBars] = useState<number[]>(Array(32).fill(0));
   const [elapsed, setElapsed] = useState(0);
   const [transcriptLines, setTranscriptLines] = useState<TranscriptLine[]>([]);
   const [liveText, setLiveText] = useState("");
@@ -323,6 +323,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         analyserRef.current = analyser;
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const timeDataArray = new Uint8Array(analyser.fftSize);
 
         const tick = () => {
           if (cancelledRef.current) return;
@@ -362,38 +363,40 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             }
           }
 
-          const binStep = Math.floor(dataArray.length / barCount);
-
           for (let i = 0; i < barCount; i++) {
-            let binVal = 0;
             if (phaseRef.current === "speaking" || phaseRef.current === "processing") {
               // Rich AI speaking visualizer with dynamic jumping
               const t = Date.now() / 1000;
               const center = barCount / 2;
-
-              // Bell curve: center bars are taller
               const gaussian = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(barCount / 4.5, 2)));
-
-              // Dynamic jumping and speaking simulation
-              const speed = phaseRef.current === "processing" ? 3 : 15; // Faster when speaking
-
-              // Create a chaotic bounce that looks like speech modulation
-              const bounce = Math.abs(Math.sin(t * speed + i * 0.4)) * 0.5 +
-                Math.abs(Math.sin(t * speed * 1.5 - i * 0.2)) * 0.5;
-
-              // Random high spikes mimicking syllables when speaking
+              const speed = phaseRef.current === "processing" ? 3 : 15;
+              const wave = Math.sin(t * speed + i * 0.4) * 0.5 +
+                Math.sin(t * speed * 1.5 - i * 0.2) * 0.5;
               const isSpeaking = phaseRef.current === "speaking";
-              const randomSpike = isSpeaking && Math.random() > 0.85 ? Math.random() * 0.8 : 0;
-
-              const baseAmplitude = isSpeaking ? 90 : 30; // Taller when speaking
-              binVal = (gaussian * baseAmplitude * (bounce * 0.7 + 0.3 + randomSpike)) + 12;
+              const randomSpike = isSpeaking && Math.random() > 0.85 ? (Math.random() - 0.5) * 1.6 : 0;
+              const baseAmplitude = isSpeaking ? 90 : 30;
+              // Signed value: oscillates above and below center
+              newBars.push(gaussian * baseAmplitude * (wave * 0.7 + randomSpike) * 0.01);
             } else {
-              // Real Mic Input
-              for (let j = 0; j < binStep; j++) binVal += dataArray[i * binStep + j] || 0;
-              binVal = binVal / binStep;
-              binVal = (binVal / 255) * 95;
+              // Real Mic Input — use time-domain waveform data for true oscilloscope visualization
+              if (analyserRef.current) {
+                analyserRef.current.getByteTimeDomainData(timeDataArray);
+                // Sample evenly across the waveform buffer
+                const samplesPerBar = Math.floor(timeDataArray.length / barCount);
+                let sum = 0;
+                for (let j = 0; j < samplesPerBar; j++) {
+                  const idx = i * samplesPerBar + j;
+                  // 128 is the center (silence). Displacement from center gives waveform shape.
+                  sum += (timeDataArray[idx] || 128) - 128;
+                }
+                // Average displacement, normalized to -1..+1 range, then scaled
+                const avgDisplacement = sum / samplesPerBar;
+                const normalized = avgDisplacement / 128; // -1 to +1
+                newBars.push(normalized * 95); // Scale to percentage
+              } else {
+                newBars.push(0);
+              }
             }
-            newBars.push(Math.max(3, binVal));
           }
           setBars(newBars);
           animFrameRef.current = requestAnimationFrame(tick);
@@ -520,7 +523,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       setIsPaused(false);
       setTranscriptLines([]);
       setLiveText("");
-      setBars(Array(32).fill(4));
+      setBars(Array(32).fill(0));
       accumulatedTextRef.current = "";
       conversationRef.current = [];
       interruptFrameCount.current = 0;
@@ -745,16 +748,28 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             <div className="w-full max-w-[200px] mt-4 relative">
               <div className="relative h-16 flex items-center justify-center">
                 <div className={`absolute inset-0 rounded-full blur-[40px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
-                <div className="relative flex items-center justify-center gap-1 h-full w-full">
-                  {bars.slice(0, 24).map((h, i) => (
-                    <div key={i} className={`rounded-full transition-[height,background-color] duration-[120ms] ease-out bg-gradient-to-t shadow-sm ${g.bar[ac]}`}
-                      style={{
-                        width: "4px",
-                        height: `${Math.max(4, isMicMuted || isPaused ? 8 : h)}%`,
-                        opacity: isMicMuted || isPaused ? 0.3 : 0.8 + (h / 100) * 0.2
-                      }}
-                    />
-                  ))}
+                <div className="relative flex items-center justify-center h-full w-full" style={{ gap: '1px' }}>
+                  {bars.slice(0, 24).map((val, i) => {
+                    const displacement = isMicMuted || isPaused ? 0 : val;
+                    const absHeight = Math.abs(displacement);
+                    const barHeight = Math.max(1.5, absHeight);
+                    const barPct = barHeight;
+                    const topPct = displacement >= 0 ? 50 - barPct : 50;
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-full bg-gradient-to-t ${g.bar[ac]}`}
+                        style={{
+                          width: '3px',
+                          position: 'relative' as const,
+                          height: `${barPct}%`,
+                          marginTop: `${topPct - 50 + (50 - barPct / 2)}%`,
+                          opacity: isMicMuted || isPaused ? 0.3 : 0.6 + (absHeight / 100) * 0.4,
+                          transition: 'height 80ms ease-out, margin-top 80ms ease-out, opacity 200ms ease',
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -911,16 +926,34 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {/* Ambient Background Glow */}
             <div className={`absolute inset-0 rounded-full blur-[80px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
 
-            <div className="relative flex items-center justify-center gap-[3px] sm:gap-2 h-full w-full">
-              {bars.map((h, i) => (
-                <div key={i} className={`rounded-full transition-[height,background-color] duration-[120ms] ease-out bg-gradient-to-t shadow-sm ${g.bar[ac]}`}
-                  style={{
-                    width: "8px",
-                    height: `${Math.max(4, isMicMuted || isPaused ? 8 : h)}%`,
-                    opacity: isMicMuted || isPaused ? 0.3 : 0.8 + (h / 100) * 0.2
-                  }}
-                />
-              ))}
+            <div className="relative flex items-center justify-center h-full w-full" style={{ gap: 'clamp(1px, 0.4vw, 6px)' }}>
+              {bars.map((val, i) => {
+                const displacement = isMicMuted || isPaused ? 0 : val;
+                const absHeight = Math.abs(displacement);
+                // Minimum bar height for the resting flat line look
+                const barHeight = Math.max(1.5, absHeight);
+                const containerH = 100; // percentage of parent
+                const barPct = (barHeight / 100) * containerH;
+                // Center offset: shift up if positive, down if negative
+                const topPct = displacement >= 0
+                  ? 50 - barPct // extends upward from center
+                  : 50;         // extends downward from center
+
+                return (
+                  <div
+                    key={i}
+                    className={`rounded-full bg-gradient-to-t ${g.bar[ac]}`}
+                    style={{
+                      width: 'clamp(3px, 0.6vw, 8px)',
+                      position: 'relative' as const,
+                      height: `${barPct}%`,
+                      marginTop: `${topPct - 50 + (50 - barPct / 2)}%`,
+                      opacity: isMicMuted || isPaused ? 0.3 : 0.6 + (absHeight / 100) * 0.4,
+                      transition: 'height 80ms ease-out, margin-top 80ms ease-out, opacity 200ms ease',
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>
