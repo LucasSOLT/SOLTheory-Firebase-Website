@@ -800,19 +800,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                     const displacement = isMicMuted || isPaused ? 0 : val;
                     const absHeight = Math.abs(displacement);
                     const barHeight = Math.max(1.5, absHeight);
-                    const barPct = barHeight;
-                    const topPct = displacement >= 0 ? 50 - barPct : 50;
+                    const translateY = displacement * -0.5;
                     return (
                       <div
                         key={i}
                         className={`rounded-full bg-gradient-to-t ${g.bar[ac]}`}
                         style={{
                           width: '3px',
-                          position: 'relative' as const,
-                          height: `${barPct}%`,
-                          marginTop: `${topPct - 50 + (50 - barPct / 2)}%`,
+                          height: `${barHeight}%`,
+                          transform: `translateY(${translateY}%)`,
                           opacity: isMicMuted || isPaused ? 0.3 : 0.6 + (absHeight / 100) * 0.4,
-                          transition: 'height 80ms ease-out, margin-top 80ms ease-out, opacity 200ms ease',
+                          transition: 'height 80ms ease-out, transform 80ms ease-out, opacity 200ms ease',
                         }}
                       />
                     );
@@ -957,7 +955,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             title="Adjust how long Jarvis waits before responding"
           >
             <option value={750} className="text-slate-900">Rapid (0.75s pause)</option>
-            <option value={500} className="text-slate-900">Fast (0.5s pause)</option>
             <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
             <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
             <option value={5000} className="text-slate-900">Very Slow (5.0s pause)</option>
@@ -968,9 +965,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         <h2 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-2">{agentName}</h2>
         <p className="text-slate-400 text-sm font-medium">{formatTime(elapsed)}</p>
 
-        {/* Waveform */}
-        <div className="w-full max-w-[280px] sm:max-w-2xl mt-2 mb-6 relative">
-          <div className="relative h-32 sm:h-48 flex items-center justify-center">
+        {/* Waveform — positioned 1/3 between title and status */}
+        <div className="w-full max-w-[280px] sm:max-w-2xl mt-8 sm:mt-14 mb-auto relative">
+          <div className="relative h-28 sm:h-40 flex items-center justify-center">
             {/* Ambient Background Glow */}
             <div className={`absolute inset-0 rounded-full blur-[80px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
 
@@ -980,12 +977,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 const absHeight = Math.abs(displacement);
                 // Minimum bar height for the resting flat line look
                 const barHeight = Math.max(1.5, absHeight);
-                const containerH = 100; // percentage of parent
-                const barPct = (barHeight / 100) * containerH;
-                // Center offset: shift up if positive, down if negative
-                const topPct = displacement >= 0
-                  ? 50 - barPct // extends upward from center
-                  : 50;         // extends downward from center
+                // Transform: negative displacement = translate up, positive = translate down
+                // At rest (displacement=0), no transform — bars sit centered via flex align-items:center
+                const translateY = displacement * -0.5;
 
                 return (
                   <div
@@ -993,11 +987,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                     className={`rounded-full bg-gradient-to-t ${g.bar[ac]}`}
                     style={{
                       width: 'clamp(3px, 0.6vw, 8px)',
-                      position: 'relative' as const,
-                      height: `${barPct}%`,
-                      marginTop: `${topPct - 50 + (50 - barPct / 2)}%`,
+                      height: `${barHeight}%`,
+                      transform: `translateY(${translateY}%)`,
                       opacity: isMicMuted || isPaused ? 0.3 : 0.6 + (absHeight / 100) * 0.4,
-                      transition: 'height 80ms ease-out, margin-top 80ms ease-out, opacity 200ms ease',
+                      transition: 'height 80ms ease-out, transform 80ms ease-out, opacity 200ms ease',
                     }}
                   />
                 );
@@ -1006,7 +999,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-2 mb-8">
+        <div className="flex flex-col items-center gap-2 mb-6 mt-auto">
           <span className={`text-sm font-black uppercase tracking-[0.25em] ${g.text[ac]} transition-colors duration-500`}>{statusLabel}</span>
         </div>
 
