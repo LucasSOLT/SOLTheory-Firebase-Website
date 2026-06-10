@@ -29,6 +29,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [notifications, setNotifications] = useState<any[]>([]);
   const router = useRouter();
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
+  const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem('st_deleted_notifications') || '[]'); } catch { return []; }
+  });
   const [latestNotifId, setLatestNotifId] = useState<string | null>(null);
   const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -201,7 +205,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (mapped.length > 0) {
           setNotifications(prev => {
             const filtered = prev.filter(p => !p.id.startsWith('heartbeat-'));
-            return [...filtered, ...mapped].sort((a, b) => b.time - a.time);
+            return [...filtered, ...mapped].filter(n => !deletedNotifIds.includes(n.id)).sort((a, b) => b.time - a.time);
           });
         }
       }
@@ -276,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const notifs = processTickets(snap.docs, 'sender');
       setNotifications(prev => {
         const filtered = prev.filter(n => !n.id.startsWith('ticket-status-') && !n.id.startsWith('ticket-msg-'));
-        return [...filtered, ...notifs].sort((a,b) => b.time - a.time);
+        return [...filtered, ...notifs].filter(n => !deletedNotifIds.includes(n.id)).sort((a,b) => b.time - a.time);
       });
     });
 
@@ -284,7 +288,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const notifs = processTickets(snap.docs, 'receiver');
       setNotifications(prev => {
         const existing = prev.filter(n => !notifs.find(nn => nn.id === n.id));
-        return [...existing, ...notifs].sort((a,b) => b.time - a.time);
+        return [...existing, ...notifs].filter(n => !deletedNotifIds.includes(n.id)).sort((a,b) => b.time - a.time);
       });
     });
 
@@ -322,7 +326,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (dmNotifs.length > 0) {
           setNotifications(prev => {
             const filtered = prev.filter(n => !n.id.startsWith('dm-'));
-            return [...filtered, ...dmNotifs].sort((a, b) => b.time - a.time);
+            return [...filtered, ...dmNotifs].filter(n => !deletedNotifIds.includes(n.id)).sort((a, b) => b.time - a.time);
           });
         }
       }, (error) => {
@@ -385,7 +389,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         });
         setNotifications(prev => {
           const filtered = prev.filter(n => !n.id.startsWith('task-'));
-          return [...filtered, ...taskNotifs].sort((a, b) => b.time - a.time);
+          return [...filtered, ...taskNotifs].filter(n => !deletedNotifIds.includes(n.id)).sort((a, b) => b.time - a.time);
         });
       }, (error) => {
         console.warn('Action Board notification listener error (non-fatal):', error.message);
@@ -426,7 +430,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (ticketNotifs.length > 0) {
           setNotifications(prev => {
             const filtered = prev.filter(n => !n.id.startsWith('new-ticket-'));
-            return [...filtered, ...ticketNotifs].sort((a, b) => b.time - a.time);
+            return [...filtered, ...ticketNotifs].filter(n => !deletedNotifIds.includes(n.id)).sort((a, b) => b.time - a.time);
           });
         }
       }, (error) => {
@@ -471,7 +475,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (surveyNotifs.length > 0) {
           setNotifications(prev => {
             const filtered = prev.filter(n => !n.id.startsWith('survey-'));
-            return [...filtered, ...surveyNotifs].sort((a, b) => b.time - a.time);
+            return [...filtered, ...surveyNotifs].filter(n => !deletedNotifIds.includes(n.id)).sort((a, b) => b.time - a.time);
           });
         }
       }, (error) => {
@@ -515,7 +519,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (msgNotifs.length > 0) {
           setNotifications(prev => {
             const filtered = prev.filter(n => !n.id.startsWith('org-msg-'));
-            return [...filtered, ...msgNotifs].sort((a, b) => b.time - a.time);
+            return [...filtered, ...msgNotifs].filter(n => !deletedNotifIds.includes(n.id)).sort((a, b) => b.time - a.time);
           });
         }
       }, (error) => {
@@ -1359,18 +1363,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setNotifications(prev => {
-                                        const updated = prev.filter(p => p.id !== n.id);
-                                        // Also remove from localStorage
-                                        try {
-                                          const raw = localStorage.getItem('st_all_notifications');
-                                          if (raw) {
-                                            const parsed = JSON.parse(raw).filter((p: any) => p.id !== n.id);
-                                            localStorage.setItem('st_all_notifications', JSON.stringify(parsed));
-                                          }
-                                        } catch {}
+                                      // Track deleted ID so Firestore listeners don't re-add it
+                                      setDeletedNotifIds(prev => {
+                                        const updated = [...prev, n.id];
+                                        localStorage.setItem('st_deleted_notifications', JSON.stringify(updated));
                                         return updated;
                                       });
+                                      setNotifications(prev => prev.filter(p => p.id !== n.id));
+                                      // Also clean from localStorage
+                                      try {
+                                        const raw = localStorage.getItem('st_all_notifications');
+                                        if (raw) {
+                                          const parsed = JSON.parse(raw).filter((p: any) => p.id !== n.id);
+                                          localStorage.setItem('st_all_notifications', JSON.stringify(parsed));
+                                        }
+                                      } catch {}
                                     }}
                                     className="p-1 rounded-md opacity-0 group-hover/notif:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all"
                                     title="Delete notification"

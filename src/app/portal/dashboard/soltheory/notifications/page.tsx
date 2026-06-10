@@ -188,6 +188,12 @@ export default function NotificationsPage() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      // Persist deleted ID so it doesn't reappear
+                      try {
+                        const deleted = JSON.parse(localStorage.getItem('st_deleted_notifications') || '[]');
+                        deleted.push(n.id);
+                        localStorage.setItem('st_deleted_notifications', JSON.stringify(deleted));
+                      } catch {}
                       try {
                         const raw = localStorage.getItem('st_all_notifications');
                         if (raw) {
