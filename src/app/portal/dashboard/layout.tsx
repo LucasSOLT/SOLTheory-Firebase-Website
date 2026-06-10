@@ -1342,7 +1342,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   setIsNotificationsOpen(false);
                                   if (n.link) router.push(n.link);
                                 }}
-                                className="flex items-start gap-3 p-3 rounded-xl hover:bg-[#faf6ed] transition-colors mb-1.5 cursor-pointer border border-transparent hover:border-slate-100"
+                                className="flex items-start gap-3 p-3 rounded-xl hover:bg-[#faf6ed] transition-colors mb-1.5 cursor-pointer border border-transparent hover:border-slate-100 group/notif"
                               >
                                 <div className={`w-8 h-8 rounded-lg ${n.bg} flex items-center justify-center shrink-0 mt-0.5`}>
                                   {n.icon}
@@ -1354,7 +1354,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     {new Date(n.time).toLocaleString()}
                                   </p>
                                 </div>
-                                {isUnread && <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-2"></div>}
+                                <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                                  {isUnread && <div className="w-2 h-2 rounded-full bg-indigo-500"></div>}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setNotifications(prev => {
+                                        const updated = prev.filter(p => p.id !== n.id);
+                                        // Also remove from localStorage
+                                        try {
+                                          const raw = localStorage.getItem('st_all_notifications');
+                                          if (raw) {
+                                            const parsed = JSON.parse(raw).filter((p: any) => p.id !== n.id);
+                                            localStorage.setItem('st_all_notifications', JSON.stringify(parsed));
+                                          }
+                                        } catch {}
+                                        return updated;
+                                      });
+                                    }}
+                                    className="p-1 rounded-md opacity-0 group-hover/notif:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all"
+                                    title="Delete notification"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
                               </div>
                             )})
                           )}

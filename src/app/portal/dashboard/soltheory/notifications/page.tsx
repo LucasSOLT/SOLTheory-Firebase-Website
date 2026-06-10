@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   MessageSquare,
   CheckCircle2,
+  X,
+  Trash2,
 } from 'lucide-react';
 
 interface Notification {
@@ -106,17 +108,17 @@ export default function NotificationsPage() {
 
   if (!loaded) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#faf6ed] flex items-center justify-center">
         <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#faf6ed]">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-[#faf6ed]/95 backdrop-blur-sm border-b border-[#e8e3d8]">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/portal/dashboard/soltheory"
@@ -140,11 +142,11 @@ export default function NotificationsPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-4">
+      <div className="max-w-5xl mx-auto px-6 py-4">
         {notifications.length === 0 ? (
           /* Empty State */
           <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-100 mb-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#f0ede4] mb-4">
               <Bell className="w-6 h-6 text-slate-400" />
             </div>
             <p className="text-sm font-semibold text-slate-700 mb-1">
@@ -164,7 +166,7 @@ export default function NotificationsPage() {
                 <div
                   key={n.id}
                   onClick={() => markAsRead(n.id)}
-                  className="flex items-start gap-3 p-3.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="flex items-start gap-3 p-4 bg-[#fefcf6] border border-[#e8e3d8] rounded-xl hover:bg-[#f5f2ea] transition-colors cursor-pointer group/card"
                 >
                   {getIcon(n.type)}
 
@@ -182,6 +184,24 @@ export default function NotificationsPage() {
                     </p>
                     <p className="text-[10px] text-slate-400 mt-1">{new Date(n.time).toLocaleString()}</p>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      try {
+                        const raw = localStorage.getItem('st_all_notifications');
+                        if (raw) {
+                          const parsed = JSON.parse(raw).filter((p: any) => p.id !== n.id);
+                          localStorage.setItem('st_all_notifications', JSON.stringify(parsed));
+                        }
+                      } catch {}
+                      setNotifications(prev => prev.filter(p => p.id !== n.id));
+                    }}
+                    className="p-1.5 rounded-lg opacity-0 group-hover/card:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all shrink-0 self-center"
+                    title="Delete notification"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               );
 
