@@ -629,9 +629,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [pactEntries, setPactEntries] = useState<PACTEntry[]>([]);
   const [pactLoaded, setPactLoaded] = useState(false);
 
+  // PACT enabled toggle
+  const [pactEnabled, setPactEnabled] = useState(true);
+
   // Heartbeat — autonomous PACT cleanup
   const [heartbeatInterval, setHeartbeatInterval] = useState<string>("off");
   const [heartbeatRunning, setHeartbeatRunning] = useState(false);
+  const [heartbeatPulseVisible, setHeartbeatPulseVisible] = useState(false);
+  const heartbeatPulseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastHeartbeatRun, setLastHeartbeatRun] = useState<number | null>(null);
   const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatLockRef = useRef(false);
@@ -691,8 +696,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   }, [user?.uid, firestore]);
 
-  // Build PACT text for API injection — exclude soft-deleted entries
-  const pactText = pactEntries.length > 0
+  // Build PACT text for API injection — exclude soft-deleted entries and respect pactEnabled
+  const pactText = pactEntries.length > 0 && pactEnabled
     ? pactEntries.filter(e => !e.markedForDeletion).map(e => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")
     : "";
 
@@ -779,9 +784,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   // Heartbeat interval management
   useEffect(() => {
-    // Load saved interval
+    // Load saved interval + pact enabled
     const saved = localStorage.getItem(`st_heartbeat_interval_${params.agentId}`);
     if (saved) setHeartbeatInterval(saved);
+    const savedPact = localStorage.getItem(`st_pact_enabled_${params.agentId}`);
+    if (savedPact !== null) setPactEnabled(savedPact === 'true');
     const savedLastRun = localStorage.getItem(`st_heartbeat_lastrun_${params.agentId}`);
     if (savedLastRun) setLastHeartbeatRun(parseInt(savedLastRun));
   }, [params.agentId]);
@@ -789,6 +796,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   useEffect(() => {
     localStorage.setItem(`st_heartbeat_interval_${params.agentId}`, heartbeatInterval);
   }, [heartbeatInterval, params.agentId]);
+
+  useEffect(() => {
+    localStorage.setItem(`st_pact_enabled_${params.agentId}`, String(pactEnabled));
+  }, [pactEnabled, params.agentId]);
 
   useEffect(() => {
     if (lastHeartbeatRun) localStorage.setItem(`st_heartbeat_lastrun_${params.agentId}`, String(lastHeartbeatRun));
@@ -814,6 +825,34 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     };
   }, [heartbeatInterval, runHeartbeatCleanup]);
 
+  // Heartbeat pulse indicator for chat UI — flash every 30s when active
+  useEffect(() => {
+    if (heartbeatPulseTimerRef.current) clearInterval(heartbeatPulseTimerRef.current);
+    if (heartbeatInterval === "off") { setHeartbeatPulseVisible(false); return; }
+
+    heartbeatPulseTimerRef.current = setInterval(() => {
+      setHeartbeatPulseVisible(true);
+      setTimeout(() => setHeartbeatPulseVisible(false), 3000);
+    }, 30000);
+
+    return () => {
+      if (heartbeatPulseTimerRef.current) clearInterval(heartbeatPulseTimerRef.current);
+    };
+  }, [heartbeatInterval, runHeartbeatCleanup]);
+
+  // Final sweep when user leaves — complete one cleanup before shutting down
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (heartbeatInterval !== "off" && !heartbeatLockRef.current) {
+        // Fire a beacon to trigger the cleanup — this works even when the page is closing
+        navigator.sendBeacon("/api/pact-evaluate", JSON.stringify({ finalSweep: true }));
+        // Also try to run cleanup synchronously (best effort)
+        runHeartbeatCleanup();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [heartbeatInterval, runHeartbeatCleanup]);
 
 
   // Org Brain — editable organizational knowledge base stored in Firestore
@@ -1382,7 +1421,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
 
       // Trigger background PACT extraction securely on the server
-      if (user?.uid) {
+      if (user?.uid && pactEnabled) {
         fetch("/api/pact/extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2319,7 +2358,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">Step 3</span>
                         </div>
                         <div className="p-6 pt-4 space-y-4">
-                          <p className="text-xs text-slate-500 leading-relaxed">Periodically evaluates P.A.C.T. entries and soft-deletes low-value facts. Marked entries auto-purge after 24 hours unless you cancel.</p>
+                          <p className="text-xs text-slate-500 leading-relaxed">Periodically evaluates P.A.C.T. entries and soft-deletes low-value facts. Marked entries auto-purge after 24 hours unless you cancel. The Heartbeat runs while you're in the chat — if you leave or close the browser, it'll finish one final sweep before stopping.</p>
 
                           {/* Interval Slider */}
                           <div>
@@ -2457,10 +2496,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             </p>
                           </div>
                           <div className="flex items-center gap-3 shrink-0 ml-6">
-                            <div className="border border-slate-200 rounded-xl px-4 py-2 text-center">
-                              <div className="text-xl font-black text-slate-900 tabular-nums">{pactEntries.filter(e => !e.markedForDeletion).length}</div>
-                              <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Active</div>
-                            </div>
+                            {/* Heartbeat spinning indicator */}
+                            {heartbeatRunning && (
+                              <div className="flex flex-col items-center gap-1 px-2">
+                                <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
+                                <span className="text-[8px] text-blue-500 uppercase tracking-widest font-bold">Heartbeat</span>
+                              </div>
+                            )}
+                            {/* PACT toggle */}
+                            <button onClick={() => setPactEnabled(!pactEnabled)} className={`border rounded-xl px-4 py-2 text-center transition-all cursor-pointer ${pactEnabled ? 'border-slate-200 hover:border-slate-300' : 'border-red-200 bg-red-50'}`} title={pactEnabled ? 'Click to disable P.A.C.T.' : 'Click to enable P.A.C.T.'}>
+                              <div className={`text-xl font-black tabular-nums ${pactEnabled ? 'text-slate-900' : 'text-red-400'}`}>{pactEntries.filter(e => !e.markedForDeletion).length}</div>
+                              <div className={`text-[9px] uppercase tracking-wider font-bold ${pactEnabled ? 'text-blue-500' : 'text-red-400'}`}>{pactEnabled ? 'Active' : 'Inactive'}</div>
+                            </button>
                             {pactEntries.filter(e => e.markedForDeletion).length > 0 && (
                               <div className="border border-red-200 bg-red-50 rounded-xl px-4 py-2 text-center">
                                 <div className="text-xl font-black text-red-500 tabular-nums">{pactEntries.filter(e => e.markedForDeletion).length}</div>
@@ -2943,6 +2990,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-indigo-200" />
                       </div>
                     </button>
+
+                    {/* Heartbeat pulse indicator */}
+                    {heartbeatPulseVisible && heartbeatInterval !== "off" && (
+                      <div className="flex flex-col items-center gap-0.5 animate-in fade-in zoom-in-95 duration-300">
+                        <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                        <span className="text-[7px] text-blue-400 uppercase tracking-widest font-bold">Heartbeat</span>
+                      </div>
+                    )}
                     </div>
                   </div>
                 </div>
@@ -3065,7 +3120,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           });
 
           // Trigger background PACT extraction securely on the server
-          if (user?.uid && userText.trim().length > 15) {
+          if (user?.uid && pactEnabled && userText.trim().length > 15) {
             fetch("/api/pact/extract", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
