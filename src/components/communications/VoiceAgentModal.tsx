@@ -58,6 +58,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => { });
+  // Speculative pre-fetch: start LLM call while user is still in silence countdown
+  const speculativeRef = useRef<{ text: string; promise: Promise<{ reply: string; pactFacts: any[]; usage: number }> | null }>({ text: '', promise: null });
+  const speculativeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => {
@@ -140,6 +143,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         lastTimerTextRef.current = newText;
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
 
+        // Cancel any in-flight speculative call since text changed
+        if (speculativeTimerRef.current) clearTimeout(speculativeTimerRef.current);
+        speculativeRef.current = { text: '', promise: null };
+
         silenceTimeoutRef.current = setTimeout(() => {
           if (phaseRef.current === "listening" && !isPausedRef.current) {
             const currentText = newText;
@@ -147,7 +154,24 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               finishUserTurnRef.current();
             }
           }
-        }, responseDelayRef.current); // Use customizable delay
+        }, responseDelayRef.current);
+
+        // Speculative pre-fetch: start LLM call early (400ms into silence)
+        // so the response is already being computed while the silence timer counts down
+        const specDelay = Math.min(400, Math.floor(responseDelayRef.current * 0.25));
+        if (newText.length > 3) {
+          speculativeTimerRef.current = setTimeout(() => {
+            if (phaseRef.current === "listening" && !isPausedRef.current) {
+              const specText = accumulatedTextRef.current.trim();
+              if (specText && specText.length > 3 && !speculativeRef.current.promise) {
+                speculativeRef.current = {
+                  text: specText,
+                  promise: fetchAIReplyRef.current(specText),
+                };
+              }
+            }
+          }, specDelay);
+        }
       }
     };
 
@@ -531,52 +555,57 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     }
   }, [isOpen, stopRecognition]);
 
-  // ── Call fast voice endpoint ──
-  const callVoiceAI = async (userText: string) => {
-    conversationRef.current.push({ role: "user", content: userText });
+  // ── Pure API call (no conversation side-effects) — used for speculative pre-fetch ──
+  const fetchAIReply = useCallback(async (userText: string): Promise<{ reply: string; pactFacts: any[]; usage: number }> => {
+    const messagesForCall = [...conversationRef.current, { role: "user", content: userText }];
     try {
-      let reply = "";
-      let pactFacts: any[] = [];
-      let usageNum = 0;
       if (onCallAI) {
-        const payload: any = await onCallAI([...conversationRef.current]);
-        reply = payload.response || "I couldn't process that.";
-        usageNum = payload.usage || 0;
-        if (payload.pactFacts) pactFacts = payload.pactFacts;
+        const payload: any = await onCallAI(messagesForCall);
+        return { reply: payload.response || "I couldn't process that.", usage: payload.usage || 0, pactFacts: payload.pactFacts || [] };
       } else {
         const res = await fetch("/api/voice-chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: conversationRef.current,
-            agentId: `${orgPrefix}_${agentId}`,
-            systemInstructions,
-            knowledgeBaseText,
-            pactText,
-          }),
+          body: JSON.stringify({ messages: messagesForCall, agentId: `${orgPrefix}_${agentId}`, systemInstructions, knowledgeBaseText, pactText }),
         });
         const data = await res.json();
-        reply = data.response || "I couldn't process that.";
-        usageNum = data.usage || 0;
-        if (data.pactFacts) pactFacts = data.pactFacts;
+        return { reply: data.response || "I couldn't process that.", usage: data.usage || 0, pactFacts: data.pactFacts || [] };
       }
-
-      setGroqTokens(p => p + usageNum);
-      setElevenLabsChars(p => p + reply.length);
-
-      if (onUsageUpdate) {
-        onUsageUpdate(usageNum, reply.length);
-      }
-
-      conversationRef.current.push({ role: "assistant", content: reply });
-      return { reply, pactFacts };
     } catch (err: any) {
       console.error("Voice AI Call Error:", err?.message || err);
       const msg = err?.message?.includes("fetch") || err?.message?.includes("network") || err?.message?.includes("Failed")
         ? "Network connection issue. Check your internet and try again."
         : "Connection issue. Try again.";
-      return { reply: msg, pactFacts: [] };
+      return { reply: msg, pactFacts: [], usage: 0 };
     }
+  }, [onCallAI, orgPrefix, agentId, systemInstructions, knowledgeBaseText, pactText]);
+
+  const fetchAIReplyRef = useRef(fetchAIReply);
+  useEffect(() => { fetchAIReplyRef.current = fetchAIReply; }, [fetchAIReply]);
+
+  // ── Call voice endpoint (with conversation management) ──
+  const callVoiceAI = async (userText: string) => {
+    // Check for speculative pre-fetch match first
+    let result: { reply: string; pactFacts: any[]; usage: number };
+    if (speculativeRef.current.promise && speculativeRef.current.text === userText) {
+      // Speculative call matches — reuse it (saves 0.5-2s!)
+      result = await speculativeRef.current.promise;
+    } else {
+      // Discard mismatched speculative result, make fresh call
+      speculativeRef.current = { text: '', promise: null };
+      result = await fetchAIReply(userText);
+    }
+    speculativeRef.current = { text: '', promise: null };
+
+    // Now commit to conversation history
+    conversationRef.current.push({ role: "user", content: userText });
+    conversationRef.current.push({ role: "assistant", content: result.reply });
+
+    setGroqTokens(p => p + result.usage);
+    setElevenLabsChars(p => p + result.reply.length);
+    if (onUsageUpdate) onUsageUpdate(result.usage, result.reply.length);
+
+    return { reply: result.reply, pactFacts: result.pactFacts };
   };
 
   // ── "I'm Done" handler ──
@@ -909,6 +938,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity font-bold tracking-widest"
             title="Adjust how long Jarvis waits before responding"
           >
+            <option value={300} className="text-slate-900">Rapid (0.3s pause)</option>
             <option value={500} className="text-slate-900">Fast (0.5s pause)</option>
             <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
             <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
@@ -921,7 +951,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         <p className="text-slate-400 text-sm font-medium">{formatTime(elapsed)}</p>
 
         {/* Waveform */}
-        <div className="w-full max-w-[280px] sm:max-w-2xl mt-12 mb-12 relative">
+        <div className="w-full max-w-[280px] sm:max-w-2xl mt-4 mb-20 relative">
           <div className="relative h-32 sm:h-48 flex items-center justify-center">
             {/* Ambient Background Glow */}
             <div className={`absolute inset-0 rounded-full blur-[80px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
