@@ -2054,10 +2054,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             <button
               onClick={() => { setIsKnowledgeBaseOpen(!isKnowledgeBaseOpen); }}
               className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-[#fefcf6] text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'}`}
-              title="Agent Neural Configuration"
+              title="Agent Studio"
             >
               <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Brain & Settings</span>
+              <span className="hidden sm:inline">Agent Studio</span>
             </button>
           </div>
         </div>
@@ -2073,9 +2073,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
                 {/* Clean Top Bar */}
                 <div className="shrink-0 border-b border-slate-200 bg-white">
-                  {/* Close button */}
-                  <div className="flex justify-end px-6 pt-4 pb-0">
-                    <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mt-1">
+                  {/* Title + Close */}
+                  <div className="flex items-center justify-between px-6 pt-5 pb-3">
+                    <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Agent Studio</h2>
+                    <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600">
                       <X className="w-5 h-5" />
                     </Button>
                   </div>
@@ -2175,40 +2176,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
                       </div>
 
-                      {/* Heartbeat Section */}
-                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center relative">
-                              <Bot className="w-4 h-4 text-white" />
-                              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-slate-900 text-sm">The Heartbeat</h4>
-                              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Autonomous Engine</p>
-                            </div>
-                          </div>
-                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">Step 3</span>
-                        </div>
-                        <div className="p-6 pt-4">
-                          <p className="text-xs text-slate-500 mb-4 leading-relaxed">Control how frequently the agent performs automated background sweeps.</p>
-                          <div className="flex items-center gap-4">
-                            <select
-                              className="flex-1 p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-300 focus:border-slate-400 outline-none text-sm font-medium text-slate-800 transition-all cursor-pointer appearance-none"
-                              value={agentConfig.heartbeat}
-                              onChange={e => setAgentConfig({ ...agentConfig, heartbeat: e.target.value })}
-                            >
-                              <option value="manual">Manual Execution Only</option>
-                              <option value="30s">Autopilot: Every 30 Seconds</option>
-                              <option value="1m">Autopilot: Every 1 Minute</option>
-                            </select>
-                            <div className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${agentConfig.heartbeat === 'manual' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
-                              <div className={`w-2 h-2 rounded-full ${agentConfig.heartbeat === 'manual' ? 'bg-slate-400' : 'bg-blue-500 animate-pulse'}`} />
-                              {agentConfig.heartbeat === 'manual' ? 'Inactive' : 'Active'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
 
                       {/* Save Button */}
                       <div className="flex justify-center pt-2 pb-8">
