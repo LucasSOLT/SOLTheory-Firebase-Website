@@ -2071,53 +2071,51 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               // Enhanced RAG Dashboard Screen
               <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
-                {/* Dashboard Header */}
-                <div className="shrink-0 p-4 md:p-8 pb-0 max-w-5xl mx-auto w-full">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200/70  pb-6 gap-4">
-                    <div>
-                      <h2 className="text-3xl font-extrabold flex items-center gap-3 text-slate-900  tracking-tight">
-                        <Brain className="w-8 h-8 text-primary" /> Agent Neural Configuration
-                      </h2>
-                      <p className="text-slate-500  mt-2 text-sm max-w-xl">
-                        Design {agent.name.split(' ')[0]}'s core identity rules, and upload infinite factual data (PDFs/Text) to form its vector-based Knowledge Base.
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100/10 text-slate-500">
-                      <X className="w-6 h-6" />
+                {/* Clean Top Bar */}
+                <div className="shrink-0 border-b border-slate-200 bg-white">
+                  {/* Close button */}
+                  <div className="flex justify-end px-6 pt-4 pb-0">
+                    <Button variant="ghost" size="icon" onClick={() => setIsKnowledgeBaseOpen(false)} className="rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mt-1">
+                      <X className="w-5 h-5" />
                     </Button>
                   </div>
 
-                  {/* Tabs */}
-                  <div className="flex items-center gap-3 sm:gap-6 mt-6 border-b border-slate-200/50 overflow-x-auto scrollbar-hide">
-                    <button
-                      onClick={() => setActiveSettingsTab("identity")}
-                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors whitespace-nowrap ${activeSettingsTab === "identity" ? "border-fuchsia-500 text-fuchsia-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
-                    >
-                      Identity & Rules
-                    </button>
-                    <button
-                      onClick={() => setActiveSettingsTab("data")}
-                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "data" ? "border-indigo-500 text-indigo-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
-                    >
-                      Knowledge Base
-                    </button>
-                    <button
-                      onClick={() => setActiveSettingsTab("brain")}
-                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "brain" ? "border-blue-500 text-blue-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
-                    >
-                      <Brain className="w-3.5 h-3.5" /> Org Brain
-                    </button>
-                    <button
-                      onClick={() => { setActiveSettingsTab("pact"); fetchPACTEntries(); }}
-                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "pact" ? "border-slate-900 text-slate-900 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
-                    >
-                      <BookOpen className="w-3.5 h-3.5" /> P.A.C.T.
-                      {pactEntries.length > 0 && <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.5 rounded-full font-black">{pactEntries.length}</span>}
-                    </button>
+                  {/* Tabs — full width, evenly spaced */}
+                  <div className="flex items-stretch px-6 gap-0">
+                    {[
+                      { key: "identity", label: "Identity & Rules", onClick: () => setActiveSettingsTab("identity") },
+                      { key: "data", label: "Knowledge Base", onClick: () => setActiveSettingsTab("data") },
+                      { key: "brain", label: "Org Brain", onClick: () => setActiveSettingsTab("brain") },
+                      { key: "pact", label: "P.A.C.T.", onClick: () => { setActiveSettingsTab("pact"); fetchPACTEntries(); }, badge: pactEntries.length > 0 ? pactEntries.length : null },
+                    ].map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={tab.onClick}
+                        className={`flex-1 pb-3 pt-1 text-xs font-bold tracking-widest uppercase border-b-2 transition-all flex items-center justify-center gap-2 ${
+                          activeSettingsTab === tab.key
+                            ? "border-slate-900 text-slate-900"
+                            : "border-transparent text-slate-400 hover:text-slate-600"
+                        }`}
+                      >
+                        {activeSettingsTab === tab.key && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                        {tab.label}
+                        {tab.badge && <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.5 rounded-full font-black ml-1">{tab.badge}</span>}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Active tab description */}
+                  <div className="px-6 py-3 bg-slate-50/50">
+                    <p className="text-xs text-slate-500 text-center">
+                      {activeSettingsTab === "identity" && `Define how ${agent.name.split(' ')[0]} communicates, its personality, and operational rules.`}
+                      {activeSettingsTab === "data" && `Upload documents and text data for ${agent.name.split(' ')[0]} to reference when answering questions.`}
+                      {activeSettingsTab === "brain" && `Shared organizational knowledge accessible to all agents across your workspace.`}
+                      {activeSettingsTab === "pact" && `Facts ${agent.name.split(' ')[0]} has learned about you — automatically extracted from conversations.`}
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-6 pb-56 max-w-5xl mx-auto w-full">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-6 pb-56 max-w-7xl mx-auto w-full">
                   {activeSettingsTab === "identity" ? (
                     <div className="space-y-8 animate-in fade-in duration-300">
 
