@@ -2109,10 +2109,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </button>
                     <button
                       onClick={() => { setActiveSettingsTab("pact"); fetchPACTEntries(); }}
-                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "pact" ? "border-emerald-500 text-emerald-600 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                      className={`pb-3 text-xs sm:text-sm font-bold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeSettingsTab === "pact" ? "border-slate-900 text-slate-900 " : "border-transparent text-slate-500 hover:text-slate-700"}`}
                     >
                       <BookOpen className="w-3.5 h-3.5" /> P.A.C.T.
-                      {pactEntries.length > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-black">{pactEntries.length}</span>}
+                      {pactEntries.length > 0 && <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.5 rounded-full font-black">{pactEntries.length}</span>}
                     </button>
                   </div>
                 </div>
@@ -2287,59 +2287,67 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
                   ) : activeSettingsTab === "pact" ? (
                     /* ═══ P.A.C.T. TAB ═══ */
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                      <div className="bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-3xl p-6 backdrop-blur-md">
+                    <div className="space-y-5 animate-in fade-in duration-300">
+                      <div className="border border-slate-200 rounded-2xl p-6 bg-white">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-lg font-extrabold text-emerald-700 mb-2 flex items-center gap-2"><BookOpen className="w-5 h-5" /> P.A.C.T. — Personalized AI Conversation Training</h3>
-                            <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                              Facts {agent.name.split(' ')[0]} has learned about you from your conversations. These are automatically extracted and used to personalize future interactions.
+                            <h3 className="text-base font-extrabold text-slate-900 mb-1.5 flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                                <BookOpen className="w-4 h-4 text-white" />
+                              </div>
+                              P.A.C.T. Memory
+                            </h3>
+                            <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
+                              Facts {agent.name.split(' ')[0]} has learned about you. Automatically extracted from conversations and used as passive context.
                             </p>
                           </div>
-                          <div className="text-right shrink-0 ml-4">
-                            <div className="text-2xl font-black text-emerald-600">{pactEntries.length}</div>
-                            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-0.5">{pactEntries.length === 1 ? 'Fact Learned' : 'Facts Learned'}</div>
+                          <div className="text-right shrink-0 ml-6 border border-slate-200 rounded-xl px-4 py-2">
+                            <div className="text-xl font-black text-slate-900 tabular-nums">{pactEntries.length}</div>
+                            <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">{pactEntries.length === 1 ? 'Fact' : 'Facts'}</div>
                           </div>
                         </div>
                       </div>
 
                       {pactEntries.length === 0 ? (
-                        <div className="h-48 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center bg-[#faf6ed] gap-3 p-8">
-                          <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-slate-300" />
+                        <div className="h-48 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-center bg-white gap-3 p-8">
+                          <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center">
+                            <BookOpen className="w-5 h-5 text-slate-300" />
                           </div>
-                          <p className="text-sm text-slate-500 font-medium max-w-sm">No learned facts yet. As you chat with {agent.name.split(' ')[0]}, personal details you share will automatically appear here.</p>
-                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Try telling {agent.name.split(' ')[0]} your name, age, or role</p>
+                          <p className="text-sm text-slate-500 font-medium max-w-sm">No learned facts yet. As you chat with {agent.name.split(' ')[0]}, personal details you share will appear here.</p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Try sharing your name, role, or preferences</p>
                         </div>
                       ) : (
-                        <div className="space-y-3">
-                          {pactEntries.map((entry) => (
-                            <div key={entry.id} className="p-4 rounded-xl border border-slate-200 bg-[#fefcf6] hover:border-emerald-300 transition-all group">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-wider border border-emerald-100">Q</span>
-                                    <span className="text-sm font-semibold text-slate-800">{entry.question}</span>
+                        <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white divide-y divide-slate-100">
+                          {pactEntries.map((entry, idx) => (
+                            <div key={entry.id} className="px-5 py-4 hover:bg-slate-50/50 transition-colors group">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 w-5 h-5 rounded flex items-center justify-center shrink-0">{idx + 1}</span>
+                                    <span className="text-sm font-semibold text-slate-900 truncate">{entry.question}</span>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-wider border border-blue-100">A</span>
-                                    <span className="text-sm text-slate-600">{entry.answer}</span>
-                                  </div>
-                                  <div className="flex items-center gap-3 pt-1">
-                                    <span className="text-[10px] text-slate-400 font-medium">{entry.source === "voice" ? "🎤 Voice" : "⌨️ Text"}</span>
-                                    <span className="text-[10px] text-slate-300">•</span>
+                                  <p className="text-sm text-slate-600 pl-7">{entry.answer}</p>
+                                  <div className="flex items-center gap-2 mt-2 pl-7">
+                                    <span className="text-[10px] text-slate-400 font-medium">{entry.source === "voice" ? "Voice" : "Text"}</span>
+                                    <span className="text-[10px] text-slate-300">·</span>
                                     <span className="text-[10px] text-slate-400 font-medium">{new Date(entry.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                   </div>
                                 </div>
-                                <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={async () => {
+                                <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 rounded-lg h-8 w-8" onClick={async () => {
                                   if (!user?.uid || !firestore) return;
                                   try {
-                                    await deleteDoc(doc(firestore, "users", user.uid, "pact_entries", entry.id));
+                                    const { getDoc, doc, updateDoc } = await import("firebase/firestore");
+                                    const userDocRef = doc(firestore, "users", user.uid);
+                                    const userDocSnap = await getDoc(userDocRef);
+                                    const currentEntries: any[] = userDocSnap.data()?.pact_entries_soltheory || [];
+                                    // Remove the matching entry by question+answer
+                                    const filtered = currentEntries.filter((e: any) => !(e.question === entry.question && e.answer === entry.answer));
+                                    await updateDoc(userDocRef, { pact_entries_soltheory: filtered });
                                     logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted PACT entry: ${entry.question}`);
                                     setPactEntries(prev => prev.filter(e => e.id !== entry.id));
                                   } catch (err) { console.error("Failed to delete PACT entry", err); }
                                 }}>
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
                             </div>
