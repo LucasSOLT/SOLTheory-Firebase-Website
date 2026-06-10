@@ -107,7 +107,7 @@ export default function SolTheoryDashboard() {
   }, [contentManagerActive]);
 
   return (
-    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-3 sm:px-4 md:px-8 focus:outline-none" tabIndex={-1}>
+    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pb-10 px-3 sm:px-4 md:px-8 focus:outline-none" tabIndex={-1}>
       <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
         {contentManagerActive && (
@@ -147,7 +147,7 @@ export default function SolTheoryDashboard() {
             <div className="flex-[3] md:aspect-[2/3] flex flex-col gap-4 md:gap-5">
               {/* Card 1A: Weekly Timesheet Hours (Real QuickBooks data!) */}
               <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[200px] md:min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[220px] md:min-h-0">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 1
                 </div>
@@ -163,7 +163,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 1B: Needs Your Attention (Action Board tasks) */}
               <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-1 min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[200px] md:min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[250px] md:min-h-0">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 2
                 </div>
@@ -254,7 +254,7 @@ export default function SolTheoryDashboard() {
             <div className="flex-1 md:aspect-[16/9] flex flex-col gap-4 md:gap-5">
               {/* Card 4A (2/3 Height): Organization Activity Feed (Tile 7) */}
               <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[180px] md:min-h-0 overflow-hidden">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[250px] md:min-h-0 overflow-hidden">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 7
                 </div>
@@ -264,7 +264,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 4B (1/3 Height): Real-time Latency (Blank White Card) */}
               <CmsTileWrapper tileId="tile-8" tileName="Tile 8" className="flex-[1] min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[80px] md:min-h-0 hidden md:block">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 8
                 </div>
