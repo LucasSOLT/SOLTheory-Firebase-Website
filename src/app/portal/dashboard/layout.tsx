@@ -5,7 +5,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -176,6 +176,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         try { setReadNotifIds(JSON.parse(stored)); } catch (e) {}
       }
     }
+    // Load heartbeat/agent notifications from shared localStorage
+    try {
+      const lsNotifs = JSON.parse(localStorage.getItem('st_all_notifications') || '[]');
+      if (lsNotifs.length > 0) {
+        const TWO_MIN = 2 * 60 * 1000;
+        const mapped = lsNotifs
+          .filter((n: any) => Date.now() - n.time < 24 * 60 * 60 * 1000) // keep 24h
+          .map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            desc: n.desc,
+            time: n.time,
+            type: n.type,
+            link: n.link,
+            icon: n.type === 'heartbeat'
+              ? React.createElement(RefreshCw, { className: 'w-4 h-4 text-blue-600' })
+              : React.createElement(Bell, { className: 'w-4 h-4 text-slate-600' }),
+            bg: n.type === 'heartbeat' ? 'bg-blue-100' : 'bg-slate-100',
+            _isRecent: Date.now() - n.time < TWO_MIN, // for preview tray filtering
+          }));
+        if (mapped.length > 0) {
+          setNotifications(prev => {
+            const filtered = prev.filter(p => !p.id.startsWith('heartbeat-'));
+            return [...filtered, ...mapped].sort((a, b) => b.time - a.time);
+          });
+        }
+      }
+    } catch {}
   }, [user?.uid]);
 
   React.useEffect(() => {
@@ -1288,7 +1316,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           {notifications.length === 0 ? (
                             <div className="py-8 text-center text-slate-500 text-sm font-medium">No new notifications</div>
                           ) : (
-                            notifications.slice(0, 10).map(n => {
+                            notifications.slice(0, 3).map(n => {
                               const isUnread = !readNotifIds.includes(n.id);
                               return (
                               <div 
@@ -1317,7 +1345,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       </div>
 
                       <div className="px-5 py-3 border-t border-slate-100 bg-[#faf6ed]/50">
-                        <button className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors py-1">
+                        <button onClick={() => { setIsNotificationsOpen(false); router.push(`${dashboardHome}/notifications`); }} className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors py-1">
                           View All Notifications
                         </button>
                       </div>
