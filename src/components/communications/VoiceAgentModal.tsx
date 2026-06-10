@@ -966,7 +966,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         <p className="text-slate-400 text-sm font-medium">{formatTime(elapsed)}</p>
 
         {/* Waveform — positioned 1/3 between title and status */}
-        <div className="w-full max-w-[280px] sm:max-w-2xl mt-8 sm:mt-14 mb-auto relative">
+        <div className="w-full max-w-[280px] sm:max-w-2xl mt-8 sm:mt-14 mb-8 relative">
           <div className="relative h-28 sm:h-40 flex items-center justify-center">
             {/* Ambient Background Glow */}
             <div className={`absolute inset-0 rounded-full blur-[80px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
@@ -999,7 +999,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-2 mb-6 mt-auto">
+        <div className="flex flex-col items-center gap-2 mb-6">
           <span className={`text-sm font-black uppercase tracking-[0.25em] ${g.text[ac]} transition-colors duration-500`}>{statusLabel}</span>
         </div>
 
