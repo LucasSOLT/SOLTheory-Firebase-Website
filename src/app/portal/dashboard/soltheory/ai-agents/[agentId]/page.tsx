@@ -616,8 +616,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [orgBrain, setOrgBrain] = useState<string>("");
   const [orgBrainLoaded, setOrgBrainLoaded] = useState(false);
   const [orgBrainSaving, setOrgBrainSaving] = useState(false);
+  const orgBrainSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
   const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"identity" | "data" | "brain" | "pact" | "orgbrain">(() => {
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"identity" | "data" | "pact">(() => {
     // Auto-open PACT tab from notification link
     if (typeof window !== 'undefined') {
       const urlTab = new URLSearchParams(window.location.search).get('tab');
@@ -905,8 +907,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const { doc, setDoc } = await import("firebase/firestore");
       await setDoc(doc(firestore, "organizations", "soltheory"), { orgBrain }, { merge: true });
       logActivity(firestore, 'ai_agent_config_changed', { email: user?.email || '', displayName: user?.displayName }, 'Updated org brain for soltheory');
-    } catch (err) { console.error("Failed to save org brain", err); alert("Failed to save. Check Firestore rules."); }
+    } catch (err) { console.error("Failed to save org brain", err); }
     finally { setOrgBrainSaving(false); }
+  };
+
+  // Auto-save org brain on change (debounced 1.5s)
+  const handleOrgBrainChange = (val: string) => {
+    setOrgBrain(val);
+    if (orgBrainSaveTimerRef.current) clearTimeout(orgBrainSaveTimerRef.current);
+    orgBrainSaveTimerRef.current = setTimeout(() => {
+      saveOrgBrain();
+    }, 1500);
   };
 
   useEffect(() => {
@@ -2282,8 +2293,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <div className="flex items-stretch px-6 gap-0">
                     {[
                       { key: "identity", label: "Identity & Rules", onClick: () => setActiveSettingsTab("identity") },
-                      { key: "data", label: "Knowledge Base", onClick: () => setActiveSettingsTab("data") },
-                      { key: "brain", label: "Org Brain", onClick: () => setActiveSettingsTab("brain") },
+                      { key: "data", label: "Knowledge Base", onClick: () => { setActiveSettingsTab("data"); fetchRAGDocs(); } },
                       { key: "pact", label: "P.A.C.T.", onClick: () => { setActiveSettingsTab("pact"); fetchPACTEntries(); }, badge: pactEntries.length > 0 ? pactEntries.length : null },
                     ].map((tab) => (
                       <button
@@ -2306,8 +2316,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <div className="px-6 py-3 bg-slate-50/50">
                     <p className="text-xs text-slate-500 text-center">
                       {activeSettingsTab === "identity" && `Define how ${agent.name.split(' ')[0]} communicates, its personality, and operational rules.`}
-                      {activeSettingsTab === "data" && `Upload documents and text data for ${agent.name.split(' ')[0]} to reference when answering questions.`}
-                      {activeSettingsTab === "brain" && `Shared organizational knowledge accessible to all agents across your workspace.`}
+                      {activeSettingsTab === "data" && `Upload files and text for ${agent.name.split(' ')[0]} to reference. Org-wide knowledge is shared across all agents.`}
                       {activeSettingsTab === "pact" && `Facts ${agent.name.split(' ')[0]} has learned about you — automatically extracted from conversations.`}
                     </p>
                   </div>
@@ -2325,7 +2334,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               <User className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              <h4 className="font-semibold text-slate-900 text-sm">The Soul</h4>
+                              <h4 className="font-semibold text-slate-900 text-sm">Soul</h4>
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Voice & Personality</p>
                             </div>
                           </div>
@@ -2353,7 +2362,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               <Brain className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              <h4 className="font-semibold text-slate-900 text-sm">The Brain</h4>
+                              <h4 className="font-semibold text-slate-900 text-sm">Brain</h4>
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Strict Wiring & Rules</p>
                             </div>
                           </div>
@@ -2382,7 +2391,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               {heartbeatInterval !== "off" && <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />}
                             </div>
                             <div>
-                              <h4 className="font-semibold text-slate-900 text-sm">The Heartbeat</h4>
+                              <h4 className="font-semibold text-slate-900 text-sm">Heartbeat</h4>
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Autonomous Memory Cleanup</p>
                             </div>
                           </div>
@@ -2452,64 +2461,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </Button>
                       </div>
 
-                    </div>
-                  ) : activeSettingsTab === "brain" ? (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                      <div className="border border-slate-200 rounded-2xl p-6 bg-white">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
-                              <Brain className="w-4 h-4 text-white" />
-                            </div>
-                            <div>
-                              <h3 className="text-base font-extrabold text-slate-900">Organization Brain</h3>
-                              <p className="text-xs text-slate-500">Shared knowledge accessible to all agents. Changes take effect immediately.</p>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 ml-6 border border-slate-200 rounded-xl px-4 py-2">
-                            <div className="text-sm font-black text-slate-900 tabular-nums">{((orgBrain.length + solTheoryKnowledge.length) / 1024).toFixed(1)} KB</div>
-                            <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Total</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Editable Org Brain */}
-                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">Editable Knowledge</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{orgBrain.length.toLocaleString()} chars</span>
-                        </div>
-                        <div className="p-4">
-                          <textarea
-                            value={orgBrain}
-                            onChange={(e) => setOrgBrain(e.target.value)}
-                            placeholder="Add custom organizational knowledge here..."
-                            className="w-full min-h-[300px] p-4 text-sm text-slate-700 font-sans leading-relaxed border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 resize-y bg-slate-50"
-                          />
-                          <div className="flex items-center justify-between mt-3">
-                            <p className="text-[11px] text-slate-400">All agents will use this knowledge.</p>
-                            <Button
-                              onClick={saveOrgBrain}
-                              disabled={orgBrainSaving}
-                              className="bg-slate-900 hover:bg-slate-800 text-white px-6 h-9 rounded-lg font-semibold text-sm gap-2 transition-all"
-                            >
-                              {orgBrainSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                              {orgBrainSaving ? 'Saving...' : 'Save Changes'}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Read-only Default */}
-                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Default Knowledge (Built-in)</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{solTheoryKnowledge.length.toLocaleString()} chars</span>
-                        </div>
-                        <div className="p-6 max-h-[300px] overflow-y-auto scrollbar-thin">
-                          <pre className="text-sm text-slate-500 whitespace-pre-wrap font-sans leading-relaxed">{solTheoryKnowledge}</pre>
-                        </div>
-                      </div>
                     </div>
                   ) : activeSettingsTab === "pact" ? (
                     <div className="space-y-5 animate-in fade-in duration-300">
@@ -2647,21 +2598,65 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
                   ) : (
                     <div className="space-y-6 animate-in fade-in duration-300">
-                      {/* KB Header */}
-                      <div className="border border-slate-200 rounded-2xl p-6 bg-white">
-                        <div className="flex items-center gap-3">
+
+                      {/* Upload Section — PDF + Text */}
+                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
+                        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
                             <Brain className="w-4 h-4 text-white" />
                           </div>
                           <div>
-                            <h3 className="text-base font-extrabold text-slate-900">Knowledge Base</h3>
-                            <p className="text-xs text-slate-500">Upload text data for {agent.name.split(' ')[0]} to reference when answering questions.</p>
+                            <h3 className="text-sm font-extrabold text-slate-900">Add Knowledge</h3>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Upload PDF or enter text</p>
                           </div>
                         </div>
-                      </div>
+                        <div className="p-6 space-y-5">
+                          {/* PDF Upload */}
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1 mb-2 block">Upload PDF File</label>
+                            <label className={`flex items-center justify-center gap-3 h-20 rounded-xl border-2 border-dashed transition-colors cursor-pointer ${pdfUploading ? 'border-slate-300 bg-slate-50' : 'border-slate-200 hover:border-slate-400 hover:bg-slate-50'}`}>
+                              {pdfUploading ? (
+                                <><Loader2 className="w-5 h-5 animate-spin text-slate-400" /><span className="text-sm text-slate-500 font-medium">Processing PDF...</span></>
+                              ) : (
+                                <><FileText className="w-5 h-5 text-slate-400" /><span className="text-sm text-slate-500">Click to upload a PDF</span></>
+                              )}
+                              <input type="file" accept=".pdf" className="hidden" disabled={pdfUploading} onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file || !user?.uid || !firestore) return;
+                                e.target.value = "";
+                                setPdfUploading(true);
+                                try {
+                                  const arrayBuffer = await file.arrayBuffer();
+                                  const pdfjsLib = await import('pdfjs-dist');
+                                  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+                                  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                                  let fullText = '';
+                                  for (let i = 1; i <= pdf.numPages; i++) {
+                                    const page = await pdf.getPage(i);
+                                    const content = await page.getTextContent();
+                                    const pageText = content.items.map((item: any) => item.str).join(' ');
+                                    fullText += pageText + '\n\n';
+                                  }
+                                  fullText = fullText.trim();
+                                  if (!fullText) { alert('Could not extract text from this PDF. It may be image-based.'); return; }
+                                  const { collection, doc: fsDoc, setDoc } = await import("firebase/firestore");
+                                  const docRef = fsDoc(collection(firestore, "users", user.uid, "agents", `soltheory_${params.agentId}`, "knowledge_docs"));
+                                  await setDoc(docRef, { title: file.name.replace('.pdf', ''), type: 'pdf', size: fullText.length, content: fullText, fileUrl: '', createdAt: new Date().toISOString() });
+                                  logActivity(firestore, 'file_uploaded', { email: user?.email || '', displayName: user?.displayName }, `Uploaded PDF: ${file.name}`);
+                                  fetchRAGDocs();
+                                } catch (err) { console.error('PDF upload error:', err); alert('Failed to process PDF.'); }
+                                finally { setPdfUploading(false); }
+                              }} />
+                            </label>
+                            <p className="text-[10px] text-slate-400 mt-1.5 pl-1">PDF text is extracted and stored as searchable knowledge.</p>
+                          </div>
 
-                      {/* Inline Text Entry Form */}
-                      <div className="border border-slate-200 rounded-2xl bg-white p-6 space-y-4">
+                          {/* Divider */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-px bg-slate-200" />
+                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">or enter text</span>
+                            <div className="flex-1 h-px bg-slate-200" />
+                          </div>
                         <div>
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Document Title</label>
                           <input type="text" className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-slate-400 outline-none text-slate-900" value={ragTitle} onChange={e => setRagTitle(e.target.value)} placeholder="e.g. Company FAQ, SOPs, Product Info" />
@@ -2685,14 +2680,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 fileUrl: '',
                                 createdAt: new Date().toISOString()
                               });
-                              alert(`Saved! Document stored in Knowledge Base.`);
                               logActivity(firestore, 'file_uploaded', { email: user?.email || '', displayName: user?.displayName }, `Uploaded knowledge doc: ${ragTitle}`);
                               setRagTitle(''); setRagTextContent(''); fetchRAGDocs();
                             } catch (err) { alert('Failed to save text.'); console.error(err); }
                             finally { setIsRAGUploading(false); }
                           }} disabled={isRAGUploading || !ragTitle || !ragTextContent} className="bg-slate-900 hover:bg-slate-800 text-white gap-2 border-0 shadow-lg px-6">
-                            {isRAGUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save to Knowledge Base
+                            {isRAGUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save Entry
                           </Button>
+                        </div>
                         </div>
                       </div>
 
@@ -2700,23 +2695,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-bold text-slate-900">Active Data Sources</h4>
-                          {isRAGUploading && <div className="text-xs font-bold text-slate-500 animate-pulse flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Saving...</div>}
+                          {(isRAGUploading || pdfUploading) && <div className="text-xs font-bold text-slate-500 animate-pulse flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Saving...</div>}
                         </div>
                         {ragDocs.length === 0 ? (
                           <div className="h-24 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center text-sm text-slate-500 bg-white">
-                            Knowledge base is currently empty. Add text entries above.
+                            Knowledge base is currently empty. Upload a PDF or add text above.
                           </div>
                         ) : (
                           <div className="space-y-3">
                             {ragDocs.map((ragDoc, i) => (
                               <div key={i} className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between hover:border-slate-300 transition-all">
                                 <div className="flex items-center gap-3">
-                                  <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
-                                    <CheckSquare className="w-4 h-4" />
+                                  <div className={`p-2 rounded-lg ${ragDoc.type === 'pdf' ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-600'}`}>
+                                    {ragDoc.type === 'pdf' ? <FileText className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
                                   </div>
                                   <div>
                                     <div className="font-bold text-sm text-slate-900">{ragDoc.title}</div>
-                                    <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-0.5">{(ragDoc.size / 1024).toFixed(1)} KB • Synced</div>
+                                    <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-0.5">{(ragDoc.size / 1024).toFixed(1)} KB • {ragDoc.type === 'pdf' ? 'PDF' : 'Text'} • Synced</div>
                                   </div>
                                 </div>
                                 <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-400" onClick={async () => {
@@ -2744,6 +2739,42 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             ))}
                           </div>
                         )}
+                      </div>
+
+                      {/* Org Brain — always editable, auto-saves */}
+                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-6 h-6 rounded-md bg-slate-900 flex items-center justify-center">
+                              <Brain className="w-3 h-3 text-white" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">Organization Brain</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {orgBrainSaving && <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium"><Loader2 className="w-3 h-3 animate-spin" />Saving...</div>}
+                            <span className="text-[10px] text-slate-400 font-mono">{orgBrain.length.toLocaleString()} chars</span>
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <textarea
+                            value={orgBrain}
+                            onChange={(e) => handleOrgBrainChange(e.target.value)}
+                            placeholder="Add shared organizational knowledge here. This is accessible to all agents and auto-saves as you type..."
+                            className="w-full min-h-[200px] p-4 text-sm text-slate-700 font-sans leading-relaxed border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 resize-y bg-slate-50"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-2 pl-1">Auto-saves as you type. All agents share this knowledge.</p>
+                        </div>
+                      </div>
+
+                      {/* Read-only Default Knowledge */}
+                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Default Knowledge (Built-in)</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{solTheoryKnowledge.length.toLocaleString()} chars</span>
+                        </div>
+                        <div className="p-6 max-h-[200px] overflow-y-auto scrollbar-thin">
+                          <pre className="text-sm text-slate-500 whitespace-pre-wrap font-sans leading-relaxed">{solTheoryKnowledge}</pre>
+                        </div>
                       </div>
                     </div>
                   )}
