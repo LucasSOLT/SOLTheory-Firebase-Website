@@ -2117,36 +2117,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-6 pb-56 max-w-7xl mx-auto w-full">
                   {activeSettingsTab === "identity" ? (
-                    <div className="space-y-8 animate-in fade-in duration-300">
-
-                      {/* Section Header */}
-                      <div className="flex items-center gap-3 pb-2">
-                        <div className="w-1 h-8 rounded-full bg-gradient-to-b from-indigo-500 to-fuchsia-500" />
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-900 tracking-tight">Agent Personality Configuration</h3>
-                          <p className="text-xs text-slate-400 mt-0.5">Define how {agent.name.split(' ')[0]} communicates, what rules it follows, and how it operates autonomously.</p>
-                        </div>
-                      </div>
+                    <div className="space-y-6 animate-in fade-in duration-300">
 
                       {/* Soul Section */}
-                      <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500/15 to-purple-500/15 flex items-center justify-center">
-                              <User className="w-4.5 h-4.5 text-fuchsia-600" />
+                            <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center">
+                              <User className="w-4 h-4 text-white" />
                             </div>
                             <div>
                               <h4 className="font-semibold text-slate-900 text-sm">The Soul</h4>
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Voice & Personality</p>
                             </div>
                           </div>
-                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-600 font-semibold uppercase tracking-wider border border-fuchsia-100">Step 1</span>
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">Step 1</span>
                         </div>
                         <div className="p-6 pt-4">
-                          <p className="text-xs text-slate-500 mb-3 leading-relaxed">Describe the tone, personality, and communication style the agent should adopt in every interaction.</p>
+                          <p className="text-xs text-slate-500 mb-3 leading-relaxed">Describe the tone, personality, and communication style the agent should adopt.</p>
                           <textarea
-                            className="w-full h-40 p-4 bg-[#faf6ed]/80 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-300 leading-relaxed"
-                            placeholder="e.g., You are extremely professional but maintain a warm, welcoming tone. Use clear, concise language. Be proactive in offering solutions."
+                            className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-300 leading-relaxed"
+                            placeholder="e.g., You are extremely professional but maintain a warm, welcoming tone. Use clear, concise language."
                             value={agentConfig.soul}
                             onChange={e => setAgentConfig({ ...agentConfig, soul: e.target.value })}
                           />
@@ -2157,24 +2148,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
 
                       {/* Brain Section */}
-                      <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/15 to-blue-500/15 flex items-center justify-center">
-                              <Brain className="w-4.5 h-4.5 text-indigo-600" />
+                            <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center">
+                              <Brain className="w-4 h-4 text-white" />
                             </div>
                             <div>
                               <h4 className="font-semibold text-slate-900 text-sm">The Brain</h4>
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Strict Wiring & Rules</p>
                             </div>
                           </div>
-                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 font-semibold uppercase tracking-wider border border-indigo-100">Step 2</span>
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">Step 2</span>
                         </div>
                         <div className="p-6 pt-4">
-                          <p className="text-xs text-slate-500 mb-3 leading-relaxed">Define strict operational directives, hard constraints, and non-negotiable rules the agent must always follow.</p>
+                          <p className="text-xs text-slate-500 mb-3 leading-relaxed">Define strict operational directives, hard constraints, and non-negotiable rules.</p>
                           <textarea
-                            className="w-full h-40 p-4 bg-[#faf6ed]/80 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-300 leading-relaxed"
-                            placeholder="e.g., Never disclose PII. Do not share API keys. Deny invalid refund requests. Always verify user identity before sensitive actions."
+                            className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-300 leading-relaxed"
+                            placeholder="e.g., Never disclose PII. Do not share API keys. Always verify user identity before sensitive actions."
                             value={agentConfig.brain}
                             onChange={e => setAgentConfig({ ...agentConfig, brain: e.target.value })}
                           />
@@ -2185,25 +2176,25 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
 
                       {/* Heartbeat Section */}
-                      <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/15 flex items-center justify-center relative">
-                              <Bot className="w-4.5 h-4.5 text-emerald-600" />
-                              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
+                            <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center relative">
+                              <Bot className="w-4 h-4 text-white" />
+                              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
                             </div>
                             <div>
                               <h4 className="font-semibold text-slate-900 text-sm">The Heartbeat</h4>
                               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Autonomous Engine</p>
                             </div>
                           </div>
-                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 font-semibold uppercase tracking-wider border border-emerald-100">Step 3</span>
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">Step 3</span>
                         </div>
                         <div className="p-6 pt-4">
-                          <p className="text-xs text-slate-500 mb-4 leading-relaxed">Control how frequently the agent performs automated background sweeps and proactive actions.</p>
+                          <p className="text-xs text-slate-500 mb-4 leading-relaxed">Control how frequently the agent performs automated background sweeps.</p>
                           <div className="flex items-center gap-4">
                             <select
-                              className="flex-1 p-3.5 bg-[#faf6ed]/80 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 outline-none text-sm font-medium text-slate-800 transition-all cursor-pointer appearance-none hover:border-emerald-300"
+                              className="flex-1 p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-300 focus:border-slate-400 outline-none text-sm font-medium text-slate-800 transition-all cursor-pointer appearance-none"
                               value={agentConfig.heartbeat}
                               onChange={e => setAgentConfig({ ...agentConfig, heartbeat: e.target.value })}
                             >
@@ -2211,8 +2202,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               <option value="30s">Autopilot: Every 30 Seconds</option>
                               <option value="1m">Autopilot: Every 1 Minute</option>
                             </select>
-                            <div className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${agentConfig.heartbeat === 'manual' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
-                              <div className={`w-2 h-2 rounded-full ${agentConfig.heartbeat === 'manual' ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)]'}`} />
+                            <div className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${agentConfig.heartbeat === 'manual' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                              <div className={`w-2 h-2 rounded-full ${agentConfig.heartbeat === 'manual' ? 'bg-slate-400' : 'bg-blue-500 animate-pulse'}`} />
                               {agentConfig.heartbeat === 'manual' ? 'Inactive' : 'Active'}
                             </div>
                           </div>
@@ -2228,42 +2219,44 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
                     </div>
                   ) : activeSettingsTab === "brain" ? (
-                    /* ═══ ORG BRAIN TAB ═══ */
                     <div className="space-y-6 animate-in fade-in duration-300">
-                      <div className="bg-gradient-to-r from-blue-500/10 to-transparent border border-blue-500/20 rounded-3xl p-6 backdrop-blur-md">
+                      <div className="border border-slate-200 rounded-2xl p-6 bg-white">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-lg font-extrabold text-blue-700 mb-2 flex items-center gap-2"><Brain className="w-5 h-5" /> SOL Theory — Organization Brain</h3>
-                            <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                              Edit the organizational knowledge base that all agents and models reference. Changes are saved to Firestore and take effect immediately on all future conversations — no code changes needed.
-                            </p>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                              <Brain className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <h3 className="text-base font-extrabold text-slate-900">Organization Brain</h3>
+                              <p className="text-xs text-slate-500">Shared knowledge accessible to all agents. Changes take effect immediately.</p>
+                            </div>
                           </div>
-                          <div className="text-right shrink-0 ml-4">
-                            <div className="text-xs font-bold text-blue-500">{((orgBrain.length + solTheoryKnowledge.length) / 1024).toFixed(1)} KB</div>
-                            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-0.5">Editable + Default</div>
+                          <div className="text-right shrink-0 ml-6 border border-slate-200 rounded-xl px-4 py-2">
+                            <div className="text-sm font-black text-slate-900 tabular-nums">{((orgBrain.length + solTheoryKnowledge.length) / 1024).toFixed(1)} KB</div>
+                            <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Total</div>
                           </div>
                         </div>
                       </div>
 
                       {/* Editable Org Brain */}
-                      <div className="border border-blue-200 rounded-2xl bg-[#fefcf6] overflow-hidden">
-                        <div className="p-4 border-b border-blue-100 flex items-center justify-between bg-blue-50/50">
-                          <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">✏️ Editable Knowledge (Saved to Cloud)</span>
+                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">Editable Knowledge</span>
                           <span className="text-[10px] text-slate-400 font-mono">{orgBrain.length.toLocaleString()} chars</span>
                         </div>
                         <div className="p-4">
                           <textarea
                             value={orgBrain}
                             onChange={(e) => setOrgBrain(e.target.value)}
-                            placeholder="Add custom organizational knowledge here. This text will be injected into every agent's context alongside the default knowledge below.&#10;&#10;Example:&#10;- New product launches&#10;- Updated pricing&#10;- Team changes&#10;- Custom instructions for all agents"
-                            className="w-full min-h-[300px] p-4 text-sm text-slate-700 font-sans leading-relaxed border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 resize-y bg-[#faf6ed]"
+                            placeholder="Add custom organizational knowledge here..."
+                            className="w-full min-h-[300px] p-4 text-sm text-slate-700 font-sans leading-relaxed border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 resize-y bg-slate-50"
                           />
                           <div className="flex items-center justify-between mt-3">
-                            <p className="text-[11px] text-slate-400">All agents (text + voice) across all model/agent modes will use this knowledge.</p>
+                            <p className="text-[11px] text-slate-400">All agents will use this knowledge.</p>
                             <Button
                               onClick={saveOrgBrain}
                               disabled={orgBrainSaving}
-                              className="bg-blue-600 hover:bg-blue-500 text-white px-6 h-9 rounded-lg font-semibold text-sm gap-2 transition-all"
+                              className="bg-slate-900 hover:bg-slate-800 text-white px-6 h-9 rounded-lg font-semibold text-sm gap-2 transition-all"
                             >
                               {orgBrainSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                               {orgBrainSaving ? 'Saving...' : 'Save Changes'}
@@ -2273,9 +2266,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
 
                       {/* Read-only Default */}
-                      <div className="border border-slate-200 rounded-2xl bg-[#fefcf6] overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-[#faf6ed]">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">🔒 Default Knowledge (Built-in)</span>
+                      <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Default Knowledge (Built-in)</span>
                           <span className="text-[10px] text-slate-400 font-mono">{solTheoryKnowledge.length.toLocaleString()} chars</span>
                         </div>
                         <div className="p-6 max-h-[300px] overflow-y-auto scrollbar-thin">
@@ -2315,16 +2308,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Try sharing your name, role, or preferences</p>
                         </div>
                       ) : (
-                        <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white divide-y divide-slate-100">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                           {pactEntries.map((entry, idx) => (
-                            <div key={entry.id} className="px-5 py-4 hover:bg-slate-50/50 transition-colors group">
-                              <div className="flex items-start justify-between gap-4">
+                            <div key={entry.id} className="border border-slate-200 rounded-xl bg-white px-5 py-4 hover:bg-slate-50/50 hover:border-slate-300 transition-all group">
+                              <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 w-5 h-5 rounded flex items-center justify-center shrink-0">{idx + 1}</span>
-                                    <span className="text-sm font-semibold text-slate-900 truncate">{entry.question}</span>
+                                    <span className="text-[10px] font-black text-white bg-slate-900 w-5 h-5 rounded flex items-center justify-center shrink-0">{idx + 1}</span>
+                                    <span className="text-sm font-semibold text-slate-900 leading-tight">{entry.question}</span>
                                   </div>
-                                  <p className="text-sm text-slate-600 pl-7">{entry.answer}</p>
+                                  <p className="text-sm text-slate-600 pl-7 leading-relaxed">{entry.answer}</p>
                                   <div className="flex items-center gap-2 mt-2 pl-7">
                                     <span className="text-[10px] text-slate-400 font-medium">{entry.source === "voice" ? "Voice" : "Text"}</span>
                                     <span className="text-[10px] text-slate-300">·</span>
@@ -2338,7 +2331,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                     const userDocRef = doc(firestore, "users", user.uid);
                                     const userDocSnap = await getDoc(userDocRef);
                                     const currentEntries: any[] = userDocSnap.data()?.pact_entries_soltheory || [];
-                                    // Remove the matching entry by question+answer
                                     const filtered = currentEntries.filter((e: any) => !(e.question === entry.question && e.answer === entry.answer));
                                     await updateDoc(userDocRef, { pact_entries_soltheory: filtered });
                                     logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted PACT entry: ${entry.question}`);
@@ -2356,22 +2348,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   ) : (
                     <div className="space-y-6 animate-in fade-in duration-300">
                       {/* KB Header */}
-                      <div className="bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-3xl p-6 backdrop-blur-md">
-                        <h3 className="text-lg font-extrabold text-emerald-700 mb-2 flex items-center gap-2"><Brain className="w-5 h-5" /> Knowledge Base</h3>
-                        <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                          Paste text data below (SOPs, FAQs, policies, company info). {agent.name.split(' ')[0]} will reference this data when answering your questions.
-                        </p>
+                      <div className="border border-slate-200 rounded-2xl p-6 bg-white">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                            <Brain className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-base font-extrabold text-slate-900">Knowledge Base</h3>
+                            <p className="text-xs text-slate-500">Upload text data for {agent.name.split(' ')[0]} to reference when answering questions.</p>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Inline Text Entry Form */}
-                      <div className="border border-slate-200 rounded-2xl bg-[#fefcf6] p-6 space-y-4">
+                      <div className="border border-slate-200 rounded-2xl bg-white p-6 space-y-4">
                         <div>
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Document Title</label>
-                          <input type="text" className="w-full mt-1 bg-[#faf6ed] border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900" value={ragTitle} onChange={e => setRagTitle(e.target.value)} placeholder="e.g. Company FAQ, SOPs, Product Info" />
+                          <input type="text" className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-slate-400 outline-none text-slate-900" value={ragTitle} onChange={e => setRagTitle(e.target.value)} placeholder="e.g. Company FAQ, SOPs, Product Info" />
                         </div>
                         <div>
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1 mb-1">Text Content</label>
-                          <textarea className="w-full mt-1 bg-[#faf6ed] border border-slate-200 rounded-xl p-4 text-sm focus:ring-1 focus:ring-emerald-500 outline-none resize-none text-slate-900 h-48" value={ragTextContent} onChange={e => setRagTextContent(e.target.value)} placeholder="Paste any factual data, policies, or knowledge here..." />
+                          <textarea className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm focus:ring-1 focus:ring-slate-400 outline-none resize-none text-slate-900 h-48" value={ragTextContent} onChange={e => setRagTextContent(e.target.value)} placeholder="Paste any factual data, policies, or knowledge here..." />
                         </div>
                         <div className="flex justify-end">
                           <Button onClick={async () => {
@@ -2393,7 +2390,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               setRagTitle(''); setRagTextContent(''); fetchRAGDocs();
                             } catch (err) { alert('Failed to save text.'); console.error(err); }
                             finally { setIsRAGUploading(false); }
-                          }} disabled={isRAGUploading || !ragTitle || !ragTextContent} className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 border-0 shadow-lg shadow-emerald-500/30 px-6">
+                          }} disabled={isRAGUploading || !ragTitle || !ragTextContent} className="bg-slate-900 hover:bg-slate-800 text-white gap-2 border-0 shadow-lg px-6">
                             {isRAGUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save to Knowledge Base
                           </Button>
                         </div>
@@ -2403,18 +2400,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-bold text-slate-900">Active Data Sources</h4>
-                          {isRAGUploading && <div className="text-xs font-bold text-emerald-500 animate-pulse flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Saving...</div>}
+                          {isRAGUploading && <div className="text-xs font-bold text-slate-500 animate-pulse flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Saving...</div>}
                         </div>
                         {ragDocs.length === 0 ? (
-                          <div className="h-24 rounded-2xl border border-slate-200 flex items-center justify-center text-sm text-slate-500 bg-[#faf6ed]">
+                          <div className="h-24 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center text-sm text-slate-500 bg-white">
                             Knowledge base is currently empty. Add text entries above.
                           </div>
                         ) : (
                           <div className="space-y-3">
                             {ragDocs.map((ragDoc, i) => (
-                              <div key={i} className="p-4 rounded-xl border border-slate-200 bg-[#fefcf6] flex items-center justify-between">
+                              <div key={i} className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between hover:border-slate-300 transition-all">
                                 <div className="flex items-center gap-3">
-                                  <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600">
+                                  <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
                                     <CheckSquare className="w-4 h-4" />
                                   </div>
                                   <div>
