@@ -2924,7 +2924,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 setSelectedExploreItem('Conversational AI');
                                 openVoiceSession();
                               }}
-                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 shrink-0 cursor-pointer"
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-slate-900/20 shrink-0 cursor-pointer"
                               title="Talk to Jarvis"
                             >
                               <div className="relative flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5">
@@ -3011,26 +3011,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
 
                     {/* Voice-to-Voice button — always outside the text box */}
+                    <div className="relative shrink-0">
                     <button
                       onClick={openVoiceSession}
-                      className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 shrink-0 cursor-pointer"
+                      className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-slate-900/20 cursor-pointer"
                       title="Start Voice Session"
                     >
                       <div className="relative flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5">
                         <AudioLines className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-indigo-200" />
+                        <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-slate-400" />
                       </div>
                     </button>
 
-                    {/* Heartbeat pulse indicator */}
+                    {/* Heartbeat pulse indicator — absolutely positioned so it doesn't shift layout */}
                     {heartbeatPulseVisible && heartbeatInterval !== "off" && (
-                      <div className="flex flex-col items-center gap-0.5 animate-in fade-in zoom-in-95 duration-300">
-                        <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                        <span className="text-[7px] text-blue-400 uppercase tracking-widest font-bold">Heartbeat</span>
+                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 animate-in fade-in zoom-in-95 duration-300 pointer-events-none">
+                        <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                        <span className="text-[6px] text-blue-400 uppercase tracking-widest font-bold">Heartbeat</span>
                       </div>
                     )}
                     </div>
                   </div>
+                </div>
                 </div>
                 )}
               </div>

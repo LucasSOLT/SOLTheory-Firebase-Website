@@ -20,6 +20,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const sidebarResizeRef = React.useRef(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -798,54 +800,69 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
-      <div className={`relative flex-col h-full flex-shrink-0 z-40 transition-all duration-300 ease-in-out group/sidebar overflow-visible hidden md:flex ${isSidebarCollapsed ? "w-0" : "w-64"}`}>
-        <div 
-          className={`absolute top-1/2 -translate-y-1/2 z-50 transition-all duration-300 ${isSidebarCollapsed ? 'left-2' : '-right-[14px]'}`}
-          onPointerDown={(e) => {
-            e.preventDefault();
-            const startX = e.clientX;
-            const startCollapsed = isSidebarCollapsed;
-            let hasDragged = false;
-            const el = e.currentTarget;
-            el.setPointerCapture(e.pointerId);
-            const onMove = (ev: PointerEvent) => {
-              const delta = ev.clientX - startX;
-              if (Math.abs(delta) > 8) hasDragged = true;
-              if (hasDragged) {
-                if (startCollapsed && delta > 60) { setIsSidebarCollapsed(false); }
-                else if (!startCollapsed && delta < -60) { setIsSidebarCollapsed(true); }
-              }
-            };
-            const onUp = (ev: PointerEvent) => {
-              el.releasePointerCapture(ev.pointerId);
-              if (!hasDragged) setIsSidebarCollapsed(!startCollapsed);
-              el.removeEventListener('pointermove', onMove);
-              el.removeEventListener('pointerup', onUp);
-            };
-            el.addEventListener('pointermove', onMove);
-            el.addEventListener('pointerup', onUp);
-          }}
-          title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <div className="w-[28px] h-[72px] rounded-full bg-[#f5f0e1] border border-[#ddd3b8]/80 shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] cursor-grab active:cursor-grabbing group hover:border-[#c9be9f] hover:bg-[#ece4cf] transition-all duration-200 select-none">
-            <div className="flex flex-col items-center gap-[2px] mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
-              <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
-              <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
-              <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+      <div className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`} style={{ width: isSidebarCollapsed ? 0 : sidebarWidth, minWidth: isSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
+        {/* Collapse toggle button — shows when collapsed */}
+        {isSidebarCollapsed && (
+          <div 
+            className="absolute top-1/2 -translate-y-1/2 z-50 left-2 cursor-pointer"
+            onClick={() => setIsSidebarCollapsed(false)}
+            title="Expand sidebar"
+          >
+            <div className="w-[28px] h-[72px] rounded-full bg-[#f8f6f1] border border-slate-200/80 shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] group hover:border-slate-300 hover:bg-slate-50 transition-all duration-200 select-none">
+              <div className="flex flex-col items-center gap-[2px] mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
+                <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+                <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+                <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+              </div>
+              <svg className="w-3 h-3 text-slate-500 group-hover:text-slate-700 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
             </div>
-            <svg className={`w-3 h-3 text-stone-500 group-hover:text-stone-700 transition-all duration-300 ${isSidebarCollapsed ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
           </div>
-        </div>
+        )}
 
-        <aside className="w-full bg-[#f5f0e1] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
-          <div className="w-64 flex flex-col h-full"> {/* Inner fixed width container */}
+        {/* Drag-to-resize right edge */}
+        {!isSidebarCollapsed && (
+          <div
+            className="absolute top-0 right-0 w-1 h-full z-50 cursor-col-resize group hover:bg-indigo-400/40 transition-colors"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              const startX = e.clientX;
+              const startW = sidebarWidth;
+              sidebarResizeRef.current = true;
+              const el = e.currentTarget;
+              el.setPointerCapture(e.pointerId);
+              const onMove = (ev: PointerEvent) => {
+                const newW = Math.max(180, Math.min(500, startW + (ev.clientX - startX)));
+                setSidebarWidth(newW);
+                if (newW <= 180 && ev.clientX - startX < -40) {
+                  setIsSidebarCollapsed(true);
+                  sidebarResizeRef.current = false;
+                  el.releasePointerCapture(ev.pointerId);
+                  el.removeEventListener('pointermove', onMove);
+                  el.removeEventListener('pointerup', onUp);
+                }
+              };
+              const onUp = (ev: PointerEvent) => {
+                sidebarResizeRef.current = false;
+                el.releasePointerCapture(ev.pointerId);
+                el.removeEventListener('pointermove', onMove);
+                el.removeEventListener('pointerup', onUp);
+              };
+              el.addEventListener('pointermove', onMove);
+              el.addEventListener('pointerup', onUp);
+            }}
+            title="Drag to resize"
+          />
+        )}
+
+        <aside className="w-full bg-[#f8f6f1] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
+          <div style={{ width: sidebarWidth, minWidth: 180 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
             {isDualOrgUser ? (
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
                 <button
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-[#ddd3b8] bg-[#ece4cf] shadow-sm hover:bg-[#e8dfc8] transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-[#e0ddd4] bg-[#f2efe8] shadow-sm hover:bg-[#f0ede4] transition-colors cursor-pointer"
                 >
                   {isNxtChapter ? (
                     <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
@@ -859,14 +876,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </button>
 
                 {isOrgSwitcherOpen && (
-                  <div className="absolute left-5 right-5 top-full mt-1 bg-[#fefcf6] rounded-xl border border-[#ddd3b8] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute left-5 right-5 top-full mt-1 bg-[#fefcf6] rounded-xl border border-[#e0ddd4] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                     {/* SOL Theory option */}
                     <button
                       onClick={() => {
                         setIsOrgSwitcherOpen(false);
                         if (isNxtChapter) router.push('/portal/dashboard/soltheory');
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-[#e8dfc8]' : 'hover:bg-[#ece4cf]'}`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? 'bg-[#f0ede4]' : 'hover:bg-[#f2efe8]'}`}
                     >
                       <div className="bg-black p-1.5 rounded-xl flex items-center justify-center">
                         <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
@@ -880,7 +897,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         setIsOrgSwitcherOpen(false);
                         if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-[#e8dfc8]' : 'hover:bg-[#ece4cf]'}`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t border-slate-100 ${isNxtChapter ? 'bg-[#f0ede4]' : 'hover:bg-[#f2efe8]'}`}
                     >
                       <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
                       <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? 'text-stone-900' : 'text-slate-700'}`}>NXT Chapter</span>
@@ -890,7 +907,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
             ) : (
-              <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-[#ece4cf] transition-colors cursor-pointer">
+              <Link href={dashboardHome} className="p-6 pt-8 pb-8 flex flex-col items-start gap-3 hover:bg-[#f2efe8] transition-colors cursor-pointer">
                 {isNxtChapter ? (
                   <>
                     <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain object-left" />
@@ -917,26 +934,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}>
           {/* Section 1 */}
           <div>
-            <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.menu}</span>
             </button>
             {!collapsedSections['menu'] && <div className="animate-in fade-in duration-150">
               <div className="space-y-1 mb-4 pt-1">
               {/* Content Manager moved to Dev Tools dropdown in header */}
-              <Link href={`${dashboardHome}`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname === dashboardHome ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <Link href={`${dashboardHome}`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname === dashboardHome ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname === dashboardHome ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Home className="w-4 h-4" />
                 </div>
                 <span className="text-sm font-medium">Homepage</span>
               </Link>
-              <Link href={`${dashboardHome}/ai-agents/jarvis`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.includes('/ai-agents') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <Link href={`${dashboardHome}/ai-agents/jarvis`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.includes('/ai-agents') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.includes('/ai-agents') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Users className="w-4 h-4" />
                 </div>
                 <span className="text-sm font-medium">Agent Manager</span>
               </Link>
-              <Link href={`${dashboardHome}/faq`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/faq') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <Link href={`${dashboardHome}/faq`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/faq') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/faq') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <HelpCircle className="w-4 h-4" />
                 </div>
@@ -948,10 +965,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="mt-2">
               <button 
                 onClick={() => setIsMessagesOpen(!isMessagesOpen)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#ece4cf] transition-colors cursor-pointer mb-1 group"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#f2efe8] transition-colors cursor-pointer mb-1 group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-md bg-[#e8dfc8] flex items-center justify-center text-stone-700 group-hover:bg-stone-800 group-hover:text-white transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-[#f0ede4] flex items-center justify-center text-stone-700 group-hover:bg-stone-800 group-hover:text-white transition-colors">
                     <MessageSquare className="w-3.5 h-3.5" />
                   </div>
                   <span className="text-sm font-semibold text-slate-700 group-hover:text-stone-900 transition-colors">{t.messages}</span>
@@ -961,15 +978,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               
               {isMessagesOpen && (
                 <div className="pl-12 pr-3 py-1 space-y-1 animate-in slide-in-from-top-1 fade-in duration-200">
-                  <Link href={`${dashboardHome}/communications/dm`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/dm') ? 'bg-[#e8dfc8] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#ece4cf] text-slate-600 hover:text-slate-900'}`}>
+                  <Link href={`${dashboardHome}/communications/dm`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/dm') ? 'bg-[#f0ede4] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#f2efe8] text-slate-600 hover:text-slate-900'}`}>
                     <UserSquare className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/dm') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.dm}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/communications/org-thread`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/org-thread') ? 'bg-[#e8dfc8] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#ece4cf] text-slate-600 hover:text-slate-900'}`}>
+                  <Link href={`${dashboardHome}/communications/org-thread`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/org-thread') ? 'bg-[#f0ede4] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#f2efe8] text-slate-600 hover:text-slate-900'}`}>
                     <Hash className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.orgThread}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/communications/contacts`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/contacts') ? 'bg-[#e8dfc8] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#ece4cf] text-slate-600 hover:text-slate-900'}`}>
+                  <Link href={`${dashboardHome}/communications/contacts`} className={`flex items-center gap-2 py-2 px-2 cursor-pointer rounded-lg transition-colors ${pathname.endsWith('/communications/contacts') ? 'bg-[#f0ede4] text-stone-900 font-semibold shadow-sm' : 'hover:bg-[#f2efe8] text-slate-600 hover:text-slate-900'}`}>
                     <BookUser className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/contacts') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">Contacts</span>
                   </Link>
@@ -981,13 +998,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Section: Flagship Tools */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['flagship'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.flagshipTools}</span>
             </button>
             {!collapsedSections['flagship'] && (
               <div className="space-y-1 animate-in fade-in duration-150">
-                <Link href={`${dashboardHome}/crm`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/crm') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <Link href={`${dashboardHome}/crm`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/crm') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                   <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/crm') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                     <Users className="w-4 h-4" />
                   </div>
@@ -1001,14 +1018,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-sm font-medium">Business Intelligence</span>
                 </div>
 
-                <Link href={`${dashboardHome}/action-board`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/action-board') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <Link href={`${dashboardHome}/action-board`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/action-board') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                   <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/action-board') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                     <LayoutDashboard className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">{t.actionBoard}</span>
                 </Link>
 
-                <Link href={`${dashboardHome}/timesheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/timesheets') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+                <Link href={`${dashboardHome}/timesheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/timesheets') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                   <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/timesheets') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                     <CalendarDays className="w-4 h-4" />
                   </div>
@@ -1020,28 +1037,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           {/* Section 2 */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('reports')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('reports')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['reports'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.reports}</span>
             </button>
             {!collapsedSections['reports'] &&
             <div className="space-y-1 animate-in fade-in duration-150">
 
-              <Link href={`${dashboardHome}/support-tickets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/support-tickets') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <Link href={`${dashboardHome}/support-tickets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/support-tickets') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/support-tickets') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Ticket className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm font-medium">Submit a support ticket</span>
               </Link>
 
-              <Link href={`${dashboardHome}/surveys`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/surveys') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <Link href={`${dashboardHome}/surveys`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/surveys') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/surveys') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <ClipboardList className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm font-medium">Surveys</span>
               </Link>
 
-              <Link href={`${dashboardHome}/activity-log`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/activity-log') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <Link href={`${dashboardHome}/activity-log`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/activity-log') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/activity-log') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                   <Activity className="w-4 h-4 ml-1" />
                 </div>
@@ -1052,7 +1069,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Communications */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('comms')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('comms')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['comms'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Communications</span>
             </button>
@@ -1074,30 +1091,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Social Media Integrations */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('social')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('social')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['social'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.socialMediaIntegrations} <span className="text-blue-500 font-bold text-[10px] tracking-normal">BETA</span></span>
             </button>
             {!collapsedSections['social'] && <div className="space-y-1 animate-in fade-in duration-150">
-              <Link href={`${dashboardHome}/upload-calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-emerald-900'}`}>
+              <Link href={`${dashboardHome}/upload-calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-50 text-emerald-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-emerald-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/upload-calendar') ? 'bg-emerald-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-emerald-600'}`}>
                   <CalendarDays className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">Upload Calendar</span>
               </Link>
-              <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-fuchsia-900'}`}>
+              <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-fuchsia-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/youtube') ? 'bg-fuchsia-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-fuchsia-600'}`}>
                   <Youtube className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">YouTube</span>
               </Link>
-              <Link href={`${dashboardHome}/instagram`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-rose-900'}`}>
+              <Link href={`${dashboardHome}/instagram`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/instagram') ? 'bg-rose-50 text-rose-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-rose-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/instagram') ? 'bg-rose-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-rose-600'}`}>
                   <Instagram className="w-4 h-4 ml-1" />
                 </div>
                 <span className="text-sm">Instagram</span>
               </Link>
-              <Link href={`${dashboardHome}/facebook`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-blue-900'}`}>
+              <Link href={`${dashboardHome}/facebook`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/facebook') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-blue-900'}`}>
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/facebook') ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-blue-600'}`}>
                   <Facebook className="w-4 h-4 ml-1" />
                 </div>
@@ -1108,13 +1125,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Section 3 - Google Integrations */}
           <div>
-            <button onClick={() => toggleSection('google')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('google')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['google'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.googleIntegrations}</span>
             </button>
             {!collapsedSections['google'] && <div className="space-y-1 animate-in fade-in duration-150">
             
-            <Link href={`${dashboardHome}/calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/calendar') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+            <Link href={`${dashboardHome}/calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/calendar') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/calendar') ? 'bg-stone-800 text-white' : 'bg-slate-100 text-slate-500'}`}>
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>
               </div>
@@ -1122,15 +1139,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
 
            <div className="space-y-1 mb-2">
-             <Link href={`${dashboardHome}/docs`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/docs') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+             <Link href={`${dashboardHome}/docs`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/docs') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                <FileText className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleDocs}</span>
              </Link>
-             <Link href={`${dashboardHome}/slides`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/slides') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+             <Link href={`${dashboardHome}/slides`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/slides') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                <Presentation className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleSlides}</span>
              </Link>
-             <Link href={`${dashboardHome}/sheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/sheets') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+             <Link href={`${dashboardHome}/sheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/sheets') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                <Table className="w-4 h-4 ml-1 text-slate-500" />
                <span className="text-sm font-medium">{t.googleSheets}</span>
              </Link>
@@ -1140,7 +1157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <Video className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Meet</span>
              </div>
-             <Link href={`${dashboardHome}/google-ads`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/google-ads') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+             <Link href={`${dashboardHome}/google-ads`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/google-ads') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/google-ads') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
                  <Megaphone className="w-4 h-4 ml-1" />
                </div>
@@ -1154,7 +1171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                <Globe className="w-4 h-4 ml-1" />
                <span className="text-sm">Google Earth</span>
              </div>
-              <Link href={`${dashboardHome}/drive`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/drive') ? 'bg-[#e8dfc8] text-stone-900 shadow-sm' : 'hover:bg-[#ece4cf] text-slate-700 hover:text-stone-900'}`}>
+              <Link href={`${dashboardHome}/drive`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/drive') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
                 <HardDrive className="w-4 h-4 ml-1 text-slate-500" />
                 <span className="text-sm font-medium">Google Drive</span>
               </Link>
@@ -1168,7 +1185,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Microsoft Suite */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('microsoft')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#ece4cf] transition-colors mb-2 group/hdr">
+            <button onClick={() => toggleSection('microsoft')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['microsoft'] ? '-rotate-90' : ''}`} />
               <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Microsoft Suite</span>
             </button>
@@ -1203,10 +1220,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* User Footer Profile */}
         <div className="p-4 mt-auto mb-4 flex items-center gap-2">
-          <Link href={`${dashboardHome}/settings?tab=general`} className="p-2.5 hover:bg-[#e8dfc8] rounded-xl transition-colors shrink-0 text-slate-400 hover:text-slate-900 bg-[#ece4cf] border border-[#ddd3b8] shadow-sm">
+          <Link href={`${dashboardHome}/settings?tab=general`} className="p-2.5 hover:bg-[#f0ede4] rounded-xl transition-colors shrink-0 text-slate-400 hover:text-slate-900 bg-[#f2efe8] border border-[#e0ddd4] shadow-sm">
              <Settings className="w-5 h-5" />
           </Link>
-          <Link href={`${dashboardHome}/settings?tab=profile`} className="flex-1 flex items-center gap-3 px-3 py-2 rounded-xl border border-[#ddd3b8] bg-[#ece4cf] shadow-sm overflow-hidden hover:bg-[#e8dfc8] transition-colors cursor-pointer group">
+          <Link href={`${dashboardHome}/settings?tab=profile`} className="flex-1 flex items-center gap-3 px-3 py-2 rounded-xl border border-[#e0ddd4] bg-[#f2efe8] shadow-sm overflow-hidden hover:bg-[#f0ede4] transition-colors cursor-pointer group">
             <Avatar className="h-8 w-8 shrink-0 group-hover:scale-105 transition-transform">
               <AvatarImage src={guestAvatar} />
               <AvatarFallback className="bg-slate-100 font-bold text-sm text-slate-600">{guestInitials?.[0] || 'G'}</AvatarFallback>
