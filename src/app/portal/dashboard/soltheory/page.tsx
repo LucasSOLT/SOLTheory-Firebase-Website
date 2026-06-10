@@ -107,8 +107,8 @@ export default function SolTheoryDashboard() {
   }, [contentManagerActive]);
 
   return (
-    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4 sm:px-8 focus:outline-none" tabIndex={-1}>
-      <div className="space-y-6 min-w-0 w-full">
+    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-3 sm:px-4 md:px-8 focus:outline-none" tabIndex={-1}>
+      <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
         {contentManagerActive && (
           <ContentManagerBar
@@ -122,16 +122,16 @@ export default function SolTheoryDashboard() {
 
         {/* Dashboard Header */}
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-light italic font-cormorant text-slate-800 tracking-wide">
+          <h1 className="text-xl sm:text-3xl font-light italic font-cormorant text-slate-800 tracking-wide">
             Welcome back, <span className="not-italic font-semibold">{user?.displayName || "Lucas"}</span>.
           </h1>
-          <p className="text-sm text-slate-500 font-medium">
+          <p className="text-xs sm:text-sm text-slate-500 font-medium">
             Here is your week at a glance.
           </p>
         </div>
 
         {/* Uniform Grid Layout with Solid White Structural Tiles & Hover Bookmarks */}
-        <div className={`space-y-5 transition-all duration-500 ${contentManagerActive ? 'opacity-80 saturate-[0.6] select-none' : ''}`}>
+        <div className={`space-y-4 md:space-y-5 transition-all duration-500 ${contentManagerActive ? 'opacity-80 saturate-[0.6] select-none' : ''}`}>
           {/* CMS overlay label */}
           {contentManagerActive && (
             <div className="!pointer-events-none flex items-center justify-center py-4">
@@ -142,12 +142,12 @@ export default function SolTheoryDashboard() {
           )}
           
           {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
-          <div className="flex flex-col lg:flex-row gap-5 w-full">
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full">
             {/* Slot 1: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards */}
-            <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
+            <div className="flex-[3] md:aspect-[2/3] flex flex-col gap-4 md:gap-5">
               {/* Card 1A: Weekly Timesheet Hours (Real QuickBooks data!) */}
               <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[200px] md:min-h-0">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 1
                 </div>
@@ -163,7 +163,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 1B: Needs Your Attention (Action Board tasks) */}
               <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-1 min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[200px] md:min-h-0">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 2
                 </div>
@@ -175,7 +175,7 @@ export default function SolTheoryDashboard() {
             </div>
 
             {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
-            <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5 overflow-hidden">
+            <div className="hidden md:grid flex-[8] md:aspect-[16/9] grid-cols-2 grid-rows-[auto_1fr] gap-5 overflow-hidden">
               {/* Card 2A: Grant Agent Interface (Tile 3) */}
               <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
               <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
@@ -240,10 +240,10 @@ export default function SolTheoryDashboard() {
           </div>
 
           {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
-          <div className="flex flex-col lg:flex-row gap-5 w-full">
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full">
             {/* Slot 3: Left (Aspect 16:9) -> News Slideshow (Tile 6) */}
             <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-1">
-            <div className="relative h-full aspect-[16/9] rounded-2xl overflow-hidden">
+            <div className="relative h-full aspect-video md:aspect-[16/9] rounded-2xl overflow-hidden">
               <NewsSlideshow />
               {/* Very light pastel yellow overlay to blend with earthy theme */}
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
@@ -251,10 +251,10 @@ export default function SolTheoryDashboard() {
             </CmsTileWrapper>
 
             {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank White Cards) */}
-            <div className="flex-1 aspect-[16/9] flex flex-col gap-5">
+            <div className="flex-1 md:aspect-[16/9] flex flex-col gap-4 md:gap-5">
               {/* Card 4A (2/3 Height): Organization Activity Feed (Tile 7) */}
               <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-0 overflow-hidden">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[180px] md:min-h-0 overflow-hidden">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 7
                 </div>
@@ -274,7 +274,7 @@ export default function SolTheoryDashboard() {
           </div>
 
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
-          <div className="flex flex-col lg:flex-row gap-5 w-full">
+          <div className="hidden md:flex flex-col lg:flex-row gap-5 w-full">
             {/* Slot 5: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank White Cards) */}
             <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
               {/* Card 5A: Retention Rate (Left KPI - Blank White Card) */}
