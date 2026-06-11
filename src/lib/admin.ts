@@ -2,7 +2,7 @@
  * Admin configuration — centralized source of truth for admin privileges.
  */
 
-export const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'] as const;
+export const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'] as const;
 
 /** Check if a given email belongs to an admin user. */
 export const isAdmin = (email: string | null | undefined): boolean =>

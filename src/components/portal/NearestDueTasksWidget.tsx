@@ -63,6 +63,27 @@ const PRIORITY_COLORS: Record<string, string> = {
   Low: "bg-blue-100 text-blue-700 border-blue-200",
 };
 
+// Unique assignee color palette — deterministic per name
+const ASSIGNEE_COLORS = [
+  { bg: "rgba(99,102,241,0.06)", border: "rgb(99,102,241)",  avatar: "bg-indigo-100 text-indigo-700", dot: "bg-indigo-400" },   // indigo
+  { bg: "rgba(16,185,129,0.06)", border: "rgb(16,185,129)",  avatar: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-400" }, // emerald
+  { bg: "rgba(244,63,94,0.06)",  border: "rgb(244,63,94)",   avatar: "bg-rose-100 text-rose-700", dot: "bg-rose-400" },         // rose
+  { bg: "rgba(245,158,11,0.06)", border: "rgb(245,158,11)",  avatar: "bg-amber-100 text-amber-700", dot: "bg-amber-400" },       // amber
+  { bg: "rgba(6,182,212,0.06)",  border: "rgb(6,182,212)",   avatar: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-400" },          // cyan
+  { bg: "rgba(168,85,247,0.06)", border: "rgb(168,85,247)",  avatar: "bg-purple-100 text-purple-700", dot: "bg-purple-400" },    // purple
+  { bg: "rgba(236,72,153,0.06)", border: "rgb(236,72,153)",  avatar: "bg-pink-100 text-pink-700", dot: "bg-pink-400" },          // pink
+  { bg: "rgba(34,197,94,0.06)",  border: "rgb(34,197,94)",   avatar: "bg-green-100 text-green-700", dot: "bg-green-400" },       // green
+];
+
+function getAssigneeColor(name: string | null, colorMap: Map<string, number>) {
+  if (!name) return { bg: "rgba(148,163,184,0.06)", border: "rgb(148,163,184)", avatar: "bg-slate-100 text-slate-500", dot: "bg-slate-300" };
+  const key = name.toLowerCase().trim();
+  if (!colorMap.has(key)) {
+    colorMap.set(key, colorMap.size % ASSIGNEE_COLORS.length);
+  }
+  return ASSIGNEE_COLORS[colorMap.get(key)!];
+}
+
 const COLUMN_LABELS: Record<string, string> = {
   todo: "To Do",
   doing: "In Progress",
@@ -179,6 +200,18 @@ export function NearestDueTasksWidget() {
     }).length;
   }, [tasks]);
 
+  // Build a stable color map for all unique assignees
+  const assigneeColorMap = useMemo(() => {
+    const map = new Map<string, number>();
+    tasks.forEach(t => {
+      if (t.assignedToName) {
+        const key = t.assignedToName.toLowerCase().trim();
+        if (!map.has(key)) map.set(key, map.size % ASSIGNEE_COLORS.length);
+      }
+    });
+    return map;
+  }, [tasks]);
+
   if (loading) {
     return (
       <div className="h-full w-full flex items-center justify-center min-h-[140px]">
@@ -248,12 +281,18 @@ export function NearestDueTasksWidget() {
               const dueMs = typeof task.dueDate.toMillis === "function" ? task.dueDate.toMillis() : new Date(task.dueDate).getTime();
               const isOverdue = dueMs < now;
               const dueLabel = formatDueLabel(task.dueDate);
+              const assigneeColor = getAssigneeColor(task.assignedToName, assigneeColorMap);
 
               return (
                 <div
                   key={task.id}
                   onClick={() => setSelectedTask(task)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-[#faf6ed]/60 transition-colors group cursor-pointer"
+                  className="flex items-center gap-3 p-2.5 rounded-xl border transition-all group cursor-pointer hover:shadow-sm"
+                  style={{
+                    backgroundColor: assigneeColor.bg,
+                    borderColor: assigneeColor.border,
+                    borderLeftWidth: '3px',
+                  }}
                 >
                   {/* Priority indicator bar */}
                   <div className={`w-1 h-10 rounded-full shrink-0 ${isOverdue ? 'bg-rose-400' : 'bg-amber-400'}`} />
@@ -279,8 +318,8 @@ export function NearestDueTasksWidget() {
                     {dueLabel}
                   </span>
 
-                  {/* Assignee avatar */}
-                  <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[9px] font-black uppercase shrink-0">
+                  {/* Assignee avatar - colored per person */}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black uppercase shrink-0 ${assigneeColor.avatar}`}>
                     {task.assignedToName ? task.assignedToName.charAt(0) : "?"}
                   </div>
 

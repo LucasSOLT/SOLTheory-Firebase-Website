@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useUser, useFirestore } from "@/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { useUser, useFirestore, useAuth } from "@/firebase";
+import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,6 +18,17 @@ import { useContentManagerStore } from "@/stores/content-manager-store";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const { user } = useUser();
+  const auth = useAuth();
+
+  // Welcome Walkthrough States
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [walkthroughStep, setWalkthroughStep] = useState(1);
+  const [wtDisplayName, setWtDisplayName] = useState("");
+  const [wtLanguage, setWtLanguage] = useState<"en" | "es">("en");
+  const [wtTheme, setWtTheme] = useState<"light" | "dark">("light");
+  const [wtLocation, setWtLocation] = useState("");
+  const [isSavingWt, setIsSavingWt] = useState(false);
+
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
@@ -28,6 +40,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const firestore = useFirestore();
   const [notifications, setNotifications] = useState<any[]>([]);
   const router = useRouter();
+
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Dashboard-wide dark mode from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('insight_theme');
+    if (savedTheme === 'dark') setIsDarkMode(true);
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'insight_theme') setIsDarkMode(e.newValue === 'dark');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -46,6 +72,148 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userIsAdmin = isAdmin(user?.email);
   const contentManagerActive = useContentManagerStore((s) => s.active);
   const setContentManagerActive = useContentManagerStore((s) => s.setActive);
+
+  // Welcome Walkthrough Language Dictionary
+  const WT_LANG = {
+    en: {
+      welcomeTitle: "Welcome to INSiGHT",
+      welcomeSubtitle: "We're glad that you are here. Before you get started, let's set things up for you!",
+      next: "Next",
+      back: "Back",
+      finish: "Finish Setup & Enter Dashboard",
+      saving: "Saving...",
+      accountsTitle: "Connected Accounts",
+      accountsDesc: "Sync Google (Calendar, Docs, Sheets, Drive), Slack, QuickBooks, and messaging channels (iMessage, SMS, WhatsApp).",
+      prefTitle: "User Preferences",
+      prefDesc: "Personalize how you appear to team members and AI agents, and customize visual settings.",
+      homeTitle: "Home Screen Feed",
+      homeDesc: "Design your workspace layout. (To modify display feeds, request access by messaging an admin).",
+      langTitle: "Interface Language",
+      langDesc: "All features and insights are natively available in English and Español.",
+      step1Title: "A New Era of Business Operations",
+      step1Tagline: "Connect. Automate. Scale.",
+      step2Title: "Quick Preferences",
+      step2Desc: "Configure your basic profile and display settings. You can always edit these in settings later.",
+      displayName: "Display Name",
+      location: "Location / Timezone",
+      locationPlaceholder: "e.g. New York, NY (EST)",
+      interfaceLanguage: "Interface Language",
+      theme: "Interface Theme",
+      light: "Light Mode",
+      dark: "Dark Mode",
+    },
+    es: {
+      welcomeTitle: "Bienvenido a INSiGHT",
+      welcomeSubtitle: "Nos alegra que estés aquí. ¡Antes de comenzar, configuremos algunas cosas para ti!",
+      next: "Siguiente",
+      back: "Atrás",
+      finish: "Finalizar Configuración e Ingresar",
+      saving: "Guardando...",
+      accountsTitle: "Cuentas Conectadas",
+      accountsDesc: "Sincroniza Google (Calendar, Docs, Sheets, Drive), Slack, QuickBooks y canales de mensajería (iMessage, SMS, WhatsApp).",
+      prefTitle: "Preferencias de Usuario",
+      prefDesc: "Personaliza cómo te ves ante tus compañeros y agentes de IA, y configura ajustes visuales.",
+      homeTitle: "Inicio Personalizado",
+      homeDesc: "Diseña la distribución de tu panel. (Para modificar feeds, solicita acceso enviando un mensaje a un administrador).",
+      langTitle: "Idioma de Interfaz",
+      langDesc: "Todas las funciones y análisis están disponibles de forma nativa en inglés y español.",
+      step1Title: "Una Nueva Era en Operaciones",
+      step1Tagline: "Conectar. Automatizar. Escalar.",
+      step2Title: "Preferencias Rápidas",
+      step2Desc: "Configura tu perfil básico y ajustes de visualización. Siempre puedes editarlos en configuración más tarde.",
+      displayName: "Nombre para Mostrar",
+      location: "Ubicación / Zona Horaria",
+      locationPlaceholder: "ej. Madrid, ES (CET)",
+      interfaceLanguage: "Idioma de Interfaz",
+      theme: "Tema de la Interfaz",
+      light: "Modo Claro",
+      dark: "Modo Oscuro",
+    }
+  };
+
+  // Check if welcome walkthrough is completed
+  useEffect(() => {
+    if (!user?.uid || !firestore) return;
+
+    const checkWalkthrough = async () => {
+      // Check local storage first
+      const isCompletedLocal = localStorage.getItem(`walkthrough_completed_${user.uid}`);
+      if (isCompletedLocal === "true") {
+        return;
+      }
+
+      try {
+        const userRef = doc(firestore, "users", user.uid);
+        const docSnap = await getDoc(userRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.walkthroughCompleted) {
+            localStorage.setItem(`walkthrough_completed_${user.uid}`, "true");
+            return;
+          }
+          if (data.location) {
+            setWtLocation(data.location);
+          }
+        }
+
+        // If not completed, show welcome walkthrough
+        setWtDisplayName(user.displayName || "");
+        const savedLang = localStorage.getItem('agent_language') as "en" | "es";
+        if (savedLang === "en" || savedLang === "es") {
+          setWtLanguage(savedLang);
+        }
+        setShowWelcome(true);
+      } catch (err) {
+        console.warn("Error checking walkthrough status:", err);
+        setShowWelcome(true);
+      }
+    };
+
+    checkWalkthrough();
+  }, [user?.uid, firestore]);
+
+  const selectLanguage = (selected: "en" | "es") => {
+    setWtLanguage(selected);
+    localStorage.setItem('agent_language', selected);
+  };
+
+  const handleCompleteWalkthrough = async () => {
+    if (!user?.uid || !firestore) return;
+    setIsSavingWt(true);
+    try {
+      if (auth?.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: wtDisplayName });
+      }
+
+      // Update Firestore user document
+      const userRef = doc(firestore, "users", user.uid);
+      await setDoc(userRef, {
+        walkthroughCompleted: true,
+        displayName: wtDisplayName,
+        location: wtLocation,
+        preferredLanguage: wtLanguage,
+        preferredTheme: wtTheme,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      // Sync local storage for language and theme
+      localStorage.setItem('agent_language', wtLanguage);
+      localStorage.setItem('insight_theme', wtTheme);
+      window.dispatchEvent(new StorageEvent('storage', { key: 'insight_theme', newValue: wtTheme }));
+
+      // Log activity
+      const { logActivity } = await import("@/lib/activity-logger");
+      logActivity(firestore, 'settings_changed', { email: user.email || '', displayName: wtDisplayName }, 'Completed walkthrough setup');
+
+      localStorage.setItem(`walkthrough_completed_${user.uid}`, "true");
+      setShowWelcome(false);
+    } catch (err) {
+      console.error("Error completing walkthrough setup:", err);
+    } finally {
+      setIsSavingWt(false);
+    }
+  };
 
   // Close org switcher on click outside
   useEffect(() => {
@@ -110,7 +278,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
 
   // Guest mode: admins visiting orgs that aren't their home org
-  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
+  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'];
   const isAdminUser = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
   const isOnHomeOrg = pathname.includes('/soltheory');
   const isGuestMode = isAdminUser && !isOnHomeOrg;
@@ -541,7 +709,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen bg-[#faf6ed] overflow-hidden text-slate-900 font-sans">
+    <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#faf6ed] text-slate-900'}`}>
 
       {/* ========== MOBILE TOP BAR ========== */}
       {isMobile && (
@@ -812,7 +980,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setIsSidebarCollapsed(false)}
             title="Expand sidebar"
           >
-            <div className="w-[28px] h-[72px] rounded-full bg-[#f8f6f1] border border-slate-200/80 shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] group hover:border-slate-300 hover:bg-slate-50 transition-all duration-200 select-none">
+            <div className={`w-[28px] h-[72px] rounded-full border shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] group transition-all duration-200 select-none ${isDarkMode ? 'bg-slate-800 border-slate-600/80 hover:border-slate-500 hover:bg-slate-700' : 'bg-[#f8f6f1] border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'}`}>
               <div className="flex flex-col items-center gap-[2px] mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
                 <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
                 <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
@@ -860,7 +1028,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        <aside className="w-full bg-[#f8f6f1] flex flex-col h-full relative shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-x-hidden">
+        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 dark-sidebar shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f8f6f1] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
+          {isDarkMode && (
+            <style>{`
+              .dark-sidebar .bg-\[\#f0ede4\] { background-color: rgb(30 41 59) !important; }
+              .dark-sidebar .bg-\[\#f2efe8\] { background-color: rgb(30 41 59) !important; }
+              .dark-sidebar .bg-\[\#fefcf6\] { background-color: rgb(15 23 42) !important; }
+              .dark-sidebar .bg-slate-100 { background-color: rgb(51 65 85) !important; }
+              .dark-sidebar .hover\:bg-\[\#f2efe8\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+              .dark-sidebar .hover\:bg-\[\#faf6ed\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+              .dark-sidebar .hover\:bg-\[\#f0ede4\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+              .dark-sidebar .hover\:bg-slate-50:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+              .dark-sidebar .text-stone-900 { color: rgb(226 232 240) !important; }
+              .dark-sidebar .text-slate-900 { color: rgb(226 232 240) !important; }
+              .dark-sidebar .text-slate-800 { color: rgb(203 213 225) !important; }
+              .dark-sidebar .text-slate-700 { color: rgb(148 163 184) !important; }
+              .dark-sidebar .text-slate-600 { color: rgb(148 163 184) !important; }
+              .dark-sidebar .text-slate-500 { color: rgb(100 116 139) !important; }
+              .dark-sidebar .text-slate-400 { color: rgb(71 85 105) !important; }
+              .dark-sidebar .text-slate-300 { color: rgb(71 85 105) !important; }
+              .dark-sidebar .hover\:text-stone-900:hover { color: rgb(226 232 240) !important; }
+              .dark-sidebar .hover\:text-slate-900:hover { color: rgb(226 232 240) !important; }
+              .dark-sidebar .hover\:text-slate-700:hover { color: rgb(203 213 225) !important; }
+              .dark-sidebar .border-\[\#e0ddd4\] { border-color: rgb(51 65 85) !important; }
+              .dark-sidebar .border-slate-200 { border-color: rgb(51 65 85) !important; }
+              .dark-sidebar .border-slate-200\/80 { border-color: rgb(51 65 85 / 0.8) !important; }
+              .dark-sidebar .border-slate-100 { border-color: rgb(51 65 85 / 0.5) !important; }
+              .dark-sidebar .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.15) !important; }
+              .dark-sidebar .group-hover\:text-slate-700:hover { color: rgb(203 213 225) !important; }
+            `}</style>
+          )}
           <div style={{ width: sidebarWidth, minWidth: 180 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
             {isDualOrgUser ? (
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
@@ -1470,6 +1667,277 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Welcome Walkthrough Modal */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-xl p-4 animate-in fade-in duration-300">
+          <div className="bg-[#fefcf6]/90 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row min-h-[520px]">
+            
+            {/* Left Side: Brand Panel */}
+            <div className="md:w-1/3 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 p-8 flex flex-col justify-between text-white border-r border-indigo-900/30">
+              <div className="space-y-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-black tracking-[0.2em] text-indigo-400">INSiGHT</span>
+                </div>
+                <div className="pt-8 space-y-2">
+                  <h3 className="text-lg font-bold text-slate-100 leading-tight">
+                    {wtLanguage === "en" ? WT_LANG.en.step1Title : WT_LANG.es.step1Title}
+                  </h3>
+                  <p className="text-xs text-indigo-200/80">
+                    {wtLanguage === "en" ? WT_LANG.en.step1Tagline : WT_LANG.es.step1Tagline}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-1.5 rounded-full transition-all duration-300 ${walkthroughStep === 1 ? "w-6 bg-indigo-400" : "w-1.5 bg-indigo-950"}`} />
+                  <span className={`h-1.5 rounded-full transition-all duration-300 ${walkthroughStep === 2 ? "w-6 bg-indigo-400" : "w-1.5 bg-indigo-950"}`} />
+                </div>
+                <p className="text-[10px] text-indigo-300/60 font-semibold uppercase tracking-wider">
+                  {wtLanguage === "en" ? `Step ${walkthroughStep} of 2` : `Paso ${walkthroughStep} de 2`}
+                </p>
+              </div>
+            </div>
+
+            {/* Right Side: Setup Wizard Content */}
+            <div className="flex-1 p-8 flex flex-col justify-between bg-white text-slate-800">
+              {walkthroughStep === 1 ? (
+                /* Step 1: Welcome Overview */
+                <div className="space-y-6 my-auto">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight flex items-center gap-2">
+                      <Sparkles className="w-6 h-6 text-indigo-500 animate-pulse" />
+                      {wtLanguage === "en" ? WT_LANG.en.welcomeTitle : WT_LANG.es.welcomeTitle}
+                    </h2>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                      {wtLanguage === "en" ? WT_LANG.en.welcomeSubtitle : WT_LANG.es.welcomeSubtitle}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    {/* Item 1 */}
+                    <div className="flex gap-3 p-3.5 rounded-2xl bg-[#faf6ed]/40 border border-slate-100 hover:border-slate-200/80 transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {wtLanguage === "en" ? WT_LANG.en.accountsTitle : WT_LANG.es.accountsTitle}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-normal">
+                          {wtLanguage === "en" ? WT_LANG.en.accountsDesc : WT_LANG.es.accountsDesc}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Item 2 */}
+                    <div className="flex gap-3 p-3.5 rounded-2xl bg-[#faf6ed]/40 border border-slate-100 hover:border-slate-200/80 transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                        <Settings className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {wtLanguage === "en" ? WT_LANG.en.prefTitle : WT_LANG.es.prefTitle}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-normal">
+                          {wtLanguage === "en" ? WT_LANG.en.prefDesc : WT_LANG.es.prefDesc}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Item 3 */}
+                    <div className="flex gap-3 p-3.5 rounded-2xl bg-[#faf6ed]/40 border border-slate-100 hover:border-slate-200/80 transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                        <LayoutDashboard className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {wtLanguage === "en" ? WT_LANG.en.homeTitle : WT_LANG.es.homeTitle}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-normal">
+                          {wtLanguage === "en" ? WT_LANG.en.homeDesc : WT_LANG.es.homeDesc}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Item 4 */}
+                    <div className="flex gap-3 p-3.5 rounded-2xl bg-[#faf6ed]/40 border border-slate-100 hover:border-slate-200/80 transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {wtLanguage === "en" ? WT_LANG.en.langTitle : WT_LANG.es.langTitle}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-normal">
+                          {wtLanguage === "en" ? WT_LANG.en.langDesc : WT_LANG.es.langDesc}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Step 2: Preferences Gathering */
+                <div className="space-y-5 my-auto">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                      {wtLanguage === "en" ? WT_LANG.en.step2Title : WT_LANG.es.step2Title}
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      {wtLanguage === "en" ? WT_LANG.en.step2Desc : WT_LANG.es.step2Desc}
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Display Name Input */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        {wtLanguage === "en" ? WT_LANG.en.displayName : WT_LANG.es.displayName}
+                      </label>
+                      <input
+                        type="text"
+                        value={wtDisplayName}
+                        onChange={e => setWtDisplayName(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed]/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 font-semibold"
+                      />
+                    </div>
+
+                    {/* Location Input */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        {wtLanguage === "en" ? WT_LANG.en.location : WT_LANG.es.location}
+                      </label>
+                      <input
+                        type="text"
+                        value={wtLocation}
+                        onChange={e => setWtLocation(e.target.value)}
+                        placeholder={wtLanguage === "en" ? WT_LANG.en.locationPlaceholder : WT_LANG.es.locationPlaceholder}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed]/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400"
+                      />
+                    </div>
+
+                    {/* Language Preference */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        {wtLanguage === "en" ? WT_LANG.en.interfaceLanguage : WT_LANG.es.interfaceLanguage}
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => selectLanguage("en")}
+                          className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                            wtLanguage === "en"
+                              ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
+                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          🇺🇸 English
+                          {wtLanguage === "en" && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectLanguage("es")}
+                          className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                            wtLanguage === "es"
+                              ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
+                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          🇪🇸 Español
+                          {wtLanguage === "es" && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Theme Preference Placeholder */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        {wtLanguage === "en" ? WT_LANG.en.theme : WT_LANG.es.theme}
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setWtTheme("light")}
+                          className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                            wtTheme === "light"
+                              ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
+                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          <Sun className="w-3.5 h-3.5" />
+                          {wtLanguage === "en" ? WT_LANG.en.light : WT_LANG.es.light}
+                          {wtTheme === "light" && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWtTheme("dark")}
+                          className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                            wtTheme === "dark"
+                              ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
+                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          <Moon className="w-3.5 h-3.5" />
+                          {wtLanguage === "en" ? WT_LANG.en.dark : WT_LANG.es.dark}
+                          {wtTheme === "dark" && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Buttons */}
+              <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-4">
+                {walkthroughStep === 1 ? (
+                  <div className="w-1" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setWalkthroughStep(1)}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+                    {wtLanguage === "en" ? WT_LANG.en.back : WT_LANG.es.back}
+                  </button>
+                )}
+
+                {walkthroughStep === 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setWalkthroughStep(2)}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97]"
+                  >
+                    {wtLanguage === "en" ? WT_LANG.en.next : WT_LANG.es.next}
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCompleteWalkthrough}
+                    disabled={isSavingWt || !wtDisplayName.trim()}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97] min-w-[120px] justify-center"
+                  >
+                    {isSavingWt ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                        {wtLanguage === "en" ? WT_LANG.en.saving : WT_LANG.es.saving}
+                      </>
+                    ) : (
+                      <>
+                        {wtLanguage === "en" ? WT_LANG.en.finish : WT_LANG.es.finish}
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

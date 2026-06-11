@@ -32,7 +32,7 @@ export default function NxtChapterDashboard() {
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
 
   // Guest mode: admins from soltheory visiting NXT Chapter
-  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
+  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'];
   const isGuestMode = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
 
   // Admin Content Manager state (from shared store)
@@ -358,6 +358,20 @@ export default function NxtChapterDashboard() {
 
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-10 pt-6 pb-2 border-t border-slate-200/40 text-center">
+        <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
+          <span className="text-slate-400/80">MyTaj LLC</span>
+          <span className="text-slate-300">·</span>
+          <a href="#" className="hover:text-slate-600 transition-colors">Terms of Service</a>
+          <span className="text-slate-300">·</span>
+          <a href="#" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
+          <span className="text-slate-300">·</span>
+          <a href="#" className="hover:text-slate-600 transition-colors">How to use Insight</a>
+        </div>
+      </footer>
+
       {/* Grant Agent Hub Modal */}
       {!isGuestMode && isGrantConfigOpen && (
         <GrantAgentHub onClose={() => setIsGrantConfigOpen(false)} />

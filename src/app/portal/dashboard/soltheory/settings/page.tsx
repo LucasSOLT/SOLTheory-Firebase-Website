@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield } from "lucide-react";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { updateProfile } from "firebase/auth";
+import { updateProfile, sendPasswordResetEmail } from "firebase/auth";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -108,7 +108,8 @@ const t = {
 };
 
 type Lang = 'en' | 'es';
-type Tab = 'general' | 'profile' | 'notifications' | 'security' | 'language';
+type Tab = 'general' | 'profile';
+type SubPage = null | 'personal-info' | 'sign-in-security' | 'integrations';
 
 export default function SettingsPage() {
   return (
@@ -137,7 +138,23 @@ function SettingsContent() {
   const [profileMessage, setProfileMessage] = useState("");
   
   const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const [subPage, setSubPage] = useState<SubPage>(null);
   const [lang, setLang] = useState<Lang>('en');
+
+  // Personal Info sub-page states
+  const [accountName, setAccountName] = useState('');
+  const [emails, setEmails] = useState<string[]>([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [address, setAddress] = useState('');
+
+  // Sign-In & Security sub-page states
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordVerify, setPasswordVerify] = useState('');
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   // QuickBooks states
   const [qbConnected, setQbConnected] = useState(false);
@@ -160,7 +177,7 @@ function SettingsContent() {
     
     // Read tab from query params
     const tabParam = searchParams.get('tab') as Tab;
-    if (tabParam && ['general', 'profile', 'notifications', 'security', 'language'].includes(tabParam)) {
+    if (tabParam && ['general', 'profile'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -174,12 +191,18 @@ function SettingsContent() {
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || "");
+      setEmails(user.email ? [user.email] : []);
+      setAccountName(user.displayName || "");
       if (firestore) {
         getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
           if (docSnap.exists()) {
             const data = docSnap.data();
             setBio(data.bio || "");
             setLocation(data.location || "");
+            if (data.accountName) setAccountName(data.accountName);
+            if (data.additionalEmails) setEmails([user.email || '', ...data.additionalEmails]);
+            if (data.phoneNumber) setPhoneNumber(data.phoneNumber);
+            if (data.address) setAddress(data.address);
             // Load iMessage config
             if (data.imessageServerUrl) {
               setImServerUrl(data.imessageServerUrl);
@@ -426,421 +449,467 @@ function SettingsContent() {
 
   const dict = t[lang];
 
+  // Dark mode state for settings page
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem('insight_theme');
+    if (saved === 'dark') setIsDarkMode(true);
+    const handler = (e: StorageEvent) => {
+      if (e.key === 'insight_theme') setIsDarkMode(e.newValue === 'dark');
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-[#faf6ed] text-slate-800">
+    <div className={`flex flex-col h-full overflow-y-auto transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#faf6ed] text-slate-800'}`}>
       <main className="flex-grow py-8 px-4 md:px-8 relative">
-        <div className="w-full max-w-5xl mx-auto space-y-6">
+        <div className="w-full max-w-[1200px] mx-auto space-y-6">
           <div className="flex items-center gap-4 relative z-20">
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{dict.settings}</h1>
+            <h1 className={`text-3xl font-extrabold tracking-tight ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{dict.settings}</h1>
           </div>
 
           <div className="flex flex-col md:flex-row gap-8 pt-4">
             
             {/* Sidebar Navigation */}
-            <div className="w-full md:w-64 flex flex-col gap-6 shrink-0">
+            <div className="w-full md:w-56 flex flex-col gap-4 shrink-0">
               
               {/* User Profile Box */}
-              <div className="bg-[#fefcf6] border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col items-center text-center">
-                <div className="w-20 h-20 rounded-full bg-slate-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center text-2xl font-bold text-slate-700 mb-3">
+              <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200/80'} border rounded-2xl p-5 shadow-sm flex flex-col items-center text-center`}>
+                <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-white'} border-4 shadow-lg overflow-hidden flex items-center justify-center text-xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
                   {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : (user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                 </div>
-                <h3 className="font-bold text-slate-900 text-lg line-clamp-1">{user?.displayName || "User"}</h3>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">User Profile</p>
+                <h3 className={`font-bold text-base line-clamp-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{user?.displayName || "User"}</h3>
+                <p className={`text-[10px] font-medium uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{user?.email}</p>
               </div>
 
-              <div className="space-y-2">
+              {/* Profile Section */}
+              <div className="space-y-1">
+                <button 
+                  onClick={() => { setActiveTab('profile'); setSubPage(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'profile' ? (isDarkMode ? 'bg-slate-800 text-white' : 'bg-slate-900 text-white') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')}`}
+                >
+                  <User className="w-4 h-4" /> {dict.profile}
+                </button>
+              </div>
+
+              {/* Separator */}
+              <div className={`h-px ${isDarkMode ? 'bg-slate-700/60' : 'bg-slate-200/80'}`} />
+
+              {/* General Section */}
+              <div className="space-y-1">
                 <button 
                   onClick={() => setActiveTab('general')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'general' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'general' ? (isDarkMode ? 'bg-slate-800 text-white' : 'bg-slate-900 text-white') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')}`}
                 >
-                  <Settings className="w-5 h-5" /> General
-                </button>
-                <button 
-                  onClick={() => setActiveTab('profile')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'profile' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
-                >
-                  <User className="w-5 h-5" /> {dict.profile}
-                </button>
-                <button 
-                  onClick={() => setActiveTab('notifications')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'notifications' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
-                >
-                  <Bell className="w-5 h-5" /> {dict.notifications}
-                </button>
-                <button 
-                  onClick={() => setActiveTab('security')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'security' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
-                >
-                  <Lock className="w-5 h-5" /> {dict.security}
-                </button>
-                <button 
-                  onClick={() => setActiveTab('language')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'language' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-slate-500 hover:text-slate-800 hover:bg-[#fefcf6] border border-transparent'}`}
-                >
-                  <Globe className="w-5 h-5" /> {dict.regionLanguage}
+                  <Settings className="w-4 h-4" /> General
                 </button>
               </div>
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-6 min-w-0">
               
               {activeTab === 'general' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
-                    <CardHeader className="px-8 pt-8">
-                      <CardTitle className="text-xl text-slate-900">General Settings</CardTitle>
-                      <CardDescription>Manage your overarching platform preferences here.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-8 pb-8 space-y-6">
-                      <div className="flex items-center justify-between p-4 bg-[#faf6ed] rounded-xl border border-slate-200">
-                        <div className="space-y-1">
-                          <Label className="text-base font-bold text-slate-800">Compact Mode</Label>
-                          <p className="text-sm text-slate-500">Reduce spacing and padding across the dashboard interface.</p>
+                  <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
+                    <div className="px-8 pt-7 pb-2">
+                      <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>General</h2>
+                      <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your platform-wide preferences.</p>
+                    </div>
+                    <div className="px-8 pb-8 pt-4 space-y-0">
+                      <div className={`flex items-center justify-between py-5 ${isDarkMode ? 'border-slate-700/40' : 'border-slate-100'} border-b`}>
+                        <div className="space-y-0.5">
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Dark Mode</span>
+                          <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Switch the entire dashboard to a dark color scheme.</p>
                         </div>
-                        <Switch />
+                        <Switch 
+                          checked={isDarkMode}
+                          onCheckedChange={(checked) => {
+                            localStorage.setItem('insight_theme', checked ? 'dark' : 'light');
+                            window.dispatchEvent(new StorageEvent('storage', { key: 'insight_theme', newValue: checked ? 'dark' : 'light' }));
+                            setIsDarkMode(checked);
+                          }}
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {activeTab === 'profile' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-[#fefcf6] border-slate-200 overflow-hidden shadow-2xl relative">
-                    <div className="h-32 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 relative">
-                      <div className="absolute -bottom-10 left-6">
-                        <div className="w-20 h-20 rounded-full border-4 border-slate-900 bg-slate-100 flex items-center justify-center text-3xl font-bold text-slate-900 shadow-lg overflow-hidden">
+
+                  {/* ====== SUB-PAGE: Personal Information ====== */}
+                  {subPage === 'personal-info' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> Back to Profile
+                      </button>
+
+                      <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
+                        <div className="px-8 pt-7 pb-2">
+                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Personal Information</h2>
+                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your account details. This is separate from your public display profile.</p>
+                        </div>
+                        <div className="px-8 pb-8 pt-4 space-y-6">
+                          {/* Account Name */}
+                          <div className="space-y-1.5">
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Account Name</Label>
+                            <Input value={accountName} onChange={e => setAccountName(e.target.value)} placeholder="Your legal or account name" className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
+                            <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>This is different from your public display name.</p>
+                          </div>
+
+                          {/* Emails */}
+                          <div className="space-y-3">
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Email Addresses</Label>
+                            <div className="space-y-2">
+                              {emails.map((email, i) => (
+                                <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800/60 border-slate-700/40' : 'bg-slate-50 border-slate-100'} border`}>
+                                  <Mail className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                                  <span className={`text-sm flex-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{email}</span>
+                                  {i === 0 && <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Primary</span>}
+                                  {i > 0 && <button onClick={() => setEmails(emails.filter((_, j) => j !== i))} className={`${isDarkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-300 hover:text-red-500'} transition-colors`}><X className="w-3.5 h-3.5" /></button>}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Add another email" className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-9 text-sm`} />
+                              <Button onClick={() => { if (newEmail.trim() && newEmail.includes('@')) { setEmails([...emails, newEmail.trim()]); setNewEmail(''); }}} variant="outline" className={`h-9 px-3 shrink-0 ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </div>
+
+                          {/* Phone */}
+                          <div className="space-y-1.5">
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Phone Number</Label>
+                            <div className="relative">
+                              <Phone className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                              <Input value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="+1 (555) 000-0000" className={`pl-10 ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
+                            </div>
+                          </div>
+
+                          {/* Address */}
+                          <div className="space-y-1.5">
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Address</Label>
+                            <div className="relative">
+                              <MapPin className={`absolute left-3 top-3 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                              <textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, State ZIP" className={`w-full h-20 pl-10 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-600' : 'bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400'} border focus:outline-none focus:ring-2 focus:ring-slate-400/30 text-sm resize-none`} />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end pt-2">
+                            <Button onClick={async () => { if (!user?.uid || !firestore) return; try { await setDoc(doc(firestore, 'users', user.uid), { accountName, additionalEmails: emails.slice(1), phoneNumber, address }, { merge: true }); setProfileMessage('OK'); } catch { setProfileMessage('Error'); } setTimeout(() => setProfileMessage(''), 3000); }} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-5 rounded-lg shadow-sm">Save Changes</Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Sign-In & Security ====== */}
+                  {subPage === 'sign-in-security' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> Back to Profile
+                      </button>
+
+                      <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
+                        <div className="px-8 pt-7 pb-2">
+                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Sign-In & Security</h2>
+                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your password and account security settings.</p>
+                        </div>
+                        <div className="px-8 pb-8 pt-4 space-y-6">
+
+                          {/* Current Password */}
+                          <div className={`p-5 rounded-xl ${isDarkMode ? 'bg-slate-800/50 border-slate-700/40' : 'bg-slate-50 border-slate-100'} border space-y-3`}>
+                            <div>
+                              <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Current Password</h3>
+                              <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Your current account password</p>
+                            </div>
+
+                            <div className={`flex items-center gap-3 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border`}>
+                              <Key className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                              <span className={`text-sm flex-1 ${passwordVerified && showPassword ? (isDarkMode ? 'text-slate-200' : 'text-slate-700') : 'tracking-[4px] ' + (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`}>{passwordVerified && showPassword ? passwordVerify : '••••••••••••'}</span>
+                              <button onClick={() => { if (passwordVerified) { setShowPassword(!showPassword); } else { setShowPasswordModal(true); }}} className={`${isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'} transition-colors p-1 rounded-md ${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-100/50'}`}>
+                                {passwordVerified && showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+
+                            <button onClick={() => setShowResetModal(true)} className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors">
+                              Reset my password
+                            </button>
+                          </div>
+
+                          {/* Verify Password Modal Overlay */}
+                          {showPasswordModal && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                              <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}>
+                                <h3 className={`text-base font-semibold mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Verify Your Identity</h3>
+                                <p className={`text-xs mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Enter your current password to reveal it. It will auto-hide after 30 seconds for security.</p>
+                                <Input type="password" value={passwordVerify} onChange={e => setPasswordVerify(e.target.value)} placeholder="Enter current password" autoFocus onKeyDown={e => { if (e.key === 'Enter' && passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10 mb-4`} />
+                                <div className="flex gap-2 justify-end">
+                                  <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setPasswordVerify(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>Cancel</Button>
+                                  <Button onClick={() => { if (passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className="h-9 text-sm bg-slate-900 hover:bg-slate-800 text-white px-5 rounded-lg shadow-sm">Confirm</Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Reset Password Modal */}
+                          {showResetModal && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                              <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}>
+                                {!resetEmailSent ? (
+                                  <>
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                      <Mail className="w-6 h-6" />
+                                    </div>
+                                    <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Reset Your Password</h3>
+                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>We&apos;ll send a password reset link to your email address <span className="font-semibold">{user?.email}</span>. Click the link to set a new password.</p>
+                                    <div className="flex gap-2 justify-end">
+                                      <Button variant="ghost" onClick={() => setShowResetModal(false)} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>Cancel</Button>
+                                      <Button onClick={async () => { if (auth && user?.email) { try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/soltheory/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'security_event', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e) { console.error(e); }}}} className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm">Send Reset Email</Button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 bg-emerald-500/10 text-emerald-500`}>
+                                      <Mail className="w-6 h-6" />
+                                    </div>
+                                    <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Check Your Email</h3>
+                                    <p className={`text-xs text-center mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>We&apos;ve sent a password reset link to <span className="font-semibold">{user?.email}</span>. Click the link in the email to create a new password.</p>
+                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-amber-400/80' : 'text-amber-600'}`}>💡 Don&apos;t see it? Check your <span className="font-semibold">spam or junk folder</span>.</p>
+                                    <div className="flex justify-center">
+                                      <Button onClick={() => { setShowResetModal(false); setResetEmailSent(false); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); }} className={`h-9 text-sm px-6 rounded-lg shadow-sm ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>Done</Button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 2FA */}
+                          <div className={`p-5 rounded-xl ${isDarkMode ? 'bg-slate-800/50 border-slate-700/40' : 'bg-slate-50 border-slate-100'} border`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                  <Shield className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Two-Factor Authentication</h3>
+                                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Add an extra layer of security with 2FA</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Not Enabled</span>
+                                <Button variant="outline" className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Enable 2FA</Button>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Third-Party Integrations ====== */}
+                  {subPage === 'integrations' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> Back to Profile
+                      </button>
+
+                      <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
+                        <div className="px-8 pt-7 pb-2">
+                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Third-Party Integrations</h2>
+                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Connect external services to enhance your Insight experience.</p>
+                        </div>
+                        <div className="px-8 pb-8 pt-4 space-y-0">
+
+                          {/* SMS / Text Messaging */}
+                          <div className={`flex items-center justify-between py-6 ${isDarkMode ? 'border-slate-700/40' : 'border-slate-100'} border-b`}>
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                                <MessageCircle className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>SMS / Text Messaging</h3>
+                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Get a dedicated phone number for sending and receiving texts.</p>
+                                {imConnected && imServerUrl && (
+                                  <p className="text-xs text-emerald-500 font-medium mt-1 flex items-center gap-1"><Wifi className="w-3 h-3" /> Active · <span className="font-mono text-emerald-600">{imServerUrl}</span></p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {imConnected && imServerUrl ? (
+                                <>
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Connected</span>
+                                  <Button variant="outline" onClick={handleDisconnectImessage} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>Disconnect</Button>
+                                </>
+                              ) : (
+                                <Button onClick={() => window.location.href = window.location.pathname.replace("/settings", "/communications/imessage")} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-4 rounded-lg shadow-sm">Set Up</Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Google Account */}
+                          <div className={`flex items-center justify-between py-6 ${isDarkMode ? 'border-slate-700/40' : 'border-slate-100'} border-b`}>
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                <Mail className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Google Account</h3>
+                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Connect Google for email, calendar, and document access.</p>
+                                {gmailConnected && <p className="text-xs text-emerald-500 font-medium mt-1">✓ Connected Successfully</p>}
+                                {oauthError && <p className="text-xs text-red-400 font-medium mt-1">✗ {oauthError}</p>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {gmailConnected ? (
+                                <>
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Connected</span>
+                                  <Button variant="outline" onClick={handleSyncInbox} disabled={isSyncing} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                    {isSyncing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />} Refresh
+                                  </Button>
+                                  <Button variant="outline" onClick={handleDisconnectGmail} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>Disconnect</Button>
+                                </>
+                              ) : (
+                                <Button onClick={handleConnectGmail} disabled={isUserLoading} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-4 rounded-lg shadow-sm">
+                                  <Mail className="w-3.5 h-3.5 mr-1.5" /> Connect
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* QuickBooks */}
+                          <div className={`flex items-center justify-between py-6`}>
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'}`}>
+                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-2h2v2zm0-4h-2V7h2v6zm4 4h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
+                              </div>
+                              <div>
+                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>QuickBooks</h3>
+                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Sync financial data including expenses, invoices, and P&L reports.</p>
+                                {qbConnected && <p className="text-xs text-emerald-500 font-medium mt-1">✓ Connected Successfully</p>}
+                                {qbError && <p className="text-xs text-red-400 font-medium mt-1">✗ {qbError}</p>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {qbConnected ? (
+                                <>
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Connected</span>
+                                  <Button variant="outline" onClick={handleDisconnectQuickBooks} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>Disconnect</Button>
+                                </>
+                              ) : (
+                                <Button onClick={handleConnectQuickBooks} disabled={isUserLoading || qbConnecting} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-4 rounded-lg shadow-sm">
+                                  {qbConnecting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null} Connect
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ====== MAIN PROFILE VIEW (when no subPage) ====== */}
+                  {subPage === null && (
+                    <>
+                  {/* Public Profile Card */}
+                  <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
+                    <div className={`h-24 w-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900'} relative`}>
+                      <div className="absolute -bottom-8 left-8">
+                        <div className={`w-16 h-16 rounded-full border-4 ${isDarkMode ? 'border-slate-900 bg-slate-700' : 'border-white bg-slate-100'} flex items-center justify-center text-2xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-900'} shadow-lg overflow-hidden`}>
                           {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : (displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                         </div>
                       </div>
                     </div>
                     
-                    <CardContent className="pt-14 pb-8 px-8 space-y-6">
+                    <div className="pt-12 pb-6 px-8 space-y-5">
                       <div>
-                        <h2 className="text-2xl font-bold text-slate-900">{dict.publicProfile}</h2>
-                        <p className="text-sm text-slate-500">{dict.personalizeInfo}</p>
+                        <h2 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{dict.publicProfile}</h2>
+                        <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.personalizeInfo}</p>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="name" className="text-slate-700">{dict.displayName}</Label>
-                          <Input id="name" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. Jane Doe" className="bg-[#faf6ed]/50 border-slate-300/50 focus-visible:ring-indigo-500 h-11 text-slate-800" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="name" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.displayName}</Label>
+                          <Input id="name" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. Jane Doe" className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="email" className="text-slate-700">{dict.accountEmail}</Label>
-                          <Input id="email" type="email" value={user?.email || ""} readOnly className="bg-[#faf6ed]/50 border-slate-200 text-slate-500 cursor-not-allowed h-11" />
+                        <div className="space-y-1.5">
+                          <Label htmlFor="email" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.accountEmail}</Label>
+                          <Input id="email" type="email" value={user?.email || ""} readOnly className={`${isDarkMode ? 'bg-slate-800/50 border-slate-700 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'} cursor-not-allowed h-10`} />
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="location" className="text-slate-700">{dict.location}</Label>
-                          <Input id="location" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. New York, NY (EST)" className="bg-[#faf6ed]/50 border-slate-300/50 focus-visible:ring-indigo-500 h-11 text-slate-800" />
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label htmlFor="location" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.location}</Label>
+                          <Input id="location" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. New York, NY (EST)" className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="bio" className="text-slate-700">{dict.bio}</Label>
-                          <textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} placeholder={dict.bioPlaceholder} className="w-full h-28 p-3 rounded-xl bg-[#faf6ed]/50 border border-slate-300/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-800 resize-none placeholder:text-slate-600 transition-all" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
-                    <CardHeader className="px-8 pt-8">
-                      <CardTitle className="text-xl text-slate-900">{dict.integrations}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-8 pb-8 space-y-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-1.5 max-w-sm">
-                          <Label className="text-base text-slate-800">{dict.gmailConnection}</Label>
-                          <p className="text-sm text-slate-500 leading-relaxed">{dict.gmailDesc}</p>
-                          {gmailConnected && <p className="text-sm text-emerald-400 font-medium mt-2">{dict.gmailConnected}</p>}
-                          {oauthError && <p className="text-sm text-red-400 font-medium mt-2">âœ— {oauthError}</p>}
-                          {syncMessage && <p className={`text-sm font-medium mt-2 ${syncMessage.includes('Error') ? 'text-red-400' : 'text-blue-400'}`}>â„¹ï¸ {syncMessage === 'OK' ? dict.syncInbox + ' OK' : syncMessage}</p>}
-                        </div>
-                        
-                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
-                          {gmailConnected ? (
-                            <>
-                              <Button 
-                                variant="outline" 
-                                className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
-                                onClick={(e) => e.preventDefault()}
-                              >
-                                <Mail className="w-4 h-4 mr-2 text-slate-700" />
-                                {dict.connected}
-                              </Button>
-
-                              <Button 
-                                variant="secondary" 
-                                onClick={handleSyncInbox}
-                                disabled={isSyncing || !user}
-                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/50 h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
-                              >
-                                {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                                {isSyncing ? dict.syncing : "Refresh"}
-                              </Button>
-
-                              <Button 
-                                variant="outline" 
-                                onClick={handleDisconnectGmail}
-                                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50 h-8 px-3 rounded-lg text-xs font-semibold transition-all ml-auto"
-                              >
-                                Disconnect
-                              </Button>
-                            </>
-                          ) : (
-                            <Button 
-                              variant="default" 
-                              className="bg-indigo-600 hover:bg-indigo-700 h-11 text-white rounded-xl shadow-md hover:shadow-lg transition-all"
-                              onClick={handleConnectGmail}
-                              disabled={isUserLoading}
-                            >
-                              <Mail className="w-4 h-4 mr-2" />
-                              {dict.connectGmail}
-                            </Button>
-                          )}
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label htmlFor="bio" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.bio}</Label>
+                          <textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} placeholder={dict.bioPlaceholder} className={`w-full h-24 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-600' : 'bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400'} border focus:outline-none focus:ring-2 focus:ring-slate-400/30 text-sm resize-none transition-all`} />
                         </div>
                       </div>
 
-                      {/* --- QuickBooks --- */}
-                      <div className="w-full h-px bg-slate-100/50" />
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-1.5 max-w-sm">
-                          <Label className="text-base text-slate-800">QuickBooks Connection</Label>
-                          <p className="text-sm text-slate-500 leading-relaxed">Connect your QuickBooks account to sync financial data (expenses, P&L, invoices, bank accounts) into your dashboard. <span className="font-medium text-slate-700">Read-only access.</span></p>
-                          {qbConnected && <p className="text-sm text-emerald-400 font-medium mt-2">âœ“ QuickBooks Connected Successfully</p>}
-                          {qbError && <p className="text-sm text-red-400 font-medium mt-2">âœ— {qbError}</p>}
-                        </div>
-                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
-                          {qbConnected ? (
-                            <>
-                              <Button 
-                                variant="outline" 
-                                className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
-                                onClick={(e) => e.preventDefault()}
-                              >
-                                âœ“ Connected
-                              </Button>
-
-                              <Button 
-                                variant="secondary" 
-                                onClick={handleConnectQuickBooks}
-                                disabled={isUserLoading || qbConnecting}
-                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/50 h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
-                              >
-                                {qbConnecting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                                Refresh
-                              </Button>
-
-                              <Button 
-                                variant="outline" 
-                                onClick={handleDisconnectQuickBooks}
-                                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50 h-8 px-3 rounded-lg text-xs font-semibold transition-all ml-auto"
-                              >
-                                Disconnect
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              variant="default"
-                              className="bg-[#2CA01C] hover:bg-[#248a17] text-white h-11 rounded-xl shadow-md hover:shadow-lg transition-all"
-                              onClick={handleConnectQuickBooks}
-                              disabled={isUserLoading || qbConnecting}
-                            >
-                              {qbConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                              Connect QuickBooks
-                            </Button>
-                          )}
-                        </div>
+                      <div className="flex items-center justify-end gap-3 pt-2">
+                        {profileMessage && <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${profileMessage.includes('Error') ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{profileMessage === 'OK' ? 'Saved' : profileMessage}</span>}
+                        <Button variant="ghost" className={`text-sm h-9 ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>{dict.cancel}</Button>
+                        <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-5 rounded-lg shadow-sm">
+                          {isSavingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                          {isSavingProfile ? dict.saving : dict.saveChanges}
+                        </Button>
                       </div>
-
-                      {/* --- Mock Slack --- */}
-                      <div className="w-full h-px bg-slate-100/50" />
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-1.5 max-w-sm">
-                          <Label className="text-base text-slate-800">Slack Connection</Label>
-                          <p className="text-sm text-slate-500 leading-relaxed">Connect your Slack workspace to receive system alerts and daily digests in a channel.</p>
-                        </div>
-                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
-                          <Button className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">Connect Slack</Button>
-                        </div>
-                      </div>
-
-                      {/* --- Mock Whatsapp --- */}
-                      <div className="w-full h-px bg-slate-100/50" />
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-1.5 max-w-sm">
-                          <Label className="text-base text-slate-800">WhatsApp Connection</Label>
-                          <p className="text-sm text-slate-500 leading-relaxed">Connect your WhatsApp Business account to handle customer communications.</p>
-                        </div>
-                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
-                          <Button className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">Connect WhatsApp</Button>
-                        </div>
-                      </div>
-
-                      {/* --- Messaging (SMS/Text) --- */}
-                      <div className="w-full h-px bg-slate-100/50" />
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-1.5 max-w-md">
-                          <Label className="text-base text-slate-800 flex items-center gap-2">
-                            <MessageCircle className="w-4 h-4 text-emerald-500" />
-                            Text Messaging
-                          </Label>
-                          <p className="text-sm text-slate-500 leading-relaxed">
-                            Get a dedicated phone number so Jarvis can send and receive text messages on your behalf. Works with any phone â€” iPhone or Android.
-                          </p>
-                          {imConnected && imServerUrl && (
-                            <p className="text-sm text-emerald-500 font-medium mt-1 flex items-center gap-1">
-                              <Wifi className="w-3.5 h-3.5" /> Active Â· <span className="font-mono text-emerald-600">{imServerUrl}</span>
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 w-full max-w-md sm:w-auto">
-                          {imConnected && imServerUrl ? (
-                            <>
-                              <Button 
-                                variant="outline" 
-                                className="bg-slate-200 text-slate-800 hover:bg-slate-300 font-semibold h-11 border-none cursor-default active:scale-100"
-                                onClick={(e) => e.preventDefault()}
-                              >
-                                âœ“ Active
-                              </Button>
-
-                              <Button 
-                                variant="secondary" 
-                                onClick={handleTestImessage}
-                                disabled={imTesting}
-                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/50 h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
-                              >
-                                {imTesting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                                Refresh
-                              </Button>
-
-                              <Button 
-                                variant="outline" 
-                                onClick={handleDisconnectImessage}
-                                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50 h-8 px-3 rounded-lg text-xs font-semibold transition-all ml-auto"
-                              >
-                                Disconnect
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              onClick={() => window.location.href = window.location.pathname.replace("/settings", "/communications/imessage")}
-                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white h-11 rounded-xl shadow-md hover:shadow-lg transition-all"
-                            >
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              Set Up Messaging
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                    </CardContent>
-                  </Card>
-
-                  <div className="flex items-center justify-end gap-4 pt-4 pb-8">
-                    {profileMessage && <span className={`text-sm font-medium px-4 py-2 rounded-lg ${profileMessage.includes('Error') ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{profileMessage === 'OK' ? 'Saved' : profileMessage}</span>}
-                    <Button variant="ghost" className="text-slate-500 hover:text-slate-800 hover:bg-slate-100">{dict.cancel}</Button>
-                    <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="bg-indigo-600 hover:bg-indigo-700 text-slate-900 min-w-[140px] h-11 rounded-lg shadow-lg shadow-indigo-500/20">
-                      {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      {isSavingProfile ? dict.saving : dict.saveChanges}
-                    </Button>
+                    </div>
                   </div>
+
+                  {/* Account Menu - Section 1 */}
+                  <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
+                    <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
+                      {[
+                        { icon: <User className="w-4 h-4" />, label: 'Personal Information', desc: 'Name, email, phone, and address', action: () => setSubPage('personal-info') },
+                        { icon: <Lock className="w-4 h-4" />, label: 'Sign-In & Security', desc: 'Password, 2FA, and login activity', action: () => setSubPage('sign-in-security') },
+                        { icon: <Smartphone className="w-4 h-4" />, label: 'Payment & Shipping', desc: 'Payment methods and billing address', action: undefined },
+                        { icon: <Bell className="w-4 h-4" />, label: 'Subscriptions', desc: 'Manage your plan and billing cycle', action: undefined },
+                      ].map((item, i) => (
+                        <button key={i} onClick={item.action} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.action ? 'cursor-pointer' : 'cursor-default'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                            {item.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{item.label}</div>
+                            <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{item.desc}</div>
+                          </div>
+                          <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Account Menu - Section 2 */}
+                  <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
+                    <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
+                      {[
+                        { icon: <HardDrive className="w-4 h-4" />, label: 'Cloud Storage', desc: 'Manage files and documents', action: undefined },
+                        { icon: <Globe className="w-4 h-4" />, label: 'Third-Party Integrations', desc: 'Connected services and API access', action: () => setSubPage('integrations') },
+                        { icon: <Smartphone className="w-4 h-4" />, label: 'Signed-In Devices', desc: 'Manage active sessions and devices', action: undefined },
+                      ].map((item, i) => (
+                        <button key={i} onClick={item.action} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.action ? 'cursor-pointer' : 'cursor-default'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                            {item.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{item.label}</div>
+                            <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{item.desc}</div>
+                          </div>
+                          <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                    </>
+                  )}
                 </div>
               )}
-
-              {activeTab === 'notifications' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
-                    <CardHeader className="px-8 pt-8">
-                      <CardTitle className="text-xl text-slate-900">{dict.notifications}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-8 pb-8 space-y-8">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-base text-slate-800">{dict.systemAlerts}</Label>
-                          <p className="text-sm text-slate-500">{dict.systemAlertsDesc}</p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="w-full h-px bg-slate-100/50" />
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-base text-slate-800">{dict.smsAlerts}</Label>
-                          <p className="text-sm text-slate-500">{dict.smsAlertsDesc}</p>
-                        </div>
-                        <Switch />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {activeTab === 'security' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
-                    <CardHeader className="px-8 pt-8">
-                      <CardTitle className="text-xl text-slate-900">{dict.security}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-8 pb-8 space-y-8">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-base text-slate-800 flex items-center gap-2"><Key className="w-4 h-4" /> {dict.passwordReset}</Label>
-                          <p className="text-sm text-slate-500">{dict.passwordResetDesc}</p>
-                        </div>
-                        <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-100">{dict.sendResetLink}</Button>
-                      </div>
-                      <div className="w-full h-px bg-slate-100/50" />
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-base text-slate-800 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> {dict.twoFactor}</Label>
-                          <p className="text-sm text-slate-500">{dict.twoFactorDesc}</p>
-                        </div>
-                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-slate-900">{dict.enable2fa}</Button>
-                      </div>
-                      <div className="w-full h-px bg-slate-100/50" />
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-base text-slate-800 flex items-center gap-2"><Smartphone className="w-4 h-4" /> {dict.activeSessions}</Label>
-                          <p className="text-sm text-slate-500">{dict.activeSessionsDesc}</p>
-                        </div>
-                        <Button variant="destructive" className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0">{dict.logoutAll}</Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {activeTab === 'language' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Card className="bg-[#fefcf6] border-slate-200 shadow-xl">
-                    <CardHeader className="px-8 pt-8">
-                      <CardTitle className="text-xl text-slate-900">{dict.regionLanguage}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-8 pb-8 space-y-6">
-                      <div className="space-y-4">
-                        <div className="space-y-1">
-                          <Label className="text-base text-slate-800">{dict.languageSelect}</Label>
-                          <p className="text-sm text-slate-500">{dict.languageSelectDesc}</p>
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                           <button onClick={() => changeLang('en')} className={`px-6 py-4 rounded-xl border flex-1 text-left transition-all relative overflow-hidden ${lang === 'en' ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-slate-200 bg-[#fefcf6] shadow-sm hover:border-slate-300 hover:bg-slate-100'}`}>
-                             <div className="font-semibold text-slate-900">{dict.english}</div>
-                             <div className="text-xs text-slate-500 mt-1">Default UI</div>
-                             {lang === 'en' && <div className="absolute top-4 right-4 text-indigo-400">âœ“</div>}
-                           </button>
-                           <button onClick={() => changeLang('es')} className={`px-6 py-4 rounded-xl border flex-1 text-left transition-all relative overflow-hidden ${lang === 'es' ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-slate-200 bg-[#fefcf6] shadow-sm hover:border-slate-300 hover:bg-slate-100'}`}>
-                             <div className="font-semibold text-slate-900">{dict.spanish}</div>
-                             <div className="text-xs text-slate-500 mt-1">TraducciÃ³n oficial</div>
-                             {lang === 'es' && <div className="absolute top-4 right-4 text-indigo-400">âœ“</div>}
-                           </button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
             </div>
           </div>
         </div>
@@ -848,3 +917,4 @@ function SettingsContent() {
     </div>
   );
 }
+

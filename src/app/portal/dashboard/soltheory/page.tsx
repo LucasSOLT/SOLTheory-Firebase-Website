@@ -30,6 +30,18 @@ export default function SolTheoryDashboard() {
   const [agentSlots, setAgentSlots] = useState<AgentSlotData[]>([]);
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Dark mode preference from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('insight_theme');
+    if (savedTheme === 'dark') setIsDarkMode(true);
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'insight_theme') setIsDarkMode(e.newValue === 'dark');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   // Admin Content Manager state (from shared store)
   const contentManagerActive = useContentManagerStore((s) => s.active);
@@ -106,8 +118,12 @@ export default function SolTheoryDashboard() {
     );
   }, [contentManagerActive]);
 
+  const tileStyle = isDarkMode
+    ? 'bg-slate-900/80 border border-slate-700/60'
+    : 'bg-[#fefcf6] border border-[#ede8da]/80';
+
   return (
-    <div className="w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pb-10 px-3 sm:px-4 md:px-8 focus:outline-none" tabIndex={-1}>
+    <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
       <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
         {contentManagerActive && (
@@ -122,10 +138,10 @@ export default function SolTheoryDashboard() {
 
         {/* Dashboard Header */}
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl sm:text-3xl font-light italic font-cormorant text-slate-800 tracking-wide">
+          <h1 className={`text-xl sm:text-3xl font-light italic font-cormorant tracking-wide ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             Welcome back, <span className="not-italic font-semibold">{user?.displayName || "Lucas"}</span>.
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
+          <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             Here is your week at a glance.
           </p>
         </div>
@@ -147,7 +163,7 @@ export default function SolTheoryDashboard() {
             <div className="flex-[3] md:aspect-[2/3] flex flex-col sm:flex-row md:flex-col gap-4 md:gap-5">
               {/* Card 1A: Weekly Timesheet Hours (Real QuickBooks data!) */}
               <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[220px] sm:min-h-[180px] md:min-h-0">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[220px] sm:min-h-[180px] md:min-h-0`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 1
                 </div>
@@ -163,7 +179,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 1B: Needs Your Attention (Action Board tasks) */}
               <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-1 min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[250px] sm:min-h-[180px] md:min-h-0">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[250px] sm:min-h-[180px] md:min-h-0`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 2
                 </div>
@@ -178,7 +194,7 @@ export default function SolTheoryDashboard() {
             <div className="hidden md:grid flex-[8] md:aspect-[16/9] grid-cols-2 grid-rows-[auto_1fr] gap-5 overflow-hidden">
               {/* Card 2A: Grant Agent Interface (Tile 3) */}
               <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 3
                 </div>
@@ -196,7 +212,7 @@ export default function SolTheoryDashboard() {
               <CmsTileWrapper tileId="tile-4" tileName="Grant Statuses">
               <div
                 onClick={() => router.push("/portal/dashboard/soltheory/grant-statuses")}
-                className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px] cursor-pointer"
+                className={`relative group ${tileStyle} shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px] cursor-pointer`}
               >
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 4
@@ -213,7 +229,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 2C / Tile 5: Bottom span-2 - Blank White Card with seamless internal grid layout */}
               <CmsTileWrapper tileId="tile-5" tileName="Grant Analytics" className="col-span-2">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] overflow-hidden p-5 flex gap-5">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] overflow-hidden p-5 flex gap-5`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 5
                 </div>
@@ -254,7 +270,7 @@ export default function SolTheoryDashboard() {
             <div className="flex-1 md:aspect-[16/9] flex flex-col gap-3 sm:gap-4 md:gap-5">
               {/* Card 4A (2/3 Height): Organization Activity Feed (Tile 7) */}
               <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[250px] sm:min-h-[200px] md:min-h-0 overflow-hidden">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[250px] sm:min-h-[200px] md:min-h-0 overflow-hidden`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 7
                 </div>
@@ -264,7 +280,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 4B (1/3 Height): Real-time Latency (Blank White Card) */}
               <CmsTileWrapper tileId="tile-8" tileName="Tile 8" className="flex-[1] min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[80px] md:min-h-0 hidden md:block">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[80px] md:min-h-0 hidden md:block`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 8
                 </div>
@@ -279,7 +295,7 @@ export default function SolTheoryDashboard() {
             <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
               {/* Card 5A: Retention Rate (Left KPI - Blank White Card) */}
               <CmsTileWrapper tileId="tile-9" tileName="Tile 9">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 9
                 </div>
@@ -288,7 +304,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 5B: Satisfaction CSAT (Right KPI - Blank White Card) */}
               <CmsTileWrapper tileId="tile-10" tileName="Tile 10">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 10
                 </div>
@@ -297,7 +313,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 5C: Uptime Line Chart (Bottom span-2 - Blank White Card) */}
               <CmsTileWrapper tileId="tile-11" tileName="Tile 11" className="col-span-2">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 11
                 </div>
@@ -309,7 +325,7 @@ export default function SolTheoryDashboard() {
             <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
               {/* Card 6A: Upcoming Milestones (Blank White Card) */}
               <CmsTileWrapper tileId="tile-12" tileName="Tile 12" className="flex-1">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 12
                 </div>
@@ -318,7 +334,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 6B: System Status / Health (Blank White Card) */}
               <CmsTileWrapper tileId="tile-13" tileName="Tile 13" className="flex-1">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 13
                 </div>
@@ -329,6 +345,20 @@ export default function SolTheoryDashboard() {
 
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className={`mt-10 pt-6 pb-2 border-t text-center ${isDarkMode ? 'border-slate-700/40' : 'border-slate-200/40'}`}>
+        <div className={`flex items-center justify-center gap-2 text-[11px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+          <span className="text-slate-400/80">MyTaj LLC</span>
+          <span className="text-slate-300">·</span>
+          <a href="#" className="hover:text-slate-600 transition-colors">Terms of Service</a>
+          <span className="text-slate-300">·</span>
+          <a href="#" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
+          <span className="text-slate-300">·</span>
+          <a href="#" className="hover:text-slate-600 transition-colors">How to use Insight</a>
+        </div>
+      </footer>
+
       {/* Grant Agent Hub Modal */}
       {isGrantConfigOpen && (
         <GrantAgentHub onClose={() => setIsGrantConfigOpen(false)} />

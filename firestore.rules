@@ -396,7 +396,8 @@ service cloud.firestore {
     match /cms_config/{configId} {
       function isCmsAdmin() {
         return request.auth.token.email == 'lucas@soltheory.com'
-          || request.auth.token.email == 'steve@soltheory.com';
+          || request.auth.token.email == 'steve@soltheory.com'
+          || request.auth.token.email == 'gerard@soltheory.com';
       }
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn() && isCmsAdmin();

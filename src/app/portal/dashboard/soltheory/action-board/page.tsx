@@ -171,7 +171,7 @@ const LIFECYCLE_BADGE: Record<LifecycleStatus, { label: string; style: string; i
   late: { label: "Late", style: "bg-red-50 text-red-600 border-red-200", icon: <AlertTriangle className="w-3 h-3" /> },
 };
 
-const ADMIN_EMAILS = ["lucas@soltheory.com", "steve@soltheory.com"];
+const ADMIN_EMAILS = ["lucas@soltheory.com", "steve@soltheory.com", "gerard@soltheory.com"];
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const DEADLINE_CHECK_INTERVAL = 60_000; // Check every 60 seconds
 
@@ -1079,7 +1079,7 @@ function ActionBoardContent() {
             return (
               <div
                 key={col.id}
-                className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 min-w-[220px] ${isDragOver ? `${col.dropBorder} ${col.dropBg} border-dashed border-2` : "border-slate-200/80 bg-white/60"}`}
+                className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 min-w-[220px] ${isDragOver ? `${col.dropBorder} ${col.dropBg} border-dashed border-2` : "border-slate-200/50 bg-[#f8fafc]/80 shadow-sm"}`}
                 onDragOver={e => onDragOver(e, col.id)}
                 onDragLeave={onDragLeave}
                 onDrop={e => onDrop(e, col.id)}
@@ -1121,20 +1121,22 @@ function ActionBoardContent() {
                           draggable
                           onDragStart={e => onDragStart(e, task.id)}
                           onDragEnd={onDragEnd}
-                          className={`group bg-[#fefcf6] rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.02] relative border ${
+                          className={`group bg-white rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
                             openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
                           } ${
                             highlightedTaskId === task.id
                               ? "border-indigo-400 ring-2 ring-indigo-300/60 shadow-lg shadow-indigo-200/40 animate-pulse"
                               : isLateTask && task.column !== "done"
                                 ? "border-red-300 bg-red-50/30 ring-1 ring-red-200/50"
-                                : "border-slate-200"
+                                : "border-slate-200/80"
+                          } ${
+                            task.priority === "High" ? "border-l-red-500" : task.priority === "Medium" ? "border-l-amber-500" : "border-l-sky-500"
                           }`}
                         >
                           {/* Priority + Lifecycle + Menu */}
                           <div className="flex items-start justify-between gap-2 mb-2">
+                            <GripVertical className="absolute left-1 top-4 w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
                             <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
-                              <GripVertical className="w-4 h-4 text-slate-300 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 ${PRIORITY_STYLES[task.priority]}`}>
                                 {task.priority}
                               </span>
