@@ -52,7 +52,7 @@ export default function SmsOptInPage() {
     }
   }, []);
 
-  const isValid = firstName.trim().length > 0 && stripPhone(phone).length === 10 && consent;
+  const isValid = stripPhone(phone).length === 10 && consent;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,12 +139,11 @@ export default function SmsOptInPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="firstName" className="block text-sm font-medium text-slate-400 mb-2">
-                      First Name <span className="text-red-400">*</span>
+                      First Name
                     </label>
                     <input
                       id="firstName"
                       type="text"
-                      required
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Jane"
@@ -210,7 +209,7 @@ export default function SmsOptInPage() {
                     className="mt-0.5 h-[18px] w-[18px] rounded border-[#333] bg-[#09090b] cursor-pointer accent-white shrink-0"
                   />
                   <label htmlFor="consent" className="text-[13px] text-slate-500 leading-relaxed cursor-pointer">
-                    I agree to receive automated, business-related text messages (such as appointment reminders, invoice updates, and general customer communications) from SOLTheory at the mobile number provided. I understand that consent is not a condition of any purchase. Message and data rates may apply. Message frequency varies. I can unsubscribe at any time by replying STOP, or text HELP for assistance. View our{' '}
+                    I agree to receive automated text messages from SOL Theory at the mobile number provided. I understand that consent is not a condition of any purchase. Message and data rates may apply. Message frequency varies. I can unsubscribe at any time by replying STOP or text HELP for assistance. View our{' '}
                     <Link href="/privacy-policy" className="text-slate-300 hover:text-white underline underline-offset-2">
                       Privacy Policy
                     </Link>{' '}
