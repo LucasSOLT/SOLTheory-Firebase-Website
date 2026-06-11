@@ -191,7 +191,7 @@ export default function SolTheoryDashboard() {
             </div>
 
             {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
-            <div className="hidden md:grid flex-[8] md:aspect-[16/9] grid-cols-2 grid-rows-[auto_1fr] gap-5 overflow-hidden">
+            <div className="hidden md:grid flex-[8] grid-cols-2 grid-rows-[auto_1fr] gap-5" style={{ aspectRatio: '16/9' }}>
               {/* Card 2A: Grant Agent Interface (Tile 3) */}
               <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]`}>
@@ -227,28 +227,31 @@ export default function SolTheoryDashboard() {
               </div>
               </CmsTileWrapper>
 
-              {/* Card 2C / Tile 5: Bottom span-2 - Blank White Card with seamless internal grid layout */}
-              <CmsTileWrapper tileId="tile-5" tileName="Grant Analytics" className="col-span-2">
-              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] overflow-hidden p-5 flex gap-5`}>
+              {/* Card 2C / Tile 5: Bottom span-2 - Grant Analytics with fixed height */}
+              <CmsTileWrapper tileId="tile-5" tileName="Grant Analytics" className="col-span-2 overflow-hidden">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 5
                 </div>
                 
-                {/* Left Column (50% width) - Split vertically into Top-Left and Bottom-Left */}
-                <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
-                  {/* Top-Left: Grant Completions Line Graph */}
-                  <div className="flex-1 min-h-[100px]">
-                    <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                {/* Absolute inner layout to prevent content from expanding tile */}
+                <div className="absolute inset-0 p-5 flex gap-5">
+                  {/* Left Column (50% width) - Split vertically into Top-Left and Bottom-Left */}
+                  <div className="w-1/2 flex flex-col gap-4 min-h-0">
+                    {/* Top-Left: Grant Completions Line Graph */}
+                    <div className="flex-1 min-h-0">
+                      <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                    </div>
+                    {/* Bottom-Left: Grant Status Pie/Donut Chart */}
+                    <div className="flex-1 min-h-0">
+                      <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
+                    </div>
                   </div>
-                  {/* Bottom-Left: Grant Status Pie/Donut Chart */}
-                  <div className="flex-1 min-h-[100px]">
-                    <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
-                  </div>
-                </div>
 
-                {/* Right Column (50% width) - Suggested Grants scrollable list */}
-                <div className="flex-1 flex flex-col h-full min-h-0">
-                  <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
+                  {/* Right Column (50% width) - Suggested Grants scrollable list */}
+                  <div className="w-1/2 flex flex-col min-h-0">
+                    <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
+                  </div>
                 </div>
               </div>
               </CmsTileWrapper>
