@@ -335,6 +335,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (p.includes('/support-tickets')) return { icon: 'Mail', label: 'Support Tickets' };
       if (p.includes('/action-board')) return { icon: 'LayoutDashboard', label: 'Action Board' };
       if (p.includes('/timesheets')) return { icon: 'CalendarDays', label: 'Timesheets' };
+      if (p.includes('/media-library')) return { icon: 'HardDrive', label: 'Media Library' };
       if (p.includes('/google-ads')) return { icon: 'Globe', label: 'Google Ads' };
       return { icon: 'Globe', label: p.split('/').pop() || 'Page' };
     };
@@ -852,6 +853,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <CalendarDays className="w-5 h-5 text-slate-500" />
                       <span>Timesheets</span>
                     </Link>
+                    <Link href={`${dashboardHome}/media-library`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/media-library') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
+                      <HardDrive className="w-5 h-5 text-slate-500" />
+                      <span>Media Library</span>
+                    </Link>
                   </div>
                 </div>
 
@@ -1231,6 +1236,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <CalendarDays className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">Timesheets</span>
+                </Link>
+
+                <Link href={`${dashboardHome}/media-library`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/media-library') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/media-library') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
+                    <HardDrive className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">Media Library</span>
                 </Link>
               </div>
             )}
