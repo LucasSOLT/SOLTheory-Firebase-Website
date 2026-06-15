@@ -1,0 +1,379 @@
+/* ═══════════════════════════════════════════════════════════════
+   TIPTAP / PROSEMIRROR EDITOR STYLES
+   SOLTheory Media Library Document Editor
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;600;700&family=Nunito:wght@400;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@400;600;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;600;700&family=Raleway:wght@400;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Source+Code+Pro:wght@400;500&family=Ubuntu:wght@400;500;700&display=swap');
+
+/* ── Base editor reset ── */
+.tiptap-editor .ProseMirror {
+  outline: none;
+  min-height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #1e293b;
+  caret-color: #4f46e5;
+}
+
+.tiptap-editor .ProseMirror.dark-editor {
+  color: #e2e8f0;
+  caret-color: #818cf8;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGINATED PAGES — like Google Docs / Word
+   Each "page" is 1056px tall (US Letter at 96dpi)
+   with 72px padding top/bottom and 80px left/right.
+   Pages are visually separated with shadows and gaps.
+   ═══════════════════════════════════════════════════════════════ */
+
+.editor-paginated .ProseMirror {
+  padding: 72px 80px;
+  /* Using CSS columns to simulate page breaks doesn't work well
+     with contenteditable. Instead we use a minimum height per "page"
+     and visual page-break indicators via a repeating background. */
+  min-height: 1056px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05);
+  /* Visual page break lines */
+  background-image: 
+    repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 1055px,
+      #e2e8f0 1055px,
+      #e2e8f0 1056px
+    );
+  background-size: 100% 1056px;
+  background-position: 0 0;
+}
+
+.editor-paginated.dark-mode .ProseMirror {
+  background-color: #0f172a;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  background-image: 
+    repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 1055px,
+      #1e293b 1055px,
+      #1e293b 1056px
+    );
+}
+
+/* Page number indicators at each break */
+.editor-paginated .ProseMirror::after {
+  content: '';
+  display: block;
+  min-height: 72px; /* bottom padding of last page */
+}
+
+/* ── Placeholder ── */
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+.tiptap-editor .ProseMirror.dark-editor p.is-editor-empty:first-child::before {
+  color: #475569;
+}
+
+/* ── Typography ── */
+.tiptap-editor .ProseMirror > * + * {
+  margin-top: 0.5em;
+}
+
+.tiptap-editor .ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+  letter-spacing: -0.02em;
+}
+
+.tiptap-editor .ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1em;
+  margin-bottom: 0.3em;
+  letter-spacing: -0.01em;
+}
+
+.tiptap-editor .ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 0.8em;
+  margin-bottom: 0.25em;
+}
+
+.tiptap-editor .ProseMirror h4 {
+  font-size: 1.1em;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 0.6em;
+  margin-bottom: 0.2em;
+}
+
+.tiptap-editor .ProseMirror p {
+  margin: 0;
+}
+
+/* ── Links ── */
+.tiptap-editor .ProseMirror a {
+  color: #4f46e5;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.tiptap-editor .ProseMirror a:hover {
+  color: #3730a3;
+}
+
+.tiptap-editor .ProseMirror.dark-editor a {
+  color: #818cf8;
+}
+
+.tiptap-editor .ProseMirror.dark-editor a:hover {
+  color: #a5b4fc;
+}
+
+/* ── Blockquote ── */
+.tiptap-editor .ProseMirror blockquote {
+  border-left: 3px solid #c7d2fe;
+  padding-left: 1em;
+  margin: 0.8em 0;
+  color: #475569;
+  font-style: italic;
+}
+
+.tiptap-editor .ProseMirror.dark-editor blockquote {
+  border-left-color: #4338ca;
+  color: #94a3b8;
+}
+
+/* ── Horizontal Rule ── */
+.tiptap-editor .ProseMirror hr {
+  border: none;
+  border-top: 2px solid #e2e8f0;
+  margin: 1.5em 0;
+}
+
+.tiptap-editor .ProseMirror.dark-editor hr {
+  border-top-color: #334155;
+}
+
+/* ── Lists ── */
+.tiptap-editor .ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+}
+
+.tiptap-editor .ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+}
+
+.tiptap-editor .ProseMirror li {
+  margin: 0.15em 0;
+}
+
+.tiptap-editor .ProseMirror li p {
+  margin: 0;
+}
+
+/* ── Task Lists ── */
+.tiptap-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li label {
+  display: flex;
+  align-items: center;
+  margin-top: 3px;
+}
+
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li label input[type="checkbox"]:checked {
+  background-color: #4f46e5;
+  border-color: #4f46e5;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+}
+
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+/* ── Code ── */
+.tiptap-editor .ProseMirror code {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.9em;
+  color: #be185d;
+}
+
+.tiptap-editor .ProseMirror.dark-editor code {
+  background: #1e293b;
+  color: #f472b6;
+}
+
+.tiptap-editor .ProseMirror pre {
+  background: #0f172a;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+
+.tiptap-editor .ProseMirror pre code {
+  background: none;
+  color: #e2e8f0;
+  padding: 0;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+/* ── Images ── */
+.tiptap-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.8em 0;
+}
+
+.tiptap-editor .ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ── Tables ── */
+.tiptap-editor .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.tiptap-editor .ProseMirror.dark-editor table {
+  border-color: #334155;
+}
+
+.tiptap-editor .ProseMirror th,
+.tiptap-editor .ProseMirror td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 80px;
+  position: relative;
+}
+
+.tiptap-editor .ProseMirror.dark-editor th,
+.tiptap-editor .ProseMirror.dark-editor td {
+  border-color: #334155;
+}
+
+.tiptap-editor .ProseMirror th {
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #475569;
+}
+
+.tiptap-editor .ProseMirror.dark-editor th {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+.tiptap-editor .ProseMirror td p,
+.tiptap-editor .ProseMirror th p {
+  margin: 0;
+}
+
+/* Selected cell highlight */
+.tiptap-editor .ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(79, 70, 229, 0.08);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tiptap-editor .ProseMirror.dark-editor .selectedCell::after {
+  background: rgba(129, 140, 248, 0.12);
+}
+
+/* ── Selection highlight ── */
+.tiptap-editor .ProseMirror ::selection {
+  background: rgba(79, 70, 229, 0.15);
+}
+
+.tiptap-editor .ProseMirror.dark-editor ::selection {
+  background: rgba(129, 140, 248, 0.2);
+}
+
+/* ── Mark: highlight ── */
+.tiptap-editor .ProseMirror mark {
+  border-radius: 2px;
+  padding: 1px 2px;
+}
+
+/* ── Subscript / Superscript ── */
+.tiptap-editor .ProseMirror sub {
+  font-size: 0.75em;
+}
+
+.tiptap-editor .ProseMirror sup {
+  font-size: 0.75em;
+}
+
+/* ── Print styles ── */
+@media print {
+  .tiptap-editor .ProseMirror {
+    padding: 0;
+    color: #000;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+  .editor-paginated .ProseMirror {
+    break-inside: auto;
+  }
+}

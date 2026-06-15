@@ -1,8 +1,9 @@
 'use client';
 
+import React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Check, Play, ArrowRight, Shield, Lock, Sparkles, Zap, Clock, Users, BarChart3, Globe, Headphones, Star, TrendingUp, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Check, Play, ArrowRight, Shield, Lock, Sparkles, Zap, Clock, Users, BarChart3, Globe, Headphones, Star, TrendingUp, RefreshCw, Mail, MessageSquare, LayoutDashboard, Building2 } from 'lucide-react';
 import { StarBackground } from '@/components/ui/star-background';
 import { Header } from '@/components/sections/header';
 import { motion } from 'framer-motion';
@@ -22,6 +23,7 @@ interface Product {
   price: string;
   monthlyPrice: number;
   hasCheckout: boolean;
+  thumbnail?: string;
 }
 
 const iconComponents: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -44,10 +46,11 @@ const products: Product[] = [
     useCases: ['Nonprofit donor outreach', 'Client follow-up sequences', 'Event invitation campaigns'],
     color: 'from-[#3b0764]/40 via-[#4c0519]/40 to-[#2e1065]/40',
     accentColor: 'fuchsia',
-    icon: '/images/icon-email.png',
+    icon: '/images/icon-email-new.png',
     price: 'From $3/MO',
     monthlyPrice: 3,
     hasCheckout: true,
+    thumbnail: '/images/email-demo-thumbnail.png',
   },
   {
     slug: 'sms-tools',
@@ -64,7 +67,7 @@ const products: Product[] = [
     useCases: ['Appointment reminders', 'Event notifications', 'Customer support follow-ups'],
     color: 'from-[#4c0519]/40 via-[#701a75]/40 to-[#470024]/40',
     accentColor: 'rose',
-    icon: '/images/icon-sms.png',
+    icon: '/images/icon-sms-new.png',
     price: 'From $4/MO',
     monthlyPrice: 4,
     hasCheckout: true,
@@ -104,7 +107,7 @@ const products: Product[] = [
     useCases: ['Executive performance reviews', 'Grant outcome tracking', 'Cross-team productivity'],
     color: 'from-[#3b0764]/40 via-[#881337]/40 to-[#311042]/40',
     accentColor: 'pink',
-    icon: '/images/icon-dashboard.png',
+    icon: '/images/icon-dashboard-new.png',
     price: 'From $16/MO',
     monthlyPrice: 16,
     hasCheckout: true,
@@ -124,12 +127,20 @@ const products: Product[] = [
     useCases: ['Custom CRM systems', 'Internal workflow tools', 'Data pipeline architecture'],
     color: 'from-[#470024]/40 via-[#3b0764]/40 to-[#2e1065]/40',
     accentColor: 'indigo',
-    icon: '/images/icon-gears.png',
+    icon: '/images/icon-building.png',
     price: 'Subject to Scale',
     monthlyPrice: 0,
     hasCheckout: false,
   },
 ];
+
+const productHeaderIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  'email-tools': Mail,
+  'sms-tools': MessageSquare,
+  'google-suite-integrations': Globe,
+  'nxt-dashboard': LayoutDashboard,
+  'customized-is-solutions': Building2,
+};
 
 const accentMap: Record<string, { dot: string; check: string; border: string; bg: string; text: string; glow: string }> = {
   fuchsia: { dot: 'bg-fuchsia-500', check: 'text-fuchsia-400', border: 'border-fuchsia-500/30', bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-300', glow: 'shadow-fuchsia-500/20' },
@@ -187,14 +198,19 @@ export default function ProductPage() {
           >
             {/* Video Container */}
             <div className="flex-[5] min-h-0 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden relative flex items-center justify-center group cursor-pointer">
-              <div className={`absolute inset-0 bg-gradient-to-br ${product.color} opacity-40`} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-              
-              {product.icon && (
-                <img src={product.icon} alt="" className="absolute inset-0 w-1/3 h-1/3 object-contain opacity-[0.08] m-auto" />
+              {product.thumbnail ? (
+                <img src={product.thumbnail} alt="Product Demo Thumbnail" className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-700" />
+              ) : (
+                <>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${product.color} opacity-40`} />
+                  {product.icon && (
+                    <img src={product.icon} alt="" className="absolute inset-0 w-1/3 h-1/3 object-contain opacity-[0.08] m-auto" />
+                  )}
+                </>
               )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent z-10" />
               
-              <div className="relative z-10 flex flex-col items-center gap-4 group-hover:scale-105 transition-transform duration-500">
+              <div className="relative z-20 flex flex-col items-center gap-4 group-hover:scale-105 transition-transform duration-500">
                 <div className="w-20 h-20 rounded-full border-2 border-white/30 flex items-center justify-center backdrop-blur-md bg-white/5 group-hover:bg-fuchsia-500/20 group-hover:border-fuchsia-400/50 transition-all duration-500">
                   <Play className="w-8 h-8 text-white ml-1" />
                 </div>
@@ -263,7 +279,11 @@ export default function ProductPage() {
               {/* Product Header */}
               <div className="p-5 border-b border-white/5 shrink-0">
                 <div className="flex items-start gap-4">
-                  {product.icon && (
+                  {productHeaderIcons[product.slug] ? (
+                    <div className={`w-14 h-14 rounded-xl ${accent.bg} border ${accent.border} flex items-center justify-center shrink-0`}>
+                      {React.createElement(productHeaderIcons[product.slug], { className: `w-6 h-6 ${accent.check}` })}
+                    </div>
+                  ) : product.icon && (
                     <div className={`w-14 h-14 rounded-xl ${accent.bg} border ${accent.border} flex items-center justify-center shrink-0`}>
                       <img src={product.icon} alt="" className="w-9 h-9 object-contain" />
                     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { doc, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
@@ -21,6 +21,86 @@ import { useContentManagerStore } from "@/stores/content-manager-store";
 import { TileSettingsPopup } from "@/components/admin/TileSettingsPopup";
 import { NewsSlideshowSettings, type SlideData, type SlideshowSettings } from "@/components/admin/NewsSlideshowSettings";
 
+/* ── Confetti Canvas ── */
+function ConfettiCanvas({ onDone }: { onDone: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const COLORS = [
+      "#6366f1", "#f43f5e", "#22c55e", "#eab308", "#3b82f6",
+      "#ec4899", "#14b8a6", "#f97316", "#8b5cf6", "#06b6d4",
+    ];
+
+    interface Particle {
+      x: number; y: number; w: number; h: number;
+      vx: number; vy: number; rot: number; vr: number;
+      color: string; opacity: number;
+    }
+
+    const particles: Particle[] = [];
+    for (let i = 0; i < 150; i++) {
+      particles.push({
+        x: canvas.width * 0.5 + (Math.random() - 0.5) * canvas.width * 0.4,
+        y: canvas.height * 0.3 + (Math.random() - 0.5) * 100,
+        w: 6 + Math.random() * 6,
+        h: 4 + Math.random() * 4,
+        vx: (Math.random() - 0.5) * 12,
+        vy: -8 - Math.random() * 10,
+        rot: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.3,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        opacity: 1,
+      });
+    }
+
+    let frame = 0;
+    const maxFrames = 180;
+
+    const animate = () => {
+      if (frame >= maxFrames) { onDone(); return; }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const p of particles) {
+        p.vy += 0.25;
+        p.vx *= 0.99;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        p.opacity = Math.max(0, 1 - frame / maxFrames);
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+
+      frame++;
+      requestAnimationFrame(animate);
+    };
+
+    requestAnimationFrame(animate);
+  }, [onDone]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 z-[9999] pointer-events-none"
+      style={{ width: "100vw", height: "100vh" }}
+    />
+  );
+}
+
 export default function SolTheoryDashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -31,6 +111,19 @@ export default function SolTheoryDashboard() {
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Ctrl+Alt+6 confetti easter egg
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.altKey && e.key === "6") {
+        e.preventDefault();
+        setShowConfetti(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   // Dark mode preference from localStorage
   useEffect(() => {
@@ -124,6 +217,7 @@ export default function SolTheoryDashboard() {
 
   return (
     <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
+      {showConfetti && <ConfettiCanvas onDone={() => setShowConfetti(false)} />}
       <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
         {contentManagerActive && (
@@ -160,7 +254,7 @@ export default function SolTheoryDashboard() {
           {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
           <div className="flex flex-col sm:flex-row lg:flex-row gap-4 md:gap-5 w-full">
             {/* Slot 1: Splits vertically (portrait) or side-by-side (landscape) into 2 cards */}
-            <div className="flex-[3] md:aspect-[2/3] flex flex-col sm:flex-row md:flex-col gap-4 md:gap-5">
+            <div className="flex-[3] md:aspect-[1/1] flex flex-col sm:flex-row md:flex-col gap-4 md:gap-5">
               {/* Card 1A: Weekly Timesheet Hours (Real QuickBooks data!) */}
               <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
               <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[220px] sm:min-h-[180px] md:min-h-0`}>
@@ -191,7 +285,7 @@ export default function SolTheoryDashboard() {
             </div>
 
             {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
-            <div className="hidden md:grid flex-[8] grid-cols-2 grid-rows-[auto_1fr] gap-5" style={{ aspectRatio: '16/9' }}>
+            <div className="hidden md:grid flex-[8] grid-cols-2 grid-rows-[auto_1fr] gap-5" style={{ aspectRatio: '16/6' }}>
               {/* Card 2A: Grant Agent Interface (Tile 3) */}
               <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]`}>
@@ -262,7 +356,7 @@ export default function SolTheoryDashboard() {
           <div className="flex flex-col sm:flex-row lg:flex-row gap-4 md:gap-5 w-full">
             {/* Slot 3: Left (Aspect 16:9) -> News Slideshow (Tile 6) */}
             <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-1">
-            <div className="relative h-full aspect-[4/3] sm:aspect-video md:aspect-[16/9] rounded-2xl overflow-hidden">
+            <div className="relative h-full aspect-[4/3] sm:aspect-video md:aspect-[16/6] rounded-2xl overflow-hidden">
               <NewsSlideshow />
               {/* Very light pastel yellow overlay to blend with earthy theme */}
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
@@ -270,7 +364,7 @@ export default function SolTheoryDashboard() {
             </CmsTileWrapper>
 
             {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank White Cards) */}
-            <div className="flex-1 md:aspect-[16/9] flex flex-col gap-3 sm:gap-4 md:gap-5">
+            <div className="flex-1 md:aspect-[16/6] flex flex-col gap-3 sm:gap-4 md:gap-5">
               {/* Card 4A (2/3 Height): Organization Activity Feed (Tile 7) */}
               <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0">
               <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[250px] sm:min-h-[200px] md:min-h-0 overflow-hidden`}>
@@ -295,7 +389,7 @@ export default function SolTheoryDashboard() {
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
           <div className="hidden md:flex flex-col lg:flex-row gap-5 w-full">
             {/* Slot 5: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank White Cards) */}
-            <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
+            <div className="flex-[8] aspect-[16/6] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
               {/* Card 5A: Retention Rate (Left KPI - Blank White Card) */}
               <CmsTileWrapper tileId="tile-9" tileName="Tile 9">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]`}>
@@ -325,7 +419,7 @@ export default function SolTheoryDashboard() {
             </div>
 
             {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards (Blank White Cards) */}
-            <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
+            <div className="flex-[3] aspect-[1/1] flex flex-col gap-5">
               {/* Card 6A: Upcoming Milestones (Blank White Card) */}
               <CmsTileWrapper tileId="tile-12" tileName="Tile 12" className="flex-1">
               <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow`}>

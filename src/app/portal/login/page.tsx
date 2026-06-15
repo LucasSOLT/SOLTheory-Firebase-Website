@@ -81,8 +81,28 @@ export default function LoginPage() {
       } else if (emailLower.endsWith("@nxtchapter.org")) {
         router.push("/portal/dashboard/nxtchapter");
       } else {
-        await signOut(auth);
-        throw new Error("Unauthorized organization");
+        // Check Firestore for org mapping (for Gmail and other external users)
+        try {
+          const uid = cred.user.uid;
+          const userRef = doc(firestore, 'users', uid);
+          const userSnap = await getDoc(userRef);
+          const userData = userSnap.exists() ? userSnap.data() : null;
+          const mappedOrg = userData?.organization;
+
+          if (mappedOrg === "soltheory") {
+            router.push("/portal/dashboard/soltheory");
+          } else if (mappedOrg === "nxtchapter") {
+            router.push("/portal/dashboard/nxtchapter");
+          } else {
+            await signOut(auth);
+            throw new Error("Unauthorized organization");
+          }
+        } catch (orgErr: any) {
+          if (orgErr.message === "Unauthorized organization") throw orgErr;
+          console.error("Error checking org mapping:", orgErr);
+          await signOut(auth);
+          throw new Error("Unauthorized organization");
+        }
       }
     } catch (err: any) {
       console.error(err);

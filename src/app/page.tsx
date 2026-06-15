@@ -54,9 +54,10 @@ export default function Home() {
       slug: "email-tools",
       title: "Email Tools",
       desc: "Automated outreach, drip campaigns, and smart email sequencing.",
-      color: "from-[#3b0764]/40 via-[#4c0519]/40 to-[#2e1065]/40",
+      color: "from-[#3b0764]/25 via-[#4c0519]/25 to-[#2e1065]/25",
       dot: "bg-fuchsia-500 shadow-[0_0_8px_2px_rgba(217,70,239,0.5)]",
-      icon: "/images/icon-email.png",
+      icon: "/images/icon-email-new.png",
+      iconSize: "w-[150%] max-w-none rotate-[-5deg]",
       price: "From $3/MO"
     },
     {
@@ -64,10 +65,10 @@ export default function Home() {
       slug: "sms-tools",
       title: "SMS Tools",
       desc: "Instant text messaging, scheduling, and conversational automation.",
-      color: "from-[#4c0519]/40 via-[#701a75]/40 to-[#470024]/40",
+      color: "from-[#4c0519]/25 via-[#701a75]/25 to-[#470024]/25",
       dot: "bg-rose-500 shadow-[0_0_8px_2px_rgba(244,63,94,0.5)]",
-      icon: "/images/icon-sms.png",
-      iconSize: "w-[95%]",
+      icon: "/images/icon-sms-new.png",
+      iconSize: "w-[70%]",
       price: "From $4/MO"
     },
     {
@@ -75,9 +76,10 @@ export default function Home() {
       slug: "google-suite-integrations",
       title: "Google Suite Integrations",
       desc: "Seamless connections to Sheets, Docs, Calendar, and Drive.",
-      color: "from-[#2e1065]/40 via-[#4c0519]/40 to-[#1e1b4b]/40",
+      color: "from-[#2e1065]/25 via-[#4c0519]/25 to-[#1e1b4b]/25",
       dot: "bg-violet-500 shadow-[0_0_8px_2px_rgba(139,92,246,0.5)]",
       icon: "/images/icon-google.png",
+      iconSize: "w-[70%]",
       price: "From $6/MO"
     },
     {
@@ -85,9 +87,9 @@ export default function Home() {
       slug: "nxt-dashboard",
       title: "NXT Dashboard",
       desc: "Real-time analytics, KPI tracking, and performance insights.",
-      color: "from-[#3b0764]/40 via-[#881337]/40 to-[#311042]/40",
+      color: "from-[#3b0764]/25 via-[#881337]/25 to-[#311042]/25",
       dot: "bg-pink-500 shadow-[0_0_8px_2px_rgba(236,72,153,0.5)]",
-      icon: "/images/icon-dashboard.png",
+      icon: "/images/icon-dashboard-new.png",
       iconSize: "w-[95%]",
       price: "From $16/MO"
     },
@@ -96,9 +98,10 @@ export default function Home() {
       slug: "customized-is-solutions",
       title: "Customized I.S. Solutions",
       desc: "Tailored information systems built for your unique workflow.",
-      color: "from-[#470024]/40 via-[#3b0764]/40 to-[#2e1065]/40",
+      color: "from-[#470024]/25 via-[#3b0764]/25 to-[#2e1065]/25",
       dot: "bg-indigo-500 shadow-[0_0_8px_2px_rgba(99,102,241,0.5)]",
-      icon: "/images/icon-gears.png",
+      icon: "/images/icon-building.png",
+      iconSize: "w-[100%]",
       price: "Subject to Scale"
     }
   ];
@@ -323,18 +326,18 @@ export default function Home() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: "-50px" }}
                       transition={{ duration: 0.8, delay: idx * 0.15, ease: "easeOut" }}
-                      className={`relative group/tile overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br ${tile.color} backdrop-blur-md w-[20.5%] h-[440px] flex flex-col justify-between p-7 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)] hover:w-[28%] hover:h-[520px] hover:shadow-[0_0_35px_-5px_rgba(219,39,119,0.25)] hover:border-pink-500/25 transition-all duration-500 ease-out cursor-pointer`}
+                      className={`relative group/tile overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${tile.color} backdrop-blur-md w-[20.5%] h-[440px] flex flex-col justify-start gap-4 p-7 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)] hover:scale-[1.04] hover:shadow-[0_0_35px_-5px_rgba(219,39,119,0.25)] hover:border-pink-500/25 transition-all duration-500 ease-out cursor-pointer`}
                     >
-                      {/* Satin Matte Shine Reflection */}
-                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-30 group-hover/tile:opacity-50 transition-opacity duration-500 pointer-events-none" />
+                      {/* Satin Matte Shine Reflection & Faded White Overlay */}
+                      <div className="absolute inset-0 bg-white/[0.04] bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-35 group-hover/tile:opacity-50 transition-opacity duration-500 pointer-events-none" />
                       
                       {/* Top Icon */}
                       {tile.icon && (
-                        <div className="relative z-10 flex-1 flex items-center justify-center">
-                          <img src={tile.icon} alt={`${tile.title} icon`} className={`${tile.iconSize || 'w-[80%]'} h-auto object-contain opacity-70 group-hover/tile:opacity-100 transition-opacity drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]`} />
+                        <div className="relative z-10 h-[220px] w-full flex items-center justify-center shrink-0">
+                          <img src={tile.icon} alt={`${tile.title} icon`} className={`${tile.iconSize || 'w-[80%]'} h-auto max-w-none opacity-70 group-hover/tile:opacity-100 transition-opacity drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]`} />
                         </div>
                       )}
-                      {!tile.icon && <div />}
+                      {!tile.icon && <div className="h-[220px] shrink-0" />}
                       
                       {/* Bottom Info */}
                       <div className="whitespace-normal overflow-hidden">
@@ -358,9 +361,9 @@ export default function Home() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: "-30px" }}
                       transition={{ duration: 0.6, delay: idx * 0.1 }}
-                      className={`relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br ${tile.color} backdrop-blur-md h-[300px] flex flex-col justify-end p-6 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)] cursor-pointer`}
+                      className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${tile.color} backdrop-blur-md h-[300px] flex flex-col justify-end p-6 shadow-[inset_0_2px_8px_rgba(255,255,255,0.06),0_15px_35px_rgba(0,0,0,0.5)] cursor-pointer`}
                     >
-                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-30 pointer-events-none" />
+                      <div className="absolute inset-0 bg-white/[0.04] bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-35 pointer-events-none" />
                       {tile.icon && (
                         <div className="relative z-10 mt-1">
                           <img src={tile.icon} alt={`${tile.title} icon`} className="w-10 h-10 object-contain opacity-80" />

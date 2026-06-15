@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -53,6 +53,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
+
+  // Listen for sidebar collapse/expand requests from child components (e.g. document editor)
+  const sidebarBeforeEditorRef = React.useRef<{ collapsed: boolean; width: number } | null>(null);
+  useEffect(() => {
+    const handleCollapse = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.action === 'collapse') {
+        sidebarBeforeEditorRef.current = { collapsed: isSidebarCollapsed, width: sidebarWidth };
+        setIsSidebarCollapsed(true);
+      } else if (detail?.action === 'restore' && sidebarBeforeEditorRef.current) {
+        setIsSidebarCollapsed(sidebarBeforeEditorRef.current.collapsed);
+        sidebarBeforeEditorRef.current = null;
+      }
+    };
+    window.addEventListener('soltheory-sidebar-toggle', handleCollapse);
+    return () => window.removeEventListener('soltheory-sidebar-toggle', handleCollapse);
+  }, [isSidebarCollapsed, sidebarWidth]);
 
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>(() => {
@@ -215,6 +232,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
+  // Skip / dismiss walkthrough without filling in details
+  const handleSkipWalkthrough = async () => {
+    if (!user?.uid) { setShowWelcome(false); return; }
+    try {
+      localStorage.setItem(`walkthrough_completed_${user.uid}`, "true");
+      if (firestore) {
+        const userRef = doc(firestore, "users", user.uid);
+        await setDoc(userRef, { walkthroughCompleted: true, updatedAt: new Date().toISOString() }, { merge: true });
+      }
+    } catch (err) {
+      console.warn("Error skipping walkthrough:", err);
+    }
+    setShowWelcome(false);
+  };
+
   // Close org switcher on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -278,10 +310,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
 
   // Guest mode: admins visiting orgs that aren't their home org
+  // Exception: lucas and steve have FULL access to both orgs (never guest)
   const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'];
+  const FULL_ACCESS_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
   const isAdminUser = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
+  const isFullAccessUser = user?.email ? FULL_ACCESS_EMAILS.includes(user.email) : false;
   const isOnHomeOrg = pathname.includes('/soltheory');
-  const isGuestMode = isAdminUser && !isOnHomeOrg;
+  const isGuestMode = isAdminUser && !isOnHomeOrg && !isFullAccessUser;
   const guestDisplayName = isGuestMode ? 'Guest' : (user?.displayName || 'User');
   const guestEmail = isGuestMode ? '' : (user?.email || '');
   const guestInitials = isGuestMode ? 'G' : (user?.displayName?.split(' ').map((n: string) => n.charAt(0)).join('') || 'U');
@@ -857,6 +892,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <HardDrive className="w-5 h-5 text-slate-500" />
                       <span>Media Library</span>
                     </Link>
+                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/agentic-campaigning') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
+                      <Send className="w-5 h-5 text-slate-500" />
+                      <span>Agentic Campaigning</span>
+                    </Link>
                   </div>
                 </div>
 
@@ -926,25 +965,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                 </div>
 
-                {/* Google Integrations */}
+                {/* Google */}
                 <div className="pt-3 border-t border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Google Integrations</span>
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">Google</span>
                   <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/calendar`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/calendar') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
-                      <CalendarDays className="w-5 h-5" />
-                      <span>Google Calendar</span>
-                    </Link>
-                    <Link href={`${dashboardHome}/docs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/docs') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
-                      <FileText className="w-5 h-5" />
-                      <span>Google Docs</span>
-                    </Link>
-                    <Link href={`${dashboardHome}/slides`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/slides') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
-                      <Presentation className="w-5 h-5" />
-                      <span>Google Slides</span>
-                    </Link>
-                    <Link href={`${dashboardHome}/sheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/sheets') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
-                      <Table className="w-5 h-5" />
-                      <span>Google Sheets</span>
+                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/gmail') ? 'bg-red-50 text-red-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
+                      <Mail className="w-5 h-5" />
+                      <span>Gmail</span>
                     </Link>
                   </div>
                 </div>
@@ -977,21 +1004,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
-      <div className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`} style={{ width: isSidebarCollapsed ? 0 : sidebarWidth, minWidth: isSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
+      <div className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`} style={{ width: isSidebarCollapsed ? 0 : sidebarWidth, minWidth: isSidebarCollapsed ? 0 : 230, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
         {/* Collapse toggle button — shows when collapsed */}
         {isSidebarCollapsed && (
           <div 
-            className="absolute top-1/2 -translate-y-1/2 z-50 left-2 cursor-pointer"
+            className="absolute top-1/2 -translate-y-1/2 z-50 left-1 cursor-pointer"
             onClick={() => setIsSidebarCollapsed(false)}
             title="Expand sidebar"
           >
-            <div className={`w-[28px] h-[72px] rounded-full border shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-[3px] group transition-all duration-200 select-none ${isDarkMode ? 'bg-slate-800 border-slate-600/80 hover:border-slate-500 hover:bg-slate-700' : 'bg-[#f8f6f1] border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'}`}>
-              <div className="flex flex-col items-center gap-[2px] mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
-                <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
-                <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
-                <span className="block w-2.5 h-[1.5px] bg-slate-400 rounded-full" />
+            <div className={`w-[36px] h-[84px] rounded-2xl border shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-1 group transition-all duration-200 select-none ${isDarkMode ? 'bg-slate-800 border-slate-600/80 hover:border-slate-500 hover:bg-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
+              <div className="flex flex-col items-center gap-[3px] mb-1.5 opacity-50 group-hover:opacity-80 transition-opacity">
+                <span className="block w-4 h-[2px] bg-slate-400 rounded-full" />
+                <span className="block w-4 h-[2px] bg-slate-400 rounded-full" />
+                <span className="block w-4 h-[2px] bg-slate-400 rounded-full" />
               </div>
-              <svg className="w-3 h-3 text-slate-500 group-hover:text-slate-700 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </div>
@@ -1063,7 +1090,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               .dark-sidebar .group-hover\:text-slate-700:hover { color: rgb(203 213 225) !important; }
             `}</style>
           )}
-          <div style={{ width: sidebarWidth, minWidth: 180 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
+          <div style={{ width: sidebarWidth, minWidth: 230 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
             {isDualOrgUser ? (
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
                 <button
@@ -1244,6 +1271,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                   <span className="text-sm font-medium">Media Library</span>
                 </Link>
+
+                <Link href={`${dashboardHome}/agentic-campaigning`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/agentic-campaigning') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/agentic-campaigning') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
+                    <Send className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">Agentic Campaigning</span>
+                </Link>
               </div>
             )}
           </div>
@@ -1336,63 +1370,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>}
           </div>
 
-          {/* Section 3 - Google Integrations */}
+
+          {/* Google */}
           <div>
             <button onClick={() => toggleSection('google')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
               <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['google'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.googleIntegrations}</span>
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">Google</span>
             </button>
             {!collapsedSections['google'] && <div className="space-y-1 animate-in fade-in duration-150">
-            
-            <Link href={`${dashboardHome}/calendar`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/calendar') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
-              <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/calendar') ? 'bg-stone-800 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>
-              </div>
-              <span className="text-sm">{t.googleCalendar}</span>
-            </Link>
-
-           <div className="space-y-1 mb-2">
-             <Link href={`${dashboardHome}/docs`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/docs') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
-               <FileText className="w-4 h-4 ml-1 text-slate-500" />
-               <span className="text-sm font-medium">{t.googleDocs}</span>
-             </Link>
-             <Link href={`${dashboardHome}/slides`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/slides') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
-               <Presentation className="w-4 h-4 ml-1 text-slate-500" />
-               <span className="text-sm font-medium">{t.googleSlides}</span>
-             </Link>
-             <Link href={`${dashboardHome}/sheets`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/sheets') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
-               <Table className="w-4 h-4 ml-1 text-slate-500" />
-               <span className="text-sm font-medium">{t.googleSheets}</span>
-             </Link>
-
-             {/* Disabled Integrations */}
-             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-               <Video className="w-4 h-4 ml-1" />
-               <span className="text-sm">Google Meet</span>
-             </div>
-             <Link href={`${dashboardHome}/google-ads`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/google-ads') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
-               <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/google-ads') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
-                 <Megaphone className="w-4 h-4 ml-1" />
-               </div>
-               <span className="text-sm">Google Ads</span>
-             </Link>
-             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-               <MapPin className="w-4 h-4 ml-1" />
-               <span className="text-sm">Google Maps</span>
-             </div>
-             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-               <Globe className="w-4 h-4 ml-1" />
-               <span className="text-sm">Google Earth</span>
-             </div>
-              <Link href={`${dashboardHome}/drive`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-2 font-semibold ${pathname.endsWith('/drive') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
-                <HardDrive className="w-4 h-4 ml-1 text-slate-500" />
-                <span className="text-sm font-medium">Google Drive</span>
+              <Link href={`${dashboardHome}/gmail`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/gmail') ? 'bg-red-50 text-red-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-red-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/gmail') ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  <Mail className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-sm">Gmail</span>
               </Link>
-             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-               <Sparkles className="w-4 h-4 ml-1" />
-               <span className="text-sm">Gemini AI</span>
-             </div>
-           </div>
             </div>}
           </div>
 
@@ -1683,7 +1674,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Welcome Walkthrough Modal */}
       {showWelcome && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-xl p-4 animate-in fade-in duration-300">
-          <div className="bg-[#fefcf6]/90 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row min-h-[520px]">
+          <div className="bg-[#fefcf6]/90 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row min-h-[520px] relative">
+            {/* Close / X button */}
+            <button onClick={handleSkipWalkthrough} className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer" title="Skip for now">
+              <X className="w-4 h-4" />
+            </button>
             
             {/* Left Side: Brand Panel */}
             <div className="md:w-1/3 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 p-8 flex flex-col justify-between text-white border-r border-indigo-900/30">
@@ -1903,7 +1898,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {/* Bottom Buttons */}
               <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-4">
                 {walkthroughStep === 1 ? (
-                  <div className="w-1" />
+                  <button type="button" onClick={handleSkipWalkthrough}
+                    className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                    {wtLanguage === "en" ? "Skip for now" : "Omitir por ahora"}
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -1915,34 +1913,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </button>
                 )}
 
-                {walkthroughStep === 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => setWalkthroughStep(2)}
-                    className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97]"
-                  >
-                    {wtLanguage === "en" ? WT_LANG.en.next : WT_LANG.es.next}
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleCompleteWalkthrough}
-                    disabled={isSavingWt || !wtDisplayName.trim()}
-                    className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97] min-w-[120px] justify-center"
-                  >
-                    {isSavingWt ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                        {wtLanguage === "en" ? WT_LANG.en.saving : WT_LANG.es.saving}
-                      </>
-                    ) : (
-                      <>
-                        {wtLanguage === "en" ? WT_LANG.en.finish : WT_LANG.es.finish}
-                      </>
-                    )}
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {walkthroughStep === 2 && (
+                    <button type="button" onClick={handleSkipWalkthrough}
+                      className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                      {wtLanguage === "en" ? "Skip for now" : "Omitir por ahora"}
+                    </button>
+                  )}
+                  {walkthroughStep === 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setWalkthroughStep(2)}
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97]"
+                    >
+                      {wtLanguage === "en" ? WT_LANG.en.next : WT_LANG.es.next}
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCompleteWalkthrough}
+                      disabled={isSavingWt || !wtDisplayName.trim()}
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97] min-w-[120px] justify-center"
+                    >
+                      {isSavingWt ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                          {wtLanguage === "en" ? WT_LANG.en.saving : WT_LANG.es.saving}
+                        </>
+                      ) : (
+                        <>
+                          {wtLanguage === "en" ? WT_LANG.en.finish : WT_LANG.es.finish}
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
 
             </div>

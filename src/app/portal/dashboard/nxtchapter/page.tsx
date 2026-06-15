@@ -280,10 +280,10 @@ export default function NxtChapterDashboard() {
             </CmsTileWrapper>
 
             {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 */}
-            <div className="flex-1 aspect-[16/9] flex flex-col gap-5">
+            <div className="flex-1 aspect-[16/9] flex flex-col gap-5 overflow-hidden">
               {/* Card 4A (2/3 Height): Organization Activity Feed (Tile 7) */}
-              <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0">
-              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-0 overflow-hidden">
+              <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0 overflow-hidden">
+              <div className="relative group h-full bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-0 overflow-hidden flex flex-col">
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 7
                 </div>
