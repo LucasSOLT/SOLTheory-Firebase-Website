@@ -1259,9 +1259,7 @@ function ActionBoardContent() {
                           <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                             <span className="text-[10px] text-slate-400 font-medium">{formatDate(task.createdAt)}</span>
                             <div className="flex items-center gap-1.5">
-                              {task.assignedTo !== task.createdBy && (
-                                <span className="text-[9px] text-slate-400 max-w-[80px] truncate">{task.assignedToName || task.assignedToEmail}</span>
-                              )}
+                              <span className="text-[9px] text-slate-400 max-w-[100px] truncate">{task.assignedToName || task.assignedToEmail}</span>
                               <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${getAvatarColor(task.assignedTo)} border-2 border-white shadow-sm flex items-center justify-center text-white text-[8px] font-bold`} title={task.assignedToName || task.assignedToEmail}>
                                 {getInitials(task.assignedToName, task.assignedToEmail)}
                               </div>
