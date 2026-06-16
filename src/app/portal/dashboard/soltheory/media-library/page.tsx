@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useUser, useFirestore } from "@/firebase";
 
 const DocumentEditor = dynamic(() => import("@/components/media-library/DocumentEditor"), { ssr: false });
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import {
   Folder,
   FolderOpen,
@@ -618,9 +618,69 @@ export default function MediaLibraryPage() {
 
   // ─── File State ───
   const [files, setFiles] = useState<FileItem[]>([]);
+  const [filesLoaded, setFilesLoaded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("modified");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ─── Load files from Firestore on mount ───
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const filesCol = collection(firestore, `users/${user.uid}/media_library_files`);
+    const unsub = onSnapshot(filesCol, (snap) => {
+      const loaded: FileItem[] = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name || "Untitled",
+          type: data.type || "TXT",
+          extension: data.extension || "txt",
+          size: data.size || "0 KB",
+          sizeBytes: data.sizeBytes || 0,
+          modified: data.modified || "",
+          modifiedDate: data.modifiedDate?.toDate?.() || new Date(data.modifiedDate || Date.now()),
+          folderId: data.folderId || "my-files",
+          sharedWith: data.sharedWith || [],
+          lastAccessed: data.lastAccessed?.toDate?.() || new Date(data.lastAccessed || Date.now()),
+          content: data.content || "<p></p>",
+        };
+      });
+      setFiles(loaded);
+      setFilesLoaded(true);
+    });
+    return () => unsub();
+  }, [firestore, user?.uid]);
+
+  // ─── Helper: persist a file to Firestore ───
+  const persistFile = useCallback(async (file: FileItem) => {
+    if (!firestore || !user?.uid) return;
+    try {
+      await setDoc(doc(firestore, `users/${user.uid}/media_library_files`, file.id), {
+        name: file.name,
+        type: file.type,
+        extension: file.extension,
+        size: file.size,
+        sizeBytes: file.sizeBytes,
+        modified: file.modified,
+        modifiedDate: file.modifiedDate,
+        folderId: file.folderId,
+        sharedWith: file.sharedWith,
+        lastAccessed: file.lastAccessed,
+        content: file.content,
+      });
+    } catch (err) {
+      console.error("Failed to persist file:", err);
+    }
+  }, [firestore, user?.uid]);
+
+  const deleteFileFromFirestore = useCallback(async (fileId: string) => {
+    if (!firestore || !user?.uid) return;
+    try {
+      await deleteDoc(doc(firestore, `users/${user.uid}/media_library_files`, fileId));
+    } catch (err) {
+      console.error("Failed to delete file from Firestore:", err);
+    }
+  }, [firestore, user?.uid]);
 
   // ─── Recently Accessed State ───
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
@@ -757,6 +817,7 @@ export default function MediaLibraryPage() {
       return;
     }
     const newName = renameValue.trim();
+    const existingFile = files.find(f => f.id === renamingFileId);
     setFiles((prev) =>
       prev.map((f) =>
         f.id === renamingFileId
@@ -764,6 +825,9 @@ export default function MediaLibraryPage() {
           : f
       )
     );
+    if (existingFile) {
+      persistFile({ ...existingFile, name: newName, extension: newName.split(".").pop()?.toLowerCase() || existingFile.extension });
+    }
     showToast(`Renamed to: ${newName}`);
     setRenamingFileId(null);
     setRenameValue("");
@@ -806,6 +870,7 @@ export default function MediaLibraryPage() {
       return prev;
     });
     showToast(`Deleted: ${file.name}`);
+    deleteFileFromFirestore(fileId);
   };
 
   const handleCreateFolder = (parentId: string = "my-files") => {
@@ -868,6 +933,7 @@ export default function MediaLibraryPage() {
       content: "<p></p>",
     };
     setFiles((prev) => [newFile, ...prev]);
+    persistFile(newFile);
     setFolders((prev) => {
       if (prev[targetFolderId]) {
         return {
@@ -1640,25 +1706,30 @@ export default function MediaLibraryPage() {
           editingFile={editingFile}
           isDark={isDark}
           onSave={(content: string) => {
+            const updatedFile = { ...editingFile, content, modified: formatDate(new Date()), modifiedDate: new Date(), size: `${Math.round(new Blob([content]).size / 1024)} KB`, sizeBytes: new Blob([content]).size };
             setFiles((prev) =>
               prev.map((f) =>
-                f.id === editingFile.id
-                  ? { ...f, content, modified: formatDate(new Date()), modifiedDate: new Date(), size: `${Math.round(new Blob([content]).size / 1024)} KB`, sizeBytes: new Blob([content]).size }
-                  : f
+                f.id === editingFile.id ? updatedFile : f
               )
             );
-            setEditingFile((prev) => prev ? { ...prev, content } : null);
+            setEditingFile(updatedFile);
+            persistFile(updatedFile);
           }}
-          onClose={() => { setEditingFile(null); setEditorError(null); }}
+          onClose={() => {
+            // Persist the latest state of the file before closing
+            const latestFile = files.find(f => f.id === editingFile.id);
+            if (latestFile) persistFile(latestFile);
+            setEditingFile(null); setEditorError(null);
+          }}
           onRename={(newName: string) => {
+            const updatedFile = { ...editingFile, name: newName, extension: newName.split(".").pop()?.toLowerCase() || "txt" };
             setFiles((prev) =>
               prev.map((f) =>
-                f.id === editingFile.id
-                  ? { ...f, name: newName, extension: newName.split(".").pop()?.toLowerCase() || "txt" }
-                  : f
+                f.id === editingFile.id ? updatedFile : f
               )
             );
-            setEditingFile((prev) => prev ? { ...prev, name: newName } : null);
+            setEditingFile(updatedFile);
+            persistFile(updatedFile);
             showToast(`Renamed to: ${newName}`);
           }}
           onError={(err: string) => {
