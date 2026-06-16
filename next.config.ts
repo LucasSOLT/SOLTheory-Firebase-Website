@@ -4,6 +4,23 @@ import type {NextConfig} from 'next';
 const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ['firebase-admin', 'pdf-parse'],
+  // Fix prosemirror circular dependency crash in production
+  // ("Cannot access 'tN'/'tS' before initialization")
+  transpilePackages: [
+    '@tiptap/pm',
+    '@tiptap/core',
+    '@tiptap/react',
+    '@tiptap/starter-kit',
+    '@tiptap/extension-table',
+    '@tiptap/extension-table-row',
+    '@tiptap/extension-table-cell',
+    '@tiptap/extension-table-header',
+    'prosemirror-tables',
+    'prosemirror-state',
+    'prosemirror-view',
+    'prosemirror-model',
+    'prosemirror-transform',
+  ],
   typescript: {
     ignoreBuildErrors: true,
   },
