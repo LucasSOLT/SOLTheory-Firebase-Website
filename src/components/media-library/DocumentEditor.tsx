@@ -570,6 +570,23 @@ export default function DocumentEditor({
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [editor, saveStatus, fileId, onSave]);
 
+  // ─── Print ───
+  const handlePrint = useCallback(() => {
+    if (!editor) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>${docTitle}</title>
+      <style>body{font-family:'Inter',-apple-system,sans-serif;font-size:15px;line-height:1.75;color:#1e293b;max-width:816px;margin:40px auto;padding:0 40px}
+      h1{font-size:2em;font-weight:700;margin-top:1.2em}h2{font-size:1.5em;font-weight:700;margin-top:1em}h3{font-size:1.25em;font-weight:600}
+      blockquote{border-left:3px solid #c7d2fe;padding-left:1em;color:#475569;font-style:italic}
+      code{background:#f1f5f9;border-radius:4px;padding:2px 6px;font-family:monospace}pre{background:#0f172a;border-radius:8px;padding:16px;color:#e2e8f0}pre code{background:none;color:inherit}
+      table{border-collapse:collapse;width:100%;margin:1em 0}th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}th{background:#f8fafc;font-weight:600}
+      img{max-width:100%;height:auto}a{color:#4f46e5;text-decoration:underline}
+      @media print{body{margin:0;padding:20px}}</style>
+      </head><body>${editor.getHTML()}</body></html>`);
+    w.document.close(); w.print();
+  }, [editor, docTitle]);
+
   // ─── Manual save ───
   const doSave = useCallback(() => {
     if (!editor) return;
@@ -618,22 +635,7 @@ export default function DocumentEditor({
     onClose();
   }, [editor, saveStatus, onSave, onClose, fileId]);
 
-  // ─── Print ───
-  const handlePrint = useCallback(() => {
-    if (!editor) return;
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>${docTitle}</title>
-      <style>body{font-family:'Inter',-apple-system,sans-serif;font-size:15px;line-height:1.75;color:#1e293b;max-width:816px;margin:40px auto;padding:0 40px}
-      h1{font-size:2em;font-weight:700;margin-top:1.2em}h2{font-size:1.5em;font-weight:700;margin-top:1em}h3{font-size:1.25em;font-weight:600}
-      blockquote{border-left:3px solid #c7d2fe;padding-left:1em;color:#475569;font-style:italic}
-      code{background:#f1f5f9;border-radius:4px;padding:2px 6px;font-family:monospace}pre{background:#0f172a;border-radius:8px;padding:16px;color:#e2e8f0}pre code{background:none;color:inherit}
-      table{border-collapse:collapse;width:100%;margin:1em 0}th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}th{background:#f8fafc;font-weight:600}
-      img{max-width:100%;height:auto}a{color:#4f46e5;text-decoration:underline}
-      @media print{body{margin:0;padding:20px}}</style>
-      </head><body>${editor.getHTML()}</body></html>`);
-    w.document.close(); w.print();
-  }, [editor, docTitle]);
+
 
   // ─── Link & Image ───
   const handleSetLink = () => {

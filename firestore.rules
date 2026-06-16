@@ -216,6 +216,14 @@ service cloud.firestore {
         allow read, update, delete: if isOwner(userId);
         allow create: if isOwner(userId) || request.resource.data.direction == "inbound";
       }
+
+      /**
+       * @description Media Library documents and files.
+       * @path /users/{userId}/media_library_files/{fileId}
+       */
+      match /media_library_files/{fileId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     /**
