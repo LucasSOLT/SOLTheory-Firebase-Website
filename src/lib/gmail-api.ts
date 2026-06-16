@@ -158,6 +158,7 @@ export async function getAIAssist(
     tone?: "formal" | "friendly" | "concise" | "detailed";
     campaignName?: string;
     previousSteps?: string[];
+    selectedText?: string;
   }
 ): Promise<{ suggestions: string[]; error?: string }> {
   try {

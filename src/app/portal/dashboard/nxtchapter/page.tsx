@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { doc, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
@@ -368,7 +369,7 @@ export default function NxtChapterDashboard() {
           <span className="text-slate-300">·</span>
           <a href="#" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
           <span className="text-slate-300">·</span>
-          <a href="#" className="hover:text-slate-600 transition-colors">How to use Insight</a>
+          <Link href="/portal/dashboard/nxtchapter/faq" className="hover:text-slate-600 transition-colors">How to use Insight</Link>
         </div>
       </footer>
 
