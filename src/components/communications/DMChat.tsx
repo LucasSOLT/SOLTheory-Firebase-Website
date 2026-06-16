@@ -174,7 +174,7 @@ interface Contact {
 
 export function DMChat() {
   const { user } = useUser();
-  const firestore = useFirestore();\r
+  const firestore = useFirestore();
   const storage = useStorage();
 
   const [chats, setChats] = useState<Chat[]>([]);
