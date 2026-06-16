@@ -61,8 +61,9 @@ export default function InsightLoginPage() {
             lastLogin: serverTimestamp(),
           }, { merge: true });
         } else {
-          // First login — create full profile
+          // First login — create full profile (include `id` field required by Firestore rules)
           await setDoc(userRef, {
+            id: uid,
             email: email.toLowerCase(),
             displayName,
             firstName,
@@ -95,6 +96,7 @@ export default function InsightLoginPage() {
           } else if (mappedOrg === "nxtchapter") {
             router.push("/portal/dashboard/nxtchapter");
           } else {
+            console.error("[Login] No org mapping found for user:", uid, "data:", userData);
             await signOut(auth);
             throw new Error("Unauthorized organization");
           }
@@ -106,8 +108,14 @@ export default function InsightLoginPage() {
         }
       }
     } catch (err: any) {
-      console.error(err);
-      setError("Invalid credentials or unauthorized organization.");
+      console.error("[Login] Full error:", err?.code, err?.message);
+      if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password" || err?.code === "auth/user-not-found") {
+        setError("Invalid email or password.");
+      } else if (err?.message === "Unauthorized organization") {
+        setError("Your account is not linked to an organization. Contact an admin.");
+      } else {
+        setError("Invalid credentials or unauthorized organization.");
+      }
     } finally {
       setIsLoading(false);
     }
