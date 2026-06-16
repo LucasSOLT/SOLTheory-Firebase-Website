@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, useStorage } from "@/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, updateDoc, doc, deleteDoc, arrayUnion } from "firebase/firestore";
 import { Send, UserCircle, Plus, Search, MessageSquareX, Paperclip, X, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -173,7 +174,8 @@ interface Contact {
 
 export function DMChat() {
   const { user } = useUser();
-  const firestore = useFirestore();
+  const firestore = useFirestore();\r
+  const storage = useStorage();
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -327,27 +329,41 @@ export function DMChat() {
     }
   };
 
-  const processImageFile = (file: File) => {
-    if (file.type === "image/jpeg" || file.type === "image/png") {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          let width = img.width;
-          let height = img.height;
-          const MAX = 800;
-          if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
-          else if (height > MAX) { width *= MAX / height; height = MAX; }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
+  const processImageFile = async (file: File) => {
+    if (!storage || !user?.email || !activeChatId) return;
+    try {
+      // Upload to Firebase Storage instead of base64 (avoids Firestore 1MB doc limit)
+      const path = `dm_attachments/${user.uid}/${activeChatId}/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      handleSendMessage(downloadUrl, file.name || "uploaded-image.jpg");
+    } catch (err) {
+      console.error("Upload failed:", err);
+      // Fallback: use base64 for small images
+      if (file.size < 500 * 1024 && (file.type === "image/jpeg" || file.type === "image/png")) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            let width = img.width;
+            let height = img.height;
+            const MAX = 800;
+            if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+            else if (height > MAX) { width *= MAX / height; height = MAX; }
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+            handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
+          };
+          img.src = event.target?.result as string;
         };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
+      } else {
+        alert("Failed to upload file. Please try again.");
+      }
     }
   };
 
@@ -564,7 +580,7 @@ export function DMChat() {
                  }} />
                  <label className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Upload Photo">
                    <Paperclip className="w-5 h-5 text-slate-500" />
-                   <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
+                   <input type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" onChange={handleImageUpload} />
                  </label>
                  <Input 
                    value={inputText}

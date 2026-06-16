@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useUser, useFirestore } from "@/firebase";
+import { useUser, useFirestore, useStorage } from "@/firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   collection,
   query,
@@ -50,6 +51,11 @@ import {
   MessageCircle,
   ArchiveRestore,
   Send,
+  Paperclip,
+  ImageIcon,
+  FileUp,
+  Eye,
+  FileText,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -98,6 +104,7 @@ interface ActionBoardTask {
   isArchived?: boolean;
   // Comments
   comments?: TaskComment[];
+  attachments?: { url: string; name: string; type: string; size: number }[];
 }
 
 type EmailTrigger = "assigned" | "in_progress" | "completed" | "overdue";
@@ -240,6 +247,7 @@ export default function ActionBoardPage() {
 function ActionBoardContent() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -303,6 +311,11 @@ function ActionBoardContent() {
   // Comments state
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentInput, setCommentInput] = useState("");
+  // Attachments state
+  const [pendingAttachments, setPendingAttachments] = useState<{file: File; preview?: string}[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // â”€â”€ Derived â”€â”€
   const isAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
@@ -504,6 +517,45 @@ function ActionBoardContent() {
     if (!t.dueDate) return false;
     return t.dueDate.toMillis() < Date.now() && (t.assignedTo === user?.uid || t.createdBy === user?.uid);
   });
+
+  // ── File Attachment Handlers ──
+  const handleFilesSelected = (fileList: FileList | null) => {
+    if (!fileList) return;
+    const newFiles = Array.from(fileList).filter(f => f.size <= 10 * 1024 * 1024); // 10MB limit
+    const previews = newFiles.map(f => ({
+      file: f,
+      preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : undefined
+    }));
+    setPendingAttachments(prev => [...prev, ...previews]);
+  };
+
+  const removePendingAttachment = (index: number) => {
+    setPendingAttachments(prev => {
+      const removed = prev[index];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const uploadAttachments = async (taskId: string): Promise<{url: string; name: string; type: string; size: number}[]> => {
+    if (!storage || pendingAttachments.length === 0) return [];
+    setUploadingFiles(true);
+    try {
+      const uploads = await Promise.all(
+        pendingAttachments.map(async ({ file }) => {
+          const path = `action_board_attachments/${user!.uid}/${taskId}/${Date.now()}_${file.name}`;
+          const sRef = storageRef(storage, path);
+          await uploadBytes(sRef, file);
+          const url = await getDownloadURL(sRef);
+          return { url, name: file.name, type: file.type, size: file.size };
+        })
+      );
+      return uploads;
+    } finally {
+      setUploadingFiles(false);
+      setPendingAttachments([]);
+    }
+  };
 
   // â”€â”€ Handlers â”€â”€
   const addTask = async () => {

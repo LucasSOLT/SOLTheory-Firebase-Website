@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useUser, useFirestore } from "@/firebase";
+import { useUser, useFirestore, useStorage } from "@/firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   collection,
   query,
@@ -50,6 +51,11 @@ import {
   MessageCircle,
   ArchiveRestore,
   Send,
+  Paperclip,
+  ImageIcon,
+  FileUp,
+  Eye,
+  FileText,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -98,6 +104,7 @@ interface ActionBoardTask {
   isArchived?: boolean;
   // Comments
   comments?: TaskComment[];
+  attachments?: { url: string; name: string; type: string; size: number }[];
 }
 
 type EmailTrigger = "assigned" | "in_progress" | "completed" | "overdue";
@@ -240,6 +247,7 @@ export default function ActionBoardPage() {
 function ActionBoardContent() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -303,6 +311,11 @@ function ActionBoardContent() {
   // Comments state
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentInput, setCommentInput] = useState("");
+  // Attachments state
+  const [pendingAttachments, setPendingAttachments] = useState<{file: File; preview?: string}[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // â”€â”€ Derived â”€â”€
   const isAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");

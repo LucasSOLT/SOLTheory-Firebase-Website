@@ -43,6 +43,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const cancelledRef = useRef(false);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const noInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasReceivedInputRef = useRef(false);
   const interruptFrameCount = useRef(0);
   const lastTimerTextRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -120,6 +122,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     recognition.onresult = (event: any) => {
       if (phaseRef.current !== "listening") return; // Completely ignore late audio buffers
+
+      // Clear the no-input timeout on first speech detected
+      hasReceivedInputRef.current = true;
+      if (noInputTimeoutRef.current) { clearTimeout(noInputTimeoutRef.current); noInputTimeoutRef.current = null; }
 
       let interim = "";
       let final = "";
@@ -244,6 +250,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   useEffect(() => {
     if (!isOpen) return;
     cancelledRef.current = false;
+    hasReceivedInputRef.current = false;
 
     // Window gesture handler to resume/unlock on first user tap/click inside the modal
     const unlockOnGesture = () => {
@@ -432,6 +439,41 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         // Start recognition immediately
         startRecognition();
 
+        // 10-second no-input timeout: if user hasn't spoken, prompt them
+        noInputTimeoutRef.current = setTimeout(async () => {
+          if (!hasReceivedInputRef.current && !cancelledRef.current && phaseRef.current === "listening") {
+            const noInputMsg = "I'm not hearing anything from your end \u2014 how can I help you today?";
+            setTranscriptLines(prev => [...prev, { text: noInputMsg, isUser: false }]);
+            setPhase("speaking");
+            // Play TTS
+            try {
+              const audioUrl = `/api/tts?text=${encodeURIComponent(noInputMsg)}${voiceId ? `&voice=${encodeURIComponent(voiceId)}` : ''}`;
+              const audio = persistentAudioRef.current || document.createElement('audio');
+              audio.setAttribute('playsinline', 'true');
+              audio.setAttribute('webkit-playsinline', 'true');
+              const ttsRes = await fetch(audioUrl);
+              if (ttsRes.ok) {
+                const blob = await ttsRes.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                audio.src = blobUrl;
+                audio.volume = 1.0;
+                audio.load();
+                if (audioCtxRef.current?.state === 'suspended') await audioCtxRef.current.resume().catch(() => {});
+                audio.onended = () => {
+                  setPhase("listening");
+                  if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+                  if (!isMicMuted && !isPaused) startRecognition();
+                };
+                audio.play().catch(() => {});
+              } else {
+                setTimeout(() => setPhase("listening"), 2000);
+              }
+            } catch {
+              setTimeout(() => setPhase("listening"), 2000);
+            }
+          }
+        }, 10000);
+
         // MOBILE FIX: "Unlock" a persistent audio element during this user-gesture-triggered flow.
         // Mobile browsers (iOS Safari, Chrome Android) block Audio.play() unless
         // the audio element was first played inside a direct user gesture.
@@ -461,8 +503,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           }
           audioSourceRef.current = source;
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Microphone access denied:", err);
+        const errorMsg = err?.name === 'NotAllowedError' 
+          ? "Microphone permission was denied. Please allow microphone access in your browser settings and try again."
+          : err?.name === 'NotFoundError'
+          ? "No microphone was found on your device. Please connect a microphone and try again."
+          : "Unable to access your microphone. Please check your device settings and try again.";
+        setTranscriptLines(prev => [...prev, { text: errorMsg, isUser: false }]);
       }
     };
 
@@ -470,6 +518,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     return () => {
       cancelledRef.current = true;
+      if (noInputTimeoutRef.current) { clearTimeout(noInputTimeoutRef.current); noInputTimeoutRef.current = null; }
       cancelAnimationFrame(animFrameRef.current);
       stopRecognition();
       window.removeEventListener("click", unlockOnGesture, { capture: true });
