@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useUser, useFirestore } from "@/firebase";
 
@@ -497,6 +497,61 @@ function ShareModal({
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   DOCUMENT EDITOR WRAPPER — Error Boundary
+   Catches runtime errors from TipTap to prevent full page crash
+   ═══════════════════════════════════════════════════════════════ */
+
+class EditorErrorBoundary extends React.Component<
+  { children: React.ReactNode; onError: (err: string) => void; fallback?: React.ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message || "Unknown error" };
+  }
+  componentDidCatch(error: Error) {
+    this.props.onError(error.message || "Unknown editor error");
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback || null;
+    return this.props.children;
+  }
+}
+
+function DocumentEditorWrapper({
+  editingFile,
+  isDark,
+  onSave,
+  onClose,
+  onRename,
+  onError,
+}: {
+  editingFile: FileItem;
+  isDark: boolean;
+  onSave: (content: string) => void;
+  onClose: () => void;
+  onRename: (newName: string) => void;
+  onError: (err: string) => void;
+}) {
+  return (
+    <EditorErrorBoundary onError={onError}>
+      <DocumentEditor
+        fileId={editingFile.id}
+        fileName={editingFile.name}
+        initialContent={editingFile.content}
+        isDark={isDark}
+        onSave={onSave}
+        onClose={onClose}
+        onRename={onRename}
+      />
+    </EditorErrorBoundary>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════════ */
 
@@ -582,8 +637,13 @@ export default function MediaLibraryPage() {
 
   // ─── Rename State ───
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
+  const renameFileRef = useRef<HTMLInputElement>(null);
+
+  // ─── Editor Error State ───
+  const [editorError, setEditorError] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -622,6 +682,15 @@ export default function MediaLibraryPage() {
   useEffect(() => {
     if (renamingFolderId && renameRef.current) renameRef.current.focus();
   }, [renamingFolderId]);
+  useEffect(() => {
+    if (renamingFileId && renameFileRef.current) {
+      renameFileRef.current.focus();
+      // Select only the file name, not the extension
+      const dotIndex = renameValue.lastIndexOf('.');
+      if (dotIndex > 0) renameFileRef.current.setSelectionRange(0, dotIndex);
+      else renameFileRef.current.select();
+    }
+  }, [renamingFileId]);
 
   // ─── Folder Helpers ───
   const toggleFolder = (id: string) => {
@@ -668,6 +737,9 @@ export default function MediaLibraryPage() {
 
     if (action === "Open") {
       setEditingFile(file);
+    } else if (action === "Rename") {
+      setRenamingFileId(file.id);
+      setRenameValue(file.name);
     } else if (action === "Share") {
       setShareModalFile(file);
     } else if (action === "Delete") {
@@ -676,6 +748,25 @@ export default function MediaLibraryPage() {
       showToast(`${action}: ${file.name}`);
     }
     setContextMenu(null);
+  };
+
+  const handleFileRename = () => {
+    if (!renamingFileId || !renameValue.trim()) {
+      setRenamingFileId(null);
+      setRenameValue("");
+      return;
+    }
+    const newName = renameValue.trim();
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.id === renamingFileId
+          ? { ...f, name: newName, extension: newName.split(".").pop()?.toLowerCase() || f.extension }
+          : f
+      )
+    );
+    showToast(`Renamed to: ${newName}`);
+    setRenamingFileId(null);
+    setRenameValue("");
   };
 
   const handleDeleteFolder = (folderId: string) => {
@@ -1290,7 +1381,22 @@ export default function MediaLibraryPage() {
                   >
                     <div className="flex items-center gap-3 px-4 py-2.5">
                       {getFileIcon(file.extension, 4, isDark)}
-                      <span className={`font-semibold truncate ${textPrimary}`}>{file.name}</span>
+                      {renamingFileId === file.id ? (
+                        <input
+                          ref={renameFileRef}
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleFileRename();
+                            if (e.key === "Escape") { setRenamingFileId(null); setRenameValue(""); }
+                          }}
+                          onBlur={handleFileRename}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`font-semibold text-[13px] px-1.5 py-0.5 rounded border outline-none focus:ring-2 focus:ring-indigo-300 w-full ${inputBg}`}
+                        />
+                      ) : (
+                        <span className={`font-semibold truncate ${textPrimary}`}>{file.name}</span>
+                      )}
                     </div>
 
                     <div className="flex items-center px-3">
@@ -1475,6 +1581,7 @@ export default function MediaLibraryPage() {
           >
             {[
               { label: "Open", icon: FileText, action: "Open" },
+              { label: "Rename", icon: Edit3, action: "Rename" },
               { label: "Share", icon: Share2, action: "Share" },
               { label: "Properties", icon: Info, action: "Properties" },
             ].map(({ label, icon: Icon, action }) => (
@@ -1527,13 +1634,12 @@ export default function MediaLibraryPage() {
       )}
 
       {/* ───── DOCUMENT EDITOR ───── */}
-      {editingFile && (
-        <DocumentEditor
-          fileId={editingFile.id}
-          fileName={editingFile.name}
-          initialContent={editingFile.content}
+      {editingFile && !editorError && (
+        <DocumentEditorWrapper
+          key={editingFile.id}
+          editingFile={editingFile}
           isDark={isDark}
-          onSave={(content) => {
+          onSave={(content: string) => {
             setFiles((prev) =>
               prev.map((f) =>
                 f.id === editingFile.id
@@ -1543,8 +1649,8 @@ export default function MediaLibraryPage() {
             );
             setEditingFile((prev) => prev ? { ...prev, content } : null);
           }}
-          onClose={() => setEditingFile(null)}
-          onRename={(newName) => {
+          onClose={() => { setEditingFile(null); setEditorError(null); }}
+          onRename={(newName: string) => {
             setFiles((prev) =>
               prev.map((f) =>
                 f.id === editingFile.id
@@ -1555,7 +1661,24 @@ export default function MediaLibraryPage() {
             setEditingFile((prev) => prev ? { ...prev, name: newName } : null);
             showToast(`Renamed to: ${newName}`);
           }}
+          onError={(err: string) => {
+            setEditorError(err);
+            showToast("Editor failed to load. Try again.");
+          }}
         />
+      )}
+      {editingFile && editorError && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={`rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-white text-slate-800'}`}>
+            <h3 className="text-lg font-bold mb-2">Editor Failed to Load</h3>
+            <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>The document editor encountered an error. This may be a temporary issue.</p>
+            <p className={`text-xs font-mono p-3 rounded-lg mb-4 ${isDark ? 'bg-slate-800 text-red-400' : 'bg-red-50 text-red-600'}`}>{editorError}</p>
+            <div className="flex gap-3">
+              <button onClick={() => { setEditorError(null); }} className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors cursor-pointer">Try Again</button>
+              <button onClick={() => { setEditingFile(null); setEditorError(null); }} className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Close</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -467,26 +467,40 @@ export default function DocumentEditor({
   const contentToLoad = getStoredContent() || initialContent || "<p></p>";
 
   // ─── Editor ───
+  const editorExtensions = useMemo(() => {
+    try {
+      return [
+        StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+        Underline,
+        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        Placeholder.configure({ placeholder: "Start typing your document..." }),
+        TextStyle,
+        FontSize,
+        LineHeight,
+        Color,
+        Highlight.configure({ multicolor: true }),
+        Link.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" } }),
+        TipTapImage.configure({ inline: false, allowBase64: true }),
+        Table.configure({ resizable: false }),
+        TableRow, TableCell, TableHeader,
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        FontFamily, Subscript, Superscript, CharacterCount,
+      ];
+    } catch (err) {
+      console.error("[DocumentEditor] Failed to initialize extensions:", err);
+      return [
+        StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+        Underline,
+        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        Placeholder.configure({ placeholder: "Start typing your document..." }),
+      ];
+    }
+  }, []);
+
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
-      Underline,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Placeholder.configure({ placeholder: "Start typing your document..." }),
-      TextStyle,
-      FontSize,
-      LineHeight,
-      Color,
-      Highlight.configure({ multicolor: true }),
-      Link.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" } }),
-      TipTapImage.configure({ inline: false, allowBase64: true }),
-      Table.configure({ resizable: true }),
-      TableRow, TableCell, TableHeader,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      FontFamily, Subscript, Superscript, CharacterCount,
-    ],
+    extensions: editorExtensions,
     content: contentToLoad,
     editorProps: {
       attributes: { class: isDark ? "dark-editor" : "" },
