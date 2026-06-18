@@ -90,7 +90,7 @@ const COLUMN_LABELS: Record<string, string> = {
   done: "Done",
 };
 
-export function NearestDueTasksWidget() {
+export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -108,7 +108,7 @@ export function NearestDueTasksWidget() {
     setError(null);
 
     const tasksRef = collection(firestore, "action_board_tasks");
-    const q = query(tasksRef, where("orgId", "==", "soltheory"));
+    const q = query(tasksRef, where("orgId", "==", orgId));
 
     const unsub = onSnapshot(
       q,
@@ -327,7 +327,7 @@ export function NearestDueTasksWidget() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/portal/dashboard/soltheory/action-board?highlight=${task.id}`);
+                      router.push(`/portal/dashboard/${orgId}/action-board?highlight=${task.id}`);
                     }}
                     className="text-[10px] font-semibold text-slate-400 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-0.5 shrink-0 cursor-pointer"
                   >
@@ -484,7 +484,7 @@ export function NearestDueTasksWidget() {
               <button
                 onClick={() => {
                   setSelectedTask(null);
-                  router.push("/portal/dashboard/soltheory/action-board");
+                  router.push(`/portal/dashboard/${orgId}/action-board`);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
               >

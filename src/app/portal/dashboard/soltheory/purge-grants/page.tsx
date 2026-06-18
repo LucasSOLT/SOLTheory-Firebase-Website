@@ -32,8 +32,7 @@ export default function PurgeGrantsPage() {
 
     try {
       const grantsRef = collection(firestore, "grant_suggestions");
-      const q = query(grantsRef, where("orgId", "==", "soltheory"));
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(grantsRef);
 
       let deleted = 0;
       for (const document of snapshot.docs) {

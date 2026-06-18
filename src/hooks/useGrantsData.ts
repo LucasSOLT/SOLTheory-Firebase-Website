@@ -41,7 +41,7 @@ interface UseGrantsDataResult {
  * are immediately visible). All three Tile 5 widgets consume this so
  * we make exactly ONE listener instead of three.
  */
-export function useGrantsData(): UseGrantsDataResult {
+export function useGrantsData(orgId: string = "soltheory"): UseGrantsDataResult {
   const { user } = useUser();
   const firestore = useFirestore();
 
@@ -62,7 +62,7 @@ export function useGrantsData(): UseGrantsDataResult {
     let unsub: (() => void) | undefined;
     try {
       const grantsRef = collection(firestore, "grant_suggestions");
-      const q = query(grantsRef, where("orgId", "==", "soltheory"));
+      const q = query(grantsRef, where("orgId", "==", orgId));
 
       unsub = onSnapshot(
         q,
@@ -130,7 +130,7 @@ export function useGrantsData(): UseGrantsDataResult {
     }
 
     return () => unsub?.();
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, orgId]);
 
   const refetch = useCallback(() => {
     // onSnapshot is real-time, so this is a no-op

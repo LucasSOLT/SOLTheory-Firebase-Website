@@ -326,7 +326,7 @@ function ActionBoardContent() {
   const lateProcessedRef = useRef<Set<string>>(new Set());
   const fireAutomationsRef = useRef<(task: ActionBoardTask, trigger: EmailTrigger) => Promise<void>>(null!);
 
-  // â”€â”€ Fetch current user role â”€â”€
+  // ── Fetch current user role ──
   useEffect(() => {
     if (!firestore || !user?.uid) return;
     const fetchRole = async () => {
@@ -339,7 +339,7 @@ function ActionBoardContent() {
     fetchRole();
   }, [firestore, user?.uid]);
 
-  // â”€â”€ Fetch org members for assignee picker â”€â”€
+  // ——— Fetch org members for assignee picker ———
   useEffect(() => {
     if (!firestore) return;
     const fetchMembers = async () => {
@@ -350,13 +350,19 @@ function ActionBoardContent() {
           const data = d.data();
           const email = data.email || data.profile?.email || "";
           if (email) {
-            members.push({
-              uid: d.id,
-              email,
-              displayName: data.displayName || data.profile?.displayName || data.name || "",
-              photoURL: data.photoURL || data.profile?.photoURL || "",
-              role: data.role || "member",
-            });
+            // Only include users who belong to this org, or cross-org admins
+            const userOrg = data.organization || "";
+            const isSameOrg = userOrg === ORG_ID;
+            const isCrossOrgAdmin = ADMIN_EMAILS.includes(email.toLowerCase());
+            if (isSameOrg || isCrossOrgAdmin) {
+              members.push({
+                uid: d.id,
+                email,
+                displayName: data.displayName || data.profile?.displayName || data.name || "",
+                photoURL: data.photoURL || data.profile?.photoURL || "",
+                role: data.role || "member",
+              });
+            }
           }
         });
         setOrgMembers(members);
@@ -365,7 +371,7 @@ function ActionBoardContent() {
       }
     };
     fetchMembers();
-  }, [firestore]);
+  }, [firestore, ORG_ID]);
 
   // â”€â”€ Real-time task listener â”€â”€
   useEffect(() => {
@@ -428,7 +434,7 @@ function ActionBoardContent() {
     });
 
     return () => unsub();
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, ORG_ID]);
 
   // â”€â”€ Background deadline monitor â”€â”€
   // Checks every minute for tasks that have passed their due date and flags them
@@ -859,6 +865,7 @@ function ActionBoardContent() {
           },
           automations: { emails },
           trigger,
+          orgId: ORG_ID,
           userId: user?.uid || null,
         }),
       });

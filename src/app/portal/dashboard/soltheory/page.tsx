@@ -107,7 +107,7 @@ export default function SolTheoryDashboard() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isGrantConfigOpen, setIsGrantConfigOpen] = useState(false);
-  const { grants: grantsData, loading: grantsLoading } = useGrantsData();
+  const { grants: grantsData, loading: grantsLoading } = useGrantsData("soltheory");
   const [agentSlots, setAgentSlots] = useState<AgentSlotData[]>([]);
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
@@ -279,7 +279,7 @@ export default function SolTheoryDashboard() {
                   Tile 2
                 </div>
                 <div className="flex-1 min-h-0 w-full">
-                  <NearestDueTasksWidget />
+                  <NearestDueTasksWidget orgId="soltheory" />
                 </div>
               </div>
               </CmsTileWrapper>

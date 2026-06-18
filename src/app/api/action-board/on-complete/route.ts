@@ -51,7 +51,15 @@ const TRIGGER_CONFIG: Record<EmailTrigger, { emoji: string; label: string; heade
 
 export async function POST(req: Request) {
   try {
-    const { task, automations, trigger = "completed" } = await req.json();
+    const { task, automations, trigger = "completed", orgId = "soltheory" } = await req.json();
+
+    // Org-specific branding
+    const ORG_NAMES: Record<string, string> = {
+      soltheory: "SOL Theory",
+      nxtchapter: "NXT Chapter",
+      lnu: "LifeNavigationU",
+    };
+    const orgDisplayName = ORG_NAMES[orgId] || "SOL Theory";
 
     if (!task || !automations) {
       return NextResponse.json({ error: "Missing task or automations" }, { status: 400 });
@@ -68,7 +76,7 @@ export async function POST(req: Request) {
         results.push({ type: "email", status: "error", error: "SendGrid API key not configured" });
       } else {
         const fromEmail = process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com";
-        const fromName = process.env.SENDGRID_FROM_NAME || "SOL Theory";
+        const fromName = orgDisplayName;
 
         for (const email of automations.emails) {
           const trimmed = email.trim();
@@ -96,7 +104,7 @@ export async function POST(req: Request) {
               triggerKey === "overdue" ? `⚠️ Status: OVERDUE — action required` : null,
               `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
               ``,
-              `— SOL Theory Action Board`,
+              `— ${orgDisplayName} Action Board`,
             ]
               .filter(Boolean)
               .join("\n");
@@ -141,7 +149,7 @@ export async function POST(req: Request) {
                   </table>
                 </div>
                 <div style="padding: 16px 32px; border-top: 1px solid rgba(255,255,255,0.06); text-align: center;">
-                  <p style="margin: 0; color: #64748b; font-size: 11px;">SOL Theory Action Board</p>
+                  <p style="margin: 0; color: #64748b; font-size: 11px;">${orgDisplayName} Action Board</p>
                 </div>
               </div>
             `;

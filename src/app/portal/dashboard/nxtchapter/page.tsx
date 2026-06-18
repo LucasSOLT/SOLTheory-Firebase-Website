@@ -5,7 +5,7 @@ import { useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { doc, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
-import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
+import { Clock, ExternalLink, Activity, Settings } from "lucide-react";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
@@ -14,7 +14,7 @@ import { SuggestedGrantsList } from "@/components/portal/SuggestedGrantsList";
 import { GrantAgentHub } from "@/components/portal/GrantAgentHub";
 import { useGrantsData } from "@/hooks/useGrantsData";
 import { AgentWorkerController, type AgentSlotData } from "@/components/portal/AgentWorkerController";
-import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
+
 import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
 import { OrgActivityFeed } from "@/components/portal/OrgActivityFeed";
 import { ContentManagerBar } from "@/components/admin/ContentManagerBar";
@@ -27,7 +27,7 @@ export default function NxtChapterDashboard() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isGrantConfigOpen, setIsGrantConfigOpen] = useState(false);
-  const { grants: grantsData, loading: grantsLoading } = useGrantsData();
+  const { grants: grantsData, loading: grantsLoading } = useGrantsData("nxtchapter");
   const [agentSlots, setAgentSlots] = useState<AgentSlotData[]>([]);
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
@@ -185,88 +185,70 @@ export default function NxtChapterDashboard() {
                       <span className="text-xs text-slate-300 font-medium">No tasks in guest mode</span>
                     </div>
                   ) : (
-                    <NearestDueTasksWidget />
+                    <NearestDueTasksWidget orgId="nxtchapter" />
                   )}
                 </div>
               </div>
               </CmsTileWrapper>
             </div>
 
-            {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
-            <div className="flex-[8] aspect-[16/9] grid grid-cols-2 grid-rows-[auto_1fr] gap-5 overflow-hidden">
-              {/* Card 2A: Grant Agent Interface (Tile 3) */}
-              <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]">
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 3
-                </div>
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Agent Interface</span>
-                  {!isGuestMode && (
-                    <button onClick={() => setIsGrantConfigOpen(true)} className="p-1 rounded-lg bg-indigo-50 border border-indigo-200/60 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors shadow-sm cursor-pointer">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                {isGuestMode ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <span className="text-xs text-slate-300 font-medium">No agents in guest mode</span>
-                  </div>
-                ) : (
-                  <ActiveAgentsPreview slots={agentSlots} onOpenHub={() => setIsGrantConfigOpen(true)} />
-                )}
+            {/* Slot 2: Unified Grant Analytics (merged Tiles 3+4+5) */}
+            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[8] aspect-[16/9]">
+            <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col">
+              <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                Grant Analytics
               </div>
-              </CmsTileWrapper>
-
-              {/* Card 2B: Grant Statuses (Manual) (Tile 4) */}
-              <CmsTileWrapper tileId="tile-4" tileName="Grant Statuses">
-              <div
-                onClick={() => router.push("/portal/dashboard/nxtchapter/grant-statuses")}
-                className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px] cursor-pointer"
-              >
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 4
+              {isGuestMode ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <span className="text-xs text-slate-300 font-medium">No grant data in guest mode</span>
                 </div>
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Statuses (Manual)</span>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
-                </div>
-                <div className="flex-1 flex items-center justify-center border border-dashed border-indigo-100 bg-indigo-50/20 rounded-xl min-h-[40px] py-1 px-2 group-hover:bg-indigo-50/40 transition-colors">
-                  <span className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider">View All Statuses</span>
-                </div>
-              </div>
-              </CmsTileWrapper>
-
-              {/* Card 2C / Tile 5: Bottom span-2 - Grant Analytics */}
-              <CmsTileWrapper tileId="tile-5" tileName="Grant Analytics" className="col-span-2">
-              <div className="relative group bg-[#fefcf6] border border-[#ede8da]/80 shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px] max-h-full overflow-hidden p-5 flex gap-5">
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 5
-                </div>
-                {isGuestMode ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <span className="text-xs text-slate-300 font-medium">No grant data in guest mode</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Left Column (50% width) */}
-                    <div className="flex-1 flex flex-col gap-4 h-full min-h-0">
-                      <div className="flex-1 min-h-0">
-                        <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
-                      </div>
-                      <div className="flex-1 min-h-0">
-                        <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
-                      </div>
+              ) : (
+                <div className="flex-1 flex gap-5 min-h-0">
+                  {/* Left Column: Charts */}
+                  <div className="flex-1 flex flex-col min-h-0">
+                    {/* Header row with button */}
+                    <div className="flex items-center justify-between mb-3 shrink-0">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Performance</span>
+                      <button
+                        onClick={() => setIsGrantConfigOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
+                      >
+                        <Activity className="w-3 h-3" />
+                        Spawn a subagent
+                      </button>
                     </div>
-                    {/* Right Column (50% width) */}
-                    <div className="flex-1 flex flex-col h-full min-h-0">
+                    <div className="flex-1 min-h-0">
+                      <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                    </div>
+                    <div className="flex-1 min-h-0">
+                      <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="w-px bg-slate-200/60 shrink-0" />
+
+                  {/* Right Column: Suggested Grants */}
+                  <div className="flex-1 flex flex-col min-h-0">
+                    {/* Header row with button */}
+                    <div className="flex items-center justify-between mb-3 shrink-0">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Suggested Grants</span>
+                      <button
+                        onClick={() => router.push("/portal/dashboard/nxtchapter/grant-statuses")}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View all grants
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-hidden">
                       <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
                     </div>
-                  </>
-                )}
-              </div>
-              </CmsTileWrapper>
+                  </div>
+                </div>
+              )}
             </div>
+            </CmsTileWrapper>
           </div>
 
           {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
@@ -387,9 +369,7 @@ export default function NxtChapterDashboard() {
           tileName={{
             'tile-1': 'Weekly Hours Worked',
             'tile-2': 'Nearest Due Tasks',
-            'tile-3': 'Grant Agent Interface',
-            'tile-4': 'Grant Statuses',
-            'tile-5': 'Grant Analytics',
+            'tile-grants': 'Grant Analytics',
             'tile-7': 'Tile 7',
             'tile-8': 'Tile 8',
             'tile-9': 'Tile 9',
