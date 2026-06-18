@@ -199,6 +199,7 @@ export function DMChat() {
   
   const bottomRef = useRef<HTMLDivElement>(null);
   const [justSentIds, setJustSentIds] = useState<Set<string>>(new Set());
+  const [pendingAttachments, setPendingAttachments] = useState<{ file: File; preview: string }[]>([]);
 
   // Fetch contacts
   useEffect(() => {
@@ -327,6 +328,18 @@ export function DMChat() {
       console.error(e);
       alert("Failed to send message.");
     }
+
+    // Send any pending paste attachments
+    if (!customImageUrl && pendingAttachments.length > 0) {
+      const toProcess = [...pendingAttachments];
+      setPendingAttachments([]);
+      for (const att of toProcess) {
+        if (att.preview) URL.revokeObjectURL(att.preview);
+        if (att.file.type.startsWith('image/')) {
+          processImageFile(att.file);
+        }
+      }
+    }
   };
 
   const processImageFile = async (file: File) => {
@@ -401,14 +414,29 @@ export function DMChat() {
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
+    const files: File[] = [];
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image") !== -1) {
-        e.preventDefault();
+      if (items[i].kind === 'file') {
         const file = items[i].getAsFile();
-        if (file) processImageFile(file);
-        break;
+        if (file) files.push(file);
       }
     }
+    if (files.length > 0) {
+      e.preventDefault();
+      const previews = files.map(f => ({
+        file: f,
+        preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : '',
+      }));
+      setPendingAttachments(prev => [...prev, ...previews]);
+    }
+  };
+
+  const removePendingAttachment = (idx: number) => {
+    setPendingAttachments(prev => {
+      const removed = prev[idx];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const activeChat = chats.find(c => c.id === activeChatId);
@@ -567,32 +595,55 @@ export function DMChat() {
 
             {/* Input Footer */}
             <div className="p-4 bg-white border-t border-slate-200 shrink-0">
-               <div className="flex items-center gap-2 max-w-4xl mx-auto relative">
-                 <ChatToolsMenu onInsertList={async (rows, isCheckbox) => {
-                   const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
-                   const msgData = {
-                     text: payload,
-                     senderEmail: user?.email,
-                     createdAt: serverTimestamp()
-                   };
-                   await addDoc(collection(firestore!, `dms/${activeChatId}/messages`), msgData);
-                   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                 }} />
-                 <label className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Upload Photo">
-                   <Paperclip className="w-5 h-5 text-slate-500" />
-                   <input type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" onChange={handleImageUpload} />
-                 </label>
-                 <Input 
-                   value={inputText}
-                   onChange={e => setInputText(e.target.value)}
-                   onPaste={handlePaste}
-                   placeholder={`Message ${contactDisplayName}...`}
-                   className="flex-1 bg-slate-100 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none"
-                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && inputText.trim() && handleSendMessage()}
-                 />
-                 <Button onClick={() => handleSendMessage()} disabled={!inputText.trim()} size="icon" className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-md shrink-0">
-                   <Send className="w-5 h-5 ml-0.5" />
-                 </Button>
+               <div className="flex flex-col gap-2 max-w-4xl mx-auto">
+                 {pendingAttachments.length > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50">
+                      {pendingAttachments.map((att, idx) => (
+                        <div key={idx} className="relative shrink-0 group">
+                          {att.preview ? (
+                            <img src={att.preview} alt="" className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
+                              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => removePendingAttachment(idx)}
+                            className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                 <div className="flex items-center gap-2 relative">
+                   <ChatToolsMenu onInsertList={async (rows, isCheckbox) => {
+                     const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
+                     const msgData = {
+                       text: payload,
+                       senderEmail: user?.email,
+                       createdAt: serverTimestamp()
+                     };
+                     await addDoc(collection(firestore!, `dms/${activeChatId}/messages`), msgData);
+                     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                   }} />
+                   <label className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Upload Photo">
+                     <Paperclip className="w-5 h-5 text-slate-500" />
+                     <input type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" onChange={handleImageUpload} />
+                   </label>
+                   <Input 
+                     value={inputText}
+                     onChange={e => setInputText(e.target.value)}
+                     onPaste={handlePaste}
+                     placeholder={`Message ${contactDisplayName}...`}
+                     className="flex-1 bg-slate-100 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none"
+                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (inputText.trim() || pendingAttachments.length > 0) && handleSendMessage()}
+                   />
+                   <Button onClick={() => handleSendMessage()} disabled={!inputText.trim() && pendingAttachments.length === 0} size="icon" className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-md shrink-0">
+                     <Send className="w-5 h-5 ml-0.5" />
+                   </Button>
+                 </div>
                </div>
             </div>
           </>
