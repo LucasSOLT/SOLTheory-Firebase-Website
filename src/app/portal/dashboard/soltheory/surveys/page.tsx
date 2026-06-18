@@ -241,7 +241,7 @@ export default function SolTheorySurveysPage() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-3 border-slate-900 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-semibold text-slate-400">Loading surveys...</p>
         </div>
       </div>
@@ -256,12 +256,12 @@ export default function SolTheorySurveysPage() {
     return (
       <div className="mt-4 space-y-6 animate-in slide-in-from-top-2 fade-in duration-200">
         {/* Survey Questions Preview */}
-        <div className="bg-[#faf6ed] rounded-2xl p-6 border border-slate-100">
+        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
           <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Survey Questions</h4>
           <div className="space-y-3">
             {survey.questions?.map((q: any, i: number) => (
               <div key={q.id || i} className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-xs shrink-0 mt-0.5">{i + 1}</span>
+                <span className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 font-black text-xs shrink-0 mt-0.5">{i + 1}</span>
                 <div>
                   <p className="text-sm font-bold text-slate-800">{q.prompt}</p>
                   <span className="text-xs font-medium text-slate-400 capitalize">{q.type}{q.type === "choice" && q.options ? ` â€” ${q.options.length} options` : ""}</span>
@@ -273,7 +273,7 @@ export default function SolTheorySurveysPage() {
 
         {/* Responses & Analytics */}
         {responses.length === 0 ? (
-          <div className="bg-[#fefcf6] rounded-2xl border border-slate-100 p-8 text-center">
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
             <Inbox className="w-10 h-10 text-slate-200 mx-auto mb-3" />
             <p className="text-sm font-bold text-slate-400">No responses yet</p>
             <p className="text-xs font-medium text-slate-300 mt-1">Share the survey link to start collecting responses.</p>
@@ -282,23 +282,23 @@ export default function SolTheorySurveysPage() {
           <>
             {/* Analytics Section */}
             {analytics && analytics.length > 0 && (
-              <div className="bg-[#fefcf6] rounded-2xl border border-slate-100 p-6">
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
                 <div className="flex items-center gap-2 mb-5">
-                  <BarChart3 className="w-4 h-4 text-indigo-600" />
+                  <BarChart3 className="w-4 h-4 text-slate-900" />
                   <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest">
                     Analytics â€” {responses.length} Response{responses.length !== 1 ? "s" : ""}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {analytics.map(a => (
-                    <div key={a.questionId} className="bg-[#faf6ed] rounded-xl p-4 border border-slate-100">
+                    <div key={a.questionId} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-600 mb-3 line-clamp-2">{a.prompt}</p>
 
                       {a.type === "rating" && (
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-0.5">
                             {[1, 2, 3, 4, 5].map(s => (
-                              <Star key={s} className={`w-4 h-4 ${s <= Math.round(a.avg || 0) ? "fill-amber-400 text-amber-400" : "fill-transparent text-slate-200"}`} />
+                              <Star key={s} className={`w-4 h-4 ${s <= Math.round(a.avg || 0) ? "fill-slate-900 text-slate-900" : "fill-transparent text-slate-300"}`} />
                             ))}
                           </div>
                           <span className="text-lg font-black text-slate-900">{a.avg}</span>
@@ -317,7 +317,7 @@ export default function SolTheorySurveysPage() {
                                   <span className="font-black text-slate-800">{pct}%</span>
                                 </div>
                                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                                  <div className="h-full bg-slate-900 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                                 </div>
                               </div>
                             );
@@ -328,7 +328,7 @@ export default function SolTheorySurveysPage() {
                       {a.type === "text" && a.textAnswers && (
                         <div className="space-y-1.5 max-h-32 overflow-y-auto">
                           {a.textAnswers.map((txt, i) => (
-                            <p key={i} className="text-xs font-medium text-slate-500 bg-[#fefcf6] rounded-lg px-3 py-2 border border-slate-100 line-clamp-2">{txt}</p>
+                            <p key={i} className="text-xs font-medium text-slate-500 bg-white rounded-lg px-3 py-2 border border-slate-200 line-clamp-2">{txt}</p>
                           ))}
                         </div>
                       )}
@@ -339,17 +339,17 @@ export default function SolTheorySurveysPage() {
             )}
 
             {/* Individual Responses */}
-            <div className="bg-[#fefcf6] rounded-2xl border border-slate-100 p-6">
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-5">
-                <Users className="w-4 h-4 text-indigo-600" />
+                <Users className="w-4 h-4 text-slate-900" />
                 <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest">Individual Responses</h4>
               </div>
               <div className="space-y-3">
                 {responses.map(resp => (
-                  <details key={resp.id} className="group bg-[#faf6ed] rounded-xl border border-slate-100 overflow-hidden">
+                  <details key={resp.id} className="group bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
                     <summary className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-black text-xs shrink-0">
                           {(resp.participantName || "?").charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
@@ -385,12 +385,12 @@ export default function SolTheorySurveysPage() {
                         {survey.questions?.map((q: any) => {
                           const val = resp.answers?.[q.id];
                           return (
-                            <div key={q.id} className="bg-[#fefcf6] rounded-lg p-3 border border-slate-100">
+                            <div key={q.id} className="bg-white rounded-lg p-3 border border-slate-200">
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{q.prompt}</p>
                               {typeof val === "number" ? (
                                 <div className="flex items-center gap-0.5">
                                   {[1, 2, 3, 4, 5].map(s => (
-                                    <Star key={s} className={`w-3.5 h-3.5 ${s <= val ? "fill-amber-400 text-amber-400" : "fill-transparent text-slate-200"}`} />
+                                    <Star key={s} className={`w-3.5 h-3.5 ${s <= val ? "fill-slate-900 text-slate-900" : "fill-transparent text-slate-300"}`} />
                                   ))}
                                   <span className="text-xs font-bold text-slate-500 ml-1">{val}</span>
                                 </div>
@@ -415,27 +415,27 @@ export default function SolTheorySurveysPage() {
   const renderEmptyState = (tab: "manager" | "custom") => {
     if (tab === "manager") {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-[#fefcf6] rounded-3xl border border-slate-200 shadow-sm py-20 mt-6">
-          <div className="w-20 h-20 bg-[#faf6ed] border border-slate-100 rounded-[2rem] shadow-sm flex items-center justify-center mb-6 rotate-12 transition-transform hover:rotate-0 duration-300">
-            <Inbox className="w-10 h-10 text-indigo-500" />
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-white rounded-xl border border-slate-200 py-20 mt-6">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-6">
+            <Inbox className="w-8 h-8 text-slate-400" />
           </div>
-          <h2 className="text-2xl font-black text-slate-800">No Surveys Available</h2>
-          <p className="text-slate-500 mt-2 max-w-sm font-medium">
+          <h2 className="text-2xl font-black text-slate-900">No Surveys Available</h2>
+          <p className="text-slate-500 mt-3 max-w-sm font-medium">
             When someone in your organization or someone who invites you creates a survey, it will appear here for you to take.
           </p>
         </div>
       );
     }
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-[#fefcf6] rounded-3xl border border-slate-200 shadow-sm py-20 mt-6">
-        <div className="w-20 h-20 bg-[#faf6ed] border border-slate-100 rounded-[2rem] shadow-sm flex items-center justify-center mb-6 rotate-12 transition-transform hover:rotate-0 duration-300">
-          <Star className="w-10 h-10 text-indigo-500" />
+      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-white rounded-xl border border-slate-200 py-20 mt-6">
+        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-6">
+          <Star className="w-8 h-8 text-slate-400" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800">No Created Surveys</h2>
-        <p className="text-slate-500 mt-2 max-w-sm font-medium mb-6">
+        <h2 className="text-2xl font-black text-slate-900">No Created Surveys</h2>
+        <p className="text-slate-500 mt-3 max-w-sm font-medium mb-6">
           Create your first AI-powered survey to start collecting feedback.
         </p>
-        <Button onClick={() => setIsCreatorOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-12 px-8">
+        <Button onClick={() => setIsCreatorOpen(true)} className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl h-12 px-8">
           Create AI Survey
         </Button>
       </div>
@@ -457,8 +457,8 @@ export default function SolTheorySurveysPage() {
       <div className="flex items-center justify-between pt-6">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-50 rounded-2xl">
-              <ClipboardList className="w-6 h-6 text-indigo-600" />
+            <div className="p-2.5 bg-slate-100 rounded-2xl">
+              <ClipboardList className="w-6 h-6 text-slate-700" />
             </div>
             Surveys
           </h1>
@@ -467,23 +467,23 @@ export default function SolTheorySurveysPage() {
           </p>
         </div>
         {activeTab === "custom" && (
-          <Button onClick={() => setIsCreatorOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-11 px-6 gap-2">
+          <Button onClick={() => setIsCreatorOpen(true)} className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl h-11 px-6 gap-2">
             <Plus className="w-4 h-4" /> New Survey
           </Button>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-px">
+      <div className="inline-flex items-center bg-slate-100 rounded-lg p-1 gap-1">
         <button
           onClick={() => setActiveTab("manager")}
-          className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${activeTab === "manager" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          className={`px-5 py-2 text-sm font-bold rounded-md transition-colors cursor-pointer ${activeTab === "manager" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
         >
           Survey Manager ({invitedSurveys.length})
         </button>
         <button
           onClick={() => setActiveTab("custom")}
-          className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${activeTab === "custom" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          className={`px-5 py-2 text-sm font-bold rounded-md transition-colors cursor-pointer ${activeTab === "custom" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
         >
           My Created Surveys ({customSurveys.length})
         </button>
@@ -499,7 +499,7 @@ export default function SolTheorySurveysPage() {
               {invitedSurveys.map(survey => {
                 const dateStr = formatDate(survey.createdAt);
                 return (
-                  <Card key={survey.id} className="bg-[#fefcf6] border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl p-6 hover:shadow-md transition-shadow">
+                  <Card key={survey.id} className="bg-white border border-slate-200 shadow-sm rounded-xl p-6 hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <h3 className="text-lg font-black text-slate-900 mb-1 truncate">{survey.title}</h3>
@@ -511,7 +511,7 @@ export default function SolTheorySurveysPage() {
                         </div>
                       </div>
                       <a href={`/survey/${survey.id}`} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg gap-1.5 h-9">
+                        <Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg gap-1.5 h-9">
                           Take Survey <ArrowUpRight className="w-3.5 h-3.5" />
                         </Button>
                       </a>
@@ -537,12 +537,12 @@ export default function SolTheorySurveysPage() {
                 const responseCount = (responsesBySurvey[survey.id] || []).length;
 
                 return (
-                  <Card key={survey.id} className="bg-[#fefcf6] border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl overflow-hidden">
+                  <Card key={survey.id} className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
                     <div
                       onClick={() => setExpandedSurveyId(isExpanded ? null : survey.id)}
                       role="button"
                       tabIndex={0}
-                      className="w-full text-left p-6 hover:bg-[#faf6ed]/50 transition-colors cursor-pointer"
+                      className="w-full text-left p-6 hover:bg-slate-50 transition-colors cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
@@ -583,7 +583,7 @@ export default function SolTheorySurveysPage() {
                     </div>
 
                     {isExpanded && (
-                      <div className="px-6 pb-6 border-t border-slate-100">
+                      <div className="px-6 pb-6 border-t border-slate-200">
                         {renderExpandedSurvey(survey)}
                       </div>
                     )}

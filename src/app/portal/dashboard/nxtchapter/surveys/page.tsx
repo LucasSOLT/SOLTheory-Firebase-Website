@@ -6,13 +6,11 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  ClipboardList,
   CheckCircle2,
   Star,
   ChevronRight,
   ChevronLeft,
   Send,
-  Sparkles,
 } from "lucide-react";
 
 // ---- Survey Question Definitions ----
@@ -153,7 +151,7 @@ function StarRating({
 }) {
   const [hovered, setHovered] = useState(0);
   return (
-    <div className="flex items-center gap-2 pt-2">
+    <div className="flex items-center gap-3 pt-4">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
@@ -161,19 +159,19 @@ function StarRating({
           onMouseEnter={() => setHovered(star)}
           onMouseLeave={() => setHovered(0)}
           onClick={() => onChange(star)}
-          className="group transition-transform hover:scale-125 active:scale-95 cursor-pointer"
+          className="group transition-transform hover:scale-110 active:scale-95 cursor-pointer"
         >
           <Star
-            className={`w-9 h-9 transition-colors duration-150 ${
+            className={`w-8 h-8 transition-colors duration-150 ${
               star <= (hovered || value)
-                ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]"
-                : "fill-transparent text-slate-300 group-hover:text-amber-200"
+                ? "fill-slate-900 text-slate-900"
+                : "fill-transparent text-slate-300 group-hover:text-slate-400"
             }`}
           />
         </button>
       ))}
       {value > 0 && (
-        <span className="text-xs font-bold text-slate-400 ml-2 tabular-nums">
+        <span className="text-xs font-medium text-slate-400 ml-3 tabular-nums">
           {value} / 5
         </span>
       )}
@@ -229,24 +227,23 @@ export default function NxtChapterSurveyPage() {
   if (submitted) {
     return (
       <div className="flex-1 flex items-center justify-center px-6">
-        <div className="text-center space-y-6 animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-24 h-24 mx-auto bg-emerald-50 rounded-[2rem] border border-emerald-100 flex items-center justify-center shadow-lg shadow-emerald-100/50">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+        <div className="text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 mx-auto bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center">
+            <CheckCircle2 className="w-10 h-10 text-slate-900" />
           </div>
           <div>
-            <h2 className="text-3xl font-black text-slate-900">
-              Thank You!
+            <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
+              Thank you for your feedback
             </h2>
-            <p className="text-slate-500 mt-3 max-w-md mx-auto font-medium leading-relaxed">
-              Your feedback has been submitted securely and will be reviewed by
+            <p className="text-slate-400 mt-4 max-w-sm mx-auto text-sm leading-relaxed">
+              Your responses have been submitted securely and will be reviewed by
               the SOL Theory admin team. Your input directly shapes the future
               of this platform.
             </p>
           </div>
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
-            <Sparkles className="w-4 h-4" />
-            <span className="font-semibold">
-              {Object.keys(answers).length} / {totalSteps} questions answered
+          <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+            <span className="font-medium">
+              {Object.keys(answers).length} of {totalSteps} questions answered
             </span>
           </div>
         </div>
@@ -256,17 +253,14 @@ export default function NxtChapterSurveyPage() {
 
   // ---- SURVEY FLOW ----
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 overflow-y-auto">
-      <div className="w-full max-w-2xl space-y-6">
+    <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
+      <div className="w-full max-w-2xl space-y-8">
         {/* Header */}
-        <div className="text-center space-y-2 pb-2">
-          <div className="w-14 h-14 mx-auto bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-center mb-4 shadow-sm">
-            <ClipboardList className="w-7 h-7 text-indigo-600" />
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+        <div className="text-center space-y-3 pb-2">
+          <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 tracking-tight">
             Client Use Case Survey
           </h1>
-          <p className="text-slate-500 text-sm font-medium max-w-lg mx-auto">
+          <p className="text-slate-400 text-sm max-w-md mx-auto leading-relaxed">
             Help us improve the NXT Chapter dashboard experience. Your answers
             are confidential and reviewed only by the SOL Theory admin team.
           </p>
@@ -274,40 +268,40 @@ export default function NxtChapterSurveyPage() {
 
         {/* Progress Bar */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-400">
             <span>
               Question {currentStep + 1} of {totalSteps}
             </span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500 ease-out"
+              className="h-full bg-slate-900 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
         {/* Question Card */}
-        <Card className="bg-white border-0 shadow-md ring-1 ring-slate-100 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300" key={question.id}>
+        <Card className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300" key={question.id}>
           <CardHeader className="pb-2">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-sm shrink-0 mt-0.5">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 font-semibold text-sm shrink-0 mt-0.5">
                 {currentStep + 1}
               </div>
               <div>
-                <CardTitle className="text-lg font-bold text-slate-900 leading-snug">
+                <CardTitle className="text-lg font-medium text-slate-900 leading-snug">
                   {question.question}
                 </CardTitle>
                 {question.subtitle && (
-                  <CardDescription className="text-slate-500 font-medium mt-1.5">
+                  <CardDescription className="text-slate-400 mt-2 text-sm">
                     {question.subtitle}
                   </CardDescription>
                 )}
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-2 pb-6 pl-[4.25rem]">
+          <CardContent className="pt-2 pb-8 pl-[4.5rem]">
             {/* Rating */}
             {question.type === "rating" && (
               <StarRating
@@ -318,23 +312,23 @@ export default function NxtChapterSurveyPage() {
 
             {/* Multiple Choice */}
             {question.type === "multiple_choice" && question.options && (
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2.5 pt-3">
                 {question.options.map((opt) => (
                   <button
                     key={opt}
                     type="button"
                     onClick={() => setAnswer(opt)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all cursor-pointer ${
+                    className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all cursor-pointer ${
                       currentAnswer === opt
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-900 shadow-sm"
-                        : "border-slate-100 bg-white text-slate-700 hover:border-slate-200 hover:bg-slate-50"
+                        ? "border-slate-900 bg-slate-50 text-slate-900 font-medium"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-4 h-4 rounded-full border-2 shrink-0 transition-all flex items-center justify-center ${
                           currentAnswer === opt
-                            ? "border-indigo-500 bg-indigo-500"
+                            ? "border-slate-900 bg-slate-900"
                             : "border-slate-300"
                         }`}
                       >
@@ -356,7 +350,7 @@ export default function NxtChapterSurveyPage() {
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder="Type your answer here..."
                 rows={4}
-                className="w-full mt-2 px-4 py-3 rounded-xl border-2 border-slate-100 bg-white text-sm text-slate-800 font-medium placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none transition-all"
+                className="w-full mt-3 px-4 py-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 resize-none transition-all"
               />
             )}
           </CardContent>
@@ -368,7 +362,7 @@ export default function NxtChapterSurveyPage() {
             variant="outline"
             onClick={() => setCurrentStep((s) => Math.max(0, s - 1))}
             disabled={currentStep === 0}
-            className="rounded-xl px-5 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 cursor-pointer"
+            className="rounded-lg px-5 border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back
@@ -378,7 +372,7 @@ export default function NxtChapterSurveyPage() {
             <Button
               onClick={() => setCurrentStep((s) => Math.min(totalSteps - 1, s + 1))}
               disabled={!canProceed}
-              className="rounded-xl px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md shadow-indigo-200/50 disabled:opacity-40 cursor-pointer"
+              className="rounded-lg px-6 bg-slate-900 hover:bg-slate-800 text-white font-medium disabled:opacity-40 cursor-pointer"
             >
               Next
               <ChevronRight className="w-4 h-4 ml-1" />
@@ -387,7 +381,7 @@ export default function NxtChapterSurveyPage() {
             <Button
               onClick={handleSubmit}
               disabled={!canProceed || submitting}
-              className="rounded-xl px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-200/50 disabled:opacity-40 cursor-pointer"
+              className="rounded-lg px-6 bg-slate-900 hover:bg-slate-800 text-white font-medium disabled:opacity-40 cursor-pointer"
             >
               {submitting ? (
                 <>
@@ -406,7 +400,7 @@ export default function NxtChapterSurveyPage() {
 
         {/* Skip hint for optional questions */}
         {!question.required && (
-          <p className="text-center text-xs text-slate-400 font-medium">
+          <p className="text-center text-xs text-slate-400">
             This question is optional — you can skip it.
           </p>
         )}
