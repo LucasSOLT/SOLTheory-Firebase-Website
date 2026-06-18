@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect, use, useCallback } from "react";
 import Link from "next/link";
@@ -144,6 +144,35 @@ const LOADING_PHRASES = [
   "Finalizing output...",
 ];
 
+function GmailViewTypingBody({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+  
+  useEffect(() => {
+    setDisplayed('');
+    setDone(false);
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      if (i >= text.length) {
+        setDisplayed(text);
+        setDone(true);
+        clearInterval(interval);
+      } else {
+        setDisplayed(text.slice(0, i));
+      }
+    }, 12);
+    return () => clearInterval(interval);
+  }, [text]);
+
+  return (
+    <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-sans">
+      {displayed}
+      {!done && <span className="inline-block w-0.5 h-4 bg-slate-800 animate-pulse ml-0.5 align-text-bottom" />}
+    </div>
+  );
+}
+
 export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ agentId: string }> }) {
   const searchParams = useSearchParams();
   const params = use(props.params);
@@ -187,6 +216,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   // Agent Eye States
   const [agentEyeTab, setAgentEyeTab] = useState<'gmail' | 'outlook' | 'sms' | 'jarvis-view'>('gmail');
   const [agentEyeDropdownOpen, setAgentEyeDropdownOpen] = useState(false);
+  const [lastDraftedEmail, setLastDraftedEmail] = useState<{ to: string; subject: string; body: string; timestamp: number } | null>(null);
   const [gmailFilterMenuOpen, setGmailFilterMenuOpen] = useState(false);
   const [gmailActiveFilters, setGmailActiveFilters] = useState<Set<string>>(new Set());
   const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
@@ -1406,6 +1436,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      // Capture email drafts for Gmail View
+      if (data.executedTools && Array.isArray(data.executedTools)) {
+        const emailTool = data.executedTools.find((t: any) => t.name === 'draft_outbound_email');
+        if (emailTool?.args) {
+          setLastDraftedEmail({
+            to: emailTool.args.to || '',
+            subject: emailTool.args.subject || '',
+            body: (emailTool.args.body || '').replace(/\\n/g, '\n'),
+            timestamp: Date.now(),
+          });
+          // Auto-switch to Gmail View in Agent Eye when an email is drafted
+          if (isAgentEyeOpen || isAgentEyeMinimized) {
+            setAgentEyeTab('gmail');
+          }
+        }
+      }
 
       // If the server returned real enrichment URLs, push them to Jarvis View
       // These are REAL sites used for research — much more believable than mocks
@@ -3480,7 +3527,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 {agentEyeTab === 'sms' && <Smartphone className="w-4 h-4 text-purple-500" />}
                 {agentEyeTab === 'jarvis-view' && <Monitor className="w-4 h-4 text-amber-500" />}
                 <span>
-                  {agentEyeTab === 'gmail' && 'Gmail'}
+                  {agentEyeTab === 'gmail' && 'Gmail View'}
                   {agentEyeTab === 'outlook' && 'Outlook'}
                   {agentEyeTab === 'sms' && 'SMS'}
                   {agentEyeTab === 'jarvis-view' && 'Jarvis View'}
@@ -3499,7 +3546,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 <div className="fixed inset-0 z-40" onClick={() => setAgentEyeDropdownOpen(false)} />
                 <div className="absolute top-full left-0 right-0 z-50 bg-[#fefcf6] border border-slate-200 rounded-b-xl shadow-xl overflow-hidden">
                 {[
-                  { id: 'gmail' as const, label: 'Gmail', icon: <Mail className="w-4 h-4 text-red-500" />, ready: true },
+                  { id: 'gmail' as const, label: 'Gmail View', icon: <Mail className="w-4 h-4 text-red-500" />, ready: true },
                   { id: 'outlook' as const, label: 'Outlook', icon: <Mail className="w-4 h-4 text-blue-500" />, ready: false },
                   { id: 'sms' as const, label: 'SMS', icon: <Smartphone className="w-4 h-4 text-purple-500" />, ready: true },
                   { id: 'jarvis-view' as const, label: 'Jarvis View', icon: <Monitor className="w-4 h-4 text-amber-500" />, ready: true },
@@ -3527,792 +3574,78 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           {/* Observer Body */}
           <div className="flex-1 overflow-auto flex flex-col">
 
-            {/* ──── Gmail Observer ──── */}
+            {/* ──── Gmail View ──── */}
             {agentEyeTab === 'gmail' && (
               <div className="flex-1 flex flex-col h-full">
-                {!isGmailConnected ? (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-                    <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
-                      <Mail className="w-7 h-7 text-red-400" />
+                {!lastDraftedEmail ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 border border-red-100 flex items-center justify-center">
+                      <Mail className="w-8 h-8 text-red-400" />
                     </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-slate-700">Gmail not connected</p>
-                      <p className="text-xs text-slate-400 mt-1">Connect Gmail in Brain &amp; Settings → Data</p>
+                    <div className="text-center max-w-xs">
+                      <p className="text-sm font-semibold text-slate-700">No emails drafted yet</p>
+                      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">Ask Jarvis to write or send an email to someone, and you&apos;ll see it composed here in real time.</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 flex flex-col h-full">
-                    {/* Gmail-style Toolbar */}
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
-                      <div className="flex items-center gap-1">
+                  <div className="flex-1 flex flex-col h-full overflow-hidden">
+                    {/* Compose Header */}
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drafted by Jarvis</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(lastDraftedEmail.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                         <button
-                          onClick={toggleSelectAll}
-                          className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors"
-                          title="Select all"
+                          onClick={() => setLastDraftedEmail(null)}
+                          className="text-[10px] text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
                         >
-                          <CheckSquare className={`w-4 h-4 ${selectedEmails.size > 0 ? 'text-blue-600' : 'text-slate-400'}`} />
+                          Clear
                         </button>
-                        {selectedEmails.size > 0 && (
-                          <span className="text-[10px] font-bold text-blue-600 tabular-nums">{selectedEmails.size}</span>
-                        )}
-                        {/* Tag filter dropdown */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setTagFilterOpen(!tagFilterOpen)}
-                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors group relative"
-                            title="Filter by tag"
-                          >
-                            <Filter className={`w-4 h-4 ${activeTagFilter ? 'text-amber-500' : 'text-slate-400'}`} />
-                            {activeTagFilter && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                          </button>
-                          {tagFilterOpen && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setTagFilterOpen(false)} />
-                              <div className="absolute top-full left-0 z-50 mt-1 w-48 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl overflow-hidden">
-                                <div className="px-3 py-2 border-b border-[#ede8da]">
-                                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Filter by Tag</p>
-                                </div>
-                                <button
-                                  onClick={() => { setActiveTagFilter(null); setGmailActiveFilters(prev => { const next = new Set(prev); next.delete('tag'); return next; }); setTagFilterOpen(false); }}
-                                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${!activeTagFilter ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
-                                >
-                                  <Inbox className="w-3.5 h-3.5" />
-                                  All Senders
-                                </button>
-                                {emailTags.map(tag => (
-                                  <button
-                                    key={tag.name}
-                                    onClick={() => { setActiveTagFilter(tag.name); setGmailActiveFilters(prev => new Set(prev).add('tag')); setTagFilterOpen(false); }}
-                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${activeTagFilter === tag.name ? 'bg-amber-50 text-amber-700 font-semibold' : 'text-slate-600 hover:bg-[#faf6ed]'}`}
-                                  >
-                                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: tag.color }} />
-                                    {tag.name}
-                                    <span className="ml-auto text-[10px] text-slate-400">
-                                      {Object.values(senderTagMap).filter(tags => tags.includes(tag.name)).length}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Filter Menu — multi-select with compatibility */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setGmailFilterMenuOpen(!gmailFilterMenuOpen)}
-                            className={`w-8 h-8 flex items-center justify-center rounded transition-colors relative ${gmailFilterMenuOpen ? 'bg-amber-50 text-amber-600' : 'hover:bg-[#faf6ed] text-slate-400'}`}
-                            title="Filter & Sort"
-                          >
-                            <Menu className="w-4 h-4" />
-                            {gmailActiveFilters.size > 0 && (
-                              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" />
-                            )}
-                          </button>
-
-                          {gmailFilterMenuOpen && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setGmailFilterMenuOpen(false)} />
-                              <div className="absolute top-full left-0 mt-1 w-56 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                                <div className="px-3 py-2 border-b border-[#ede8da] flex items-center justify-between">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter Emails</p>
-                                  {gmailActiveFilters.size > 0 && (
-                                    <button onClick={() => { setGmailActiveFilters(new Set()); setActiveTagFilter(null); }} className="text-[9px] font-semibold text-amber-600 hover:underline">Clear all</button>
-                                  )}
-                                </div>
-                                {(() => {
-                                  // Pre-compute counts for each filter
-                                  const counts: Record<string, number> = { unread: 0, unreplied: 0, replied: 0, starred: 0, 'has-attachments': 0 };
-                                  incomingEmails.forEach(email => {
-                                    const se = email.from.split('<').pop()?.replace('>', '') || '';
-                                    const ignored = agentContacts.find(c => c.ignore && c.email.toLowerCase() === se.toLowerCase());
-                                    if (ignored) return;
-                                    if (!readEmails.has(email.id)) counts.unread++;
-                                    if (starredEmails.has(email.id)) counts.starred++;
-                                    if (email.attachments && email.attachments.length > 0) counts['has-attachments']++;
-                                    const labels = email.labelIds || [];
-                                    const hasReply = labels.includes('SENT') || labels.includes('CATEGORY_SENT');
-                                    if (hasReply) counts.replied++; else counts.unreplied++;
-                                  });
-                                  return ([
-                                    { id: 'unread', label: 'Unread', icon: <MailOpen className="w-3.5 h-3.5" />, desc: 'Not yet opened', conflicts: [] as string[], count: counts.unread },
-                                    { id: 'unreplied', label: 'Awaiting Reply', icon: <Clock className="w-3.5 h-3.5" />, desc: 'No response sent', conflicts: ['replied'], count: counts.unreplied },
-                                    { id: 'replied', label: 'Replied', icon: <Reply className="w-3.5 h-3.5" />, desc: 'Response sent', conflicts: ['unreplied'], count: counts.replied },
-                                    { id: 'starred', label: 'Starred', icon: <Star className="w-3.5 h-3.5" />, desc: 'Marked important', conflicts: [] as string[], count: counts.starred },
-                                    { id: 'has-attachments', label: 'Has Attachments', icon: <Paperclip className="w-3.5 h-3.5" />, desc: 'Contains files', conflicts: [] as string[], count: counts['has-attachments'] },
-                                  ]).map(item => {
-                                  const isActive = gmailActiveFilters.has(item.id);
-                                  return (
-                                    <button
-                                      key={item.id}
-                                      onClick={() => {
-                                        setGmailActiveFilters(prev => {
-                                          const next = new Set(prev);
-                                          if (isActive) {
-                                            next.delete(item.id);
-                                          } else {
-                                            next.add(item.id);
-                                            // Remove conflicting filters
-                                            item.conflicts.forEach(c => next.delete(c));
-                                          }
-                                          return next;
-                                        });
-                                      }}
-                                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                                        isActive ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-[#faf6ed]'
-                                      }`}
-                                    >
-                                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
-                                        isActive ? 'bg-amber-500 border-amber-500' : 'border-slate-300'
-                                      }`}>
-                                        {isActive && (
-                                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                          </svg>
-                                        )}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-semibold">{item.label}</div>
-                                        <div className="text-[10px] text-slate-400">{item.desc}</div>
-                                      </div>
-                                      <span className={`text-[10px] tabular-nums font-medium ${isActive ? 'text-amber-500' : 'text-slate-300'}`}>{item.count}</span>
-                                    </button>
-                                  );
-                                });
-                                })()}
-                                <div className="border-t border-[#ede8da]">
-                                  <button
-                                    onClick={() => { setGmailFilterMenuOpen(false); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-slate-600 hover:bg-[#faf6ed] transition-colors"
-                                  >
-                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-500">
-                                      <Zap className="w-3.5 h-3.5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs font-semibold">Smart Priority</div>
-                                      <div className="text-[10px] text-slate-400">AI-ranked by urgency</div>
-                                    </div>
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-full">Beta</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {/* Active filter chips */}
-                        {Array.from(gmailActiveFilters).filter(f => f !== 'tag').map(f => {
-                          const labels: Record<string, string> = { unread: 'Unread', unreplied: 'Awaiting Reply', replied: 'Replied', starred: 'Starred', 'has-attachments': 'Attachments' };
-                          return (
-                            <button
-                              key={f}
-                              onClick={() => setGmailActiveFilters(prev => { const next = new Set(prev); next.delete(f); return next; })}
-                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-full border border-amber-200 hover:bg-amber-100 transition-colors"
-                            >
-                              <Filter className="w-3 h-3" />
-                              {labels[f] || f}
-                              <X className="w-3 h-3" />
-                            </button>
-                          );
-                        })}
-                        {activeTagFilter && (
-                          <button
-                            onClick={() => { setActiveTagFilter(null); setGmailActiveFilters(prev => { const next = new Set(prev); next.delete('tag'); return next; }); }}
-                            className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-purple-600 bg-purple-50 rounded-full border border-purple-200 hover:bg-purple-100 transition-colors"
-                          >
-                            <Tag className="w-3 h-3" />
-                            {activeTagFilter}
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                        {gmailActiveFilters.size > 0 && (
-                          <button
-                            onClick={() => { setGmailActiveFilters(new Set()); setActiveTagFilter(null); }}
-                            className="text-[10px] text-slate-400 hover:text-slate-600 font-semibold ml-1 cursor-pointer"
-                          >
-                            Clear all
-                          </button>
-                        )}
-                        {selectedEmails.size > 0 && (
-                          <>
-                            {/* Add Tag button */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setIsTagPopupOpen(!isTagPopupOpen)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
-                              >
-                                <Tag className="w-3.5 h-3.5" />
-                                Tag
-                              </button>
-                              {isTagPopupOpen && (
-                                <>
-                                <div className="fixed inset-0 z-40" onClick={() => setIsTagPopupOpen(false)} />
-                                <div className="absolute top-full right-0 z-50 mt-1 w-64 bg-[#fefcf6] border border-[#ede8da] rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-                                  <div className="px-3 py-2.5 border-b border-[#ede8da] bg-gradient-to-r from-purple-50 to-[#fefcf6]">
-                                    <p className="text-[11px] font-bold text-purple-700">Tag Selected Senders</p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">{selectedEmails.size} email{selectedEmails.size > 1 ? 's' : ''} selected</p>
-                                  </div>
-                                  {/* Existing tags to assign */}
-                                  <div className="max-h-40 overflow-y-auto">
-                                    {emailTags.map(tag => {
-                                      // Check if all selected senders already have this tag
-                                      const selectedSenders = Array.from(selectedEmails).map(id => {
-                                        const email = incomingEmails.find(e => e.id === id);
-                                        return email?.from.split('<').pop()?.replace('>', '')?.toLowerCase() || '';
-                                      }).filter(Boolean);
-                                      const allHaveTag = selectedSenders.every(s => senderTagMap[s]?.includes(tag.name));
-                                      return (
-                                        <div
-                                          key={tag.name}
-                                          onClick={() => {
-                                            setSenderTagMap(prev => {
-                                              const next = { ...prev };
-                                              selectedSenders.forEach(sender => {
-                                                if (!next[sender]) next[sender] = [];
-                                                if (allHaveTag) {
-                                                  next[sender] = next[sender].filter(t => t !== tag.name);
-                                                } else if (!next[sender].includes(tag.name)) {
-                                                  next[sender] = [...next[sender], tag.name];
-                                                }
-                                              });
-                                              return next;
-                                            });
-                                          }}
-                                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors cursor-pointer group ${allHaveTag ? 'bg-purple-50' : 'hover:bg-[#faf6ed]'}`}
-                                        >
-                                          <div className="w-3.5 h-3.5 rounded-full shrink-0 border-2" style={{ background: allHaveTag ? tag.color : 'transparent', borderColor: tag.color }} />
-                                          <span className={`flex-1 ${allHaveTag ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>{tag.name}</span>
-                                          {allHaveTag && <CheckCircle2 className="w-3.5 h-3.5 text-purple-500" />}
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setEmailTags(prev => prev.filter(t => t.name !== tag.name));
-                                              setSenderTagMap(prev => {
-                                                const next = { ...prev };
-                                                Object.keys(next).forEach(k => { next[k] = next[k].filter(t => t !== tag.name); });
-                                                return next;
-                                              });
-                                              if (activeTagFilter === tag.name) setActiveTagFilter(null);
-                                            }}
-                                            className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-red-100 transition-all shrink-0"
-                                            title="Delete tag"
-                                          >
-                                            <X className="w-3 h-3 text-slate-300 hover:text-red-500" />
-                                          </button>
-                                        </div>
-                                      );
-                                    })}
-                                    {emailTags.length === 0 && (
-                                      <div className="px-3 py-4 text-center">
-                                        <Tag className="w-5 h-5 text-slate-200 mx-auto mb-1.5" />
-                                        <p className="text-[11px] text-slate-400">No tags yet</p>
-                                        <p className="text-[10px] text-slate-300">Create one below</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* Create new tag */}
-                                  <div className="border-t border-[#ede8da] px-3 py-2.5">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Create New Tag</p>
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="color"
-                                        value={newTagColor}
-                                        onChange={e => setNewTagColor(e.target.value)}
-                                        className="w-7 h-7 rounded-lg border border-[#ede8da] cursor-pointer p-0.5"
-                                      />
-                                      <input
-                                        value={newTagName}
-                                        onChange={e => setNewTagName(e.target.value)}
-                                        placeholder="Tag name..."
-                                        className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-[#ede8da] bg-[#fefcf6] focus:ring-1 focus:ring-purple-300 outline-none"
-                                        onKeyDown={e => {
-                                          if (e.key === 'Enter' && newTagName.trim()) {
-                                            setEmailTags(prev => [...prev, { name: newTagName.trim(), color: newTagColor }]);
-                                            setNewTagName('');
-                                          }
-                                        }}
-                                      />
-                                      <button
-                                        onClick={() => {
-                                          if (!newTagName.trim()) return;
-                                          setEmailTags(prev => [...prev, { name: newTagName.trim(), color: newTagColor }]);
-                                          setNewTagName('');
-                                        }}
-                                        disabled={!newTagName.trim()}
-                                        className="px-2.5 py-1.5 text-[10px] font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-40"
-                                      >
-                                        Add
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                                </>
-                              )}
-                            </div>
-                            {/* Auto-reply button */}
-                            <button
-                              onClick={handleProcessInbox}
-                              disabled={isBatchSyncing}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
-                            >
-                              {isBatchSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Reply className="w-3.5 h-3.5" />}
-                              Auto-reply {selectedEmails.size}
-                            </button>
-                            {/* Mark as read */}
-                            <button
-                              onClick={() => {
-                                setReadEmails(prev => {
-                                  const next = new Set(prev);
-                                  selectedEmails.forEach(id => next.add(id));
-                                  return next;
-                                });
-                                setSelectedEmails(new Set());
-                              }}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-[#ede8da] text-slate-600 hover:bg-[#faf6ed] transition-colors"
-                              title="Mark selected as read"
-                            >
-                              <MailOpen className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                        <div className="flex items-center gap-1 ml-auto">
-                          <span className="text-[11px] text-slate-400 tabular-nums">
-                            {incomingEmails.length} email{incomingEmails.length !== 1 ? 's' : ''}
-                          </span>
-                          <button
-                            onClick={() => fetchPulse()}
-                            disabled={isPolling}
-                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#faf6ed] transition-colors disabled:opacity-40"
-                            title="Refresh"
-                          >
-                            <RefreshCw className={`w-3 h-3 text-slate-400 ${isPolling ? 'animate-spin' : ''}`} />
-                          </button>
-                        </div>
                       </div>
                     </div>
 
-                    {/* Search Bar */}
-                    <div className="px-3 py-1.5 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
-                        <input
-                          value={emailSearchQuery}
-                          onChange={e => setEmailSearchQuery(e.target.value)}
-                          placeholder="Search emails..."
-                          className="w-full text-xs pl-8 pr-8 py-1.5 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 focus:bg-white focus:ring-1 focus:ring-amber-300 focus:border-amber-300 outline-none transition-all text-slate-700 placeholder:text-slate-300"
-                        />
-                        {emailSearchQuery && (
-                          <button
-                            onClick={() => setEmailSearchQuery('')}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors"
-                          >
-                            <X className="w-3 h-3 text-slate-400" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Email List — Gmail-style with filters */}
-                    <div className="flex-1 overflow-y-auto">
-                      {(() => {
-                        // Loading skeleton
-                        if (isPolling && incomingEmails.length === 0) {
-                          return (
-                            <div className="divide-y divide-[#ede8da]/50">
-                              {[...Array(6)].map((_, i) => (
-                                <div key={i} className="flex items-start gap-2 px-3 py-3 animate-pulse">
-                                  <div className="w-5 h-5 rounded bg-slate-100 shrink-0 mt-0.5" />
-                                  <div className="w-4 h-4 rounded bg-slate-100 shrink-0 mt-0.5" />
-                                  <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-3 bg-slate-100 rounded w-24" />
-                                      <div className="ml-auto h-2.5 bg-slate-100 rounded w-12" />
-                                    </div>
-                                    <div className="h-3 bg-slate-100 rounded w-3/4" />
-                                    <div className="h-2.5 bg-slate-50 rounded w-full" />
-                                  </div>
-                                </div>
-                              ))}
+                    {/* Email Compose Area */}
+                    <div className="flex-1 overflow-auto p-4">
+                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden max-w-full">
+                        {/* To Field */}
+                        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100">
+                          <span className="text-xs font-semibold text-slate-400 w-12 shrink-0">To</span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-full text-xs font-medium text-blue-700">
+                              {lastDraftedEmail.to}
                             </div>
-                          );
-                        }
-                        // Apply active filter
-                        const visibleEmails = incomingEmails.filter(email => {
-                          const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
-                          const isIgnored = agentContacts.find(c => c.ignore && c.email.toLowerCase() === senderEmail.toLowerCase());
-                          if (isIgnored) return false;
-
-                          // Search filter
-                          if (emailSearchQuery.trim()) {
-                            const q = emailSearchQuery.toLowerCase();
-                            const senderName = email.from.split('<')[0].trim().toLowerCase();
-                            const matchesSender = senderName.includes(q) || senderEmail.toLowerCase().includes(q);
-                            const matchesSubject = (email.subject || '').toLowerCase().includes(q);
-                            const matchesSnippet = (email.snippet || '').toLowerCase().includes(q);
-                            if (!matchesSender && !matchesSubject && !matchesSnippet) return false;
-                          }
-
-                          const isRead = readEmails.has(email.id);
-                          const isStarred = starredEmails.has(email.id);
-                          const labels = email.labelIds || [];
-                          const isUnread = labels.includes('UNREAD') || !isRead;
-                          const hasReply = labels.includes('SENT') || labels.includes('CATEGORY_SENT');
-
-                          // Apply all active filters (AND logic — email must match ALL)
-                          if (gmailActiveFilters.size === 0) return true;
-                          for (const f of gmailActiveFilters) {
-                            switch (f) {
-                              case 'unread': if (isRead) return false; break;
-                              case 'unreplied': if (hasReply) return false; break;
-                              case 'replied': if (!hasReply) return false; break;
-                              case 'starred': if (!isStarred) return false; break;
-                              case 'has-attachments': if (!(email.attachments && email.attachments.length > 0)) return false; break;
-                              case 'tag': if (!activeTagFilter || !(senderTagMap[senderEmail.toLowerCase()]?.includes(activeTagFilter))) return false; break;
-                            }
-                          }
-                          return true;
-                        });
-
-                        if (expandedEmailId) {
-                          // Detail view for a single email
-                          const email = incomingEmails.find(e => e.id === expandedEmailId);
-                          if (!email) return null;
-                          const senderName = email.from.split('<')[0].trim().replace(/"/g, '') || email.from;
-                          const senderEmail = email.from.split('<').pop()?.replace('>', '') || '';
-                          const dateStr = (() => {
-                            try {
-                              const d = email.internalDate ? new Date(Number(email.internalDate)) : new Date(email.date);
-                              return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                            } catch { return ''; }
-                          })();
-                          const isStarred = starredEmails.has(email.id);
-                          return (
-                            <div className="flex flex-col h-full email-detail-enter">
-                              {/* Detail Header */}
-                              <div className="flex items-center gap-2 px-3 py-2 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
-                                <button
-                                  onClick={() => setExpandedEmailId(null)}
-                                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#faf6ed] transition-colors"
-                                >
-                                  <ArrowLeft className="w-4 h-4 text-slate-500" />
-                                </button>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-slate-700 truncate">{email.subject || '(no subject)'}</p>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setStarredEmails(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(email.id)) next.delete(email.id);
-                                      else next.add(email.id);
-                                      return next;
-                                    });
-                                  }}
-                                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 transition-colors"
-                                >
-                                  <Star className={`w-4 h-4 ${isStarred ? 'text-amber-400 fill-amber-400' : 'text-slate-300'}`} />
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); setExpandedEmailId(null); }}
-                                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
-                                </button>
-                              </div>
-                              {/* Sender Info */}
-                              <div className="px-4 py-3 border-b border-[#ede8da]/50">
-                                <div className="flex items-start gap-3">
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-0.5">
-                                    {senderName.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <p className="text-sm font-bold text-slate-800">{senderName}</p>
-                                      {/* Sender tags */}
-                                      {(() => {
-                                        const tags = senderTagMap[senderEmail.toLowerCase()] || [];
-                                        return tags.length > 0 ? (
-                                          <div className="flex items-center gap-1">
-                                            {tags.map(tagName => {
-                                              const tag = emailTags.find(t => t.name === tagName);
-                                              return tag ? (
-                                                <span key={tagName} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white" style={{ background: tag.color }}>
-                                                  {tagName}
-                                                </span>
-                                              ) : null;
-                                            })}
-                                          </div>
-                                        ) : null;
-                                      })()}
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 truncate">&lt;{senderEmail}&gt;</p>
-                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                      <span className="text-[10px] text-slate-400">to {email.to ? email.to.split('<')[0].trim().replace(/"/g, '') || 'me' : 'me'}</span>
-                                      {email.cc && (
-                                        <>
-                                          <span className="text-[10px] text-slate-300">·</span>
-                                          <span className="text-[10px] text-slate-400">cc: {email.cc.split(',').length > 2 ? `${email.cc.split(',')[0].split('<')[0].trim()} +${email.cc.split(',').length - 1}` : email.cc.split('<')[0].trim()}</span>
-                                        </>
-                                      )}
-                                      <span className="text-[10px] text-slate-300">·</span>
-                                      <span className="text-[10px] text-slate-400">{dateStr}</span>
-                                    </div>
-                                    {/* Gmail labels */}
-                                    {email.labelIds && email.labelIds.length > 0 && (
-                                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                                        {email.labelIds.filter(l => !['INBOX', 'CATEGORY_PRIMARY', 'CATEGORY_UPDATES', 'CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS'].includes(l)).slice(0, 4).map(label => (
-                                          <span key={label} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 font-medium">
-                                            {label.replace('CATEGORY_', '').replace('_', ' ')}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              {/* Email Body */}
-                              <div className="flex-1 overflow-y-auto px-4 py-4">
-                                {email.body ? (
-                                  <div
-                                    className="email-body-container text-sm text-slate-700 leading-relaxed break-words"
-                                    style={{ maxWidth: '100%', overflow: 'hidden', wordBreak: 'break-word' }}
-                                    dangerouslySetInnerHTML={{ __html: email.body }}
-                                  />
-                                ) : (
-                                  <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{email.snippet || 'No content available.'}</p>
-                                )}
-                                {/* Attachments */}
-                                {email.attachments && email.attachments.length > 0 && (
-                                  <div className="mt-4 pt-3 border-t border-[#ede8da]/50">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
-                                      <Paperclip className="w-3 h-3 inline mr-1" />
-                                      Attachments ({email.attachments.length})
-                                    </p>
-                                    <div className="space-y-1.5">
-                                      {email.attachments.map((att: any, i: number) => {
-                                        const isImage = att.mimeType?.startsWith('image/');
-                                        const isPdf = att.mimeType === 'application/pdf';
-                                        const isPreviewable = isImage || isPdf;
-                                        const sizeStr = att.size > 1048576 ? `${(att.size / 1048576).toFixed(1)} MB` : `${(att.size / 1024).toFixed(1)} KB`;
-                                        const isLoading = downloadingAttachment === `${email.id}-${att.attachmentId}`;
-                                        return (
-                                          <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-[#ede8da] bg-[#faf6ed]/50 hover:bg-[#faf6ed] transition-colors group">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isImage ? 'bg-pink-50 text-pink-500' : isPdf ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
-                                              {isImage ? <ImageIcon className="w-4 h-4" /> : isPdf ? <FileText className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-xs font-semibold text-slate-700 truncate">{att.filename}</p>
-                                              <p className="text-[10px] text-slate-400">{sizeStr} · {att.mimeType?.split('/').pop()?.toUpperCase()}</p>
-                                            </div>
-                                            {att.attachmentId && (
-                                              <div className="flex items-center gap-1 shrink-0">
-                                                {isPreviewable && (
-                                                  <button
-                                                    onClick={() => handleAttachmentAction(email.id, att, 'preview')}
-                                                    disabled={isLoading}
-                                                    className="px-2 py-1 text-[10px] font-semibold rounded-md bg-white border border-[#ede8da] text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors disabled:opacity-40"
-                                                    title="Preview"
-                                                  >
-                                                    {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
-                                                  </button>
-                                                )}
-                                                <button
-                                                  onClick={() => handleAttachmentAction(email.id, att, 'download')}
-                                                  disabled={isLoading}
-                                                  className="px-2 py-1 text-[10px] font-semibold rounded-md bg-white border border-[#ede8da] text-slate-600 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors disabled:opacity-40"
-                                                  title="Download"
-                                                >
-                                                  {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowLeft className="w-3 h-3 rotate-[-90deg]" />}
-                                                </button>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              {/* Quick Actions Footer */}
-                              <div className="shrink-0 border-t border-[#ede8da] bg-[#fefcf6] px-4 py-2.5 flex items-center gap-2">
-                                <button
-                                  onClick={() => {
-                                    // Select this email and trigger auto-reply
-                                    setSelectedEmails(new Set([email.id]));
-                                    setTimeout(() => handleProcessInbox(), 100);
-                                  }}
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                                >
-                                  <Reply className="w-3.5 h-3.5" />
-                                  Reply
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setReadEmails(prev => {
-                                      const next = new Set(prev);
-                                      next.delete(email.id);
-                                      return next;
-                                    });
-                                    setExpandedEmailId(null);
-                                  }}
-                                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-[#ede8da] text-slate-600 hover:bg-[#faf6ed] transition-colors"
-                                >
-                                  <MailOpen className="w-3.5 h-3.5" />
-                                  Mark Unread
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); setExpandedEmailId(null); }}
-                                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        if (visibleEmails.length === 0) {
-                          return (
-                            <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                              {emailSearchQuery.trim() ? (
-                                <>
-                                  <Search className="w-10 h-10 text-slate-200 mb-3" />
-                                  <p className="text-sm font-medium text-slate-400">No results for &quot;{emailSearchQuery}&quot;</p>
-                                  <p className="text-xs text-slate-300 mt-1">Try a different search term</p>
-                                  <button onClick={() => setEmailSearchQuery('')} className="text-xs text-amber-600 font-semibold mt-2 hover:underline cursor-pointer">Clear search</button>
-                                </>
-                              ) : gmailActiveFilters.size > 0 ? (
-                                <>
-                                  <Filter className="w-10 h-10 text-slate-200 mb-3" />
-                                  <p className="text-sm font-medium text-slate-400">No emails match these filters</p>
-                                  <button onClick={() => { setGmailActiveFilters(new Set()); setActiveTagFilter(null); }} className="text-xs text-amber-600 font-semibold mt-2 hover:underline cursor-pointer">Clear filters</button>
-                                </>
-                              ) : (
-                                <>
-                                  <Inbox className="w-12 h-12 text-slate-200 mb-3" />
-                                  <p className="text-sm font-medium text-slate-400">Inbox is empty</p>
-                                  <p className="text-xs text-slate-300 mt-1">New emails will appear here</p>
-                                </>
-                              )}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div className="divide-y divide-[#ede8da]/50">
-                            {visibleEmails.map(email => {
-                              const isSelected = selectedEmails.has(email.id);
-                              const isRead = readEmails.has(email.id);
-                              const isStarred = starredEmails.has(email.id);
-                              const senderName = email.from.split('<')[0].trim().replace(/"/g, '') || email.from;
-                              const senderEmail = email.from.split('<').pop()?.replace('>', '')?.toLowerCase() || '';
-                              const senderTags = senderTagMap[senderEmail] || [];
-                              const dateStr = (() => {
-                                try {
-                                  const d = email.internalDate ? new Date(Number(email.internalDate)) : new Date(email.date);
-                                  const now = new Date();
-                                  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                                  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                                } catch { return ''; }
-                              })();
-                              const hasAttachments = email.attachments && email.attachments.length > 0;
-
-                              return (
-                                <div
-                                  key={email.id}
-                                  onClick={() => {
-                                    setReadEmails(prev => new Set(prev).add(email.id));
-                                    setExpandedEmailId(email.id);
-                                  }}
-                                  className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer transition-all group relative ${
-                                    isSelected
-                                      ? 'bg-blue-50'
-                                      : isRead
-                                        ? 'bg-[#f5f0e4]/40 hover:bg-[#f5f0e4]/70'
-                                        : 'bg-[#fefcf6] hover:bg-[#faf6ed]'
-                                  }`}
-                                >
-                                  {/* Unread indicator — bold blue left border */}
-                                  {!isRead && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-500 rounded-r" />}
-
-                                  {/* Checkbox */}
-                                  <div className="pt-0.5 shrink-0" onClick={e => { e.stopPropagation(); toggleSelection(e as any, email.id); }}>
-                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                                      isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover:border-slate-400'
-                                    }`}>
-                                      {isSelected && (
-                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Star */}
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      setStarredEmails(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(email.id)) next.delete(email.id);
-                                        else next.add(email.id);
-                                        return next;
-                                      });
-                                    }}
-                                    className="pt-0.5 shrink-0"
-                                  >
-                                    <Star className={`w-4 h-4 transition-colors ${isStarred ? 'text-amber-400 fill-amber-400' : 'text-slate-200 hover:text-amber-300'}`} />
-                                  </button>
-
-                                  {/* Content */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className={`text-[13px] truncate ${isRead ? 'font-normal text-slate-400' : 'font-extrabold text-slate-900'}`}>{senderName}</span>
-                                        {/* Sender tags */}
-                                        {senderTags.length > 0 && (
-                                          <div className="flex items-center gap-0.5 shrink-0">
-                                            {senderTags.slice(0, 3).map(tagName => {
-                                              const tag = emailTags.find(t => t.name === tagName);
-                                              return tag ? <div key={tagName} className="w-2 h-2 rounded-full shrink-0" style={{ background: tag.color }} title={tagName} /> : null;
-                                            })}
-                                          </div>
-                                        )}
-                                      </div>
-                                      <span className={`text-[11px] shrink-0 tabular-nums ${isRead ? 'text-slate-300' : 'font-semibold text-slate-500'}`}>{dateStr}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                      <p className={`text-[12.5px] truncate ${isRead ? 'font-normal text-slate-400' : 'font-bold text-slate-800'}`}>{email.subject || '(no subject)'}</p>
-                                      {email.labelIds?.includes('IMPORTANT') && (
-                                        <span className="text-[8px] font-bold uppercase tracking-wider text-amber-500 bg-amber-50 px-1 py-0.5 rounded shrink-0">!</span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                      <p className={`text-[11.5px] truncate leading-snug flex-1 ${isRead ? 'text-slate-300' : 'text-slate-500'}`}>{email.snippet}</p>
-                                      {hasAttachments && (
-                                        <div className={`flex items-center gap-0.5 shrink-0 ${isRead ? 'text-slate-200' : 'text-slate-400'}`}>
-                                          <Paperclip className="w-3 h-3" />
-                                          {(email.attachments?.length || 0) > 1 && <span className="text-[10px]">{email.attachments?.length}</span>}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Delete */}
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteEmail(email.id); }}
-                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 rounded transition-all shrink-0 mt-0.5"
-                                    title="Delete"
-                                  >
-                                    {isDeletingEmail === email.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" /> : <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />}
-                                  </button>
-                                </div>
-                              );
-                            })}
                           </div>
-                        );
-                      })()}
+                        </div>
+
+                        {/* Subject Field */}
+                        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100">
+                          <span className="text-xs font-semibold text-slate-400 w-12 shrink-0">Subject</span>
+                          <span className="text-sm font-medium text-slate-800">{lastDraftedEmail.subject}</span>
+                        </div>
+
+                        {/* Email Body with typing effect */}
+                        <div className="px-4 py-4 min-h-[200px]">
+                          <GmailViewTypingBody text={lastDraftedEmail.body} key={lastDraftedEmail.timestamp} />
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                              <span className="text-[8px] font-bold text-white">J</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400">Saved to Gmail Drafts</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            <span className="text-[10px] font-medium text-emerald-600">Draft Ready</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
