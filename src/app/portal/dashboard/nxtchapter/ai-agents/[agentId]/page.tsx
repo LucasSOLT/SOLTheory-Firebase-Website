@@ -691,6 +691,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatLockRef = useRef(false);
 
+  // Live-ticking clock for PACT auto-delete countdowns (updates every 60s)
+  const [pactTickNow, setPactTickNow] = useState(Date.now());
+
   const fetchRAGDocs = async () => {
     if (!user?.uid || !firestore) return;
     try {
@@ -916,6 +919,26 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [heartbeatInterval, runHeartbeatCleanup]);
+
+  // Tick the PACT timer every 60s so countdowns update live + auto-purge expired entries
+  useEffect(() => {
+    const tickInterval = setInterval(() => {
+      const now = Date.now();
+      setPactTickNow(now);
+
+      // Auto-purge entries that have expired (markedForDeletion > 24h ago)
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+      const hasExpired = pactEntries.some(e => e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS);
+      if (hasExpired && firestore && user?.uid) {
+        const remaining = pactEntries.filter(e => !(e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS));
+        setPactEntries(remaining);
+        import("firebase/firestore").then(({ doc, updateDoc }) => {
+          updateDoc(doc(firestore, "users", user.uid), { pact_entries_soltheory: remaining }).catch(console.error);
+        });
+      }
+    }, 60000);
+    return () => clearInterval(tickInterval);
+  }, [pactEntries, firestore, user?.uid]);
 
 
   // Org Brain â€” editable organizational knowledge base stored in Firestore
@@ -2590,7 +2613,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             return 0;
                           }).map((entry, idx) => {
                             const isMarked = !!entry.markedForDeletion;
-                            const hoursLeft = isMarked ? Math.max(0, Math.ceil((24 * 60 * 60 * 1000 - (Date.now() - entry.markedForDeletion!)) / (60 * 60 * 1000))) : 0;
+                            const msLeft = isMarked ? Math.max(0, 24 * 60 * 60 * 1000 - (pactTickNow - entry.markedForDeletion!)) : 0;
+                            const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
 
                             return (
                             <div key={entry.id} className={`border rounded-xl px-5 py-4 transition-all group ${

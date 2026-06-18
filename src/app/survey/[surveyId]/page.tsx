@@ -74,7 +74,7 @@ export default function PublicSurveyPage() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>;
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4"><div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" /></div>;
   }
 
   if (error || !survey) {
@@ -95,7 +95,7 @@ export default function PublicSurveyPage() {
         {!isIntro && !isDone && (
           <div className="w-full h-1.5 bg-slate-100">
             <div
-              className="h-full bg-indigo-500 transition-all duration-300"
+              className="h-full bg-slate-900 transition-all duration-300"
               style={{ width: `${(currentStep / survey.questions.length) * 100}%` }}
             />
           </div>
@@ -125,7 +125,7 @@ export default function PublicSurveyPage() {
                     value={participantName}
                     onChange={(e) => setParticipantName(e.target.value)}
                     placeholder="Jane Doe"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium text-slate-800"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-200 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 transition-all font-medium text-slate-800"
                   />
                 </div>
                 <div>
@@ -135,13 +135,13 @@ export default function PublicSurveyPage() {
                     value={participantOrg}
                     onChange={(e) => setParticipantOrg(e.target.value)}
                     placeholder="Acme Corp"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium text-slate-800"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-200 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 transition-all font-medium text-slate-800"
                   />
                 </div>
               </div>
 
               <div className="pt-8">
-                <Button onClick={handleNext} className="w-full sm:w-auto h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg gap-2 shadow-lg shadow-indigo-600/20">
+                <Button onClick={handleNext} className="w-full sm:w-auto h-12 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg gap-2 shadow-lg shadow-slate-900/10">
                   Start Survey <ArrowRight className="w-5 h-5" />
                 </Button>
               </div>
@@ -151,7 +151,7 @@ export default function PublicSurveyPage() {
           {/* QUESTIONS */}
           {!isIntro && !isDone && currentQuestion && (
             <div key={currentQuestion.id} className="space-y-8 animate-in slide-in-from-right-4 fade-in duration-300 flex-1 flex flex-col justify-center">
-              <span className="text-sm font-black text-indigo-500 tracking-widest uppercase">Question {currentStep} of {survey.questions.length}</span>
+              <span className="text-sm font-black text-slate-500 tracking-widest uppercase">Question {currentStep} of {survey.questions.length}</span>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900">{currentQuestion.prompt}</h2>
 
               <div className="pt-4">
@@ -160,7 +160,7 @@ export default function PublicSurveyPage() {
                     value={answers[currentQuestion.id] || ""}
                     onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})}
                     placeholder="Type your answer here..."
-                    className="w-full h-32 p-4 rounded-2xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium text-slate-800 resize-none"
+                    className="w-full h-32 p-4 rounded-2xl border border-slate-200 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 transition-all font-medium text-slate-800 resize-none"
                   />
                 )}
 
@@ -170,7 +170,7 @@ export default function PublicSurveyPage() {
                       <button
                         key={opt}
                         onClick={() => setAnswers({...answers, [currentQuestion.id]: opt})}
-                        className={`w-full text-left p-4 rounded-2xl border-2 transition-all font-bold cursor-pointer ${answers[currentQuestion.id] === opt ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-100 bg-slate-50 text-slate-600 hover:border-indigo-200 hover:bg-white"}`}
+                        className={`w-full text-left p-4 rounded-2xl border-2 transition-all font-bold cursor-pointer ${answers[currentQuestion.id] === opt ? "border-slate-900 bg-slate-50 text-slate-900" : "border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"}`}
                       >
                         {opt}
                       </button>
@@ -184,7 +184,7 @@ export default function PublicSurveyPage() {
                       <button
                         key={n}
                         onClick={() => setAnswers({...answers, [currentQuestion.id]: n})}
-                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border-2 transition-all font-black text-xl flex items-center justify-center cursor-pointer ${answers[currentQuestion.id] === n ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30" : "border-slate-100 bg-slate-50 text-slate-400 hover:border-indigo-200 hover:text-indigo-600 hover:bg-white"}`}
+                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border-2 transition-all font-black text-xl flex items-center justify-center cursor-pointer ${answers[currentQuestion.id] === n ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/20" : "border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-300 hover:text-slate-700 hover:bg-white"}`}
                       >
                         {n}
                       </button>
@@ -202,7 +202,7 @@ export default function PublicSurveyPage() {
                   <Button
                     onClick={handleSubmit}
                     disabled={isSubmitting || answers[currentQuestion.id] === undefined || answers[currentQuestion.id] === ""}
-                    className="h-12 px-8 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-2 shadow-lg shadow-emerald-500/20"
+                    className="h-12 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold gap-2 shadow-lg shadow-slate-900/10"
                   >
                     {isSubmitting ? "Submitting..." : "Submit Survey"} <CheckCircle2 className="w-5 h-5" />
                   </Button>
@@ -210,7 +210,7 @@ export default function PublicSurveyPage() {
                   <Button
                     onClick={handleNext}
                     disabled={answers[currentQuestion.id] === undefined || answers[currentQuestion.id] === ""}
-                    className="h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-2 shadow-lg shadow-indigo-600/20"
+                    className="h-12 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold gap-2 shadow-lg shadow-slate-900/10"
                   >
                     Next <ArrowRight className="w-5 h-5" />
                   </Button>
@@ -222,8 +222,8 @@ export default function PublicSurveyPage() {
           {/* DONE */}
           {isDone && (
             <div className="flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 fade-in duration-500">
-              <div className="w-24 h-24 bg-emerald-100 rounded-[2rem] rotate-12 flex items-center justify-center mb-4">
-                <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+              <div className="w-24 h-24 bg-slate-100 rounded-[2rem] rotate-12 flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-12 h-12 text-slate-700" />
               </div>
               <h1 className="text-4xl font-black text-slate-900">Thank You!</h1>
               <p className="text-slate-500 font-medium text-lg max-w-md">Your responses have been successfully recorded.</p>
