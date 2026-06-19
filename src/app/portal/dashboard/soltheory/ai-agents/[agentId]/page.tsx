@@ -1027,7 +1027,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const isEmailAgent = params.agentId === "jarvis";
 
   // Initialize – Load sessions from Firestore (with localStorage fallback migration)
+  const sessionsLoadedRef = useRef(false);
   useEffect(() => {
+    // Guard: don't wipe an active conversation if sessions were already loaded
+    if (sessionsLoadedRef.current) return;
+
     if (!firestore || !user?.uid) {
       // Fallback for unauthenticated: use localStorage
       const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
@@ -1113,6 +1117,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         setMessages([]);
       }
       setSessionsLoaded(true);
+      sessionsLoadedRef.current = true;
     };
 
     loadSessions();
