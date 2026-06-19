@@ -713,6 +713,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
         }}
         panelWidth={aiPanelWidth}
         onWidthChange={setAiPanelWidth}
+        dashboardId="nxtchapter"
       />
     </div>
   );

@@ -106,6 +106,7 @@ interface GmailAIPanelProps {
   onCleanupHighlight?: (ids: string[]) => void;
   panelWidth: number;
   onWidthChange: (width: number) => void;
+  dashboardId?: string;
 }
 
 /* ─── Helpers ─── */
@@ -188,6 +189,7 @@ export function GmailAIPanel({
   onCleanupHighlight,
   panelWidth,
   onWidthChange,
+  dashboardId,
 }: GmailAIPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -287,6 +289,7 @@ export function GmailAIPanel({
             userEmail,
             emailContext,
             contacts,
+            dashboardId,
           }),
         });
 
