@@ -1445,7 +1445,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: apiMessages,
-          agentId: `soltheory_${params.agentId}`,
+          agentId: `nxtchapter_${params.agentId}`,
           soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
@@ -1505,7 +1505,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
               { role: "user", content: `User said: ${inputValue}\nAI replied: ${data.response.substring(0, 200)}` }
             ],
-            agentId: "soltheory_jarvis",
+            agentId: "nxtchapter_jarvis",
             soul: "",
             brain: "",
           }),
@@ -1591,7 +1591,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               messages: retryMessages,
-              agentId: `soltheory_${params.agentId}`,
+              agentId: `nxtchapter_${params.agentId}`,
               soul: agentConfig.soul,
               brain: agentConfig.brain,
               uid: user?.uid,
@@ -1674,7 +1674,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: apiMessages,
-          agentId: `soltheory_${params.agentId}`,
+          agentId: `nxtchapter_${params.agentId}`,
           soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
@@ -1955,7 +1955,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           uid: user.uid,
           refreshToken: rToken,
-          agentId: `soltheory_${params.agentId}`,
+          agentId: `nxtchapter_${params.agentId}`,
           soul: agentConfig.soul,
           brain: agentConfig.brain,
           selectedEmailIds: Array.from(selectedEmails),
@@ -3240,7 +3240,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         onClose={() => setIsVoiceModalOpen(false)}
         agentName={selectedExploreItem ? (exploreItemsMeta[selectedExploreItem]?.name || agent.name) : agent.name}
         agentId={params.agentId as string}
-        orgPrefix="soltheory"
+        orgPrefix="nxtchapter"
         voiceId={selectedExploreItem ? exploreItemsMeta[selectedExploreItem]?.voiceId : undefined}
         systemInstructions={sessionInstructions}
         knowledgeBaseText={orgBrain}
@@ -3272,7 +3272,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
                   { role: "user", content: `User said: ${userText}\nAI replied: ${aiReply.substring(0, 200)}` }
                 ],
-                agentId: "soltheory_jarvis",
+                agentId: "nxtchapter_jarvis",
                 soul: "",
                 brain: "",
               }),
@@ -3386,7 +3386,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               messages: apiMessages,
-              agentId: `soltheory_${params.agentId}`,
+              agentId: `nxtchapter_${params.agentId}`,
               soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email. IMPORTANT: You are in a VOICE CONVERSATION. Keep responses to 1-3 sentences. Be direct. Never use markdown, bullet points, or code blocks.`,
               brain: agentConfig.brain,
               uid: user?.uid,
