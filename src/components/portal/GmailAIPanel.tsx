@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Send,
   GripVertical,
+  RefreshCw,
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -101,6 +102,7 @@ interface GmailAIPanelProps {
   selectedEmailDetails?: { id: string; from: string; subject: string; snippet: string }[];
   onSelectModeToggle?: (on: boolean) => void;
   onMarkLocalAsRead?: (ids: string[]) => void;
+  onCleanupHighlight?: (ids: string[]) => void;
   panelWidth: number;
   onWidthChange: (width: number) => void;
 }
@@ -182,6 +184,7 @@ export function GmailAIPanel({
   selectedEmailDetails = [],
   onSelectModeToggle,
   onMarkLocalAsRead,
+  onCleanupHighlight,
   panelWidth,
   onWidthChange,
 }: GmailAIPanelProps) {
@@ -305,6 +308,10 @@ export function GmailAIPanel({
             payload: actionPayload,
             status: "pending",
           };
+          // Highlight cleanup targets in red
+          if ((actionPayload.type === "delete" || actionPayload.type === "archive") && actionPayload.emailIds?.length > 0) {
+            onCleanupHighlight?.(actionPayload.emailIds);
+          }
         }
 
         if (data.draft) {
@@ -381,6 +388,7 @@ export function GmailAIPanel({
           undoable: msg.actionCard.payload.type !== "delete",
         };
         setActionLog((prev) => [logEntry, ...prev]);
+        onCleanupHighlight?.([]); // Clear red highlights
         onActionExecuted();
       } catch {
         setMessages((prev) =>
@@ -865,7 +873,8 @@ export function GmailAIPanel({
                 <ActionCardView
                   card={msg.actionCard}
                   onConfirm={() => confirmAction(msg.id)}
-                  onCancel={() => cancelAction(msg.id)}
+                  onCancel={() => { cancelAction(msg.id); onCleanupHighlight?.([]); }}
+                  onCleanupMore={() => { onCleanupHighlight?.([]); handleSuggestion("Clean up inbox"); }}
                 />
               )}
 
@@ -1035,19 +1044,22 @@ function ActionCardView({
   card,
   onConfirm,
   onCancel,
+  onCleanupMore,
 }: {
   card: ActionCard;
   onConfirm: () => void;
   onCancel: () => void;
+  onCleanupMore?: () => void;
 }) {
   const Icon = ACTION_ICONS[card.payload.type] || Mail;
   const isPending = card.status === "pending";
+  const isCleanupAction = card.payload.type === "delete" || card.payload.type === "archive";
 
   return (
-    <div className="mt-2 border border-slate-200 rounded-xl bg-white p-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
+    <div className={`mt-2 border rounded-xl bg-white p-3 animate-in fade-in slide-in-from-bottom-1 duration-200 ${isPending && isCleanupAction ? "border-red-200" : "border-slate-200"}`}>
       <div className="flex items-start gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4 text-slate-600" />
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isPending && isCleanupAction ? "bg-red-50" : "bg-slate-100"}`}>
+          <Icon className={`w-4 h-4 ${isPending && isCleanupAction ? "text-red-500" : "text-slate-600"}`} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-slate-700 capitalize">
@@ -1067,7 +1079,9 @@ function ActionCardView({
         <div className="flex items-center gap-2 mt-3">
           <button
             onClick={onConfirm}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-lg transition-colors ${
+              isCleanupAction ? "bg-red-600 hover:bg-red-700" : "bg-slate-900 hover:bg-slate-800"
+            }`}
           >
             <Check className="w-3 h-3" />
             Confirm
@@ -1082,9 +1096,20 @@ function ActionCardView({
       )}
 
       {card.status === "confirmed" && (
-        <div className="flex items-center gap-1.5 mt-3 text-emerald-600">
-          <Check className="w-3 h-3" />
-          <span className="text-[11px] font-medium">Action completed</span>
+        <div className="mt-3">
+          <div className="flex items-center gap-1.5 text-emerald-600">
+            <Check className="w-3 h-3" />
+            <span className="text-[11px] font-medium">Action completed</span>
+          </div>
+          {isCleanupAction && onCleanupMore && (
+            <button
+              onClick={onCleanupMore}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-200 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Clean up more
+            </button>
+          )}
         </div>
       )}
 

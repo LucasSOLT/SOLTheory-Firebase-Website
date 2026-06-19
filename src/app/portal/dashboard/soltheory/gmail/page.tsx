@@ -81,6 +81,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
   const [contacts, setContacts] = useState<{ name: string; email: string; aliases?: string }[]>([]);
   const [emailSelectMode, setEmailSelectMode] = useState(false);
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
+  const [cleanupEmailIds, setCleanupEmailIds] = useState<string[]>([]);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const isConnected = !!(uid && refreshToken);
@@ -537,6 +538,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
                 filteredEmails.map((email) => {
                   const isHighlighted = highlightedEmailIds.includes(email.id);
                   const isSelected = emailSelectMode && selectedEmailIds.has(email.id);
+                  const isCleanupTarget = cleanupEmailIds.includes(email.id);
                   return (
                   <div key={email.id} onClick={() => {
                     if (emailSelectMode) {
@@ -550,7 +552,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
                       openEmail(email);
                     }
                   }}
-                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : "opacity-50"} hover:bg-slate-50 ${isHighlighted ? "ring-2 ring-blue-400/60 bg-blue-50/40 shadow-sm" : ""} ${isSelected ? "!opacity-100 ring-2 ring-purple-400/60 bg-purple-50/40 shadow-sm" : ""}`}>
+                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : "opacity-50"} hover:bg-slate-50 ${isCleanupTarget ? "!opacity-100 ring-2 ring-red-400/70 bg-red-50/50 shadow-sm" : isHighlighted ? "ring-2 ring-blue-400/60 bg-blue-50/40 shadow-sm" : ""} ${isSelected ? "!opacity-100 ring-2 ring-purple-400/60 bg-purple-50/40 shadow-sm" : ""}`}>
                     {emailSelectMode && (
                       <div className={`w-4 h-4 rounded-[5px] border-2 shrink-0 flex items-center justify-center transition-colors ${
                         isSelected ? "bg-purple-500 border-purple-500" : "border-slate-300"
@@ -689,6 +691,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
             setEmails(mapped);
             setLoadingEmails(false);
             setHighlightedEmailIds([]);
+            setCleanupEmailIds([]);
           });
         }}
         onOpenCompose={(to, subject, body) => {
@@ -696,6 +699,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
           setComposeOpen(true);
         }}
         onSwitchFolder={(folder) => setActiveFolder(folder)}
+        onCleanupHighlight={setCleanupEmailIds}
         emailSelectMode={emailSelectMode}
         selectedEmailCount={selectedEmailIds.size}
         selectedEmailDetails={Array.from(selectedEmailIds).map((id) => {
