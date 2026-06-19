@@ -3338,6 +3338,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               }
             }).catch(console.error);
           }
+
+          // ── Voice-triggered Jarvis View animation ──
+          const voiceLower = userText.toLowerCase().trim();
+          const VOICE_SKIP = [/^(?:hi|hello|hey|yo|sup)/, /^(?:thanks|thank you)/, /^(?:ok|okay|sure|yes|no)/, /^(?:goodbye|bye)/];
+          const shouldSkipVoiceAnim = VOICE_SKIP.some(p => p.test(voiceLower)) || voiceLower.length < 4;
+          if (!shouldSkipVoiceAnim && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
+            const navCount = jarvisNavCountRef.current % 2 === 0 ? 2 : 1;
+            jarvisNavCountRef.current++;
+            const topicUrls = getTopicUrls(userText);
+            const mockNavs = topicUrls.slice(0, navCount);
+            setJarvisNavQueue(prev => [...prev, mockNavs[0]]);
+            if (navCount > 1 && mockNavs[1]) {
+              setTimeout(() => {
+                setJarvisNavQueue(prev => [...prev, mockNavs[1]]);
+              }, 4500);
+            }
+          }
         }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
@@ -3381,6 +3398,37 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
+
+          // ── Capture email drafts from voice commands ──
+          if (data.executedTools && Array.isArray(data.executedTools)) {
+            const emailTool = data.executedTools.find((t: any) => t.name === 'draft_outbound_email');
+            if (emailTool?.args) {
+              setLastDraftedEmail({
+                to: emailTool.args.to || '',
+                subject: emailTool.args.subject || '',
+                body: (emailTool.args.body || '').replace(/\\n/g, '\n'),
+                timestamp: Date.now(),
+              });
+              if (isAgentEyeOpen || isAgentEyeMinimized) {
+                setAgentEyeTab('gmail');
+                if (isAgentEyeMinimized) setIsAgentEyeMinimized(false);
+              } else {
+                setIsAgentEyeOpen(true);
+                setAgentEyeTab('gmail');
+              }
+            }
+          }
+
+          // If the server returned enrichment URLs, push them to Jarvis View
+          if (data.enrichmentUrls && Array.isArray(data.enrichmentUrls) && data.enrichmentUrls.length > 0
+              && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
+            data.enrichmentUrls.slice(0, 2).forEach((eu: { url: string; title: string }, idx: number) => {
+              setTimeout(() => {
+                setJarvisNavQueue(prev => [...prev, { url: eu.url, title: eu.title }]);
+              }, idx * 3500);
+            });
+          }
+
           return data;
         }}
       />
