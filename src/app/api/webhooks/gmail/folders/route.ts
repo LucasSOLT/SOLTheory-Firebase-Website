@@ -32,6 +32,63 @@ function getAttachments(payload: any): { filename: string; mimeType: string; siz
   return attachments;
 }
 
+/**
+ * Decode RFC 2047 encoded words and HTML entities in email text.
+ * Fixes corrupted characters like "ÃâÃâ¢" and HTML entities like "&#39;"
+ */
+function decodeText(text: string): string {
+  if (!text) return text;
+  let decoded = text;
+
+  // Decode RFC 2047 encoded words (=?charset?encoding?text?=)
+  decoded = decoded.replace(
+    /=\?([^?]+)\?(B|Q)\?([^?]*)\?=/gi,
+    (_match, _charset, encoding, encoded) => {
+      try {
+        if (encoding.toUpperCase() === "B") {
+          return Buffer.from(encoded, "base64").toString("utf-8");
+        } else if (encoding.toUpperCase() === "Q") {
+          // Quoted-printable: underscores = spaces, =XX = hex bytes
+          const qp = encoded
+            .replace(/_/g, " ")
+            .replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) =>
+              String.fromCharCode(parseInt(hex, 16))
+            );
+          return Buffer.from(qp, "binary").toString("utf-8");
+        }
+      } catch { /* fallback to original */ }
+      return encoded;
+    }
+  );
+
+  // Decode common HTML entities
+  decoded = decoded
+    .replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9A-Fa-f]+);/g, (_m, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+
+  // Clean up mojibake patterns (UTF-8 bytes misinterpreted as Latin-1)
+  try {
+    // If string contains typical mojibake patterns, try to re-encode
+    if (/[\xC2-\xDF][\x80-\xBF]|[\xE0-\xEF][\x80-\xBF]{2}/.test(decoded)) {
+      const buf = Buffer.from(decoded, "latin1");
+      const reDec = buf.toString("utf-8");
+      // Only use re-decoded if it looks cleaner (fewer replacement chars)
+      if (!reDec.includes("\uFFFD") && reDec.length <= decoded.length) {
+        decoded = reDec;
+      }
+    }
+  } catch { /* keep original */ }
+
+  return decoded;
+}
+
 // Map folder names to Gmail search queries
 const FOLDER_QUERIES: Record<string, string> = {
   INBOX: "in:inbox",
@@ -86,7 +143,7 @@ export async function POST(req: Request) {
           });
 
           const headers = detail.data.payload?.headers || [];
-          const subject = headers.find((h) => h.name === "Subject")?.value || "No Subject";
+          const subject = decodeText(headers.find((h) => h.name === "Subject")?.value || "No Subject");
           const from = headers.find((h) => h.name === "From")?.value || "Unknown Sender";
           const to = headers.find((h) => h.name === "To")?.value || "";
           const cc = headers.find((h) => h.name === "Cc")?.value || "";
@@ -118,7 +175,7 @@ export async function POST(req: Request) {
           return {
             id: detail.data.id,
             threadId: detail.data.threadId,
-            snippet: detail.data.snippet,
+            snippet: decodeText(detail.data.snippet || ""),
             subject,
             from,
             to,

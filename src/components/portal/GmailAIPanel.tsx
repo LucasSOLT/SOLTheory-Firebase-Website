@@ -299,9 +299,10 @@ export function GmailAIPanel({
           timestamp: new Date(),
         };
 
-        if (data.actionCard) {
+        const actionPayload = data.actionCard || data.pendingAction;
+        if (actionPayload) {
           assistantMessage.actionCard = {
-            payload: data.actionCard,
+            payload: actionPayload,
             status: "pending",
           };
         }
@@ -365,7 +366,7 @@ export function GmailAIPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "confirm_action",
-            payload: msg.actionCard.payload,
+            actionPayload: msg.actionCard.payload,
             uid,
             refreshToken,
           }),

@@ -183,6 +183,23 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
     setEmails((prev) => prev.map((em) => (em.id === id ? { ...em, starred: !em.starred } : em)));
   }, []);
 
+  const markAsRead = useCallback((id: string, ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    setEmails((prev) => prev.map((em) => (em.id === id ? { ...em, read: true } : em)));
+    if (uid && refreshToken) {
+      fetch("/api/gmail-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm_action",
+          actionPayload: { type: "mark_read", emailIds: [id] },
+          uid,
+          refreshToken,
+        }),
+      }).catch(() => { /* non-blocking */ });
+    }
+  }, [uid, refreshToken]);
+
   const openEmail = useCallback((email: EmailMessage) => {
     setEmails((prev) => prev.map((em) => (em.id === email.id ? { ...em, read: true } : em)));
     setSelectedEmail({ ...email, read: true });
@@ -556,6 +573,15 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {!email.read && (
+                        <button
+                          onClick={(ev) => markAsRead(email.id, ev)}
+                          className="w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-blue-50 text-slate-400 hover:text-blue-500 transition-all cursor-pointer"
+                          title="Mark as read"
+                        >
+                          <MailOpen className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       {email.hasAttachment && <Paperclip className="w-3 h-3 text-slate-300" />}
                       <span className={`text-[10px] whitespace-nowrap ${!email.read ? "font-semibold text-slate-600" : "text-slate-400"}`}>{email.date}</span>
                     </div>
