@@ -2,6 +2,8 @@ import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
+import { initAdmin, getFirestore } from "@/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -41,7 +43,22 @@ interface AIResponseShape {
   actionType: string | null;
 }
 
-function buildSystemPrompt(emailContext?: EmailContext[], contacts?: { name: string; email: string; aliases?: string }[]): string {
+interface EmailMemoryEntry {
+  sender: string;
+  senderName: string;
+  subjectPattern: string;
+  category: string;
+  count: number;
+  firstSeen: Date;
+  lastSeen: Date;
+  aiNote: string;
+}
+
+function buildSystemPrompt(
+  emailContext?: EmailContext[],
+  contacts?: { name: string; email: string; aliases?: string }[],
+  emailMemory?: EmailMemoryEntry[]
+): string {
   let prompt = `You are a professional Gmail assistant AI. Your job is to help the user manage their email efficiently.
 
 RULES:
@@ -59,14 +76,16 @@ RULES:
   - Use **bold** (double asterisks) for: list numbers (e.g. **1.**), sender names, and email subject lines.
   - Any text that directly addresses the user (questions, follow-up prompts, calls to action) should be **bold**.
   - Descriptions of email content should NOT be bold — keep them in regular text.
-  - Use blank lines (\n\n) between each numbered email summary for readability.
+  - Use blank lines (\\n\\n) between each numbered email summary for readability.
   - Keep the formatting clean and scannable.
+  - NEVER include raw email IDs (like "19ed88fc8ba253e0") in the reply text. IDs go ONLY in the targetEmailIds array.
 - For search queries, construct proper Gmail search syntax (e.g., "from:john@example.com subject:invoice newer_than:7d").
 - For drafts, write professional, well-structured email content.
 - For batch operations, identify which emails from the provided context match the user's request.
 - NEVER execute destructive actions (delete, archive) without asking the user to confirm first.
-- CRITICAL: You must ONLY reference and summarize emails that appear in the [CURRENT EMAIL CONTEXT] section below. NEVER invent, fabricate, or hallucinate emails. If there are no unread emails in the context, say so. If there are fewer than 5 unread emails, summarize only the ones that exist. Every email ID, sender name, and subject you mention MUST come directly from the provided context.
-- SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, find the emails marked "Status: Unread" in the [CURRENT EMAIL CONTEXT] and summarize up to 5 of them. For EACH email, write exactly 3-4 sentences using the REAL sender name, subject, and snippet from the context. Number each email with bold numbers. Bold the sender name and subject. Include the real email IDs in the targetEmailIds array. At the very end of your reply, after a blank line, ALWAYS add this follow-up in bold: "**Would you like me to look into some more unread emails, or would you like to respond to any of these?**"
+- CRITICAL: You must ONLY reference and summarize emails that appear in the [CURRENT EMAIL CONTEXT] section below. NEVER invent, fabricate, or hallucinate emails. If there are no unread emails in the context, say so. If there are fewer than 5 unread emails, summarize only the ones that exist. Every sender name and subject you mention MUST come directly from the provided context.
+- SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, find the emails marked "Status: Unread" in the [CURRENT EMAIL CONTEXT] and summarize up to 5 of them. For EACH email, write exactly 3-4 sentences using the REAL sender name, subject, and snippet from the context. Number each email with bold numbers. Bold the sender name and subject. Include the real email IDs in the targetEmailIds JSON array (but NEVER in the reply text). At the very end of your reply, after a blank line, ALWAYS add this follow-up in bold: "**Would you like me to look into some more unread emails, or would you like to respond to any of these?**"
+- EMAIL MEMORY RULE: If the [EMAIL MEMORY] section below contains entries for a sender/topic, use them to add context. For example, if you see an email from Vercel about a deployment failure and the memory shows this sender has sent 5 similar emails before, say something like "Another deployment failure notification from Vercel — you've received several of these before." Be conversational and helpful about recognizing patterns, not robotic. If it's the first time seeing a sender/topic (not in memory), just describe it normally.
 - If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email using ONLY data from the provided context.
 - CONTACT LOOKUP RULE: When the user asks to draft or send an email to someone by name (e.g. "send an email to Dave"), look up the name in the [CONTACT BOOK] section if provided. If an exact match is found, use that email address. If MULTIPLE contacts match, ask which one. If not found, ask for the email address.
 - If you can't determine the intent, set intent to "general" and answer helpfully.
@@ -85,6 +104,14 @@ RULES:
     for (const c of contacts) {
       const aliasStr = c.aliases ? ` (also known as: ${c.aliases})` : "";
       prompt += `- ${c.name}${aliasStr} => ${c.email}\n`;
+    }
+  }
+
+  if (emailMemory && emailMemory.length > 0) {
+    prompt += "\n\n[EMAIL MEMORY]\nHere are recurring email patterns the user has received before. Use these to provide contextual, conversational summaries:\n";
+    for (const mem of emailMemory) {
+      const daysSinceFirst = Math.round((Date.now() - mem.firstSeen.getTime()) / (1000 * 60 * 60 * 24));
+      prompt += `- From: ${mem.senderName} (${mem.sender}) | Topic: "${mem.subjectPattern}" | Seen ${mem.count} time(s) over ${daysSinceFirst} days | Category: ${mem.category}${mem.aiNote ? " | Note: " + mem.aiNote : ""}\n`;
     }
   }
 
@@ -223,6 +250,127 @@ async function executeConfirmedAction(
   } catch (err: any) {
     console.error("[Gmail AI] Action execution error:", err?.message);
     return { success: false, error: err?.message || "Failed to execute action" };
+  }
+}
+
+/* ─── Email Memory: Learn sender + subject patterns over time ─── */
+
+async function getEmailMemory(uid: string): Promise<EmailMemoryEntry[]> {
+  try {
+    initAdmin();
+    const db = getFirestore();
+    const snap = await db.collection(`users/${uid}/email_memory`)
+      .orderBy("count", "desc")
+      .limit(30)
+      .get();
+
+    return snap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        sender: d.sender || "",
+        senderName: d.senderName || "",
+        subjectPattern: d.subjectPattern || "",
+        category: d.category || "unknown",
+        count: d.count || 1,
+        firstSeen: d.firstSeen?.toDate?.() || new Date(),
+        lastSeen: d.lastSeen?.toDate?.() || new Date(),
+        aiNote: d.aiNote || "",
+      };
+    });
+  } catch (err: any) {
+    console.error("[Gmail AI] Failed to fetch email memory:", err?.message);
+    return [];
+  }
+}
+
+function normalizeSubject(subject: string): string {
+  return subject
+    .replace(/^(re|fwd|fw):\s*/gi, "")
+    .replace(/\[.*?\]/g, "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 80);
+}
+
+function extractSenderEmail(from: string): string {
+  const match = from.match(/<(.+?)>/);
+  return (match ? match[1] : from).toLowerCase().trim();
+}
+
+function extractSenderName(from: string): string {
+  const match = from.match(/^(.*?)\s*<.*?>$/);
+  return match ? match[1].replace(/"/g, "").trim() : from.split("@")[0];
+}
+
+function categorizeEmail(from: string, subject: string): string {
+  const lowerFrom = from.toLowerCase();
+  const lowerSubject = subject.toLowerCase();
+
+  if (/noreply|no-reply|notifications?@|notify@|alert@/.test(lowerFrom)) {
+    if (/deploy|build|ci|pipeline|test|fail|error/.test(lowerSubject)) return "ci-cd";
+    if (/security|password|login|2fa|verification/.test(lowerSubject)) return "security";
+    if (/invoice|payment|receipt|billing|charge/.test(lowerSubject)) return "billing";
+    return "notification";
+  }
+  if (/newsletter|digest|weekly|daily|update/.test(lowerSubject)) return "newsletter";
+  if (/linkedin|facebook|twitter|instagram|social/.test(lowerFrom)) return "social";
+  if (/promo|sale|discount|offer|deal|unsubscribe/.test(lowerSubject)) return "promotional";
+  return "personal";
+}
+
+async function upsertEmailMemory(uid: string, emails: EmailContext[]): Promise<void> {
+  try {
+    initAdmin();
+    const db = getFirestore();
+    const memCollection = db.collection(`users/${uid}/email_memory`);
+
+    for (const email of emails) {
+      const senderEmail = extractSenderEmail(email.from);
+      const senderName = extractSenderName(email.from);
+      const subjectNorm = normalizeSubject(email.subject);
+      const category = categorizeEmail(email.from, email.subject);
+
+      // Check for existing pattern from same sender
+      const existing = await memCollection
+        .where("sender", "==", senderEmail)
+        .limit(10)
+        .get();
+
+      let matched = false;
+      for (const doc of existing.docs) {
+        const data = doc.data();
+        const existingPattern = data.subjectPattern || "";
+        // Match if subjects share significant overlap
+        if (
+          existingPattern === subjectNorm ||
+          (subjectNorm.length > 5 && existingPattern.includes(subjectNorm.slice(0, 20))) ||
+          (existingPattern.length > 5 && subjectNorm.includes(existingPattern.slice(0, 20)))
+        ) {
+          await doc.ref.update({
+            count: FieldValue.increment(1),
+            lastSeen: FieldValue.serverTimestamp(),
+            senderName: senderName,
+          });
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        await memCollection.add({
+          sender: senderEmail,
+          senderName: senderName,
+          subjectPattern: subjectNorm,
+          category: category,
+          count: 1,
+          firstSeen: FieldValue.serverTimestamp(),
+          lastSeen: FieldValue.serverTimestamp(),
+          aiNote: "",
+        });
+      }
+    }
+  } catch (err: any) {
+    console.error("[Gmail AI] Email memory upsert error:", err?.message);
   }
 }
 
@@ -397,7 +545,10 @@ ${emailList}`;
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const model = "llama-3.3-70b-versatile";
-    const systemPrompt = buildSystemPrompt(emailContext, body.contacts);
+
+    // Fetch email memory for contextual summaries
+    const emailMemory = uid ? await getEmailMemory(uid) : [];
+    const systemPrompt = buildSystemPrompt(emailContext, body.contacts, emailMemory);
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -495,7 +646,7 @@ ${emailList}`;
     }
 
     // If the intent is summarize, put the reply into the summary field as well
-    // and auto-mark the summarized emails as read
+    // and auto-mark the summarized emails as read + learn email patterns
     if (aiResponse.intent === "summarize") {
       responsePayload.summary = aiResponse.reply;
       // Auto mark-as-read for summarized emails (non-blocking)
@@ -504,6 +655,15 @@ ${emailList}`;
           type: "mark_read",
           emailIds: aiResponse.targetEmailIds,
         }).catch(() => { /* non-blocking */ });
+      }
+      // Learn email patterns from summarized emails (non-blocking)
+      if (emailContext && emailContext.length > 0 && uid) {
+        const summarizedEmails = aiResponse.targetEmailIds.length > 0
+          ? emailContext.filter((e) => aiResponse.targetEmailIds.includes(e.id))
+          : emailContext.filter((e) => !e.read).slice(0, 5);
+        upsertEmailMemory(uid, summarizedEmails).catch((err) => {
+          console.error("[Gmail AI] Email memory upsert error:", err?.message);
+        });
       }
     }
 
