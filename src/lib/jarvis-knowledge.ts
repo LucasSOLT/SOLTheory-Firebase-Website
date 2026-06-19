@@ -1,4 +1,19 @@
-export const nxtChapterKnowledge = `NXT Chapter Brain 
+export const nxtChapterKnowledge = `NXT Chapter Brain
+
+CRITICAL PHONETIC AND TEXT MAPPING (HIGHEST PRIORITY):
+- "next chapter", "the next chapter", "next-chapter", "nxt chapter", "NextChapter", or ANY phonetic equivalent ALWAYS refers to NXT Chapter (Next Chapter Foundation Inc.), the 501(c)(3) nonprofit in Denver, CO.
+- NEVER interpret "next chapter" as a book chapter, life phase, metaphor, or anything else. It ALWAYS means the organization.
+- Do NOT ask for clarification. Respond immediately with NXT Chapter knowledge.
+- Legal Name: Next Chapter Foundation Inc. (branded as NXT Chapter / NxtChapter)
+- Founded: 2020, Denver, CO
+- Mission: Reducing recidivism and helping formerly incarcerated individuals reintegrate into society.
+- Key Leader: Josephine Burton, President & Executive Director, developer of the S.E.E.D.™ curriculum.
+- Co-Founder: Marquell Burton, Treasurer & CFO.
+- Website: https://www.nxtchapter.org
+- Phone: (720) 301-5458 or (720) 397-7236
+- Email: nxtchapterorg@gmail.com
+- Aid Center: 1370 Elati St, Denver, CO 80204 (Mon, Wed, Fri | 10am-2pm MDT)
+
 A. Organizational Foundation and Strategic Vision 
 1. Organizational history, founding, and the lived-experience model. 
 2. Mission, vision, core values, and the "Denver Model". 
