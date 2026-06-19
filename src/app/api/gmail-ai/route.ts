@@ -25,13 +25,15 @@ interface RequestBody {
   userEmail: string;
   emailContext?: EmailContext[];
   contacts?: { name: string; email: string; aliases?: string }[];
-  action?: "confirm_action" | "batch_reply" | "mark_read";
+  action?: "confirm_action" | "batch_reply" | "mark_read" | "create_labels" | "apply_labels";
   actionPayload?: {
-    type: "archive" | "delete" | "star" | "mark_read" | "move";
+    type: "archive" | "delete" | "star" | "mark_read" | "move" | "apply_label";
     emailIds: string[];
     label?: string;
   };
   selectedEmails?: { id: string; from: string; subject: string; snippet: string }[];
+  tagSetup?: { name: string; color: string; description: string; rules: string }[];
+  labelAssignments?: { emailId: string; labelName: string }[];
 }
 
 interface AIResponseShape {
@@ -41,6 +43,8 @@ interface AIResponseShape {
   draft: { to: string; cc?: string; subject: string; body: string } | null;
   targetEmailIds: string[];
   actionType: string | null;
+  tagSetup?: { name: string; color: string; description: string; rules: string }[];
+  labelAssignments?: { emailId: string; labelName: string }[];
 }
 
 interface EmailMemoryEntry {
@@ -57,7 +61,8 @@ interface EmailMemoryEntry {
 function buildSystemPrompt(
   emailContext?: EmailContext[],
   contacts?: { name: string; email: string; aliases?: string }[],
-  emailMemory?: EmailMemoryEntry[]
+  emailMemory?: EmailMemoryEntry[],
+  existingTags?: { name: string; color: string; description: string; rules: string; gmailLabelId: string }[]
 ): string {
   let prompt = `You are a professional Gmail assistant AI. Your job is to help the user manage their email efficiently.
 
@@ -66,11 +71,13 @@ RULES:
 - Always return your response as a valid JSON object with the following fields:
   {
     "reply": "string — your text response to the user",
-    "intent": "string — what the user wants: search, draft, delete, archive, summarize, organize, star, mark_read, move, general",
-    "searchQuery": "string | null — a Gmail search query if the user wants to search (use proper Gmail search syntax like from:, subject:, has:attachment, newer_than:, older_than:, is:unread, etc.)",
+    "intent": "string — what the user wants: search, draft, delete, archive, summarize, organize, organize_tags, star, mark_read, move, general",
+    "searchQuery": "string | null — a Gmail search query if the user wants to search",
     "draft": "{ to, cc, subject, body } | null — if the user wants to draft an email",
     "targetEmailIds": "string[] — IDs of emails to act on from the provided email context",
-    "actionType": "string | null — one of: archive, delete, star, mark_read, move — only if the user wants a bulk action"
+    "actionType": "string | null — one of: archive, delete, star, mark_read, move, apply_label — only if the user wants a bulk action",
+    "tagSetup": "array | null — when setting up tags, return [{ name: string, color: string (hex like #4285f4), description: string, rules: string }]",
+    "labelAssignments": "array | null — when auto-tagging, return [{ emailId: string, labelName: string }] to assign labels to emails"
   }
 - FORMATTING RULES for the "reply" field:
   - Use **bold** (double asterisks) for: list numbers (e.g. **1.**), sender names, and email subject lines.
@@ -88,7 +95,13 @@ RULES:
 - EMAIL MEMORY RULE: If the [EMAIL MEMORY] section below contains entries for a sender/topic, use them to add context. For example, if you see an email from Vercel about a deployment failure and the memory shows this sender has sent 5 similar emails before, say something like "Another deployment failure notification from Vercel — you've received several of these before." Be conversational and helpful about recognizing patterns, not robotic. If it's the first time seeing a sender/topic (not in memory), just describe it normally.
 - If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email using ONLY data from the provided context.
 - CONTACT LOOKUP RULE: When the user asks to draft or send an email to someone by name (e.g. "send an email to Dave"), look up the name in the [CONTACT BOOK] section if provided. If an exact match is found, use that email address. If MULTIPLE contacts match, ask which one. If not found, ask for the email address.
-- CLEAN UP INBOX RULE: When the user asks to "clean up inbox", "organize inbox", "clean up more", or similar, analyze the [CURRENT EMAIL CONTEXT] and identify up to 10 emails that should be cleaned up. Look for: (1) Duplicate or near-duplicate emails (same sender + very similar subject), (2) Promotional/marketing emails (from noreply addresses, containing "unsubscribe", "sale", "promo", "offer"), (3) Old automated notifications (deployment alerts, CI/CD, social media notifications, newsletters), (4) Read emails older than a few days that appear to be low-priority. In your reply, list the emails you recommend cleaning up in a numbered list with sender and subject bolded. Group them by reason (duplicates, promotional, notifications). Set the intent to "organize", set actionType to "delete" (moves to trash), and include all their IDs in targetEmailIds. End with: "**Press 'Confirm' to move these emails to trash, or let me know if you'd like to keep any of them.**\\n\\n**Would you like to continue cleaning up your inbox?**" NEVER auto-delete without asking first.
+- ORGANIZE INBOX / TAG SETUP RULE: When the user clicks "Organize Inbox" or asks to organize/tag their inbox:
+  A) If the [EXISTING TAGS] section below is EMPTY or does not exist, this is the first time. Suggest a tag system for the user. Propose 5-7 useful tag categories based on the emails you can see in their inbox (e.g., "Work", "Newsletters", "Receipts", "Social", "Notifications", "Personal", "Finance"). For each tag, suggest a color (hex code) and a brief description of what emails belong in it. Present them in a friendly numbered list. End with: "**Would you like me to create these tags, or would you like to customize them? You can add, remove, or rename any of these.**" Set intent to "organize_tags", set tagSetup to the array of proposed tags (each with name, color, description, and rules like "from:noreply@github.com" or "subject contains: invoice"), and set actionType to null.
+  B) If the [EXISTING TAGS] section shows existing tags AND the user is asking to organize/tag (not just clean up), respond with TWO options: "**1.** Add more tags to your system" or "**2.** Start organizing — I'll sweep your inbox and tag emails using your current tags." Set intent to "organize_tags" and leave tagSetup and labelAssignments as null until the user chooses.
+  C) If the user chose to add more tags, suggest additional ones following step A format.
+  D) If the user chose to sweep/organize OR says "yes" to organizing, analyze every email in [CURRENT EMAIL CONTEXT] and match them to the existing tags using the tag rules. Return labelAssignments array with { emailId, labelName } for each match. In your reply, list how many emails were tagged per category. Set intent to "organize_tags" and actionType to "apply_label".
+  E) If the user confirms the suggested tag setup from step A (says "yes", "create them", "looks good", etc.), return the SAME tagSetup array you proposed. Set intent to "organize_tags".
+- CLEAN UP INBOX RULE: When the user asks to "clean up inbox", "clean up more", "delete junk", or similar cleanup requests (NOT "organize inbox" which is handled by the ORGANIZE INBOX rule above), analyze the [CURRENT EMAIL CONTEXT] and identify up to 10 emails that should be cleaned up. Look for: (1) Duplicate or near-duplicate emails (same sender + very similar subject), (2) Promotional/marketing emails (from noreply addresses, containing "unsubscribe", "sale", "promo", "offer"), (3) Old automated notifications (deployment alerts, CI/CD, social media notifications, newsletters), (4) Read emails older than a few days that appear to be low-priority. In your reply, list the emails you recommend cleaning up in a numbered list with sender and subject bolded. Group them by reason (duplicates, promotional, notifications). Set the intent to "organize", set actionType to "delete" (moves to trash), and include all their IDs in targetEmailIds. End with: "**Press 'Confirm' to move these emails to trash, or let me know if you'd like to keep any of them.**\\n\\n**Would you like to continue cleaning up your inbox?**" NEVER auto-delete without asking first.
 - If you can't determine the intent, set intent to "general" and answer helpfully.
 - IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
@@ -113,6 +126,13 @@ RULES:
     for (const mem of emailMemory) {
       const daysSinceFirst = Math.round((Date.now() - mem.firstSeen.getTime()) / (1000 * 60 * 60 * 24));
       prompt += `- From: ${mem.senderName} (${mem.sender}) | Topic: "${mem.subjectPattern}" | Seen ${mem.count} time(s) over ${daysSinceFirst} days | Category: ${mem.category}${mem.aiNote ? " | Note: " + mem.aiNote : ""}\n`;
+    }
+  }
+
+  if (existingTags && existingTags.length > 0) {
+    prompt += "\n\n[EXISTING TAGS]\nThe user has already set up these Gmail tags/labels:\n";
+    for (const tag of existingTags) {
+      prompt += `- Tag: \"${tag.name}\" | Color: ${tag.color} | Description: ${tag.description} | Rules: ${tag.rules} | Gmail Label ID: ${tag.gmailLabelId}\n`;
     }
   }
 
@@ -375,6 +395,170 @@ async function upsertEmailMemory(uid: string, emails: EmailContext[]): Promise<v
   }
 }
 
+/* ─── Gmail Label / Tag Management ─── */
+
+interface TagConfig {
+  name: string;
+  color: string;
+  description: string;
+  rules: string;
+  gmailLabelId: string;
+}
+
+async function getExistingTags(uid: string): Promise<TagConfig[]> {
+  try {
+    initAdmin();
+    const db = getFirestore();
+    const snap = await db.collection(`users/${uid}/gmail_tags`).get();
+    return snap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        name: d.name || "",
+        color: d.color || "#4285f4",
+        description: d.description || "",
+        rules: d.rules || "",
+        gmailLabelId: d.gmailLabelId || "",
+      };
+    });
+  } catch (err: any) {
+    console.error("[Gmail AI] Failed to fetch tags:", err?.message);
+    return [];
+  }
+}
+
+// Gmail label color map — hex to closest Gmail preset
+const GMAIL_LABEL_COLORS: Record<string, { backgroundColor: string; textColor: string }> = {
+  "#4285f4": { backgroundColor: "#4986e7", textColor: "#ffffff" },  // Blue
+  "#ea4335": { backgroundColor: "#cc3a21", textColor: "#ffffff" },  // Red
+  "#34a853": { backgroundColor: "#149e60", textColor: "#ffffff" },  // Green
+  "#fbbc04": { backgroundColor: "#f2c960", textColor: "#000000" },  // Yellow
+  "#ff6d01": { backgroundColor: "#e07798", textColor: "#ffffff" },  // Orange/Pink
+  "#9c27b0": { backgroundColor: "#a479e2", textColor: "#ffffff" },  // Purple
+  "#00bcd4": { backgroundColor: "#2da2bb", textColor: "#ffffff" },  // Teal
+  "#795548": { backgroundColor: "#b99aff", textColor: "#ffffff" },  // Brown→Lavender
+  "#607d8b": { backgroundColor: "#b3efd3", textColor: "#000000" },  // Gray→Mint
+  "#e91e63": { backgroundColor: "#e07798", textColor: "#ffffff" },  // Pink
+};
+
+function getGmailLabelColor(hex: string): { backgroundColor: string; textColor: string } | undefined {
+  const lower = hex.toLowerCase();
+  if (GMAIL_LABEL_COLORS[lower]) return GMAIL_LABEL_COLORS[lower];
+  // Default to a blue if no match
+  return { backgroundColor: "#4986e7", textColor: "#ffffff" };
+}
+
+async function createGmailLabels(
+  refreshToken: string,
+  uid: string,
+  tags: { name: string; color: string; description: string; rules: string }[]
+): Promise<{ success: boolean; labels: TagConfig[]; error?: string }> {
+  try {
+    const oauth2Client = createOAuth2Client(refreshToken);
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+    initAdmin();
+    const db = getFirestore();
+    const created: TagConfig[] = [];
+
+    // Get existing labels to avoid duplicates
+    const existingLabels = await gmail.users.labels.list({ userId: "me" });
+    const existingNames = new Set(
+      (existingLabels.data.labels || []).map((l) => l.name?.toLowerCase())
+    );
+
+    for (const tag of tags) {
+      // Skip if label already exists
+      if (existingNames.has(tag.name.toLowerCase())) {
+        // Find existing label ID
+        const existing = (existingLabels.data.labels || []).find(
+          (l) => l.name?.toLowerCase() === tag.name.toLowerCase()
+        );
+        if (existing?.id) {
+          const tagConfig: TagConfig = {
+            name: tag.name,
+            color: tag.color,
+            description: tag.description,
+            rules: tag.rules,
+            gmailLabelId: existing.id,
+          };
+          await db.collection(`users/${uid}/gmail_tags`).doc(tag.name.toLowerCase().replace(/\s+/g, '_')).set(tagConfig);
+          created.push(tagConfig);
+        }
+        continue;
+      }
+
+      const labelColor = getGmailLabelColor(tag.color);
+      const label = await gmail.users.labels.create({
+        userId: "me",
+        requestBody: {
+          name: tag.name,
+          labelListVisibility: "labelShow",
+          messageListVisibility: "show",
+          color: labelColor,
+        },
+      });
+
+      const tagConfig: TagConfig = {
+        name: tag.name,
+        color: tag.color,
+        description: tag.description,
+        rules: tag.rules,
+        gmailLabelId: label.data.id || "",
+      };
+
+      // Store in Firestore
+      await db.collection(`users/${uid}/gmail_tags`).doc(tag.name.toLowerCase().replace(/\s+/g, '_')).set(tagConfig);
+      created.push(tagConfig);
+    }
+
+    return { success: true, labels: created };
+  } catch (err: any) {
+    console.error("[Gmail AI] Label creation error:", err?.message);
+    return { success: false, labels: [], error: err?.message };
+  }
+}
+
+async function applyLabelsToEmails(
+  refreshToken: string,
+  uid: string,
+  assignments: { emailId: string; labelName: string }[]
+): Promise<{ success: boolean; applied: number; error?: string }> {
+  try {
+    const oauth2Client = createOAuth2Client(refreshToken);
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+    
+    // Get existing tags to resolve label names to Gmail label IDs
+    const tags = await getExistingTags(uid);
+    const tagMap = new Map(tags.map((t) => [t.name.toLowerCase(), t.gmailLabelId]));
+    
+    let applied = 0;
+    for (const assignment of assignments) {
+      const labelId = tagMap.get(assignment.labelName.toLowerCase());
+      if (!labelId) {
+        console.warn(`[Gmail AI] No label ID found for tag: ${assignment.labelName}`);
+        continue;
+      }
+      
+      try {
+        await gmail.users.messages.modify({
+          userId: "me",
+          id: assignment.emailId,
+          requestBody: {
+            addLabelIds: [labelId],
+          },
+        });
+        applied++;
+      } catch (err: any) {
+        console.warn(`[Gmail AI] Failed to apply label to ${assignment.emailId}:`, err?.message);
+      }
+    }
+    
+    return { success: true, applied };
+  } catch (err: any) {
+    console.error("[Gmail AI] Apply labels error:", err?.message);
+    return { success: false, applied: 0, error: err?.message };
+  }
+}
+
 function parseAIResponse(raw: string): AIResponseShape {
   // Strip markdown code fences if the model wraps the JSON
   let cleaned = raw.trim();
@@ -391,6 +575,8 @@ function parseAIResponse(raw: string): AIResponseShape {
       draft: parsed.draft || null,
       targetEmailIds: Array.isArray(parsed.targetEmailIds) ? parsed.targetEmailIds : [],
       actionType: parsed.actionType || null,
+      tagSetup: Array.isArray(parsed.tagSetup) ? parsed.tagSetup : undefined,
+      labelAssignments: Array.isArray(parsed.labelAssignments) ? parsed.labelAssignments : undefined,
     };
   } catch {
     // JSON.parse failed — try to extract fields with regex
@@ -421,6 +607,8 @@ function parseAIResponse(raw: string): AIResponseShape {
         draft: null,
         targetEmailIds: targetIds,
         actionType: actionMatch?.[1] || null,
+        tagSetup: undefined,
+        labelAssignments: undefined,
       };
     }
 
@@ -432,6 +620,8 @@ function parseAIResponse(raw: string): AIResponseShape {
       draft: null,
       targetEmailIds: [],
       actionType: null,
+      tagSetup: undefined,
+      labelAssignments: undefined,
     };
   }
 }
@@ -459,6 +649,18 @@ export async function POST(req: Request) {
         emailIds,
       });
       return NextResponse.json({ ...result, markedIds: emailIds });
+    }
+
+    // ─── Mode: Create Gmail labels/tags ──────────────────────────
+    if (action === "create_labels" && body.tagSetup) {
+      const result = await createGmailLabels(refreshToken, uid, body.tagSetup);
+      return NextResponse.json(result);
+    }
+
+    // ─── Mode: Apply labels to emails ───────────────────────────
+    if (action === "apply_labels" && body.labelAssignments) {
+      const result = await applyLabelsToEmails(refreshToken, uid, body.labelAssignments);
+      return NextResponse.json(result);
     }
 
     // ─── Mode 4: Batch reply to selected emails ─────────────────
@@ -549,7 +751,8 @@ ${emailList}`;
 
     // Fetch email memory for contextual summaries
     const emailMemory = uid ? await getEmailMemory(uid) : [];
-    const systemPrompt = buildSystemPrompt(emailContext, body.contacts, emailMemory);
+    const existingTags = uid ? await getExistingTags(uid) : [];
+    const systemPrompt = buildSystemPrompt(emailContext, body.contacts, emailMemory, existingTags);
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -644,6 +847,16 @@ ${emailList}`;
 
       responsePayload.pendingAction = pendingAction;
       responsePayload.actionCard = pendingAction;
+    }
+
+    // If the AI proposed a tag setup, include it in the response
+    if (aiResponse.tagSetup && aiResponse.tagSetup.length > 0) {
+      (responsePayload as any).tagSetup = aiResponse.tagSetup;
+    }
+
+    // If the AI produced label assignments, include them
+    if (aiResponse.labelAssignments && aiResponse.labelAssignments.length > 0) {
+      (responsePayload as any).labelAssignments = aiResponse.labelAssignments;
     }
 
     // If the intent is summarize, put the reply into the summary field as well

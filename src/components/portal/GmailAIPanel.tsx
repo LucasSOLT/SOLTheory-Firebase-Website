@@ -21,6 +21,7 @@ import {
   Send,
   GripVertical,
   RefreshCw,
+  Tag,
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -326,6 +327,53 @@ export function GmailAIPanel({
           assistantMessage.batchDrafts = data.batchDrafts;
         }
 
+        // Handle tag setup — auto-create Gmail labels when AI proposes and user confirms
+        if (data.tagSetup && data.tagSetup.length > 0) {
+          try {
+            const createRes = await fetch("/api/gmail-ai", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "create_labels",
+                uid,
+                refreshToken,
+                tagSetup: data.tagSetup,
+              }),
+            });
+            const createResult = await createRes.json();
+            if (createResult.success) {
+              assistantMessage.content += `\n\n**✅ ${createResult.labels?.length || data.tagSetup.length} tags created successfully in Gmail!** You can now use \"Organize Inbox\" to start auto-tagging your emails.`;
+            } else {
+              assistantMessage.content += `\n\n⚠️ Some tags couldn't be created: ${createResult.error || "Unknown error"}`;
+            }
+          } catch {
+            assistantMessage.content += "\n\n⚠️ Failed to create tags in Gmail. Please try again.";
+          }
+        }
+
+        // Handle label assignments — auto-apply labels to emails
+        if (data.labelAssignments && data.labelAssignments.length > 0) {
+          try {
+            const applyRes = await fetch("/api/gmail-ai", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "apply_labels",
+                uid,
+                refreshToken,
+                labelAssignments: data.labelAssignments,
+              }),
+            });
+            const applyResult = await applyRes.json();
+            if (applyResult.success) {
+              assistantMessage.content += `\n\n**✅ Tagged ${applyResult.applied} email(s) successfully!**`;
+              setTimeout(() => onActionExecuted(), 1000);
+            }
+          } catch {
+            assistantMessage.content += "\n\n⚠️ Failed to apply some labels. Please try again.";
+          }
+        }
+
         setMessages((prev) => [...prev, assistantMessage]);
 
         if (data.highlightIds && data.highlightIds.length > 0) {
@@ -580,7 +628,7 @@ export function GmailAIPanel({
   const suggestions = [
     { label: "Summarize unread emails", icon: Mail },
     { label: "Draft a reply", icon: Edit3 },
-    { label: "Find newsletters", icon: Search },
+    { label: "Organize Inbox", icon: Tag },
     { label: "Clean up inbox", icon: Archive },
   ];
 
