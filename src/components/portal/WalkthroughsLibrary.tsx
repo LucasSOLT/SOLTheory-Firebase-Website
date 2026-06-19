@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useUser, useFirestore } from "@/firebase";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useUser, useFirestore, useStorage } from "@/firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, query, orderBy } from "firebase/firestore";
-import { Search, Plus, X, Loader2, Play, ExternalLink, Trash2, Lightbulb, Upload, Link2, Clock, Tag, FileText, Eye, ChevronDown, Edit3, Image as ImageIcon } from "lucide-react";
+import { Search, Plus, X, Loader2, Play, ExternalLink, Trash2, Lightbulb, Upload, Link2, Clock, Tag, FileText, Eye, ChevronDown, Edit3, Image as ImageIcon, File, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ type Walkthrough = {
 export function WalkthroughsLibrary() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   const [walkthroughs, setWalkthroughs] = useState<Walkthrough[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -202,6 +204,7 @@ export function WalkthroughsLibrary() {
       {isAddOpen && (
         <AddWalkthroughDialog
           firestore={firestore}
+          storage={storage}
           editingWalkthrough={editingId ? walkthroughs.find(w => w.id === editingId) || null : null}
           onClose={() => { setIsAddOpen(false); setEditingId(null); }}
         />
@@ -314,8 +317,9 @@ function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit }: {
    ADD/EDIT WALKTHROUGH DIALOG — Full-screen overlay
    ═══════════════════════════════════════════════════════════════ */
 
-function AddWalkthroughDialog({ firestore, editingWalkthrough, onClose }: {
+function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose }: {
   firestore: any;
+  storage: any;
   editingWalkthrough: Walkthrough | null;
   onClose: () => void;
 }) {
@@ -332,7 +336,74 @@ function AddWalkthroughDialog({ firestore, editingWalkthrough, onClose }: {
   const [estimatedMinutes, setEstimatedMinutes] = useState(editingWalkthrough?.estimatedMinutes || 0);
   const [tagsInput, setTagsInput] = useState(editingWalkthrough?.tags?.join(", ") || "");
 
+  // File upload state
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoFileName, setVideoFileName] = useState("");
+  const [thumbUploading, setThumbUploading] = useState(false);
+  const [thumbProgress, setThumbProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
+
   const isEditing = !!editingWalkthrough;
+
+  const uploadFile = useCallback(async (file: File, path: string, onProgress: (p: number) => void): Promise<string> => {
+    if (!storage) throw new Error("Storage not available");
+    const storageRefObj = ref(storage, path);
+    const uploadTask = uploadBytesResumable(storageRefObj, file);
+    return new Promise((resolve, reject) => {
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          onProgress(pct);
+        },
+        (error) => reject(error),
+        async () => {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve(url);
+        }
+      );
+    });
+  }, [storage]);
+
+  const handleVideoFileSelect = async (file: File) => {
+    setVideoUploading(true);
+    setVideoProgress(0);
+    setVideoFileName(file.name);
+    try {
+      const path = `walkthroughs/videos/${Date.now()}_${file.name}`;
+      const url = await uploadFile(file, path, setVideoProgress);
+      setVideoUrl(url);
+    } catch (err) {
+      console.error("Video upload failed:", err);
+    } finally {
+      setVideoUploading(false);
+    }
+  };
+
+  const handleThumbFileSelect = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setThumbUploading(true);
+    setThumbProgress(0);
+    try {
+      const path = `walkthroughs/thumbnails/${Date.now()}_${file.name}`;
+      const url = await uploadFile(file, path, setThumbProgress);
+      setThumbnailUrl(url);
+    } catch (err) {
+      console.error("Thumbnail upload failed:", err);
+    } finally {
+      setThumbUploading(false);
+    }
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) handleVideoFileSelect(files[0]);
+  }, []);
 
   const handleSubmit = async () => {
     if (!firestore || !title.trim() || !videoUrl.trim()) return;
@@ -477,8 +548,84 @@ function AddWalkthroughDialog({ firestore, editingWalkthrough, onClose }: {
           {/* ── Media & Link Section ── */}
           {activeSection === "media" && (
             <div className="space-y-6">
-              <div className="space-y-1.5">
-                <Label className="text-slate-600 text-xs font-medium">Video / Scribe URL <span className="text-red-400">*</span></Label>
+              {/* Hidden file inputs */}
+              <input
+                ref={videoInputRef}
+                type="file"
+                className="hidden"
+                accept="video/*,.mp4,.mov,.avi,.mkv,.webm,.pdf,.doc,.docx"
+                onChange={e => { if (e.target.files?.[0]) handleVideoFileSelect(e.target.files[0]); e.target.value = ""; }}
+              />
+              <input
+                ref={thumbInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={e => { if (e.target.files?.[0]) handleThumbFileSelect(e.target.files[0]); e.target.value = ""; }}
+              />
+
+              {/* Video/File source */}
+              <div className="space-y-3">
+                <Label className="text-slate-600 text-xs font-medium">Video / File Source <span className="text-red-400">*</span></Label>
+                
+                {/* Drag-and-drop upload zone */}
+                <div
+                  onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => !videoUploading && videoInputRef.current?.click()}
+                  className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
+                    isDragging ? "border-slate-900 bg-slate-50" :
+                    videoUrl && !videoUploading ? "border-slate-200 bg-slate-50/50" :
+                    "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"
+                  }`}
+                >
+                  {videoUploading ? (
+                    <div className="space-y-3">
+                      <Loader2 className="w-6 h-6 text-slate-400 animate-spin mx-auto" />
+                      <p className="text-xs font-medium text-slate-600">Uploading {videoFileName}...</p>
+                      <div className="w-full max-w-xs mx-auto bg-slate-100 rounded-full h-1.5">
+                        <div className="bg-slate-900 h-1.5 rounded-full transition-all duration-300" style={{ width: `${videoProgress}%` }} />
+                      </div>
+                      <p className="text-[10px] text-slate-400">{videoProgress}%</p>
+                    </div>
+                  ) : videoUrl ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-4 h-4 text-slate-600" />
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-xs font-medium text-slate-700 truncate">{videoFileName || "File ready"}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{videoUrl}</p>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setVideoUrl(""); setVideoFileName(""); }}
+                        className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mx-auto">
+                        <Upload className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-600">Drop a file here or <span className="text-slate-900 underline underline-offset-2">browse</span></p>
+                        <p className="text-[10px] text-slate-300 mt-0.5">MP4, MOV, PDF, DOCX — up to 500 MB</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* OR divider */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-slate-100" />
+                  <span className="text-[10px] font-medium text-slate-300 uppercase tracking-wider">or paste a URL</span>
+                  <div className="flex-1 h-px bg-slate-100" />
+                </div>
+
+                {/* URL input */}
                 <div className="relative">
                   <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                   <Input
@@ -488,37 +635,67 @@ function AddWalkthroughDialog({ firestore, editingWalkthrough, onClose }: {
                     className="bg-white border-slate-200 h-11 pl-9 text-sm placeholder:text-slate-300 focus-visible:ring-slate-400"
                   />
                 </div>
-                <p className="text-[10px] text-slate-300">Paste a Scribe, YouTube, Loom, or any video/guide URL</p>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-slate-600 text-xs font-medium">Thumbnail Image URL</Label>
-                <div className="relative">
-                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                  <Input
-                    value={thumbnailUrl}
-                    onChange={e => setThumbnailUrl(e.target.value)}
-                    placeholder="https://example.com/thumbnail.png"
-                    className="bg-white border-slate-200 h-11 pl-9 text-sm placeholder:text-slate-300 focus-visible:ring-slate-400"
-                  />
+              {/* Thumbnail */}
+              <div className="space-y-3">
+                <Label className="text-slate-600 text-xs font-medium">Thumbnail Image</Label>
+                <div className="flex gap-3">
+                  {/* Thumbnail preview / upload */}
+                  <div
+                    onClick={() => !thumbUploading && thumbInputRef.current?.click()}
+                    className="w-28 h-20 rounded-xl border border-dashed border-slate-200 hover:border-slate-300 bg-slate-50 flex items-center justify-center cursor-pointer transition-all overflow-hidden shrink-0"
+                  >
+                    {thumbUploading ? (
+                      <div className="text-center">
+                        <Loader2 className="w-4 h-4 text-slate-400 animate-spin mx-auto" />
+                        <p className="text-[9px] text-slate-400 mt-1">{thumbProgress}%</p>
+                      </div>
+                    ) : thumbnailUrl ? (
+                      <img src={thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-center">
+                        <ImageIcon className="w-4 h-4 text-slate-300 mx-auto" />
+                        <p className="text-[9px] text-slate-300 mt-0.5">Upload</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="relative">
+                      <Input
+                        value={thumbnailUrl}
+                        onChange={e => setThumbnailUrl(e.target.value)}
+                        placeholder="Paste image URL or upload →"
+                        className="bg-white border-slate-200 h-10 text-sm placeholder:text-slate-300 focus-visible:ring-slate-400"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-300">Click the box to upload, or paste a URL. Optional.</p>
+                    {thumbnailUrl && (
+                      <button
+                        onClick={() => setThumbnailUrl("")}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 underline underline-offset-2"
+                      >
+                        Remove thumbnail
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[10px] text-slate-300">Optional. If empty, a placeholder will be shown.</p>
               </div>
 
               {/* Preview */}
               <div className="space-y-2">
                 <Label className="text-slate-600 text-xs font-medium flex items-center gap-1.5">
                   <Eye className="w-3.5 h-3.5" />
-                  Preview
+                  Card Preview
                 </Label>
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                  <div className="h-44 flex items-center justify-center">
+                  <div className="h-36 flex items-center justify-center">
                     {thumbnailUrl ? (
                       <img src={thumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-slate-300">
                         <Play className="w-8 h-8" />
-                        <span className="text-xs">No thumbnail set</span>
+                        <span className="text-xs">No thumbnail</span>
                       </div>
                     )}
                   </div>
