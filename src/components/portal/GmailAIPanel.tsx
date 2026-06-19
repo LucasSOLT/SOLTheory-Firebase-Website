@@ -91,6 +91,7 @@ interface GmailAIPanelProps {
   refreshToken?: string;
   userEmail?: string;
   emailContext: EmailContext[];
+  contacts?: { name: string; email: string; aliases?: string }[];
   onHighlightEmails: (ids: string[]) => void;
   onActionExecuted: () => void;
   onOpenCompose: (to: string, subject: string, body: string) => void;
@@ -165,6 +166,7 @@ export function GmailAIPanel({
   refreshToken,
   userEmail,
   emailContext,
+  contacts,
   onHighlightEmails,
   onActionExecuted,
   onOpenCompose,
@@ -268,6 +270,7 @@ export function GmailAIPanel({
             refreshToken,
             userEmail,
             emailContext,
+            contacts,
           }),
         });
 
@@ -307,6 +310,8 @@ export function GmailAIPanel({
 
         if (data.highlightIds && data.highlightIds.length > 0) {
           onHighlightEmails(data.highlightIds);
+          // Clear highlights after fly animation completes
+          setTimeout(() => onHighlightEmails([]), 1200);
         }
       } catch (err: any) {
         const errorMessage: ChatMessage = {
@@ -320,7 +325,7 @@ export function GmailAIPanel({
         setIsLoading(false);
       }
     },
-    [messages, uid, refreshToken, userEmail, emailContext, isLoading, onHighlightEmails]
+    [messages, uid, refreshToken, userEmail, emailContext, contacts, isLoading, onHighlightEmails]
   );
 
   /* ─── Action Handling ─── */

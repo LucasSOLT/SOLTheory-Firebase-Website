@@ -9,7 +9,8 @@ import {
 import AIComposeAssist from "@/components/campaigning/AIComposeAssist";
 import SmartReply from "@/components/campaigning/SmartReply";
 import { GmailAIPanel } from "@/components/portal/GmailAIPanel";
-import { useUser } from "@/firebase/provider";
+import { useUser, useFirestore } from "@/firebase/provider";
+import { collection, query, onSnapshot } from "firebase/firestore";
 import { getRefreshToken, fetchEmails, sendEmail as gmailSend, getGmailConnectUrl, type GmailMessage } from "@/lib/gmail-api";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -77,6 +78,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
   const [aiPanelOpen, setAiPanelOpen] = useState(true);
   const [highlightedEmailIds, setHighlightedEmailIds] = useState<string[]>([]);
   const [aiPanelWidth, setAiPanelWidth] = useState(380);
+  const [contacts, setContacts] = useState<{ name: string; email: string; aliases?: string }[]>([]);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const isConnected = !!(uid && refreshToken);
@@ -87,6 +89,30 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
     inbox: "INBOX", starred: "STARRED", sent: "SENT",
     drafts: "DRAFT", archive: "ARCHIVE", trash: "TRASH",
   };
+
+  /* ── Fetch contacts from Firestore for AI name resolution ── */
+  const firestore = useFirestore();
+  useEffect(() => {
+    if (!firestore || !uid) return;
+
+    const q = query(collection(firestore, `users/${uid}/contacts`));
+    const unsub = onSnapshot(q, (snap) => {
+      const fetched: { name: string; email: string; aliases?: string }[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data.email) {
+          fetched.push({
+            name: data.name || "",
+            email: data.email,
+            aliases: data.aliases || undefined,
+          });
+        }
+      });
+      setContacts(fetched);
+    });
+
+    return () => unsub();
+  }, [firestore, uid]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -264,8 +290,23 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
     trash: { title: "Trash is empty", desc: "Deleted emails will appear here for 30 days." },
   };
 
+  // Add animation styles
+  const flyAnimationStyle = `
+    @keyframes emailFly {
+      0% { transform: translateX(0) scale(1); opacity: 1; }
+      40% { transform: translateX(30px) scale(0.95); opacity: 0.8; }
+      70% { transform: translateX(60%) scale(0.7); opacity: 0.4; }
+      100% { transform: translateX(100%) scale(0.5); opacity: 0; }
+    }
+    .ai-email-fly {
+      animation: emailFly 0.8s ease-in-out forwards;
+      pointer-events: none;
+    }
+  `;
+
   return (
     <div className="flex h-full" style={{ WebkitFontSmoothing: "antialiased" } as React.CSSProperties}>
+    <style>{flyAnimationStyle}</style>
     <div className="flex flex-col flex-1 min-w-0 relative">
       {/* Top Bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-200/80 bg-white shrink-0">
@@ -484,10 +525,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
                   const isHighlighted = highlightedEmailIds.includes(email.id);
                   return (
                   <div key={email.id} onClick={() => openEmail(email)}
-                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : ""} hover:bg-slate-50 ${isHighlighted ? "ring-2 ring-blue-300/60 bg-blue-50/40 shadow-sm" : ""}`}>
-                    {isHighlighted && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
-                    )}
+                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : "opacity-50"} hover:bg-slate-50 ${isHighlighted ? "ai-email-fly" : ""}`}>
                     <button onClick={(ev) => toggleStar(email.id, ev)} className="shrink-0 cursor-pointer">
                       {email.starred ? <Star className="w-4 h-4 text-amber-400 fill-amber-400" /> : <StarOff className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />}
                     </button>
@@ -496,11 +534,11 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-[12px] truncate ${!email.read ? "font-semibold text-slate-800" : "font-medium text-slate-500"}`}>{email.from}</span>
+                        <span className={`text-[12px] truncate ${!email.read ? "font-semibold text-slate-800" : "font-normal text-slate-400"}`}>{email.from}</span>
                         {email.folder === "sent" && <span className="text-[10px] text-slate-400 shrink-0">→ {email.to || email.toEmail}</span>}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-[12px] truncate ${!email.read ? "font-medium text-slate-700" : "text-slate-500"}`}>{email.subject}</span>
+                        <span className={`text-[12px] truncate ${!email.read ? "font-medium text-slate-700" : "text-slate-400"}`}>{email.subject}</span>
                         <span className="text-[11px] text-slate-400 truncate flex-1">— {email.preview}</span>
                       </div>
                     </div>
@@ -579,6 +617,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
         refreshToken={refreshToken}
         userEmail={userEmail}
         emailContext={emails.map((e) => ({ id: e.id, from: e.from, subject: e.subject, snippet: e.preview, read: e.read }))}
+        contacts={contacts}
         onHighlightEmails={setHighlightedEmailIds}
         onActionExecuted={() => {
           const gmailFolder = folderToGmail[activeFolder] || "INBOX";

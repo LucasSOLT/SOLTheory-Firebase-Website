@@ -22,6 +22,7 @@ interface RequestBody {
   refreshToken: string;
   userEmail: string;
   emailContext?: EmailContext[];
+  contacts?: { name: string; email: string; aliases?: string }[];
   action?: "confirm_action" | "batch_reply" | "mark_read";
   actionPayload?: {
     type: "archive" | "delete" | "star" | "mark_read" | "move";
@@ -40,7 +41,7 @@ interface AIResponseShape {
   actionType: string | null;
 }
 
-function buildSystemPrompt(emailContext?: EmailContext[]): string {
+function buildSystemPrompt(emailContext?: EmailContext[], contacts?: { name: string; email: string; aliases?: string }[]): string {
   let prompt = `You are a professional Gmail assistant AI. Your job is to help the user manage their email efficiently.
 
 RULES:
@@ -67,6 +68,8 @@ RULES:
 - SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, provide a detailed summary of the TOP 5 UNREAD emails from the provided context. For EACH email, write exactly 3-4 sentences describing who sent it, what it's about, any action items or key details, and its urgency/importance. Number each email **1.** through **5.** with bold numbers. Bold the sender name and subject. At the very end of your reply, after a blank line, ALWAYS add this follow-up in bold: "**Would you like me to look into some more unread emails, or would you like to respond to any of these?**"
 - If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email and include the bold follow-up prompt.
 - If you can't determine the intent, set intent to "general" and answer helpfully.
+- CONTACT LOOKUP RULE: When the user asks to email someone by name (e.g. "send an email to Dave"), look up the name in the [CONTACT BOOK] section below. If an exact match is found, use that email address to create the draft. If MULTIPLE contacts match the same first name, list all matching contacts and ask the user: "I found multiple contacts named [name]. Which one did you mean?" and list them with their full name and email. Encourage users to use full names (first + last) to avoid confusion.
+- If a name is NOT found in the contact book, ask the user to provide the email address directly.
 - IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
   if (emailContext && emailContext.length > 0) {
@@ -74,6 +77,14 @@ RULES:
     for (const email of emailContext) {
       const statusStr = email.read !== undefined ? (email.read ? "Read" : "Unread") : "Unknown";
       prompt += `- ID: ${email.id} | From: ${email.from} | Subject: ${email.subject} | Snippet: ${email.snippet} | Status: ${statusStr}\n`;
+    }
+  }
+
+  if (contacts && contacts.length > 0) {
+    prompt += "\n\n[CONTACT BOOK]\nThe user's contacts/address book contains these people:\n";
+    for (const c of contacts) {
+      const aliasStr = c.aliases ? ` (also known as: ${c.aliases})` : "";
+      prompt += `- ${c.name}${aliasStr} => ${c.email}\n`;
     }
   }
 
@@ -386,7 +397,7 @@ ${emailList}`;
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const model = "llama-3.3-70b-versatile";
-    const systemPrompt = buildSystemPrompt(emailContext);
+    const systemPrompt = buildSystemPrompt(emailContext, body.contacts);
 
     const completion = await groq.chat.completions.create({
       messages: [
