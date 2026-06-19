@@ -471,6 +471,22 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if false;
     }
+
+    /**
+     * @description INSiGHT Walkthroughs library of videos and guides.
+     * @path /insight_walkthroughs/{walkthroughId}
+     * @allow (read) Any signed-in user can read walkthroughs.
+     * @allow (create, update, delete) Only walkthrough admins can manage.
+     */
+    match /insight_walkthroughs/{walkthroughId} {
+      function isWalkthroughAdmin() {
+        return request.auth.token.email == 'lucas@soltheory.com'
+          || request.auth.token.email == 'steve@soltheory.com'
+          || request.auth.token.email == 'gerard@soltheory.com';
+      }
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isWalkthroughAdmin();
+    }
   }
 }
     
