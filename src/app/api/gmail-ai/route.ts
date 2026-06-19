@@ -13,6 +13,7 @@ interface EmailContext {
   from: string;
   subject: string;
   snippet: string;
+  read?: boolean;
 }
 
 interface RequestBody {
@@ -56,14 +57,16 @@ RULES:
 - For drafts, write professional, well-structured email content.
 - For batch operations, identify which emails from the provided context match the user's request.
 - NEVER execute destructive actions (delete, archive) without asking the user to confirm first.
-- If the user asks to summarize emails, provide a clear summary in the "reply" field.
+- SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, provide a detailed summary of the TOP 5 UNREAD emails from the provided context. For EACH email, write exactly 3-4 sentences describing who sent it, what it's about, any action items or key details, and its urgency/importance. Number each email 1-5. At the very end of your reply, ALWAYS add this exact follow-up prompt on a new line: "Would you like me to look into some more unread emails, or would you like to respond to any of these?"
+- If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email and include the follow-up prompt.
 - If you can't determine the intent, set intent to "general" and answer helpfully.
 - IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
   if (emailContext && emailContext.length > 0) {
     prompt += "\n\n[CURRENT EMAIL CONTEXT]\nThe user's inbox currently contains these emails:\n";
     for (const email of emailContext) {
-      prompt += `- ID: ${email.id} | From: ${email.from} | Subject: ${email.subject} | Snippet: ${email.snippet}\n`;
+      const statusStr = email.read !== undefined ? (email.read ? "Read" : "Unread") : "Unknown";
+      prompt += `- ID: ${email.id} | From: ${email.from} | Subject: ${email.subject} | Snippet: ${email.snippet} | Status: ${statusStr}\n`;
     }
   }
 
@@ -294,7 +297,9 @@ export async function POST(req: Request) {
     // Build the response object
     const responsePayload: {
       reply: string;
+      content: string;
       highlightEmailIds: string[];
+      highlightIds: string[];
       searchResults?: { id: string; from: string; subject: string; snippet: string; date: string }[];
       draft?: { to: string; cc?: string; subject: string; body: string };
       pendingAction?: {
@@ -302,10 +307,17 @@ export async function POST(req: Request) {
         emailIds: string[];
         description: string;
       };
+      actionCard?: {
+        type: "archive" | "delete" | "star" | "mark_read" | "move";
+        emailIds: string[];
+        description: string;
+      };
       summary?: string;
     } = {
       reply: aiResponse.reply,
+      content: aiResponse.reply,
       highlightEmailIds: aiResponse.targetEmailIds,
+      highlightIds: aiResponse.targetEmailIds,
     };
 
     // If the AI produced a search query, execute it
@@ -316,6 +328,7 @@ export async function POST(req: Request) {
       } catch (searchErr: any) {
         console.error("[Gmail AI] Search error:", searchErr?.message);
         responsePayload.reply += "\n\n(I tried to search your emails but encountered an error. Please try again.)";
+        responsePayload.content = responsePayload.reply;
       }
     }
 
@@ -334,11 +347,14 @@ export async function POST(req: Request) {
         move: `Move ${aiResponse.targetEmailIds.length} email(s)`,
       };
 
-      responsePayload.pendingAction = {
+      const pendingAction = {
         type: aiResponse.actionType as "archive" | "delete" | "star" | "mark_read" | "move",
         emailIds: aiResponse.targetEmailIds,
         description: actionDescriptions[aiResponse.actionType] || `Perform ${aiResponse.actionType} on ${aiResponse.targetEmailIds.length} email(s)`,
       };
+
+      responsePayload.pendingAction = pendingAction;
+      responsePayload.actionCard = pendingAction;
     }
 
     // If the intent is summarize, put the reply into the summary field as well

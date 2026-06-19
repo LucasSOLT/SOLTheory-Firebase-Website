@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Mail, Send, Search, Star, StarOff, Inbox, Archive, Trash2, RefreshCw,
   Paperclip, Reply, ReplyAll, Forward,
-  ArrowLeft, Pen, X, Filter, Check, Loader2, UserPlus, Sparkles,
+  ArrowLeft, Pen, X, Filter, Check, Loader2, UserPlus,
 } from "lucide-react";
 import AIComposeAssist from "@/components/campaigning/AIComposeAssist";
 import SmartReply from "@/components/campaigning/SmartReply";
@@ -74,8 +74,9 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
   const [loadingEmails, setLoadingEmails] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(true);
   const [highlightedEmailIds, setHighlightedEmailIds] = useState<string[]>([]);
+  const [aiPanelWidth, setAiPanelWidth] = useState(380);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const isConnected = !!(uid && refreshToken);
@@ -264,7 +265,8 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ WebkitFontSmoothing: "antialiased" } as React.CSSProperties}>
+    <div className="flex h-full" style={{ WebkitFontSmoothing: "antialiased" } as React.CSSProperties}>
+    <div className="flex flex-col flex-1 min-w-0 relative">
       {/* Top Bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-200/80 bg-white shrink-0">
         <div className="flex items-center gap-2.5">
@@ -517,7 +519,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
 
       {/* Compose Modal */}
       {composeOpen && (
-        <div className="absolute bottom-4 right-4 w-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-50 overflow-hidden">
+        <div className="absolute bottom-4 left-4 w-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 bg-slate-800 text-white">
             <span className="text-[13px] font-semibold">
               {compose.mode === "reply" ? "Reply" : compose.mode === "replyAll" ? "Reply All" : compose.mode === "forward" ? "Forward" : "New Message"}
@@ -567,26 +569,16 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
         </div>
       )}
 
-      {/* ── AI Assistant Toggle Button ── */}
-      {isConnected && (
-        <button
-          onClick={() => setAiPanelOpen(true)}
-          className={`fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-slate-900 text-white shadow-xl hover:shadow-2xl hover:scale-105 flex items-center justify-center transition-all duration-200 group ${aiPanelOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-          title="Open AI Assistant"
-        >
-          <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />
-        </button>
-      )}
+    </div>
 
-      {/* ── AI Assistant Side Panel ── */}
+      {/* ── AI Assistant Side Panel (inline) ── */}
       <GmailAIPanel
         isOpen={aiPanelOpen}
         onClose={() => { setAiPanelOpen(false); setHighlightedEmailIds([]); }}
         uid={uid}
         refreshToken={refreshToken}
         userEmail={userEmail}
-        emailContext={emails.map((e) => ({ id: e.id, from: e.from, subject: e.subject, snippet: e.preview }))}
+        emailContext={emails.map((e) => ({ id: e.id, from: e.from, subject: e.subject, snippet: e.preview, read: e.read }))}
         onHighlightEmails={setHighlightedEmailIds}
         onActionExecuted={() => {
           const gmailFolder = folderToGmail[activeFolder] || "INBOX";
@@ -623,6 +615,8 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
           setCompose({ to, cc: "", subject, body, mode: "new" });
           setComposeOpen(true);
         }}
+        panelWidth={aiPanelWidth}
+        onWidthChange={setAiPanelWidth}
       />
     </div>
   );
