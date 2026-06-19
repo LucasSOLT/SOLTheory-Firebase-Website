@@ -95,6 +95,12 @@ interface GmailAIPanelProps {
   onHighlightEmails: (ids: string[]) => void;
   onActionExecuted: () => void;
   onOpenCompose: (to: string, subject: string, body: string) => void;
+  onSwitchFolder?: (folder: string) => void;
+  emailSelectMode?: boolean;
+  selectedEmailCount?: number;
+  selectedEmailDetails?: { id: string; from: string; subject: string; snippet: string }[];
+  onSelectModeToggle?: (on: boolean) => void;
+  onMarkLocalAsRead?: (ids: string[]) => void;
   panelWidth: number;
   onWidthChange: (width: number) => void;
 }
@@ -170,6 +176,12 @@ export function GmailAIPanel({
   onHighlightEmails,
   onActionExecuted,
   onOpenCompose,
+  onSwitchFolder,
+  emailSelectMode,
+  selectedEmailCount = 0,
+  selectedEmailDetails = [],
+  onSelectModeToggle,
+  onMarkLocalAsRead,
   panelWidth,
   onWidthChange,
 }: GmailAIPanelProps) {
@@ -310,6 +322,12 @@ export function GmailAIPanel({
 
         if (data.highlightIds && data.highlightIds.length > 0) {
           onHighlightEmails(data.highlightIds);
+          // After summarize, mark emails as read locally so they grey out immediately
+          if (onMarkLocalAsRead) {
+            onMarkLocalAsRead(data.highlightIds);
+          }
+          // Refresh the email list after a short delay to pick up server-side mark-as-read
+          setTimeout(() => onActionExecuted(), 2000);
         }
       } catch (err: any) {
         const errorMessage: ChatMessage = {
@@ -527,10 +545,26 @@ export function GmailAIPanel({
 
   const handleSuggestion = useCallback(
     (text: string) => {
+      // Auto-switch to Unread folder when summarizing unread emails
+      if (text.toLowerCase().includes("unread") && onSwitchFolder) {
+        onSwitchFolder("unread");
+      }
       sendMessage(text);
     },
-    [sendMessage]
+    [sendMessage, onSwitchFolder]
   );
+
+  const handleReplyToListSelected = useCallback(async () => {
+    if (selectedEmailDetails.length === 0 || isLoading) return;
+
+    const selectedSummary = selectedEmailDetails
+      .map((e, i) => `${i + 1}. From: ${e.from} — Subject: ${e.subject}`)
+      .join("\n");
+
+    sendMessage(`Reply to these ${selectedEmailDetails.length} selected email(s):\n${selectedSummary}`);
+    // Exit selection mode after sending
+    if (onSelectModeToggle) onSelectModeToggle(false);
+  }, [selectedEmailDetails, isLoading, sendMessage, onSelectModeToggle]);
 
   /* ─── Suggested Prompts ─── */
 
@@ -758,6 +792,36 @@ export function GmailAIPanel({
                   </button>
                 );
               })}
+            </div>
+
+            {/* Select Email(s) button */}
+            <div className="flex flex-col items-center gap-2 mt-4 w-full max-w-[300px]">
+              <button
+                onClick={() => onSelectModeToggle?.(!emailSelectMode)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-medium transition-all w-full justify-center ${
+                  emailSelectMode
+                    ? "border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                {emailSelectMode ? "Exit Selection" : "Select Email(s)"}
+                {selectedEmailCount > 0 && (
+                  <span className="ml-auto bg-purple-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                    {selectedEmailCount}
+                  </span>
+                )}
+              </button>
+              {emailSelectMode && selectedEmailCount > 0 && (
+                <button
+                  onClick={handleReplyToListSelected}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors w-full justify-center disabled:opacity-40"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Reply to Selected ({selectedEmailCount})
+                </button>
+              )}
             </div>
           </div>
         )}

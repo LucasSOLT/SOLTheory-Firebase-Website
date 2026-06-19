@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Mail, Send, Search, Star, StarOff, Inbox, Archive, Trash2, RefreshCw,
   Paperclip, Reply, ReplyAll, Forward,
-  ArrowLeft, Pen, X, Filter, Check, Loader2, UserPlus,
+  ArrowLeft, Pen, X, Filter, Check, Loader2, UserPlus, MailOpen,
 } from "lucide-react";
 import AIComposeAssist from "@/components/campaigning/AIComposeAssist";
 import SmartReply from "@/components/campaigning/SmartReply";
@@ -79,6 +79,8 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
   const [highlightedEmailIds, setHighlightedEmailIds] = useState<string[]>([]);
   const [aiPanelWidth, setAiPanelWidth] = useState(380);
   const [contacts, setContacts] = useState<{ name: string; email: string; aliases?: string }[]>([]);
+  const [emailSelectMode, setEmailSelectMode] = useState(false);
+  const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const isConnected = !!(uid && refreshToken);
@@ -143,7 +145,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
           read: !(e.labelIds || []).includes("UNREAD"),
           starred: (e.labelIds || []).includes("STARRED"),
           hasAttachment: (e.attachments || []).length > 0,
-          folder: activeFolder,
+          folder: activeFolder === "unread" ? "inbox" : activeFolder,
         };
       });
       setEmails(mapped);
@@ -153,7 +155,11 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
   }, [activeFolder, uid, refreshToken, isConnected]);
 
   const filteredEmails = emails.filter((e) => {
-    const inFolder = activeFolder === "starred" ? e.starred : e.folder === activeFolder;
+    const inFolder = activeFolder === "unread"
+      ? !e.read
+      : activeFolder === "starred"
+        ? e.starred
+        : e.folder === activeFolder;
     const matchSearch = !searchQuery ||
       e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -164,6 +170,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
 
   const folderCounts: Record<string, number> = {
     inbox: emails.filter((e) => e.folder === "inbox" && !e.read).length,
+    unread: emails.filter((e) => !e.read).length,
     starred: emails.filter((e) => e.starred).length,
     sent: emails.filter((e) => e.folder === "sent").length,
     drafts: emails.filter((e) => e.folder === "drafts").length,
@@ -274,6 +281,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
 
   const folders = [
     { id: "inbox", label: "Inbox", icon: Inbox },
+    { id: "unread", label: "Unread", icon: MailOpen },
     { id: "starred", label: "Starred", icon: Star },
     { id: "sent", label: "Sent", icon: Send },
     { id: "drafts", label: "Drafts", icon: Pen },
@@ -283,6 +291,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
 
   const emptyMessages: Record<string, { title: string; desc: string }> = {
     inbox: { title: "Your inbox is empty", desc: "When you connect your Gmail account, emails will appear here." },
+    unread: { title: "All caught up!", desc: "You have no unread emails. Nice work!" },
     starred: { title: "No starred emails", desc: "Star important emails to find them here quickly." },
     sent: { title: "No sent emails", desc: "Emails you send will appear here." },
     drafts: { title: "No drafts", desc: "Unsent messages will be saved here as drafts." },
@@ -508,9 +517,28 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
               ) : (
                 filteredEmails.map((email) => {
                   const isHighlighted = highlightedEmailIds.includes(email.id);
+                  const isSelected = emailSelectMode && selectedEmailIds.has(email.id);
                   return (
-                  <div key={email.id} onClick={() => openEmail(email)}
-                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : "opacity-50"} hover:bg-slate-50 ${isHighlighted ? "ring-2 ring-blue-400/60 bg-blue-50/40 shadow-sm" : ""}`}>
+                  <div key={email.id} onClick={() => {
+                    if (emailSelectMode) {
+                      setSelectedEmailIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(email.id)) next.delete(email.id);
+                        else next.add(email.id);
+                        return next;
+                      });
+                    } else {
+                      openEmail(email);
+                    }
+                  }}
+                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : "opacity-50"} hover:bg-slate-50 ${isHighlighted ? "ring-2 ring-blue-400/60 bg-blue-50/40 shadow-sm" : ""} ${isSelected ? "!opacity-100 ring-2 ring-purple-400/60 bg-purple-50/40 shadow-sm" : ""}`}>
+                    {emailSelectMode && (
+                      <div className={`w-4 h-4 rounded-[5px] border-2 shrink-0 flex items-center justify-center transition-colors ${
+                        isSelected ? "bg-purple-500 border-purple-500" : "border-slate-300"
+                      }`}>
+                        {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                      </div>
+                    )}
                     <button onClick={(ev) => toggleStar(email.id, ev)} className="shrink-0 cursor-pointer">
                       {email.starred ? <Star className="w-4 h-4 text-amber-400 fill-amber-400" /> : <StarOff className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />}
                     </button>
@@ -627,7 +655,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
                 read: !(e.labelIds || []).includes("UNREAD"),
                 starred: (e.labelIds || []).includes("STARRED"),
                 hasAttachment: (e.attachments || []).length > 0,
-                folder: activeFolder,
+                folder: activeFolder === "unread" ? "inbox" : activeFolder,
               };
             });
             setEmails(mapped);
@@ -638,6 +666,20 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
         onOpenCompose={(to, subject, body) => {
           setCompose({ to, cc: "", subject, body, mode: "new" });
           setComposeOpen(true);
+        }}
+        onSwitchFolder={(folder) => setActiveFolder(folder)}
+        emailSelectMode={emailSelectMode}
+        selectedEmailCount={selectedEmailIds.size}
+        selectedEmailDetails={Array.from(selectedEmailIds).map((id) => {
+          const em = emails.find((e) => e.id === id);
+          return em ? { id: em.id, from: em.from, subject: em.subject, snippet: em.preview } : null;
+        }).filter(Boolean) as { id: string; from: string; subject: string; snippet: string }[]}
+        onSelectModeToggle={(on) => {
+          setEmailSelectMode(on);
+          if (!on) setSelectedEmailIds(new Set());
+        }}
+        onMarkLocalAsRead={(ids) => {
+          setEmails((prev) => prev.map((e) => ids.includes(e.id) ? { ...e, read: true } : e));
         }}
         panelWidth={aiPanelWidth}
         onWidthChange={setAiPanelWidth}
