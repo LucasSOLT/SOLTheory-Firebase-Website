@@ -50,7 +50,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Persistent audio element for mobile compatibility - created once, reused
   const persistentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const isPausedRef = useRef(isPaused);
   const [responseDelay, setResponseDelay] = useState(1500);
   const responseDelayRef = useRef(1500);
@@ -272,10 +271,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
     const initMic = async () => {
       try {
+        // Check if Speech Recognition is supported
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          const warnMsg = "Speech recognition is not supported on this browser. For voice features, please use a modern browser like Google Chrome (on Desktop/Android) or Apple Safari (on iOS/macOS).";
+          setTranscriptLines(prev => [...prev, { text: warnMsg, isUser: false }]);
+        }
+
         // --- WebKit/iOS audioSession override to ensure loudspeaker instead of quiet earpiece ---
         if (typeof navigator !== "undefined" && (navigator as any).audioSession) {
           try {
-            (navigator as any).audioSession.type = "auto";
+            (navigator as any).audioSession.category = "auto";
           } catch (e) {
             console.warn("Failed to set audioSession to auto:", e);
           }
@@ -294,7 +300,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
         if (typeof navigator !== "undefined" && (navigator as any).audioSession) {
           try {
-            (navigator as any).audioSession.type = "play-and-record";
+            (navigator as any).audioSession.category = "play-and-record";
+            (navigator as any).audioSession.mode = "spoken-audio";
           } catch (e) {
             console.warn("Failed to set audioSession to play-and-record:", e);
           }
@@ -489,20 +496,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         }
         persistentAudioRef.current = a;
 
-        // Connect the audio element to the audio context so it outputs at full volume through the same Web Audio destination
-        if (ctx && a) {
-          let source = (window as any).jarvisAudioSource;
-          if (!source) {
-            try {
-              source = ctx.createMediaElementSource(a);
-              source.connect(ctx.destination);
-              (window as any).jarvisAudioSource = source;
-            } catch (e) {
-              console.warn("Failed to connect audio element to context:", e);
-            }
-          }
-          audioSourceRef.current = source;
-        }
+        // MOBILE PLAYBACK STABILITY: We bypass connecting the <audio> element to AudioContext.
+        // On iOS Safari, routing audio element output through createMediaElementSource often causes it
+        // to be completely muted, crackly, or forced to the low-volume earpiece. Playing it directly is 100% stable.
       } catch (err: any) {
         console.error("Microphone access denied:", err);
         const errorMsg = err?.name === 'NotAllowedError' 
@@ -534,10 +530,11 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       // Reset audio session category on exit
       if (typeof navigator !== "undefined" && (navigator as any).audioSession) {
         try {
-          (navigator as any).audioSession.type = "playback";
+          (navigator as any).audioSession.category = "playback";
+          (navigator as any).audioSession.mode = "default";
           setTimeout(() => {
             try {
-              (navigator as any).audioSession.type = "auto";
+              (navigator as any).audioSession.category = "auto";
             } catch {}
           }, 300);
         } catch {}
@@ -570,7 +567,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         audioCtxRef.current.suspend().catch(() => { });
       }
       analyserRef.current = null;
-      audioSourceRef.current = null;
 
       // Kill animation frame
       cancelAnimationFrame(animFrameRef.current);
