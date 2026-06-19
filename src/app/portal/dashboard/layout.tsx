@@ -365,7 +365,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (p.includes('/communications/org-thread')) return { icon: 'MessageSquare', label: 'Org Thread' };
       if (p.includes('/communications/contacts')) return { icon: 'MessageSquare', label: 'Contacts' };
       if (p.includes('/communications')) return { icon: 'MessageSquare', label: 'Messages' };
-      if (p.includes('/faq')) return { icon: 'HelpCircle', label: 'FAQ' };
+      if (p.includes('/walkthroughs')) return { icon: 'Lightbulb', label: 'INSiGHT Walkthroughs' };
       if (p.includes('/surveys')) return { icon: 'FileText', label: 'Surveys' };
       if (p.includes('/support-tickets')) return { icon: 'Mail', label: 'Support Tickets' };
       if (p.includes('/action-board')) return { icon: 'LayoutDashboard', label: 'Action Board' };
@@ -861,9 +861,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Users className="w-5 h-5" />
                     <span>Agent Manager</span>
                   </Link>
-                  <Link href={`${dashboardHome}/faq`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/faq') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
-                    <HelpCircle className="w-5 h-5" />
-                    <span>FAQ</span>
+                  <Link href={`${dashboardHome}/walkthroughs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/walkthroughs') ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700'}`}>
+                    <Lightbulb className="w-5 h-5" />
+                    <span>INSiGHT Walkthroughs</span>
                   </Link>
                 </div>
 
@@ -1186,11 +1186,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 <span className="text-sm font-medium">Agent Manager</span>
               </Link>
-              <Link href={`${dashboardHome}/faq`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.endsWith('/faq') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/faq') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
-                  <HelpCircle className="w-4 h-4" />
+              <Link href={`${dashboardHome}/walkthroughs`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${pathname.includes('/walkthroughs') ? 'bg-[#f0ede4] text-stone-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900'}`}>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.includes('/walkthroughs') ? 'bg-stone-800 text-white' : 'bg-transparent text-slate-500 group-hover:text-stone-800'}`}>
+                  <Lightbulb className="w-4 h-4" />
                 </div>
-                <span className="text-sm font-medium">FAQ</span>
+                <span className="text-sm font-medium">INSiGHT Walkthroughs</span>
               </Link>
             </div>
             
