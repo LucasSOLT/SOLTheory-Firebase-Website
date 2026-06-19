@@ -22,12 +22,13 @@ interface RequestBody {
   refreshToken: string;
   userEmail: string;
   emailContext?: EmailContext[];
-  action?: "confirm_action";
+  action?: "confirm_action" | "batch_reply" | "mark_read";
   actionPayload?: {
     type: "archive" | "delete" | "star" | "mark_read" | "move";
     emailIds: string[];
     label?: string;
   };
+  selectedEmails?: { id: string; from: string; subject: string; snippet: string }[];
 }
 
 interface AIResponseShape {
@@ -284,10 +285,98 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing uid or refreshToken" }, { status: 400 });
     }
 
-    // ─── Mode 2: Execute a confirmed action ───────────────────────────
+    // ─── Mode 2: Execute a confirmed action ───────────────────────
     if (action === "confirm_action" && actionPayload) {
       const result = await executeConfirmedAction(refreshToken, actionPayload);
       return NextResponse.json(result);
+    }
+
+    // ─── Mode 3: Mark emails as read ─────────────────────────────
+    if (action === "mark_read" && body.selectedEmails) {
+      const emailIds = body.selectedEmails.map((e) => e.id);
+      const result = await executeConfirmedAction(refreshToken, {
+        type: "mark_read",
+        emailIds,
+      });
+      return NextResponse.json({ ...result, markedIds: emailIds });
+    }
+
+    // ─── Mode 4: Batch reply to selected emails ─────────────────
+    if (action === "batch_reply" && body.selectedEmails && body.selectedEmails.length > 0) {
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const model = "llama-3.3-70b-versatile";
+
+      const emailList = body.selectedEmails
+        .map((e) => `- EmailID: ${e.id} | From: ${e.from} | Subject: ${e.subject} | Snippet: ${e.snippet}`)
+        .join("\n");
+
+      const batchPrompt = `You are a professional email assistant. Draft short, professional, friendly replies for each of the following emails. Each reply should be 2-4 sentences.
+
+Return ONLY a JSON array (no extra text, no code fences) where each object has:
+- "emailId": the original email's ID
+- "to": the sender's email address (extract from the From field)
+- "subject": "Re: [original subject]"
+- "body": your professional reply text
+
+Emails to reply to:
+${emailList}`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [{ role: "system", content: batchPrompt }],
+        model,
+        temperature: 0.4,
+        max_tokens: 4096,
+      });
+
+      const rawBatch = completion.choices[0]?.message?.content || "[]";
+      let batchDrafts: { emailId: string; to: string; subject: string; body: string }[] = [];
+
+      try {
+        let cleanedBatch = rawBatch.trim();
+        if (cleanedBatch.startsWith("```")) {
+          cleanedBatch = cleanedBatch.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+        }
+        batchDrafts = JSON.parse(cleanedBatch);
+      } catch {
+        // Try to extract array with regex
+        const arrMatch = rawBatch.match(/\[([\s\S]*)\]/);
+        if (arrMatch) {
+          try {
+            batchDrafts = JSON.parse(`[${arrMatch[1]}]`);
+          } catch { /* empty */ }
+        }
+      }
+
+      // Mark original emails as read
+      const emailIds = body.selectedEmails.map((e) => e.id);
+      try {
+        await executeConfirmedAction(refreshToken, { type: "mark_read", emailIds });
+      } catch { /* non-blocking */ }
+
+      // Log AI usage
+      const inputTokens = completion.usage?.prompt_tokens || 0;
+      const outputTokens = completion.usage?.completion_tokens || 0;
+      logAIUsage({
+        userId: uid,
+        userEmail: userEmail || undefined,
+        orgId: "soltheory",
+        model,
+        provider: "groq",
+        endpoint: "/api/gmail-ai (batch_reply)",
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        costUsd: calculateGroqCost(model, inputTokens, outputTokens),
+        timestamp: new Date(),
+      });
+
+      return NextResponse.json({
+        content: `**Replies drafted!** I\'ve crafted ${batchDrafts.length} professional replies for your selected emails. Press **\'Review Drafts\'** to preview and edit them, or press **\'Send All\'** to send them right away.`,
+        reply: `Replies drafted! I've crafted ${batchDrafts.length} professional replies for your selected emails.`,
+        batchDrafts,
+        highlightEmailIds: emailIds,
+        highlightIds: emailIds,
+      });
     }
 
     // ─── Mode 1: AI Chat ──────────────────────────────────────────────
@@ -395,8 +484,16 @@ export async function POST(req: Request) {
     }
 
     // If the intent is summarize, put the reply into the summary field as well
+    // and auto-mark the summarized emails as read
     if (aiResponse.intent === "summarize") {
       responsePayload.summary = aiResponse.reply;
+      // Auto mark-as-read for summarized emails (non-blocking)
+      if (aiResponse.targetEmailIds.length > 0) {
+        executeConfirmedAction(refreshToken, {
+          type: "mark_read",
+          emailIds: aiResponse.targetEmailIds,
+        }).catch(() => { /* non-blocking */ });
+      }
     }
 
     return NextResponse.json(responsePayload);

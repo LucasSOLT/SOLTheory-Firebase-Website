@@ -59,6 +59,13 @@ interface SearchResult {
   snippet: string;
 }
 
+interface BatchDraft {
+  emailId: string;
+  to: string;
+  subject: string;
+  body: string;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -67,6 +74,7 @@ interface ChatMessage {
   actionCard?: ActionCard;
   draft?: DraftData;
   searchResults?: SearchResult[];
+  batchDrafts?: BatchDraft[];
 }
 
 interface ActionLogEntry {
@@ -169,6 +177,8 @@ export function GmailAIPanel({
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
   const [showActionLog, setShowActionLog] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedResultIds, setSelectedResultIds] = useState<Set<string>>(new Set());
+  const [selectedResultDetails, setSelectedResultDetails] = useState<Map<string, SearchResult>>(new Map());
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef(0);
@@ -287,6 +297,10 @@ export function GmailAIPanel({
 
         if (data.searchResults && data.searchResults.length > 0) {
           assistantMessage.searchResults = data.searchResults;
+        }
+
+        if (data.batchDrafts && data.batchDrafts.length > 0) {
+          assistantMessage.batchDrafts = data.batchDrafts;
         }
 
         setMessages((prev) => [...prev, assistantMessage]);
@@ -524,6 +538,153 @@ export function GmailAIPanel({
     { label: "Clean up inbox", icon: Archive },
   ];
 
+  /* ─── Selection Handlers ─── */
+
+  const toggleResultSelect = useCallback((result: SearchResult) => {
+    setSelectedResultIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(result.id)) {
+        next.delete(result.id);
+      } else {
+        next.add(result.id);
+      }
+      return next;
+    });
+    setSelectedResultDetails((prev) => {
+      const next = new Map(prev);
+      if (next.has(result.id)) {
+        next.delete(result.id);
+      } else {
+        next.set(result.id, result);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleReplyToSelected = useCallback(async () => {
+    if (selectedResultIds.size === 0 || isLoading) return;
+
+    const selected = Array.from(selectedResultDetails.values());
+    const userMessage: ChatMessage = {
+      id: generateId(),
+      role: "user",
+      content: `Reply to ${selected.length} selected email(s)`,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("/api/gmail-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "batch_reply",
+          uid,
+          refreshToken,
+          userEmail,
+          selectedEmails: selected.map((s) => ({
+            id: s.id,
+            from: s.from,
+            subject: s.subject,
+            snippet: s.snippet,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+
+      const assistantMessage: ChatMessage = {
+        id: generateId(),
+        role: "assistant",
+        content: data.content || data.reply || "Replies drafted!",
+        timestamp: new Date(),
+        batchDrafts: data.batchDrafts || [],
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+      setSelectedResultIds(new Set());
+      setSelectedResultDetails(new Map());
+      onActionExecuted();
+    } catch {
+      const errorMessage: ChatMessage = {
+        id: generateId(),
+        role: "assistant",
+        content: "Something went wrong while drafting replies. Please try again.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedResultIds, selectedResultDetails, isLoading, uid, refreshToken, userEmail, onActionExecuted]);
+
+  const handleSendAllDrafts = useCallback(async (drafts: BatchDraft[]) => {
+    if (isLoading || drafts.length === 0) return;
+    setIsLoading(true);
+
+    let sent = 0;
+    for (const draft of drafts) {
+      try {
+        const res = await fetch("/api/webhooks/gmail/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uid,
+            refreshToken,
+            to: draft.to,
+            subject: draft.subject,
+            body: draft.body,
+          }),
+        });
+        if (res.ok) sent++;
+      } catch { /* continue sending others */ }
+    }
+
+    const resultMessage: ChatMessage = {
+      id: generateId(),
+      role: "assistant",
+      content: `**${sent} of ${drafts.length} email(s) sent successfully!** ${sent < drafts.length ? `${drafts.length - sent} failed to send.` : "All emails delivered."}`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, resultMessage]);
+    setIsLoading(false);
+    onActionExecuted();
+  }, [isLoading, uid, refreshToken, onActionExecuted]);
+
+  const handleMarkSelectedAsRead = useCallback(async () => {
+    if (selectedResultIds.size === 0 || isLoading) return;
+
+    const selected = Array.from(selectedResultDetails.values());
+    setIsLoading(true);
+
+    try {
+      await fetch("/api/gmail-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "mark_read",
+          uid,
+          refreshToken,
+          selectedEmails: selected.map((s) => ({ id: s.id, from: s.from, subject: s.subject, snippet: s.snippet })),
+        }),
+      });
+
+      const msg: ChatMessage = {
+        id: generateId(),
+        role: "assistant",
+        content: `**Marked ${selected.length} email(s) as read.**`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, msg]);
+      setSelectedResultIds(new Set());
+      setSelectedResultDetails(new Map());
+      onActionExecuted();
+    } catch { /* silently fail */ }
+    finally { setIsLoading(false); }
+  }, [selectedResultIds, selectedResultDetails, isLoading, uid, refreshToken, onActionExecuted]);
+
   /* ─── Render ─── */
 
   return (
@@ -661,11 +822,47 @@ export function GmailAIPanel({
                 <SearchResultsList
                   results={msg.searchResults}
                   onHighlight={onHighlightEmails}
+                  selectedIds={selectedResultIds}
+                  onToggleSelect={toggleResultSelect}
+                />
+              )}
+
+              {/* Batch Drafts */}
+              {msg.batchDrafts && msg.batchDrafts.length > 0 && (
+                <BatchDraftsView
+                  drafts={msg.batchDrafts}
+                  isLoading={isLoading}
+                  onSendAll={() => handleSendAllDrafts(msg.batchDrafts!)}
                 />
               )}
             </div>
           </div>
         ))}
+
+        {/* Selection Action Bar */}
+        {selectedResultIds.size > 0 && (
+          <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-slate-200 px-3 py-2.5 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <span className="text-[11px] font-medium text-slate-500 mr-auto">
+              {selectedResultIds.size} selected
+            </span>
+            <button
+              onClick={handleReplyToSelected}
+              disabled={isLoading}
+              className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-semibold hover:bg-slate-800 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+            >
+              <Send className="w-3 h-3" />
+              Reply to Selected
+            </button>
+            <button
+              onClick={handleMarkSelectedAsRead}
+              disabled={isLoading}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-medium hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+            >
+              <Check className="w-3 h-3" />
+              Mark Read
+            </button>
+          </div>
+        )}
 
         {/* Typing indicator */}
         {isLoading && (
@@ -941,32 +1138,135 @@ function DraftPreview({
 function SearchResultsList({
   results,
   onHighlight,
+  selectedIds,
+  onToggleSelect,
 }: {
   results: SearchResult[];
   onHighlight: (ids: string[]) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (result: SearchResult) => void;
 }) {
+  const selectedCount = results.filter((r) => selectedIds.has(r.id)).length;
+
   return (
-    <div className="mt-2 border border-slate-200 rounded-xl bg-white divide-y divide-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
-      <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50">
-        <Search className="w-3 h-3 text-slate-400" />
-        <span className="text-[11px] font-semibold text-slate-500">
-          {results.length} result{results.length !== 1 ? "s" : ""} found
+    <div className="mt-2 border border-slate-200 rounded-xl bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
+        <div className="flex items-center gap-1.5">
+          <Search className="w-3 h-3 text-slate-400" />
+          <span className="text-[11px] font-semibold text-slate-500">
+            {results.length} result{results.length !== 1 ? "s" : ""} found
+          </span>
+        </div>
+        {selectedCount > 0 && (
+          <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+            {selectedCount} selected
+          </span>
+        )}
+      </div>
+      <div className="max-h-[215px] overflow-y-auto divide-y divide-slate-100">
+        {results.map((r) => {
+          const isSelected = selectedIds.has(r.id);
+          return (
+            <button
+              key={r.id}
+              onClick={() => onToggleSelect(r)}
+              className={`w-full text-left px-3 py-2 transition-all duration-150 flex items-center gap-2.5 ${
+                isSelected
+                  ? "bg-blue-50/70 border-l-[3px] border-l-blue-500 pl-[9px]"
+                  : "hover:bg-slate-50 border-l-[3px] border-l-transparent pl-[9px]"
+              }`}
+            >
+              {/* Selection indicator */}
+              <div className={`w-4 h-4 rounded-[5px] border-2 shrink-0 flex items-center justify-center transition-colors ${
+                isSelected
+                  ? "bg-blue-500 border-blue-500"
+                  : "border-slate-300"
+              }`}>
+                {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs truncate ${isSelected ? "font-semibold text-slate-800" : "font-medium text-slate-700"}`}>
+                  {r.subject}
+                </p>
+                <p className="text-[11px] text-slate-400 truncate">
+                  {r.from} &mdash; {r.snippet}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {selectedCount === 0 && (
+        <div className="px-3 py-1.5 bg-slate-50/50 border-t border-slate-100">
+          <p className="text-[10px] text-slate-400 text-center">
+            Click emails to select &bull; then Reply or Mark Read
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BatchDraftsView({
+  drafts,
+  isLoading,
+  onSendAll,
+}: {
+  drafts: BatchDraft[];
+  isLoading: boolean;
+  onSendAll: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mt-2 border border-slate-200 rounded-xl bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+      <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border-b border-emerald-100">
+        <Edit3 className="w-3 h-3 text-emerald-500" />
+        <span className="text-[11px] font-semibold text-emerald-700">
+          {drafts.length} Draft{drafts.length !== 1 ? "s" : ""} Ready
         </span>
       </div>
-      {results.map((r) => (
+
+      {expanded && (
+        <div className="max-h-[260px] overflow-y-auto divide-y divide-slate-100">
+          {drafts.map((draft, i) => (
+            <div key={draft.emailId || i} className="px-3 py-2.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
+                  #{i + 1}
+                </span>
+                <p className="text-[11px] font-medium text-slate-600 truncate">
+                  To: {draft.to}
+                </p>
+              </div>
+              <p className="text-[11px] text-slate-500 truncate mb-1">
+                {draft.subject}
+              </p>
+              <p className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap">
+                {draft.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-100 bg-slate-50/50">
         <button
-          key={r.id}
-          onClick={() => onHighlight([r.id])}
-          className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors"
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-[11px] font-medium rounded-lg hover:bg-white transition-colors"
         >
-          <p className="text-xs font-medium text-slate-700 truncate">
-            {r.subject}
-          </p>
-          <p className="text-[11px] text-slate-400 truncate">
-            {r.from} &mdash; {r.snippet}
-          </p>
+          <Search className="w-3 h-3" />
+          {expanded ? "Hide Drafts" : "Review Drafts"}
         </button>
-      ))}
+        <button
+          onClick={onSendAll}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-[11px] font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+        >
+          <Send className="w-3 h-3" />
+          Send All
+        </button>
+      </div>
     </div>
   );
 }
