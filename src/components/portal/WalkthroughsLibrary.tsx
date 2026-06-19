@@ -8,6 +8,7 @@ import { Search, Plus, X, Loader2, Play, ExternalLink, Trash2, Lightbulb, Upload
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 const ADMIN_EMAIL = "lucas@soltheory.com";
 
@@ -50,6 +51,7 @@ export function WalkthroughsLibrary() {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = useStorage();
+  const { toast } = useToast();
   const [walkthroughs, setWalkthroughs] = useState<Walkthrough[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,8 +77,17 @@ export function WalkthroughsLibrary() {
     if (!firestore || !confirm("Delete this walkthrough?")) return;
     try {
       await deleteDoc(doc(firestore, "insight_walkthroughs", id));
+      toast({
+        title: "Success",
+        description: "Walkthrough deleted successfully.",
+      });
     } catch (err) {
       console.error("Failed to delete walkthrough:", err);
+      toast({
+        title: "Error",
+        description: "Failed to delete walkthrough. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -323,6 +334,7 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
   editingWalkthrough: Walkthrough | null;
   onClose: () => void;
 }) {
+  const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState<"details" | "media" | "metadata">("details");
 
@@ -422,15 +434,28 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
 
       if (isEditing) {
         await updateDoc(doc(firestore, "insight_walkthroughs", editingWalkthrough.id), data);
+        toast({
+          title: "Success",
+          description: "Walkthrough updated successfully.",
+        });
       } else {
         await addDoc(collection(firestore, "insight_walkthroughs"), {
           ...data,
           createdAt: serverTimestamp(),
         });
+        toast({
+          title: "Success",
+          description: "Walkthrough published successfully.",
+        });
       }
       onClose();
     } catch (err) {
       console.error("Failed to save walkthrough:", err);
+      toast({
+        title: "Error",
+        description: "Failed to save walkthrough. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
