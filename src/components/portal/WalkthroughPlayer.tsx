@@ -15,7 +15,7 @@ function fmt(s: number) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Corner positions
+   Corner positions (for PiP snapping)
    ═══════════════════════════════════════════════════════════════ */
 const CORNER_POS: Record<Corner, { bottom?: number; top?: number; left?: number; right?: number }> = {
   br: { bottom: 16, right: 16 },
@@ -35,13 +35,16 @@ function nearestCorner(x: number, y: number): Corner {
 
 /* ═══════════════════════════════════════════════════════════════
    WALKTHROUGH PLAYER — Floating / PiP video player
+
+   Architecture: A SINGLE <video> element is always rendered and
+   never unmounted. The wrapper styling changes between full-size
+   and PiP mode so playback is never interrupted.
    ═══════════════════════════════════════════════════════════════ */
 export function WalkthroughPlayer() {
   const { video, isMinimized, corner, closeVideo, toggleMinimize, setCorner } =
     useWalkthroughPlayerStore();
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const iframeContainerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<HTMLDivElement>(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
@@ -75,7 +78,7 @@ export function WalkthroughPlayer() {
     return () => { if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current); };
   }, [isMinimized, resetControlsTimer]);
 
-  /* ── Video element time tracking ── */
+  /* ── Video element event tracking ── */
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -85,15 +88,17 @@ export function WalkthroughPlayer() {
     const onPause = () => setIsPlaying(false);
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("loadedmetadata", onDur);
+    v.addEventListener("durationchange", onDur);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
     return () => {
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("loadedmetadata", onDur);
+      v.removeEventListener("durationchange", onDur);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
     };
-  }, [video, isDirectVideo]);
+  }, [video?.url]);
 
   /* ── Play/pause toggle ── */
   const togglePlay = useCallback(() => {
@@ -177,7 +182,7 @@ export function WalkthroughPlayer() {
     dragStartRef.current = null;
   }, [isDragging, dragPos, setCorner]);
 
-  // Mouse events
+  // Mouse drag events
   useEffect(() => {
     if (!isDragging) return;
     const onMove = (e: MouseEvent) => handleDragMove(e.clientX, e.clientY);
@@ -190,7 +195,7 @@ export function WalkthroughPlayer() {
     };
   }, [isDragging, handleDragMove, handleDragEnd]);
 
-  // Touch events
+  // Touch drag events
   useEffect(() => {
     if (!isDragging) return;
     const onMove = (e: TouchEvent) => {
@@ -205,7 +210,7 @@ export function WalkthroughPlayer() {
     };
   }, [isDragging, handleDragMove, handleDragEnd]);
 
-  /* ── Reset play state when video changes ── */
+  /* ── Reset play state ONLY when a new video URL loads ── */
   useEffect(() => {
     if (video) {
       setIsPlaying(true);
@@ -217,45 +222,50 @@ export function WalkthroughPlayer() {
   if (!video) return null;
 
   /* ═══════════════════════════════════════════════════════════════
+     RENDER — single element architecture
+     The <video> element is always rendered once. The outer wrapper
+     changes between full-screen and PiP styling.
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* ── PiP wrapper style ── */
+  const pipPos = CORNER_POS[corner];
+  const pipStyle: React.CSSProperties = isDragging && dragPos
+    ? { position: "fixed", left: dragPos.x, top: dragPos.y, zIndex: 99990, transition: "none" }
+    : { position: "fixed", ...pipPos, zIndex: 99990, transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" };
+
+  /* ── The shared video / iframe element ── */
+  const mediaElement = isDirectVideo ? (
+    <video
+      ref={videoRef}
+      src={video.url}
+      className={isMinimized ? "w-full h-full object-cover" : "w-full h-full object-contain cursor-pointer"}
+      autoPlay
+      playsInline
+      muted={isMuted}
+      onClick={isMinimized ? undefined : togglePlay}
+    />
+  ) : (
+    <iframe
+      src={video.url}
+      className="w-full h-full border-0"
+      allow="autoplay; fullscreen"
+      allowFullScreen
+    />
+  );
+
+  /* ═══════════════════════════════════════════════════════════════
      MINI (PiP) MODE
      ═══════════════════════════════════════════════════════════════ */
   if (isMinimized) {
-    const pos = CORNER_POS[corner];
-    const style: React.CSSProperties = isDragging && dragPos
-      ? { position: "fixed", left: dragPos.x, top: dragPos.y, zIndex: 99990, transition: "none" }
-      : { position: "fixed", ...pos, zIndex: 99990, transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" };
-
     return (
       <div
         ref={dragRef}
-        style={style}
+        style={pipStyle}
         className="w-[320px] h-[180px] rounded-xl overflow-hidden shadow-2xl border border-slate-200/60 bg-black group select-none"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          handleDragStart(e.clientX, e.clientY);
-        }}
-        onTouchStart={(e) => {
-          if (e.touches[0]) handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
-        }}
+        onMouseDown={(e) => { e.preventDefault(); handleDragStart(e.clientX, e.clientY); }}
+        onTouchStart={(e) => { if (e.touches[0]) handleDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
       >
-        {/* Video content */}
-        {isDirectVideo ? (
-          <video
-            ref={videoRef}
-            src={video.url}
-            className="w-full h-full object-cover"
-            autoPlay
-            playsInline
-            muted={isMuted}
-          />
-        ) : (
-          <iframe
-            src={video.url}
-            className="w-full h-full border-0"
-            allow="autoplay; fullscreen"
-            allowFullScreen
-          />
-        )}
+        {mediaElement}
 
         {/* Hover overlay controls */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between pointer-events-none">
@@ -272,7 +282,7 @@ export function WalkthroughPlayer() {
 
           {/* Bottom bar */}
           <div className="flex items-center justify-between px-3 pb-2 pointer-events-auto">
-            {/* Play/Pause */}
+            {/* Play/Pause — bottom left */}
             {isDirectVideo && (
               <button
                 onClick={(e) => { e.stopPropagation(); togglePlay(); }}
@@ -289,7 +299,7 @@ export function WalkthroughPlayer() {
               </span>
             )}
 
-            {/* Maximize */}
+            {/* Maximize — bottom right */}
             <button
               onClick={(e) => { e.stopPropagation(); toggleMinimize(); }}
               className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center text-white transition-colors"
@@ -309,39 +319,13 @@ export function WalkthroughPlayer() {
     <div
       className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={(e) => {
-        // Click on backdrop toggles play/pause for direct video
-        if (e.target === e.currentTarget) {
-          if (isDirectVideo) togglePlay();
-        }
+        if (e.target === e.currentTarget && isDirectVideo) togglePlay();
       }}
       onMouseMove={resetControlsTimer}
     >
       {/* Video container */}
-      <div
-        className="relative w-full max-w-5xl mx-4 aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl"
-        onClick={(e) => {
-          // Click on video area toggles play/pause
-          if (isDirectVideo && e.target === e.currentTarget) togglePlay();
-        }}
-      >
-        {isDirectVideo ? (
-          <video
-            ref={videoRef}
-            src={video.url}
-            className="w-full h-full object-contain cursor-pointer"
-            autoPlay
-            playsInline
-            muted={isMuted}
-            onClick={togglePlay}
-          />
-        ) : (
-          <iframe
-            src={video.url}
-            className="w-full h-full border-0"
-            allow="autoplay; fullscreen"
-            allowFullScreen
-          />
-        )}
+      <div className="relative w-full max-w-5xl mx-4 aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl">
+        {mediaElement}
 
         {/* ── Control bar ── */}
         <div
@@ -349,7 +333,7 @@ export function WalkthroughPlayer() {
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
         >
-          {/* Seek bar (direct video only) */}
+          {/* Seek bar */}
           {isDirectVideo && duration > 0 && (
             <div
               className="w-full h-1.5 bg-white/20 rounded-full mb-3 cursor-pointer group/seek"
@@ -382,7 +366,7 @@ export function WalkthroughPlayer() {
               )}
             </div>
 
-            {/* Right: volume + minimize */}
+            {/* Right: volume + minimize + close */}
             <div className="flex items-center gap-2">
               {/* Volume */}
               {isDirectVideo && (
