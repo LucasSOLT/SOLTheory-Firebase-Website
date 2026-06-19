@@ -14,6 +14,7 @@ import { useTranslation } from "@/lib/i18n";
 import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
 import { useContentManagerStore } from "@/stores/content-manager-store";
+import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -1670,6 +1671,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Persistent Floating Video Player — persists across all dashboard pages */}
+      <WalkthroughPlayer />
 
       {/* Welcome Walkthrough Modal */}
       {showWelcome && (

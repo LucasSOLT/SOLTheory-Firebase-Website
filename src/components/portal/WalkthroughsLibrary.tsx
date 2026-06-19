@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useUser, useFirestore, useStorage } from "@/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, query, orderBy } from "firebase/firestore";
-import { Search, Plus, X, Loader2, Play, ExternalLink, Trash2, Lightbulb, Upload, Link2, Clock, Tag, FileText, Eye, ChevronDown, Edit3, Image as ImageIcon, File, CheckCircle2 } from "lucide-react";
+import { Search, Plus, X, Loader2, Play, Trash2, Lightbulb, Upload, Link2, Clock, Tag, FileText, Eye, ChevronDown, Edit3, Image as ImageIcon, File, CheckCircle2 } from "lucide-react";
+import { useWalkthroughPlayerStore } from "@/stores/walkthrough-player-store";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -204,9 +205,9 @@ export function WalkthroughsLibrary() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-3">
           {filtered.map(w => (
-            <WalkthroughCard key={w.id} walkthrough={w} isAdmin={isAdmin} onDelete={handleDelete} onEdit={openEdit} />
+            <WalkthroughCard key={w.id} walkthrough={w} isAdmin={isAdmin} onDelete={handleDelete} onEdit={openEdit} onPlay={(url, title, thumb) => useWalkthroughPlayerStore.getState().playVideo(url, title, thumb)} />
           ))}
         </div>
       )}
@@ -228,32 +229,44 @@ export function WalkthroughsLibrary() {
    WALKTHROUGH CARD
    ═══════════════════════════════════════════════════════════════ */
 
-function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit }: {
+function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit, onPlay }: {
   walkthrough: Walkthrough;
   isAdmin: boolean;
   onDelete: (id: string) => void;
   onEdit: (w: Walkthrough) => void;
+  onPlay: (url: string, title: string, thumbnailUrl: string) => void;
 }) {
   const diff = DIFFICULTY_OPTIONS.find(d => d.value === w.difficulty);
-  
+
   return (
-    <div className="group border border-slate-200 rounded-xl bg-white hover:border-slate-300 transition-all overflow-hidden">
-      {/* Thumbnail */}
-      <a href={w.videoUrl} target="_blank" rel="noopener noreferrer" className="block relative h-40 bg-slate-50 border-b border-slate-100 overflow-hidden">
+    <div
+      className="group flex items-stretch border border-slate-200 rounded-xl bg-white hover:border-slate-300 hover:shadow-sm transition-all overflow-hidden cursor-pointer"
+      onClick={() => onPlay(w.videoUrl, w.title, w.thumbnailUrl)}
+    >
+      {/* Thumbnail — left side */}
+      <div className="relative w-[200px] min-w-[200px] bg-slate-50 border-r border-slate-100 overflow-hidden shrink-0">
         {w.thumbnailUrl ? (
-          <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" />
+          <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-              <Play className="w-5 h-5 text-slate-400 ml-0.5" />
+          <div className="w-full h-full flex items-center justify-center min-h-[100px]">
+            <div className="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+              <Play className="w-4.5 h-4.5 text-slate-400 ml-0.5" />
             </div>
           </div>
         )}
+        {w.estimatedMinutes > 0 && (
+          <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
+            <Clock className="w-3 h-3" />
+            {w.estimatedMinutes} min
+          </div>
+        )}
+      </div>
 
-        {/* Overlay badges */}
-        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+      {/* Info — center */}
+      <div className="flex-1 flex flex-col justify-center px-5 py-3.5 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
           {w.category && (
-            <span className="text-[10px] font-medium bg-white/90 backdrop-blur-sm text-slate-600 px-2 py-0.5 rounded-md shadow-sm border border-slate-100">
+            <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-100">
               {w.category}
             </span>
           )}
@@ -263,62 +276,47 @@ function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit }: {
             </span>
           )}
         </div>
-
-        {w.estimatedMinutes > 0 && (
-          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
-            <Clock className="w-3 h-3" />
-            {w.estimatedMinutes} min
+        <h3 className="text-sm font-semibold text-slate-900 truncate">{w.title}</h3>
+        {w.description && (
+          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1 leading-relaxed">{w.description}</p>
+        )}
+        {w.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {w.tags.slice(0, 5).map((tag, i) => (
+              <span key={i} className="text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                {tag}
+              </span>
+            ))}
+            {w.tags.length > 5 && (
+              <span className="text-[10px] font-medium text-slate-400 px-1">
+                +{w.tags.length - 5}
+              </span>
+            )}
           </div>
         )}
+      </div>
 
-        {/* Admin controls */}
+      {/* Right side — actions */}
+      <div className="flex items-center gap-2 px-4 shrink-0">
         {isAdmin && (
-          <div className="absolute top-2.5 right-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(w); }}
-              className="w-7 h-7 bg-white border border-slate-200 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-400 hover:text-slate-600 shadow-sm"
+              onClick={(e) => { e.stopPropagation(); onEdit(w); }}
+              className="w-7 h-7 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
             >
               <Edit3 className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(w.id); }}
-              className="w-7 h-7 bg-white border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-slate-400 shadow-sm"
+              onClick={(e) => { e.stopPropagation(); onDelete(w.id); }}
+              className="w-7 h-7 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-slate-400 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
-      </a>
-
-      {/* Info */}
-      <div className="p-4">
-        <h3 className="text-sm font-medium text-slate-900 line-clamp-1">{w.title}</h3>
-        {w.description && (
-          <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">{w.description}</p>
-        )}
-        {w.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {w.tags.slice(0, 4).map((tag, i) => (
-              <span key={i} className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                {tag}
-              </span>
-            ))}
-            {w.tags.length > 4 && (
-              <span className="text-[10px] font-medium text-slate-400 px-1">
-                +{w.tags.length - 4}
-              </span>
-            )}
-          </div>
-        )}
-        <a
-          href={w.videoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 mt-3 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
-        >
-          <ExternalLink className="w-3 h-3" />
-          Watch walkthrough
-        </a>
+        <div className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center text-white group-hover:bg-slate-800 transition-colors shadow-sm">
+          <Play className="w-4 h-4 ml-0.5" />
+        </div>
       </div>
     </div>
   );
