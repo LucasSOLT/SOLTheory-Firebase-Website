@@ -290,23 +290,8 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
     trash: { title: "Trash is empty", desc: "Deleted emails will appear here for 30 days." },
   };
 
-  // Add animation styles
-  const flyAnimationStyle = `
-    @keyframes emailFly {
-      0% { transform: translateX(0) scale(1); opacity: 1; }
-      40% { transform: translateX(30px) scale(0.95); opacity: 0.8; }
-      70% { transform: translateX(60%) scale(0.7); opacity: 0.4; }
-      100% { transform: translateX(100%) scale(0.5); opacity: 0; }
-    }
-    .ai-email-fly {
-      animation: emailFly 0.8s ease-in-out forwards;
-      pointer-events: none;
-    }
-  `;
-
   return (
     <div className="flex h-full" style={{ WebkitFontSmoothing: "antialiased" } as React.CSSProperties}>
-    <style>{flyAnimationStyle}</style>
     <div className="flex flex-col flex-1 min-w-0 relative">
       {/* Top Bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-200/80 bg-white shrink-0">
@@ -525,7 +510,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
                   const isHighlighted = highlightedEmailIds.includes(email.id);
                   return (
                   <div key={email.id} onClick={() => openEmail(email)}
-                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : ""} hover:bg-slate-50 ${isHighlighted ? "ai-email-fly" : ""}`}>
+                    className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100/80 cursor-pointer transition-all duration-300 group ${!email.read ? "bg-blue-50/20" : "opacity-50"} hover:bg-slate-50 ${isHighlighted ? "ring-2 ring-blue-400/60 bg-blue-50/40 shadow-sm" : ""}`}>
                     <button onClick={(ev) => toggleStar(email.id, ev)} className="shrink-0 cursor-pointer">
                       {email.starred ? <Star className="w-4 h-4 text-amber-400 fill-amber-400" /> : <StarOff className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />}
                     </button>

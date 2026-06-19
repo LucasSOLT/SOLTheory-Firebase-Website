@@ -310,8 +310,6 @@ export function GmailAIPanel({
 
         if (data.highlightIds && data.highlightIds.length > 0) {
           onHighlightEmails(data.highlightIds);
-          // Clear highlights after fly animation completes
-          setTimeout(() => onHighlightEmails([]), 1200);
         }
       } catch (err: any) {
         const errorMessage: ChatMessage = {

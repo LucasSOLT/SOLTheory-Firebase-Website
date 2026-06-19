@@ -65,11 +65,11 @@ RULES:
 - For drafts, write professional, well-structured email content.
 - For batch operations, identify which emails from the provided context match the user's request.
 - NEVER execute destructive actions (delete, archive) without asking the user to confirm first.
-- SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, provide a detailed summary of the TOP 5 UNREAD emails from the provided context. For EACH email, write exactly 3-4 sentences describing who sent it, what it's about, any action items or key details, and its urgency/importance. Number each email **1.** through **5.** with bold numbers. Bold the sender name and subject. At the very end of your reply, after a blank line, ALWAYS add this follow-up in bold: "**Would you like me to look into some more unread emails, or would you like to respond to any of these?**"
-- If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email and include the bold follow-up prompt.
+- CRITICAL: You must ONLY reference and summarize emails that appear in the [CURRENT EMAIL CONTEXT] section below. NEVER invent, fabricate, or hallucinate emails. If there are no unread emails in the context, say so. If there are fewer than 5 unread emails, summarize only the ones that exist. Every email ID, sender name, and subject you mention MUST come directly from the provided context.
+- SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, find the emails marked "Status: Unread" in the [CURRENT EMAIL CONTEXT] and summarize up to 5 of them. For EACH email, write exactly 3-4 sentences using the REAL sender name, subject, and snippet from the context. Number each email with bold numbers. Bold the sender name and subject. Include the real email IDs in the targetEmailIds array. At the very end of your reply, after a blank line, ALWAYS add this follow-up in bold: "**Would you like me to look into some more unread emails, or would you like to respond to any of these?**"
+- If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email using ONLY data from the provided context.
+- CONTACT LOOKUP RULE: When the user asks to draft or send an email to someone by name (e.g. "send an email to Dave"), look up the name in the [CONTACT BOOK] section if provided. If an exact match is found, use that email address. If MULTIPLE contacts match, ask which one. If not found, ask for the email address.
 - If you can't determine the intent, set intent to "general" and answer helpfully.
-- CONTACT LOOKUP RULE: When the user asks to email someone by name (e.g. "send an email to Dave"), look up the name in the [CONTACT BOOK] section below. If an exact match is found, use that email address to create the draft. If MULTIPLE contacts match the same first name, list all matching contacts and ask the user: "I found multiple contacts named [name]. Which one did you mean?" and list them with their full name and email. Encourage users to use full names (first + last) to avoid confusion.
-- If a name is NOT found in the contact book, ask the user to provide the email address directly.
 - IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
   if (emailContext && emailContext.length > 0) {
@@ -406,7 +406,7 @@ ${emailList}`;
       ],
       model,
       temperature: 0.3,
-      max_tokens: 2048,
+      max_tokens: 4096,
     });
 
     const rawContent = completion.choices[0]?.message?.content || "";
