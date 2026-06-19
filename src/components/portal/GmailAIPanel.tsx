@@ -113,6 +113,41 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** Render text with **bold** markdown and paragraph spacing */
+function renderFormattedContent(text: string): React.ReactNode {
+  // Split on double newlines for paragraph spacing
+  const paragraphs = text.split(/\n\n+/);
+
+  return paragraphs.map((para, pIdx) => {
+    // Split on single newlines within a paragraph
+    const lines = para.split(/\n/);
+
+    return (
+      <div key={pIdx} className={pIdx > 0 ? "mt-3" : ""}>
+        {lines.map((line, lIdx) => {
+          // Parse **bold** segments
+          const parts = line.split(/(\*\*[^*]+\*\*)/);
+          return (
+            <span key={lIdx}>
+              {lIdx > 0 && <br />}
+              {parts.map((part, i) => {
+                if (part.startsWith("**") && part.endsWith("**")) {
+                  return (
+                    <strong key={i} className="font-semibold">
+                      {part.slice(2, -2)}
+                    </strong>
+                  );
+                }
+                return <span key={i}>{part}</span>;
+              })}
+            </span>
+          );
+        })}
+      </div>
+    );
+  });
+}
+
 /* ─── Component ─── */
 
 export function GmailAIPanel({
@@ -576,13 +611,15 @@ export function GmailAIPanel({
             >
               {/* Message bubble */}
               <div
-                className={`px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
+                className={`px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-slate-900 text-white rounded-br-md"
+                    ? "bg-slate-900 text-white rounded-br-md whitespace-pre-wrap"
                     : "bg-slate-50 border border-slate-200 text-slate-700 rounded-bl-md"
                 }`}
               >
-                {msg.content}
+                {msg.role === "assistant"
+                  ? renderFormattedContent(msg.content)
+                  : msg.content}
               </div>
 
               {/* Timestamp */}

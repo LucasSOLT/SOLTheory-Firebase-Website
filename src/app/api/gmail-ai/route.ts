@@ -53,12 +53,18 @@ RULES:
     "targetEmailIds": "string[] — IDs of emails to act on from the provided email context",
     "actionType": "string | null — one of: archive, delete, star, mark_read, move — only if the user wants a bulk action"
   }
+- FORMATTING RULES for the "reply" field:
+  - Use **bold** (double asterisks) for: list numbers (e.g. **1.**), sender names, and email subject lines.
+  - Any text that directly addresses the user (questions, follow-up prompts, calls to action) should be **bold**.
+  - Descriptions of email content should NOT be bold — keep them in regular text.
+  - Use blank lines (\n\n) between each numbered email summary for readability.
+  - Keep the formatting clean and scannable.
 - For search queries, construct proper Gmail search syntax (e.g., "from:john@example.com subject:invoice newer_than:7d").
 - For drafts, write professional, well-structured email content.
 - For batch operations, identify which emails from the provided context match the user's request.
 - NEVER execute destructive actions (delete, archive) without asking the user to confirm first.
-- SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, provide a detailed summary of the TOP 5 UNREAD emails from the provided context. For EACH email, write exactly 3-4 sentences describing who sent it, what it's about, any action items or key details, and its urgency/importance. Number each email 1-5. At the very end of your reply, ALWAYS add this exact follow-up prompt on a new line: "Would you like me to look into some more unread emails, or would you like to respond to any of these?"
-- If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email and include the follow-up prompt.
+- SUMMARIZE UNREAD EMAILS RULE: When the user asks to summarize unread emails, provide a detailed summary of the TOP 5 UNREAD emails from the provided context. For EACH email, write exactly 3-4 sentences describing who sent it, what it's about, any action items or key details, and its urgency/importance. Number each email **1.** through **5.** with bold numbers. Bold the sender name and subject. At the very end of your reply, after a blank line, ALWAYS add this follow-up in bold: "**Would you like me to look into some more unread emails, or would you like to respond to any of these?**"
+- If the user asks to summarize emails in general (not specifically unread), still provide a clear numbered summary with 3-4 sentences per email and include the bold follow-up prompt.
 - If you can't determine the intent, set intent to "general" and answer helpfully.
 - IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
@@ -226,7 +232,38 @@ function parseAIResponse(raw: string): AIResponseShape {
       actionType: parsed.actionType || null,
     };
   } catch {
-    // If JSON parsing fails, treat the entire response as a plain reply
+    // JSON.parse failed — try to extract fields with regex
+    // This handles cases where special chars (emojis, unicode) break JSON.parse
+    const replyMatch = cleaned.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/s);
+    if (replyMatch) {
+      let replyText: string;
+      try {
+        replyText = JSON.parse(`"${replyMatch[1]}"`);
+      } catch {
+        replyText = replyMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"');
+      }
+
+      const intentMatch = cleaned.match(/"intent"\s*:\s*"([^"]*)"/s);
+      const searchMatch = cleaned.match(/"searchQuery"\s*:\s*"([^"]*)"/s);
+      const actionMatch = cleaned.match(/"actionType"\s*:\s*"([^"]*)"/s);
+      const idsMatch = cleaned.match(/"targetEmailIds"\s*:\s*\[([\s\S]*?)\]/s);
+      let targetIds: string[] = [];
+      if (idsMatch) {
+        const idMatches = idsMatch[1].match(/"([^"]+)"/g);
+        targetIds = idMatches ? idMatches.map((s: string) => s.replace(/"/g, "")) : [];
+      }
+
+      return {
+        reply: replyText,
+        intent: intentMatch?.[1] || "general",
+        searchQuery: searchMatch?.[1] || null,
+        draft: null,
+        targetEmailIds: targetIds,
+        actionType: actionMatch?.[1] || null,
+      };
+    }
+
+    // Complete fallback — no JSON structure detected at all
     return {
       reply: raw,
       intent: "general",
