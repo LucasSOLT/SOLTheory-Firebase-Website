@@ -450,7 +450,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (p.includes('/settings')) return { icon: 'Settings', label: 'Settings' };
       if (p.includes('/communications/dm')) return { icon: 'MessageSquare', label: 'Direct Messages' };
       if (p.includes('/communications/org-thread')) return { icon: 'MessageSquare', label: 'Org Thread' };
-      if (p.includes('/communications/contacts')) return { icon: 'MessageSquare', label: 'Contacts' };
       if (p.includes('/communications')) return { icon: 'MessageSquare', label: 'Messages' };
       if (p.includes('/walkthroughs')) return { icon: 'Lightbulb', label: 'INSiGHT Walkthroughs' };
       if (p.includes('/surveys')) return { icon: 'FileText', label: 'Surveys' };
@@ -1337,10 +1336,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Link href={`${dashboardHome}/communications/org-thread`} className={getSidebarSubLinkClass(pathname.endsWith('/communications/org-thread'))}>
                     <Hash className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium">{t.orgThread}</span>
-                  </Link>
-                  <Link href={`${dashboardHome}/communications/contacts`} className={getSidebarSubLinkClass(pathname.endsWith('/communications/contacts'))}>
-                    <BookUser className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/contacts') ? 'text-indigo-600' : ''}`} />
-                    <span className="text-xs font-medium">{t.contacts}</span>
                   </Link>
                 </div>
               )}

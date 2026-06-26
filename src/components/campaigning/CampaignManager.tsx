@@ -518,6 +518,59 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [showPreview, setShowPreview] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const { user } = useUser();
+  const creatorFirestore = useFirestore();
+  const [personalInfo, setPersonalInfo] = useState<{ senderName: string; orgName: string; phoneNumber: string }>({ senderName: campaignSettings.senderName || '', orgName: campaignSettings.orgName || '', phoneNumber: '' });
+  const [savedPresets, setSavedPresets] = useState<{ id: string; label: string; senderName: string; orgName: string; phoneNumber: string }[]>([]);
+  const [showPresetDropdown, setShowPresetDropdown] = useState(false);
+  const [presetLabel, setPresetLabel] = useState('');
+  const [showSaveForm, setShowSaveForm] = useState(false);
+
+  // Sync personal info defaults from campaignSettings
+  useEffect(() => {
+    if (!user?.uid) return;
+    setPersonalInfo(prev => ({
+      senderName: prev.senderName || campaignSettings.senderName || '',
+      orgName: prev.orgName || campaignSettings.orgName || '',
+      phoneNumber: prev.phoneNumber || '',
+    }));
+  }, [campaignSettings, user?.uid]);
+
+  // Load saved personal info presets from Firestore
+  useEffect(() => {
+    if (!creatorFirestore || !user?.uid) return;
+    getDoc(doc(creatorFirestore, `users/${user.uid}/settings/personalInfoPresets`)).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setSavedPresets(data.presets || []);
+      }
+    }).catch(console.error);
+  }, [creatorFirestore, user?.uid]);
+
+  const savePreset = async () => {
+    if (!presetLabel.trim() || !creatorFirestore || !user?.uid) return;
+    const newPreset = { id: Date.now().toString(), label: presetLabel.trim(), ...personalInfo };
+    const updated = [...savedPresets, newPreset];
+    setSavedPresets(updated);
+    setPresetLabel('');
+    setShowSaveForm(false);
+    try {
+      await setDoc(doc(creatorFirestore, `users/${user.uid}/settings/personalInfoPresets`), { presets: updated });
+    } catch (err) { console.error('Failed to save preset:', err); }
+  };
+
+  const deletePreset = async (id: string) => {
+    if (!creatorFirestore || !user?.uid) return;
+    const updated = savedPresets.filter(p => p.id !== id);
+    setSavedPresets(updated);
+    try {
+      await setDoc(doc(creatorFirestore, `users/${user.uid}/settings/personalInfoPresets`), { presets: updated });
+    } catch (err) { console.error('Failed to delete preset:', err); }
+  };
+
+  const applyPreset = (preset: { senderName: string; orgName: string; phoneNumber: string }) => {
+    setPersonalInfo({ senderName: preset.senderName, orgName: preset.orgName, phoneNumber: preset.phoneNumber });
+    setShowPresetDropdown(false);
+  };
 
   const wizardSteps = ["Campaign Type", "Choose Template", "Edit Content", "Select Recipients", "Schedule & Launch"];
 
@@ -728,6 +781,69 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
               <textarea value={body} onChange={(e) => setBody(e.target.value)}
                 placeholder={"Write your email content here...\n\nUse {{first_name}} for personalization."}
                 className="w-full h-[450px] px-5 py-4 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-200 resize-none leading-relaxed placeholder:text-slate-300 font-mono" />
+            </div>
+            {/* Personal Information */}
+            <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Personal Information</p>
+                <div className="relative">
+                  <button onClick={() => setShowPresetDropdown(!showPresetDropdown)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 border border-slate-200 hover:bg-white transition-colors cursor-pointer">
+                    <ChevronDown className="w-3.5 h-3.5" /> Saved Presets
+                  </button>
+                  {showPresetDropdown && (
+                    <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-xl border border-slate-200 shadow-lg z-50 overflow-hidden">
+                      {savedPresets.length === 0 ? (
+                        <p className="text-xs text-slate-400 p-3 text-center">No saved presets yet</p>
+                      ) : (
+                        savedPresets.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 transition-colors">
+                            <button onClick={() => applyPreset(p)} className="flex-1 text-left cursor-pointer">
+                              <p className="text-xs font-semibold text-slate-700">{p.label}</p>
+                              <p className="text-[10px] text-slate-400">{p.senderName} · {p.orgName}</p>
+                            </button>
+                            <button onClick={() => deletePreset(p.id)} className="text-slate-300 hover:text-red-500 cursor-pointer p-1"><Trash2 className="w-3 h-3" /></button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Sender Name</label>
+                  <input type="text" value={personalInfo.senderName} onChange={(e) => setPersonalInfo(prev => ({ ...prev, senderName: e.target.value }))}
+                    placeholder="e.g., John Doe"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-200 placeholder:text-slate-300" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Organization Name</label>
+                  <input type="text" value={personalInfo.orgName} onChange={(e) => setPersonalInfo(prev => ({ ...prev, orgName: e.target.value }))}
+                    placeholder="e.g., SOL Theory"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-200 placeholder:text-slate-300" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Phone Number</label>
+                  <input type="text" value={personalInfo.phoneNumber} onChange={(e) => setPersonalInfo(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                    placeholder="e.g., (555) 123-4567"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-200 placeholder:text-slate-300" />
+                </div>
+              </div>
+              {!showSaveForm ? (
+                <button onClick={() => setShowSaveForm(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer transition-colors">
+                  <Save className="w-3.5 h-3.5" /> Save as Preset
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input type="text" value={presetLabel} onChange={(e) => setPresetLabel(e.target.value)}
+                    placeholder="Preset name, e.g., Work Info"
+                    className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-300" />
+                  <button onClick={savePreset} className="px-3 py-2 rounded-lg bg-slate-800 text-white text-xs font-semibold hover:bg-slate-900 cursor-pointer transition-colors">Save</button>
+                  <button onClick={() => { setShowSaveForm(false); setPresetLabel(''); }} className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-500 hover:bg-slate-50 cursor-pointer transition-colors">Cancel</button>
+                </div>
+              )}
             </div>
             <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100">
               <div className="flex items-center gap-2 mb-2">

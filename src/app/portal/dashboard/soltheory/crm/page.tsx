@@ -946,7 +946,7 @@ export default function CRMPage() {
       <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB]'}`}>
         <div className="text-center space-y-4">
           <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-slate-500 font-medium">Loading CRM...</p>
+          <p className="text-sm text-slate-500 font-medium">Loading Contacts...</p>
         </div>
       </div>
     );
@@ -960,9 +960,9 @@ export default function CRMPage() {
             <Users className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">SOLTheory CRM</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">SOLTheory Contacts</h1>
             <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-              Sign in to your account to access the CRM dashboard, manage contacts, and track your sales pipeline.
+              Sign in to your account to access the Contacts dashboard, manage contacts, and track your sales pipeline.
             </p>
           </div>
           <div className="pt-2">
@@ -1003,7 +1003,7 @@ export default function CRMPage() {
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <Users className="w-4 h-4 text-white" />
             </div>
-            <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>CRM</span>
+            <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Contacts</span>
           </div>
           <button onClick={() => setIsMobileSidebarOpen(false)} className={`lg:hidden w-7 h-7 rounded-md ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} flex items-center justify-center text-slate-400 cursor-pointer`}>
             <X className="w-4 h-4" />
@@ -1069,7 +1069,7 @@ export default function CRMPage() {
             </button>
             {/* Breadcrumb (desktop) */}
             <div className="hidden lg:flex items-center gap-2 text-sm">
-              <span className={`font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>CRM</span>
+              <span className={`font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Contacts</span>
               <span className="text-slate-300">/</span>
               <span className={`font-semibold capitalize ${isDarkMode ? 'text-indigo-400' : 'text-slate-700'}`}>{getCrmNavLabel(activeView)}</span>
             </div>
