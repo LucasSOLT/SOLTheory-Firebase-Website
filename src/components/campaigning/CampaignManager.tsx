@@ -42,6 +42,7 @@ interface CRMContact {
   name: string;
   email: string;
   aliases?: string;
+  tags?: string[];
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -515,6 +516,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [contactSearch, setContactSearch] = useState("");
   const [showFromScratch, setShowFromScratch] = useState(!!(editCampaign && !editCampaign.templateId));
   const [showPreview, setShowPreview] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const { user } = useUser();
 
   const wizardSteps = ["Campaign Type", "Choose Template", "Edit Content", "Select Recipients", "Schedule & Launch"];
@@ -553,9 +555,12 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
     }
   };
 
-  const filteredContacts = crmContacts.filter((c) =>
-    !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()) || c.email.toLowerCase().includes(contactSearch.toLowerCase())
-  );
+  const allTags = Array.from(new Set(crmContacts.flatMap((c) => c.tags || [])));
+  const filteredContacts = crmContacts.filter((c) => {
+    const matchSearch = !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()) || c.email.toLowerCase().includes(contactSearch.toLowerCase());
+    const matchTag = !tagFilter || (c.tags || []).includes(tagFilter);
+    return matchSearch && matchTag;
+  });
 
   const canProceed = [
     () => !!kind,                                              // step 0: kind selected
@@ -625,7 +630,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 0: Campaign Type ═══ */}
         {step === 0 && (
-          <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
+          <div className="max-w-5xl mx-auto py-8 px-6 space-y-6">
             <div>
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Campaign Name</label>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)}
@@ -639,13 +644,13 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 {CAMPAIGN_KINDS.map((k) => {
                   const Icon = k.icon;
                   return (
-                    <button key={k.id} onClick={() => setKind(k.id)}
-                      className={`group text-left rounded-2xl border p-5 transition-all cursor-pointer relative overflow-hidden ${
+                    <button key={k.id} onClick={() => k.id !== "automated" && setKind(k.id)}
+                      className={`group text-left rounded-2xl border p-6 transition-all relative overflow-hidden ${
                         kind === k.id
-                          ? "border-slate-800 bg-slate-50 ring-1 ring-slate-800 shadow-sm"
+                          ? "border-slate-800 bg-slate-50 ring-1 ring-slate-800 shadow-sm cursor-pointer"
                           : k.id === "automated"
-                            ? "border-slate-200 opacity-80"
-                            : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
+                            ? "border-slate-200 opacity-50 cursor-not-allowed"
+                            : "border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-pointer"
                       }`}>
                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.gradient} flex items-center justify-center text-white mb-3 ${
                         kind === k.id ? "shadow-md" : "shadow-sm"
@@ -675,7 +680,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 1: Choose Template ═══ */}
         {step === 1 && (
-          <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
+          <div className="max-w-5xl mx-auto py-8 px-6 space-y-6">
             <div className="flex items-center justify-between mb-1">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Select a Template</label>
               <button onClick={startFromScratch}
@@ -710,7 +715,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 2: Edit Content ═══ */}
         {step === 2 && (
-          <div className="max-w-2xl mx-auto py-8 px-6 space-y-5">
+          <div className="max-w-4xl mx-auto py-8 px-6 space-y-5">
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Email Content</p>
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Subject Line</label>
@@ -722,10 +727,19 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
               <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Email Body</label>
               <textarea value={body} onChange={(e) => setBody(e.target.value)}
                 placeholder={"Write your email content here...\n\nUse {{first_name}} for personalization."}
-                className="w-full h-[320px] px-4 py-3 rounded-xl border border-slate-200 text-[13px] outline-none focus:ring-2 focus:ring-slate-200 resize-none leading-relaxed placeholder:text-slate-300 font-mono" />
+                className="w-full h-[400px] px-4 py-3 rounded-xl border border-slate-200 text-[13px] outline-none focus:ring-2 focus:ring-slate-200 resize-none leading-relaxed placeholder:text-slate-300 font-mono" />
             </div>
             <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100">
-              <p className="text-[10px] font-semibold text-blue-600 mb-1.5">Merge Fields</p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <p className="text-[10px] font-semibold text-blue-600">Merge Fields</p>
+                <div className="group relative">
+                  <AlertCircle className="w-3.5 h-3.5 text-blue-400 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-64 p-2.5 rounded-lg bg-slate-800 text-white text-[10px] leading-relaxed shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                    Merge fields are dynamic placeholders that get replaced with each recipient&apos;s actual data when the email is sent. For example, <strong>{'{{'} first_name {'}}' }</strong> becomes the recipient&apos;s first name.
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45 -mt-1" />
+                  </div>
+                </div>
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {["{{first_name}}", "{{last_name}}", "{{org_name}}", "{{email}}", "{{sender_name}}", "{{month}}"].map((field) => (
                   <button key={field} onClick={() => setBody((prev) => prev + " " + field)}
@@ -740,7 +754,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 3: Select Recipients ═══ */}
         {step === 3 && (
-          <div className="max-w-2xl mx-auto py-8 px-6 space-y-4">
+          <div className="max-w-4xl mx-auto py-8 px-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Select Recipients</p>
               <span className="text-[11px] font-semibold text-slate-400">{recipients.length} selected</span>
@@ -751,6 +765,16 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 placeholder="Search contacts..."
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-[13px] outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 placeholder:text-slate-400" />
             </div>
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <button onClick={() => setTagFilter(null)}
+                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${!tagFilter ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>All</button>
+                {allTags.map((tag) => (
+                  <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${tagFilter === tag ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>{tag}</button>
+                ))}
+              </div>
+            )}
             <button onClick={selectAll}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
               <div className={`w-4 h-4 rounded border flex items-center justify-center ${
@@ -768,7 +792,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 <p className="text-[11px] text-slate-400 max-w-xs">Go to Communications → Contacts to add contacts first.</p>
               </div>
             ) : (
-              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+              <div className="space-y-1 max-h-[500px] overflow-y-auto">
                 {filteredContacts.map((contact) => {
                   const isSelected = recipients.some((r) => r.id === contact.id);
                   return (
@@ -797,7 +821,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 4: Schedule & Launch ═══ */}
         {step === 4 && (
-          <div className="max-w-xl mx-auto py-8 px-6 space-y-6">
+          <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
             <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/30 space-y-3">
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Campaign Summary</p>
               <div className="grid grid-cols-2 gap-4">
@@ -1005,7 +1029,7 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
       const contacts: CRMContact[] = [];
       snap.forEach((d) => {
         const data = d.data();
-        contacts.push({ id: d.id, name: data.name || "", email: data.email || "", aliases: data.aliases });
+        contacts.push({ id: d.id, name: data.name || "", email: data.email || "", aliases: data.aliases, tags: data.tags || [] });
       });
       contacts.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       setCrmContacts(contacts);

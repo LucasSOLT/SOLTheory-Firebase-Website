@@ -881,7 +881,7 @@ export default function AgenticCampaigningPage() {
 
   return (
     <div className={`w-full h-full overflow-y-auto pb-10 px-3 sm:px-4 md:px-8 animate-in fade-in duration-500 ${isDarkMode ? 'bg-slate-950' : ''}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
-      <div className="max-w-6xl mx-auto py-8 space-y-8">
+      <div className="max-w-full px-4 md:px-10 mx-auto py-8 space-y-8">
         {/* Header */}
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -902,14 +902,14 @@ export default function AgenticCampaigningPage() {
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: lang === 'es' ? 'Campa\u00f1as Activas' : 'Active Campaigns', value: '\u2014' },
             { label: lang === 'es' ? 'Mensajes Enviados' : 'Messages Sent', value: '\u2014' },
             { label: lang === 'es' ? 'Tasa de Apertura' : 'Open Rate', value: '\u2014' },
             { label: lang === 'es' ? 'Tasa de Clics' : 'Click-Through Rate', value: '\u2014' },
           ].map((stat) => (
-            <div key={stat.label} className={`rounded-xl p-4 transition-shadow ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200/80 shadow-sm'}`}>
+            <div key={stat.label} className={`rounded-xl p-5 transition-shadow ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200/80 shadow-sm'}`}>
               <p className={`text-[10px] font-semibold tracking-wider uppercase mb-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{stat.value}</p>
               <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
@@ -928,13 +928,13 @@ export default function AgenticCampaigningPage() {
             <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {PLATFORMS.map((platform) => (
               <button
                 key={platform.id}
                 onClick={() => platform.available && setSelectedPlatform(platform.id)}
                 disabled={!platform.available}
-                className={`group relative text-left border rounded-xl p-5 transition-all duration-200 ${
+                className={`group relative text-left border rounded-xl p-6 transition-all duration-200 ${
                   platform.available
                     ? `${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-lg' : 'bg-white border-slate-200/80 hover:border-indigo-200 hover:shadow-md'} cursor-pointer`
                     : `${isDarkMode ? 'bg-slate-900/50 border-slate-800/50' : 'bg-white/60 border-slate-100'} cursor-not-allowed`
@@ -975,12 +975,12 @@ export default function AgenticCampaigningPage() {
         </div>
 
         {/* AI Features */}
-        <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-gradient-to-br from-slate-900 to-slate-800'}`}>
+        <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200 shadow-sm'}`}>
           <div className="flex items-center gap-2.5 mb-4">
             <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-amber-400" />
             </div>
-            <h3 className="text-sm font-semibold text-white tracking-wide">
+            <h3 className={`text-sm font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
               {lang === 'es' ? 'Funciones Impulsadas por IA' : 'AI-Powered Features'}
             </h3>
           </div>
@@ -990,9 +990,9 @@ export default function AgenticCampaigningPage() {
               { title: lang === 'es' ? 'Personalizaci\u00f3n de Contenido' : 'Content Personalization', desc: lang === 'es' ? 'Bloques de contenido din\u00e1mico que adaptan el mensaje seg\u00fan los segmentos del destinatario.' : 'Dynamic content blocks that adapt messaging based on recipient segments and history.' },
               { title: lang === 'es' ? 'An\u00e1lisis Predictivo' : 'Predictive Analytics', desc: lang === 'es' ? 'Predicciones de rendimiento de campa\u00f1as en tiempo real con recomendaciones accionables.' : 'Real-time campaign performance predictions with actionable recommendations.' },
             ].map((f) => (
-              <div key={f.title} className={`p-4 rounded-lg ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/[0.06] border border-white/10'}`}>
-                <h4 className="text-[12px] font-semibold text-white mb-1">{f.title}</h4>
-                <p className="text-[11px] text-slate-400 leading-relaxed">{f.desc}</p>
+              <div key={f.title} className={`p-5 rounded-xl ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-slate-50 border border-slate-200'}`}>
+                <h4 className={`text-[12px] font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{f.title}</h4>
+                <p className={`text-[11px] leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{f.desc}</p>
               </div>
             ))}
           </div>
