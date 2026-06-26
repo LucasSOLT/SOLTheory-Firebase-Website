@@ -20,20 +20,23 @@ export async function POST(req: Request) {
 
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-    // Build MIME message
-    const headers = [
+    // Build MIME message with proper UTF-8 encoding
+    const htmlBody = body.includes("<") ? body : `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6;">${body.split('\n').join('<br/>')}</div>`;
+
+    // Use quoted-printable-safe approach: encode the full MIME as UTF-8
+    const mimeMessage = [
+      `MIME-Version: 1.0`,
       `To: ${to}`,
       ...(cc ? [`Cc: ${cc}`] : []),
-      `Subject: ${subject}`,
-      `Content-Type: text/html; charset=utf-8`,
+      `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
       ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`, `References: ${references || inReplyTo}`] : []),
-    ];
+      ``,
+      Buffer.from(htmlBody, 'utf-8').toString('base64'),
+    ].join("\r\n");
 
-    // Wrap body in basic HTML template for consistent rendering
-    const htmlBody = body.includes("<") ? body : `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6;">${body.replace(/\n/g, "<br/>")}</div>`;
-
-    const rawMessage = [...headers, "", htmlBody].join("\r\n");
-    const encodedMessage = Buffer.from(rawMessage)
+    const encodedMessage = Buffer.from(mimeMessage)
       .toString("base64")
       .replace(/\+/g, "-")
       .replace(/\//g, "_")

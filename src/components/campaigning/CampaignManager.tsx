@@ -1208,27 +1208,59 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
       // Save campaign to Firestore
       await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), campaign);
 
-      // If campaign is active, send emails now via Gmail
+      // Only send emails if campaign is active AND trigger time has passed
       if (campaign.status === 'active' && campaign.recipients.length > 0) {
-        const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
-        const refreshToken = await getRefreshToken(user.uid);
-        if (refreshToken) {
-          let sentCount = 0;
-          for (const recipient of campaign.recipients) {
-            const resolvedSubject = resolveMergeFields(campaign.subject, recipient, campaignSettings);
-            const resolvedBody = resolveMergeFields(campaign.body, recipient, campaignSettings);
+        const triggerTime = new Date(campaign.triggerAt).getTime();
+        const now = Date.now();
+
+        if (triggerTime <= now + 60000) {
+          // Trigger time is now or in the past (within 1 min tolerance) — send immediately
+          const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
+          const refreshToken = await getRefreshToken(user.uid);
+          if (refreshToken) {
+            // Build effective settings by loading personalInfo presets
+            let effectiveSettings = { ...campaignSettings };
             try {
-              await sendEmail(user.uid, refreshToken, recipient.email, resolvedSubject, resolvedBody);
-              sentCount++;
-              console.log(`[Campaign] Sent to ${recipient.email}`);
-            } catch (err) {
-              console.error(`[Campaign] Failed to send to ${recipient.email}:`, err);
+              const presetSnap = await getDoc(doc(firestore, `users/${user.uid}/settings/personalInfoPresets`));
+              if (presetSnap.exists()) {
+                const presets = presetSnap.data().presets || [];
+                if (presets.length > 0) {
+                  const latest = presets[presets.length - 1];
+                  if (latest.senderName) effectiveSettings.senderName = latest.senderName;
+                  if (latest.orgName) effectiveSettings.orgName = latest.orgName;
+                  if (latest.phoneNumber) effectiveSettings.phoneNumber = latest.phoneNumber;
+                }
+              }
+            } catch (e) { console.warn('[Campaign] Could not load personal info presets:', e); }
+
+            let sentCount = 0;
+            for (const recipient of campaign.recipients) {
+              const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
+              let resolvedBody = resolveMergeFields(campaign.body, recipient, effectiveSettings);
+
+              // Append sign-off with sender name and phone
+              const senderName = effectiveSettings.senderName || '';
+              const phone = effectiveSettings.phoneNumber || '';
+              if (senderName || phone) {
+                resolvedBody += '\n\n---\n';
+                if (senderName) resolvedBody += senderName + '\n';
+                if (phone) resolvedBody += phone + '\n';
+              }
+
+              try {
+                await sendEmail(user.uid, refreshToken, recipient.email, resolvedSubject, resolvedBody);
+                sentCount++;
+                console.log(`[Campaign] Sent to ${recipient.email}`);
+              } catch (err) {
+                console.error(`[Campaign] Failed to send to ${recipient.email}:`, err);
+              }
             }
+            await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), { sent: sentCount }, { merge: true });
+          } else {
+            console.warn('[Campaign] No Gmail refresh token found - cannot send emails');
           }
-          // Update sent count
-          await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), { sent: sentCount }, { merge: true });
         } else {
-          console.warn('[Campaign] No Gmail refresh token found - cannot send emails');
+          console.log(`[Campaign] Scheduled for ${campaign.triggerAt} — will not send now.`);
         }
       }
     } catch (err) {
