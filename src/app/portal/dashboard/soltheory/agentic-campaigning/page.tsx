@@ -1067,7 +1067,7 @@ export default function AgenticCampaigningPage() {
                       return false;
                     };
                     const cells: React.ReactElement[] = [];
-                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`aspect-square border-r border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
+                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[88px] border-r border-b border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
                     for (let day = 1; day <= daysInMonth; day++) {
                       const clickable = zoomMode === 'picking-start' || zoomMode === 'picking-end';
                       cells.push(
@@ -1085,7 +1085,7 @@ export default function AgenticCampaigningPage() {
                               setZoomMode('zoomed');
                             }
                           }}
-                          className={`aspect-square p-1.5 border-r border-b relative transition-colors ${
+                          className={`h-[88px] p-1.5 border-r border-b ${(firstDay + day - 1) < 7 ? 'border-t' : ''} relative transition-colors ${
                             isDarkMode ? 'border-slate-700' : 'border-slate-200'
                           } ${
                             clickable ? 'cursor-pointer ' + (isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-indigo-50') : ''
