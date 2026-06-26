@@ -11,7 +11,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useUser, useFirestore } from "@/firebase/provider";
-import { collection, query, onSnapshot, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 /* ═══════════════════════════════════════════════════════════════
    TYPES
@@ -1187,29 +1187,78 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
     }
   }, [firestore, user?.uid]);
 
-  const handleSave = useCallback((campaign: Campaign) => {
-    setCampaigns((prev) => {
-      const idx = prev.findIndex((c) => c.id === campaign.id);
-      if (idx >= 0) { const u = [...prev]; u[idx] = campaign; return u; }
-      return [campaign, ...prev];
+  // Load campaigns from Firestore
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const q = query(collection(firestore, `users/${user.uid}/campaigns`));
+    const unsub = onSnapshot(q, (snap) => {
+      const loaded: Campaign[] = [];
+      snap.forEach((d) => {
+        loaded.push({ ...(d.data() as Campaign), id: d.id });
+      });
+      loaded.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setCampaigns(loaded);
     });
-    setView("list");
+    return () => unsub();
+  }, [firestore, user?.uid]);
+
+  const handleSave = useCallback(async (campaign: Campaign) => {
+    if (!firestore || !user?.uid) return;
+    try {
+      // Save campaign to Firestore
+      await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), campaign);
+
+      // If campaign is active, send emails now via Gmail
+      if (campaign.status === 'active' && campaign.recipients.length > 0) {
+        const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
+        const refreshToken = await getRefreshToken(user.uid);
+        if (refreshToken) {
+          let sentCount = 0;
+          for (const recipient of campaign.recipients) {
+            const resolvedSubject = resolveMergeFields(campaign.subject, recipient, campaignSettings);
+            const resolvedBody = resolveMergeFields(campaign.body, recipient, campaignSettings);
+            try {
+              await sendEmail(user.uid, refreshToken, recipient.email, resolvedSubject, resolvedBody);
+              sentCount++;
+              console.log(`[Campaign] Sent to ${recipient.email}`);
+            } catch (err) {
+              console.error(`[Campaign] Failed to send to ${recipient.email}:`, err);
+            }
+          }
+          // Update sent count
+          await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), { sent: sentCount }, { merge: true });
+        } else {
+          console.warn('[Campaign] No Gmail refresh token found - cannot send emails');
+        }
+      }
+    } catch (err) {
+      console.error('[Campaign] Save error:', err);
+    }
+    setView('list');
     setEditingCampaign(null);
-  }, []);
+  }, [firestore, user?.uid, campaignSettings]);
 
-  const togglePause = useCallback((id: string) => {
-    setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status: c.status === "active" ? "paused" as CampaignStatus : "active" as CampaignStatus } : c)));
-  }, []);
+  const togglePause = useCallback(async (id: string) => {
+    if (!firestore || !user?.uid) return;
+    const campaign = campaigns.find(c => c.id === id);
+    if (!campaign) return;
+    const newStatus = campaign.status === 'active' ? 'paused' as CampaignStatus : 'active' as CampaignStatus;
+    await setDoc(doc(firestore, `users/${user.uid}/campaigns`, id), { status: newStatus }, { merge: true });
+  }, [firestore, user?.uid, campaigns]);
 
-  const deleteCampaign = useCallback((id: string) => { setCampaigns((prev) => prev.filter((c) => c.id !== id)); }, []);
+  const deleteCampaign = useCallback(async (id: string) => {
+    if (!firestore || !user?.uid) return;
+    await deleteDoc(doc(firestore, `users/${user.uid}/campaigns`, id));
+  }, [firestore, user?.uid]);
 
-  const duplicateCampaign = useCallback((id: string) => {
-    setCampaigns((prev) => {
-      const orig = prev.find((c) => c.id === id);
-      if (!orig) return prev;
-      return [{ ...orig, id: nextCampaignId(), name: `${orig.name} (Copy)`, status: "draft" as CampaignStatus, sent: 0, opened: 0, clicked: 0 }, ...prev];
-    });
-  }, []);
+  const duplicateCampaign = useCallback(async (id: string) => {
+    if (!firestore || !user?.uid) return;
+    const orig = campaigns.find(c => c.id === id);
+    if (!orig) return;
+    const newId = nextCampaignId();
+    const copy = { ...orig, id: newId, name: `${orig.name} (Copy)`, status: 'draft' as CampaignStatus, sent: 0, opened: 0, clicked: 0 };
+    await setDoc(doc(firestore, `users/${user.uid}/campaigns`, newId), copy);
+  }, [firestore, user?.uid, campaigns]);
 
   if (view === "settings") {
     return (
