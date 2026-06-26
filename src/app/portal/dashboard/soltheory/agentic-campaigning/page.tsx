@@ -12,6 +12,7 @@ import CampaignManager from "@/components/campaigning/CampaignManager";
 import AIComposeAssist from "@/components/campaigning/AIComposeAssist";
 import SmartReply from "@/components/campaigning/SmartReply";
 import { useUser, useFirestore } from "@/firebase/provider";
+import { useTranslation } from "@/lib/i18n";
 import { getRefreshToken, fetchEmails, sendEmail as gmailSend, deleteGmailEmail, getGmailConnectUrl, type GmailMessage } from "@/lib/gmail-api";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -838,6 +839,8 @@ export default function AgenticCampaigningPage() {
     return () => window.removeEventListener('storage', handler);
   }, []);
 
+  const { t, lang } = useTranslation();
+
   // Resolve Gmail OAuth token when user is available
   useEffect(() => {
     if (isUserLoading || !user) { setAuthChecked(!isUserLoading); return; }
@@ -878,41 +881,51 @@ export default function AgenticCampaigningPage() {
 
   return (
     <div className={`w-full h-full overflow-y-auto pb-10 px-3 sm:px-4 md:px-8 animate-in fade-in duration-500 ${isDarkMode ? 'bg-slate-950' : ''}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
-      <div className="max-w-5xl mx-auto py-8 space-y-8">
+      <div className="max-w-6xl mx-auto py-8 space-y-8">
         {/* Header */}
-        <div className="text-center space-y-2.5">
-          <div className="flex items-center justify-center gap-3 mb-1">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-md">
-              <Send className="w-5 h-5 text-white" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Send className="w-4.5 h-4.5 text-white" />
+            </div>
+            <div>
+              <h1 className={`text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                {lang === 'es' ? 'Campa\u00f1as Ag\u00e9nticas' : 'Agentic Campaigning'}
+              </h1>
+              <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                {lang === 'es'
+                  ? 'Crea, automatiza y rastrea campa\u00f1as multicanal impulsadas por IA.'
+                  : 'Create, automate, and track AI-powered multi-channel campaigns.'}
+              </p>
             </div>
           </div>
-          <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Agentic Campaigning</h1>
-          <p className={`text-[13px] max-w-lg mx-auto leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Crea campañas de goteo, programa envíos automatizados y rastrea la interacción — impulsado por horarios de envío optimizados por IA y contenido personalizado a escala.
-          </p>
         </div>
 
         {/* Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Campañas Activas", value: "N/A" },
-            { label: "Mensajes Enviados", value: "N/A" },
-            { label: "Tasa de Apertura", value: "N/A" },
-            { label: "Tasa de Clics", value: "N/A" },
+            { label: lang === 'es' ? 'Campa\u00f1as Activas' : 'Active Campaigns', value: '\u2014' },
+            { label: lang === 'es' ? 'Mensajes Enviados' : 'Messages Sent', value: '\u2014' },
+            { label: lang === 'es' ? 'Tasa de Apertura' : 'Open Rate', value: '\u2014' },
+            { label: lang === 'es' ? 'Tasa de Clics' : 'Click-Through Rate', value: '\u2014' },
           ].map((stat) => (
-            <div key={stat.label} className={`rounded-2xl p-4 hover:shadow-sm transition-shadow ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200/80'}`}>
-              <p className={`text-[10px] font-bold tracking-wider uppercase mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
+            <div key={stat.label} className={`rounded-xl p-4 transition-shadow ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200/80 shadow-sm'}`}>
+              <p className={`text-[10px] font-semibold tracking-wider uppercase mb-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{stat.value}</p>
-              <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Se completa con el uso</p>
+              <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
+                {lang === 'es' ? 'Se completa con el uso' : 'Populates with usage'}
+              </p>
             </div>
           ))}
         </div>
 
         {/* Platform Selection */}
         <div>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Selecciona una Plataforma</h2>
-            <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200/60'}`} />
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              {lang === 'es' ? 'Selecciona una Plataforma' : 'Select a Platform'}
+            </h2>
+            <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -921,29 +934,38 @@ export default function AgenticCampaigningPage() {
                 key={platform.id}
                 onClick={() => platform.available && setSelectedPlatform(platform.id)}
                 disabled={!platform.available}
-                className={`group relative text-left border rounded-2xl p-5 transition-all duration-200 ${
+                className={`group relative text-left border rounded-xl p-5 transition-all duration-200 ${
                   platform.available
-                    ? `${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-slate-600 hover:shadow-md' : 'bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-md'} cursor-pointer`
-                    : `${isDarkMode ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-100'} cursor-not-allowed`
+                    ? `${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-lg' : 'bg-white border-slate-200/80 hover:border-indigo-200 hover:shadow-md'} cursor-pointer`
+                    : `${isDarkMode ? 'bg-slate-900/50 border-slate-800/50' : 'bg-white/60 border-slate-100'} cursor-not-allowed`
                 }`}
               >
                 {!platform.available && (
                   <div className="absolute top-3 right-3">
-                    <span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'text-slate-500 bg-slate-700' : 'text-slate-400 bg-slate-100'}`}>
-                      Próximamente
+                    <span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'text-slate-500 bg-slate-800' : 'text-slate-400 bg-slate-100'}`}>
+                      {lang === 'es' ? 'Pr\u00f3ximamente' : 'Coming Soon'}
                     </span>
                   </div>
                 )}
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${platform.gradient} flex items-center justify-center text-white mb-3 ${
-                  platform.available ? "shadow-sm group-hover:shadow-md" : "opacity-40"
-                } transition-shadow`}>
+                  platform.available ? 'shadow-sm group-hover:shadow-md group-hover:scale-105' : 'opacity-30'
+                } transition-all`}>
                   {platform.icon}
                 </div>
-                <h3 className={`text-[14px] font-semibold mb-1 ${platform.available ? (isDarkMode ? 'text-slate-200' : 'text-slate-800') : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>{platform.name}</h3>
-                <p className={`text-[11px] leading-relaxed ${platform.available ? (isDarkMode ? 'text-slate-400' : 'text-slate-500') : (isDarkMode ? 'text-slate-600' : 'text-slate-400')}`}>{platform.description}</p>
+                <h3 className={`text-sm font-semibold mb-1 ${platform.available ? (isDarkMode ? 'text-slate-200' : 'text-slate-800') : (isDarkMode ? 'text-slate-600' : 'text-slate-400')}`}>{platform.name}</h3>
+                <p className={`text-[11px] leading-relaxed ${platform.available ? (isDarkMode ? 'text-slate-400' : 'text-slate-500') : (isDarkMode ? 'text-slate-700' : 'text-slate-400')}`}>
+                  {lang === 'es' ? platform.description : (
+                    platform.id === 'gmail' ? 'Create drip campaigns, schedule sends, and track engagement with AI-optimized timing.' :
+                    platform.id === 'outlook' ? 'Enterprise email campaigns with Microsoft 365 integration and calendar sync.' :
+                    platform.id === 'sms' ? 'Automated text message sequences with delivery tracking and opt-out management.' :
+                    platform.id === 'slack' ? 'Automated Slack messaging for internal team campaigns and channel notifications.' :
+                    platform.id === 'whatsapp' ? 'Business messaging campaigns with rich media support and read receipts.' :
+                    'Leverage Google Ads, Analytics, and Search Console for cross-channel campaign insights.'
+                  )}
+                </p>
                 {platform.available && (
-                  <div className={`flex items-center gap-1 mt-3 text-[11px] font-semibold ${isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700'}`}>
-                    <span>Abrir</span>
+                  <div className={`flex items-center gap-1 mt-3 text-[11px] font-semibold ${isDarkMode ? 'text-indigo-400 group-hover:text-indigo-300' : 'text-indigo-600 group-hover:text-indigo-700'}`}>
+                    <span>{lang === 'es' ? 'Abrir' : 'Open'}</span>
                     <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 )}
@@ -953,22 +975,22 @@ export default function AgenticCampaigningPage() {
         </div>
 
         {/* AI Features */}
-        <div className={`rounded-2xl p-6 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-900'}`}>
-          <div className="flex items-center gap-2 mb-4">
+        <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-gradient-to-br from-slate-900 to-slate-800'}`}>
+          <div className="flex items-center gap-2.5 mb-4">
             <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-              </svg>
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
             </div>
-            <h3 className="text-[13px] font-semibold text-white tracking-wide">Funciones Impulsadas por IA</h3>
+            <h3 className="text-sm font-semibold text-white tracking-wide">
+              {lang === 'es' ? 'Funciones Impulsadas por IA' : 'AI-Powered Features'}
+            </h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { title: "Horarios de Envío Inteligentes", desc: "La IA analiza el comportamiento del destinatario para optimizar los horarios de entrega y maximizar la interacción." },
-              { title: "Personalización de Contenido", desc: "Bloques de contenido dinámico que adaptan el mensaje según los segmentos e historial del destinatario." },
-              { title: "Análisis Predictivo", desc: "Predicciones de rendimiento de campañas en tiempo real con recomendaciones accionables." },
+              { title: lang === 'es' ? 'Horarios de Env\u00edo Inteligentes' : 'Smart Send Timing', desc: lang === 'es' ? 'La IA analiza el comportamiento del destinatario para optimizar los horarios de entrega.' : 'AI analyzes recipient behavior to optimize delivery times and maximize engagement.' },
+              { title: lang === 'es' ? 'Personalizaci\u00f3n de Contenido' : 'Content Personalization', desc: lang === 'es' ? 'Bloques de contenido din\u00e1mico que adaptan el mensaje seg\u00fan los segmentos del destinatario.' : 'Dynamic content blocks that adapt messaging based on recipient segments and history.' },
+              { title: lang === 'es' ? 'An\u00e1lisis Predictivo' : 'Predictive Analytics', desc: lang === 'es' ? 'Predicciones de rendimiento de campa\u00f1as en tiempo real con recomendaciones accionables.' : 'Real-time campaign performance predictions with actionable recommendations.' },
             ].map((f) => (
-              <div key={f.title} className={`p-4 rounded-xl ${isDarkMode ? 'bg-slate-700/50 border border-slate-600/50' : 'bg-white/5 border border-white/10'}`}>
+              <div key={f.title} className={`p-4 rounded-lg ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/[0.06] border border-white/10'}`}>
                 <h4 className="text-[12px] font-semibold text-white mb-1">{f.title}</h4>
                 <p className="text-[11px] text-slate-400 leading-relaxed">{f.desc}</p>
               </div>
