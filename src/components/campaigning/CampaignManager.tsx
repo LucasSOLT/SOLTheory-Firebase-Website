@@ -1029,7 +1029,8 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
       const contacts: CRMContact[] = [];
       snap.forEach((d) => {
         const data = d.data();
-        contacts.push({ id: d.id, name: data.name || "", email: data.email || "", aliases: data.aliases, tags: data.tags || [] });
+        const fullName = [data.firstName || "", data.lastName || ""].filter(Boolean).join(" ");
+        contacts.push({ id: d.id, name: fullName, email: data.email || "", aliases: data.aliases, tags: data.tags || [] });
       });
       contacts.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       setCrmContacts(contacts);
