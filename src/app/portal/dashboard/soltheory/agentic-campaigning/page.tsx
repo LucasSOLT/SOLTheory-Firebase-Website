@@ -834,6 +834,7 @@ export default function AgenticCampaigningPage() {
   const [zoomMode, setZoomMode] = useState<'off' | 'picking-start' | 'picking-end' | 'zoomed'>('off');
   const [zoomStart, setZoomStart] = useState<number | null>(null);
   const [zoomEnd, setZoomEnd] = useState<number | null>(null);
+  const [hoverDay, setHoverDay] = useState<number | null>(null);
   useEffect(() => {
     const saved = localStorage.getItem('insight_theme');
     if (saved === 'dark') setIsDarkMode(true);
@@ -1063,7 +1064,11 @@ export default function AgenticCampaigningPage() {
                     const today = new Date();
                     const isToday = (day: number) => today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear;
                     const isInRange = (day: number) => {
-                      if (zoomMode === 'picking-end' && zoomStart !== null) return day >= zoomStart && day <= (zoomEnd || day);
+                      if (zoomMode === 'picking-end' && zoomStart !== null && hoverDay !== null) {
+                        const lo = Math.min(zoomStart, hoverDay);
+                        const hi = Math.max(zoomStart, hoverDay);
+                        return day >= lo && day <= hi;
+                      }
                       return false;
                     };
                     const cells: React.ReactElement[] = [];
@@ -1076,15 +1081,19 @@ export default function AgenticCampaigningPage() {
                             if (zoomMode === 'picking-start') {
                               setZoomStart(day);
                               setZoomEnd(null);
+                              setHoverDay(null);
                               setZoomMode('picking-end');
                             } else if (zoomMode === 'picking-end' && zoomStart !== null) {
-                              const end = day >= zoomStart ? day : zoomStart;
-                              const start = day < zoomStart ? day : zoomStart;
+                              const end = Math.max(day, zoomStart);
+                              const start = Math.min(day, zoomStart);
                               setZoomStart(start);
                               setZoomEnd(end);
+                              setHoverDay(null);
                               setZoomMode('zoomed');
                             }
                           }}
+                          onMouseEnter={() => { if (zoomMode === 'picking-end') setHoverDay(day); }}
+                          onMouseLeave={() => { if (zoomMode === 'picking-end') setHoverDay(null); }}
                           className={`h-[88px] p-1.5 border-r border-b ${(firstDay + day - 1) < 7 ? 'border-t' : ''} relative transition-colors ${
                             isDarkMode ? 'border-slate-700' : 'border-slate-200'
                           } ${

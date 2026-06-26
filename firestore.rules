@@ -224,6 +224,15 @@ service cloud.firestore {
       match /media_library_files/{fileId} {
         allow read, write: if isOwner(userId);
       }
+
+      /**
+       * @description Campaign data for the Agentic Campaigning feature.
+       * @path /users/{userId}/campaigns/{campaignId}
+       * @allow (read, write) A user can fully manage their own campaigns.
+       */
+      match /campaigns/{campaignId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     /**
