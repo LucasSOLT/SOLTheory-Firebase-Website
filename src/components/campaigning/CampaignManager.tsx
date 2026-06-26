@@ -630,17 +630,17 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 0: Campaign Type ═══ */}
         {step === 0 && (
-          <div className="max-w-5xl mx-auto py-8 px-6 space-y-6">
+          <div className="w-full py-10 px-8 lg:px-16 space-y-8">
             <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Campaign Name</label>
+              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider block mb-2">Campaign Name</label>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Q3 Newsletter Blast, Welcome Series"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-[14px] outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 transition-all placeholder:text-slate-300" />
+                className="w-full px-5 py-4 rounded-xl border border-slate-200 text-base outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 transition-all placeholder:text-slate-300" />
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-3">Campaign Type</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider block mb-4">Campaign Type</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 {CAMPAIGN_KINDS.map((k) => {
                   const Icon = k.icon;
                   return (
@@ -652,22 +652,22 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                             ? "border-slate-200 opacity-50 cursor-not-allowed"
                             : "border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-pointer"
                       }`}>
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.gradient} flex items-center justify-center text-white mb-3 ${
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${k.gradient} flex items-center justify-center text-white mb-4 ${
                         kind === k.id ? "shadow-md" : "shadow-sm"
                       }`}>
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-6 h-6" />
                       </div>
-                      <p className={`text-[13px] font-bold mb-0.5 ${kind === k.id ? "text-slate-800" : "text-slate-700"}`}>{k.name}</p>
-                      <p className="text-[10px] font-semibold text-slate-400 mb-2">{k.tagline}</p>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">{k.desc}</p>
+                      <p className={`text-base font-bold mb-1 ${kind === k.id ? "text-slate-800" : "text-slate-700"}`}>{k.name}</p>
+                      <p className="text-xs font-semibold text-slate-400 mb-2">{k.tagline}</p>
+                      <p className="text-xs text-slate-400 leading-relaxed">{k.desc}</p>
                       {kind === k.id && (
-                        <div className="absolute top-3 right-3">
-                          <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>
+                        <div className="absolute top-4 right-4">
+                          <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>
                         </div>
                       )}
                       {k.id === "automated" && (
                         <div className="mt-3 flex items-center gap-1.5">
-                          <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full uppercase">Coming Soon</span>
+                          <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full uppercase">Coming Soon</span>
                         </div>
                       )}
                     </button>
@@ -680,32 +680,32 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 1: Choose Template ═══ */}
         {step === 1 && (
-          <div className="max-w-5xl mx-auto py-8 px-6 space-y-6">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Select a Template</label>
+          <div className="w-full py-10 px-8 lg:px-16 space-y-6">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider">Select a Template</label>
               <button onClick={startFromScratch}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
                   showFromScratch ? "bg-slate-800 text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}>
-                <Pen className="w-3 h-3" /> Start from Scratch
+                <Pen className="w-4 h-4" /> Start from Scratch
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {DEFAULT_TEMPLATES.map((tpl) => (
                 <button key={tpl.id} onClick={() => selectTemplate(tpl)}
-                  className={`group text-left rounded-xl border p-4 transition-all cursor-pointer ${
+                  className={`group text-left rounded-xl border p-5 transition-all cursor-pointer ${
                     selectedTemplate === tpl.id && !showFromScratch
                       ? "border-slate-800 bg-slate-50 ring-1 ring-slate-800"
                       : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
                   }`}>
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white mb-3`}>
-                    <Mail className="w-4 h-4" />
+                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white mb-3`}>
+                    <Mail className="w-5 h-5" />
                   </div>
-                  <p className={`text-[13px] font-semibold mb-0.5 ${selectedTemplate === tpl.id && !showFromScratch ? "text-slate-800" : "text-slate-700"}`}>{tpl.name}</p>
-                  <p className="text-[10px] text-slate-400">{tpl.category}</p>
-                  <p className="text-[10px] text-slate-400 mt-1.5 truncate italic">&ldquo;{tpl.subject}&rdquo;</p>
+                  <p className={`text-sm font-semibold mb-0.5 ${selectedTemplate === tpl.id && !showFromScratch ? "text-slate-800" : "text-slate-700"}`}>{tpl.name}</p>
+                  <p className="text-xs text-slate-400">{tpl.category}</p>
+                  <p className="text-xs text-slate-400 mt-2 truncate italic">&ldquo;{tpl.subject}&rdquo;</p>
                   {selectedTemplate === tpl.id && !showFromScratch && (
-                    <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-600 font-semibold"><Check className="w-3 h-3" /> Selected</div>
+                    <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-600 font-semibold"><Check className="w-4 h-4" /> Selected</div>
                   )}
                 </button>
               ))}
@@ -715,23 +715,23 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 2: Edit Content ═══ */}
         {step === 2 && (
-          <div className="max-w-4xl mx-auto py-8 px-6 space-y-5">
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Email Content</p>
+          <div className="w-full py-10 px-8 lg:px-16 space-y-6">
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Email Content</p>
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Subject Line</label>
+              <label className="text-xs font-semibold text-slate-400 uppercase block mb-2">Subject Line</label>
               <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)}
                 placeholder="e.g., Following up on our conversation"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-[14px] outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 placeholder:text-slate-300" />
+                className="w-full px-5 py-4 rounded-xl border border-slate-200 text-base outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 placeholder:text-slate-300" />
             </div>
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Email Body</label>
+              <label className="text-xs font-semibold text-slate-400 uppercase block mb-2">Email Body</label>
               <textarea value={body} onChange={(e) => setBody(e.target.value)}
                 placeholder={"Write your email content here...\n\nUse {{first_name}} for personalization."}
-                className="w-full h-[400px] px-4 py-3 rounded-xl border border-slate-200 text-[13px] outline-none focus:ring-2 focus:ring-slate-200 resize-none leading-relaxed placeholder:text-slate-300 font-mono" />
+                className="w-full h-[450px] px-5 py-4 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-200 resize-none leading-relaxed placeholder:text-slate-300 font-mono" />
             </div>
-            <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100">
-              <div className="flex items-center gap-2 mb-1.5">
-                <p className="text-[10px] font-semibold text-blue-600">Merge Fields</p>
+            <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-xs font-semibold text-blue-600">Merge Fields</p>
                 <div className="group relative">
                   <AlertCircle className="w-3.5 h-3.5 text-blue-400 cursor-help" />
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-64 p-2.5 rounded-lg bg-slate-800 text-white text-[10px] leading-relaxed shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
@@ -740,10 +740,10 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                   </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {["{{first_name}}", "{{last_name}}", "{{org_name}}", "{{email}}", "{{sender_name}}", "{{month}}"].map((field) => (
                   <button key={field} onClick={() => setBody((prev) => prev + " " + field)}
-                    className="text-[9px] font-mono px-2 py-1 rounded bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors">
+                    className="text-[11px] font-mono px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors">
                     {field}
                   </button>
                 ))}
@@ -754,63 +754,63 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 3: Select Recipients ═══ */}
         {step === 3 && (
-          <div className="max-w-4xl mx-auto py-8 px-6 space-y-4">
+          <div className="w-full py-10 px-8 lg:px-16 space-y-5">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Select Recipients</p>
-              <span className="text-[11px] font-semibold text-slate-400">{recipients.length} selected</span>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Select Recipients</p>
+              <span className="text-sm font-semibold text-slate-400">{recipients.length} selected</span>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input type="text" value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
                 placeholder="Search contacts..."
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-[13px] outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 placeholder:text-slate-400" />
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 placeholder:text-slate-400" />
             </div>
             {allTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 <button onClick={() => setTagFilter(null)}
-                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${!tagFilter ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>All</button>
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors cursor-pointer ${!tagFilter ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>All</button>
                 {allTags.map((tag) => (
                   <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${tagFilter === tag ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>{tag}</button>
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors cursor-pointer ${tagFilter === tag ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>{tag}</button>
                 ))}
               </div>
             )}
             <button onClick={selectAll}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
-              <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
+              <div className={`w-5 h-5 rounded border flex items-center justify-center ${
                 filteredContacts.length > 0 && filteredContacts.every((c) => recipients.some((r) => r.id === c.id))
                   ? "bg-slate-800 border-slate-800 text-white" : "border-slate-300"
               }`}>
-                {filteredContacts.length > 0 && filteredContacts.every((c) => recipients.some((r) => r.id === c.id)) && <Check className="w-3 h-3" />}
+                {filteredContacts.length > 0 && filteredContacts.every((c) => recipients.some((r) => r.id === c.id)) && <Check className="w-3.5 h-3.5" />}
               </div>
               Select All ({filteredContacts.length})
             </button>
             {crmContacts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3"><Users className="w-6 h-6 text-slate-300" /></div>
-                <p className="text-[13px] font-semibold text-slate-400 mb-1">No contacts in your CRM</p>
-                <p className="text-[11px] text-slate-400 max-w-xs">Go to Communications → Contacts to add contacts first.</p>
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-3"><Users className="w-7 h-7 text-slate-300" /></div>
+                <p className="text-sm font-semibold text-slate-400 mb-1">No contacts in your CRM</p>
+                <p className="text-xs text-slate-400 max-w-xs">Go to Communications → Contacts to add contacts first.</p>
               </div>
             ) : (
-              <div className="space-y-1 max-h-[500px] overflow-y-auto">
+              <div className="space-y-1.5 max-h-[500px] overflow-y-auto">
                 {filteredContacts.map((contact) => {
                   const isSelected = recipients.some((r) => r.id === contact.id);
                   return (
                     <button key={contact.id} onClick={() => toggleRecipient(contact)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all cursor-pointer ${
+                      className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all cursor-pointer ${
                         isSelected ? "bg-slate-50 border border-slate-200" : "hover:bg-slate-50 border border-transparent"
                       }`}>
                       <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
                         isSelected ? "bg-slate-800 border-slate-800 text-white" : "border-slate-300"
-                      }`}>{isSelected && <Check className="w-3 h-3" />}</div>
-                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0">
+                      }`}>{isSelected && <Check className="w-3.5 h-3.5" />}</div>
+                      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
                         {(contact.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0 text-left">
-                        <p className="text-[12px] font-semibold text-slate-700 truncate">{contact.name}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{contact.email}</p>
+                        <p className="text-sm font-semibold text-slate-700 truncate">{contact.name}</p>
+                        <p className="text-xs text-slate-400 truncate">{contact.email}</p>
                       </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                      {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
                     </button>
                   );
                 })}
@@ -821,26 +821,26 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         {/* ═══ Step 4: Schedule & Launch ═══ */}
         {step === 4 && (
-          <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
-            <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/30 space-y-3">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Campaign Summary</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-[10px] text-slate-400 uppercase font-semibold">Name</p><p className="text-[13px] font-semibold text-slate-700">{name || "Untitled"}</p></div>
-                <div><p className="text-[10px] text-slate-400 uppercase font-semibold">Type</p><p className="text-[13px] font-semibold text-slate-700">{CAMPAIGN_KINDS.find((k) => k.id === kind)?.name}</p></div>
-                <div><p className="text-[10px] text-slate-400 uppercase font-semibold">Template</p><p className="text-[13px] font-semibold text-slate-700">{selectedTemplate ? DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplate)?.name : "Custom"}</p></div>
-                <div><p className="text-[10px] text-slate-400 uppercase font-semibold">Recipients</p><p className="text-[13px] font-semibold text-slate-700">{recipients.length} contact{recipients.length !== 1 ? "s" : ""}</p></div>
+          <div className="w-full py-10 px-8 lg:px-16 space-y-6">
+            <div className="p-6 rounded-xl border border-slate-200 bg-slate-50/30 space-y-4">
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Campaign Summary</p>
+              <div className="grid grid-cols-2 gap-5">
+                <div><p className="text-xs text-slate-400 uppercase font-semibold">Name</p><p className="text-base font-semibold text-slate-700 mt-1">{name || "Untitled"}</p></div>
+                <div><p className="text-xs text-slate-400 uppercase font-semibold">Type</p><p className="text-base font-semibold text-slate-700 mt-1">{CAMPAIGN_KINDS.find((k) => k.id === kind)?.name}</p></div>
+                <div><p className="text-xs text-slate-400 uppercase font-semibold">Template</p><p className="text-base font-semibold text-slate-700 mt-1">{selectedTemplate ? DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplate)?.name : "Custom"}</p></div>
+                <div><p className="text-xs text-slate-400 uppercase font-semibold">Recipients</p><p className="text-base font-semibold text-slate-700 mt-1">{recipients.length} contact{recipients.length !== 1 ? "s" : ""}</p></div>
               </div>
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Trigger Date & Time</label>
+              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider block mb-2">Trigger Date & Time</label>
               <input type="datetime-local" value={triggerAt} onChange={(e) => setTriggerAt(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-[14px] outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 transition-all" />
+                className="w-full px-5 py-4 rounded-xl border border-slate-200 text-base outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 transition-all" />
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Repeat Interval</label>
-              <div className="grid grid-cols-4 gap-2">
+              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider block mb-3">Repeat Interval</label>
+              <div className="grid grid-cols-4 gap-3">
                 {[
                   { label: "One-time", value: 0 },
                   { label: "Daily", value: 1 },
@@ -848,7 +848,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                   { label: "Monthly", value: 30 },
                 ].map((opt) => (
                   <button key={opt.value} onClick={() => setRepeatDays(opt.value)}
-                    className={`px-3 py-2.5 rounded-xl border text-[12px] font-medium transition-all cursor-pointer ${
+                    className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
                       repeatDays === opt.value ? "border-slate-800 bg-slate-50 text-slate-800" : "border-slate-200 text-slate-500 hover:border-slate-300"
                     }`}>{opt.label}</button>
                 ))}
@@ -856,13 +856,13 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
             </div>
 
             <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Recipients ({recipients.length})</p>
-              <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Recipients ({recipients.length})</p>
+              <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto">
                 {recipients.map((r) => (
-                  <span key={r.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-[10px] font-medium text-slate-600">
-                    <span className="w-4 h-4 rounded-full bg-slate-300 flex items-center justify-center text-[7px] font-bold text-white">{(r.name || "?")[0].toUpperCase()}</span>
+                  <span key={r.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-medium text-slate-600">
+                    <span className="w-5 h-5 rounded-full bg-slate-300 flex items-center justify-center text-[8px] font-bold text-white">{(r.name || "?")[0].toUpperCase()}</span>
                     {r.name || r.email}
-                    <button onClick={() => setRecipients((prev) => prev.filter((x) => x.id !== r.id))} className="hover:text-red-500 cursor-pointer"><X className="w-3 h-3" /></button>
+                    <button onClick={() => setRecipients((prev) => prev.filter((x) => x.id !== r.id))} className="hover:text-red-500 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
                   </span>
                 ))}
               </div>
@@ -870,8 +870,8 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
             {/* Preview button */}
             <button onClick={() => setShowPreview(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
-              <Eye className="w-4 h-4" /> Preview Final Email
+              className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+              <Eye className="w-4.5 h-4.5" /> Preview Final Email
             </button>
 
             {showPreview && (
