@@ -119,6 +119,7 @@ export interface CampaignSettingsData {
   senderEmail: string;
   replyToEmail: string;
   website: string;
+  phoneNumber: string;
 }
 
 const DEFAULT_SETTINGS: CampaignSettingsData = {
@@ -127,6 +128,7 @@ const DEFAULT_SETTINGS: CampaignSettingsData = {
   senderEmail: "",
   replyToEmail: "",
   website: "",
+  phoneNumber: "",
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -145,6 +147,7 @@ function buildMergeData(
     "{{org_name}}": settings.orgName || "Your Company",
     "{{email}}": recipient?.email || "recipient@example.com",
     "{{sender_name}}": settings.senderName || "Sender",
+    "{{phone_number}}": settings.phoneNumber || "",
     "{{month}}": new Date().toLocaleString("en-US", { month: "long" }),
   };
 }
@@ -857,7 +860,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {["{{first_name}}", "{{last_name}}", "{{org_name}}", "{{email}}", "{{sender_name}}", "{{month}}"].map((field) => (
+                {["{{first_name}}", "{{last_name}}", "{{org_name}}", "{{email}}", "{{sender_name}}", "{{phone_number}}", "{{month}}"].map((field) => (
                   <button key={field} onClick={() => setBody((prev) => prev + " " + field)}
                     className="text-[11px] font-mono px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors">
                     {field}
@@ -971,6 +974,13 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
               </div>
             </div>
 
+            <p className="text-xs text-slate-400 mt-1">
+              {repeatDays === 0 ? 'This campaign will be sent once on the trigger date and time.' :
+               repeatDays === 1 ? 'This campaign will be sent every day at the trigger time, starting on the trigger date.' :
+               repeatDays === 7 ? 'This campaign will be sent every 7 days at the trigger time, starting on the trigger date.' :
+               'This campaign will be sent every 30 days at the trigger time, starting on the trigger date.'}
+            </p>
+
             <div>
               <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Recipients ({recipients.length})</p>
               <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto">
@@ -994,9 +1004,9 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
               <EmailPreview
                 subject={subject}
                 body={body}
-                senderName={campaignSettings.senderName || user?.displayName || user?.email?.split("@")[0] || "You"}
+                senderName={personalInfo.senderName || campaignSettings.senderName || user?.displayName || user?.email?.split("@")[0] || "You"}
                 recipients={recipients}
-                settings={campaignSettings}
+                settings={{ ...campaignSettings, senderName: personalInfo.senderName || campaignSettings.senderName, orgName: personalInfo.orgName || campaignSettings.orgName, phoneNumber: personalInfo.phoneNumber || campaignSettings.phoneNumber || '' }}
                 onClose={() => setShowPreview(false)}
               />
             )}

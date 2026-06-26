@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
-  Mail, MessageSquare, Send, ChevronRight,
+  Mail, MessageSquare, Send, ChevronRight, ChevronLeft,
   Search, Star, StarOff, Inbox, Archive, Trash2, RefreshCw,
   Clock, Paperclip, Reply, ReplyAll, Forward,
-  ArrowLeft, Pen, X, Plus, Filter, Check, Zap,
+  ArrowLeft, Pen, X, Plus, Filter, Check, Zap, CalendarDays,
   Phone, Hash, Globe, Link2, Loader2, ChevronUp, LogOut, UserPlus, Settings,
 } from "lucide-react";
 import CampaignManager from "@/components/campaigning/CampaignManager";
@@ -829,6 +829,8 @@ export default function AgenticCampaigningPage() {
 
   // Dark mode state
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
   useEffect(() => {
     const saved = localStorage.getItem('insight_theme');
     if (saved === 'dark') setIsDarkMode(true);
@@ -974,27 +976,54 @@ export default function AgenticCampaigningPage() {
           </div>
         </div>
 
-        {/* AI Features */}
-        <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200 shadow-sm'}`}>
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
+        {/* Campaign Calendar */}
+        <div className={`rounded-xl ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200 shadow-sm'}`}>
+          <div className={`flex items-center justify-between px-5 py-3.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200/60'}`}>
+            <div className="flex items-center gap-2">
+              <CalendarDays className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+              <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                {new Date(calYear, calMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}
+              </h3>
             </div>
-            <h3 className={`text-sm font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-              {lang === 'es' ? 'Funciones Impulsadas por IA' : 'AI-Powered Features'}
-            </h3>
+            <div className="flex items-center gap-1">
+              <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => { setCalMonth(new Date().getMonth()); setCalYear(new Date().getFullYear()); }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>Today</button>
+              <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { title: lang === 'es' ? 'Horarios de Env\u00edo Inteligentes' : 'Smart Send Timing', desc: lang === 'es' ? 'La IA analiza el comportamiento del destinatario para optimizar los horarios de entrega.' : 'AI analyzes recipient behavior to optimize delivery times and maximize engagement.' },
-              { title: lang === 'es' ? 'Personalizaci\u00f3n de Contenido' : 'Content Personalization', desc: lang === 'es' ? 'Bloques de contenido din\u00e1mico que adaptan el mensaje seg\u00fan los segmentos del destinatario.' : 'Dynamic content blocks that adapt messaging based on recipient segments and history.' },
-              { title: lang === 'es' ? 'An\u00e1lisis Predictivo' : 'Predictive Analytics', desc: lang === 'es' ? 'Predicciones de rendimiento de campa\u00f1as en tiempo real con recomendaciones accionables.' : 'Real-time campaign performance predictions with actionable recommendations.' },
-            ].map((f) => (
-              <div key={f.title} className={`p-5 rounded-xl ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-slate-50 border border-slate-200'}`}>
-                <h4 className={`text-[12px] font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{f.title}</h4>
-                <p className={`text-[11px] leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{f.desc}</p>
-              </div>
-            ))}
+          <div className="p-4">
+            <div className="grid grid-cols-7 mb-2">
+              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                <div key={d} className={`text-center text-[10px] font-semibold py-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {(() => {
+                const firstDay = new Date(calYear, calMonth, 1).getDay();
+                const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                const today = new Date();
+                const isToday = (day: number) => today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear;
+                const cells: React.ReactElement[] = [];
+                for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className="h-16" />);
+                for (let day = 1; day <= daysInMonth; day++) {
+                  cells.push(
+                    <div key={day} className={`h-16 p-1 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'} relative`}>
+                      <span className={`text-[11px] font-medium inline-flex items-center justify-center w-5 h-5 rounded-full ${
+                        isToday(day) ? 'bg-indigo-600 text-white' : isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                      }`}>{day}</span>
+                    </div>
+                  );
+                }
+                return cells;
+              })()}
+            </div>
           </div>
         </div>
       </div>
