@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, getDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { Clock, Loader2, AlertCircle, ChevronDown } from "lucide-react";
+import { useTranslation } from '@/lib/i18n';
+import { useDarkMode } from '@/lib/useDarkMode';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
@@ -58,6 +60,8 @@ function getHeatmapColor(value: number, min: number, max: number): string {
 type TimesheetSource = "insight" | "quickbooks";
 
 export function WeeklyTimesheetChart() {
+  const { t } = useTranslation();
+  const isDarkMode = useDarkMode();
   const { user } = useUser();
   const firestore = useFirestore();
 
@@ -97,7 +101,10 @@ export function WeeklyTimesheetChart() {
 
   // ── Fetch from INSiGHT Firestore ──
   useEffect(() => {
-    if (source !== "insight" || !firestore || !orgDomain) return;
+    if (source !== "insight" || !firestore || !orgDomain) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -115,7 +122,7 @@ export function WeeklyTimesheetChart() {
       },
       (err) => {
         console.error("[Timesheet] INSiGHT listener error:", err);
-        setError("Failed to load INSiGHT timesheets");
+        setError("FAILED_LOAD_TIMESHEETS");
         setLoading(false);
       }
     );
@@ -131,13 +138,13 @@ export function WeeklyTimesheetChart() {
     try {
       const userDoc = await getDoc(doc(firestore, "users", user.uid));
       if (!userDoc.exists()) {
-        setError("User document not found");
+        setError("USER_DOC_NOT_FOUND");
         return;
       }
 
       const qb = userDoc.data()?.quickbooksOAuth;
       if (!qb?.refreshToken) {
-        setError("QuickBooks not connected");
+        setError("QB_NOT_CONNECTED");
         return;
       }
 
@@ -162,7 +169,7 @@ export function WeeklyTimesheetChart() {
 
       setQbData(json.data?.QueryResponse?.TimeActivity || []);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+      setError(err.message || "UNEXPECTED_ERROR");
     } finally {
       setLoading(false);
     }
@@ -222,28 +229,37 @@ export function WeeklyTimesheetChart() {
   }, [chartData]);
 
   // ── Source dropdown component ──
+  // Map error keys to translated messages at render time
+  const errorMessages: Record<string, string> = {
+    FAILED_LOAD_TIMESHEETS: t.failedLoadTimesheets,
+    USER_DOC_NOT_FOUND: t.userDocNotFound,
+    QB_NOT_CONNECTED: t.qbNotConnected,
+    UNEXPECTED_ERROR: t.unexpectedError,
+  };
+  const translatedError = error ? (errorMessages[error] || error) : null;
+
   const sourceSelector = (
     <div className="relative" data-source-dropdown>
       <button
         onClick={() => setSourceOpen(!sourceOpen)}
-        className="flex items-center gap-1 text-[9px] font-semibold text-slate-400 hover:text-slate-600 transition-colors"
+        className={`flex items-center gap-1 text-[9px] font-semibold transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
       >
-        <span>Source: {source === "insight" ? "INSiGHT" : "QuickBooks"}</span>
+        <span>{`${t.source}: `}{source === "insight" ? "INSiGHT" : t.quickbooks}</span>
         <ChevronDown className={`w-2.5 h-2.5 transition-transform ${sourceOpen ? "rotate-180" : ""}`} />
       </button>
       {sourceOpen && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-[#fefcf6] border border-slate-200 rounded-lg shadow-lg py-1 min-w-[130px] animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className={`absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg py-1 min-w-[130px] animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#fefcf6] border border-slate-200'}`}>
           <button
             onClick={() => { setSource("insight"); setSourceOpen(false); }}
-            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "insight" ? "text-blue-600 bg-blue-50/60" : "text-slate-600 hover:bg-[#faf6ed]"}`}
+            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "insight" ? (isDarkMode ? "text-blue-400 bg-blue-900/40" : "text-blue-600 bg-blue-50/60") : (isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]")}`}
           >
-            INSiGHT Timesheet
+            {t.insightTimesheet}
           </button>
           <button
             onClick={() => { setSource("quickbooks"); setSourceOpen(false); }}
-            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "quickbooks" ? "text-blue-600 bg-blue-50/60" : "text-slate-600 hover:bg-[#faf6ed]"}`}
+            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "quickbooks" ? (isDarkMode ? "text-blue-400 bg-blue-900/40" : "text-blue-600 bg-blue-50/60") : (isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]")}`}
           >
-            QuickBooks
+            {t.quickbooks}
           </button>
         </div>
       )}
@@ -261,15 +277,15 @@ export function WeeklyTimesheetChart() {
     );
   }
 
-  if (error === "QuickBooks not connected" && source === "quickbooks") {
+  if (error === "QB_NOT_CONNECTED" && source === "quickbooks") {
     return (
       <div className="h-full w-full flex flex-col min-h-[140px]">
         <div className="flex items-center justify-end mb-1 shrink-0">{sourceSelector}</div>
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-5 bg-[#faf6ed]/50 rounded-2xl border border-dashed border-slate-200/60">
-          <Clock className="w-6 h-6 text-slate-400 mb-1.5" />
-          <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">QuickBooks Not Connected</h4>
-          <p className="text-[9px] text-slate-500 mt-1 max-w-[180px] leading-relaxed">
-            Please link your QuickBooks account in settings to display hours worked.
+        <div className={`flex-1 flex flex-col items-center justify-center text-center p-5 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/50 border-slate-600/60' : 'bg-[#faf6ed]/50 border-slate-200/60'}`}>
+          <Clock className={`w-6 h-6 mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
+          <h4 className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{t.qbNotConnectedTitle}</h4>
+          <p className={`text-[9px] mt-1 max-w-[180px] leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            {t.qbNotConnectedDesc}
           </p>
         </div>
       </div>
@@ -280,11 +296,11 @@ export function WeeklyTimesheetChart() {
     return (
       <div className="h-full w-full flex flex-col min-h-[140px]">
         <div className="flex items-center justify-end mb-1 shrink-0">{sourceSelector}</div>
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-5 bg-red-50/50 rounded-2xl border border-dashed border-red-200/50">
+        <div className={`flex-1 flex flex-col items-center justify-center text-center p-5 rounded-2xl border border-dashed ${isDarkMode ? 'bg-red-900/20 border-red-700/50' : 'bg-red-50/50 border-red-200/50'}`}>
           <AlertCircle className="w-6 h-6 text-red-400 mb-1.5" />
-          <h4 className="text-[11px] font-bold text-red-700 uppercase tracking-wider">Failed to Load Hours</h4>
-          <p className="text-[9px] text-red-500 mt-1 max-w-[180px] truncate-2-lines">
-            {error}
+          <h4 className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-red-400' : 'text-red-700'}`}>{t.failedLoadHours}</h4>
+          <p className={`text-[9px] mt-1 max-w-[180px] truncate-2-lines ${isDarkMode ? 'text-red-300' : 'text-red-500'}`}>
+            {translatedError}
           </p>
         </div>
       </div>
@@ -295,11 +311,11 @@ export function WeeklyTimesheetChart() {
     return (
       <div className="h-full w-full flex flex-col min-h-[140px]">
         <div className="flex items-center justify-end mb-1 shrink-0">{sourceSelector}</div>
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-5 bg-[#faf6ed]/50 rounded-2xl border border-dashed border-slate-200/60">
-          <Clock className="w-6 h-6 text-slate-300 mb-1.5" />
-          <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">No Weekly Hours Worked</h4>
-          <p className="text-[9px] text-slate-400 mt-1 max-w-[180px] leading-relaxed">
-            No timesheet entries were logged for this week.
+        <div className={`flex-1 flex flex-col items-center justify-center text-center p-5 rounded-2xl border border-dashed ${isDarkMode ? 'bg-slate-800/50 border-slate-600/60' : 'bg-[#faf6ed]/50 border-slate-200/60'}`}>
+          <Clock className={`w-6 h-6 mb-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`} />
+          <h4 className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{t.noWeeklyHours}</h4>
+          <p className={`text-[9px] mt-1 max-w-[180px] leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+            {t.noWeeklyHoursDesc}
           </p>
         </div>
       </div>
@@ -312,15 +328,15 @@ export function WeeklyTimesheetChart() {
       <div className="w-full h-full flex-1 min-h-0 pt-1">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 5, right: 5, left: -22, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} vertical={false} />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 9, fill: "#94a3b8", fontWeight: 600 }}
+              tick={{ fontSize: 9, fill: isDarkMode ? '#cbd5e1' : '#94a3b8', fontWeight: 600 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 9, fill: "#94a3b8" }}
+              tick={{ fontSize: 9, fill: isDarkMode ? '#cbd5e1' : '#94a3b8' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `${v}h`}
@@ -333,7 +349,7 @@ export function WeeklyTimesheetChart() {
                 return (
                   <div className="bg-slate-900/95 backdrop-blur-sm text-white rounded-lg shadow-md border border-slate-800 p-2 text-[10px] font-bold">
                     <p className="text-slate-300">{data.name}</p>
-                    <p className="text-blue-400 text-xs mt-0.5">{data.hours} hours</p>
+                    <p className="text-blue-400 text-xs mt-0.5">{data.hours} {t.hours}</p>
                   </div>
                 );
               }}

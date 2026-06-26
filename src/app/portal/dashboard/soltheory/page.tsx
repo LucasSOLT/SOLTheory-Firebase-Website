@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { doc, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
+
+import { doc, updateDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
 import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
@@ -17,6 +18,9 @@ import { AgentWorkerController, type AgentSlotData } from "@/components/portal/A
 import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
 import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
 import { OrgActivityFeed } from "@/components/portal/OrgActivityFeed";
+import { AIAgentOperationsWidget } from "@/components/portal/AIAgentOperationsWidget";
+import { CRMPipelineWidget } from "@/components/portal/CRMPipelineWidget";
+import { UpcomingDeadlinesWidget } from "@/components/portal/UpcomingDeadlinesWidget";
 import { ContentManagerBar } from "@/components/admin/ContentManagerBar";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { TileSettingsPopup } from "@/components/admin/TileSettingsPopup";
@@ -113,6 +117,54 @@ export default function SolTheoryDashboard() {
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const { t, lang } = useTranslation();
+  const [currentTime, setCurrentTime] = useState('');
+  const [userTimezone, setUserTimezone] = useState('');
+
+  // Load user timezone from localStorage / Firestore
+  useEffect(() => {
+    const savedTz = localStorage.getItem('user_timezone');
+    if (savedTz) {
+      setUserTimezone(savedTz);
+    } else if (firestore && user?.uid) {
+      getDoc(doc(firestore, 'users', user.uid)).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          const tz = data.timezone || data.location || '';
+          if (tz) {
+            setUserTimezone(tz);
+            localStorage.setItem('user_timezone', tz);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [firestore, user?.uid]);
+
+  // Live clock that updates every second
+  useEffect(() => {
+    const updateClock = () => {
+      try {
+        const opts: Intl.DateTimeFormatOptions = {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          ...(userTimezone ? { timeZone: userTimezone } : {}),
+        };
+        const formatted = new Intl.DateTimeFormat(lang === 'es' ? 'es-ES' : 'en-US', opts).format(new Date());
+        setCurrentTime(formatted);
+      } catch {
+        setCurrentTime(new Date().toLocaleString());
+      }
+    };
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, [userTimezone, lang]);
 
   // Ctrl+Alt+6 confetti easter egg
   useEffect(() => {
@@ -217,7 +269,7 @@ export default function SolTheoryDashboard() {
     : 'bg-[#fefcf6] border border-[#ede8da]/80';
 
   return (
-    <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
+    <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
       {showConfetti && <ConfettiCanvas onDone={() => setShowConfetti(false)} />}
       <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
@@ -234,10 +286,10 @@ export default function SolTheoryDashboard() {
         {/* Dashboard Header */}
         <div className="flex flex-col gap-1">
           <h1 className={`text-xl sm:text-3xl font-light italic font-cormorant tracking-wide ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-            Welcome back, <span className="not-italic font-semibold">{user?.displayName || "Lucas"}</span>.
+            {t.welcomeBack} <span className="not-italic font-semibold">{(user?.displayName || "Lucas").replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke')}</span>.
           </h1>
           <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Here is your week at a glance.
+            {t.weekAtGlance}
           </p>
         </div>
 
@@ -246,25 +298,25 @@ export default function SolTheoryDashboard() {
           {/* CMS overlay label */}
           {contentManagerActive && (
             <div className="!pointer-events-none flex items-center justify-center py-4">
-              <div className="px-5 py-2.5 bg-slate-900/5 border border-slate-200 rounded-xl">
-                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Click any tile to configure</span>
+              <div className={`px-5 py-2.5 rounded-xl ${isDarkMode ? 'bg-slate-800/50 border border-slate-600' : 'bg-slate-900/5 border border-slate-200'}`}>
+                <span className={`text-xs font-semibold uppercase tracking-[0.15em] ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.clickTileToConfigure}</span>
               </div>
             </div>
           )}
           
           {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
-          <div className="flex flex-col sm:flex-row lg:flex-row gap-4 md:gap-5 w-full">
-            {/* Slot 1: Splits vertically (portrait) or side-by-side (landscape) into 2 cards */}
-            <div className="flex-[3] md:aspect-[1/1] flex flex-col sm:flex-row md:flex-col gap-4 md:gap-5">
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full">
+            {/* Slot 1: Aspect 4:5 (Shorter) -> Splits vertically into 2 cards */}
+            <div className="flex-[3] aspect-[4/5] flex flex-col gap-4 md:gap-5">
               {/* Card 1A: Weekly Timesheet Hours (Real QuickBooks data!) */}
               <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[220px] sm:min-h-[180px] md:min-h-0`}>
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 1
                 </div>
                 <div className="flex items-center justify-between mb-3 shrink-0">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Hours Worked</span>
-                  <Clock className="w-4 h-4 text-indigo-500" />
+                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.weeklyHoursWorked}</span>
+                  <Clock className={`w-4 h-4 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
                 </div>
                 <div className="flex-1 min-h-0 w-full">
                   <WeeklyTimesheetChart />
@@ -274,7 +326,7 @@ export default function SolTheoryDashboard() {
 
               {/* Card 1B: Needs Your Attention (Action Board tasks) */}
               <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-1 min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-[250px] sm:min-h-[180px] md:min-h-0`}>
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 2
                 </div>
@@ -285,148 +337,115 @@ export default function SolTheoryDashboard() {
               </CmsTileWrapper>
             </div>
 
-            {/* Slot 2: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics */}
-            <div className="hidden md:grid flex-[8] grid-cols-2 grid-rows-[auto_1fr] gap-5" style={{ aspectRatio: '16/6' }}>
-              {/* Card 2A: Grant Agent Interface (Tile 3) */}
-              <CmsTileWrapper tileId="tile-3" tileName="Grant Agent Interface">
-              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px]`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 3
-                </div>
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Agent Interface</span>
-                  <button onClick={() => setIsGrantConfigOpen(true)} className="p-1 rounded-lg bg-indigo-50 border border-indigo-200/60 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors shadow-sm cursor-pointer">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <ActiveAgentsPreview slots={agentSlots} onOpenHub={() => setIsGrantConfigOpen(true)} />
+            {/* Slot 2: Unified Grant Analytics (merged Tiles 3+4+5) */}
+            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[8] aspect-[16/7.5]">
+            <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
+              <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                Grant Analytics
               </div>
-              </CmsTileWrapper>
-
-              {/* Card 2B: Grant Statuses (Manual) (Tile 4) */}
-              <CmsTileWrapper tileId="tile-4" tileName="Grant Statuses">
-              <div
-                onClick={() => router.push("/portal/dashboard/soltheory/grant-statuses")}
-                className={`relative group ${tileStyle} shadow-sm rounded-2xl p-4 flex flex-col hover:shadow-md transition-shadow min-h-[60px] cursor-pointer`}
-              >
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 4
-                </div>
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grant Statuses (Manual)</span>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
-                </div>
-                <div className="flex-1 flex items-center justify-center border border-dashed border-indigo-100 bg-indigo-50/20 rounded-xl min-h-[40px] py-1 px-2 group-hover:bg-indigo-50/40 transition-colors">
-                  <span className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider">View All Statuses</span>
-                </div>
-              </div>
-              </CmsTileWrapper>
-
-              {/* Card 2C / Tile 5: Bottom span-2 - Grant Analytics with fixed height */}
-              <CmsTileWrapper tileId="tile-5" tileName="Grant Analytics" className="col-span-2 overflow-hidden">
-              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 5
-                </div>
-                
-                {/* Absolute inner layout to prevent content from expanding tile */}
-                <div className="absolute inset-0 p-5 flex gap-5">
-                  {/* Left Column (50% width) - Split vertically into Top-Left and Bottom-Left */}
-                  <div className="w-1/2 flex flex-col gap-4 min-h-0">
-                    {/* Top-Left: Grant Completions Line Graph */}
-                    <div className="flex-1 min-h-0">
-                      <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
-                    </div>
-                    {/* Bottom-Left: Grant Status Pie/Donut Chart */}
-                    <div className="flex-1 min-h-0">
-                      <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
-                    </div>
+              <div className="flex-1 flex gap-5 min-h-0">
+                {/* Left Column: Charts */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  {/* Header row with button */}
+                  <div className="flex items-center justify-between mb-3 shrink-0">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.performance}</span>
+                    <button
+                      onClick={() => setIsGrantConfigOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    >
+                      <Activity className="w-3 h-3" />
+                      {t.spawnSubagent}
+                    </button>
                   </div>
+                  <div className="flex-1 min-h-0">
+                    <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
+                  </div>
+                </div>
 
-                  {/* Right Column (50% width) - Suggested Grants scrollable list */}
-                  <div className="w-1/2 flex flex-col min-h-0">
+                {/* Divider */}
+                <div className={`w-px shrink-0 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
+
+                {/* Right Column: Suggested Grants */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  {/* Header row with button */}
+                  <div className="flex items-center justify-between mb-3 shrink-0">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.suggestedGrants}</span>
+                    <button
+                      onClick={() => router.push("/portal/dashboard/soltheory/grant-statuses")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      {t.viewAllGrants}
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
                     <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
                   </div>
                 </div>
               </div>
-              </CmsTileWrapper>
             </div>
+            </CmsTileWrapper>
           </div>
 
-          {/* Row 2: Middle (Left 16:9 Bar Chart, Right 16:9 Donut + Sparkline) */}
-          <div className="flex flex-col sm:flex-row lg:flex-row gap-4 md:gap-5 w-full">
-            {/* Slot 3: Left (Aspect 16:9) -> News Slideshow (Tile 6) */}
-            <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-1">
-            <div className="relative h-full aspect-[4/3] sm:aspect-video md:aspect-[16/6] rounded-2xl overflow-hidden">
+          {/* Row 2: Middle (Left News Slideshow, Right Activity Feed) */}
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch">
+            {/* Slot 3: News Slideshow (Tile 6) — wider */}
+            <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-[2.5] min-w-0">
+            <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden">
               <NewsSlideshow />
               {/* Very light pastel yellow overlay to blend with earthy theme */}
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
             </div>
             </CmsTileWrapper>
 
-            {/* Slot 4: Right (Aspect 16:9) -> Split vertically 2/3 and 1/3 (Blank White Cards) */}
-            <div className="flex-1 md:aspect-[16/6] flex flex-col gap-3 sm:gap-4 md:gap-5">
-              {/* Card 4A (2/3 Height): Organization Activity Feed (Tile 7) */}
-              <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[2] min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[250px] sm:min-h-[200px] md:min-h-0 overflow-hidden`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 7
-                </div>
-                <OrgActivityFeed />
+            {/* Slot 4: Organization Activity Feed (merged Tile 7+8) — narrower */}
+            <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[1.5] min-w-0 relative">
+            <div className={`relative lg:absolute lg:inset-0 group ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow overflow-hidden flex flex-col aspect-[16/9] lg:aspect-auto`}>
+              <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
+                Organization Activity
               </div>
-              </CmsTileWrapper>
-
-              {/* Card 4B (1/3 Height): Real-time Latency (Blank White Card) */}
-              <CmsTileWrapper tileId="tile-8" tileName="Tile 8" className="flex-[1] min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow min-h-[80px] md:min-h-0 hidden md:block`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 8
-                </div>
-              </div>
-              </CmsTileWrapper>
+              <OrgActivityFeed />
             </div>
+            </CmsTileWrapper>
           </div>
 
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
-          <div className="hidden md:flex flex-col lg:flex-row gap-5 w-full">
-            {/* Slot 5: Aspect 16:9 (Wide, Large) -> Custom Grid of 3 Infographics (Blank White Cards) */}
-            <div className="flex-[8] aspect-[16/6] grid grid-cols-2 grid-rows-[auto_1fr] gap-5">
-              {/* Card 5A: Retention Rate (Left KPI - Blank White Card) */}
-              <CmsTileWrapper tileId="tile-9" tileName="Tile 9">
-              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]`}>
+          <div className="flex flex-col lg:flex-row gap-5 w-full">
+            {/* Slot 5: Aspect 16:9 (Wide, Large) -> Two-column grid of AI Agent Operations and CRM Funnel */}
+            <div className="flex-[8] aspect-[16/9] grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+              {/* Tile 9: AI Agent Operations */}
+              <CmsTileWrapper tileId="tile-9" tileName="Tile 9" className="h-full">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 9
                 </div>
+                <AIAgentOperationsWidget orgId="soltheory" />
               </div>
               </CmsTileWrapper>
 
-              {/* Card 5B: Satisfaction CSAT (Right KPI - Blank White Card) */}
-              <CmsTileWrapper tileId="tile-10" tileName="Tile 10">
-              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[60px]`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 10
-                </div>
-              </div>
-              </CmsTileWrapper>
-
-              {/* Card 5C: Uptime Line Chart (Bottom span-2 - Blank White Card) */}
-              <CmsTileWrapper tileId="tile-11" tileName="Tile 11" className="col-span-2">
-              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow min-h-[100px]`}>
+              {/* Tile 11: CRM Pipeline */}
+              <CmsTileWrapper tileId="tile-11" tileName="Tile 11" className="h-full">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 11
                 </div>
+                <CRMPipelineWidget />
               </div>
               </CmsTileWrapper>
             </div>
 
             {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards (Blank White Cards) */}
-            <div className="flex-[3] aspect-[1/1] flex flex-col gap-5">
-              {/* Card 6A: Upcoming Milestones (Blank White Card) */}
-              <CmsTileWrapper tileId="tile-12" tileName="Tile 12" className="flex-1">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow`}>
+            <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
+              {/* Card 6A: Upcoming Milestones (Deadlines Widget) */}
+              <CmsTileWrapper tileId="tile-10" tileName="Tile 10" className="flex-1">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 12
+                  Tile 10
                 </div>
+                <UpcomingDeadlinesWidget />
               </div>
               </CmsTileWrapper>
 
@@ -447,13 +466,13 @@ export default function SolTheoryDashboard() {
       {/* Footer */}
       <footer className={`mt-10 pt-6 pb-2 border-t text-center ${isDarkMode ? 'border-slate-700/40' : 'border-slate-200/40'}`}>
         <div className={`flex items-center justify-center gap-2 text-[11px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-          <span className="text-slate-400/80">MyTaj LLC</span>
-          <span className="text-slate-300">·</span>
-          <a href="#" className="hover:text-slate-600 transition-colors">Terms of Service</a>
-          <span className="text-slate-300">·</span>
-          <a href="#" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
-          <span className="text-slate-300">·</span>
-          <Link href="/portal/dashboard/soltheory/faq" className="hover:text-slate-600 transition-colors">How to use Insight</Link>
+          <span className={`${isDarkMode ? 'text-slate-500' : 'text-slate-400/80'}`}>MyTaj LLC</span>
+          <span className={`${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>·</span>
+          <a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-slate-600'}`}>{t.termsOfService}</a>
+          <span className={`${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>·</span>
+          <a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-slate-600'}`}>{t.privacyPolicy}</a>
+          <span className={`${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>·</span>
+          <button onClick={() => window.dispatchEvent(new Event('open-welcome-walkthrough'))} className={`transition-colors cursor-pointer ${isDarkMode ? 'hover:text-white' : 'hover:text-slate-600'}`}>{t.howToUseInsight}</button>
         </div>
       </footer>
 
@@ -471,15 +490,11 @@ export default function SolTheoryDashboard() {
           tileName={{
             'tile-1': 'Weekly Hours Worked',
             'tile-2': 'Nearest Due Tasks',
-            'tile-3': 'Grant Agent Interface',
-            'tile-4': 'Grant Statuses',
-            'tile-5': 'Grant Analytics',
-            'tile-7': 'Tile 7',
-            'tile-8': 'Tile 8',
+            'tile-grants': 'Grant Analytics',
+            'tile-7': 'Organization Activity',
             'tile-9': 'Tile 9',
             'tile-10': 'Tile 10',
             'tile-11': 'Tile 11',
-            'tile-12': 'Tile 12',
             'tile-13': 'Tile 13',
           }[activeTilePopup] || activeTilePopup}
           isOpen={true}

@@ -1102,7 +1102,7 @@ function ActionCardView({
   onCancel: () => void;
   onCleanupMore?: () => void;
 }) {
-  const Icon = ACTION_ICONS[card.payload.type] || Mail;
+  const Icon = (ACTION_ICONS[card.payload.type] || Mail) as any;
   const isPending = card.status === "pending";
   const isCleanupAction = card.payload.type === "delete" || card.payload.type === "archive";
 

@@ -26,6 +26,9 @@ export interface Customer {
   aiNotes: string;
   transactions: Transaction[];
   outstandingBalance: number;
+  company: string;
+  location: string;
+  lastContactedDate: string;
 }
 
 export interface Meeting {
@@ -106,6 +109,9 @@ function docToCustomer(data: Record<string, unknown>, id: string): Customer {
     aiNotes: (data.aiNotes as string) || "",
     transactions: (data.transactions as Transaction[]) || [],
     outstandingBalance: (data.outstandingBalance as number) || 0,
+    company: (data.company as string) || "",
+    location: (data.location as string) || "",
+    lastContactedDate: (data.lastContactedDate as string) || "",
   };
 }
 

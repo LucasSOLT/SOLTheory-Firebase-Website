@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from '@/lib/i18n';
 
 const ADMIN_EMAIL = "lucas@soltheory.com";
 
@@ -30,9 +31,9 @@ const CATEGORY_OPTIONS = [
 ];
 
 const DIFFICULTY_OPTIONS = [
-  { value: "beginner", label: "Beginner", color: "bg-emerald-100 text-emerald-700" },
-  { value: "intermediate", label: "Intermediate", color: "bg-amber-100 text-amber-700" },
-  { value: "advanced", label: "Advanced", color: "bg-slate-200 text-slate-700" },
+  { value: "beginner", labelKey: "beginnerLabel" as const, color: "bg-emerald-100 text-emerald-700", darkColor: "bg-emerald-900/40 text-emerald-300" },
+  { value: "intermediate", labelKey: "intermediateLabel" as const, color: "bg-amber-100 text-amber-700", darkColor: "bg-amber-900/40 text-amber-300" },
+  { value: "advanced", labelKey: "advancedLabel" as const, color: "bg-slate-200 text-slate-700", darkColor: "bg-slate-600 text-slate-200" },
 ];
 
 type Walkthrough = {
@@ -53,12 +54,25 @@ export function WalkthroughsLibrary() {
   const firestore = useFirestore();
   const storage = useStorage();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [walkthroughs, setWalkthroughs] = useState<Walkthrough[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Dark mode state
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => {
+    const handleTheme = () => {
+      setIsDarkMode(localStorage.getItem('insight_theme') === 'dark');
+    };
+    handleTheme();
+    window.addEventListener('storage', handleTheme);
+    const interval = setInterval(handleTheme, 500);
+    return () => { window.removeEventListener('storage', handleTheme); clearInterval(interval); };
+  }, []);
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 
@@ -75,18 +89,18 @@ export function WalkthroughsLibrary() {
   }, [firestore]);
 
   const handleDelete = async (id: string) => {
-    if (!firestore || !confirm("Delete this walkthrough?")) return;
+    if (!firestore || !confirm(t.deleteWalkthrough)) return;
     try {
       await deleteDoc(doc(firestore, "insight_walkthroughs", id));
       toast({
-        title: "Success",
-        description: "Walkthrough deleted successfully.",
+        title: t.successLabel,
+        description: t.walkthroughDeletedSuccess,
       });
     } catch (err) {
       console.error("Failed to delete walkthrough:", err);
       toast({
-        title: "Error",
-        description: "Failed to delete walkthrough. Please try again.",
+        title: t.errorLabel,
+        description: t.walkthroughDeleteFailed,
         variant: "destructive",
       });
     }
@@ -112,21 +126,21 @@ export function WalkthroughsLibrary() {
   });
 
   return (
-    <div className="w-full max-w-6xl mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4">
+    <div className={`w-full max-w-6xl mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-white'}`}>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between pt-8 pb-6 gap-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">INSiGHT Walkthroughs</h1>
-          <p className="text-slate-400 text-sm mt-1">Search for feature guides, video tutorials, and step-by-step walkthroughs.</p>
+          <h1 className={`text-2xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.insightWalkthroughs}</h1>
+          <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.walkthroughSubtitle}</p>
         </div>
 
         {isAdmin && (
           <button
             onClick={() => { setEditingId(null); setIsAddOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors shrink-0"
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors shrink-0 ${isDarkMode ? 'bg-white hover:bg-slate-200 text-slate-900' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}
           >
             <Plus className="w-4 h-4" />
-            Add Walkthrough
+            {t.addWalkthrough}
           </button>
         )}
       </div>
@@ -134,16 +148,16 @@ export function WalkthroughsLibrary() {
       {/* Search + Category filter */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+          <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`} />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search walkthroughs by name, topic, or keyword..."
-            className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 transition-all"
+            placeholder={t.walkthroughSearchPlaceholder}
+            className={`w-full pl-10 pr-10 py-3 border rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white focus:ring-slate-600 focus:border-slate-600' : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-300 focus:ring-slate-200 focus:border-slate-300'}`}
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">
+            <button onClick={() => setSearchQuery("")} className={`absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-300 hover:text-slate-500'}`}>
               <X className="w-4 h-4" />
             </button>
           )}
@@ -154,23 +168,23 @@ export function WalkthroughsLibrary() {
           <select
             value={selectedCategory}
             onChange={e => setSelectedCategory(e.target.value)}
-            className="appearance-none pl-4 pr-9 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 cursor-pointer min-w-[180px]"
+            className={`appearance-none pl-4 pr-9 py-3 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 cursor-pointer min-w-[180px] ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200 focus:ring-slate-600 focus:border-slate-600' : 'bg-white border-slate-200 text-slate-700 focus:ring-slate-200 focus:border-slate-300'}`}
           >
             {allCategories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>{cat === "All" ? t.allCategories : cat}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
         </div>
       </div>
 
       {/* Results count */}
       {!loading && walkthroughs.length > 0 && (
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-slate-400">
-            {filtered.length} {filtered.length === 1 ? "walkthrough" : "walkthroughs"}
-            {selectedCategory !== "All" && ` in ${selectedCategory}`}
-            {searchQuery && ` matching "${searchQuery}"`}
+          <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+            {filtered.length} {filtered.length === 1 ? t.walkthroughSingular : t.walkthroughPlural}
+            {selectedCategory !== "All" && ` ${t.inCategory} ${selectedCategory}`}
+            {searchQuery && ` ${t.matchingSearch} "${searchQuery}"`}
           </p>
         </div>
       )}
@@ -178,28 +192,28 @@ export function WalkthroughsLibrary() {
       {/* Content */}
       {loading ? (
         <div className="flex justify-center items-center py-20">
-          <Loader2 className="w-6 h-6 text-slate-300 animate-spin" />
+          <Loader2 className={`w-6 h-6 animate-spin ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-5">
-            <Lightbulb className="w-6 h-6 text-slate-300" />
+          <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center mb-5 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+            <Lightbulb className={`w-6 h-6 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
           </div>
           {walkthroughs.length === 0 ? (
             <>
-              <p className="text-sm font-medium text-slate-900">No walkthroughs yet</p>
-              <p className="text-xs text-slate-400 mt-1.5 max-w-xs leading-relaxed">
-                Video walkthroughs and feature guides will appear here once they&apos;re added.
+              <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.noWalkthroughsYet}</p>
+              <p className={`text-xs mt-1.5 max-w-xs leading-relaxed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                {t.walkthroughsWillAppear}
               </p>
             </>
           ) : (
             <>
-              <p className="text-sm font-medium text-slate-900">No results found</p>
-              <p className="text-xs text-slate-400 mt-1.5 max-w-xs leading-relaxed">
-                Try searching with different keywords or select a different category.
+              <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.noResultsFound}</p>
+              <p className={`text-xs mt-1.5 max-w-xs leading-relaxed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                {t.tryDifferentKeywords}
               </p>
-              <button onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }} className="mt-4 text-xs font-medium text-slate-500 hover:text-slate-700 underline underline-offset-2">
-                Clear filters
+              <button onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }} className={`mt-4 text-xs font-medium underline underline-offset-2 ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                {t.clearFilters}
               </button>
             </>
           )}
@@ -207,7 +221,7 @@ export function WalkthroughsLibrary() {
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map(w => (
-            <WalkthroughCard key={w.id} walkthrough={w} isAdmin={isAdmin} onDelete={handleDelete} onEdit={openEdit} onPlay={(url, title, thumb) => useWalkthroughPlayerStore.getState().playVideo(url, title, thumb)} />
+            <WalkthroughCard key={w.id} walkthrough={w} isAdmin={isAdmin} isDarkMode={isDarkMode} t={t} onDelete={handleDelete} onEdit={openEdit} onPlay={(url, title, thumb) => useWalkthroughPlayerStore.getState().playVideo(url, title, thumb)} />
           ))}
         </div>
       )}
@@ -219,6 +233,8 @@ export function WalkthroughsLibrary() {
           storage={storage}
           editingWalkthrough={editingId ? walkthroughs.find(w => w.id === editingId) || null : null}
           onClose={() => { setIsAddOpen(false); setEditingId(null); }}
+          isDarkMode={isDarkMode}
+          t={t}
         />
       )}
     </div>
@@ -229,9 +245,11 @@ export function WalkthroughsLibrary() {
    WALKTHROUGH CARD
    ═══════════════════════════════════════════════════════════════ */
 
-function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit, onPlay }: {
+function WalkthroughCard({ walkthrough: w, isAdmin, isDarkMode, t, onDelete, onEdit, onPlay }: {
   walkthrough: Walkthrough;
   isAdmin: boolean;
+  isDarkMode: boolean;
+  t: any;
   onDelete: (id: string) => void;
   onEdit: (w: Walkthrough) => void;
   onPlay: (url: string, title: string, thumbnailUrl: string) => void;
@@ -240,24 +258,24 @@ function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit, onPlay }: 
 
   return (
     <div
-      className="group flex items-stretch border border-slate-200 rounded-xl bg-white hover:border-slate-300 hover:shadow-sm transition-all overflow-hidden cursor-pointer"
+      className={`group flex items-stretch border rounded-xl hover:shadow-sm transition-all overflow-hidden cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:border-slate-600' : 'border-slate-200 bg-white hover:border-slate-300'}`}
       onClick={() => onPlay(w.videoUrl, w.title, w.thumbnailUrl)}
     >
       {/* Thumbnail — left side */}
-      <div className="relative w-[200px] min-w-[200px] bg-slate-50 border-r border-slate-100 overflow-hidden shrink-0">
+      <div className={`relative w-[200px] min-w-[200px] border-r overflow-hidden shrink-0 ${isDarkMode ? 'bg-slate-700 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
         {w.thumbnailUrl ? (
           <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
         ) : (
           <div className="w-full h-full flex items-center justify-center min-h-[100px]">
-            <div className="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-              <Play className="w-4.5 h-4.5 text-slate-400 ml-0.5" />
+            <div className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+              <Play className={`w-4.5 h-4.5 ml-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
             </div>
           </div>
         )}
         {w.estimatedMinutes > 0 && (
           <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
             <Clock className="w-3 h-3" />
-            {w.estimatedMinutes} min
+            {w.estimatedMinutes} {t.minLabel}
           </div>
         )}
       </div>
@@ -266,29 +284,29 @@ function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit, onPlay }: 
       <div className="flex-1 flex flex-col justify-center px-5 py-3.5 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           {w.category && (
-            <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-100">
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-100'}`}>
               {w.category}
             </span>
           )}
           {diff && (
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${diff.color}`}>
-              {diff.label}
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${isDarkMode ? diff.darkColor : diff.color}`}>
+              {t[diff.labelKey]}
             </span>
           )}
         </div>
-        <h3 className="text-sm font-semibold text-slate-900 truncate">{w.title}</h3>
+        <h3 className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{w.title}</h3>
         {w.description && (
-          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1 leading-relaxed">{w.description}</p>
+          <p className={`text-xs mt-0.5 line-clamp-1 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{w.description}</p>
         )}
         {w.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {w.tags.slice(0, 5).map((tag, i) => (
-              <span key={i} className="text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+              <span key={i} className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${isDarkMode ? 'text-slate-400 bg-slate-700 border-slate-600' : 'text-slate-500 bg-slate-50 border-slate-100'}`}>
                 {tag}
               </span>
             ))}
             {w.tags.length > 5 && (
-              <span className="text-[10px] font-medium text-slate-400 px-1">
+              <span className={`text-[10px] font-medium px-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                 +{w.tags.length - 5}
               </span>
             )}
@@ -302,19 +320,19 @@ function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit, onPlay }: 
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(w); }}
-              className="w-7 h-7 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              className={`w-7 h-7 border rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600 hover:text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
             >
               <Edit3 className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(w.id); }}
-              className="w-7 h-7 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-slate-400 transition-colors"
+              className={`w-7 h-7 border rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-red-900/40 hover:border-red-800 hover:text-red-400' : 'bg-slate-50 border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-slate-400'}`}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
-        <div className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center text-white group-hover:bg-slate-800 transition-colors shadow-sm">
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors shadow-sm ${isDarkMode ? 'bg-white text-slate-900 group-hover:bg-slate-200' : 'bg-slate-900 group-hover:bg-slate-800'}`}>
           <Play className="w-4 h-4 ml-0.5" />
         </div>
       </div>
@@ -326,11 +344,13 @@ function WalkthroughCard({ walkthrough: w, isAdmin, onDelete, onEdit, onPlay }: 
    ADD/EDIT WALKTHROUGH DIALOG — Full-screen overlay
    ═══════════════════════════════════════════════════════════════ */
 
-function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose }: {
+function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose, isDarkMode, t }: {
   firestore: any;
   storage: any;
   editingWalkthrough: Walkthrough | null;
   onClose: () => void;
+  isDarkMode: boolean;
+  t: any;
 }) {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
@@ -433,8 +453,8 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
       if (isEditing) {
         await updateDoc(doc(firestore, "insight_walkthroughs", editingWalkthrough.id), data);
         toast({
-          title: "Success",
-          description: "Walkthrough updated successfully.",
+          title: t.successLabel,
+          description: t.walkthroughUpdatedSuccess,
         });
       } else {
         await addDoc(collection(firestore, "insight_walkthroughs"), {
@@ -442,16 +462,16 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
           createdAt: serverTimestamp(),
         });
         toast({
-          title: "Success",
-          description: "Walkthrough published successfully.",
+          title: t.successLabel,
+          description: t.walkthroughPublishedSuccess,
         });
       }
       onClose();
     } catch (err) {
       console.error("Failed to save walkthrough:", err);
       toast({
-        title: "Error",
-        description: "Failed to save walkthrough. Please try again.",
+        title: t.errorLabel,
+        description: t.walkthroughSaveFailed,
         variant: "destructive",
       });
     } finally {
@@ -460,9 +480,9 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
   };
 
   const sections = [
-    { id: "details" as const, label: "Details", icon: <FileText className="w-4 h-4" /> },
-    { id: "media" as const, label: "Media & Link", icon: <Link2 className="w-4 h-4" /> },
-    { id: "metadata" as const, label: "Metadata", icon: <Tag className="w-4 h-4" /> },
+    { id: "details" as const, label: t.detailsTab, icon: <FileText className="w-4 h-4" /> },
+    { id: "media" as const, label: t.mediaTab, icon: <Link2 className="w-4 h-4" /> },
+    { id: "metadata" as const, label: t.metadataTab, icon: <Tag className="w-4 h-4" /> },
   ];
 
   return (
@@ -471,14 +491,14 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-[780px] md:max-h-[85vh] z-[101] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+      <div className={`fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-[780px] md:max-h-[85vh] z-[101] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+        <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{isEditing ? "Edit Walkthrough" : "Add New Walkthrough"}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Fill out the details below to {isEditing ? "update this" : "add a new"} walkthrough to the library.</p>
+            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{isEditing ? t.editWalkthrough : t.addNewWalkthrough}</h2>
+            <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.fillOutDetails} {isEditing ? t.updateThis : t.addANew} {t.walkthroughToLibrary}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'hover:bg-slate-700 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -491,8 +511,8 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
               onClick={() => setActiveSection(s.id)}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg transition-all ${
                 activeSection === s.id
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                  ? (isDarkMode ? "bg-white text-slate-900" : "bg-slate-900 text-white")
+                  : (isDarkMode ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50")
               }`}
             >
               {s.icon}
@@ -507,46 +527,46 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
           {activeSection === "details" && (
             <div className="space-y-6">
               <div className="space-y-1.5">
-                <Label className="text-slate-600 text-xs font-medium">Title <span className="text-red-400">*</span></Label>
+                <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.titleLabel} <span className="text-red-400">*</span></Label>
                 <Input
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  placeholder="e.g., How to Navigate the CRM Dashboard"
-                  className="bg-white border-slate-200 h-11 text-sm placeholder:text-slate-300 focus-visible:ring-slate-400"
+                  placeholder={t.titlePlaceholder}
+                  className={`h-11 text-sm focus-visible:ring-slate-400 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 placeholder:text-slate-300'}`}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-slate-600 text-xs font-medium">Description</Label>
+                <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.descriptionLabel}</Label>
                 <Textarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
-                  placeholder="Provide a detailed summary of what this walkthrough covers, what the user will learn, and any prerequisites..."
-                  className="bg-white border-slate-200 min-h-[140px] resize-none text-sm placeholder:text-slate-300 focus-visible:ring-slate-400 leading-relaxed"
+                  placeholder={t.descriptionPlaceholder}
+                  className={`min-h-[140px] resize-none text-sm leading-relaxed focus-visible:ring-slate-400 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 placeholder:text-slate-300'}`}
                 />
-                <p className="text-[10px] text-slate-300 mt-1">{description.length} characters</p>
+                <p className={`text-[10px] mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{description.length} {t.charactersLabel}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
-                  <Label className="text-slate-600 text-xs font-medium">Category</Label>
+                  <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.categoryLabel}</Label>
                   <div className="relative">
                     <select
                       value={category}
                       onChange={e => setCategory(e.target.value)}
-                      className="w-full appearance-none pl-3 pr-9 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 cursor-pointer"
+                      className={`w-full appearance-none pl-3 pr-9 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-200 focus:ring-slate-500 focus:border-slate-500' : 'bg-white border-slate-200 text-slate-700 focus:ring-slate-200 focus:border-slate-300'}`}
                     >
-                      <option value="">Select category...</option>
+                      <option value="">{t.selectCategory}</option>
                       {CATEGORY_OPTIONS.map(c => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-slate-600 text-xs font-medium">Difficulty Level</Label>
+                  <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.difficultyLevel}</Label>
                   <div className="flex gap-2">
                     {DIFFICULTY_OPTIONS.map(d => (
                       <button
@@ -555,11 +575,11 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
                         onClick={() => setDifficulty(d.value)}
                         className={`flex-1 py-2.5 text-xs font-medium rounded-lg border transition-all ${
                           difficulty === d.value
-                            ? "border-slate-900 bg-slate-900 text-white"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                            ? (isDarkMode ? "border-white bg-white text-slate-900" : "border-slate-900 bg-slate-900 text-white")
+                            : (isDarkMode ? "border-slate-600 bg-slate-700 text-slate-400 hover:border-slate-500" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300")
                         }`}
                       >
-                        {d.label}
+                        {t[d.labelKey]}
                       </button>
                     ))}
                   </div>
@@ -589,7 +609,7 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
 
               {/* Video/File source */}
               <div className="space-y-3">
-                <Label className="text-slate-600 text-xs font-medium">Video / File Source <span className="text-red-400">*</span></Label>
+                <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.videoFileSource} <span className="text-red-400">*</span></Label>
                 
                 {/* Drag-and-drop upload zone */}
                 <div
@@ -598,44 +618,44 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
                   onDrop={handleDrop}
                   onClick={() => !videoUploading && videoInputRef.current?.click()}
                   className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
-                    isDragging ? "border-slate-900 bg-slate-50" :
-                    videoUrl && !videoUploading ? "border-slate-200 bg-slate-50/50" :
-                    "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"
+                    isDragging ? (isDarkMode ? "border-white bg-slate-700" : "border-slate-900 bg-slate-50") :
+                    videoUrl && !videoUploading ? (isDarkMode ? "border-slate-600 bg-slate-700/50" : "border-slate-200 bg-slate-50/50") :
+                    (isDarkMode ? "border-slate-600 hover:border-slate-500 hover:bg-slate-700/50" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50")
                   }`}
                 >
                   {videoUploading ? (
                     <div className="space-y-3">
-                      <Loader2 className="w-6 h-6 text-slate-400 animate-spin mx-auto" />
-                      <p className="text-xs font-medium text-slate-600">Uploading {videoFileName}...</p>
-                      <div className="w-full max-w-xs mx-auto bg-slate-100 rounded-full h-1.5">
-                        <div className="bg-slate-900 h-1.5 rounded-full transition-all duration-300" style={{ width: `${videoProgress}%` }} />
+                      <Loader2 className={`w-6 h-6 animate-spin mx-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
+                      <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.uploading} {videoFileName}...</p>
+                      <div className={`w-full max-w-xs mx-auto rounded-full h-1.5 ${isDarkMode ? 'bg-slate-600' : 'bg-slate-100'}`}>
+                        <div className={`h-1.5 rounded-full transition-all duration-300 ${isDarkMode ? 'bg-white' : 'bg-slate-900'}`} style={{ width: `${videoProgress}%` }} />
                       </div>
-                      <p className="text-[10px] text-slate-400">{videoProgress}%</p>
+                      <p className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{videoProgress}%</p>
                     </div>
                   ) : videoUrl ? (
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="w-4 h-4 text-slate-600" />
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-slate-600' : 'bg-slate-100'}`}>
+                        <CheckCircle2 className={`w-4 h-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`} />
                       </div>
                       <div className="flex-1 text-left min-w-0">
-                        <p className="text-xs font-medium text-slate-700 truncate">{videoFileName || "File ready"}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{videoUrl}</p>
+                        <p className={`text-xs font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{videoFileName || t.fileReady}</p>
+                        <p className={`text-[10px] truncate ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{videoUrl}</p>
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); setVideoUrl(""); setVideoFileName(""); }}
-                        className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors"
+                        className={`shrink-0 transition-colors ${isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-300 hover:text-slate-500'}`}
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mx-auto">
-                        <Upload className="w-5 h-5 text-slate-400" />
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto ${isDarkMode ? 'bg-slate-600' : 'bg-slate-100'}`}>
+                        <Upload className={`w-5 h-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-slate-600">Drop a file here or <span className="text-slate-900 underline underline-offset-2">browse</span></p>
-                        <p className="text-[10px] text-slate-300 mt-0.5">MP4, MOV, PDF, DOCX — up to 500 MB</p>
+                        <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.dropFileHere} <span className={`underline underline-offset-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.browse}</span></p>
+                        <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{t.fileTypes}</p>
                       </div>
                     </div>
                   )}
@@ -643,43 +663,43 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
 
                 {/* OR divider */}
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-slate-100" />
-                  <span className="text-[10px] font-medium text-slate-300 uppercase tracking-wider">or paste a URL</span>
-                  <div className="flex-1 h-px bg-slate-100" />
+                  <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
+                  <span className={`text-[10px] font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{t.orPasteUrl}</span>
+                  <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
                 </div>
 
                 {/* URL input */}
                 <div className="relative">
-                  <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                  <Link2 className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`} />
                   <Input
                     value={videoUrl}
                     onChange={e => setVideoUrl(e.target.value)}
-                    placeholder="https://scribehow.com/shared/... or YouTube URL"
-                    className="bg-white border-slate-200 h-11 pl-9 text-sm placeholder:text-slate-300 focus-visible:ring-slate-400"
+                    placeholder={t.urlPlaceholder}
+                    className={`h-11 pl-9 text-sm focus-visible:ring-slate-400 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 placeholder:text-slate-300'}`}
                   />
                 </div>
               </div>
 
               {/* Thumbnail */}
               <div className="space-y-3">
-                <Label className="text-slate-600 text-xs font-medium">Thumbnail Image</Label>
+                <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.thumbnailImage}</Label>
                 <div className="flex gap-3">
                   {/* Thumbnail preview / upload */}
                   <div
                     onClick={() => !thumbUploading && thumbInputRef.current?.click()}
-                    className="w-28 h-20 rounded-xl border border-dashed border-slate-200 hover:border-slate-300 bg-slate-50 flex items-center justify-center cursor-pointer transition-all overflow-hidden shrink-0"
+                    className={`w-28 h-20 rounded-xl border border-dashed flex items-center justify-center cursor-pointer transition-all overflow-hidden shrink-0 ${isDarkMode ? 'border-slate-600 hover:border-slate-500 bg-slate-700' : 'border-slate-200 hover:border-slate-300 bg-slate-50'}`}
                   >
                     {thumbUploading ? (
                       <div className="text-center">
-                        <Loader2 className="w-4 h-4 text-slate-400 animate-spin mx-auto" />
-                        <p className="text-[9px] text-slate-400 mt-1">{thumbProgress}%</p>
+                        <Loader2 className={`w-4 h-4 animate-spin mx-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
+                        <p className={`text-[9px] mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{thumbProgress}%</p>
                       </div>
                     ) : thumbnailUrl ? (
                       <img src={thumbnailUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center">
-                        <ImageIcon className="w-4 h-4 text-slate-300 mx-auto" />
-                        <p className="text-[9px] text-slate-300 mt-0.5">Upload</p>
+                        <ImageIcon className={`w-4 h-4 mx-auto ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`} />
+                        <p className={`text-[9px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{t.uploadLabel}</p>
                       </div>
                     )}
                   </div>
@@ -688,17 +708,17 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
                       <Input
                         value={thumbnailUrl}
                         onChange={e => setThumbnailUrl(e.target.value)}
-                        placeholder="Paste image URL or upload →"
-                        className="bg-white border-slate-200 h-10 text-sm placeholder:text-slate-300 focus-visible:ring-slate-400"
+                        placeholder={t.pasteImageUrl}
+                        className={`h-10 text-sm focus-visible:ring-slate-400 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 placeholder:text-slate-300'}`}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-300">Click the box to upload, or paste a URL. Optional.</p>
+                    <p className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{t.clickBoxToUpload}</p>
                     {thumbnailUrl && (
                       <button
                         onClick={() => setThumbnailUrl("")}
-                        className="text-[10px] text-slate-400 hover:text-slate-600 underline underline-offset-2"
+                        className={`text-[10px] underline underline-offset-2 ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
                       >
-                        Remove thumbnail
+                        {t.removeThumbnail}
                       </button>
                     )}
                   </div>
@@ -707,25 +727,25 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
 
               {/* Preview */}
               <div className="space-y-2">
-                <Label className="text-slate-600 text-xs font-medium flex items-center gap-1.5">
+                <Label className={`text-xs font-medium flex items-center gap-1.5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                   <Eye className="w-3.5 h-3.5" />
-                  Card Preview
+                  {t.cardPreview}
                 </Label>
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                <div className={`border rounded-xl overflow-hidden ${isDarkMode ? 'border-slate-700 bg-slate-700' : 'border-slate-200 bg-slate-50'}`}>
                   <div className="h-36 flex items-center justify-center">
                     {thumbnailUrl ? (
                       <img src={thumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     ) : (
-                      <div className="flex flex-col items-center gap-2 text-slate-300">
+                      <div className={`flex flex-col items-center gap-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>
                         <Play className="w-8 h-8" />
-                        <span className="text-xs">No thumbnail</span>
+                        <span className="text-xs">{t.noThumbnail}</span>
                       </div>
                     )}
                   </div>
                   {title && (
-                    <div className="px-4 py-3 border-t border-slate-100 bg-white">
-                      <p className="text-sm font-medium text-slate-900 truncate">{title}</p>
-                      {description && <p className="text-xs text-slate-400 truncate mt-0.5">{description}</p>}
+                    <div className={`px-4 py-3 border-t ${isDarkMode ? 'border-slate-600 bg-slate-800' : 'border-slate-100 bg-white'}`}>
+                      <p className={`text-sm font-medium truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{title}</p>
+                      {description && <p className={`text-xs truncate mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{description}</p>}
                     </div>
                   )}
                 </div>
@@ -737,36 +757,36 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
           {activeSection === "metadata" && (
             <div className="space-y-6">
               <div className="space-y-1.5">
-                <Label className="text-slate-600 text-xs font-medium">Estimated Duration (minutes)</Label>
+                <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.estimatedDuration}</Label>
                 <Input
                   type="number"
                   min={0}
                   value={estimatedMinutes || ""}
                   onChange={e => setEstimatedMinutes(Number(e.target.value))}
-                  placeholder="e.g., 5"
-                  className="bg-white border-slate-200 h-11 text-sm placeholder:text-slate-300 focus-visible:ring-slate-400 w-40"
+                  placeholder={t.durationPlaceholder}
+                  className={`h-11 text-sm w-40 focus-visible:ring-slate-400 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 placeholder:text-slate-300'}`}
                 />
-                <p className="text-[10px] text-slate-300">How long the walkthrough takes to complete</p>
+                <p className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{t.howLongWalkthrough}</p>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-slate-600 text-xs font-medium">Tags</Label>
+                <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.tagsLabel}</Label>
                 <Textarea
                   value={tagsInput}
                   onChange={e => setTagsInput(e.target.value)}
-                  placeholder="crm, contacts, getting started, onboarding, dashboard"
-                  className="bg-white border-slate-200 min-h-[80px] resize-none text-sm placeholder:text-slate-300 focus-visible:ring-slate-400"
+                  placeholder={t.tagsPlaceholder}
+                  className={`min-h-[80px] resize-none text-sm focus-visible:ring-slate-400 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 placeholder:text-slate-300'}`}
                 />
-                <p className="text-[10px] text-slate-300">Comma-separated keywords to make this walkthrough searchable</p>
+                <p className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{t.tagsHelp}</p>
               </div>
 
               {/* Tag preview */}
               {tagsInput && (
                 <div className="space-y-2">
-                  <Label className="text-slate-600 text-xs font-medium">Tag Preview</Label>
+                  <Label className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.tagPreview}</Label>
                   <div className="flex flex-wrap gap-1.5">
                     {tagsInput.split(",").map(t => t.trim()).filter(Boolean).map((tag, i) => (
-                      <span key={i} className="text-[10px] font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
+                      <span key={i} className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'text-slate-300 bg-slate-700' : 'text-slate-600 bg-slate-100'}`}>
                         {tag}
                       </span>
                     ))}
@@ -775,32 +795,32 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
               )}
 
               {/* Summary */}
-              <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 space-y-2">
-                <p className="text-xs font-medium text-slate-500 mb-3">Summary</p>
+              <div className={`border rounded-xl p-4 space-y-2 ${isDarkMode ? 'border-slate-700 bg-slate-700/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                <p className={`text-xs font-medium mb-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.summaryLabel}</p>
                 <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Title</span>
-                    <span className="text-slate-700 font-medium truncate max-w-[160px]">{title || "—"}</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{t.titleLabel}</span>
+                    <span className={`font-medium truncate max-w-[160px] ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{title || "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Category</span>
-                    <span className="text-slate-700 font-medium">{category || "—"}</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{t.categoryLabel}</span>
+                    <span className={`font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{category || "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Difficulty</span>
-                    <span className="text-slate-700 font-medium capitalize">{difficulty}</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{t.difficultyLevel}</span>
+                    <span className={`font-medium capitalize ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{difficulty}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Duration</span>
-                    <span className="text-slate-700 font-medium">{estimatedMinutes ? `${estimatedMinutes} min` : "—"}</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{t.durationLabel}</span>
+                    <span className={`font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{estimatedMinutes ? `${estimatedMinutes} ${t.minLabel}` : "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Video URL</span>
-                    <span className="text-slate-700 font-medium truncate max-w-[160px]">{videoUrl ? "Set" : "—"}</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{t.videoUrlLabel}</span>
+                    <span className={`font-medium truncate max-w-[160px] ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{videoUrl ? t.setLabel : "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Tags</span>
-                    <span className="text-slate-700 font-medium">{tagsInput.split(",").filter(t => t.trim()).length || 0}</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{t.tagsLabel}</span>
+                    <span className={`font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{tagsInput.split(",").filter(t => t.trim()).length || 0}</span>
                   </div>
                 </div>
               </div>
@@ -809,14 +829,14 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0 bg-slate-50/50">
+        <div className={`flex items-center justify-between px-6 py-4 border-t shrink-0 ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'}`}>
           <div className="flex items-center gap-1.5">
             {sections.map((s, i) => (
               <div key={s.id} className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full transition-colors ${
-                  activeSection === s.id ? "bg-slate-900" : "bg-slate-200"
+                  activeSection === s.id ? (isDarkMode ? "bg-white" : "bg-slate-900") : (isDarkMode ? "bg-slate-600" : "bg-slate-200")
                 }`} />
-                {i < sections.length - 1 && <div className="w-4 h-px bg-slate-200" />}
+                {i < sections.length - 1 && <div className={`w-4 h-px ${isDarkMode ? 'bg-slate-600' : 'bg-slate-200'}`} />}
               </div>
             ))}
           </div>
@@ -825,26 +845,26 @@ function AddWalkthroughDialog({ firestore, storage, editingWalkthrough, onClose 
             {activeSection !== "details" && (
               <button
                 onClick={() => setActiveSection(activeSection === "metadata" ? "media" : "details")}
-                className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                className={`px-4 py-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                Back
+              {t.backLabel}
               </button>
             )}
             {activeSection !== "metadata" ? (
               <button
                 onClick={() => setActiveSection(activeSection === "details" ? "media" : "metadata")}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors"
+                className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-white hover:bg-slate-200 text-slate-900' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}
               >
-                Continue
+                {t.continueLabel}
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
                 disabled={submitting || !title.trim() || !videoUrl.trim()}
-                className="flex items-center gap-2 px-5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
+                className={`flex items-center gap-2 px-5 py-2 disabled:opacity-40 text-sm font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-white hover:bg-slate-200 text-slate-900' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}
               >
                 {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {isEditing ? "Save Changes" : "Publish Walkthrough"}
+                {isEditing ? t.saveChangesLabel : t.publishWalkthrough}
               </button>
             )}
           </div>

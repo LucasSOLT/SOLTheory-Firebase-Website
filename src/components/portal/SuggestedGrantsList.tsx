@@ -4,48 +4,53 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Loader2, ScrollText, ChevronDown, Check, Trash2, ExternalLink } from "lucide-react";
 import { useFirestore } from "@/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
+import { useTranslation } from "@/lib/i18n";
+import { useDarkMode } from '@/lib/useDarkMode';
 import type { GrantRecord } from "@/hooks/useGrantsData";
 
 type FilterCategory = "none" | "unapplied" | "applied" | "completed";
 
-const FILTER_OPTIONS: { key: FilterCategory; label: string }[] = [
-  { key: "none", label: "All Grants" },
-  { key: "unapplied", label: "Un-Applied" },
-  { key: "applied", label: "Applied" },
-  { key: "completed", label: "Completed" },
-];
+const FILTER_KEYS: FilterCategory[] = ["none", "unapplied", "applied", "completed"];
 
-const STATUS_PILLS: Record<
+function getStatusPillStyles(dark: boolean): Record<
   string,
-  { label: string; bg: string; text: string; border: string }
-> = {
-  approved: {
-    label: "Approved",
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
-    border: "border-emerald-200",
-  },
-  denied: {
-    label: "Denied",
-    bg: "bg-red-50",
-    text: "text-red-600",
-    border: "border-red-200",
-  },
-  applied: {
-    label: "Pending",
-    bg: "bg-amber-50",
-    text: "text-amber-700",
-    border: "border-amber-200",
-  },
-  unapplied: {
-    label: "Un-Applied",
-    bg: "bg-[#faf6ed]",
-    text: "text-slate-500",
-    border: "border-slate-200",
-  },
-};
+  { bg: string; text: string; border: string }
+> {
+  return {
+    approved: {
+      bg: dark ? "bg-emerald-950/50" : "bg-emerald-50",
+      text: dark ? "text-emerald-400" : "text-emerald-700",
+      border: dark ? "border-emerald-800" : "border-emerald-200",
+    },
+    denied: {
+      bg: dark ? "bg-red-950/50" : "bg-red-50",
+      text: dark ? "text-red-400" : "text-red-600",
+      border: dark ? "border-red-800" : "border-red-200",
+    },
+    applied: {
+      bg: dark ? "bg-amber-950/50" : "bg-amber-50",
+      text: dark ? "text-amber-400" : "text-amber-700",
+      border: dark ? "border-amber-800" : "border-amber-200",
+    },
+    unapplied: {
+      bg: dark ? "bg-slate-800" : "bg-[#faf6ed]",
+      text: dark ? "text-slate-300" : "text-slate-500",
+      border: dark ? "border-slate-600" : "border-slate-200",
+    },
+  };
+}
 
-function getCardBg(status: string): string {
+function getCardBg(status: string, dark: boolean): string {
+  if (dark) {
+    switch (status) {
+      case "approved":
+        return "bg-emerald-950/30 border-emerald-800/60";
+      case "denied":
+        return "bg-red-950/30 border-red-800/50";
+      default:
+        return "bg-slate-800/60 border-slate-700";
+    }
+  }
   switch (status) {
     case "approved":
       return "bg-emerald-50/50 border-emerald-100/80";
@@ -82,11 +87,41 @@ interface Props {
 }
 
 export function SuggestedGrantsList({ grants = [], loading }: Props) {
+  const { t } = useTranslation();
   const firestore = useFirestore();
+  const isDarkMode = useDarkMode();
   const [filter, setFilter] = useState<FilterCategory>("none");
+
+  const filterLabelMap: Record<FilterCategory, string> = {
+    none: t.allGrants,
+    unapplied: t.unApplied,
+    applied: t.applied,
+    completed: t.completed,
+  };
+
+  const statusLabelMap: Record<string, string> = {
+    approved: t.approved,
+    denied: t.denied,
+    applied: t.pending,
+    unapplied: t.unApplied,
+  };
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const scrollListRef = useRef<HTMLDivElement>(null);
+
+  // Block mouse-wheel scrolling on the grants list — user must drag the scrollbar thumb
+  useEffect(() => {
+    const el = scrollListRef.current;
+    if (!el) return;
+    const blockWheel = (e: WheelEvent) => {
+      if (el.scrollHeight > el.clientHeight) {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener('wheel', blockWheel, { passive: false });
+    return () => el.removeEventListener('wheel', blockWheel);
+  });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -147,7 +182,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
     return result;
   }, [grants, filter]);
 
-  const activeFilterLabel = FILTER_OPTIONS.find((o) => o.key === filter)?.label ?? "All Grants";
+  const activeFilterLabel = filterLabelMap[filter] ?? t.allGrants;
 
   if (loading) {
     return (
@@ -162,9 +197,9 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
       {/* Header row */}
       <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-1.5">
-          <ScrollText className="w-3.5 h-3.5 text-indigo-500" />
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-            Suggested Grants
+          <ScrollText className={`w-3.5 h-3.5 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
+          <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>
+            {t.suggestedGrants}
           </span>
         </div>
 
@@ -172,7 +207,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-1 text-[8px] font-bold text-slate-500 uppercase tracking-wider bg-[#faf6ed] hover:bg-slate-100 border border-slate-200/80 rounded-lg px-2 py-1 transition-colors cursor-pointer"
+            className={`flex items-center gap-1 text-[8px] font-bold uppercase tracking-wider border rounded-lg px-2 py-1 transition-colors cursor-pointer ${isDarkMode ? 'text-slate-300 bg-slate-800 hover:bg-slate-700 border-slate-600' : 'text-slate-500 bg-[#faf6ed] hover:bg-slate-100 border-slate-200/80'}`}
           >
             <span>{activeFilterLabel}</span>
             <ChevronDown
@@ -181,22 +216,22 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 z-[60] bg-[#fefcf6] border border-slate-200 rounded-xl shadow-lg py-1 min-w-[120px] animate-in fade-in slide-in-from-top-1 duration-150">
-              {FILTER_OPTIONS.map((opt) => (
+            <div className={`absolute right-0 top-full mt-1 z-[60] border rounded-xl shadow-lg py-1 min-w-[120px] animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-[#fefcf6] border-slate-200'}`}>
+              {FILTER_KEYS.map((key) => (
                 <button
-                  key={opt.key}
+                  key={key}
                   onClick={() => {
-                    setFilter(opt.key);
+                    setFilter(key);
                     setDropdownOpen(false);
                   }}
                   className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-[9px] font-semibold transition-colors cursor-pointer ${
-                    filter === opt.key
-                      ? "text-indigo-600 bg-indigo-50/60"
-                      : "text-slate-600 hover:bg-[#faf6ed]"
+                    filter === key
+                      ? isDarkMode ? "text-indigo-400 bg-indigo-950/40" : "text-indigo-600 bg-indigo-50/60"
+                      : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"
                   }`}
                 >
-                  <span>{opt.label}</span>
-                  {filter === opt.key && <Check className="w-3 h-3 text-indigo-500" />}
+                  <span>{filterLabelMap[key]}</span>
+                  {filter === key && <Check className={`w-3 h-3 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />}
                 </button>
               ))}
             </div>
@@ -206,29 +241,34 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
 
       {/* Count indicator */}
       <div className="mb-1.5 shrink-0">
-        <span className="text-[8px] font-semibold text-slate-300 tabular-nums">
-          {filteredGrants.length} of {grants.length} grants
+        <span className={`text-[8px] font-semibold tabular-nums ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>
+          {filteredGrants.length} {t.of} {grants.length} {t.grants}
         </span>
       </div>
 
       {/* Scrollable list */}
       {filteredGrants.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-[#faf6ed]/50 rounded-xl border border-dashed border-slate-200/60">
-          <ScrollText className="w-5 h-5 text-slate-300 mb-1.5" />
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-            {filter === "none" ? "No Suggested Grants" : `No ${activeFilterLabel} Grants`}
+        <div className={`flex-1 flex flex-col items-center justify-center text-center p-4 rounded-xl border border-dashed ${isDarkMode ? 'bg-slate-800/50 border-slate-600/60' : 'bg-[#faf6ed]/50 border-slate-200/60'}`}>
+          <ScrollText className={`w-5 h-5 mb-1.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+          <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>
+            {filter === "none" ? t.noSuggestedGrants : `${activeFilterLabel} — ${t.noGrantsMatchFilter}`}
           </span>
-          <span className="text-[8px] text-slate-400 mt-0.5 max-w-[180px]">
+          <span className={`text-[8px] mt-0.5 max-w-[180px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
             {filter === "none"
-              ? "Grants suggested by the agent will appear here."
-              : "No grants match this filter."}
+              ? t.grantsSuggestedWillAppear
+              : t.noGrantsMatchFilter}
           </span>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-0.5">
+        <div
+          ref={scrollListRef}
+          className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-0.5"
+        >
           {filteredGrants.map((grant) => {
-            const pill = STATUS_PILLS[grant.status] || STATUS_PILLS.unapplied;
-            const cardBg = getCardBg(grant.status);
+            const statusPills = getStatusPillStyles(isDarkMode);
+            const pillStyle = statusPills[grant.status] || statusPills.unapplied;
+            const pillLabel = statusLabelMap[grant.status] || t.unApplied;
+            const cardBg = getCardBg(grant.status, isDarkMode);
             const isDeleting = deletingIds.has(grant.id);
             return (
               <div
@@ -240,7 +280,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                 {/* Left: Title + date */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
-                    <p className="text-[10px] font-bold text-slate-800 truncate leading-tight">
+                    <p className={`text-[10px] font-bold truncate leading-tight ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
                       {grant.title}
                     </p>
                     {grant.url && (
@@ -249,17 +289,17 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="shrink-0 text-indigo-400 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100"
-                        title="Open grant page"
+                        className={`shrink-0 transition-colors opacity-0 group-hover:opacity-100 ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-400 hover:text-indigo-600'}`}
+                        title={t.openGrantPage}
                       >
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
                   </div>
-                  <p className="text-[8px] text-slate-400 font-medium truncate mt-0.5">
+                  <p className={`text-[8px] font-medium truncate mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
                     {formatDate(grant.dateSuggested)}
                     {grant.amount != null && (
-                      <span className="ml-1.5 text-slate-500 font-semibold">
+                      <span className={`ml-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>
                         {formatCurrency(grant.amount)}
                       </span>
                     )}
@@ -268,7 +308,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
 
                 {/* Center: Agency */}
                 <div className="hidden sm:block shrink-0 max-w-[100px]">
-                  <span className="text-[8px] font-semibold text-slate-400 truncate block">
+                  <span className={`text-[8px] font-semibold truncate block ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
                     {grant.agency}
                   </span>
                 </div>
@@ -276,9 +316,9 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                 {/* Right: Status pill + Delete */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span
-                    className={`text-[7px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${pill.bg} ${pill.text} ${pill.border}`}
+                    className={`text-[7px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${pillStyle.bg} ${pillStyle.text} ${pillStyle.border}`}
                   >
-                    {pill.label}
+                    {pillLabel}
                   </span>
                   {/* Delete button â€” visible on hover */}
                   <button
@@ -286,8 +326,8 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                       e.stopPropagation();
                       handleDelete(grant.id);
                     }}
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
-                    title="Remove grant"
+                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all cursor-pointer ${isDarkMode ? 'text-slate-500 hover:text-red-400 hover:bg-red-950/50' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}
+                    title={t.removeGrant}
                   >
                     {isDeleting ? (
                       <Loader2 className="w-2.5 h-2.5 animate-spin" />

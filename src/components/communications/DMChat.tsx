@@ -10,6 +10,24 @@ import { Button } from "@/components/ui/button";
 import { playMessageSendSound } from "@/lib/send-sound";
 import { logActivity } from '@/lib/activity-logger';
 
+function useDarkMode() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => {
+    const t = localStorage.getItem('insight_theme');
+    setIsDarkMode(t === 'dark');
+    const handleStorage = () => {
+      setIsDarkMode(localStorage.getItem('insight_theme') === 'dark');
+    };
+    window.addEventListener('storage', handleStorage);
+    const interval = setInterval(handleStorage, 500);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
+  return isDarkMode;
+}
+
 interface Chat {
   id: string;
   participants: string[];
@@ -25,7 +43,7 @@ interface Message {
   hiddenFor?: string[];
 }
 
-const ChatToolsMenu = ({ onInsertList }: { onInsertList: (rows: number, isCheckbox: boolean) => void }) => {
+const ChatToolsMenu = ({ onInsertList, isDarkMode }: { onInsertList: (rows: number, isCheckbox: boolean) => void; isDarkMode: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<'menu' | 'listForm'>('menu');
   const [rows, setRows] = useState(5);
@@ -33,36 +51,36 @@ const ChatToolsMenu = ({ onInsertList }: { onInsertList: (rows: number, isCheckb
 
   return (
     <div className="relative">
-      <button onClick={() => setIsOpen(!isOpen)} className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Tools">
-        <Wrench className="w-5 h-5 text-slate-500" />
+      <button onClick={() => setIsOpen(!isOpen)} className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`} title="Herramientas">
+        <Wrench className={`w-5 h-5 ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`} />
       </button>
       {isOpen && (
-        <div className="absolute bottom-16 left-0 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50">
+        <div className={`absolute bottom-16 left-0 w-64 rounded-xl shadow-xl border p-2 z-50 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
           {view === 'menu' ? (
             <div className="flex flex-col gap-1">
-              <button onClick={() => setView('listForm')} className="text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md">Create List</button>
-              <button disabled className="text-left px-3 py-2 text-sm font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Poll</button>
-              <button disabled className="text-left px-3 py-2 text-sm font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Thread</button>
+              <button onClick={() => setView('listForm')} className={`text-left px-3 py-2 text-sm font-medium rounded-md ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Crear Lista</button>
+              <button disabled className={`text-left px-3 py-2 text-sm font-medium opacity-50 cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Crear Encuesta</button>
+              <button disabled className={`text-left px-3 py-2 text-sm font-medium opacity-50 cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Crear Hilo</button>
             </div>
           ) : (
             <div className="p-2 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-slate-700">New List</span>
-                <button onClick={() => { setView('menu'); setIsOpen(false); }}><X className="w-4 h-4 text-slate-400 hover:text-slate-600" /></button>
+                <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Nueva Lista</span>
+                <button onClick={() => { setView('menu'); setIsOpen(false); }}><X className={`w-4 h-4 ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`} /></button>
               </div>
               <div>
-                <label className="text-xs text-slate-500 font-medium">Rows (Max 50)</label>
-                <input type="number" min="1" max="50" value={rows} onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} className="w-full mt-1 border border-slate-200 bg-slate-50 rounded-md p-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500" />
+                <label className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Filas (Máx 50)</label>
+                <input type="number" min="1" max="50" value={rows} onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} className={`w-full mt-1 border rounded-md p-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`} />
               </div>
               <label className="flex items-center gap-2 cursor-pointer mt-3">
                 <input type="checkbox" checked={isCheckbox} onChange={e => setIsCheckbox(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer" />
-                <span className="text-sm text-slate-700 font-medium">Add Checkboxes</span>
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Agregar Casillas</span>
               </label>
               <Button size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 mt-2 text-white font-medium" onClick={() => {
                 onInsertList(rows, isCheckbox);
                 setIsOpen(false);
                 setView('menu');
-              }}>Send List</Button>
+              }}>Enviar Lista</Button>
             </div>
           )}
         </div>
@@ -176,6 +194,7 @@ export function DMChat() {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = useStorage();
+  const isDarkMode = useDarkMode();
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -217,9 +236,9 @@ export function DMChat() {
     return () => unsub();
   }, [firestore, user?.uid]);
 
-  const getContactName = (email: string) => {
+  const getContactName = (email: string): string => {
     const contact = contacts.find(c => c.email === email);
-    return contact ? contact.name : email;
+    return (contact?.name || email || "?");
   };
 
   // Auto scroll to bottom of messages
@@ -304,32 +323,13 @@ export function DMChat() {
     if (!firestore || !user?.email || !activeChatId) return;
     
     const textToSend = customImageUrl ? `Uploaded image: ${customFileName}` : inputText.trim();
-    if (!textToSend && !customImageUrl) return;
+    if (!textToSend && !customImageUrl && pendingAttachments.length === 0) return;
     setInputText("");
 
     // Play send sound
     playMessageSendSound();
 
-    try {
-      const payload: any = {
-        text: textToSend,
-        senderEmail: user.email,
-        createdAt: serverTimestamp()
-      };
-      if (customImageUrl) payload.imageUrl = customImageUrl;
-      const docRef = await addDoc(collection(firestore, `dms/${activeChatId}/messages`), payload);
-      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent DM message', { messagePreview: textToSend.substring(0, 200) });
-      // Track sent message for animation
-      setJustSentIds(prev => new Set(prev).add(docRef.id));
-      setTimeout(() => {
-        setJustSentIds(prev => { const next = new Set(prev); next.delete(docRef.id); return next; });
-      }, 500);
-    } catch(e) {
-      console.error(e);
-      alert("Failed to send message.");
-    }
-
-    // Send any pending paste attachments
+    // Send any pending paste attachments (image-only sends with no text)
     if (!customImageUrl && pendingAttachments.length > 0) {
       const toProcess = [...pendingAttachments];
       setPendingAttachments([]);
@@ -338,6 +338,28 @@ export function DMChat() {
         if (att.file.type.startsWith('image/')) {
           processImageFile(att.file);
         }
+      }
+    }
+
+    // Send text message (or the customImageUrl message)
+    if (textToSend || customImageUrl) {
+      try {
+        const payload: any = {
+          text: textToSend,
+          senderEmail: user.email,
+          createdAt: serverTimestamp()
+        };
+        if (customImageUrl) payload.imageUrl = customImageUrl;
+        const docRef = await addDoc(collection(firestore, `dms/${activeChatId}/messages`), payload);
+        logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent DM message', { messagePreview: textToSend.substring(0, 200) });
+        // Track sent message for animation
+        setJustSentIds(prev => new Set(prev).add(docRef.id));
+        setTimeout(() => {
+          setJustSentIds(prev => { const next = new Set(prev); next.delete(docRef.id); return next; });
+        }, 500);
+      } catch(e) {
+        console.error(e);
+        alert("Failed to send message.");
       }
     }
   };
@@ -353,8 +375,8 @@ export function DMChat() {
       handleSendMessage(downloadUrl, file.name || "uploaded-image.jpg");
     } catch (err) {
       console.error("Upload failed:", err);
-      // Fallback: use base64 for small images
-      if (file.size < 500 * 1024 && (file.type === "image/jpeg" || file.type === "image/png")) {
+      // Fallback: use base64 with canvas resize (compresses to JPEG 0.7 quality)
+      if (file.type.startsWith("image/")) {
         const reader = new FileReader();
         reader.onload = (event) => {
           const img = new Image();
@@ -411,25 +433,30 @@ export function DMChat() {
     e.target.value = "";
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const files: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file') {
-        const file = items[i].getAsFile();
-        if (file) files.push(file);
+  // Global paste listener — catches image pastes regardless of which element has focus
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') {
+          const file = items[i].getAsFile();
+          if (file) files.push(file);
+        }
       }
-    }
-    if (files.length > 0) {
-      e.preventDefault();
-      const previews = files.map(f => ({
-        file: f,
-        preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : '',
-      }));
-      setPendingAttachments(prev => [...prev, ...previews]);
-    }
-  };
+      if (files.length > 0) {
+        e.preventDefault();
+        const previews = files.map(f => ({
+          file: f,
+          preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : '',
+        }));
+        setPendingAttachments(prev => [...prev, ...previews]);
+      }
+    };
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => document.removeEventListener('paste', handleGlobalPaste);
+  }, []);
 
   const removePendingAttachment = (idx: number) => {
     setPendingAttachments(prev => {
@@ -444,16 +471,16 @@ export function DMChat() {
   const contactDisplayName = getContactName(contactEmail);
 
   return (
-    <div className="flex h-full w-full bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm">
+    <div className={`flex h-full w-full rounded-3xl overflow-hidden border shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
       {/* Left Pane: Chat List */}
-      <div className="w-80 flex flex-col border-r border-slate-100 bg-slate-50/50 relative z-10 transition-all shrink-0">
-        <div className="p-4 border-b border-slate-100 space-y-4 bg-white/50 backdrop-blur-sm">
-          <h2 className="text-sm font-bold text-slate-800 tracking-wide uppercase px-2">Contacts</h2>
+      <div className={`w-80 flex flex-col border-r relative z-10 transition-all shrink-0 ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'}`}>
+        <div className={`p-4 border-b space-y-4 backdrop-blur-sm ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-white/50'}`}>
+          <h2 className={`text-sm font-bold tracking-wide uppercase px-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Contactos</h2>
           
           <div className="flex flex-col gap-2 relative">
             <div className="flex items-center gap-2">
               <Input 
-                placeholder="Search contact or enter email..." 
+                placeholder="Buscar contacto o ingresar correo..." 
                 value={newContactEmail}
                 onChange={e => {
                   setNewContactEmail(e.target.value);
@@ -461,7 +488,7 @@ export function DMChat() {
                 }}
                 onFocus={() => setShowContactsDropdown(true)}
                 onBlur={() => setTimeout(() => setShowContactsDropdown(false), 200)}
-                className="h-9 text-xs flex-1 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl focus-visible:ring-indigo-100"
+                className={`h-9 text-xs flex-1 rounded-xl focus-visible:ring-indigo-100 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
                 onKeyDown={e => e.key === 'Enter' && handleStartChat()}
               />
               <Button size="icon" onClick={handleStartChat} className="w-9 h-9 rounded-xl bg-indigo-500 hover:bg-indigo-600 shadow-sm shrink-0">
@@ -470,17 +497,17 @@ export function DMChat() {
             </div>
             
             {showContactsDropdown && contacts.length > 0 && (
-              <div className="absolute top-10 left-0 right-10 bg-white border border-slate-200 shadow-lg rounded-xl z-50 max-h-48 overflow-y-auto">
+              <div className={`absolute top-10 left-0 right-10 border shadow-lg rounded-xl z-50 max-h-48 overflow-y-auto ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                 {contacts.filter(c => c.name.toLowerCase().includes(newContactEmail.toLowerCase()) || c.email.includes(newContactEmail.toLowerCase())).map(contact => (
                   <div 
                     key={contact.id} 
-                    className="p-2 hover:bg-indigo-50 cursor-pointer flex flex-col"
+                    className={`p-2 cursor-pointer flex flex-col ${isDarkMode ? 'hover:bg-indigo-900/30' : 'hover:bg-indigo-50'}`}
                     onMouseDown={() => {
                       setNewContactEmail(contact.email);
                       setShowContactsDropdown(false);
                     }}
                   >
-                    <span className="text-xs font-bold text-slate-800">{contact.name}</span>
+                    <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{contact.name}</span>
                     <span className="text-[10px] text-slate-500">{contact.email}</span>
                   </div>
                 ))}
@@ -498,16 +525,16 @@ export function DMChat() {
               <div 
                 key={chat.id}
                 onClick={() => setActiveChatId(chat.id)}
-                className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors ${isActive ? 'bg-indigo-50 border border-indigo-100 shadow-sm shadow-indigo-100/50' : 'hover:bg-slate-100 border border-transparent'}`}
+                className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors ${isActive ? (isDarkMode ? 'bg-indigo-900/30 border border-indigo-800 shadow-sm shadow-indigo-900/50' : 'bg-indigo-50 border border-indigo-100 shadow-sm shadow-indigo-100/50') : (isDarkMode ? 'hover:bg-slate-700 border border-transparent' : 'hover:bg-slate-100 border border-transparent')}`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-indigo-200 text-indigo-700' : 'bg-slate-200 text-slate-500'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-indigo-200 text-indigo-700' : (isDarkMode ? 'bg-slate-600 text-slate-300' : 'bg-slate-200 text-slate-500')}`}>
                   {displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className={`text-sm font-semibold truncate ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+                  <span className={`text-sm font-semibold truncate ${isActive ? (isDarkMode ? 'text-indigo-300' : 'text-indigo-900') : (isDarkMode ? 'text-slate-200' : 'text-slate-700')}`}>
                     {displayName}
                   </span>
-                  <span className="text-xs text-slate-400 truncate">Direct Message</span>
+                  <span className="text-xs text-slate-400 truncate">Mensaje Directo</span>
                 </div>
               </div>
             );
@@ -515,35 +542,35 @@ export function DMChat() {
           {chats.length === 0 && (
             <div className="flex flex-col items-center justify-center h-48 text-slate-400">
               <Search className="w-8 h-8 mb-2 opacity-20" />
-              <p className="text-xs font-medium">No contacts yet</p>
+              <p className="text-xs font-medium">Aún no hay contactos</p>
             </div>
           )}
         </div>
         
         {/* Current User Profile Summary Bottom Left */}
-        <div className="p-4 border-t border-slate-100 bg-white flex items-center gap-3 shrink-0">
-          <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs shrink-0">
+        <div className={`p-4 border-t flex items-center gap-3 shrink-0 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-white'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isDarkMode ? 'bg-slate-600 text-white' : 'bg-slate-800 text-white'}`}>
             {user?.email?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-xs font-bold text-slate-900 truncate">Me</span>
+            <span className={`text-xs font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Yo</span>
             <span className="text-[10px] text-slate-500 truncate">{user?.email}</span>
           </div>
         </div>
       </div>
 
       {/* Right Pane: Main Chat */}
-      <div className="flex-1 flex flex-col bg-slate-50 relative min-w-0">
+      <div className={`flex-1 flex flex-col relative min-w-0 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
         {activeChatId ? (
           <>
             {/* Header */}
-            <div className="h-16 border-b border-slate-200 px-6 flex items-center shrink-0 bg-white">
+            <div className={`h-16 border-b px-6 flex items-center shrink-0 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
                   <UserCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">{contactDisplayName}</h3>
+                  <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{contactDisplayName}</h3>
                 </div>
               </div>
             </div>
@@ -563,7 +590,7 @@ export function DMChat() {
                     <div className={`max-w-[75%] rounded-3xl px-5 py-3 shadow-sm ${
                       isMe 
                         ? 'bg-green-500 text-white rounded-br-sm' 
-                        : 'bg-slate-200 text-slate-800 rounded-bl-sm'
+                        : (isDarkMode ? 'bg-slate-700 text-slate-100 rounded-bl-sm' : 'bg-slate-200 text-slate-800 rounded-bl-sm')
                     }`}>
                       {msg.imageUrl ? (
                         <div className="flex flex-col mt-2 mb-2">
@@ -587,17 +614,17 @@ export function DMChat() {
 
             {/* Right-click Context Menu */}
             {contextMenu && (
-              <div className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-slate-200 py-1 w-48 overflow-hidden" style={{ left: contextMenu.x, top: contextMenu.y }}>
-                <button onClick={() => handleDeleteForMe(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Delete for me</button>
-                {contextMenu.isMe && <button onClick={() => handleDeleteForEveryone(contextMenu.msgId)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium">Delete for everyone</button>}
+              <div className={`fixed z-[9999] rounded-xl shadow-2xl border py-1 w-48 overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} style={{ left: contextMenu.x, top: contextMenu.y }}>
+                <button onClick={() => handleDeleteForMe(contextMenu.msgId)} className={`w-full text-left px-4 py-2.5 text-sm font-medium ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Eliminar para mí</button>
+                {contextMenu.isMe && <button onClick={() => handleDeleteForEveryone(contextMenu.msgId)} className={`w-full text-left px-4 py-2.5 text-sm text-red-600 font-medium ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>Eliminar para todos</button>}
               </div>
             )}
 
             {/* Input Footer */}
-            <div className="p-4 bg-white border-t border-slate-200 shrink-0">
+            <div className={`p-4 border-t shrink-0 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                <div className="flex flex-col gap-2 max-w-4xl mx-auto">
                  {pendingAttachments.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50">
+                    <div className={`flex items-center gap-2 px-3 py-2 border rounded-xl ${isDarkMode ? 'border-slate-600 bg-slate-700' : 'border-slate-200 bg-slate-50'}`}>
                       {pendingAttachments.map((att, idx) => (
                         <div key={idx} className="relative shrink-0 group">
                           {att.preview ? (
@@ -618,7 +645,7 @@ export function DMChat() {
                     </div>
                   )}
                  <div className="flex items-center gap-2 relative">
-                   <ChatToolsMenu onInsertList={async (rows, isCheckbox) => {
+                   <ChatToolsMenu isDarkMode={isDarkMode} onInsertList={async (rows, isCheckbox) => {
                      const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
                      const msgData = {
                        text: payload,
@@ -628,16 +655,15 @@ export function DMChat() {
                      await addDoc(collection(firestore!, `dms/${activeChatId}/messages`), msgData);
                      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
                    }} />
-                   <label className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Upload Photo">
-                     <Paperclip className="w-5 h-5 text-slate-500" />
+                   <label className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`} title="Subir Foto">
+                     <Paperclip className={`w-5 h-5 ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`} />
                      <input type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" onChange={handleImageUpload} />
                    </label>
                    <Input 
                      value={inputText}
                      onChange={e => setInputText(e.target.value)}
-                     onPaste={handlePaste}
-                     placeholder={`Message ${contactDisplayName}...`}
-                     className="flex-1 bg-slate-100 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none"
+                     placeholder={`Mensaje a ${contactDisplayName}...`}
+                     className={`flex-1 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none ${isDarkMode ? 'bg-slate-700 text-white placeholder:text-slate-400' : 'bg-slate-100 text-slate-900'}`}
                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (inputText.trim() || pendingAttachments.length > 0) && handleSendMessage()}
                    />
                    <Button onClick={() => handleSendMessage()} disabled={!inputText.trim() && pendingAttachments.length === 0} size="icon" className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-md shrink-0">
@@ -649,12 +675,12 @@ export function DMChat() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-            <div className="w-20 h-20 bg-white rounded-full shadow-sm flex items-center justify-center text-slate-300 mb-6 border border-slate-100">
+            <div className={`w-20 h-20 rounded-full shadow-sm flex items-center justify-center mb-6 border ${isDarkMode ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-white text-slate-300 border-slate-100'}`}>
                <MessageSquareX className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-extrabold text-slate-700">No Chat Selected</h2>
+            <h2 className={`text-2xl font-extrabold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Sin Chat Seleccionado</h2>
             <p className="text-slate-400 mt-2 max-w-sm">
-              Select an existing contact from the left menu or type an email address to start a new direct message thread.
+              Selecciona un contacto existente del menú izquierdo o escribe un correo electrónico para iniciar un nuevo hilo de mensajes directos.
             </p>
           </div>
         )}

@@ -31,7 +31,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "gmail",
     name: "Gmail",
-    description: "Build drip campaigns, schedule outreach, and track engagement with AI-optimized send times.",
+    description: "Crea campañas de goteo, programa envíos y rastrea interacción con horarios optimizados por IA.",
     icon: <Mail className="w-6 h-6" />,
     gradient: "from-red-500 to-rose-600",
     available: true,
@@ -39,7 +39,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "outlook",
     name: "Outlook",
-    description: "Enterprise email campaigns with Microsoft 365 integration and calendar sync.",
+    description: "Campañas de correo empresarial con integración de Microsoft 365 y sincronización de calendario.",
     icon: <Mail className="w-6 h-6" />,
     gradient: "from-blue-500 to-blue-700",
     available: false,
@@ -47,7 +47,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "sms",
     name: "SMS",
-    description: "Automated text message sequences with delivery tracking and opt-out management.",
+    description: "Secuencias automatizadas de mensajes de texto con seguimiento de entrega y gestión de exclusión.",
     icon: <Phone className="w-6 h-6" />,
     gradient: "from-emerald-500 to-green-700",
     available: false,
@@ -55,7 +55,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "slack",
     name: "Slack",
-    description: "Automated Slack messaging for internal team campaigns and channel notifications.",
+    description: "Mensajería automatizada en Slack para campañas internas de equipo y notificaciones de canal.",
     icon: <Hash className="w-6 h-6" />,
     gradient: "from-purple-500 to-violet-700",
     available: false,
@@ -63,7 +63,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "whatsapp",
     name: "WhatsApp",
-    description: "Business messaging campaigns with rich media support and read receipts.",
+    description: "Campañas de mensajería empresarial con soporte de medios enriquecidos y confirmaciones de lectura.",
     icon: <MessageSquare className="w-6 h-6" />,
     gradient: "from-green-500 to-teal-600",
     available: false,
@@ -71,7 +71,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "google-services",
     name: "Google Services",
-    description: "Leverage Google Ads, Analytics, and Search Console for cross-channel campaign insights.",
+    description: "Aprovecha Google Ads, Analytics y Search Console para información de campañas multicanal.",
     icon: <Globe className="w-6 h-6" />,
     gradient: "from-amber-500 to-orange-600",
     available: false,
@@ -826,6 +826,18 @@ export default function AgenticCampaigningPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const { user, isUserLoading } = useUser();
 
+  // Dark mode state
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem('insight_theme');
+    if (saved === 'dark') setIsDarkMode(true);
+    const handler = (e: StorageEvent) => {
+      if (e.key === 'insight_theme') setIsDarkMode(e.newValue === 'dark');
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
   // Resolve Gmail OAuth token when user is available
   useEffect(() => {
     if (isUserLoading || !user) { setAuthChecked(!isUserLoading); return; }
@@ -858,14 +870,14 @@ export default function AgenticCampaigningPage() {
 
   if (selectedPlatform === "gmail") {
     return (
-      <div className="w-full h-full bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200/80 relative flex flex-col" style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
+      <div className={`w-full h-full rounded-2xl overflow-hidden shadow-sm relative flex flex-col ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200/80'}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
         <CampaignManager onBack={() => setSelectedPlatform(null)} />
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full overflow-y-auto pb-10 px-3 sm:px-4 md:px-8 animate-in fade-in duration-500" style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
+    <div className={`w-full h-full overflow-y-auto pb-10 px-3 sm:px-4 md:px-8 animate-in fade-in duration-500 ${isDarkMode ? 'bg-slate-950' : ''}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
       <div className="max-w-5xl mx-auto py-8 space-y-8">
         {/* Header */}
         <div className="text-center space-y-2.5">
@@ -874,24 +886,24 @@ export default function AgenticCampaigningPage() {
               <Send className="w-5 h-5 text-white" />
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Agentic Campaigning</h1>
-          <p className="text-[13px] text-slate-500 max-w-lg mx-auto leading-relaxed">
-            Build drip campaigns, schedule automated outreach, and track engagement — powered by AI-optimized send times and personalized content at scale.
+          <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Agentic Campaigning</h1>
+          <p className={`text-[13px] max-w-lg mx-auto leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Crea campañas de goteo, programa envíos automatizados y rastrea la interacción — impulsado por horarios de envío optimizados por IA y contenido personalizado a escala.
           </p>
         </div>
 
         {/* Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Active Campaigns", value: "N/A" },
-            { label: "Messages Sent", value: "N/A" },
-            { label: "Avg. Open Rate", value: "N/A" },
-            { label: "Avg. Click Rate", value: "N/A" },
+            { label: "Campañas Activas", value: "N/A" },
+            { label: "Mensajes Enviados", value: "N/A" },
+            { label: "Tasa de Apertura", value: "N/A" },
+            { label: "Tasa de Clics", value: "N/A" },
           ].map((stat) => (
-            <div key={stat.label} className="bg-white border border-slate-200/80 rounded-2xl p-4 hover:shadow-sm transition-shadow">
-              <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-1">{stat.label}</p>
-              <p className="text-xl font-bold text-slate-300">{stat.value}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Data populates with usage</p>
+            <div key={stat.label} className={`rounded-2xl p-4 hover:shadow-sm transition-shadow ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200/80'}`}>
+              <p className={`text-[10px] font-bold tracking-wider uppercase mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
+              <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{stat.value}</p>
+              <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Se completa con el uso</p>
             </div>
           ))}
         </div>
@@ -899,8 +911,8 @@ export default function AgenticCampaigningPage() {
         {/* Platform Selection */}
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Select a Platform</h2>
-            <div className="flex-1 h-px bg-slate-200/60" />
+            <h2 className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Selecciona una Plataforma</h2>
+            <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200/60'}`} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -909,16 +921,16 @@ export default function AgenticCampaigningPage() {
                 key={platform.id}
                 onClick={() => platform.available && setSelectedPlatform(platform.id)}
                 disabled={!platform.available}
-                className={`group relative text-left bg-white border rounded-2xl p-5 transition-all duration-200 ${
+                className={`group relative text-left border rounded-2xl p-5 transition-all duration-200 ${
                   platform.available
-                    ? "border-slate-200/80 hover:border-slate-300 hover:shadow-md cursor-pointer"
-                    : "border-slate-100 cursor-not-allowed"
+                    ? `${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-slate-600 hover:shadow-md' : 'bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-md'} cursor-pointer`
+                    : `${isDarkMode ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-100'} cursor-not-allowed`
                 }`}
               >
                 {!platform.available && (
                   <div className="absolute top-3 right-3">
-                    <span className="text-[8px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                      Coming Soon
+                    <span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'text-slate-500 bg-slate-700' : 'text-slate-400 bg-slate-100'}`}>
+                      Próximamente
                     </span>
                   </div>
                 )}
@@ -927,11 +939,11 @@ export default function AgenticCampaigningPage() {
                 } transition-shadow`}>
                   {platform.icon}
                 </div>
-                <h3 className={`text-[14px] font-semibold mb-1 ${platform.available ? "text-slate-800" : "text-slate-400"}`}>{platform.name}</h3>
-                <p className={`text-[11px] leading-relaxed ${platform.available ? "text-slate-500" : "text-slate-400"}`}>{platform.description}</p>
+                <h3 className={`text-[14px] font-semibold mb-1 ${platform.available ? (isDarkMode ? 'text-slate-200' : 'text-slate-800') : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>{platform.name}</h3>
+                <p className={`text-[11px] leading-relaxed ${platform.available ? (isDarkMode ? 'text-slate-400' : 'text-slate-500') : (isDarkMode ? 'text-slate-600' : 'text-slate-400')}`}>{platform.description}</p>
                 {platform.available && (
-                  <div className="flex items-center gap-1 mt-3 text-[11px] font-semibold text-slate-500 group-hover:text-slate-700">
-                    <span>Open</span>
+                  <div className={`flex items-center gap-1 mt-3 text-[11px] font-semibold ${isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700'}`}>
+                    <span>Abrir</span>
                     <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 )}
@@ -941,22 +953,22 @@ export default function AgenticCampaigningPage() {
         </div>
 
         {/* AI Features */}
-        <div className="bg-slate-900 rounded-2xl p-6">
+        <div className={`rounded-2xl p-6 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-900'}`}>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
               <svg className="w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
               </svg>
             </div>
-            <h3 className="text-[13px] font-semibold text-white tracking-wide">AI-Powered Features</h3>
+            <h3 className="text-[13px] font-semibold text-white tracking-wide">Funciones Impulsadas por IA</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { title: "Smart Send Times", desc: "AI analyzes recipient behavior to optimize delivery windows for maximum engagement." },
-              { title: "Content Personalization", desc: "Dynamic content blocks that adapt messaging based on recipient segments and history." },
-              { title: "Predictive Analytics", desc: "Real-time campaign performance predictions with actionable recommendations." },
+              { title: "Horarios de Envío Inteligentes", desc: "La IA analiza el comportamiento del destinatario para optimizar los horarios de entrega y maximizar la interacción." },
+              { title: "Personalización de Contenido", desc: "Bloques de contenido dinámico que adaptan el mensaje según los segmentos e historial del destinatario." },
+              { title: "Análisis Predictivo", desc: "Predicciones de rendimiento de campañas en tiempo real con recomendaciones accionables." },
             ].map((f) => (
-              <div key={f.title} className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <div key={f.title} className={`p-4 rounded-xl ${isDarkMode ? 'bg-slate-700/50 border border-slate-600/50' : 'bg-white/5 border border-white/10'}`}>
                 <h4 className="text-[12px] font-semibold text-white mb-1">{f.title}</h4>
                 <p className="text-[11px] text-slate-400 leading-relaxed">{f.desc}</p>
               </div>

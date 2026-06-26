@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, query, orderBy, limit, where, onSnapshot } from "firebase/firestore";
 import { Activity, ChevronDown, ChevronRight, Filter, Search, X } from "lucide-react";
+import { useDarkMode } from "@/lib/useDarkMode";
 
 interface ActivityEntry {
   id: string;
@@ -66,6 +67,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function ActivityLogPage() {
+  const isDarkMode = useDarkMode();
   const firestore = useFirestore();
   const { user } = useUser();
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
@@ -216,6 +218,22 @@ export default function ActivityLogPage() {
   };
 
   const getCategoryColor = (category: string): string => {
+    if (isDarkMode) {
+      switch (category) {
+        case "auth": return "bg-blue-950/40 text-blue-300 border border-blue-900/50";
+        case "grants": return "bg-purple-950/40 text-purple-300 border border-purple-900/50";
+        case "support": return "bg-amber-950/40 text-amber-300 border border-amber-900/50";
+        case "tasks": return "bg-green-950/40 text-green-300 border border-green-900/50";
+        case "crm": return "bg-rose-950/40 text-rose-300 border border-rose-900/50";
+        case "timesheets": return "bg-indigo-950/40 text-indigo-300 border border-indigo-900/50";
+        case "ai": return "bg-cyan-950/40 text-cyan-300 border border-cyan-900/50";
+        case "settings": return "bg-slate-800 text-slate-300 border border-slate-700";
+        case "files": return "bg-orange-950/40 text-orange-300 border border-orange-900/50";
+        case "navigation": return "bg-teal-950/40 text-teal-300 border border-teal-900/50";
+        case "general": return "bg-slate-800 text-slate-400 border border-slate-700";
+        default: return "bg-slate-800 text-slate-400 border border-slate-700";
+      }
+    }
     switch (category) {
       case "auth": return "bg-blue-100 text-blue-700";
       case "grants": return "bg-purple-100 text-purple-700";
@@ -239,18 +257,18 @@ export default function ActivityLogPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#faf6ed] overflow-auto">
+    <div className={`flex flex-col h-full overflow-auto transition-colors ${isDarkMode ? "bg-slate-950 text-slate-200" : "bg-[#faf6ed] text-slate-800"}`}>
       {/* Header */}
       <div className="shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? "bg-slate-800" : "bg-slate-800"}`}>
                 <Activity className="w-4 h-4 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900">Activity Log</h1>
+              <h1 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Activity Log</h1>
             </div>
-            <p className="text-sm text-slate-500 mt-1">All actions across your organization — real-time.</p>
+            <p className={`text-sm mt-1 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>All actions across your organization — real-time.</p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -262,10 +280,14 @@ export default function ActivityLogPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="pl-8 pr-7 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none w-44 transition-all"
+                className={`pl-8 pr-7 py-2 border rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none w-44 transition-all ${
+                  isDarkMode 
+                    ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
+                    : "bg-white border-slate-200 text-slate-700 placeholder:text-slate-400"
+                }`}
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-350">
                   <X className="w-3 h-3" />
                 </button>
               )}
@@ -275,7 +297,9 @@ export default function ActivityLogPage() {
             <select
               value={userFilter}
               onChange={(e) => setUserFilter(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+              className={`px-3 py-2 border rounded-lg text-xs font-semibold outline-none cursor-pointer ${
+                isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-700"
+              }`}
             >
               <option value="all">All Users</option>
               {uniqueUsers.map((email) => (
@@ -287,7 +311,11 @@ export default function ActivityLogPage() {
             <div className="relative">
               <button
                 onClick={() => setFilterOpen(!filterOpen)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-semibold transition-colors ${
+                  isDarkMode 
+                    ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-750" 
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
               >
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
                 <span>{activeFilterLabel}</span>
@@ -296,7 +324,9 @@ export default function ActivityLogPage() {
               {filterOpen && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setFilterOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[170px] max-h-[300px] overflow-y-auto">
+                  <div className={`absolute right-0 top-full mt-1 z-40 border rounded-xl shadow-lg py-1 min-w-[170px] max-h-[300px] overflow-y-auto ${
+                    isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
+                  }`}>
                     {ALL_CATEGORIES.map((cat) => {
                       const count = cat.key === "all" ? entries.length : entries.filter((e) => e.category === cat.key).length;
                       return (
@@ -305,8 +335,8 @@ export default function ActivityLogPage() {
                           onClick={() => { setCategoryFilter(cat.key); setFilterOpen(false); }}
                           className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold transition-colors ${
                             categoryFilter === cat.key
-                              ? "text-indigo-600 bg-indigo-50/60"
-                              : "text-slate-600 hover:bg-slate-50"
+                              ? (isDarkMode ? "text-indigo-400 bg-indigo-950/40" : "text-indigo-600 bg-indigo-50/60")
+                              : (isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-50")
                           }`}
                         >
                           <span>{cat.label}</span>
@@ -324,15 +354,17 @@ export default function ActivityLogPage() {
 
       {/* Table */}
       <div className="flex-1 px-4 sm:px-8 pb-8">
-        <div className="border border-slate-900 rounded-lg overflow-hidden">
+        <div className={`border rounded-lg overflow-hidden ${isDarkMode ? "border-slate-800 bg-slate-900" : "border-slate-900 bg-white"}`}>
           {/* Table Header */}
-          <div className="grid grid-cols-[32px_170px_130px_95px_100px_1fr] bg-slate-800 text-white text-xs font-bold uppercase tracking-wider">
+          <div className={`grid grid-cols-[32px_170px_130px_95px_100px_1fr] text-white text-xs font-bold uppercase tracking-wider ${
+            isDarkMode ? "bg-slate-950 border-b border-slate-850" : "bg-slate-800"
+          }`}>
             <div className="px-1 py-3"></div>
-            <div className="px-4 py-3 border-l border-slate-700">Timestamp</div>
-            <div className="px-4 py-3 border-l border-slate-700">User</div>
-            <div className="px-4 py-3 border-l border-slate-700">Category</div>
-            <div className="px-4 py-3 border-l border-slate-700">Action</div>
-            <div className="px-4 py-3 border-l border-slate-700">Description</div>
+            <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-850" : "border-slate-700"}`}>Timestamp</div>
+            <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-850" : "border-slate-700"}`}>User</div>
+            <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-850" : "border-slate-700"}`}>Category</div>
+            <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-850" : "border-slate-700"}`}>Action</div>
+            <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-850" : "border-slate-700"}`}>Description</div>
           </div>
 
           {/* Table Body */}
@@ -355,65 +387,73 @@ export default function ActivityLogPage() {
                 <div key={entry.id}>
                   {/* Main Row */}
                   <div
-                    className={`grid grid-cols-[32px_170px_130px_95px_100px_1fr] text-sm border-t border-slate-900 ${
-                      idx % 2 === 0 ? "bg-[#faf6ed]" : "bg-[#f5f0e1]"
-                    } ${canExpand ? "cursor-pointer hover:bg-blue-50/40" : ""} transition-colors`}
+                    className={`grid grid-cols-[32px_170px_130px_95px_100px_1fr] text-sm transition-colors ${
+                      isDarkMode 
+                        ? `border-t border-slate-800/80 ${idx % 2 === 0 ? "bg-slate-900" : "bg-slate-850/50"}` 
+                        : `border-t border-slate-900 ${idx % 2 === 0 ? "bg-[#faf6ed]" : "bg-[#f5f0e1]"}`
+                    } ${canExpand ? (isDarkMode ? "cursor-pointer hover:bg-slate-800/70" : "cursor-pointer hover:bg-blue-50/40") : ""} transition-colors`}
                     onClick={() => canExpand && toggleExpanded(entry.id)}
                   >
                     {/* Expand toggle */}
                     <div className="flex items-center justify-center">
                       {canExpand ? (
-                        <button className="p-0.5 rounded text-slate-400 hover:text-slate-700 transition-colors">
+                        <button className={`p-0.5 rounded transition-colors ${isDarkMode ? "text-slate-500 hover:text-slate-300" : "text-slate-400 hover:text-slate-700"}`}>
                           {isExpanded
                             ? <ChevronDown className="w-3.5 h-3.5" />
                             : <ChevronRight className="w-3.5 h-3.5" />
                           }
                         </button>
                       ) : (
-                        <span className="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-slate-300">●</span>
+                        <span className="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-slate-550">●</span>
                       )}
                     </div>
 
-                    <div className="px-4 py-3 border-l border-slate-200 text-slate-500 text-xs font-medium">
+                    <div className={`px-4 py-3 border-l text-xs font-medium ${isDarkMode ? "border-slate-800/60 text-slate-400" : "border-slate-200 text-slate-500"}`}>
                       <div>{formatTimestamp(entry.timestamp)}</div>
-                      {relTime && <div className="text-[10px] text-slate-400 mt-0.5">{relTime}</div>}
+                      {relTime && <div className="text-[10px] text-slate-500 mt-0.5">{relTime}</div>}
                     </div>
-                    <div className="px-4 py-3 border-l border-slate-200">
-                      <div className="text-slate-800 font-medium truncate text-xs">{entry.userName}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{entry.userEmail}</div>
+                    <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-800/60" : "border-slate-200"}`}>
+                      <div className={`font-medium truncate text-xs ${isDarkMode ? "text-white" : "text-slate-800"}`}>{entry.userName}</div>
+                      <div className={`text-[10px] truncate ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>{entry.userEmail}</div>
                     </div>
-                    <div className="px-4 py-3 border-l border-slate-200">
+                    <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-800/60" : "border-slate-200"}`}>
                       <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${getCategoryColor(entry.category)}`}>
                         {entry.category}
                       </span>
                     </div>
-                    <div className="px-4 py-3 border-l border-slate-200">
-                      <span className="text-[10px] font-semibold text-slate-600 leading-tight">
+                    <div className={`px-4 py-3 border-l ${isDarkMode ? "border-slate-800/60" : "border-slate-200"}`}>
+                      <span className={`text-[10px] font-semibold leading-tight ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>
                         {typeLabel}
                       </span>
                     </div>
-                    <div className="px-4 py-3 border-l border-slate-200 text-slate-600 text-xs truncate">
+                    <div className={`px-4 py-3 border-l text-xs truncate ${isDarkMode ? "border-slate-800/60 text-slate-300" : "border-slate-200 text-slate-600"}`}>
                       {entry.description}
                     </div>
                   </div>
 
                   {/* Expanded Detail Panel */}
                   {isExpanded && canExpand && (
-                    <div className={`border-t border-slate-200 ${idx % 2 === 0 ? "bg-[#f5f0e1]/60" : "bg-[#faf6ed]/60"}`}>
-                      <div className="px-8 py-4 ml-8 border-l-2 border-indigo-300">
+                    <div className={`border-t ${
+                      isDarkMode 
+                        ? `border-slate-800 ${idx % 2 === 0 ? "bg-slate-950/40" : "bg-slate-900/40"}` 
+                        : `border-slate-200 ${idx % 2 === 0 ? "bg-[#f5f0e1]/60" : "bg-[#faf6ed]/60"}`
+                    }`}>
+                      <div className={`px-8 py-4 ml-8 border-l-2 ${isDarkMode ? "border-slate-700" : "border-indigo-300"}`}>
                         <div className="space-y-2">
                           {/* Full description */}
                           <div>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Description</span>
-                            <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">{entry.description}</p>
+                            <p className={`text-xs mt-0.5 leading-relaxed ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{entry.description}</p>
                           </div>
 
                           {/* Message Preview */}
                           {entry.metadata?.messagePreview && (
                             <div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Message Content</span>
-                              <div className="mt-1 p-3 bg-white/80 border border-slate-200 rounded-lg">
-                                <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed font-mono">
+                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Message Content</span>
+                              <div className={`mt-1 p-3 border rounded-lg ${
+                                isDarkMode ? "bg-slate-800/80 border-slate-700" : "bg-white/80 border-slate-200"
+                              }`}>
+                                <p className={`text-xs whitespace-pre-wrap leading-relaxed font-mono ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
                                   {entry.metadata.messagePreview}
                                 </p>
                               </div>
@@ -424,7 +464,7 @@ export default function ActivityLogPage() {
                           {entry.metadata?.fileName && (
                             <div>
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">File</span>
-                              <p className="text-xs text-slate-700 mt-0.5 font-mono">{entry.metadata.fileName}</p>
+                              <p className={`text-xs mt-0.5 font-mono ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>{entry.metadata.fileName}</p>
                             </div>
                           )}
 
@@ -438,7 +478,7 @@ export default function ActivityLogPage() {
                                   .map(([key, value]) => (
                                     <div key={key} className="flex items-baseline gap-2">
                                       <span className="text-[10px] text-slate-500 font-semibold capitalize">{key.replace(/_/g, " ")}:</span>
-                                      <span className="text-[10px] text-slate-700 font-mono truncate">{String(value)}</span>
+                                      <span className={`text-[10px] font-mono truncate ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>{String(value)}</span>
                                     </div>
                                   ))
                                 }
@@ -447,8 +487,8 @@ export default function ActivityLogPage() {
                           )}
 
                           {/* Event ID for audit trail */}
-                          <div className="pt-1 border-t border-slate-100 mt-2">
-                            <span className="text-[9px] text-slate-400 font-mono">Event ID: {entry.id}</span>
+                          <div className={`pt-1 border-t mt-2 ${isDarkMode ? "border-slate-800" : "border-slate-100"}`}>
+                            <span className="text-[9px] text-slate-450 font-mono">Event ID: {entry.id}</span>
                           </div>
                         </div>
                       </div>
@@ -462,7 +502,7 @@ export default function ActivityLogPage() {
 
         {/* Entry count */}
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+          <span className="text-[10px] font-semibold text-slate-450 uppercase tracking-wider">
             Showing {filteredEntries.length} of {entries.length} events
           </span>
           {(categoryFilter !== "all" || userFilter !== "all" || searchQuery) && (

@@ -3,13 +3,15 @@
 import { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
+import { useDarkMode } from '@/lib/useDarkMode';
 import type { GrantRecord } from "@/hooks/useGrantsData";
 
 const STATUS_CONFIG = [
-  { key: "received",  label: "Received",       color: "#22c55e" }, // green-500
-  { key: "denied",    label: "Denied",          color: "#f87171" }, // red-400
-  { key: "unapplied", label: "Un-Applied",     color: "#9ca3af" }, // gray-400
-  { key: "applied",   label: "Review Pending",  color: "#facc15" }, // yellow-400
+  { key: "received",  color: "#22c55e" }, // green-500
+  { key: "denied",    color: "#f87171" }, // red-400
+  { key: "unapplied", color: "#9ca3af" }, // gray-400
+  { key: "applied",   color: "#facc15" }, // yellow-400
 ];
 
 interface Props {
@@ -18,6 +20,16 @@ interface Props {
 }
 
 export function GrantStatusPieChart({ grants = [], loading }: Props) {
+  const { t } = useTranslation();
+  const isDarkMode = useDarkMode();
+
+  const statusLabelMap: Record<string, string> = {
+    received: t.received,
+    denied: t.denied,
+    unapplied: t.unApplied,
+    applied: t.reviewPending,
+  };
+
   const { chartData, total } = useMemo(() => {
     const buckets: Record<string, number> = {
       received: 0,
@@ -41,7 +53,7 @@ export function GrantStatusPieChart({ grants = [], loading }: Props) {
     if (total === 0) {
       return {
         chartData: [
-          { name: "No Suggested Grants", value: 1, color: "#d1d5db", actualValue: 0 },
+          { name: t.noSuggestedGrants, value: 1, color: "#d1d5db", actualValue: 0 },
         ],
         total: 0,
       };
@@ -49,14 +61,15 @@ export function GrantStatusPieChart({ grants = [], loading }: Props) {
 
     return {
       chartData: STATUS_CONFIG.map((sc) => ({
-        name: sc.label,
+        name: statusLabelMap[sc.key] || sc.key,
         value: buckets[sc.key],
         color: sc.color,
         actualValue: buckets[sc.key],
       })).filter((d) => d.value > 0), // Only show segments with data
       total,
     };
-  }, [grants]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grants, t]);
 
   if (loading) {
     return (
@@ -69,11 +82,11 @@ export function GrantStatusPieChart({ grants = [], loading }: Props) {
   return (
     <div className="h-full w-full flex flex-col min-h-0">
       <div className="flex items-center justify-between mb-1 shrink-0">
-        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-          Grant Status Breakdown
+        <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>
+          {t.grantStatusBreakdown}
         </span>
-        <span className="text-[8px] font-semibold text-slate-300 tabular-nums">
-          {total} total
+        <span className={`text-[8px] font-semibold tabular-nums ${isDarkMode ? 'text-slate-400' : 'text-slate-300'}`}>
+          {total} {t.total}
         </span>
       </div>
       <div className="flex-1 min-h-0 w-full flex items-center gap-2">
@@ -115,9 +128,9 @@ export function GrantStatusPieChart({ grants = [], loading }: Props) {
           {/* Center count overlay */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
-              <span className="text-sm font-extrabold text-slate-800 leading-none">{total}</span>
-              <span className="block text-[7px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                Grants
+              <span className={`text-sm font-extrabold leading-none ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{total}</span>
+              <span className={`block text-[7px] font-bold uppercase tracking-wider mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+                {t.grants}
               </span>
             </div>
           </div>
@@ -138,10 +151,10 @@ export function GrantStatusPieChart({ grants = [], loading }: Props) {
                   className="w-2 h-2 rounded-full shrink-0"
                   style={{ backgroundColor: sc.color }}
                 />
-                <span className="text-[8px] font-semibold text-slate-500 whitespace-nowrap leading-none">
-                  {sc.label}
+                <span className={`text-[8px] font-semibold whitespace-nowrap leading-none ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>
+                  {statusLabelMap[sc.key] || sc.key}
                 </span>
-                <span className="text-[8px] font-bold text-slate-700 tabular-nums leading-none">
+                <span className={`text-[8px] font-bold tabular-nums leading-none ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>
                   {bucket.length}
                 </span>
               </div>

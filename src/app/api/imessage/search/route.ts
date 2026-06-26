@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBlueBubblesConfig } from "../chats/route";
+import { getBlueBubblesConfig } from "../utils";
 
 /**
  * POST /api/imessage/search

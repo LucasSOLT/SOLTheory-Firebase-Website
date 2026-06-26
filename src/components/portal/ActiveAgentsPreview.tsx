@@ -2,6 +2,8 @@
 
 import { Bot } from "lucide-react";
 import { GrantAgentBrowserSim } from "./GrantAgentBrowserSim";
+import { useTranslation } from "@/lib/i18n";
+import { useDarkMode } from '@/lib/useDarkMode';
 import type { AgentSlotData } from "./AgentWorkerController";
 
 const SLOT_COLORS = [
@@ -23,16 +25,18 @@ export function ActiveAgentsPreview({
   slots: AgentSlotData[];
   onOpenHub: () => void;
 }) {
+  const { t } = useTranslation();
+  const isDarkMode = useDarkMode();
   const activeSlots = slots.filter((s) => s.active && s.config);
 
   if (activeSlots.length === 0) {
     return (
       <button
         onClick={onOpenHub}
-        className="flex-1 flex items-center justify-center border border-dashed border-indigo-100 bg-indigo-50/20 rounded-xl min-h-[40px] py-1 px-2 hover:bg-indigo-50/40 transition-colors cursor-pointer"
+        className={`flex-1 flex items-center justify-center border border-dashed rounded-xl min-h-[40px] py-1 px-2 transition-colors cursor-pointer ${isDarkMode ? 'border-indigo-700 bg-indigo-900/20 hover:bg-indigo-900/40' : 'border-indigo-100 bg-indigo-50/20 hover:bg-indigo-50/40'}`}
       >
-        <span className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider">
-          Configure Filters
+        <span className={`text-[8px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-indigo-300' : 'text-indigo-400'}`}>
+          {t.configureFilters}
         </span>
       </button>
     );
@@ -49,10 +53,10 @@ export function ActiveAgentsPreview({
             <button
               key={slot.id}
               onClick={onOpenHub}
-              className="rounded-xl border border-dashed border-slate-200 bg-[#faf6ed]/30 flex items-center justify-center hover:bg-[#faf6ed]/60 transition-colors cursor-pointer min-h-[60px]"
+              className={`rounded-xl border border-dashed flex items-center justify-center transition-colors cursor-pointer min-h-[60px] ${isDarkMode ? 'border-slate-600 bg-slate-800/30 hover:bg-slate-800/60' : 'border-slate-200 bg-[#faf6ed]/30 hover:bg-[#faf6ed]/60'}`}
             >
-              <span className="text-[7px] text-slate-300 font-bold uppercase tracking-wider">
-                Empty
+              <span className={`text-[7px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>
+                {t.empty}
               </span>
             </button>
           );
@@ -62,7 +66,7 @@ export function ActiveAgentsPreview({
           <button
             key={slot.id}
             onClick={onOpenHub}
-            className="rounded-xl border border-slate-200/60 bg-[#fefcf6] shadow-sm p-2 flex flex-col min-h-[60px] hover:shadow transition-shadow cursor-pointer text-left overflow-hidden"
+            className={`rounded-xl border shadow-sm p-2 flex flex-col min-h-[60px] hover:shadow transition-shadow cursor-pointer text-left overflow-hidden ${isDarkMode ? 'border-slate-700/60 bg-slate-800' : 'border-slate-200/60 bg-[#fefcf6]'}`}
           >
             {/* Mini header */}
             <div className="flex items-center justify-between mb-1 shrink-0">
@@ -72,13 +76,13 @@ export function ActiveAgentsPreview({
                 >
                   <Bot className="w-2.5 h-2.5 text-white" />
                 </div>
-                <span className="text-[7px] font-bold text-slate-700 truncate max-w-[60px]">
+                <span className={`text-[7px] font-bold truncate max-w-[60px] ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                   {slot.name.replace("Grant Scout ", "")}
                 </span>
               </div>
               <div className="flex items-center gap-0.5">
                 <div className={`w-1 h-1 rounded-full ${colors.dot} animate-pulse`} />
-                <span className={`text-[6px] font-bold uppercase ${colors.label}`}>Live</span>
+                <span className={`text-[6px] font-bold uppercase ${colors.label}`}>{t.live}</span>
               </div>
             </div>
             {/* Mini browser sim */}

@@ -58,6 +58,7 @@ import {
   FileText,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
+import { useTranslation } from '@/lib/i18n';
 
 // â”€â”€ Types â”€â”€
 type Priority = "High" | "Medium" | "Low";
@@ -134,36 +135,8 @@ interface ColumnDef {
   dropBorder: string;
 }
 
-// â”€â”€ Constants â”€â”€
-const COLUMNS: ColumnDef[] = [
-  {
-    id: "todo",
-    label: "To Do",
-    headerBg: "bg-slate-100",
-    accentPill: "bg-blue-100 text-blue-700",
-    icon: <Circle className="w-3.5 h-3.5" />,
-    dropBg: "bg-blue-50/50",
-    dropBorder: "border-blue-300",
-  },
-  {
-    id: "doing",
-    label: "Doing",
-    headerBg: "bg-amber-50",
-    accentPill: "bg-amber-100 text-amber-700",
-    icon: <Clock className="w-3.5 h-3.5" />,
-    dropBg: "bg-amber-50/50",
-    dropBorder: "border-amber-300",
-  },
-  {
-    id: "done",
-    label: "Done",
-    headerBg: "bg-emerald-50",
-    accentPill: "bg-emerald-100 text-emerald-700",
-    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-    dropBg: "bg-emerald-50/50",
-    dropBorder: "border-emerald-300",
-  },
-];
+// ── Constants ──
+// COLUMNS is now generated inside the component to support i18n and dark mode
 
 const PRIORITY_STYLES: Record<Priority, string> = {
   High: "bg-red-50 text-red-600 border border-red-200",
@@ -235,6 +208,86 @@ function getDueDelta(dueDate: Timestamp | null | undefined): { label: string; is
   return { label: `${days}d left`, isOverdue: false, daysLeft: days };
 }
 
+/* ── Confetti for completing a task ── */
+function ActionBoardConfetti({ onDone }: { onDone: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const COLORS = [
+      "#6366f1", "#f43f5e", "#22c55e", "#eab308", "#3b82f6",
+      "#ec4899", "#14b8a6", "#f97316", "#8b5cf6", "#06b6d4",
+    ];
+
+    interface Particle {
+      x: number; y: number; w: number; h: number;
+      vx: number; vy: number; rot: number; vr: number;
+      color: string; opacity: number;
+    }
+
+    const particles: Particle[] = [];
+    for (let i = 0; i < 120; i++) {
+      particles.push({
+        x: canvas.width * 0.5 + (Math.random() - 0.5) * canvas.width * 0.6,
+        y: canvas.height * 0.3 + (Math.random() - 0.5) * 120,
+        w: 6 + Math.random() * 6,
+        h: 4 + Math.random() * 4,
+        vx: (Math.random() - 0.5) * 14,
+        vy: -6 - Math.random() * 10,
+        rot: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.3,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        opacity: 1,
+      });
+    }
+
+    let frame = 0;
+    const maxFrames = 150;
+
+    const animate = () => {
+      if (frame >= maxFrames) { onDone(); return; }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const p of particles) {
+        p.vy += 0.25;
+        p.vx *= 0.99;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        p.opacity = Math.max(0, 1 - frame / maxFrames);
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+
+      frame++;
+      requestAnimationFrame(animate);
+    };
+
+    requestAnimationFrame(animate);
+  }, [onDone]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 z-[9999] pointer-events-none"
+      style={{ width: "100vw", height: "100vh" }}
+    />
+  );
+}
+
 
 export default function ActionBoardPage() {
   return (
@@ -250,6 +303,48 @@ function ActionBoardContent() {
   const storage = useStorage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { t } = useTranslation();
+
+  // ── Dark Mode ──
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDarkMode(localStorage.getItem('insight_theme') === 'dark');
+    check();
+    const interval = setInterval(check, 500);
+    window.addEventListener('storage', check);
+    return () => { clearInterval(interval); window.removeEventListener('storage', check); };
+  }, []);
+
+  // ── Dynamic Column Definitions (supports i18n + dark mode) ──
+  const COLUMNS: ColumnDef[] = [
+    {
+      id: "todo",
+      label: t.abToDo,
+      headerBg: isDarkMode ? "bg-slate-700" : "bg-slate-100",
+      accentPill: isDarkMode ? "bg-blue-900/50 text-blue-300" : "bg-blue-100 text-blue-700",
+      icon: <Circle className="w-3.5 h-3.5" />,
+      dropBg: isDarkMode ? "bg-blue-900/20" : "bg-blue-50/50",
+      dropBorder: "border-blue-300",
+    },
+    {
+      id: "doing",
+      label: t.abDoing,
+      headerBg: isDarkMode ? "bg-slate-700" : "bg-amber-50",
+      accentPill: isDarkMode ? "bg-amber-900/50 text-amber-300" : "bg-amber-100 text-amber-700",
+      icon: <Clock className="w-3.5 h-3.5" />,
+      dropBg: isDarkMode ? "bg-amber-900/20" : "bg-amber-50/50",
+      dropBorder: "border-amber-300",
+    },
+    {
+      id: "done",
+      label: t.abDone,
+      headerBg: isDarkMode ? "bg-slate-700" : "bg-emerald-50",
+      accentPill: isDarkMode ? "bg-emerald-900/50 text-emerald-300" : "bg-emerald-100 text-emerald-700",
+      icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+      dropBg: isDarkMode ? "bg-emerald-900/20" : "bg-emerald-50/50",
+      dropBorder: "border-emerald-300",
+    },
+  ];
 
   // Derive org from URL path – /portal/dashboard/nxtchapter/... vs /portal/dashboard/soltheory/...
   const ORG_ID = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
@@ -316,8 +411,9 @@ function ActionBoardContent() {
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
-  // â”€â”€ Derived â”€â”€
+  // —— Derived ——
   const isAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
 
   // Ref for deadline monitor to avoid re-running effect on every task change
@@ -768,6 +864,7 @@ function ActionBoardContent() {
           startDate: startDateObj ? Timestamp.fromDate(startDateObj) : null,
           dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
         } as ActionBoardTask, "completed");
+        setShowConfetti(true);
       }
       if (newColumn === "doing" && task && task.column !== "doing") {
         fireAutomations({
@@ -902,6 +999,7 @@ function ActionBoardContent() {
       if (to === "done" && task) {
         logActivity(firestore, 'action_board_completed', { email: user?.email || '', displayName: user?.displayName }, `Completed task: ${task.title}`);
         fireAutomations({ ...task, column: "done", completedAt: Timestamp.now() }, "completed");
+        setShowConfetti(true);
       }
       if (to === "doing" && task && task.column !== "doing") {
         fireAutomations({ ...task, column: "doing" }, "in_progress");
@@ -1040,36 +1138,37 @@ function ActionBoardContent() {
   // Loading State
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#faf6ed]">
+      <div className={`flex items-center justify-center h-full ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf6ed]'}`}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 animate-pulse">
+          <div className={`w-10 h-10 rounded-xl ${isDarkMode ? 'bg-indigo-900/50' : 'bg-indigo-100'} flex items-center justify-center text-indigo-600 animate-pulse`}>
             <LayoutDashboard className="w-5 h-5" />
           </div>
-          <p className="text-sm text-slate-400 font-medium">Loading Action Board...</p>
+          <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.abLoadingActionBoard}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#faf6ed] text-slate-900 font-sans overflow-hidden">
+    <div className={`flex flex-col h-full ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#faf6ed] text-slate-900'} font-sans overflow-hidden`}>
+      {showConfetti && <ActionBoardConfetti onDone={() => setShowConfetti(false)} />}
 
       {/* Page Header */}
       <div className="shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold flex items-center gap-3 text-slate-900 tracking-tight">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+            <h1 className={`text-2xl sm:text-3xl font-extrabold flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-900'} tracking-tight`}>
+              <div className={`w-10 h-10 rounded-xl ${isDarkMode ? 'bg-indigo-900/50' : 'bg-indigo-100'} flex items-center justify-center text-indigo-600`}>
                 <LayoutDashboard className="w-5 h-5" />
               </div>
-              Action Board
+              {t.abTitle}
               {isAdmin && (
-                <span className="ml-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 flex items-center gap-1">
-                  <Shield className="w-3 h-3" /> Admin
+                <span className={`ml-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-purple-900/50 text-purple-300 border border-purple-700' : 'bg-purple-100 text-purple-700 border border-purple-200'} flex items-center gap-1`}>
+                  <Shield className="w-3 h-3" /> {t.abAdmin}
                 </span>
               )}
             </h1>
-            <p className="text-slate-500 mt-1.5 text-sm ml-[52px]">Organize and track your tasks across stages</p>
+            <p className={`mt-1.5 text-sm ml-[52px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.abSubtitle}</p>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -1077,23 +1176,23 @@ function ActionBoardContent() {
             {lateTasks.length > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold animate-pulse">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                {lateTasks.length} late
+                {lateTasks.length} {t.abLate}
               </div>
             )}
 
             {/* Archive - always visible, left of Incoming */}
-            <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] transition-colors text-sm font-medium text-slate-600 cursor-pointer">
+            <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300' : 'border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600'} transition-colors text-sm font-medium cursor-pointer`}>
               <Archive className="w-4 h-4" />
-              <span className="hidden sm:inline">Archive</span>
+              <span className="hidden sm:inline">{t.abArchive}</span>
               {(deniedTasks.length + allArchivedTasks.length) > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-500 text-white text-[10px] font-bold flex items-center justify-center">{deniedTasks.length + allArchivedTasks.length}</span>
               )}
             </button>
 
             {/* Incoming Tasks */}
-            <button onClick={() => setIsInboxOpen(true)} className="relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] transition-colors text-sm font-medium text-slate-600 cursor-pointer">
+            <button onClick={() => setIsInboxOpen(true)} className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300' : 'border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600'} transition-colors text-sm font-medium cursor-pointer`}>
               <Inbox className="w-4 h-4" />
-              <span className="hidden sm:inline">Incoming</span>
+              <span className="hidden sm:inline">{t.abIncoming}</span>
               {pendingTasks.length > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">{pendingTasks.length}</span>
               )}
@@ -1104,26 +1203,26 @@ function ActionBoardContent() {
               <div className="relative">
                 <button
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${viewFilter !== "my_tasks" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600"}`}
+                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${viewFilter !== "my_tasks" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : isDarkMode ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300" : "border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600"}`}
                 >
                   <Filter className="w-4 h-4" />
-                  <span className="hidden sm:inline">{viewFilter === "my_tasks" ? "My Tasks" : viewFilter === "all_users" ? "All Users" : "Filtered"}</span>
+                  <span className="hidden sm:inline">{viewFilter === "my_tasks" ? t.abMyTasks : viewFilter === "all_users" ? t.abAllUsers : t.abFiltered}</span>
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
                 {isFilterOpen && (
-                  <div className="absolute right-0 top-12 w-64 bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className={`absolute right-0 top-12 w-64 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'} border rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150`}>
                     <div className="p-2">
-                      <button onClick={() => { setViewFilter("my_tasks"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "my_tasks" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
-                        <UserIcon className="w-4 h-4" /> My Tasks
+                      <button onClick={() => { setViewFilter("my_tasks"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "my_tasks" ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
+                        <UserIcon className="w-4 h-4" /> {t.abMyTasks}
                       </button>
-                      <button onClick={() => { setViewFilter("all_users"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "all_users" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
-                        <Users className="w-4 h-4" /> All Users
+                      <button onClick={() => { setViewFilter("all_users"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "all_users" ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
+                        <Users className="w-4 h-4" /> {t.abAllUsers}
                       </button>
                     </div>
-                    <div className="border-t border-slate-100 p-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3.5 py-1">Specific User</p>
+                    <div className={`border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} p-2`}>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3.5 py-1">{t.abSpecificUser}</p>
                       {orgMembers.filter(m => m.uid !== user?.uid).slice(0, 8).map(m => (
-                        <button key={m.uid} onClick={() => { setViewFilter("specific_user"); setFilterUserId(m.uid); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "specific_user" && filterUserId === m.uid ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
+                        <button key={m.uid} onClick={() => { setViewFilter("specific_user"); setFilterUserId(m.uid); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "specific_user" && filterUserId === m.uid ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
                           <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${getAvatarColor(m.uid)} flex items-center justify-center text-white text-[9px] font-bold`}>{getInitials(m.displayName, m.email)}</div>
                           <span className="truncate">{m.displayName || m.email}</span>
                         </button>
@@ -1135,8 +1234,8 @@ function ActionBoardContent() {
             )}
 
             {/* Add Task */}
-            <button onClick={openNewTaskModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors font-semibold text-sm shadow-md hover:shadow-lg cursor-pointer active:scale-[0.97]">
-              <Plus className="w-4 h-4" /> Add Task
+            <button onClick={openNewTaskModal} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-900 hover:bg-slate-800'} text-white transition-colors font-semibold text-sm shadow-md hover:shadow-lg cursor-pointer active:scale-[0.97]`}>
+              <Plus className="w-4 h-4" /> {t.abAddTask}
             </button>
           </div>
         </div>
@@ -1153,13 +1252,13 @@ function ActionBoardContent() {
             return (
               <div
                 key={col.id}
-                className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 min-w-[220px] ${isDragOver ? `${col.dropBorder} ${col.dropBg} border-dashed border-2` : "border-slate-200/50 bg-[#f8fafc]/80 shadow-sm"}`}
+                className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 min-w-[220px] ${isDragOver ? `${col.dropBorder} ${col.dropBg} border-dashed border-2` : isDarkMode ? "border-slate-700 bg-slate-800/80 shadow-sm" : "border-slate-200/50 bg-[#f8fafc]/80 shadow-sm"}`}
                 onDragOver={e => onDragOver(e, col.id)}
                 onDragLeave={onDragLeave}
                 onDrop={e => onDrop(e, col.id)}
               >
                 {/* Column Header */}
-                <div className={`px-4 py-3.5 ${col.headerBg} rounded-t-2xl border-b border-slate-200/60 flex items-center justify-between`}>
+                <div className={`px-4 py-3.5 ${col.headerBg} rounded-t-2xl border-b ${isDarkMode ? 'border-slate-600' : 'border-slate-200/60'} flex items-center justify-between`}>
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider ${col.accentPill}`}>
                       {col.icon} {col.label}
@@ -1170,16 +1269,16 @@ function ActionBoardContent() {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs font-bold text-slate-400 bg-white/70 px-2 py-0.5 rounded-md">{colTasks.length}</span>
+                  <span className={`text-xs font-bold text-slate-400 ${isDarkMode ? 'bg-slate-600/70' : 'bg-white/70'} px-2 py-0.5 rounded-md`}>{colTasks.length}</span>
                 </div>
 
                 {/* Task Cards */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
                   {colTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">{col.icon}</div>
-                      <p className="text-xs text-slate-400 font-medium">No tasks yet</p>
-                      <p className="text-[10px] text-slate-300 mt-0.5">Drag a card here or add a new task</p>
+                      <div className={`w-12 h-12 rounded-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'} flex items-center justify-center mb-3`}>{col.icon}</div>
+                      <p className="text-xs text-slate-400 font-medium">{t.abNoTasksYet}</p>
+                      <p className="text-[10px] text-slate-300 mt-0.5">{t.abDragCardHere}</p>
                     </div>
                   ) : (
                     colTasks.map(task => {
@@ -1195,14 +1294,14 @@ function ActionBoardContent() {
                           draggable
                           onDragStart={e => onDragStart(e, task.id)}
                           onDragEnd={onDragEnd}
-                          className={`group bg-white rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
+                          className={`group ${isDarkMode ? 'bg-slate-800' : 'bg-white'} rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
                             openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
                           } ${
                             highlightedTaskId === task.id
                               ? "border-indigo-400 ring-2 ring-indigo-300/60 shadow-lg shadow-indigo-200/40 animate-pulse"
                               : isLateTask && task.column !== "done"
-                                ? "border-red-300 bg-red-50/30 ring-1 ring-red-200/50"
-                                : "border-slate-200/80"
+                                ? isDarkMode ? "border-red-700 bg-red-900/20 ring-1 ring-red-800/50" : "border-red-300 bg-red-50/30 ring-1 ring-red-200/50"
+                                : isDarkMode ? "border-slate-700" : "border-slate-200/80"
                           } ${
                             task.priority === "High" ? "border-l-red-500" : task.priority === "Medium" ? "border-l-amber-500" : "border-l-sky-500"
                           }`}
@@ -1219,39 +1318,39 @@ function ActionBoardContent() {
                               </span>
                             </div>
                             <div className="relative">
-                              <button onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === task.id ? null : task.id); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100">
+                              <button onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === task.id ? null : task.id); }} className={`w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} transition-colors opacity-0 group-hover:opacity-100`}>
                                 <MoreHorizontal className="w-4 h-4" />
                               </button>
                               {openMenuId === task.id && (
-                                <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 w-44 bg-[#fefcf6] border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                <div onClick={e => e.stopPropagation()} className={`absolute right-0 top-8 w-44 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150`}>
                                   {COLUMNS.filter(c => c.id !== task.column).map(c => (
-                                    <button key={c.id} onClick={(e) => { e.stopPropagation(); moveTask(task.id, c.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
-                                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" /> Move to {c.label}
+                                    <button key={c.id} onClick={(e) => { e.stopPropagation(); moveTask(task.id, c.id); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" /> {t.abMoveTo} {c.label}
                                     </button>
                                   ))}
-                                  <div className="border-t border-slate-100" />
+                                  <div className={`border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`} />
                                   {(task.createdBy === user?.uid || isAdmin) && (
                                     <>
-                                      <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
-                                        <Edit2 className="w-3.5 h-3.5 text-slate-400" /> Edit Task
+                                      <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                        <Edit2 className="w-3.5 h-3.5 text-slate-400" /> {t.abEditTask}
                                       </button>
                                       {task.column === "done" ? (
-                                        <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
-                                          <Archive className="w-3.5 h-3.5 text-slate-400" /> Archive
+                                        <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                          <Archive className="w-3.5 h-3.5 text-slate-400" /> {t.abArchive}
                                         </button>
                                       ) : (
                                         <div className="relative group/archive">
                                           <button disabled className="w-full text-left px-3.5 py-2.5 text-sm text-slate-300 cursor-not-allowed flex items-center gap-2">
-                                            <Archive className="w-3.5 h-3.5" /> Archive
+                                            <Archive className="w-3.5 h-3.5" /> {t.abArchive}
                                           </button>
                                           <div className="invisible group-hover/archive:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2.5 py-1.5 bg-slate-800 text-white text-[10px] font-medium rounded-lg whitespace-nowrap z-[60] shadow-lg pointer-events-none">
-                                            Archiving available once assignment has been marked as &apos;Done&apos;
+                                            {t.abArchiveAvailableOnDone}
                                             <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800" />
                                           </div>
                                         </div>
                                       )}
                                       <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
-                                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                                        <Trash2 className="w-3.5 h-3.5" /> {t.abDelete}
                                       </button>
                                     </>
                                   )}
@@ -1261,7 +1360,7 @@ function ActionBoardContent() {
                           </div>
 
                           {/* Title */}
-                          <h3 className={`text-sm font-semibold leading-snug mb-1 ${task.column === "done" ? "text-slate-500 line-through" : "text-slate-800"}`}>{task.title}</h3>
+                          <h3 className={`text-sm font-semibold leading-snug mb-1 ${task.column === "done" ? "text-slate-500 line-through" : isDarkMode ? "text-white" : "text-slate-800"}`}>{task.title}</h3>
 
                           {/* Description */}
                           {task.description && (
@@ -1313,14 +1412,14 @@ function ActionBoardContent() {
                           {task.column === "done" && task.completedAt && !task.isLate && (
                             <div className="flex items-center gap-1 mb-2">
                               <span className="text-[10px] text-emerald-500 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Completed on time Â· {formatDatetime(task.completedAt)}
+                              <CheckCircle2 className="w-3 h-3" /> {t.abCompletedOnTime} · {formatDatetime(task.completedAt)}
                               </span>
                             </div>
                           )}
                           {task.column === "done" && task.isLate && (
                             <div className="flex items-center gap-1 mb-2">
                               <span className="text-[10px] text-red-500 font-medium bg-red-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Completed late Â· {formatDatetime(task.completedAt)}
+                              <AlertTriangle className="w-3 h-3" /> {t.abCompletedLate} · {formatDatetime(task.completedAt)}
                               </span>
                             </div>
                           )}
@@ -1329,7 +1428,7 @@ function ActionBoardContent() {
                           {task.createdBy !== task.assignedTo && task.assignedTo === user?.uid && (
                             <div className="flex items-center gap-1.5 mb-2">
                               <span className="text-[10px] text-indigo-500 font-medium bg-indigo-50 px-2 py-0.5 rounded-md">
-                                Assigned by {task.createdByName || task.createdByEmail}
+                                {t.abAssignedBy} {task.createdByName || task.createdByEmail}
                               </span>
                             </div>
                           )}
@@ -1343,13 +1442,13 @@ function ActionBoardContent() {
                                   task.automations.emails?.length ? `${task.automations.emails.length} email${task.automations.emails.length > 1 ? "s" : ""}` : null,
                                   task.automations.slackWebhook ? "Slack" : null,
                                   task.automations.googleAction === "calendar_event" ? "Calendar" : task.automations.googleAction === "draft_email" ? "Gmail Draft" : null,
-                                ].filter(Boolean).join(" Â· ")} on complete
+                                ].filter(Boolean).join(" · ")} {t.abOnComplete}
                               </span>
                             </div>
                           )}
 
                           {/* Footer */}
-                          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <div className={`flex items-center justify-between pt-2 border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                             <span className="text-[10px] text-slate-400 font-medium">{formatDate(task.createdAt)}</span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] text-slate-400 max-w-[100px] truncate">{task.assignedToName || task.assignedToEmail}</span>
@@ -1366,8 +1465,8 @@ function ActionBoardContent() {
 
                 {/* Quick Add */}
                 <div className="p-3 pt-0">
-                  <button onClick={() => openNewTaskModalInColumn(col.id)} className="w-full py-2.5 rounded-xl border border-dashed border-slate-200 text-xs font-semibold text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-[#faf6ed] transition-all flex items-center justify-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5" /> Add card
+                  <button onClick={() => openNewTaskModalInColumn(col.id)} className={`w-full py-2.5 rounded-xl border border-dashed ${isDarkMode ? 'border-slate-600 text-slate-500 hover:text-slate-300 hover:border-slate-500 hover:bg-slate-700/50' : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-[#faf6ed]'} text-xs font-semibold transition-all flex items-center justify-center gap-1.5`}>
+                    <Plus className="w-3.5 h-3.5" /> {t.abAddCard}
                   </button>
                 </div>
               </div>
@@ -1376,10 +1475,10 @@ function ActionBoardContent() {
         </div>
       </div>
 
-      {/* â•â• Add Task Modal â•â• */}
+      {/* ── Add Task Modal ── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={handleCloseModal}>
-          <div className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} onPaste={(e) => {
+          <div className={`${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#fefcf6]'} rounded-2xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto`} onClick={e => e.stopPropagation()} onPaste={(e) => {
             const items = e.clipboardData?.items;
             if (items) {
               const imageItems = Array.from(items).filter(item => item.type.startsWith('image/'));
@@ -1392,19 +1491,19 @@ function ActionBoardContent() {
             }
           }}>
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-[#fefcf6] rounded-t-2xl z-10">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <div className={`px-6 py-5 border-b flex items-center justify-between sticky top-0 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-100'} rounded-t-2xl z-10`}>
+              <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}>
                 {editingTaskId ? (
                   <>
-                    <Edit2 className="w-5 h-5 text-indigo-500" /> Edit Task
+                    <Edit2 className="w-5 h-5 text-indigo-500" /> {t.abEditTask}
                   </>
                 ) : (
                   <>
-                    <Plus className="w-5 h-5 text-indigo-500" /> New Task
+                    <Plus className="w-5 h-5 text-indigo-500" /> {t.abNewTask}
                   </>
                 )}
               </h3>
-              <button onClick={handleCloseModal} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+              <button onClick={handleCloseModal} className={`w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} transition-colors`}>
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1412,20 +1511,20 @@ function ActionBoardContent() {
             <div className="p-6 space-y-5">
               {/* Title */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Title <span className="text-red-400">*</span></label>
-                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && (editingTaskId ? saveTask() : addTask())} placeholder="What needs to be done?" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
+                <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abTitle_label} <span className="text-red-400">*</span></label>
+                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && (editingTaskId ? saveTask() : addTask())} placeholder={t.abWhatNeedsDone} className={`w-full px-4 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm`} />
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Description <span className="text-slate-300 font-normal normal-case">(optional)</span></label>
-                <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Add any details or context..." rows={3} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 resize-none" />
+                <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abDescription_label} <span className={`${isDarkMode ? 'text-slate-500' : 'text-slate-300'} font-normal normal-case`}>{t.abOptional}</span></label>
+                <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder={t.abAddDetails} rows={3} className={`w-full px-4 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm resize-none`} />
               </div>
 
               {/* Attachments */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5" /> Attachments
+                <label className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} flex items-center gap-1.5`}>
+                  <Paperclip className="w-3.5 h-3.5" /> {t.abAttachments}
                 </label>
                 <input
                   ref={fileInputRef}
@@ -1438,14 +1537,14 @@ function ActionBoardContent() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className={`w-full border-2 border-dashed ${isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-400 hover:border-indigo-500 hover:text-indigo-400' : 'border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/50'} rounded-xl px-4 py-3 text-sm transition-all flex items-center justify-center gap-2 cursor-pointer`}
                 >
-                  <FileUp className="w-4 h-4" /> Click to upload files or images (max 10MB)
+                  <FileUp className="w-4 h-4" /> {t.abUploadFiles}
                 </button>
                 {pendingAttachments.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mt-2">
                     {pendingAttachments.map((att, i) => (
-                      <div key={i} className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                      <div key={i} className={`relative group rounded-lg overflow-hidden border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>
                         {att.preview ? (
                           <img src={att.preview} alt={att.file.name} className="w-full h-20 object-cover" />
                         ) : (
@@ -1458,16 +1557,16 @@ function ActionBoardContent() {
                             <X className="w-3 h-3" />
                           </button>
                         </div>
-                        <p className="text-[9px] text-slate-500 truncate px-1 py-0.5">{att.file.name}</p>
+                        <p className={`text-[9px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} truncate px-1 py-0.5`}>{att.file.name}</p>
                       </div>
                     ))}
                   </div>
                 )}
                 {/* Show existing attachments when editing */}
-                {editingTaskId && (() => { const t = tasks.find(t => t.id === editingTaskId); return t?.attachments?.length ? (
+                {editingTaskId && (() => { const tk = tasks.find(t => t.id === editingTaskId); return tk?.attachments?.length ? (
                   <div className="grid grid-cols-3 gap-2 mt-2">
-                    {t.attachments.map((att, i) => (
-                      <div key={`existing-${i}`} className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                    {tk.attachments.map((att, i) => (
+                      <div key={`existing-${i}`} className={`relative rounded-lg overflow-hidden border ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
                         {att.type.startsWith('image/') ? (
                           <img src={att.url} alt={att.name} className="w-full h-20 object-cover" />
                         ) : (
@@ -1475,7 +1574,7 @@ function ActionBoardContent() {
                             <FileText className="w-6 h-6" />
                           </div>
                         )}
-                        <p className="text-[9px] text-slate-500 truncate px-1 py-0.5">{att.name}</p>
+                        <p className={`text-[9px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} truncate px-1 py-0.5`}>{att.name}</p>
                       </div>
                     ))}
                   </div>
@@ -1485,23 +1584,23 @@ function ActionBoardContent() {
               {/* Priority + Column */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Priority</label>
+                  <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abPriority}</label>
                   <div className="relative">
-                    <select value={newPriority} onChange={e => setNewPriority(e.target.value as Priority)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer">
-                      <option value="High">{"\uD83D\uDD34"} High</option>
-                      <option value="Medium">{"\uD83D\uDFE1"} Medium</option>
-                      <option value="Low">{"\uD83D\uDD35"} Low</option>
+                    <select value={newPriority} onChange={e => setNewPriority(e.target.value as Priority)} className={`w-full appearance-none px-4 py-3 pr-10 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`}>
+                      <option value="High">{"\uD83D\uDD34"} {t.abHigh}</option>
+                      <option value="Medium">{"\uD83D\uDFE1"} {t.abMedium}</option>
+                      <option value="Low">{"\uD83D\uDD35"} {t.abLow}</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Column</label>
+                  <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abColumn}</label>
                   <div className="relative">
-                    <select value={newColumn} onChange={e => setNewColumn(e.target.value as ColumnId)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer">
-                      <option value="todo">To Do</option>
-                      <option value="doing">Doing</option>
-                      <option value="done">Done</option>
+                    <select value={newColumn} onChange={e => setNewColumn(e.target.value as ColumnId)} className={`w-full appearance-none px-4 py-3 pr-10 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`}>
+                      <option value="todo">{t.abToDo}</option>
+                      <option value="doing">{t.abDoing}</option>
+                      <option value="done">{t.abDone}</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
@@ -1511,68 +1610,68 @@ function ActionBoardContent() {
               {/* Start Date + Due Date */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> Start Date</span>
+                  <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>
+                    <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {t.abStartDate}</span>
                   </label>
-                  <input type="datetime-local" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer" />
+                  <input type="datetime-local" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`} />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due Date</span>
+                  <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {t.abDueDate}</span>
                   </label>
-                  <input type="datetime-local" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} min={newStartDate || undefined} className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer" />
+                  <input type="datetime-local" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} min={newStartDate || undefined} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`} />
                 </div>
               </div>
 
               {/* Assign To */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assign To</label>
+                <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abAssignTo}</label>
                 <div className="space-y-2">
-                  <button onClick={() => setNewAssignee("self")} className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${newAssignee === "self" ? "border-indigo-300 bg-indigo-50 ring-2 ring-indigo-500/20" : "border-slate-200 bg-[#faf6ed] hover:bg-[#fefcf6]"}`}>
-                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${getAvatarColor(user?.uid || "")} flex items-center justify-center text-white text-[10px] font-bold`}>{getInitials(user?.displayName || undefined, user?.email || undefined)}</div>
-                    <div><span className="text-sm font-medium text-slate-800">Myself</span><span className="text-xs text-slate-400 ml-2">{user?.email}</span></div>
+                  <button onClick={() => setNewAssignee("self")} className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${newAssignee === "self" ? `border-indigo-300 ${isDarkMode ? 'bg-indigo-950/70 text-indigo-200 ring-2 ring-indigo-500/30' : 'bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'}` : `border-slate-700 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-700 text-white' : 'bg-[#faf6ed] hover:bg-[#fefcf6]'}`}`}>
+                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${getAvatarColor(user?.uid || "")} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{getInitials(user?.displayName || undefined, user?.email || undefined)}</div>
+                    <div><span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.abMyself}</span><span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} ml-2`}>{user?.email}</span></div>
                     {newAssignee === "self" && <CheckCircle2 className="w-4 h-4 text-indigo-500 ml-auto" />}
                   </button>
 
                   <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input value={assigneeSearch} onChange={e => setAssigneeSearch(e.target.value)} placeholder="Search team members..." className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400" />
+                    <input value={assigneeSearch} onChange={e => setAssigneeSearch(e.target.value)} placeholder={t.abSearchTeam} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm`} />
                   </div>
 
-                  <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-slate-100 p-1">
+                  <div className={`max-h-36 overflow-y-auto space-y-1 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-white'} p-1`}>
                     {filteredAssignees.filter(m => m.uid !== user?.uid).slice(0, 10).map(m => (
-                      <button key={m.uid} onClick={() => setNewAssignee(m.uid)} className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${newAssignee === m.uid ? "bg-indigo-50 ring-1 ring-indigo-200" : "hover:bg-[#faf6ed]"}`}>
+                      <button key={m.uid} onClick={() => setNewAssignee(m.uid)} className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${newAssignee === m.uid ? (isDarkMode ? "bg-indigo-950/80 ring-1 ring-indigo-800 text-white" : "bg-indigo-50 ring-1 ring-indigo-200 text-indigo-900") : (isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-[#faf6ed] text-slate-700")}`}>
                         <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(m.uid)} flex items-center justify-center text-white text-[9px] font-bold`}>{getInitials(m.displayName, m.email)}</div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-slate-700 truncate block">{m.displayName || m.email}</span>
-                          {m.displayName && <span className="text-[10px] text-slate-400 truncate block">{m.email}</span>}
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'} truncate block`}>{m.displayName || m.email}</span>
+                          {m.displayName && <span className={`text-[10px] ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} truncate block`}>{m.email}</span>}
                         </div>
                         {m.role === "admin" && <span className="text-[9px] font-bold text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded">ADMIN</span>}
                         {newAssignee === m.uid && <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />}
                       </button>
                     ))}
                     {filteredAssignees.filter(m => m.uid !== user?.uid).length === 0 && (
-                      <p className="text-xs text-slate-400 text-center py-3">No team members found</p>
+                      <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} text-center py-3`}>{t.abNoTeamMembers}</p>
                     )}
                   </div>
 
                   {newAssignee !== "self" && (
-                    <div className={`text-xs px-3 py-2 rounded-lg ${isAdmin ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                      {isAdmin ? "âœ“ As an admin, this task will be assigned directly." : "â³ This task will require the recipient's approval."}
+                    <div className={`text-xs px-3 py-2 rounded-lg ${isAdmin ? (isDarkMode ? "bg-emerald-950/50 text-emerald-400 border border-emerald-900/60" : "bg-emerald-50 text-emerald-600") : (isDarkMode ? "bg-amber-950/50 text-amber-400 border border-amber-900/60" : "bg-amber-50 text-amber-600")}`}>
+                      {isAdmin ? `✓ ${t.abAdminAssignDirect}` : `⏳ ${t.abRequiresApproval}`}
                     </div>
                   )}
                 </div>
               </div>
-              {/* â”€â”€ Email Automations â”€â”€ */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
+              {/* ── Email Automations ── */}
+              <div className={`border ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200'} rounded-xl overflow-hidden`}>
                 <button
                   type="button"
                   onClick={() => setIsAutomationsOpen(!isAutomationsOpen)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-[#faf6ed] hover:bg-slate-100 transition-colors text-left"
+                  className={`w-full flex items-center justify-between px-4 py-3 ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-[#faf6ed] hover:bg-slate-100 text-slate-600'} transition-colors text-left`}
                 >
-                  <span className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
                     <Mail className="w-3.5 h-3.5 text-blue-500" />
-                    Email Notifications
+                    {t.abEmailNotifications}
                     {autoEmailChips.length > 0 && (
                       <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
                     )}
@@ -1581,17 +1680,17 @@ function ActionBoardContent() {
                 </button>
 
                 {isAutomationsOpen && (
-                  <div className="p-4 space-y-5 border-t border-slate-200 bg-[#fefcf6]">
-                    <p className="text-[11px] text-slate-400">Send email notifications to specified recipients when triggered.</p>
+                  <div className={`p-4 space-y-5 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/80' : 'border-slate-200 bg-[#fefcf6]'}`}>
+                    <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.abSendNotifications}</p>
 
                     {/* Email Chip Input */}
                     <div>
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                        <Mail className="w-3 h-3 text-blue-500" /> Recipients
+                      <label className={`flex items-center gap-1.5 text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-505'} uppercase tracking-wider mb-1.5`}>
+                        <Mail className="w-3 h-3 text-blue-500" /> {t.abRecipients}
                       </label>
-                      <div className="min-h-[42px] flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-200 bg-[#faf6ed] focus-within:bg-[#fefcf6] focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all">
+                      <div className={`min-h-[42px] flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg border ${isDarkMode ? 'border-slate-700 bg-slate-900 focus-within:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] focus-within:bg-[#fefcf6]'} focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all`}>
                         {autoEmailChips.map((email, i) => (
-                          <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 animate-in fade-in slide-in-from-left-1 duration-150">
+                          <span key={i} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-indigo-950/80 border-indigo-800 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-700'} text-xs font-medium animate-in fade-in slide-in-from-left-1 duration-150`}>
                             {email}
                             <button type="button" onClick={() => setAutoEmailChips(prev => prev.filter((_, idx) => idx !== i))} className="w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-indigo-200 transition-colors ml-0.5">
                               <X className="w-2.5 h-2.5" />
@@ -1602,7 +1701,6 @@ function ActionBoardContent() {
                           value={autoEmailInput}
                           onChange={e => {
                             const val = e.target.value;
-                            // If user types a comma, add the chip
                             if (val.endsWith(",")) {
                               const email = val.slice(0, -1).trim();
                               if (email && email.includes("@") && !autoEmailChips.includes(email)) {
@@ -1626,8 +1724,8 @@ function ActionBoardContent() {
                               setAutoEmailChips(prev => prev.slice(0, -1));
                             }
                           }}
-                          placeholder={autoEmailChips.length === 0 ? "Type email and press Enter..." : "Add another..."}
-                          className="flex-1 min-w-[140px] bg-transparent outline-none text-xs text-slate-700 placeholder:text-slate-400 py-0.5"
+                          placeholder={autoEmailChips.length === 0 ? t.abTypeEmailEnter : t.abAddAnother}
+                          className={`flex-1 min-w-[140px] bg-transparent outline-none text-xs ${isDarkMode ? 'text-white' : 'text-slate-700'} placeholder:text-slate-400 py-0.5`}
                         />
                       </div>
                     </div>
@@ -1635,15 +1733,15 @@ function ActionBoardContent() {
                     {/* Trigger Buttons */}
                     {autoEmailChips.length > 0 && (
                       <div>
-                        <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                          <Zap className="w-3 h-3 text-amber-500" /> Send When
+                        <label className={`flex items-center gap-1.5 text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>
+                          <Zap className="w-3 h-3 text-amber-500" /> {t.abSendWhen}
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           {([
-                            { id: "assigned" as EmailTrigger, label: "Task Assigned", icon: <Circle className="w-3.5 h-3.5" />, desc: "Moved to To Do", activeColor: "bg-blue-50 border-blue-300 text-blue-700", dotColor: "bg-blue-400" },
-                            { id: "in_progress" as EmailTrigger, label: "In Progress", icon: <Timer className="w-3.5 h-3.5" />, desc: "Moved to Doing", activeColor: "bg-amber-50 border-amber-300 text-amber-700", dotColor: "bg-amber-400" },
-                            { id: "completed" as EmailTrigger, label: "Completed", icon: <CheckCircle2 className="w-3.5 h-3.5" />, desc: "Moved to Done", activeColor: "bg-emerald-50 border-emerald-300 text-emerald-700", dotColor: "bg-emerald-400" },
-                            { id: "overdue" as EmailTrigger, label: "Overdue", icon: <AlertTriangle className="w-3.5 h-3.5" />, desc: "Past due date", activeColor: "bg-red-50 border-red-300 text-red-700", dotColor: "bg-red-400" },
+                            { id: "assigned" as EmailTrigger, label: t.abTaskAssigned, icon: <Circle className="w-3.5 h-3.5" />, desc: t.abMovedToToDo, activeColor: isDarkMode ? "bg-blue-950/80 border-blue-800 text-blue-300" : "bg-blue-50 border-blue-300 text-blue-700", dotColor: "bg-blue-400" },
+                            { id: "in_progress" as EmailTrigger, label: t.abInProgressTrigger, icon: <Timer className="w-3.5 h-3.5" />, desc: t.abMovedToDoing, activeColor: isDarkMode ? "bg-amber-950/80 border-amber-800 text-amber-300" : "bg-amber-50 border-amber-300 text-amber-700", dotColor: "bg-amber-400" },
+                            { id: "completed" as EmailTrigger, label: t.abCompletedTrigger, icon: <CheckCircle2 className="w-3.5 h-3.5" />, desc: t.abMovedToDone, activeColor: isDarkMode ? "bg-emerald-950/80 border-emerald-800 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-700", dotColor: "bg-emerald-400" },
+                            { id: "overdue" as EmailTrigger, label: t.abOverdueTrigger, icon: <AlertTriangle className="w-3.5 h-3.5" />, desc: t.abPastDueDate, activeColor: isDarkMode ? "bg-red-950/80 border-red-800 text-red-300" : "bg-red-50 border-red-300 text-red-700", dotColor: "bg-red-400" },
                           ]).map(trigger => {
                             const isActive = autoEmailTriggers.includes(trigger.id);
                             return (
@@ -1655,21 +1753,21 @@ function ActionBoardContent() {
                                     prev.includes(trigger.id) ? prev.filter(t => t !== trigger.id) : [...prev, trigger.id]
                                   );
                                 }}
-                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 ${isActive ? trigger.activeColor : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-[#faf6ed]"}`}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 ${isActive ? trigger.activeColor : isDarkMode ? "border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-900" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-[#faf6ed]"}`}
                               >
                                 <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${isActive ? "border-current bg-current" : "border-slate-300"}`}>
                                   {isActive && <Check className="w-2.5 h-2.5 text-white" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <span className="text-xs font-semibold block">{trigger.label}</span>
-                                  <span className={`text-[10px] block ${isActive ? "opacity-70" : "text-slate-400"}`}>{trigger.desc}</span>
+                                  <span className={`text-[10px] block ${isActive ? "opacity-70" : isDarkMode ? "text-slate-500" : "text-slate-400"}`}>{trigger.desc}</span>
                                 </div>
                               </button>
                             );
                           })}
                         </div>
                         {autoEmailTriggers.length === 0 && (
-                          <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Select at least one trigger to send emails.</p>
+                          <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {t.abSelectTrigger}</p>
                         )}
                       </div>
                     )}
@@ -1677,30 +1775,30 @@ function ActionBoardContent() {
                 )}
               </div>
 
-              {/* â”€â”€ Comments Section (Edit mode only) â”€â”€ */}
+              {/* ── Comments Section (Edit mode only) ── */}
               {editingTaskId && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className={`border ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200'} rounded-xl overflow-hidden`}>
                   <button
                     type="button"
                     onClick={() => setIsCommentsOpen(!isCommentsOpen)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-[#faf6ed] hover:bg-slate-100 transition-colors text-left"
+                    className={`w-full flex items-center justify-between px-4 py-3 ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-[#faf6ed] hover:bg-slate-100 text-slate-600'} transition-colors text-left`}
                   >
-                    <span className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                    <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
                       <MessageCircle className="w-3.5 h-3.5 text-indigo-500" />
-                      Comments
-                      {(() => { const t = tasks.find(t => t.id === editingTaskId); return t?.comments && t.comments.length > 0 ? <span className="text-[10px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full ml-1">{t.comments.length}</span> : null; })()}
+                      {t.abComments}
+                      {(() => { const tk = tasks.find(t => t.id === editingTaskId); return tk?.comments && tk.comments.length > 0 ? <span className={`text-[10px] font-bold ${isDarkMode ? 'bg-indigo-950 text-indigo-300' : 'bg-indigo-100 text-indigo-600'} px-1.5 py-0.5 rounded-full ml-1`}>{tk.comments.length}</span> : null; })()}
                     </span>
                     <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isCommentsOpen ? "rotate-90" : ""}`} />
                   </button>
 
                   {isCommentsOpen && (
-                    <div className="p-4 space-y-3 border-t border-slate-200 bg-[#fefcf6]">
+                    <div className={`p-4 space-y-3 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-[#fefcf6]'}`}>
                       {/* Existing comments */}
                       {(() => {
-                        const task = tasks.find(t => t.id === editingTaskId);
-                        const comments = task?.comments || [];
+                        const tk = tasks.find(t => t.id === editingTaskId);
+                        const comments = tk?.comments || [];
                         if (comments.length === 0) return (
-                          <p className="text-xs text-slate-400 text-center py-4">No comments yet. Be the first to add one!</p>
+                          <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} text-center py-4`}>{t.abNoComments}</p>
                         );
                         return comments.map((c: TaskComment) => (
                           <div key={c.id} className="flex gap-2.5 animate-in fade-in duration-150">
@@ -1709,17 +1807,17 @@ function ActionBoardContent() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-slate-700">{c.authorName || c.authorEmail}</span>
-                                <span className="text-[10px] text-slate-400">{c.createdAt ? c.createdAt.toDate().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
+                                <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{c.authorName || c.authorEmail}</span>
+                                <span className={`text-[10px] ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{c.createdAt ? c.createdAt.toDate().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
                               </div>
-                              <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{c.text}</p>
+                              <p className={`text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} leading-relaxed mt-0.5`}>{c.text}</p>
                             </div>
                           </div>
                         ));
                       })()}
 
                       {/* Add comment input */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                      <div className={`flex items-center gap-2 pt-2 border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                         <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(user?.uid || "")} flex items-center justify-center text-white text-[9px] font-bold shrink-0`}>
                           {getInitials(user?.displayName || undefined, user?.email || undefined)}
                         </div>
@@ -1727,14 +1825,14 @@ function ActionBoardContent() {
                           value={commentInput}
                           onChange={e => setCommentInput(e.target.value)}
                           onKeyDown={e => { if (e.key === "Enter" && commentInput.trim()) { e.preventDefault(); addComment(editingTaskId); } }}
-                          placeholder="Write a comment..."
-                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-[#faf6ed] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400"
+                          placeholder={t.abWriteComment}
+                          className={`flex-1 px-3 py-2 rounded-lg border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs`}
                         />
                         <button
                           type="button"
                           onClick={() => addComment(editingTaskId)}
                           disabled={!commentInput.trim()}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 cursor-pointer"
                         >
                           <Send className="w-3.5 h-3.5" />
                         </button>
@@ -1746,59 +1844,59 @@ function ActionBoardContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-[#fefcf6] rounded-b-2xl">
-              <button onClick={handleCloseModal} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+            <div className={`px-6 py-4 border-t flex items-center justify-end gap-3 sticky bottom-0 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-[#fefcf6]'}`}>
+              <button onClick={handleCloseModal} className={`px-5 py-2.5 rounded-xl text-sm font-semibold ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} transition-colors`}>{t.abCancel}</button>
               {editingTaskId ? (
-                <button onClick={saveTask} disabled={!newTitle.trim()} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer">Save Changes</button>
+                <button onClick={saveTask} disabled={!newTitle.trim()} className={`px-6 py-2.5 rounded-xl ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-900 hover:bg-slate-800'} text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer`}>{t.abSaveChanges}</button>
               ) : (
-                <button onClick={addTask} disabled={!newTitle.trim()} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer">Create Task</button>
+                <button onClick={addTask} disabled={!newTitle.trim()} className={`px-6 py-2.5 rounded-xl ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-900 hover:bg-slate-800'} text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer`}>{t.abCreateTask}</button>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* â•â• Incoming Tasks Drawer â•â• */}
+      {/* ── Incoming Tasks Drawer ── */}
       {isInboxOpen && (
         <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => setIsInboxOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
-          <div className="relative w-full max-w-md bg-[#fefcf6] shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Inbox className="w-5 h-5 text-amber-500" /> Incoming Tasks
-                {pendingTasks.length > 0 && <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-lg">{pendingTasks.length}</span>}
+          <div className={`relative w-full max-w-md ${isDarkMode ? 'bg-slate-900 border-l border-slate-700 text-white' : 'bg-[#fefcf6]'} shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col`} onClick={e => e.stopPropagation()}>
+            <div className={`px-6 py-5 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-between shrink-0`}>
+              <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}>
+                <Inbox className="w-5 h-5 text-amber-500" /> {t.abIncomingTasks}
+                {pendingTasks.length > 0 && <span className={`text-xs font-bold ${isDarkMode ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-amber-100 text-amber-700'} px-2 py-0.5 rounded-lg`}>{pendingTasks.length}</span>}
               </h3>
-              <button onClick={() => setIsInboxOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X className="w-4 h-4" /></button>
+              <button onClick={() => setIsInboxOpen(false)} className={`w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} transition-colors`}><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {pendingTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4"><Inbox className="w-6 h-6 text-slate-300" /></div>
-                  <p className="text-sm text-slate-400 font-medium">No pending tasks</p>
-                  <p className="text-xs text-slate-300 mt-1">Tasks assigned to you will appear here</p>
+                  <div className={`w-14 h-14 rounded-full ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'} flex items-center justify-center mb-4`}><Inbox className="w-6 h-6 text-slate-300" /></div>
+                  <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} font-medium`}>{t.abNoPendingTasks}</p>
+                  <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-300'} mt-1`}>{t.abTasksAssignedHere}</p>
                 </div>
               ) : (
                 pendingTasks.map(task => (
-                  <div key={task.id} className="bg-[#fefcf6] border border-slate-200 rounded-xl p-4 shadow-sm">
+                  <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl p-4 shadow-sm`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200">Pending</span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-amber-950/50 text-amber-400 border border-amber-800' : 'bg-amber-50 text-amber-600 border border-amber-200'}`}>{t.abPending}</span>
                     </div>
-                    <h4 className="text-sm font-semibold text-slate-800 mb-1">{task.title}</h4>
-                    {task.description && <p className="text-xs text-slate-500 leading-relaxed mb-2">{task.description}</p>}
+                    <h4 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'} mb-1`}>{task.title}</h4>
+                    {task.description && <p className={`text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-500'} leading-relaxed mb-2`}>{task.description}</p>}
                     {(task.startDate || task.dueDate) && (
                       <div className="flex items-center gap-3 mb-2 text-[10px] text-slate-400">
-                        {task.startDate && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> Start: {formatDatetime(task.startDate)}</span>}
-                        {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due: {formatDatetime(task.dueDate)}</span>}
+                        {task.startDate && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {t.abStartDate}: {formatDatetime(task.startDate)}</span>}
+                        {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {t.abDueDate}: {formatDatetime(task.dueDate)}</span>}
                       </div>
                     )}
                     <div className="flex items-center gap-2 mb-3">
                       <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${getAvatarColor(task.createdBy)} flex items-center justify-center text-white text-[8px] font-bold`}>{getInitials(task.createdByName, task.createdByEmail)}</div>
-                      <span className="text-xs text-slate-500">Assigned by <span className="font-semibold text-slate-700">{task.createdByName || task.createdByEmail}</span></span>
+                      <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.abAssignedBy} <span className={`font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{task.createdByName || task.createdByEmail}</span></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => acceptTask(task.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer"><Check className="w-4 h-4" /> Accept</button>
-                      <button onClick={() => denyTask(task.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#fefcf6] border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors cursor-pointer"><XCircle className="w-4 h-4" /> Deny</button>
+                      <button onClick={() => acceptTask(task.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer"><Check className="w-4 h-4" /> {t.abAccept}</button>
+                      <button onClick={() => denyTask(task.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl ${isDarkMode ? 'bg-slate-900 border-red-900 text-red-400 hover:bg-red-955/30' : 'bg-[#fefcf6] border border-red-200 text-red-500'} text-sm font-semibold transition-colors cursor-pointer`}><XCircle className="w-4 h-4" /> {t.abDeny}</button>
                     </div>
                   </div>
                 ))
@@ -1808,15 +1906,15 @@ function ActionBoardContent() {
         </div>
       )}
 
-      {/* â•â• Archive Drawer â•â• */}
+      {/* ── Archive Drawer ── */}
       {isArchiveOpen && (
         <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => { setIsArchiveOpen(false); setConfirmDeleteId(null); setRestoreDropdownId(null); }}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
-          <div className="relative w-full max-w-md bg-[#fefcf6] shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 border-b border-slate-100 shrink-0">
+          <div className={`relative w-full max-w-md ${isDarkMode ? 'bg-slate-900 border-l border-slate-700 text-white' : 'bg-[#fefcf6]'} shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col`} onClick={e => e.stopPropagation()}>
+            <div className={`px-6 py-5 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} shrink-0`}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Archive className="w-5 h-5 text-slate-400" /> Archive <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg">{allArchivedTasks.length}</span></h3>
-                <button onClick={() => { setIsArchiveOpen(false); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X className="w-4 h-4" /></button>
+                <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}><Archive className="w-5 h-5 text-slate-400" /> {t.abArchive} <span className={`text-xs font-bold ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'} px-2 py-0.5 rounded-lg`}>{allArchivedTasks.length}</span></h3>
+                <button onClick={() => { setIsArchiveOpen(false); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className={`w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} transition-colors`}><X className="w-4 h-4" /></button>
               </div>
               {/* Admin user filter */}
               {isAdmin && (
@@ -1825,9 +1923,9 @@ function ActionBoardContent() {
                   <select
                     value={archiveFilterUser}
                     onChange={e => setArchiveFilterUser(e.target.value)}
-                    className="text-xs font-medium text-slate-600 bg-[#faf6ed] border border-slate-200 rounded-lg px-2.5 py-1.5 flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    className={`text-xs font-medium ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-800' : 'bg-[#faf6ed] border-slate-200 text-slate-600 focus:ring-indigo-200'} border rounded-lg px-2.5 py-1.5 flex-1 focus:outline-none focus:ring-2`}
                   >
-                    <option value="all">All Users</option>
+                    <option value="all">{t.abAllUsers}</option>
                     {orgMembers.map(m => (
                       <option key={m.uid} value={m.uid}>{m.displayName || m.email}</option>
                     ))}
@@ -1836,18 +1934,18 @@ function ActionBoardContent() {
               )}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* â”€â”€ Archived Section â”€â”€ */}
+              {/* ── Archived Section ── */}
               {archivedTasks.length > 0 && (
                 <>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Archived Assignments</p>
+                  <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider px-1 pt-2`}>{t.abArchivedAssignments}</p>
                   {archivedTasks.map(task => (
-                    <div key={task.id} className="bg-[#fefcf6] border border-emerald-200 rounded-xl p-4 shadow-sm">
+                    <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-emerald-900 text-white' : 'bg-[#fefcf6] border-emerald-200'} border rounded-xl p-4 shadow-sm`}>
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200">Archived</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>{t.abArchived}</span>
                       </div>
-                      <h4 className="text-sm font-semibold text-slate-700 mb-1">{task.title}</h4>
-                      {task.description && <p className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">{task.description}</p>}
+                      <h4 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-700'} mb-1`}>{task.title}</h4>
+                      {task.description && <p className={`text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-500'} leading-relaxed mb-2 line-clamp-2`}>{task.description}</p>}
                       <div className="text-[10px] text-slate-400 mb-2 flex items-center gap-3">
                         <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" /> {task.assignedToName || task.assignedToEmail}</span>
                         {task.completedAt && <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> {formatDatetime(task.completedAt)}</span>}
@@ -1858,18 +1956,18 @@ function ActionBoardContent() {
                           {isAdmin ? (
                             <>
                               <button onClick={() => setRestoreDropdownId(restoreDropdownId === task.id ? null : task.id)} className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-colors font-medium cursor-pointer">
-                                <ArchiveRestore className="w-3 h-3" /> Restore
+                                <ArchiveRestore className="w-3 h-3" /> {t.abRestore}
                                 <ChevronDown className={`w-3 h-3 transition-transform ${restoreDropdownId === task.id ? "rotate-180" : ""}`} />
                               </button>
                               {restoreDropdownId === task.id && (
-                                <div className="absolute left-0 bottom-full mb-1 w-52 bg-[#fefcf6] border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
-                                  <button onClick={() => restoreTask(task.id)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
-                                    <ArchiveRestore className="w-3 h-3 text-indigo-400" /> Restore to original assignee
+                                <div className={`absolute left-0 bottom-full mb-1 w-52 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150`}>
+                                  <button onClick={() => restoreTask(task.id)} className={`w-full text-left px-3 py-2 text-xs ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                    <ArchiveRestore className="w-3 h-3 text-indigo-400" /> {t.abRestoreOriginal}
                                   </button>
-                                  <div className="border-t border-slate-100" />
-                                  <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Restore to user:</p>
+                                  <div className={`border-t ${isDarkMode ? 'border-slate-850 border-slate-700' : 'border-slate-100'}`} />
+                                  <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">{t.abRestoreToUser}</p>
                                   {orgMembers.map(m => (
-                                    <button key={m.uid} onClick={() => restoreTask(task.id, m.uid, m.email, m.displayName || m.email)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-[#faf6ed] transition-colors flex items-center gap-2">
+                                    <button key={m.uid} onClick={() => restoreTask(task.id, m.uid, m.email, m.displayName || m.email)} className={`w-full text-left px-3 py-2 text-xs ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
                                       <UserIcon className="w-3 h-3 text-slate-400" /> {m.displayName || m.email}
                                     </button>
                                   ))}
@@ -1878,20 +1976,20 @@ function ActionBoardContent() {
                             </>
                           ) : (
                             <button onClick={() => restoreTask(task.id)} className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-colors font-medium cursor-pointer">
-                              <ArchiveRestore className="w-3 h-3" /> Restore
+                              <ArchiveRestore className="w-3 h-3" /> {t.abRestore}
                             </button>
                           )}
                         </div>
                         {/* Permanent delete with confirmation */}
                         {confirmDeleteId === task.id ? (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-red-500 font-medium">Delete forever?</span>
-                            <button onClick={() => { deleteTask(task.id); setConfirmDeleteId(null); }} className="text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded-md transition-colors cursor-pointer">Yes</button>
-                            <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md transition-colors cursor-pointer">No</button>
+                            <span className="text-[10px] text-red-500 font-medium">{t.abDeleteForever}</span>
+                            <button onClick={() => { deleteTask(task.id); setConfirmDeleteId(null); }} className="text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded-md transition-colors cursor-pointer">{t.abYes}</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-300 bg-slate-700 hover:bg-slate-600' : 'text-slate-500 bg-slate-100 hover:bg-slate-200'} px-2 py-0.5 rounded-md transition-colors cursor-pointer`}>{t.abNo}</button>
                           </div>
                         ) : (
                           <button onClick={() => setConfirmDeleteId(task.id)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer">
-                            <Trash2 className="w-3 h-3" /> Delete
+                            <Trash2 className="w-3 h-3" /> {t.abDelete}
                           </button>
                         )}
                       </div>
@@ -1900,21 +1998,21 @@ function ActionBoardContent() {
                 </>
               )}
 
-              {/* â”€â”€ Denied Section â”€â”€ */}
+              {/* ── Denied Section ── */}
               {deniedTasks.length > 0 && (
                 <>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2">Denied Tasks</p>
-                  <p className="text-xs text-slate-400 bg-[#faf6ed] px-3 py-2 rounded-lg">Denied tasks are automatically deleted after 30 days.</p>
+                  <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-550' : 'text-slate-400'} uppercase tracking-wider px-1 pt-2`}>{t.abDeniedTasks}</p>
+                  <p className={`text-xs ${isDarkMode ? 'text-slate-400 bg-slate-950/80 border border-slate-800' : 'text-slate-400 bg-[#faf6ed]'} px-3 py-2 rounded-lg`}>{t.abDeniedAutoDelete}</p>
                   {deniedTasks.map(task => (
-                    <div key={task.id} className="bg-[#fefcf6] border border-slate-200 rounded-xl p-4 shadow-sm opacity-70">
+                    <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl p-4 shadow-sm opacity-70`}>
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-red-50 text-red-500 border border-red-200">Denied</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-red-950/50 text-red-400 border border-red-900' : 'bg-red-50 text-red-500 border border-red-200'}`}>{t.abDenied}</span>
                       </div>
-                      <h4 className="text-sm font-semibold text-slate-600 mb-1 line-through">{task.title}</h4>
+                      <h4 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} mb-1 line-through`}>{task.title}</h4>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-400">Denied {task.deniedAt ? formatDate(task.deniedAt) : "recently"}</span>
-                        <button onClick={() => deleteTask(task.id)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"><Trash2 className="w-3 h-3" /> Delete now</button>
+                        <span className="text-[10px] text-slate-400">{t.abDenied} {task.deniedAt ? formatDate(task.deniedAt) : "recently"}</span>
+                        <button onClick={() => deleteTask(task.id)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"><Trash2 className="w-3 h-3" /> {t.abDeleteNow}</button>
                       </div>
                     </div>
                   ))}
@@ -1922,9 +2020,9 @@ function ActionBoardContent() {
               )}
               {deniedTasks.length === 0 && archivedTasks.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4"><Archive className="w-6 h-6 text-slate-300" /></div>
-                  <p className="text-sm text-slate-400 font-medium">No archived assignments</p>
-                  <p className="text-xs text-slate-300 mt-1">Tasks moved to archive from Done will appear here</p>
+                  <div className={`w-14 h-14 rounded-full ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'} flex items-center justify-center mb-4`}><Archive className="w-6 h-6 text-slate-300" /></div>
+                  <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} font-medium`}>{t.abNoArchivedAssignments}</p>
+                  <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-300'} mt-1`}>{t.abArchivedWillAppear}</p>
                 </div>
               )}
             </div>

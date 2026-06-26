@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { TimesheetEntryModal } from "./TimesheetEntryModal";
+import { useDarkMode } from "@/lib/useDarkMode";
+import { useTranslation } from "@/lib/i18n";
 
 interface TimesheetUser {
   name: string;
@@ -132,6 +134,9 @@ function getHeatmapColor(value: number, min: number, max: number): string {
 }
 
 export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: TimesheetGridProps) {
+  const { t } = useTranslation();
+  const isDarkMode = useDarkMode();
+
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -331,40 +336,40 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
   const summaryColWidth = 100;
 
   return (
-    <div className="flex flex-col h-full bg-[#faf6ed] text-slate-900 font-sans overflow-hidden">
+    <div className={`flex flex-col h-full font-sans overflow-hidden ${isDarkMode ? 'bg-[#0f172a] text-slate-100' : 'bg-[#faf6ed] text-slate-900'}`}>
       {/* Page Header */}
       <div className="shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
         <div className="flex flex-col gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <CalendarDays className="w-5 h-5 text-slate-400" />
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Timesheets
+              <CalendarDays className={`w-5 h-5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+              <h1 className={`text-xl sm:text-2xl font-bold tracking-tight ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                {t.timesheetTitle}
               </h1>
             </div>
-            <p className="text-sm text-slate-500 font-medium">Track team hours and attendance</p>
+            <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.timesheetSubtitle}</p>
           </div>
 
           {/* Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Navigation */}
             <div className="flex items-center gap-1.5">
-              <button onClick={goPrevBig} className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors" title="Previous month">
+              <button onClick={goPrevBig} className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700'}`} title={t.prevMonth}>
                 <ChevronsLeft className="w-4 h-4" />
               </button>
-              <button onClick={goPrev} className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors" title="Previous period">
+              <button onClick={goPrev} className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700'}`} title={t.prevPeriod}>
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button onClick={goNext} className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors" title="Next period">
+              <button onClick={goNext} className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700'}`} title={t.nextPeriod}>
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <button onClick={goNextBig} className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors" title="Next month">
+              <button onClick={goNextBig} className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700'}`} title={t.nextMonth}>
                 <ChevronsRight className="w-4 h-4" />
               </button>
-              <button onClick={goToday} className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-600 hover:text-slate-800 transition-colors ml-1">
-                Today
+              <button onClick={goToday} className={`h-8 px-3 rounded-lg border text-xs font-semibold transition-colors ml-1 ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800'}`}>
+                {t.todayLabel}
               </button>
-              <div className="ml-3 text-sm sm:text-base font-bold text-slate-800 tracking-tight hidden sm:block">
+              <div className={`ml-3 text-sm sm:text-base font-bold tracking-tight hidden sm:block ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                 {formatRangeTitle(startDate, endDate)}
               </div>
             </div>
@@ -375,32 +380,32 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
               <div className="relative">
                 <button
                   onClick={() => setAddTimeOpen(!addTimeOpen)}
-                  className="h-9 px-3.5 rounded-lg border-2 border-green-600 bg-[#f9fdf4] text-green-700 text-sm font-semibold hover:bg-green-50 transition-colors flex items-center gap-1.5"
+                  className={`h-9 px-3.5 rounded-lg border-2 text-sm font-semibold transition-colors flex items-center gap-1.5 ${isDarkMode ? 'border-green-500 bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'border-green-600 bg-[#f9fdf4] text-green-700 hover:bg-green-50'}`}
                 >
-                  Add time
+                  {t.addTimeLabel}
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
                 {addTimeOpen && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setAddTimeOpen(false)} />
-                    <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-1 w-56 overflow-hidden">
+                    <div className={`absolute top-full right-0 mt-1 border rounded-xl shadow-xl z-40 py-1 w-56 overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
                       <button
                         onClick={() => { setAddTimeOpen(false); setEntryModalOpen(true); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50'}`}
                       >
-                        Single Timesheet Activity
+                        {t.singleTimesheetActivity}
                       </button>
                       <button
                         disabled
-                        className="w-full text-left px-4 py-2.5 text-sm text-slate-300 font-medium cursor-not-allowed"
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}
                       >
-                        Weekly Timesheet
+                        {t.weeklyTimesheetLabel}
                       </button>
                       <button
                         onClick={() => { setAddTimeOpen(false); setEntryModalOpen(true); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50'}`}
                       >
-                        STT Timesheet Entry
+                        {t.sttTimesheetEntry}
                       </button>
                     </div>
                   </>
@@ -408,31 +413,31 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
               </div>
 
               {/* View Mode Toggles */}
-              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
+              <div className={`flex items-center gap-1 border rounded-xl p-1 ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
                 {(["week", "month", "custom"] as ViewMode[]).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => handleViewChange(mode)}
                     className={`h-7 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
                       viewMode === mode
-                        ? "bg-slate-800 text-white shadow-sm"
-                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                        ? isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-slate-800 text-white shadow-sm"
+                        : isDarkMode ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    {mode === "week" ? "Week" : mode === "month" ? "Month" : "Custom"}
+                    {mode === "week" ? t.weekLabel : mode === "month" ? t.monthLabel : t.customLabel}
                   </button>
                 ))}
                 {viewMode === "custom" && (
-                  <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-200">
+                  <div className={`flex items-center gap-1.5 ml-1 pl-2 border-l ${isDarkMode ? 'border-slate-600' : 'border-slate-200'}`}>
                     <input
                       type="number"
                       min={1}
                       max={100}
                       value={customDays}
                       onChange={(e) => handleCustomDaysChange(e.target.value)}
-                      className="w-12 h-7 rounded-lg border border-slate-200 bg-slate-50 text-center text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all"
+                      className={`w-12 h-7 rounded-lg border text-center text-xs font-bold outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all ${isDarkMode ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700'}`}
                     />
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">days</span>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.daysLabel}</span>
                   </div>
                 )}
               </div>
@@ -440,7 +445,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
           </div>
 
           {/* Mobile Date Range */}
-          <div className="text-sm font-bold text-slate-800 tracking-tight sm:hidden">
+          <div className={`text-sm font-bold tracking-tight sm:hidden ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             {formatRangeTitle(startDate, endDate)}
           </div>
         </div>
@@ -449,9 +454,9 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
       {/* Timesheet Grid */}
       <div className="flex-1 overflow-auto px-4 sm:px-8 pb-8">
         <div
-          className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-opacity duration-150 ${
+          className={`rounded-2xl border shadow-sm overflow-hidden transition-opacity duration-150 ${
             isTransitioning ? "opacity-0" : "opacity-100"
-          }`}
+          } ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
         >
           {/* Header Row */}
           <div
@@ -461,14 +466,14 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
               transition: "grid-template-columns 300ms ease",
             }}
           >
-            <div className="bg-[#1e3a5f] px-4 py-3 flex items-center sticky left-0 z-20 border-r border-[#2a4d73]">
-              <span className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">Team Member</span>
+            <div className={`px-4 py-3 flex items-center sticky left-0 z-20 border-r ${isDarkMode ? 'bg-[#0c2137] border-[#1a3550]' : 'bg-[#1e3a5f] border-[#2a4d73]'}`}>
+              <span className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">{t.teamMember}</span>
             </div>
             {dates.map((date, i) => {
               const isToday = isSameDay(date, today);
               const isWeekend = date.getDay() === 0 || date.getDay() === 6;
               return (
-                <div key={i} className={`py-2.5 px-1 flex flex-col items-center justify-center border-r border-[#2a4d73] ${isToday ? "bg-[#2563eb]" : "bg-[#1e3a5f]"}`}>
+                <div key={i} className={`py-2.5 px-1 flex flex-col items-center justify-center border-r ${isDarkMode ? `border-[#1a3550] ${isToday ? 'bg-[#1d4ed8]' : 'bg-[#0c2137]'}` : `border-[#2a4d73] ${isToday ? 'bg-[#2563eb]' : 'bg-[#1e3a5f]'}`}`}>
                   {columnCount <= 31 && (
                     <span className={`text-[9px] font-bold uppercase tracking-wider ${isWeekend ? "text-blue-300/60" : "text-blue-300/80"}`}>
                       {getDayOfWeek(date, columnCount)}
@@ -480,11 +485,11 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                 </div>
               );
             })}
-            <div className="bg-[#1e3a5f] px-2 py-2.5 flex items-center justify-center border-r border-[#2a4d73]">
-              <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider">Average</span>
+            <div className={`px-2 py-2.5 flex items-center justify-center border-r ${isDarkMode ? 'bg-[#0c2137] border-[#1a3550]' : 'bg-[#1e3a5f] border-[#2a4d73]'}`}>
+              <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider">{t.averageLabel}</span>
             </div>
-            <div className="bg-[#1e3a5f] px-2 py-2.5 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider">Total</span>
+            <div className={`px-2 py-2.5 flex items-center justify-center ${isDarkMode ? 'bg-[#0c2137]' : 'bg-[#1e3a5f]'}`}>
+              <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider">{t.totalLabel}</span>
             </div>
           </div>
 
@@ -494,17 +499,17 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
             return (
               <div
                 key={user.name}
-                className="grid border-t border-slate-100 group"
+                className={`grid border-t group ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}
                 style={{
                   gridTemplateColumns: `${nameColWidth}px repeat(${columnCount}, 1fr) ${summaryColWidth}px ${summaryColWidth}px`,
                   transition: "grid-template-columns 300ms ease",
                 }}
               >
-                <div className={`px-4 py-3 flex items-center gap-3 sticky left-0 z-10 border-r border-slate-100 ${rowIdx % 2 === 0 ? "bg-white" : "bg-[#faf9f5]"}`}>
+                <div className={`px-4 py-3 flex items-center gap-3 sticky left-0 z-10 border-r ${isDarkMode ? `border-slate-700 ${rowIdx % 2 === 0 ? 'bg-slate-800' : 'bg-slate-800/80'}` : `border-slate-100 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#faf9f5]'}`}`}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold shadow-sm" style={{ backgroundColor: user.color }}>
                     {user.initials}
                   </div>
-                  <span className="text-[13px] font-semibold text-slate-800 truncate">{user.name}</span>
+                  <span className={`text-[13px] font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{user.name}</span>
                 </div>
                 {dates.map((date, colIdx) => {
                   const isToday = isSameDay(date, today);
@@ -519,17 +524,19 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                   return (
                     <div
                       key={colIdx}
-                      className={`py-2 px-1 flex flex-col items-center justify-center border-r border-slate-100 transition-colors duration-150 cursor-pointer ${
+                      className={`py-2 px-1 flex flex-col items-center justify-center border-r transition-colors duration-150 cursor-pointer ${
+                        isDarkMode ? 'border-slate-700' : 'border-slate-100'
+                      } ${
                         !hasData
                           ? isToday
-                            ? "bg-blue-50/40 hover:bg-blue-100/40"
+                            ? isDarkMode ? "bg-blue-900/30 hover:bg-blue-900/50" : "bg-blue-50/40 hover:bg-blue-100/40"
                             : isWeekend
-                              ? rowIdx % 2 === 0
-                                ? "bg-slate-50/60 hover:bg-slate-100/60"
-                                : "bg-slate-50/40 hover:bg-slate-100/40"
-                              : rowIdx % 2 === 0
-                                ? "bg-white hover:bg-blue-50/40"
-                                : "bg-[#faf9f5] hover:bg-blue-50/30"
+                              ? isDarkMode
+                                ? rowIdx % 2 === 0 ? "bg-slate-700/40 hover:bg-slate-700/60" : "bg-slate-700/30 hover:bg-slate-700/50"
+                                : rowIdx % 2 === 0 ? "bg-slate-50/60 hover:bg-slate-100/60" : "bg-slate-50/40 hover:bg-slate-100/40"
+                              : isDarkMode
+                                ? rowIdx % 2 === 0 ? "bg-slate-800 hover:bg-blue-900/30" : "bg-slate-800/80 hover:bg-blue-900/20"
+                                : rowIdx % 2 === 0 ? "bg-white hover:bg-blue-50/40" : "bg-[#faf9f5] hover:bg-blue-50/30"
                           : ""
                       }`}
                       style={hasData ? { backgroundColor: cellBgColor } : undefined}
@@ -545,36 +552,36 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                     >
                       {hasData ? (
                         <>
-                          <span className={`text-[11px] font-semibold leading-tight ${heatmapRange.max > 0 && cell.minutes > (heatmapRange.min + heatmapRange.max) / 2 ? "text-white" : "text-slate-800"}`}>{formatDuration(cell.minutes)}</span>
+                          <span className={`text-[11px] font-semibold leading-tight ${heatmapRange.max > 0 && cell.minutes > (heatmapRange.min + heatmapRange.max) / 2 ? "text-white" : isDarkMode ? "text-slate-200" : "text-slate-800"}`}>{formatDuration(cell.minutes)}</span>
                           {cell.earnings > 0 && (
                             <span className={`text-[9px] font-semibold leading-tight ${heatmapRange.max > 0 && cell.minutes > (heatmapRange.min + heatmapRange.max) / 2 ? "text-blue-100" : "text-green-600"}`}>{formatMoney(cell.earnings)}</span>
                           )}
                         </>
                       ) : (
-                        <span className="text-[11px] text-slate-300 font-medium">-</span>
+                        <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>-</span>
                       )}
                     </div>
                   );
                 })}
                 {/* Average */}
-                <div className={`py-2 px-2 flex flex-col items-center justify-center border-r border-slate-100 ${rowIdx % 2 === 0 ? "bg-slate-50" : "bg-slate-50/70"}`}>
+                <div className={`py-2 px-2 flex flex-col items-center justify-center border-r ${isDarkMode ? `border-slate-700 ${rowIdx % 2 === 0 ? 'bg-slate-700/50' : 'bg-slate-700/30'}` : `border-slate-100 ${rowIdx % 2 === 0 ? 'bg-slate-50' : 'bg-slate-50/70'}`}`}>
                   {summary.avgMins > 0 ? (
-                    <span className="text-[11px] text-slate-600 font-semibold">{formatDuration(summary.avgMins)}</span>
+                    <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{formatDuration(summary.avgMins)}</span>
                   ) : (
-                    <span className="text-[11px] text-slate-400 font-semibold">-</span>
+                    <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
                   )}
                 </div>
                 {/* Total */}
-                <div className={`py-2 px-2 flex flex-col items-center justify-center ${rowIdx % 2 === 0 ? "bg-slate-50" : "bg-slate-50/70"}`}>
+                <div className={`py-2 px-2 flex flex-col items-center justify-center ${isDarkMode ? (rowIdx % 2 === 0 ? 'bg-slate-700/50' : 'bg-slate-700/30') : (rowIdx % 2 === 0 ? 'bg-slate-50' : 'bg-slate-50/70')}`}>
                   {summary.totalMins > 0 ? (
                     <>
-                      <span className="text-[11px] text-slate-700 font-bold">{formatDuration(summary.totalMins)}</span>
+                      <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{formatDuration(summary.totalMins)}</span>
                       {summary.totalEarnings > 0 && (
                         <span className="text-[9px] text-green-600 font-semibold">{formatMoney(summary.totalEarnings)}</span>
                       )}
                     </>
                   ) : (
-                    <span className="text-[11px] text-slate-400 font-bold">-</span>
+                    <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
                   )}
                 </div>
               </div>
@@ -583,70 +590,70 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
 
           {/* Average Summary Row */}
           <div
-            className="grid border-t-2 border-slate-200"
+            className={`grid border-t-2 ${isDarkMode ? 'border-slate-600' : 'border-slate-200'}`}
             style={{
               gridTemplateColumns: `${nameColWidth}px repeat(${columnCount}, 1fr) ${summaryColWidth}px ${summaryColWidth}px`,
               transition: "grid-template-columns 300ms ease",
             }}
           >
-            <div className="px-4 py-3 flex items-center sticky left-0 z-10 bg-[#f5f0e8] border-r border-slate-200">
-              <span className="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Average</span>
+            <div className={`px-4 py-3 flex items-center sticky left-0 z-10 border-r ${isDarkMode ? 'bg-slate-700/60 border-slate-600' : 'bg-[#f5f0e8] border-slate-200'}`}>
+              <span className={`text-[12px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.averageLabel}</span>
             </div>
             {dateTotals.map((dt, i) => (
-              <div key={i} className="py-3 px-1 flex items-center justify-center bg-[#f5f0e8] border-r border-slate-200">
+              <div key={i} className={`py-3 px-1 flex items-center justify-center border-r ${isDarkMode ? 'bg-slate-700/60 border-slate-600' : 'bg-[#f5f0e8] border-slate-200'}`}>
                 {dt.totalMins > 0 && users.length > 0 ? (
-                  <span className="text-[11px] text-slate-500 font-semibold">{formatDuration(Math.round(dt.totalMins / users.length))}</span>
+                  <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{formatDuration(Math.round(dt.totalMins / users.length))}</span>
                 ) : (
-                  <span className="text-[11px] text-slate-400 font-semibold">-</span>
+                  <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
                 )}
               </div>
             ))}
-            <div className="py-3 px-2 flex items-center justify-center bg-[#f0eadc] border-r border-slate-200">
-              <span className="text-[11px] text-slate-400 font-bold">-</span>
+            <div className={`py-3 px-2 flex items-center justify-center border-r ${isDarkMode ? 'bg-slate-700/40 border-slate-600' : 'bg-[#f0eadc] border-slate-200'}`}>
+              <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
             </div>
-            <div className="py-3 px-2 flex items-center justify-center bg-[#f0eadc]">
-              <span className="text-[11px] text-slate-400 font-bold">-</span>
+            <div className={`py-3 px-2 flex items-center justify-center ${isDarkMode ? 'bg-slate-700/40' : 'bg-[#f0eadc]'}`}>
+              <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
             </div>
           </div>
 
           {/* Total Summary Row */}
           <div
-            className="grid border-t border-slate-200"
+            className={`grid border-t ${isDarkMode ? 'border-slate-600' : 'border-slate-200'}`}
             style={{
               gridTemplateColumns: `${nameColWidth}px repeat(${columnCount}, 1fr) ${summaryColWidth}px ${summaryColWidth}px`,
               transition: "grid-template-columns 300ms ease",
             }}
           >
-            <div className="px-4 py-3 flex items-center sticky left-0 z-10 bg-[#eee8d9] border-r border-slate-200">
-              <span className="text-[12px] font-bold text-slate-600 uppercase tracking-wide">Total</span>
+            <div className={`px-4 py-3 flex items-center sticky left-0 z-10 border-r ${isDarkMode ? 'bg-slate-700/80 border-slate-600' : 'bg-[#eee8d9] border-slate-200'}`}>
+              <span className={`text-[12px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.totalLabel}</span>
             </div>
             {dateTotals.map((dt, i) => (
-              <div key={i} className="py-2 px-1 flex flex-col items-center justify-center bg-[#eee8d9] border-r border-slate-200">
+              <div key={i} className={`py-2 px-1 flex flex-col items-center justify-center border-r ${isDarkMode ? 'bg-slate-700/80 border-slate-600' : 'bg-[#eee8d9] border-slate-200'}`}>
                 {dt.totalMins > 0 ? (
                   <>
-                    <span className="text-[11px] text-slate-600 font-bold">{formatDuration(dt.totalMins)}</span>
+                    <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>{formatDuration(dt.totalMins)}</span>
                     {dt.totalEarnings > 0 && (
                       <span className="text-[9px] text-green-600 font-semibold">{formatMoney(dt.totalEarnings)}</span>
                     )}
                   </>
                 ) : (
-                  <span className="text-[11px] text-slate-400 font-bold">-</span>
+                  <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
                 )}
               </div>
             ))}
-            <div className="py-3 px-2 flex items-center justify-center bg-[#e8e1d0] border-r border-slate-200">
-              <span className="text-[11px] text-slate-500 font-bold">-</span>
+            <div className={`py-3 px-2 flex items-center justify-center border-r ${isDarkMode ? 'bg-slate-600/60 border-slate-600' : 'bg-[#e8e1d0] border-slate-200'}`}>
+              <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
             </div>
-            <div className="py-2 px-2 flex flex-col items-center justify-center bg-[#e8e1d0]">
+            <div className={`py-2 px-2 flex flex-col items-center justify-center ${isDarkMode ? 'bg-slate-600/60' : 'bg-[#e8e1d0]'}`}>
               {grandTotal.mins > 0 ? (
                 <>
-                  <span className="text-[11px] text-slate-700 font-bold">{formatDuration(grandTotal.mins)}</span>
+                  <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-700'}`}>{formatDuration(grandTotal.mins)}</span>
                   {grandTotal.earnings > 0 && (
                     <span className="text-[9px] text-green-600 font-semibold">{formatMoney(grandTotal.earnings)}</span>
                   )}
                 </>
               ) : (
-                <span className="text-[11px] text-slate-500 font-bold">-</span>
+                <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
               )}
             </div>
           </div>
@@ -673,12 +680,12 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setContextMenu(null)} />
           <div
-            className="fixed z-[70] bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-56 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
+            className={`fixed z-[70] border rounded-xl shadow-xl py-1 w-56 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
-            <div className="px-4 py-2 border-b border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Add time for {contextMenu.userName}</p>
-              <p className="text-[10px] text-slate-500 font-medium">{contextMenu.date}</p>
+            <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.addTimeFor} {contextMenu.userName}</p>
+              <p className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{contextMenu.date}</p>
             </div>
             <button
               onClick={() => {
@@ -687,15 +694,15 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                 setEntryModalOpen(true);
                 setContextMenu(null);
               }}
-              className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+              className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50'}`}
             >
-              Single Timesheet Activity
+              {t.singleTimesheetActivity}
             </button>
             <button
               disabled
-              className="w-full text-left px-4 py-2.5 text-sm text-slate-300 font-medium cursor-not-allowed"
+              className={`w-full text-left px-4 py-2.5 text-sm font-medium cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}
             >
-              Weekly Timesheet
+              {t.weeklyTimesheetLabel}
             </button>
             <button
               onClick={() => {
@@ -704,9 +711,9 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                 setEntryModalOpen(true);
                 setContextMenu(null);
               }}
-              className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+              className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50'}`}
             >
-              STT Timesheet Entry
+              {t.sttTimesheetEntry}
             </button>
           </div>
         </>

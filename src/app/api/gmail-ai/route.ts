@@ -258,7 +258,7 @@ async function executeGmailSearch(
 async function executeConfirmedAction(
   refreshToken: string,
   actionPayload: {
-    type: "archive" | "delete" | "star" | "mark_read" | "move";
+    type: "archive" | "delete" | "star" | "mark_read" | "move" | "apply_label";
     emailIds: string[];
     label?: string;
   }
@@ -322,6 +322,19 @@ async function executeConfirmedAction(
             requestBody: {
               addLabelIds: [label],
               removeLabelIds: ["INBOX"],
+            },
+          });
+          break;
+
+        case "apply_label":
+          if (!label) {
+            return { success: false, error: "No target label specified for apply_label action" };
+          }
+          await gmail.users.messages.modify({
+            userId: "me",
+            id: emailId,
+            requestBody: {
+              addLabelIds: [label],
             },
           });
           break;

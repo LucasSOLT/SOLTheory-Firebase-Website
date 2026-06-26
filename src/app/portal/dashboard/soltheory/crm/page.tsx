@@ -1,23 +1,26 @@
-"use client";
+﻿"use client";
 
 import CampaignCalendar from "@/components/crm/CampaignCalendar";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useTranslation } from '@/lib/i18n';
+import { useDarkMode } from "@/lib/useDarkMode";
 import { useUser, useFirestore } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { useCRMStore } from "@/stores/crm-store";
 import type { Customer, Meeting, CrmNotification, Conversation, InboxMessage, InboxChannel, TicketStatus, ChatMessage } from "@/stores/crm-store";
 import { ToastContainer } from "@/components/crm/Toast";
-import { DashboardSkeleton, ContactsTableSkeleton, InboxSkeleton, AnalyticsSkeleton } from "@/components/crm/Skeletons";
+import { DashboardSkeleton, AnalyticsSkeleton } from "@/components/crm/Skeletons";
 import {
-  Search, Plus, Bell, LayoutDashboard, Users, GitBranch, Inbox, BarChart3,
-  UserPlus, Mail, ChevronDown, ChevronUp, Settings, Filter, Download, Brain,
+  Search, Plus, Bell, LayoutDashboard, Users, GitBranch, BarChart3,
+  UserPlus, Mail, ChevronDown, ChevronUp, Filter, Download, Brain,
   Phone, DollarSign, Activity, ArrowUpRight, MoreHorizontal, X,
   MessageCircle, PanelRightClose, PanelRightOpen, Send, Sparkles, Trash2,
   CheckSquare, Square, Tag, MailPlus, Calendar, Clock, ToggleLeft, ToggleRight,
   CalendarCheck, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
+  Table2, MapPin, Building2,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -43,85 +46,135 @@ const STATUS_COLORS: Record<string, string> = {
   "Sale Completed": "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ NAV CONFIG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ NAV CONFIG Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 const crmNavItems = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "contacts", label: "Contacts", icon: Users },
-  { id: "campaigns", label: "Campaign Manager", icon: CalendarRange, special: true },
-  { id: "inbox", label: "Inbox", icon: Inbox },
+  { id: "dashboard", label: "Database", icon: Table2 },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "settings", label: "Settings", icon: Settings },
 ] as const;
 
-type CrmView = (typeof crmNavItems)[number]["id"];
+type CrmView = "dashboard" | "campaigns" | "analytics";
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ EMPTY STATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ STATUS & TAG HELPERS Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+
+const getStatusLabel = (status: string, isSpanish: boolean) => {
+  if (!isSpanish) return status;
+  switch (status) {
+    case "Cold Lead": return "Prospecto FrÃƒÂ­o";
+    case "Warm Lead": return "Prospecto Tibio";
+    case "Interested": return "Interesado";
+    case "Sale Completed": return "Venta Completada";
+    default: return status;
+  }
+};
+
+const getTagStyles = (tag: string, isDarkMode: boolean) => {
+  if (isDarkMode) {
+    switch (tag) {
+      case "VIP": return "bg-amber-950/40 text-amber-400 border-amber-800";
+      case "Enterprise": return "bg-purple-950/40 text-purple-400 border-purple-800";
+      case "Inbound": return "bg-sky-950/40 text-sky-400 border-sky-800";
+      case "Referral": return "bg-emerald-950/40 text-emerald-400 border-emerald-800";
+      case "High-Value": return "bg-rose-950/40 text-rose-400 border-rose-800";
+      default: return "bg-slate-900 text-slate-300 border-slate-700";
+    }
+  } else {
+    return TAG_COLORS[tag] || "${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-[#faf6ed] text-slate-600 border-slate-200'}";
+  }
+};
+
+const getStatusStyles = (status: string, isDarkMode: boolean) => {
+  if (isDarkMode) {
+    switch (status) {
+      case "Cold Lead": return "bg-blue-950/40 text-blue-400 border-blue-800";
+      case "Warm Lead": return "bg-orange-950/40 text-orange-400 border-orange-800";
+      case "Interested": return "bg-purple-950/40 text-purple-400 border-purple-800";
+      case "Sale Completed": return "bg-emerald-950/40 text-emerald-400 border-emerald-800";
+      default: return "bg-slate-900 text-slate-300 border-slate-700";
+    }
+  } else {
+    return STATUS_COLORS[status] || "bg-[#faf6ed] text-slate-600 border-slate-200";
+  }
+};
+
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ EMPTY STATES Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 function EmptyContacts({ onAdd }: { onAdd: () => void }) {
+  const { t, lang } = useTranslation();
+  const isDarkMode = useDarkMode();
+
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-6">
-        <Users className="w-9 h-9 text-slate-300" />
+      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+        <Users className="w-9 h-9" />
       </div>
-      <h3 className="text-lg font-semibold text-slate-800 mb-1.5">No contacts yet</h3>
-      <p className="text-sm text-slate-400 text-center max-w-sm mb-6 leading-relaxed">
-        Add your first customer to start building relationships and tracking insights with AI.
+      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmNoContactsYet}</h3>
+      <p className={`text-sm text-center max-w-sm mb-6 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        {t.crmNoContactsDesc}
       </p>
       <button
         onClick={onAdd}
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/10 cursor-pointer"
       >
         <UserPlus className="w-4 h-4" />
-        Add First Contact
+        {t.crmAddFirstContact}
       </button>
     </div>
   );
 }
 
 function EmptyPipeline() {
+  const { t, lang } = useTranslation();
+  const isDarkMode = useDarkMode();
+
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-6">
-        <GitBranch className="w-9 h-9 text-slate-300" />
+      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+        <GitBranch className="w-9 h-9" />
       </div>
-      <h3 className="text-lg font-semibold text-slate-800 mb-1.5">Pipeline is empty</h3>
-      <p className="text-sm text-slate-400 text-center max-w-sm leading-relaxed">
-        As you add contacts and move them through stages, your pipeline will populate here.
+      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmPipelineEmpty}</h3>
+      <p className={`text-sm text-center max-w-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        {t.crmPipelineEmptyDesc}
       </p>
     </div>
   );
 }
 
 function EmptyInbox() {
+  const { t, lang } = useTranslation();
+  const isDarkMode = useDarkMode();
+
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-6">
-        <Mail className="w-9 h-9 text-slate-300" />
+      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+        <Mail className="w-9 h-9" />
       </div>
-      <h3 className="text-lg font-semibold text-slate-800 mb-1.5">Inbox is clear</h3>
-      <p className="text-sm text-slate-400 text-center max-w-sm leading-relaxed">
-        Customer communications and AI-flagged follow-ups will appear here.
+      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmInboxClear}</h3>
+      <p className={`text-sm text-center max-w-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        {t.crmInboxClearDesc}
       </p>
     </div>
   );
 }
 
 function EmptyAnalytics() {
+  const { t, lang } = useTranslation();
+  const isDarkMode = useDarkMode();
+
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-6">
-        <BarChart3 className="w-9 h-9 text-slate-300" />
+      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+        <BarChart3 className="w-9 h-9" />
       </div>
-      <h3 className="text-lg font-semibold text-slate-800 mb-1.5">No data to analyze</h3>
-      <p className="text-sm text-slate-400 text-center max-w-sm leading-relaxed">
-        Once customer data is flowing, revenue trends and engagement metrics will render here.
+      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmNoDataAnalyze}</h3>
+      <p className={`text-sm text-center max-w-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        {t.crmNoDataAnalyzeDesc}
       </p>
     </div>
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ METRIC CARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ METRIC CARD ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 
 function MetricCard({
   label,
@@ -129,31 +182,31 @@ function MetricCard({
   subtext,
   icon: Icon,
   trend,
+  isDarkMode,
 }: {
   label: string;
   value: string;
   subtext: string;
   icon: React.ComponentType<{ className?: string }>;
   trend?: string;
+  isDarkMode?: boolean;
 }) {
   return (
-    <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] p-5 flex flex-col gap-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)]">
+    <div className={`p-5 flex flex-col gap-2.5 border-b border-r ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</span>
-        <div className="w-8 h-8 rounded-lg bg-[#faf6ed] flex items-center justify-center">
-          <Icon className="w-4 h-4 text-slate-400" />
-        </div>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+        <Icon className="w-4 h-4 text-slate-400" />
       </div>
       <div>
-        <span className="text-2xl font-bold text-slate-800 tracking-tight">{value}</span>
-        <div className="flex items-center gap-1.5 mt-1">
+        <span className="text-xl font-bold tracking-tight">{value}</span>
+        <div className="flex items-center gap-1.5 mt-0.5">
           {trend && (
-            <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5">
+            <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-0.5">
               <ArrowUpRight className="w-3 h-3" />
               {trend}
             </span>
           )}
-          <span className="text-xs text-slate-400">{subtext}</span>
+          <span className="text-[10px] text-slate-400">{subtext}</span>
         </div>
       </div>
     </div>
@@ -164,7 +217,7 @@ export default function CRMPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ ZUSTAND STORE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ ZUSTAND STORE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
   const store = useCRMStore();
   const { customers, meetings, notifications, conversations, chatMessages, customTags, integrations,
     isLoading, isAddingContact, isDeducing, isSendingReply,
@@ -174,14 +227,30 @@ export default function CRMPage() {
     addJarvisMessage, runDeduction,
     setCustomTags, setIntegrations, showToast } = store;
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ LOCAL UI STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ LOCAL UI STATE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
   const [activeView, setActiveView] = useState<CrmView>("dashboard");
+  const { t, lang } = useTranslation();
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => { const check = () => setIsDarkMode(localStorage.getItem('insight_theme') === 'dark'); check(); const interval = setInterval(check, 500); window.addEventListener('storage', check); return () => { clearInterval(interval); window.removeEventListener('storage', check); }; }, []);
+  const getCrmNavLabel = (id: string) => {
+    switch (id) {
+      case "dashboard": return "Database";
+      case "campaigns": return t.crmCampaignManager;
+      case "analytics": return t.crmAnalytics;
+      default: return "";
+    }
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
   const [editingTagIdx, setEditingTagIdx] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isDashAddDropdownOpen, setIsDashAddDropdownOpen] = useState(false);
+  const [isContactsAddDropdownOpen, setIsContactsAddDropdownOpen] = useState(false);
+  const [showCSVModal, setShowCSVModal] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [contactSearch, setContactSearch] = useState("");
@@ -301,7 +370,7 @@ export default function CRMPage() {
     const contactParts = [];
     if (emailSignature.phone) contactParts.push(emailSignature.phone);
     if (emailSignature.website) contactParts.push(emailSignature.website);
-    if (contactParts.length > 0) parts.push(`<p style="margin:2px 0 0 0;color:#9ca3af;font-size:12px;">${contactParts.join(" Â· ")}</p>`);
+    if (contactParts.length > 0) parts.push(`<p style="margin:2px 0 0 0;color:#9ca3af;font-size:12px;">${contactParts.join(" Ãƒâ€šÃ‚Â· ")}</p>`);
     return parts.length > 0 ? `<br/><div style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px;">${parts.join("")}</div>` : "";
   };
   const [showNotifications, setShowNotifications] = useState(false);
@@ -361,7 +430,7 @@ export default function CRMPage() {
       const data = await res.json();
       
       if (res.ok) {
-        showToast(`✅ Successfully sent ${data.sentCount} emails!`);
+        showToast(`Ã¢Å“â€¦ Successfully sent ${data.sentCount} emails!`);
         logActivity(db, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent email campaign: ' + emailSubject);
         setShowEmailModal(false);
         setEmailSubject("");
@@ -377,7 +446,7 @@ export default function CRMPage() {
     }
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ INITIALIZE FIRESTORE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ INITIALIZE FIRESTORE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
   useEffect(() => {
     if (user?.uid && db) {
       initializeStore(db, user.uid);
@@ -392,7 +461,7 @@ export default function CRMPage() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ INBOX LOCAL UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ INBOX LOCAL UI ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
   const [activeConversation, setActiveConversation] = useState<string>("conv-1");
   const [inboxReply, setInboxReply] = useState("");
   const inboxChatEndRef = useRef<HTMLDivElement>(null);
@@ -422,7 +491,7 @@ export default function CRMPage() {
     updateTicketStatus(convId, status);
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ OMNI-SEARCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ OMNI-SEARCH ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -456,8 +525,8 @@ export default function CRMPage() {
 
   const hasResults = omniResults && (omniResults.contacts.length > 0 || omniResults.meetings.length > 0 || omniResults.tickets.length > 0);
 
-  const [form, setForm] = useState({ firstName:"", lastName:"", email:"", phone:"", birthday:"", leadStatus:"Cold Lead" as Customer["leadStatus"], tags:"" });
-  const resetForm = () => setForm({ firstName:"", lastName:"", email:"", phone:"", birthday:"", leadStatus:"Cold Lead", tags:"" });
+  const [form, setForm] = useState({ firstName:"", lastName:"", email:"", phone:"", birthday:"", leadStatus:"Cold Lead" as Customer["leadStatus"], tags:"", company:"", location:"" });
+  const resetForm = () => setForm({ firstName:"", lastName:"", email:"", phone:"", birthday:"", leadStatus:"Cold Lead", tags:"", company:"", location:"" });
   
   const handleStatusChange = (id: string, newStatus: Customer["leadStatus"]) => {
     updateStatus(id, newStatus);
@@ -483,7 +552,7 @@ export default function CRMPage() {
     if (!form.firstName.trim() || !form.lastName.trim()) return;
     const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const parsedTags = form.tags.split(",").map(t=>t.trim()).filter(Boolean);
-    const c: Customer = { id, firstName: form.firstName.trim(), lastName: form.lastName.trim(), phone: form.phone.trim(), email: form.email.trim(), birthday: form.birthday, leadStatus: form.leadStatus, tags: parsedTags, totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
+    const c: Customer = { id, firstName: form.firstName.trim(), lastName: form.lastName.trim(), phone: form.phone.trim(), email: form.email.trim(), birthday: form.birthday, leadStatus: form.leadStatus, tags: parsedTags, totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0, company: form.company.trim(), location: form.location.trim(), lastContactedDate: "" };
     console.log("[CRM] Adding contact:", c.id, c.firstName, c.lastName);
     // Auto-sync new tags to customTags in settings
     const existingTagNames = customTags.map(t => t.name.toLowerCase());
@@ -496,6 +565,161 @@ export default function CRMPage() {
     logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Added contact: ${c.firstName} ${c.lastName}`);
     resetForm(); setShowAddModal(false);
   };
+
+  const parseCSV = (text: string) => {
+    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+    
+    // Required camelCase column names that exactly match our CRM schema
+    const VALID_COLUMNS = ['firstName', 'lastName', 'company', 'email', 'phoneNumber', 'pipelineStage', 'revenue', 'tags', 'location', 'lastContactedDate'];
+    
+    const parsed: { firstName: string; lastName: string; email: string; phone: string; leadStatus: Customer["leadStatus"]; tags: string; company: string; location: string; lastContactedDate: string; revenue: number }[] = [];
+    
+    // Parse a single CSV row (handles quoted fields)
+    const parseRow = (line: string): string[] => {
+      const values: string[] = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"' || ch === "'") { inQuotes = !inQuotes; }
+        else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; }
+        else { current += ch; }
+      }
+      values.push(current.trim());
+      return values.map(v => {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+        return v.trim();
+      });
+    };
+
+    // First line MUST be a header row
+    const headers = parseRow(lines[0]);
+    
+    // Validate that all headers are recognized
+    const unrecognized = headers.filter(h => !VALID_COLUMNS.includes(h));
+    if (unrecognized.length > 0) {
+      showToast(`Unrecognized column(s): ${unrecognized.join(', ')}. Columns must exactly match: ${VALID_COLUMNS.join(', ')}`, 'error');
+      return [];
+    }
+    
+    // Require firstName and lastName
+    if (!headers.includes('firstName') || !headers.includes('lastName')) {
+      showToast('CSV must include "firstName" and "lastName" columns.', 'error');
+      return [];
+    }
+    
+    // Build column index map
+    const colIdx = (name: string) => headers.indexOf(name);
+    
+    const matchStatus = (str: string): Customer["leadStatus"] | null => {
+      const s = str.trim().toLowerCase();
+      if (s.includes("cold")) return "Cold Lead";
+      if (s.includes("warm")) return "Warm Lead";
+      if (s.includes("interest")) return "Interested";
+      if (s.includes("sale") || s.includes("complet")) return "Sale Completed";
+      return null;
+    };
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseRow(lines[i]);
+      
+      const get = (name: string) => {
+        const idx = colIdx(name);
+        return idx !== -1 && idx < values.length ? values[idx] : '';
+      };
+      
+      const firstName = get('firstName');
+      const lastName = get('lastName');
+      if (!firstName && !lastName) continue;
+      
+      let leadStatus: Customer["leadStatus"] = "Cold Lead";
+      const stageVal = get('pipelineStage');
+      if (stageVal) {
+        const matched = matchStatus(stageVal);
+        if (matched) leadStatus = matched;
+      }
+      
+      parsed.push({
+        firstName,
+        lastName,
+        email: get('email'),
+        phone: get('phoneNumber'),
+        leadStatus,
+        tags: get('tags'),
+        company: get('company'),
+        location: get('location'),
+        lastContactedDate: get('lastContactedDate'),
+        revenue: parseFloat(get('revenue')) || 0,
+      });
+    }
+
+    return parsed;
+  };
+
+  const handleCSVSubmit = async () => {
+    let textToParse = csvText;
+    if (csvFile) {
+      try {
+        textToParse = await csvFile.text();
+      } catch (err) {
+        showToast("Failed to read CSV file.", "error");
+        return;
+      }
+    }
+    
+    if (!textToParse.trim()) {
+      showToast("Please paste CSV text or upload a CSV file.", "error");
+      return;
+    }
+    
+    const parsed = parseCSV(textToParse);
+    if (parsed.length === 0) {
+      showToast("No valid contacts found. Ensure you have First Name and Last Name.", "error");
+      return;
+    }
+    
+    let addedCount = 0;
+    for (const item of parsed) {
+      const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const parsedTags = item.tags.split(",").map(t=>t.trim()).filter(Boolean);
+      const c: Customer = {
+        id,
+        firstName: item.firstName,
+        lastName: item.lastName,
+        phone: item.phone,
+        email: item.email,
+        birthday: "",
+        leadStatus: item.leadStatus,
+        tags: parsedTags,
+        totalRevenue: item.revenue || 0,
+        aiNotes: "",
+        transactions: [],
+        outstandingBalance: 0,
+        company: item.company || "",
+        location: item.location || "",
+        lastContactedDate: item.lastContactedDate || ""
+      };
+      
+      const existingTagNames = customTags.map(t => t.name.toLowerCase());
+      const newTags = parsedTags.filter(t => !existingTagNames.includes(t.toLowerCase()));
+      if (newTags.length > 0) {
+        const tagColors = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#ef4444"];
+        setCustomTags((prev: any) => [...prev, ...newTags.map((name, i) => ({ name, color: tagColors[(prev.length + i) % tagColors.length] }))]);
+      }
+      
+      await addContact(c);
+      addedCount++;
+    }
+    
+    logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Imported ${addedCount} contacts via CSV`);
+    showToast(`Successfully imported ${addedCount} contact(s).`, "success");
+    
+    setCsvText("");
+    setCsvFile(null);
+    setShowCSVModal(false);
+  };
+
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortDir(d => d==="asc"?"desc":"asc"); else { setSortKey(key); setSortDir("asc"); } };
   const sortedCustomers = useMemo(() => {
     let list = [...customers];
@@ -532,9 +756,16 @@ export default function CRMPage() {
   const toggleSelectAll = () => { const visible = filteredSortedCustomers.map(c => c.id); const allSelected = visible.every(id => selectedIds.has(id)); if (allSelected) setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.delete(id)); return n; }); else setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.add(id)); return n; }); };
   const selectedCustomers = customers.filter(c => selectedIds.has(c.id));
   const SortIcon = ({k}:{k:SortKey}) => sortKey===k ? (sortDir==="asc" ? <ChevronUp className="w-3 h-3 inline ml-1"/> : <ChevronDown className="w-3 h-3 inline ml-1"/>) : null;
-  const getRowTint = (tags: string[]) => { for (const t of tags) { if (TAG_ROW_TINTS[t]) return TAG_ROW_TINTS[t]; } return ""; };
+  const getRowTint = (tags: string[]) => {
+    for (const t of tags) {
+      if (t === "VIP") return isDarkMode ? "bg-amber-950/10" : "bg-amber-50/20";
+      if (t === "Enterprise") return isDarkMode ? "bg-purple-950/10" : "bg-purple-50/20";
+      if (t === "High-Value") return isDarkMode ? "bg-rose-950/10" : "bg-rose-50/20";
+    }
+    return "";
+  };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ JARVIS AI COPILOT STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ JARVIS AI COPILOT STATE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
   const [isJarvisOpen, setIsJarvisOpen] = useState(false);
   const [jarvisInput, setJarvisInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -548,24 +779,24 @@ export default function CRMPage() {
     const lower = input.toLowerCase().trim();
     addJarvisMessage({ id: `u-${Date.now()}`, role: "user", content: input, timestamp: new Date() });
 
-    // READ â€” show all
+    // READ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â show all
     if (lower.includes("show") && (lower.includes("all") || lower.includes("contacts") || lower.includes("everyone"))) {
       if (customers.length === 0) { addJarvisMsg("Your contact list is currently empty. Want me to add someone?"); return; }
-      const summary = customers.map(c => `â€¢ **${c.firstName} ${c.lastName}** (${c.id}) â€” ${c.leadStatus}${c.tags.length ? ` [${c.tags.join(", ")}]` : ""}`).join("\n");
+      const summary = customers.map(c => `ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **${c.firstName} ${c.lastName}** (${c.id}) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${c.leadStatus}${c.tags.length ? ` [${c.tags.join(", ")}]` : ""}`).join("\n");
       addJarvisMsg(`Here are all ${customers.length} contacts:\n\n${summary}`); return;
     }
 
-    // READ â€” find specific contact
+    // READ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â find specific contact
     if (lower.match(/\b(find|lookup|look up|show|who is|get)\s+/)) {
       const nameQuery = input.replace(/.*?\b(find|lookup|look up|show|who is|get)\s+/i, "").trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
-        addJarvisMsg(`ðŸ“‹ **${match.firstName} ${match.lastName}** (${match.id})\n\nðŸ“§ ${match.email || "No email"}\nðŸ“ž ${match.phone || "No phone"}\nðŸŽ‚ ${match.birthday || "No birthday"}\nðŸ“Š Status: ${match.leadStatus}\nðŸ·ï¸ Tags: ${match.tags.length ? match.tags.join(", ") : "None"}\nðŸ’° Revenue: $${match.totalRevenue.toFixed(2)}\nðŸ§  AI Notes: ${match.aiNotes || "None yet"}`); return;
+        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹ **${match.firstName} ${match.lastName}** (${match.id})\n\nÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â§ ${match.email || "No email"}\nÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¾ ${match.phone || "No phone"}\nÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å¡ ${match.birthday || "No birthday"}\nÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â  Status: ${match.leadStatus}\nÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â·ÃƒÂ¯Ã‚Â¸Ã‚Â Tags: ${match.tags.length ? match.tags.join(", ") : "None"}\nÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Revenue: $${match.totalRevenue.toFixed(2)}\nÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â  AI Notes: ${match.aiNotes || "None yet"}`); return;
       }
       addJarvisMsg(`I couldn't find anyone matching "${nameQuery}". Try \"show all contacts\" to see who's in the system.`); return;
     }
 
-    // CREATE â€” add contact
+    // CREATE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â add contact
     if (lower.match(/\b(add|create)\s+/)) {
       const parts = input.replace(/.*?\b(add|create)\s+(?:contact\s+)?/i, "").trim().split(/\s+/);
       if (parts.length < 2) { addJarvisMsg("Please provide at least a first and last name. Example: \"Add contact Jane Doe jane@test.com\""); return; }
@@ -573,12 +804,12 @@ export default function CRMPage() {
       const emailMatch = parts.find(p => p.includes("@"));
       const phoneMatch = parts.find(p => /^\+?\d[\d\-() ]{6,}$/.test(p));
       const newId = `CUST-${String(customers.length + 1).padStart(3, "0")}`;
-      const newCustomer: Customer = { id: newId, firstName, lastName, phone: phoneMatch || "", email: emailMatch || "", birthday: "", leadStatus: "Cold Lead", tags: [], totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0 };
+      const newCustomer: Customer = { id: newId, firstName, lastName, phone: phoneMatch || "", email: emailMatch || "", birthday: "", leadStatus: "Cold Lead", tags: [], totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0, company: "", location: "", lastContactedDate: "" };
       addContact(newCustomer);
-      addJarvisMsg(`âœ… Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
+      addJarvisMsg(`ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
     }
 
-    // UPDATE STATUS â€” set X to Y
+    // UPDATE STATUS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â set X to Y
     if (lower.match(/\b(set|change|move|update status)\b/)) {
       const statusMap: Record<string, Customer["leadStatus"]> = { "cold": "Cold Lead", "cold lead": "Cold Lead", "warm": "Warm Lead", "warm lead": "Warm Lead", "interested": "Interested", "sale": "Sale Completed", "sale completed": "Sale Completed", "completed": "Sale Completed" };
       let foundStatus: Customer["leadStatus"] | null = null;
@@ -588,7 +819,7 @@ export default function CRMPage() {
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(cleaned.toLowerCase()));
       if (match) {
         handleStatusChange(match.id, foundStatus);
-        addJarvisMsg(`ðŸ”„ Updated **${match.firstName} ${match.lastName}** from ${match.leadStatus} â†’ **${foundStatus}**.`); return;
+        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Å¾ Updated **${match.firstName} ${match.lastName}** from ${match.leadStatus} ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ **${foundStatus}**.`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${cleaned}".`); return;
     }
@@ -599,16 +830,16 @@ export default function CRMPage() {
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
         deleteContact(match.id);
-        addJarvisMsg(`ðŸ—‘ï¸ Deleted **${match.firstName} ${match.lastName}** (${match.id}) from the CRM.`); return;
+        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â Deleted **${match.firstName} ${match.lastName}** (${match.id}) from the CRM.`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}" to delete.`); return;
     }
 
-    // ANALYZE â€” add AI notes
+    // ANALYZE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â add AI notes
     if (lower.match(/\b(analyze|note|insight)\b/)) {
       const body = input.replace(/.*?\b(analyze|note|insight)\s+/i, "").trim();
       const colonIdx = body.indexOf(":");
-      if (colonIdx === -1) { addJarvisMsg("Use the format: \"Analyze [Name]: [Your note]\" â€” e.g., \"Analyze Jane Doe: Very interested in automation\""); return; }
+      if (colonIdx === -1) { addJarvisMsg("Use the format: \"Analyze [Name]: [Your note]\" ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â e.g., \"Analyze Jane Doe: Very interested in automation\""); return; }
       const nameQuery = body.slice(0, colonIdx).trim();
       const noteText = body.slice(colonIdx + 1).trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
@@ -616,7 +847,7 @@ export default function CRMPage() {
         const stamp = `Jarvis Deduction (${new Date().toLocaleDateString()}): ${noteText}`;
         const newNotes = match.aiNotes ? match.aiNotes + "\n" + stamp : stamp;
         store.updateCustomer(match.id, { aiNotes: newNotes });
-        addJarvisMsg(`ðŸ§  Added AI note to **${match.firstName} ${match.lastName}**:\n\n_${stamp}_`); return;
+        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â  Added AI note to **${match.firstName} ${match.lastName}**:\n\n_${stamp}_`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}".`); return;
     }
@@ -669,7 +900,7 @@ export default function CRMPage() {
       const capitalTitle = meetTitle.charAt(0).toUpperCase() + meetTitle.slice(1);
 
       scheduleMeeting(customer.id, `${customer.firstName} ${customer.lastName}`, capitalTitle, meetDate, meetTime, true, "jarvis");
-      addJarvisMsg(`ðŸ“… Done! I've scheduled a **${capitalTitle}** with **${customer.firstName} ${customer.lastName}** for **${meetDate}** at **${meetTime}**.\n\nâœ… Synced to Google Calendar\nðŸ”” Notification created`); return;
+      addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¦ Done! I've scheduled a **${capitalTitle}** with **${customer.firstName} ${customer.lastName}** for **${meetDate}** at **${meetTime}**.\n\nÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Synced to Google Calendar\nÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Â Notification created`); return;
     }
 
     // FINANCIAL QUERIES
@@ -678,8 +909,8 @@ export default function CRMPage() {
       const numMatch = lower.match(/(\d+)/);
       const count = numMatch ? parseInt(numMatch[1]) : 5;
       const sorted = [...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, count);
-      const list = sorted.map((c, i) => `${i + 1}. **${c.firstName} ${c.lastName}** â€” $${c.totalRevenue.toFixed(2)}`).join("\n");
-      addJarvisMsg(`ðŸ’° Top ${count} customers by revenue:\n\n${list}`); return;
+      const list = sorted.map((c, i) => `${i + 1}. **${c.firstName} ${c.lastName}** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â $${c.totalRevenue.toFixed(2)}`).join("\n");
+      addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Top ${count} customers by revenue:\n\n${list}`); return;
     }
 
     if ((lower.includes("how much") || lower.includes("revenue") || lower.includes("money") || lower.includes("total")) && (lower.includes("cold") || lower.includes("warm") || lower.includes("interested") || lower.includes("completed") || lower.includes("sale"))) {
@@ -689,18 +920,18 @@ export default function CRMPage() {
       if (qStatus) {
         const filtered = customers.filter(c => c.leadStatus === qStatus);
         const total = filtered.reduce((sum, c) => sum + c.totalRevenue, 0);
-        addJarvisMsg(`ðŸ’° **${qStatus}** column:\n\nâ€¢ Contacts: ${filtered.length}\nâ€¢ Total Revenue: **$${total.toFixed(2)}**\nâ€¢ Avg Revenue: $${filtered.length ? (total / filtered.length).toFixed(2) : "0.00"}`); return;
+        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° **${qStatus}** column:\n\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Contacts: ${filtered.length}\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Total Revenue: **$${total.toFixed(2)}**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Avg Revenue: $${filtered.length ? (total / filtered.length).toFixed(2) : "0.00"}`); return;
       }
     }
 
     if (lower.includes("total revenue") || lower.includes("overall revenue") || (lower.includes("how much") && lower.includes("total"))) {
       const total = customers.reduce((sum, c) => sum + c.totalRevenue, 0);
       const outstanding = customers.reduce((sum, c) => sum + c.outstandingBalance, 0);
-      addJarvisMsg(`ðŸ’° **Financial Summary**\n\nâ€¢ Total Revenue: **$${total.toFixed(2)}**\nâ€¢ Outstanding Balances: **$${outstanding.toFixed(2)}**\nâ€¢ Contacts: ${customers.length}\nâ€¢ Avg Revenue/Contact: $${customers.length ? (total / customers.length).toFixed(2) : "0.00"}`); return;
+      addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° **Financial Summary**\n\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Total Revenue: **$${total.toFixed(2)}**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Outstanding Balances: **$${outstanding.toFixed(2)}**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Contacts: ${customers.length}\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Avg Revenue/Contact: $${customers.length ? (total / customers.length).toFixed(2) : "0.00"}`); return;
     }
 
     // FALLBACK
-    addJarvisMsg("I'm not sure what you mean. Here's what I can do:\n\nâ€¢ **show all contacts** â€” list everyone\nâ€¢ **find [name]** â€” look up a contact\nâ€¢ **add [first] [last] [email]** â€” create a contact\nâ€¢ **set [name] to [status]** â€” update status\nâ€¢ **delete [name]** â€” remove a contact\nâ€¢ **analyze [name]: [note]** â€” add AI insight\nâ€¢ **schedule meeting with [name] for [date] at [time]**\nâ€¢ **top 5 customers by revenue** â€” leaderboard\nâ€¢ **how much revenue in Warm Leads?** â€” status breakdown\nâ€¢ **total revenue** â€” financial summary");
+    addJarvisMsg("I'm not sure what you mean. Here's what I can do:\n\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **show all contacts** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â list everyone\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **find [name]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â look up a contact\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **add [first] [last] [email]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â create a contact\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **set [name] to [status]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â update status\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **delete [name]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â remove a contact\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **analyze [name]: [note]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â add AI insight\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **schedule meeting with [name] for [date] at [time]**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **top 5 customers by revenue** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â leaderboard\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **how much revenue in Warm Leads?** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â status breakdown\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **total revenue** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â financial summary");
   }, [customers, addJarvisMsg, handleStatusChange, setCustomers, scheduleMeeting]);
 
   const handleJarvisSend = () => {
@@ -709,10 +940,10 @@ export default function CRMPage() {
     setJarvisInput("");
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ AUTH GATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ AUTH GATE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
   if (isUserLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
+      <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB]'}`}>
         <div className="text-center space-y-4">
           <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
           <p className="text-sm text-slate-500 font-medium">Loading CRM...</p>
@@ -723,8 +954,8 @@ export default function CRMPage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
-        <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-xl p-10 max-w-md w-full mx-4 text-center space-y-6">
+      <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB]'}`}>
+        <div className={`rounded-2xl border shadow-xl p-10 max-w-md w-full mx-4 text-center space-y-6 ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto shadow-lg">
             <Users className="w-8 h-8 text-white" />
           </div>
@@ -751,30 +982,30 @@ export default function CRMPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-0px)] md:h-screen bg-[#F9FAFB] overflow-hidden -m-0">
+    <div className={`flex h-[calc(100vh-0px)] md:h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB] text-slate-800'} overflow-hidden -m-0`}>
       {/* Load cursive font for email signatures */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet" />
-      {/* â”€â”€â”€â”€ Mobile Sidebar Overlay â”€â”€â”€â”€ */}
+      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Mobile Sidebar Overlay ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
       {isMobileSidebarOpen && (
         <div className="fixed inset-0 z-[80] lg:hidden" onClick={() => setIsMobileSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
         </div>
       )}
 
-      {/* â”€â”€â”€â”€ CRM Sidebar â”€â”€â”€â”€ */}
-      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] bg-[#fefcf6] border-r border-[#E5E7EB] shrink-0 transition-transform duration-200 ease-in-out ${
+      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ CRM Sidebar ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#fefcf6] border-[#E5E7EB]'} border-r shrink-0 transition-transform duration-200 ease-in-out ${
         isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}>
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-[#E5E7EB]">
+        <div className={`h-16 flex items-center justify-between px-5 border-b ${isDarkMode ? 'border-slate-850' : 'border-[#E5E7EB]'}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <Users className="w-4 h-4 text-white" />
             </div>
-            <span className="text-[15px] font-bold text-slate-800 tracking-tight">CRM</span>
+            <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>CRM</span>
           </div>
-          <button onClick={() => setIsMobileSidebarOpen(false)} className="lg:hidden w-7 h-7 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer">
+          <button onClick={() => setIsMobileSidebarOpen(false)} className={`lg:hidden w-7 h-7 rounded-md ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} flex items-center justify-center text-slate-400 cursor-pointer`}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -814,8 +1045,8 @@ export default function CRMPage() {
                 onClick={() => { setActiveView(item.id); setIsMobileSidebarOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
                   isActive
-                    ? "bg-indigo-50 text-indigo-700 font-semibold"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed]"
+                    ? (isDarkMode ? "bg-indigo-950/40 text-indigo-400 font-semibold" : "bg-indigo-50 text-indigo-700 font-semibold")
+                    : (isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed]")
                 }`}
               >
                 <item.icon className={`w-[18px] h-[18px] ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
@@ -826,21 +1057,21 @@ export default function CRMPage() {
         </nav>
       </aside>
 
-      {/* â”€â”€â”€â”€ Main Content Area â”€â”€â”€â”€ */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* â”€â”€â”€â”€ Top Navigation Bar â”€â”€â”€â”€ */}
-        <header className="h-16 bg-[#fefcf6] border-b border-[#E5E7EB] flex items-center justify-between px-6 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)]">
+      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Main Content Area ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-[margin] duration-300 ease-in-out ${isJarvisOpen ? 'mr-[340px]' : ''}`}>
+        {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Top Navigation Bar ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+        <header className={`h-14 border-b flex items-center justify-between px-5 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
           {/* Mobile nav toggle + breadcrumb */}
           <div className="flex items-center gap-3">
             {/* Hamburger menu (mobile) */}
-            <button onClick={() => setIsMobileSidebarOpen(true)} className="lg:hidden w-9 h-9 rounded-lg hover:bg-[#faf6ed] flex items-center justify-center text-slate-500 cursor-pointer">
+            <button onClick={() => setIsMobileSidebarOpen(true)} className={`lg:hidden w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#faf6ed]'}`}>
               <Menu className="w-5 h-5" />
             </button>
             {/* Breadcrumb (desktop) */}
             <div className="hidden lg:flex items-center gap-2 text-sm">
-              <span className="text-slate-400 font-medium">CRM</span>
+              <span className={`font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>CRM</span>
               <span className="text-slate-300">/</span>
-              <span className="text-slate-700 font-semibold capitalize">{activeView}</span>
+              <span className={`font-semibold capitalize ${isDarkMode ? 'text-indigo-400' : 'text-slate-700'}`}>{getCrmNavLabel(activeView)}</span>
             </div>
           </div>
 
@@ -855,11 +1086,11 @@ export default function CRMPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
-                className="w-64 h-9 pl-9 pr-4 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
+                className={`w-64 h-9 pl-9 pr-4 text-sm rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-750 text-white placeholder:text-slate-500' : 'bg-[#F9FAFB] border-[#E5E7EB] text-slate-700'}`}
               />
               {/* Omni-Search Dropdown */}
               {isSearchFocused && searchQuery.trim() && (
-                <div className="absolute top-full left-0 mt-2 w-[420px] bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-2xl z-[70] overflow-hidden">
+                <div className={`absolute top-full left-0 mt-2 w-[420px] rounded-xl border shadow-2xl z-[70] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
                   {!hasResults ? (
                     <div className="py-12 text-center">
                       <SearchX className="w-10 h-10 text-slate-200 mx-auto mb-3" />
@@ -871,17 +1102,17 @@ export default function CRMPage() {
                       {/* Contacts */}
                       {omniResults && omniResults.contacts.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 bg-[#faf6ed]/80 border-b border-[#E5E7EB]">
+                          <div className={`px-4 py-2 border-b ${isDarkMode ? 'bg-slate-800/80 border-slate-750 text-slate-300' : 'bg-[#faf6ed]/80 border-[#E5E7EB]'}`}>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Users className="w-3 h-3" /> Contacts</span>
                           </div>
                           {omniResults.contacts.map(c => (
-                            <button key={c.id} onClick={() => { setViewingCustomer(c.id); setSearchQuery(""); setIsSearchFocused(false); }} className="w-full text-left px-4 py-2.5 hover:bg-[#faf6ed] transition-colors cursor-pointer flex items-center gap-3 border-b border-slate-50">
-                              <div className="w-7 h-7 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-[9px] border border-indigo-100 shrink-0">{c.firstName[0]}{c.lastName[0]}</div>
+                            <button key={c.id} onClick={() => { setViewingCustomer(c.id); setSearchQuery(""); setIsSearchFocused(false); }} className={`w-full text-left px-4 py-2.5 transition-colors cursor-pointer flex items-center gap-3 border-b ${isDarkMode ? 'hover:bg-slate-800 border-slate-800 text-white' : 'hover:bg-[#faf6ed] border-slate-50'}`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[9px] border shrink-0 ${isDarkMode ? 'bg-indigo-950/40 text-indigo-400 border-indigo-900' : 'bg-indigo-50 border-indigo-100 text-indigo-600'}`}>{c.firstName[0]}{c.lastName[0]}</div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-slate-800 truncate">{c.firstName} {c.lastName}</p>
-                                <p className="text-[10px] text-slate-400 truncate">{c.email} Â· {c.leadStatus}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{c.email} Ãƒâ€šÃ‚Â· {c.leadStatus}</p>
                               </div>
-                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[c.leadStatus]||""}`}>{c.leadStatus}</span>
+                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${getStatusStyles(c.leadStatus, isDarkMode)}`}>{c.leadStatus}</span>
                             </button>
                           ))}
                         </div>
@@ -889,15 +1120,15 @@ export default function CRMPage() {
                       {/* Calendar Events */}
                       {omniResults && omniResults.meetings.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 bg-[#faf6ed]/80 border-b border-[#E5E7EB]">
+                          <div className={`px-4 py-2 border-b ${isDarkMode ? 'bg-slate-800/80 border-slate-750 text-slate-300' : 'bg-[#faf6ed]/80 border-[#E5E7EB]'}`}>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Calendar Events</span>
                           </div>
                           {omniResults.meetings.map(m => (
-                            <div key={m.id} className="px-4 py-2.5 hover:bg-[#faf6ed] transition-colors flex items-center gap-3 border-b border-slate-50">
+                            <div key={m.id} className={`px-4 py-2.5 transition-colors flex items-center gap-3 border-b ${isDarkMode ? 'hover:bg-slate-800 border-slate-800 text-white' : 'hover:bg-[#faf6ed] border-slate-50'}`}>
                               <CalendarCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-slate-800 truncate">{m.title}</p>
-                                <p className="text-[10px] text-slate-400">{m.customerName} Â· {m.date} at {m.time}</p>
+                                <p className="text-[10px] text-slate-400">{m.customerName} Ãƒâ€šÃ‚Â· {m.date} at {m.time}</p>
                               </div>
                             </div>
                           ))}
@@ -906,11 +1137,11 @@ export default function CRMPage() {
                       {/* Support Tickets */}
                       {omniResults && omniResults.tickets.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 bg-[#faf6ed]/80 border-b border-[#E5E7EB]">
+                          <div className={`px-4 py-2 border-b ${isDarkMode ? 'bg-slate-800/80 border-slate-750 text-slate-300' : 'bg-[#faf6ed]/80 border-[#E5E7EB]'}`}>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><MessageCircle className="w-3 h-3" /> Support Tickets</span>
                           </div>
                           {omniResults.tickets.map(t => (
-                            <button key={t.id} onClick={() => { setActiveView("inbox"); setActiveConversation(t.id); setSearchQuery(""); setIsSearchFocused(false); }} className="w-full text-left px-4 py-2.5 hover:bg-[#faf6ed] transition-colors cursor-pointer flex items-center gap-3 border-b border-slate-50">
+                            <button key={t.id} onClick={() => { setActiveView("dashboard"); setSearchQuery(""); setIsSearchFocused(false); }} className={`w-full text-left px-4 py-2.5 transition-colors cursor-pointer flex items-center gap-3 border-b ${isDarkMode ? 'hover:bg-slate-800 border-slate-800 text-white' : 'hover:bg-[#faf6ed] border-slate-50'}`}>
                               {channelIcon(t.channel)}
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-slate-800 truncate">{t.customerName}</p>
@@ -929,12 +1160,12 @@ export default function CRMPage() {
 
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
-              <button onClick={() => setShowNotifications(!showNotifications)} className="relative w-9 h-9 rounded-lg hover:bg-[#faf6ed] flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+              <button onClick={() => setShowNotifications(!showNotifications)} className={`relative w-9 h-9 rounded-lg ${isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-300' : 'hover:bg-[#faf6ed] text-slate-400 hover:text-slate-600'} flex items-center justify-center transition-colors cursor-pointer`}>
                 <Bell className="w-[18px] h-[18px]" />
-                {unreadCount > 0 && <span className="absolute top-1 right-1 w-4 h-4 bg-indigo-500 rounded-full ring-2 ring-white text-[9px] font-bold text-white flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+                {unreadCount > 0 && <span className={`absolute top-1 right-1 w-4 h-4 bg-indigo-500 rounded-full ring-2 text-[9px] font-bold text-white flex items-center justify-center ${isDarkMode ? 'ring-slate-900' : 'ring-white'}`}>{unreadCount > 9 ? "9+" : unreadCount}</span>}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-96 bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-2xl z-[60] overflow-hidden">
+                <div className={`absolute right-0 top-full mt-2 w-96 rounded-xl border shadow-2xl z-[60] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E7EB]">
                     <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
                     {notifications.length > 0 && <button onClick={() => markNotificationsRead()} className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer">Mark all read</button>}
@@ -944,13 +1175,13 @@ export default function CRMPage() {
                       <div className="py-10 text-center"><Bell className="w-8 h-8 text-slate-200 mx-auto mb-2" /><p className="text-xs text-slate-400">No notifications yet</p></div>
                     ) : (
                       notifications.slice(0, 20).map(n => (
-                        <div key={n.id} className={`px-4 py-3 border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors ${!n.read ? "bg-indigo-50/30" : ""}`}>
+                        <div key={n.id} className={`px-4 py-3 border-b transition-colors ${isDarkMode ? 'border-slate-800 hover:bg-slate-800/50' : 'border-slate-50 hover:bg-[#faf6ed]/50'} ${!n.read ? (isDarkMode ? "bg-indigo-950/20" : "bg-indigo-50/30") : ""}`}>
                           <div className="flex items-start gap-2.5">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${n.type === "meeting" ? "bg-emerald-50" : "bg-indigo-50"}`}>
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${n.type === "meeting" ? (isDarkMode ? "bg-emerald-950/30 text-emerald-400" : "bg-emerald-50 text-emerald-600") : (isDarkMode ? "bg-indigo-950/30 text-indigo-400" : "bg-indigo-50 text-indigo-600")}`}>
                               {n.type === "meeting" ? <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Bell className="w-3.5 h-3.5 text-indigo-600" />}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
+                              <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{n.message}</p>
                               <p className="text-[10px] text-slate-400 mt-1">{n.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
                             </div>
                           </div>
@@ -962,14 +1193,27 @@ export default function CRMPage() {
               )}
             </div>
 
+            {/* Jarvis AI Toggle */}
+            <button
+              onClick={() => setIsJarvisOpen(!isJarvisOpen)}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                isJarvisOpen
+                  ? (isDarkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white')
+                  : (isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-300' : 'hover:bg-[#faf6ed] text-slate-400 hover:text-indigo-600')
+              }`}
+              title="Jarvis AI Copilot"
+            >
+              {isJarvisOpen ? <PanelRightClose className="w-[18px] h-[18px]" /> : <Sparkles className="w-[18px] h-[18px]" />}
+            </button>
+
             {/* Separator */}
-            <div className="w-px h-7 bg-[#E5E7EB] hidden md:block" />
+            <div className={`w-px h-7 hidden md:block ${isDarkMode ? 'bg-slate-800' : 'bg-[#E5E7EB]'}`} />
 
             {/* User Profile */}
-            <button className="flex items-center gap-2.5 hover:bg-[#faf6ed] rounded-lg py-1.5 px-2 transition-colors cursor-pointer">
+            <button className={`flex items-center gap-2.5 ${isDarkMode ? 'hover:bg-slate-800 text-white' : 'hover:bg-[#faf6ed] text-slate-700'} rounded-lg py-1.5 px-2 transition-colors cursor-pointer`}>
               <Avatar className="h-8 w-8 ring-1 ring-slate-200">
                 <AvatarImage src={user?.photoURL || undefined} />
-                <AvatarFallback className="bg-indigo-50 text-indigo-600 font-bold text-xs">
+                <AvatarFallback className={`font-bold text-xs ${isDarkMode ? "bg-indigo-950/40 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}>
                   {user?.displayName?.[0] || user?.email?.[0] || "?"}
                 </AvatarFallback>
               </Avatar>
@@ -984,345 +1228,269 @@ export default function CRMPage() {
           </div>
         </header>
 
-        {/* â”€â”€â”€â”€ Scrollable Content â”€â”€â”€â”€ */}
-        <main className="flex-1 overflow-y-auto p-5 md:p-8">
+        {/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ Scrollable Content Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-5">
           {/* Skeleton Loading */}
           {isLoading ? (
-            activeView === "contacts" ? <ContactsTableSkeleton /> :
             activeView === "campaigns" ? <DashboardSkeleton /> :
-            activeView === "inbox" ? <InboxSkeleton /> :
             activeView === "analytics" ? <AnalyticsSkeleton /> :
             <DashboardSkeleton />
           ) : (
           <>
-          {/* â•â•â•â•â•â•â•â•â•â•â• DASHBOARD VIEW â•â•â•â•â•â•â•â•â•â•â• */}
+          {/* Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ DATABASE VIEW Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ */}
           {activeView === "dashboard" && (
-            <div className="max-w-[1400px] mx-auto space-y-6">
-              {/* Page Title */}
+            <div className="w-full space-y-4">
+              {/* Page Header */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
-                  <p className="text-sm text-slate-400 mt-0.5">
-                    An overview of your customer relationships and revenue.
+                  <h1 className={`text-xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Database</h1>
+                  <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {customers.length} record{customers.length !== 1 ? 's' : ''} &middot; Manage your client and prospect data
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-sm font-medium text-slate-600 hover:bg-[#faf6ed] transition-colors shadow-[0_1px_2px_0_rgba(0,0,0,0.04)] cursor-pointer">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search records..."
+                      value={contactSearch}
+                      onChange={(e) => setContactSearch(e.target.value)}
+                      className={`w-56 h-9 pl-9 pr-4 text-sm rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-[#E5E7EB] text-slate-700'}`}
+                    />
+                  </div>
+                  <button className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}>
                     <Download className="w-3.5 h-3.5" />
                     Export
                   </button>
-                  <button
-                    onClick={() => { setActiveView("contacts"); setShowAddModal(true); }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/10 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Contact
-                  </button>
-                </div>
-              </div>
-
-              {/* Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <MetricCard
-                  label="Total Contacts"
-                  value={customers.length.toString()}
-                  subtext="all time"
-                  icon={Users}
-                />
-                <MetricCard
-                  label="Total Revenue"
-                  value={`$${customers.reduce((s, c) => s + c.totalRevenue, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                  subtext="lifetime"
-                  icon={DollarSign}
-                />
-                <MetricCard
-                  label="Active Leads"
-                  value={customers.filter((c) => c.leadStatus === "Cold Lead" || c.leadStatus === "Warm Lead" || c.leadStatus === "Interested").length.toString()}
-                  subtext="in pipeline"
-                  icon={Activity}
-                />
-                <MetricCard
-                  label="AI Insights"
-                  value={customers.filter((c) => c.aiNotes.length > 0).length.toString()}
-                  subtext="notes generated"
-                  icon={Brain}
-                />
-              </div>
-
-              {/* Recent Contacts Table Card */}
-              <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
-                  <h2 className="text-sm font-bold text-slate-700">Recent Contacts</h2>
-                  <button className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer">
-                    View All
-                  </button>
-                </div>
-
-                {customers.length === 0 ? (
-                  <EmptyContacts onAdd={() => { setActiveView("contacts"); setShowAddModal(true); }} />
-                ) : (
-                  <div className="overflow-x-auto"><table className="w-full text-sm"><tbody>
-                    {customers.slice(0,5).map(c => (
-                      <tr key={c.id} className={`border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
-                        <td className="py-3 pl-6 pr-2 w-10">
-                          <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
-                        </td>
-                        <td className="py-3 px-4 font-medium text-slate-800">{c.firstName} {c.lastName}</td>
-                        <td className="py-3 px-4 text-slate-500">{c.email}</td>
-                        <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[c.leadStatus]||""}`}>{c.leadStatus}</span></td>
-                      </tr>
-                    ))}
-                  </tbody></table></div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* â•â•â•â•â•â•â•â•â•â•â• CONTACTS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
-          {activeView === "contacts" && (
-            <div className="max-w-[1400px] mx-auto space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-xl font-bold text-slate-800 tracking-tight">Contacts</h1>
-                  <p className="text-sm text-slate-400 mt-0.5">Manage all your customer records in one place.</p>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-                    <button onClick={() => setContactsViewMode("table")} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors cursor-pointer ${contactsViewMode === "table" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Table View</button>
-                    <button onClick={() => setContactsViewMode("pipeline")} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors cursor-pointer ${contactsViewMode === "pipeline" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Pipeline View</button>
-                  </div>
-                  <div className="hidden sm:block w-px h-6 bg-slate-200"></div>
                   <div className="relative">
-                    <button onClick={() => setShowFilterPanel(!showFilterPanel)} className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${hasActiveFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'}`}>
-                      <Filter className="w-3.5 h-3.5" />Filter
-                      {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
+                    <button
+                      onClick={() => setIsDashAddDropdownOpen(!isDashAddDropdownOpen)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer shadow-sm shadow-indigo-600/10"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Record</span>
+                      <ChevronDown className="w-3.5 h-3.5 opacity-80" />
                     </button>
-                    {showFilterPanel && (
-                      <div className="absolute right-0 top-full mt-2 w-80 bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-xl z-50 overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filters</h4>
-                          <div className="flex items-center gap-2">
-                            {hasActiveFilters && <button onClick={clearAllFilters} className="text-[10px] font-semibold text-red-500 hover:text-red-600 cursor-pointer">Clear All</button>}
-                            <button onClick={() => setShowFilterPanel(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
-                          </div>
+                    {isDashAddDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setIsDashAddDropdownOpen(false)} />
+                        <div className={`absolute right-0 mt-1 w-56 rounded-lg border shadow-lg z-20 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
+                          <button
+                            onClick={() => { setIsDashAddDropdownOpen(false); setShowAddModal(true); }}
+                            className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-slate-50 text-slate-700'}`}
+                          >
+                            Manual Contact Entry
+                          </button>
+                          <button
+                            onClick={() => { setIsDashAddDropdownOpen(false); setShowCSVModal(true); }}
+                            className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-slate-50 text-slate-700'}`}
+                          >
+                            CSV Import
+                          </button>
                         </div>
-                        <div className="px-4 py-3 space-y-4 max-h-[400px] overflow-y-auto">
-                          {/* Tag Filter */}
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Tags</label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {allTags.map(tag => (
-                                <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all cursor-pointer ${tagFilter === tag ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-[#faf6ed] border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                                  {tag}
-                                </button>
-                              ))}
-                              {allTags.length === 0 && <p className="text-[11px] text-slate-400">No tags yet</p>}
-                            </div>
-                          </div>
-                          {/* Status Filter */}
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Lead Status</label>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              {['New', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost'].map(status => (
-                                <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${statusFilter === status ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-[#faf6ed] border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                                  {status}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          {/* Date Range */}
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Date Added</label>
-                            <div className="flex items-center gap-2">
-                              <input type="date" value={dateFilterFrom} onChange={e => setDateFilterFrom(e.target.value)} className="flex-1 h-8 px-2.5 text-xs rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
-                              <span className="text-[10px] text-slate-400">to</span>
-                              <input type="date" value={dateFilterTo} onChange={e => setDateFilterTo(e.target.value)} className="flex-1 h-8 px-2.5 text-xs rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
-                            </div>
-                          </div>
-                        </div>
-                        {/* Active filter summary */}
-                        {hasActiveFilters && (
-                          <div className="px-4 py-2.5 border-t border-slate-100 bg-[#faf6ed]/50">
-                            <p className="text-[10px] text-slate-500">
-                              Showing {filteredSortedCustomers.length} of {customers.length} contacts
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      </>
                     )}
                   </div>
-                  <button onClick={()=>setShowAddModal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"><UserPlus className="w-4 h-4" />Add Contact</button>
                 </div>
               </div>
-              
-              {contactsViewMode === "table" ? (
-                <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
-                  {/* Search + Tag Filter Bar */}
-                  <div className="px-6 py-4 border-b border-[#E5E7EB] flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className="relative w-full sm:w-72">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                      <input type="text" placeholder="Search by name, email, or tags..." value={contactSearch} onChange={e=>setContactSearch(e.target.value)} className="w-full h-9 pl-9 pr-4 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" />
-                    </div>
-                    {allTags.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Tag className="w-3.5 h-3.5 text-slate-400" />
-                        <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} className="h-9 px-3 pr-8 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 cursor-pointer">
-                          <option value="">All Tags</option>
-                          {allTags.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        {tagFilter && <button onClick={() => setTagFilter("")} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">&times; Clear</button>}
-                      </div>
-                    )}
-                  </div>
-                  {customers.length === 0 ? (
-                    <EmptyContacts onAdd={()=>setShowAddModal(true)} />
-                  ) : (
-                    <div className="overflow-x-auto -mx-0">
-                      <table className="w-full text-sm min-w-[700px]">
-                        <thead className="bg-[#faf6ed]/60">
-                          <tr className="border-b border-[#E5E7EB]">
-                            <th className="w-12 py-3.5 pl-5">
-                              <input 
-                                type="checkbox" 
-                                checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} 
-                                onChange={toggleSelectAll} 
-                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                              />
-                            </th>
-                            <th onClick={()=>toggleSort("name")} className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3.5 pr-4 cursor-pointer hover:text-slate-700 select-none">Name<SortIcon k="name"/></th>
-                            <th onClick={()=>toggleSort("email")} className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3.5 px-4 cursor-pointer hover:text-slate-700 select-none">Email<SortIcon k="email"/></th>
-                            <th onClick={()=>toggleSort("phone")} className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3.5 px-4 cursor-pointer hover:text-slate-700 select-none">Phone<SortIcon k="phone"/></th>
-                            <th onClick={()=>toggleSort("tags")} className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3.5 px-4 cursor-pointer hover:text-slate-700 select-none">Tags<SortIcon k="tags"/></th>
-                            <th onClick={()=>toggleSort("status")} className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3.5 px-4 cursor-pointer hover:text-slate-700 select-none">Status<SortIcon k="status"/></th>
-                            <th className="w-12"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredSortedCustomers.map(c => (
-                            <tr key={c.id} className={`border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors ${getRowTint(c.tags)} ${selectedIds.has(c.id) ? "bg-indigo-50/30" : ""}`}>
-                              <td className="py-3.5 pl-5">
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedIds.has(c.id)} 
-                                  onChange={() => toggleSelect(c.id)} 
-                                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                />
-                              </td>
-                              <td className="py-3.5 pr-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-[10px] border border-indigo-100 shrink-0">{c.firstName[0]}{c.lastName[0]}</div>
-                                  <div><div className="font-semibold text-slate-800">{c.firstName} {c.lastName}</div><div className="text-[10px] text-slate-400 uppercase tracking-wide">{c.id}</div></div>
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 text-slate-600">{c.email}</td>
-                              <td className="py-3.5 px-4 text-slate-600">{c.phone}</td>
-                              <td className="py-3.5 px-4"><div className="flex flex-wrap gap-1">{c.tags.map(t=>(<span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${TAG_COLORS[t]||"bg-[#faf6ed] text-slate-600 border-slate-200"}`}>{t}</span>))}</div></td>
-                              <td className="py-3.5 px-4">
-                                <select value={c.leadStatus} onChange={(e) => handleStatusChange(c.id, e.target.value as Customer["leadStatus"])} className={`text-[10px] font-semibold px-2 py-1 rounded-full border outline-none cursor-pointer appearance-none ${STATUS_COLORS[c.leadStatus]||""}`}>
-                                  <option value="Cold Lead">Cold Lead</option><option value="Warm Lead">Warm Lead</option><option value="Interested">Interested</option><option value="Sale Completed">Sale Completed</option>
-                                </select>
-                              </td>
-                              <td className="py-3.5 pr-4"><button onClick={() => setViewingCustomer(c.id)} className="w-7 h-7 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 cursor-pointer"><Eye className="w-4 h-4"/></button></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+
+              {/* Ã¢â€â‚¬Ã¢â€â‚¬ Spreadsheet Grid Ã¢â€â‚¬Ã¢â€â‚¬ */}
+              {customers.length === 0 ? (
+                <EmptyContacts onAdd={() => setShowAddModal(true)} />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start overflow-x-auto pb-4">
-                  {(["Cold Lead", "Warm Lead", "Interested", "Sale Completed"] as const).map(status => (
-                    <div 
-                      key={status} 
-                      className="bg-slate-100/50 rounded-xl p-3 min-h-[400px] border border-slate-200"
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, status)}
-                    >
-                      <div className="flex items-center justify-between mb-4 px-1">
-                        <h3 className={`text-xs font-bold uppercase tracking-wider ${
-                          status === "Cold Lead" ? "text-blue-700" :
-                          status === "Warm Lead" ? "text-orange-700" :
-                          status === "Interested" ? "text-purple-700" : "text-emerald-700"
-                        }`}>{status}</h3>
-                        <span className="text-xs font-semibold text-slate-400 bg-[#fefcf6] px-2 py-0.5 rounded-md shadow-sm">
-                          {customers.filter(c => c.leadStatus === status).length}
-                        </span>
-                      </div>
-                      <div className="space-y-3">
-                        {customers.filter(c => c.leadStatus === status).map(c => (
-                          <div 
+                <div className={`rounded-xl border shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E5E7EB]'}`}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px] border-collapse min-w-[1200px]">
+                      <thead>
+                        <tr className={isDarkMode ? 'bg-slate-800/70' : 'bg-[#F8F9FB]'}>
+                          <th className={`sticky left-0 z-10 w-10 px-3 py-3 border-b ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
+                            <input type="checkbox" checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                          </th>
+                          {[
+                            { key: "id" as const, label: "id", w: "w-[110px]" },
+                            { key: "name" as const, label: "firstName", w: "w-[110px]" },
+                            { key: "name" as const, label: "lastName", w: "w-[110px]" },
+                            { key: "company" as const, label: "company", w: "w-[130px]" },
+                            { key: "email" as const, label: "email", w: "w-[180px]" },
+                            { key: "phone" as const, label: "phoneNumber", w: "w-[130px]" },
+                            { key: "status" as const, label: "pipelineStage", w: "w-[140px]" },
+                            { key: "revenue" as const, label: "revenue", w: "w-[110px]" },
+                            { key: "tags" as const, label: "tags", w: "w-[140px]" },
+                            { key: "location" as const, label: "location", w: "w-[130px]" },
+                            { key: "lastContacted" as const, label: "lastContactedDate", w: "w-[130px]" },
+                          ].map((col) => (
+                            <th
+                              key={col.label}
+                              onClick={() => {
+                                if (col.key === "name" || col.key === "email" || col.key === "phone" || col.key === "tags" || col.key === "status") {
+                                  toggleSort(col.key as SortKey);
+                                }
+                              }}
+                              className={`${col.w} text-left text-[11px] font-semibold px-3 py-3 border-b select-none ${
+                                (col.key === "name" || col.key === "email" || col.key === "phone" || col.key === "tags" || col.key === "status") ? 'cursor-pointer hover:text-indigo-600' : ''
+                              } ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-[#E5E7EB]'}`}
+                            >
+                              <span className="inline-flex items-center gap-0.5">
+                                {col.label}
+                                {(col.key === "name" || col.key === "email" || col.key === "phone" || col.key === "tags" || col.key === "status") && sortKey === col.key && (
+                                  sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                                )}
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSortedCustomers.map((c, idx) => (
+                          <tr
                             key={c.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, c.id)}
-                            className="bg-[#fefcf6] p-4 rounded-lg shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors"
+                            onClick={() => setViewingCustomer(c.id)}
+                            className={`group border-b transition-colors cursor-pointer ${
+                              isDarkMode
+                                ? `border-slate-800 ${idx % 2 === 1 ? 'bg-slate-800/20' : ''} hover:bg-slate-800/50`
+                                : `border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''} hover:bg-indigo-50/30`
+                            } ${selectedIds.has(c.id) ? (isDarkMode ? 'bg-indigo-950/20' : 'bg-indigo-50/40') : ''} ${getRowTint(c.tags)}`}
                           >
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-semibold text-slate-800 text-sm">{c.firstName} {c.lastName}</h4>
-                              <MoreHorizontal className="w-4 h-4 text-slate-400" />
-                            </div>
-                            <div className="text-xs text-slate-500 mb-3 space-y-1">
-                              <div className="flex items-center gap-1.5"><Mail className="w-3 h-3 text-slate-400"/> {c.email}</div>
-                              {c.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-slate-400"/> {c.phone}</div>}
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {c.tags.slice(0, 2).map(t => (
-                                <span key={t} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${TAG_COLORS[t]||"bg-[#faf6ed] text-slate-600 border-slate-200"}`}>{t}</span>
-                              ))}
-                              {c.tags.length > 2 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-[#faf6ed] text-slate-600 border-slate-200">+{c.tags.length - 2}</span>}
-                            </div>
-                          </div>
+                            <td className={`sticky left-0 z-10 px-3 py-3 ${isDarkMode ? (idx % 2 === 1 ? 'bg-slate-800/20' : 'bg-slate-900') : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white')} group-hover:${isDarkMode ? 'bg-slate-800/50' : 'bg-indigo-50/30'}`} onClick={(e) => e.stopPropagation()}>
+                              <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                            </td>
+                            {/* ID */}
+                            <td className={`px-3 py-3 font-mono text-[11px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                              {c.id.length > 16 ? c.id.slice(0, 16) + 'Ã¢â‚¬Â¦' : c.id}
+                            </td>
+                            {/* First Name */}
+                            <td className={`px-3 py-3 font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                              {c.firstName}
+                            </td>
+                            {/* Last Name */}
+                            <td className={`px-3 py-3 font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                              {c.lastName}
+                            </td>
+                            {/* Company */}
+                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                              {c.company ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                  {c.company}
+                                </span>
+                              ) : <span className="text-slate-400">&mdash;</span>}
+                            </td>
+                            {/* Email */}
+                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                              {c.email || <span className="text-slate-400">&mdash;</span>}
+                            </td>
+                            {/* Phone */}
+                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              {c.phone || <span className="text-slate-400">&mdash;</span>}
+                            </td>
+                            {/* Pipeline Stage */}
+                            <td className="px-3 py-3">
+                              <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>
+                                {c.leadStatus}
+                              </span>
+                            </td>
+                            {/* Revenue */}
+                            <td className={`px-3 py-3 text-right font-semibold tabular-nums ${c.totalRevenue > 0 ? 'text-emerald-600' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
+                              ${c.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            {/* Tags */}
+                            <td className="px-3 py-3">
+                              {c.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {c.tags.slice(0, 2).map(tag => (
+                                    <span key={tag} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(tag, isDarkMode)}`}>{tag}</span>
+                                  ))}
+                                  {c.tags.length > 2 && <span className="text-[9px] font-medium text-slate-400">+{c.tags.length - 2}</span>}
+                                </div>
+                              ) : <span className="text-slate-400">&mdash;</span>}
+                            </td>
+                            {/* Location */}
+                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              {c.location ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                  {c.location}
+                                </span>
+                              ) : <span className="text-slate-400">&mdash;</span>}
+                            </td>
+                            {/* Last Contacted */}
+                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              {c.lastContactedDate ? new Date(c.lastContactedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : <span className="text-slate-400">&mdash;</span>}
+                            </td>
+                          </tr>
                         ))}
-                        {customers.filter(c => c.leadStatus === status).length === 0 && (
-                          <div className="text-center p-4 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-xs font-medium">
-                            Drop contacts here
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Footer Ã¢â‚¬â€ record count */}
+                  <div className={`flex items-center justify-between px-4 py-2.5 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/40' : 'border-[#E5E7EB] bg-[#FAFBFC]'}`}>
+                    <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Showing {filteredSortedCustomers.length} of {customers.length} record{customers.length !== 1 ? 's' : ''}
+                    </span>
+                    <span className={`text-[11px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {selectedIds.size > 0 ? `${selectedIds.size} selected` : ''}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
 
-          {/* â•â•â•â•â•â•â•â•â•â•â• CUSTOMER PROFILE VIEW â•â•â•â•â•â•â•â•â•â•â• */}
+
+
+          {/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ CUSTOMER PROFILE VIEW Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */}
           {viewingCustomer && (() => {
             const c = customers.find(x => x.id === viewingCustomer);
             if (!c) return null;
             const customerMeetings = meetings.filter(m => m.customerId === c.id);
             return (
               <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setViewingCustomer(null)}>
-                <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className={`rounded-2xl border shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
                   {/* Profile Header */}
-                  <div className="px-6 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
+                  <div className={`px-6 py-5 border-b flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm border border-indigo-100">{c.firstName[0]}{c.lastName[0]}</div>
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border ${
+                        isDarkMode ? "bg-indigo-950/40 text-indigo-400 border-indigo-900" : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                      }`}>{c.firstName[0]}{c.lastName[0]}</div>
                       <div>
-                        <h2 className="text-lg font-bold text-slate-800">{c.firstName} {c.lastName}</h2>
+                        <h2 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>{c.firstName} {c.lastName}</h2>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[c.leadStatus]||""}`}>{c.leadStatus}</span>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>{c.leadStatus}</span>
                           <span className="text-[10px] text-slate-400">{c.id}</span>
                         </div>
                       </div>
                     </div>
-                    <button onClick={() => setViewingCustomer(null)} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
+                    <button onClick={() => setViewingCustomer(null)} className={`w-8 h-8 rounded-lg ${isDarkMode ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-400"} flex items-center justify-center cursor-pointer`}><X className="w-4 h-4" /></button>
                   </div>
 
                   {/* Profile Body */}
                   <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
                     {/* Contact Info */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Email</span><span className="text-sm text-slate-700">{c.email || "â€”"}</span></div>
-                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Phone</span><span className="text-sm text-slate-700">{c.phone || "â€”"}</span></div>
-                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Birthday</span><span className="text-sm text-slate-700">{c.birthday || "â€”"}</span></div>
-                      <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Revenue</span><span className="text-sm text-slate-700">${c.totalRevenue.toFixed(2)}</span></div>
+                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Email</span>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.email || "Ã¢â‚¬â€"}</span>
+                      </div>
+                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Phone</span>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.phone || "Ã¢â‚¬â€"}</span>
+                      </div>
+                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Birthday</span>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.birthday || "Ã¢â‚¬â€"}</span>
+                      </div>
+                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Revenue</span>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>${c.totalRevenue.toFixed(2)}</span>
+                      </div>
                     </div>
 
                     {/* Tags */}
                     {c.tags.length > 0 && (
-                      <div><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Tags</span><div className="flex flex-wrap gap-1.5">{c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${TAG_COLORS[t]||"bg-[#faf6ed] text-slate-600 border-slate-200"}`}>{t}</span>)}</div></div>
+                      <div><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Tags</span><div className="flex flex-wrap gap-1.5">{c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getTagStyles(t, isDarkMode)}`}>{t}</span>)}</div></div>
                     )}
 
                     {/* AI Notes + Deduce Button */}
@@ -1342,44 +1510,54 @@ export default function CRMPage() {
                         </button>
                       </div>
                       {c.aiNotes ? (
-                        <div className="p-3 bg-purple-50/50 rounded-lg border border-purple-100 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed"><Brain className="w-3.5 h-3.5 text-purple-500 inline mr-1.5" />{c.aiNotes}</div>
+                        <div className={`p-3 rounded-lg border text-xs whitespace-pre-wrap leading-relaxed ${
+                          isDarkMode ? "bg-purple-950/20 border-purple-900 text-slate-200" : "bg-purple-50/50 border-purple-100 text-slate-700"
+                        }`}><Brain className="w-3.5 h-3.5 text-purple-500 inline mr-1.5" />{c.aiNotes}</div>
                       ) : (
-                        <div className="text-center py-6 border border-dashed border-purple-200 rounded-lg bg-purple-50/20">
+                        <div className={`text-center py-6 border border-dashed rounded-lg ${
+                          isDarkMode ? "border-purple-900 bg-purple-950/10" : "border-purple-200 bg-purple-50/20"
+                        }`}>
                           <Brain className="w-6 h-6 text-purple-200 mx-auto mb-1.5" />
                           <p className="text-xs text-slate-400">No AI notes yet. Click &quot;Ask Jarvis to Deduce&quot; to generate insights.</p>
                         </div>
                       )}
                     </div>
 
-                    {/* â”€â”€ Financials Card â”€â”€ */}
-                    <div className="border-t border-[#E5E7EB] pt-5">
+                    {/* Ã¢â€â‚¬Ã¢â€â‚¬ Financials Card Ã¢â€â‚¬Ã¢â€â‚¬ */}
+                    <div className={`border-t pt-5 ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                       <div className="flex items-center gap-2 mb-4">
                         <DollarSign className="w-4 h-4 text-emerald-600" />
-                        <h3 className="text-sm font-bold text-slate-800">Financials</h3>
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Financials</h3>
                       </div>
                       <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="p-3.5 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                        <div className={`p-3.5 rounded-lg border ${
+                          isDarkMode ? "bg-emerald-950/20 border-emerald-900/50" : "bg-emerald-50/50 border-emerald-100"
+                        }`}>
                           <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider block mb-1">Total Revenue</span>
-                          <span className="text-lg font-bold text-slate-800">${c.totalRevenue.toFixed(2)}</span>
+                          <span className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>${c.totalRevenue.toFixed(2)}</span>
                         </div>
-                        <div className="p-3.5 bg-orange-50/50 rounded-lg border border-orange-100">
+                        <div className={`p-3.5 rounded-lg border ${
+                          isDarkMode ? "bg-orange-950/20 border-orange-900/50" : "bg-orange-50/50 border-orange-100"
+                        }`}>
                           <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider block mb-1">Outstanding</span>
-                          <span className="text-lg font-bold text-slate-800">${c.outstandingBalance.toFixed(2)}</span>
+                          <span className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>${c.outstandingBalance.toFixed(2)}</span>
                         </div>
                       </div>
                       <div>
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Transaction History</span>
                         {c.transactions.length === 0 ? (
-                          <div className="text-center py-6 border border-dashed border-slate-200 rounded-lg">
+                          <div className={`text-center py-6 border border-dashed rounded-lg ${isDarkMode ? "border-slate-800" : "border-slate-200"}`}>
                             <DollarSign className="w-6 h-6 text-slate-200 mx-auto mb-1.5" />
                             <p className="text-xs text-slate-400">No transactions recorded yet</p>
                           </div>
                         ) : (
                           <div className="space-y-1.5">
                             {c.transactions.map(tx => (
-                              <div key={tx.id} className="flex items-center justify-between p-2.5 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
+                              <div key={tx.id} className={`flex items-center justify-between p-2.5 rounded-lg border ${
+                                isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"
+                              }`}>
                                 <div>
-                                  <p className="text-xs font-medium text-slate-700">{tx.description}</p>
+                                  <p className={`text-xs font-medium ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{tx.description}</p>
                                   <p className="text-[10px] text-slate-400">{tx.date}</p>
                                 </div>
                                 <span className={`text-xs font-bold ${tx.amount >= 0 ? "text-emerald-600" : "text-red-500"}`}>{tx.amount >= 0 ? "+" : ""}${tx.amount.toFixed(2)}</span>
@@ -1390,31 +1568,39 @@ export default function CRMPage() {
                       </div>
                     </div>
 
-                    {/* â”€â”€ Schedule Meeting Section â”€â”€ */}
-                    <div className="border-t border-[#E5E7EB] pt-5">
+                    {/* Ã¢â€â‚¬Ã¢â€â‚¬ Schedule Meeting Section Ã¢â€â‚¬Ã¢â€â‚¬ */}
+                    <div className={`border-t pt-5 ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                       <div className="flex items-center gap-2 mb-4">
                         <Calendar className="w-4 h-4 text-indigo-600" />
-                        <h3 className="text-sm font-bold text-slate-800">Schedule Meeting</h3>
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Schedule Meeting</h3>
                       </div>
                       <div className="space-y-3">
                         <div>
                           <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Meeting Title</label>
-                          <input value={meetingTitle} onChange={e => setMeetingTitle(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="e.g. Consultation Call" />
+                          <input value={meetingTitle} onChange={e => setMeetingTitle(e.target.value)} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                            isDarkMode ? "border-slate-750 bg-slate-800 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                          }`} placeholder="e.g. Consultation Call" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Date</label>
-                            <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" />
+                            <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-800 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} />
                           </div>
                           <div>
                             <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Time</label>
-                            <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" />
+                            <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-800 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} />
                           </div>
                         </div>
-                        <div className="flex items-center justify-between p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
+                        <div className={`flex items-center justify-between p-3 rounded-lg border ${
+                          isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"
+                        }`}>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-sm text-slate-600">Sync to Google Calendar</span>
+                            <span className={`text-sm ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>Sync to Google Calendar</span>
                           </div>
                           <button onClick={() => setMeetingSyncGoogle(!meetingSyncGoogle)} className="cursor-pointer text-slate-400">
                             {meetingSyncGoogle ? <ToggleRight className="w-8 h-8 text-indigo-600" /> : <ToggleLeft className="w-8 h-8" />}
@@ -1439,12 +1625,14 @@ export default function CRMPage() {
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Upcoming Meetings</span>
                         <div className="space-y-2">
                           {customerMeetings.map(m => (
-                            <div key={m.id} className="flex items-center justify-between p-3 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                            <div key={m.id} className={`flex items-center justify-between p-3 rounded-lg border ${
+                              isDarkMode ? "bg-emerald-950/20 border-emerald-900/50" : "bg-emerald-50/50 border-emerald-100"
+                            }`}>
                               <div className="flex items-center gap-2.5">
                                 <CalendarCheck className="w-4 h-4 text-emerald-600" />
                                 <div>
-                                  <p className="text-xs font-semibold text-slate-700">{m.title}</p>
-                                  <p className="text-[10px] text-slate-400">{m.date} at {m.time} {m.syncToGoogle && "Â· Google Calendar"}</p>
+                                  <p className={`text-xs font-semibold ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{m.title}</p>
+                                  <p className="text-[10px] text-slate-400">{m.date} at {m.time} {m.syncToGoogle && "Ãƒâ€šÃ‚Â· Google Calendar"}</p>
                                 </div>
                               </div>
                               <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{m.createdBy === "jarvis" ? "Via Jarvis" : "Manual"}</span>
@@ -1459,147 +1647,8 @@ export default function CRMPage() {
             );
           })()}
 
-          {/* â•â•â•â•â•â•â•â•â•â•â• INBOX VIEW â•â•â•â•â•â•â•â•â•â•â• */}
-          {activeView === "inbox" && (() => {
-            const activeConv = conversations.find(c => c.id === activeConversation);
-            return (
-              <div className="max-w-[1400px] mx-auto space-y-4">
-                <div>
-                  <h1 className="text-xl font-bold text-slate-800 tracking-tight">Unified Inbox</h1>
-                  <p className="text-sm text-slate-400 mt-0.5">All customer communications in one place.</p>
-                </div>
-                <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden flex" style={{ height: "calc(100vh - 220px)" }}>
-                  {/* Left: Conversation List */}
-                  <div className="w-[340px] shrink-0 border-r border-[#E5E7EB] flex flex-col">
-                    <div className="px-4 py-3 border-b border-[#E5E7EB]">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                        <input type="text" placeholder="Search conversations..." className="w-full h-9 pl-9 pr-4 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" />
-                      </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
-                      {conversations.map(conv => (
-                        <button
-                          key={conv.id}
-                          onClick={() => { setActiveConversation(conv.id); markConversationRead(conv.id); }}
-                          className={`w-full text-left px-4 py-3.5 border-b border-slate-50 hover:bg-[#faf6ed]/70 transition-colors cursor-pointer flex gap-3 ${
-                            activeConversation === conv.id ? "bg-indigo-50/40" : ""
-                          }`}
-                        >
-                          {/* Avatar */}
-                          <div className="relative shrink-0">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs border border-slate-200">
-                              {conv.customerName.split(" ").map(n => n[0]).join("")}
-                            </div>
-                            {conv.unread && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-indigo-500 rounded-full ring-2 ring-white" />}
-                          </div>
-                          {/* Details */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className={`text-[13px] truncate ${conv.unread ? "font-bold text-slate-900" : "font-medium text-slate-700"}`}>{conv.customerName}</span>
-                              <span className="text-[10px] text-slate-400 shrink-0 ml-2">{conv.lastTimestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              {channelIcon(conv.channel)}
-                              <p className={`text-xs truncate flex-1 ${conv.unread ? "font-semibold text-slate-700" : "text-slate-500"}`}>{conv.lastMessage}</p>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${ticketColors[conv.ticketStatus]}`}>{conv.ticketStatus}</span>
-                              <span className="text-[9px] text-slate-400">{channelLabel(conv.channel)}</span>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
-                  {/* Right: Chat Window */}
-                  <div className="flex-1 flex flex-col min-w-0 bg-[#F9FAFB]">
-                    {activeConv ? (
-                      <>
-                        {/* Ticket Header */}
-                        <div className="px-5 py-3.5 bg-[#fefcf6] border-b border-[#E5E7EB] flex items-center justify-between shrink-0">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-[10px] border border-slate-200">
-                              {activeConv.customerName.split(" ").map(n => n[0]).join("")}
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-bold text-slate-800">{activeConv.customerName}</h3>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                {channelIcon(activeConv.channel)}
-                                <span className="text-[10px] text-slate-400">{channelLabel(activeConv.channel)} Â· Case #{activeConv.id.replace("conv-", "")}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Status:</span>
-                            <select
-                              value={activeConv.ticketStatus}
-                              onChange={e => handleTicketStatusChange(activeConv.id, e.target.value as TicketStatus)}
-                              className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border cursor-pointer outline-none ${ticketColors[activeConv.ticketStatus]}`}
-                            >
-                              <option value="Open Issue">Open Issue</option>
-                              <option value="Pending">Pending</option>
-                              <option value="Resolved">Resolved</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Messages */}
-                        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
-                          {activeConv.messages.map(msg => (
-                            <div key={msg.id} className={`flex ${msg.sender === "agent" ? "justify-end" : "justify-start"}`}>
-                              <div className={`max-w-[70%] px-4 py-2.5 rounded-xl text-[13px] leading-relaxed ${
-                                msg.sender === "agent"
-                                  ? "bg-indigo-600 text-white rounded-br-md"
-                                  : "bg-[#fefcf6] text-slate-700 border border-[#E5E7EB] rounded-bl-md shadow-sm"
-                              }`}>
-                                <p>{msg.text}</p>
-                                <p className={`text-[9px] mt-1.5 ${msg.sender === "agent" ? "text-indigo-200" : "text-slate-400"}`}>
-                                  {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                          <div ref={inboxChatEndRef} />
-                        </div>
-
-                        {/* Reply Input */}
-                        <div className="px-5 py-3.5 bg-[#fefcf6] border-t border-[#E5E7EB] shrink-0">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={inboxReply}
-                              onChange={e => setInboxReply(e.target.value)}
-                              onKeyDown={e => { if (e.key === "Enter") handleSendInboxReply(); }}
-                              placeholder="Type a reply..."
-                              className="flex-1 h-10 px-4 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
-                            />
-                            <button
-                              onClick={handleSendInboxReply}
-                              disabled={!inboxReply.trim()}
-                              className="w-10 h-10 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
-                            >
-                              <Send className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center">
-                          <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                          <p className="text-sm text-slate-400">Select a conversation to get started</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* â•â•â•â•â•â•â•â•â•â•â• ANALYTICS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
+          {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â ANALYTICS VIEW ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
           {activeView === "analytics" && (() => {
             const totalRevenue = customers.reduce((s, c) => s + c.totalRevenue, 0);
             const totalOutstanding = customers.reduce((s, c) => s + c.outstandingBalance, 0);
@@ -1633,23 +1682,23 @@ export default function CRMPage() {
             return (
               <div className="max-w-[1400px] mx-auto space-y-6">
                 <div>
-                  <h1 className="text-xl font-bold text-slate-800 tracking-tight">Analytics</h1>
+                  <h1 className={`text-xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Analytics</h1>
                   <p className="text-sm text-slate-400 mt-0.5">Revenue trends, engagement metrics, and AI-powered forecasts.</p>
                 </div>
 
                 {/* Summary Metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <MetricCard label="Total Revenue" value={`$${totalRevenue.toFixed(0)}`} subtext={`${customers.length} contacts`} icon={DollarSign} />
-                  <MetricCard label="Outstanding" value={`$${totalOutstanding.toFixed(0)}`} subtext="pending balances" icon={Activity} />
-                  <MetricCard label="Avg. Revenue" value={`$${customers.length ? (totalRevenue / customers.length).toFixed(0) : "0"}`} subtext="per contact" icon={ArrowUpRight} />
-                  <MetricCard label="Completed Sales" value={String(customers.filter(c => c.leadStatus === "Sale Completed").length)} subtext="converted leads" icon={Users} />
+                  <MetricCard isDarkMode={isDarkMode} label="Total Revenue" value={`$${totalRevenue.toFixed(0)}`} subtext={`${customers.length} contacts`} icon={DollarSign} />
+                  <MetricCard isDarkMode={isDarkMode} label="Outstanding" value={`$${totalOutstanding.toFixed(0)}`} subtext="pending balances" icon={Activity} />
+                  <MetricCard isDarkMode={isDarkMode} label="Avg. Revenue" value={`$${customers.length ? (totalRevenue / customers.length).toFixed(0) : "0"}`} subtext="per contact" icon={ArrowUpRight} />
+                  <MetricCard isDarkMode={isDarkMode} label="Completed Sales" value={String(customers.filter(c => c.leadStatus === "Sale Completed").length)} subtext="converted leads" icon={Users} />
                 </div>
 
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Bar Chart â€” Revenue by Lead Status */}
-                  <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] p-6">
-                    <h2 className="text-sm font-bold text-slate-700 mb-1">Revenue by Lead Status</h2>
+                  {/* Bar Chart ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Revenue by Lead Status */}
+                  <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+                    <h2 className={`text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Revenue by Lead Status</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Breakdown of total revenue across pipeline stages</p>
                     {customers.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16"><BarChart3 className="w-10 h-10 text-slate-200 mb-2" /><p className="text-xs text-slate-400">Add contacts to see revenue data</p></div>
@@ -1670,9 +1719,9 @@ export default function CRMPage() {
                     )}
                   </div>
 
-                  {/* Line Chart â€” Revenue Over Time */}
-                  <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] p-6">
-                    <h2 className="text-sm font-bold text-slate-700 mb-1">Revenue Over Time</h2>
+                  {/* Line Chart ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Revenue Over Time */}
+                  <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+                    <h2 className={`text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Revenue Over Time</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Monthly revenue trend from transactions</p>
                     <ResponsiveContainer width="100%" height={260}>
                       <LineChart data={revenueOverTime}>
@@ -1687,17 +1736,17 @@ export default function CRMPage() {
                 </div>
 
                 {/* Revenue Leaderboard Table */}
-                <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
-                  <div className="px-6 py-4 border-b border-[#E5E7EB]">
-                    <h2 className="text-sm font-bold text-slate-700">Top Customers by Revenue</h2>
+                <div className={`rounded-xl border shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+                  <div className={`px-6 py-4 border-b ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
+                    <h2 className={`text-sm font-bold ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>Top Customers by Revenue</h2>
                   </div>
                   {customers.length === 0 ? (
                     <EmptyAnalytics />
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-[#faf6ed]/60">
-                          <tr className="border-b border-[#E5E7EB]">
+                        <thead className={isDarkMode ? "bg-slate-800/60 text-slate-300" : "bg-[#faf6ed]/60 text-slate-700"}>
+                          <tr className={`border-b ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                             <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3 pl-6 pr-4">Rank</th>
                             <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3 px-4">Customer</th>
                             <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider py-3 px-4">Status</th>
@@ -1707,12 +1756,22 @@ export default function CRMPage() {
                         </thead>
                         <tbody>
                           {[...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 10).map((c, i) => (
-                            <tr key={c.id} className="border-b border-slate-50 hover:bg-[#faf6ed]/50 transition-colors">
-                              <td className="py-3 pl-6 pr-4"><span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${i < 3 ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500"}`}>{i + 1}</span></td>
-                              <td className="py-3 px-4 font-semibold text-slate-800">{c.firstName} {c.lastName}</td>
-                              <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[c.leadStatus]||""}`}>{c.leadStatus}</span></td>
+                            <tr key={c.id} className={`border-b transition-colors ${
+                              isDarkMode ? "border-slate-800 hover:bg-slate-850" : "border-slate-50 hover:bg-[#faf6ed]/50"
+                            }`}>
+                              <td className="py-3 pl-6 pr-4">
+                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                  i < 3 
+                                    ? (isDarkMode ? "bg-amber-950/40 text-amber-400 border border-amber-800" : "bg-amber-50 text-amber-700 border border-amber-200") 
+                                    : (isDarkMode ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500")
+                                }`}>
+                                  {i + 1}
+                                </span>
+                              </td>
+                              <td className={`py-3 px-4 font-semibold ${isDarkMode ? "text-white" : "text-slate-800"}`}>{c.firstName} {c.lastName}</td>
+                              <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>{c.leadStatus}</span></td>
                               <td className="py-3 px-4 text-right font-semibold text-emerald-600">${c.totalRevenue.toFixed(2)}</td>
-                              <td className="py-3 pr-6 text-right text-slate-500">${c.outstandingBalance.toFixed(2)}</td>
+                              <td className={`py-3 pr-6 text-right ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>${c.outstandingBalance.toFixed(2)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1723,139 +1782,9 @@ export default function CRMPage() {
               </div>
             );
           })()}
-          {/* â•â•â•â•â•â•â•â•â•â•â• SETTINGS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
-          {activeView === "settings" && (
-            <div className="max-w-[900px] mx-auto space-y-6">
-              <div>
-                <h1 className="text-xl font-bold text-slate-800 tracking-tight">Settings</h1>
-                <p className="text-sm text-slate-400 mt-0.5">Manage tags, integrations, and CRM preferences.</p>
-              </div>
 
-              {/* Tag Manager */}
-              <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-indigo-600" />
-                  <h2 className="text-sm font-bold text-slate-700">Tag Manager</h2>
-                </div>
-                <div className="p-6 space-y-4">
-                  {/* Existing Tags */}
-                  <div className="space-y-2">
-                    {customTags.map((tag, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
-                        <div className="w-5 h-5 rounded-full border-2 border-white shadow-sm shrink-0" style={{ backgroundColor: tag.color }} />
-                        {editingTagIdx === idx ? (
-                          <div className="flex-1 flex items-center gap-2">
-                            <input
-                              value={tag.name}
-                              onChange={e => setCustomTags(prev => prev.map((t, i) => i === idx ? { ...t, name: e.target.value } : t))}
-                              className="flex-1 h-8 px-2 text-sm rounded-md border border-[#E5E7EB] bg-[#fefcf6] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                            />
-                            <input
-                              type="color"
-                              value={tag.color}
-                              onChange={e => setCustomTags(prev => prev.map((t, i) => i === idx ? { ...t, color: e.target.value } : t))}
-                              className="w-8 h-8 rounded-md border border-[#E5E7EB] cursor-pointer"
-                            />
-                            <button onClick={() => setEditingTagIdx(null)} className="px-2.5 py-1 rounded-md bg-indigo-600 text-[10px] font-semibold text-white hover:bg-indigo-700 cursor-pointer">Done</button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="flex-1 text-sm font-medium text-slate-700">{tag.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{tag.color}</span>
-                            <button onClick={() => setEditingTagIdx(idx)} className="w-7 h-7 rounded-md hover:bg-[#fefcf6] flex items-center justify-center text-slate-400 hover:text-indigo-600 cursor-pointer"><Edit3 className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setCustomTags(prev => prev.filter((_, i) => i !== idx))} className="w-7 h-7 rounded-md hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 cursor-pointer"><Trash className="w-3.5 h-3.5" /></button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
 
-                  {/* Add New Tag */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-[#E5E7EB]">
-                    <input
-                      type="color"
-                      value={newTagColor}
-                      onChange={e => setNewTagColor(e.target.value)}
-                      className="w-9 h-9 rounded-lg border border-[#E5E7EB] cursor-pointer shrink-0"
-                    />
-                    <input
-                      value={newTagName}
-                      onChange={e => setNewTagName(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter" && newTagName.trim()) { setCustomTags(prev => [...prev, { name: newTagName.trim(), color: newTagColor }]); setNewTagName(""); } }}
-                      placeholder="New tag name..."
-                      className="flex-1 h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
-                    />
-                    <button
-                      onClick={() => { if (newTagName.trim()) { setCustomTags(prev => [...prev, { name: newTagName.trim(), color: newTagColor }]); setNewTagName(""); } }}
-                      disabled={!newTagName.trim()}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Integrations */}
-              <div className="bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-indigo-600" />
-                  <h2 className="text-sm font-bold text-slate-700">Integrations</h2>
-                </div>
-                <div className="p-6 space-y-5">
-                  {/* Google Calendar */}
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      <Calendar className="w-3.5 h-3.5 text-blue-500" /> Google Calendar API Key
-                    </label>
-                    <input
-                      value={integrations.googleCalendar}
-                      onChange={e => setIntegrations({ ...integrations, googleCalendar: e.target.value })}
-                      placeholder="AIzaSy..."
-                      className="w-full h-10 px-4 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 font-mono"
-                    />
-                    <p className="text-[10px] text-slate-400">Enables real-time calendar sync for scheduled meetings.</p>
-                  </div>
-
-                  {/* Mail Provider */}
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      <Mail className="w-3.5 h-3.5 text-indigo-500" /> Mail Provider API Key
-                    </label>
-                    <input
-                      value={integrations.mailProvider}
-                      onChange={e => setIntegrations({ ...integrations, mailProvider: e.target.value })}
-                      placeholder="SG.xxxxx..."
-                      className="w-full h-10 px-4 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 font-mono"
-                    />
-                    <p className="text-[10px] text-slate-400">Used for email campaigns (SendGrid, Resend, etc.).</p>
-                  </div>
-
-                  {/* WhatsApp */}
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      <MessageSquare className="w-3.5 h-3.5 text-green-500" /> WhatsApp Business API Key
-                    </label>
-                    <input
-                      value={integrations.whatsapp}
-                      onChange={e => setIntegrations({ ...integrations, whatsapp: e.target.value })}
-                      placeholder="whatsapp_business_xxxxx..."
-                      className="w-full h-10 px-4 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 font-mono"
-                    />
-                    <p className="text-[10px] text-slate-400">Connects WhatsApp Business for direct messaging.</p>
-                  </div>
-
-                  <div className="pt-3 border-t border-[#E5E7EB]">
-                    <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer">
-                      <CalendarCheck className="w-4 h-4" /> Save Integrations
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* â•â•â•â•â•â•â•â•â•â•â• CAMPAIGNS VIEW â•â•â•â•â•â•â•â•â•â•â• */}
+          {/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ CAMPAIGNS VIEW Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */}
           {activeView === "campaigns" && (
             <CampaignCalendar />
           )}
@@ -1866,11 +1795,11 @@ export default function CRMPage() {
 
       <ToastContainer />
 
-      {/* â•â•â•â•â•â• FLOATING BULK ACTIONS BAR â•â•â•â•â•â• */}
+      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â FLOATING BULK ACTIONS BAR ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[85] bg-[#fefcf6] rounded-xl border border-[#E5E7EB] shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200">
-          <span className="text-sm font-semibold text-slate-700">{selectedIds.size} selected</span>
-          <div className="w-px h-6 bg-slate-200"></div>
+        <div className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-[85] rounded-xl border shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white shadow-black/40' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+          <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-250' : 'text-slate-700'}`}>{selectedIds.size} selected</span>
+          <div className={`w-px h-6 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
           <button onClick={() => setShowEmailModal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer">
             <MailPlus className="w-4 h-4" />New Email Campaign
           </button>
@@ -1880,48 +1809,51 @@ export default function CRMPage() {
               bulkDelete(ids); 
               setSelectedIds(new Set()); 
             }
-          }} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors cursor-pointer">
+          }} className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-red-900 bg-red-950/20 text-red-400 hover:bg-red-900/30' : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'}`}>
             <Trash2 className="w-3.5 h-3.5" />Delete
           </button>
           <button onClick={() => setSelectedIds(new Set())} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Clear</button>
         </div>
       )}
 
-      {/* â•â•â•â•â•â• EMAIL CAMPAIGN MODAL â•â•â•â•â•â• */}
+      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â EMAIL CAMPAIGN MODAL ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
       {showEmailModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setShowSignatureEditor(false); setShowDrafts(false); }}>
-          <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col" style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] shrink-0 bg-gradient-to-r from-indigo-50/50 to-white">
+            <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 bg-gradient-to-r ${isDarkMode ? 'border-slate-800 from-slate-900 to-slate-900/45 text-white' : 'border-[#E5E7EB] from-indigo-50/50 to-white'}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
                   <MailPlus className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">Email Campaign</h2>
+                  <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Email Campaign</h2>
                   <p className="text-xs text-slate-400 flex items-center gap-2">
                     <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedCustomers.filter(c => c.email).length} recipients</span>
-                    <span className="text-slate-300">Â·</span>
+                    <span className="text-slate-300">Ãƒâ€šÃ‚Â·</span>
                     <span>{selectedCustomers.length} selected</span>
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {/* Tab Switcher */}
-                <div className="flex bg-slate-100 rounded-lg p-0.5">
-                  <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Compose</button>
-                  <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? "bg-[#fefcf6] text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Preview</button>
+                <div className={`flex rounded-lg p-0.5 ${isDarkMode ? 'bg-slate-850' : 'bg-slate-100'}`}>
+                  <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#fefcf6] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Compose</button>
+                  <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#fefcf6] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Preview</button>
                 </div>
-                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
+                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}><X className="w-4 h-4" /></button>
               </div>
             </div>
 
             {/* Recipients Bar */}
-            <div className="px-6 py-3 border-b border-[#E5E7EB] bg-[#faf6ed]/50 shrink-0">
+            {/* Recipients Bar */}
+            <div className={`px-6 py-3 border-b shrink-0 ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#faf6ed]/50'}`}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To:</span>
                 {selectedCustomers.slice(0, 8).map(c => (
-                  <span key={c.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fefcf6] border border-slate-200 text-[11px] font-medium text-slate-600 shadow-sm">
+                  <span key={c.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium shadow-sm ${
+                    isDarkMode ? "bg-slate-850 border-slate-700 text-slate-300" : "bg-[#fefcf6] border-slate-200 text-slate-600"
+                  }`}>
                     <span className="w-3.5 h-3.5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[7px] font-bold">{c.firstName[0]}</span>
                     {c.firstName} {c.lastName}
                   </span>
@@ -1932,53 +1864,57 @@ export default function CRMPage() {
 
             {/* Body */}
             <div className="flex-1 overflow-hidden flex">
-              {/* Compose Panel â€” hidden when Preview tab is active on mobile */}
+              {/* Compose Panel Ã¢â‚¬â€ hidden when Preview tab is active on mobile */}
               <div className={`flex-1 flex flex-col overflow-y-auto ${emailTab === "preview" ? "hidden" : ""}`}>
                 <div className="px-6 py-5 space-y-4 flex-1">
                   {/* Subject */}
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Subject Line</label>
-                    <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full h-11 px-4 text-sm font-medium rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" placeholder="e.g. Exciting update for our valued partners" />
+                    <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className={`w-full h-11 px-4 text-sm font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-800'}`} placeholder="e.g. Exciting update for our valued partners" />
                   </div>
 
-                  {/* Email Body â€” LARGER */}
+                  {/* Email Body Ã¢â‚¬â€ LARGER */}
                   <div className="flex-1 flex flex-col">
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Email Body</label>
-                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className="w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed" placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
+                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className={`w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-700'}`} placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
                   </div>
 
                   {/* Signature Block */}
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-[#faf6ed]">
+                  <div className={`rounded-xl border overflow-hidden ${isDarkMode ? "border-slate-800 bg-slate-900" : "border-slate-200"}`}>
+                    <div className={`flex items-center justify-between px-4 py-2.5 ${isDarkMode ? "bg-slate-800/80" : "bg-[#faf6ed]"}`}>
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Edit3 className="w-3 h-3" />Email Signature</span>
                       <button onClick={() => setShowSignatureEditor(!showSignatureEditor)} className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer">
                         {emailSignature ? "Edit" : "+ Add Signature"}
                       </button>
                     </div>
                     {emailSignature && !showSignatureEditor && (
-                      <div className="px-4 py-3 border-t border-slate-100 text-sm text-slate-600">
+                      <div className={`px-4 py-3 border-t text-sm ${isDarkMode ? "border-slate-800 text-slate-300 bg-slate-900/40" : "border-slate-100 text-slate-600 bg-white"}`}>
                         {emailSignature.logoUrl && <img src={emailSignature.logoUrl} alt="Logo" className="max-h-12 max-w-[140px] mb-2" />}
                         <p className="font-normal">{emailSignature.signoff},</p>
                         {emailSignature.name && (
-                          <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-slate-800" : "font-bold"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
+                          <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-white" : "font-bold"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
                         )}
                         {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
-                        {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Â· ")}</p>}
+                        {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Ã‚Â· ")}</p>}
                       </div>
                     )}
                     {showSignatureEditor && (
-                      <div className="px-4 py-4 border-t border-slate-100 space-y-3">
+                      <div className={`px-4 py-4 border-t space-y-3 ${isDarkMode ? "border-slate-800" : "border-slate-100"}`}>
                         {/* Logo Upload */}
                         <div>
                           <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1 block"><ImagePlus className="w-3 h-3" />Company Logo / Image</label>
                           <div className="flex items-center gap-3">
                             {sigForm.logoUrl ? (
                               <div className="relative group">
-                                <img src={sigForm.logoUrl} alt="Logo" className="h-10 max-w-[120px] rounded border border-slate-200 object-contain bg-[#fefcf6] p-1" />
+                                <img src={sigForm.logoUrl} alt="Logo" className={`h-10 max-w-[120px] rounded border object-contain p-1 ${
+                                  isDarkMode ? "border-slate-750 bg-slate-900" : "border-slate-200 bg-[#fefcf6]"
+                                }`} />
                                 <button onClick={() => setSigForm(f => ({...f, logoUrl: ""}))} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><X className="w-2.5 h-2.5" /></button>
                               </div>
                             ) : null}
-                            <label className="px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-[11px] font-medium text-slate-500 hover:bg-[#faf6ed] cursor-pointer flex items-center gap-1.5 transition-colors">
+                            <label className={`px-3 py-1.5 rounded-lg border border-dashed text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                              isDarkMode ? "border-slate-700 text-slate-400 hover:bg-slate-800" : "border-slate-300 text-slate-500 hover:bg-[#faf6ed]"
+                            }`}>
                               <ImagePlus className="w-3 h-3" />{isUploadingLogo ? "Uploading..." : sigForm.logoUrl ? "Change" : "Upload Logo"}
                               <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                             </label>
@@ -1988,53 +1924,69 @@ export default function CRMPage() {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Sign-off</label>
-                            <input value={sigForm.signoff} onChange={e => setSigForm(f => ({...f, signoff: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="Best regards" />
+                            <input value={sigForm.signoff} onChange={e => setSigForm(f => ({...f, signoff: e.target.value}))} className={`w-full h-9 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-850 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} placeholder="Best regards" />
                           </div>
                           <div>
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Full Name</label>
-                            <input value={sigForm.name} onChange={e => setSigForm(f => ({...f, name: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="Lucas Huff" />
+                            <input value={sigForm.name} onChange={e => setSigForm(f => ({...f, name: e.target.value}))} className={`w-full h-9 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-850 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} placeholder="Lucas Huff" />
                           </div>
                         </div>
                         {/* Cursive toggle */}
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#faf6ed] border border-slate-100">
+                        <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${
+                          isDarkMode ? "bg-slate-850 border-slate-750" : "bg-[#faf6ed] border-slate-100"
+                        }`}>
                           <PenTool className="w-3.5 h-3.5 text-indigo-500" />
                           <div className="flex-1">
-                            <p className="text-[11px] font-semibold text-slate-600">Cursive Signature</p>
+                            <p className={`text-[11px] font-semibold ${isDarkMode ? "text-slate-350" : "text-slate-600"}`}>Cursive Signature</p>
                             <p className="text-[9px] text-slate-400">Display your name in an elegant handwritten font</p>
                           </div>
                           <button onClick={() => setSigForm(f => ({...f, useCursive: !f.useCursive}))} className="cursor-pointer">
-                            {sigForm.useCursive ? <ToggleRight className="w-7 h-7 text-indigo-600" /> : <ToggleLeft className="w-7 h-7 text-slate-300" />}
+                            {sigForm.useCursive ? <ToggleRight className="w-7 h-7 text-indigo-600" /> : <ToggleLeft className="w-7 h-7 text-slate-350" />}
                           </button>
                         </div>
                         {sigForm.useCursive && sigForm.name && (
-                          <div className="px-3 py-2 bg-[#fefcf6] rounded-lg border border-slate-200">
+                          <div className={`px-3 py-2 rounded-lg border ${isDarkMode ? "bg-slate-900 border-slate-850" : "bg-[#fefcf6] border-slate-200"}`}>
                             <p className="text-[9px] text-slate-400 mb-1 uppercase tracking-wider font-semibold">Preview</p>
-                            <p className="text-2xl text-slate-800" style={{ fontFamily: "'Dancing Script', cursive" }}>{sigForm.name}</p>
+                            <p className={`text-2xl ${isDarkMode ? "text-white" : "text-slate-800"}`} style={{ fontFamily: "'Dancing Script', cursive" }}>{sigForm.name}</p>
                           </div>
                         )}
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Title / Role</label>
-                            <input value={sigForm.role} onChange={e => setSigForm(f => ({...f, role: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="CEO" />
+                            <input value={sigForm.role} onChange={e => setSigForm(f => ({...f, role: e.target.value}))} className={`w-full h-9 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-850 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} placeholder="CEO" />
                           </div>
                           <div>
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Company</label>
-                            <input value={sigForm.company} onChange={e => setSigForm(f => ({...f, company: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="SOL Theory" />
+                            <input value={sigForm.company} onChange={e => setSigForm(f => ({...f, company: e.target.value}))} className={`w-full h-9 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-850 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} placeholder="SOL Theory" />
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Phone</label>
-                            <input value={sigForm.phone} onChange={e => setSigForm(f => ({...f, phone: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="+1 (555) 123-4567" />
+                            <input value={sigForm.phone} onChange={e => setSigForm(f => ({...f, phone: e.target.value}))} className={`w-full h-9 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-850 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} placeholder="+1 (555) 123-4567" />
                           </div>
                           <div>
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Website</label>
-                            <input value={sigForm.website} onChange={e => setSigForm(f => ({...f, website: e.target.value}))} className="w-full h-9 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="www.soltheory.com" />
+                            <input value={sigForm.website} onChange={e => setSigForm(f => ({...f, website: e.target.value}))} className={`w-full h-9 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+                              isDarkMode ? "border-slate-750 bg-slate-850 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+                            }`} placeholder="www.soltheory.com" />
                           </div>
                         </div>
                         <div className="flex items-center gap-2 pt-1">
                           <button onClick={saveSignature} className="px-4 py-1.5 rounded-lg bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer">Save Signature</button>
-                          <button onClick={() => setShowSignatureEditor(false)} className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-medium text-slate-500 hover:bg-[#faf6ed] cursor-pointer">Cancel</button>
+                          <button onClick={() => setShowSignatureEditor(false)} className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                            isDarkMode ? "border-slate-750 text-slate-400 hover:bg-slate-800" : "border-[#E5E7EB] text-slate-500 hover:bg-[#faf6ed]"
+                          }`}>Cancel</button>
                         </div>
                       </div>
                     )}
@@ -2042,38 +1994,38 @@ export default function CRMPage() {
                 </div>
               </div>
 
-              {/* Preview Panel â€” full-width when Preview tab is active */}
-              <div className={`flex flex-col overflow-y-auto ${emailTab === "preview" ? "flex-1" : "hidden lg:flex lg:w-[380px] lg:shrink-0"} border-l border-[#E5E7EB] bg-[#faf6ed]`}>
-                <div className="px-5 py-3 border-b border-slate-200 bg-[#fefcf6]">
+              {/* Preview Panel Ã¢â‚¬â€ full-width when Preview tab is active */}
+              <div className={`flex flex-col overflow-y-auto ${emailTab === "preview" ? "flex-1" : "hidden lg:flex lg:w-[380px] lg:shrink-0"} border-l ${isDarkMode ? 'border-slate-800 bg-slate-900/60 text-white' : 'border-[#E5E7EB] bg-[#faf6ed]'}`}>
+                <div className={`px-5 py-3 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-[#fefcf6]'}`}>
                   <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />Email Preview</h4>
                 </div>
                 <div className="flex-1 p-5 flex justify-center">
-                  <div className={`bg-[#fefcf6] rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full ${emailTab === "preview" ? "max-w-2xl" : ""}`}>
+                  <div className={`rounded-xl border shadow-sm overflow-hidden w-full ${emailTab === "preview" ? "max-w-2xl" : ""} ${isDarkMode ? 'bg-slate-950 border-slate-850' : 'bg-[#fefcf6] border-slate-200'}`}>
                     {/* Fake email header */}
-                    <div className="px-6 py-4 border-b border-slate-100 bg-[#faf6ed]/50">
+                    <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-slate-850 bg-slate-900/50' : 'border-slate-100 bg-[#faf6ed]/50'}`}>
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">{(emailSignature?.name || user?.displayName || "Y")[0]}</div>
                         <div>
-                          <p className="text-sm font-semibold text-slate-800">{emailSignature?.name || user?.displayName || "You"}</p>
+                          <p className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{emailSignature?.name || user?.displayName || "You"}</p>
                           <p className="text-[11px] text-slate-400">to {selectedCustomers.filter(c=>c.email).length} recipients</p>
                         </div>
                       </div>
-                      <p className={`font-bold text-slate-800 ${emailTab === "preview" ? "text-lg" : "text-sm"}`}>{emailSubject || "(No subject)"}</p>
+                      <p className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} ${emailTab === "preview" ? "text-lg" : "text-sm"}`}>{emailSubject || "(No subject)"}</p>
                     </div>
                     {/* Email body preview */}
-                    <div className={`px-6 py-5 text-slate-700 leading-relaxed ${emailTab === "preview" ? "text-base min-h-[300px]" : "text-sm min-h-[150px]"}`}>
+                    <div className={`px-6 py-5 leading-relaxed ${emailTab === "preview" ? "text-base min-h-[300px]" : "text-sm min-h-[150px]"} ${isDarkMode ? 'text-slate-350' : 'text-slate-700'}`}>
                       {emailBody ? emailBody.split('\n').map((line, i) => (
                         <p key={i} className="mb-3 last:mb-0">{line || <>&nbsp;</>}</p>
                       )) : <p className="text-slate-400 italic">Your email content will appear here...</p>}
                       {emailSignature && (
-                        <div className="border-t border-slate-100 pt-3 mt-6 text-slate-500">
+                        <div className={`border-t pt-3 mt-6 ${isDarkMode ? 'border-slate-850 text-slate-400' : 'border-slate-100 text-slate-500'}`}>
                           {emailSignature.logoUrl && <img src={emailSignature.logoUrl} alt="Logo" className="max-h-12 max-w-[140px] mb-2" />}
                           <p>{emailSignature.signoff},</p>
                           {emailSignature.name && (
-                            <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-slate-800" : "font-bold text-slate-700"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
+                            <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl " + (isDarkMode ? "text-white" : "text-slate-800") : ("font-bold " + (isDarkMode ? "text-slate-300" : "text-slate-700"))}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
                           )}
                           {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
-                          {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Â· ")}</p>}
+                          {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Ã‚Â· ")}</p>}
                         </div>
                       )}
                     </div>
@@ -2083,7 +2035,7 @@ export default function CRMPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-3 border-t border-[#E5E7EB] bg-[#faf6ed]/80 shrink-0">
+            <div className={`flex items-center justify-between px-6 py-3 border-t shrink-0 ${isDarkMode ? 'border-slate-800 bg-slate-950/40 text-white' : 'border-[#E5E7EB] bg-[#faf6ed]/80'}`}>
               <div className="flex items-center gap-3">
                 <span className="text-[11px] text-slate-400 font-medium">{selectedCustomers.filter(c => c.email).length} of {selectedCustomers.length} have email</span>
                 {/* Draft controls */}
@@ -2092,21 +2044,21 @@ export default function CRMPage() {
                     <Download className="w-3 h-3" />{campaignDrafts.length > 0 ? `Drafts (${campaignDrafts.length})` : "Drafts"}
                   </button>
                   {showDrafts && (
-                    <div className="absolute bottom-full left-0 mb-2 w-72 bg-[#fefcf6] rounded-xl border border-slate-200 shadow-xl z-10 overflow-hidden">
-                      <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">Saved Drafts</span>
+                    <div className={`absolute bottom-full left-0 mb-2 w-72 rounded-xl border shadow-xl z-10 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#fefcf6] border-slate-200'}`}>
+                      <div className={`px-4 py-2.5 border-b flex items-center justify-between ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                        <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-250' : 'text-slate-700'}`}>Saved Drafts</span>
                         <button onClick={() => setShowDrafts(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         {campaignDrafts.length === 0 ? (
                           <p className="px-4 py-4 text-xs text-slate-400 text-center">No drafts saved yet</p>
                         ) : campaignDrafts.map(draft => (
-                          <div key={draft.id} className="px-4 py-2.5 border-b border-slate-50 hover:bg-[#faf6ed] flex items-center justify-between group cursor-pointer" onClick={() => loadDraft(draft)}>
+                          <div key={draft.id} className={`px-4 py-2.5 border-b flex items-center justify-between group cursor-pointer ${isDarkMode ? 'border-slate-800 hover:bg-slate-800' : 'border-slate-50 hover:bg-[#faf6ed]'}`} onClick={() => loadDraft(draft)}>
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-700 truncate">{draft.subject || "(No subject)"}</p>
+                              <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{draft.subject || "(No subject)"}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">{new Date(draft.savedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
                             </div>
-                            <button onClick={(e) => { e.stopPropagation(); deleteDraft(draft.id); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 transition-all cursor-pointer"><Trash className="w-3 h-3" /></button>
+                            <button onClick={(e) => { e.stopPropagation(); deleteDraft(draft.id); }} className={`opacity-0 group-hover:opacity-100 p-1 rounded text-red-400 hover:text-red-600 transition-all cursor-pointer ${isDarkMode ? 'hover:bg-red-950/20' : 'hover:bg-red-50'}`}><Trash className="w-3 h-3" /></button>
                           </div>
                         ))}
                       </div>
@@ -2115,8 +2067,12 @@ export default function CRMPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={saveDraft} disabled={!emailSubject.trim()} className="px-3 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-xs font-medium text-slate-600 hover:bg-[#faf6ed] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"><Download className="w-3 h-3" />Save Draft</button>
-                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-xs font-medium text-slate-600 hover:bg-[#faf6ed] cursor-pointer">Cancel</button>
+                <button onClick={saveDraft} disabled={!emailSubject.trim()} className={`px-3 py-2 rounded-lg border text-xs font-medium cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-350 hover:bg-slate-750' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'
+                }`}><Download className="w-3 h-3" />Save Draft</button>
+                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className={`px-4 py-2 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                  isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-350 hover:bg-slate-750' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'
+                }`}>Cancel</button>
                 <button disabled={!emailSubject.trim() || !emailBody.trim() || isSendingCampaign} onClick={handleSendCampaign} className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-xs font-bold text-white hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer">
                   {isSendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   {isSendingCampaign ? "Sending..." : "Send Campaign"}
@@ -2127,29 +2083,23 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â• JARVIS COPILOT TOGGLE â•â•â•â•â•â• */}
-      <button
-        onClick={() => setIsJarvisOpen(!isJarvisOpen)}
-        className={`fixed bottom-6 right-6 z-[90] w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all cursor-pointer ${isJarvisOpen ? "bg-slate-700 hover:bg-slate-800" : "bg-indigo-600 hover:bg-indigo-700"} text-white`}
-      >
-        {isJarvisOpen ? <X className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
-      </button>
 
-      {/* â•â•â•â•â•â• JARVIS COPILOT SIDEBAR â•â•â•â•â•â• */}
-      <div className={`fixed top-0 right-0 h-full z-[80] transition-transform duration-300 ease-in-out ${isJarvisOpen ? "translate-x-0" : "translate-x-full"}`}>
-        <div className="w-[380px] h-full bg-[#fefcf6] border-l border-[#E5E7EB] shadow-2xl flex flex-col">
+      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â JARVIS COPILOT SIDEBAR ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
+      {/* ────── JARVIS COPILOT SIDEBAR ────── */}
+      <div className={`fixed top-0 right-0 h-full z-[80] transition-all duration-300 ease-in-out ${isJarvisOpen ? "w-[340px]" : "w-0"} overflow-hidden`}>
+        <div className={`w-[340px] h-full border-l flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
           {/* Header */}
-          <div className="h-16 flex items-center justify-between px-5 border-b border-[#E5E7EB] shrink-0">
+          <div className={`h-16 flex items-center justify-between px-5 border-b shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-800 leading-tight">Jarvis AI Copilot</h3>
+                <h3 className={`text-sm font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Jarvis AI Copilot</h3>
                 <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Online</span>
               </div>
             </div>
-            <button onClick={() => setIsJarvisOpen(false)} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer">
+            <button onClick={() => setIsJarvisOpen(false)} className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
               <PanelRightClose className="w-4 h-4" />
             </button>
           </div>
@@ -2161,7 +2111,7 @@ export default function CRMPage() {
                 <div className={`max-w-[85%] px-3.5 py-2.5 rounded-xl text-[13px] leading-relaxed whitespace-pre-wrap ${
                   msg.role === "user"
                     ? "bg-indigo-600 text-white rounded-br-md"
-                    : "bg-slate-100 text-slate-700 rounded-bl-md border border-slate-200"
+                    : (isDarkMode ? "bg-slate-800 text-slate-200 rounded-bl-md border border-slate-700" : "bg-slate-100 text-slate-700 rounded-bl-md border border-slate-200")
                 }`}>
                   {msg.content}
                 </div>
@@ -2171,7 +2121,7 @@ export default function CRMPage() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-[#E5E7EB] px-4 py-3 shrink-0 bg-[#fefcf6]">
+          <div className={`border-t px-4 py-3 shrink-0 ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#fefcf6]'}`}>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -2179,7 +2129,7 @@ export default function CRMPage() {
                 onChange={e => setJarvisInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleJarvisSend(); }}
                 placeholder="Ask Jarvis anything..."
-                className="flex-1 h-10 px-3.5 text-sm rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
+                className={`flex-1 h-10 px-3.5 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-750 text-white placeholder:text-slate-500' : 'bg-[#F9FAFB] border-[#E5E7EB] text-slate-700 placeholder:text-slate-400'}`}
               />
               <button
                 onClick={handleJarvisSend}
@@ -2189,35 +2139,71 @@ export default function CRMPage() {
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-2 text-center">Try &quot;show all contacts&quot; or &quot;add contact Jane Doe&quot;</p>
+            <p className="text-[10px] text-slate-400 mt-2 text-center">Try "show all contacts" or "add contact Jane Doe"</p>
           </div>
         </div>
       </div>
 
-      {/* â•â•â•â•â•â• ADD CONTACT MODAL â•â•â•â•â•â• */}
+      {/* ──────────────────────────────────── ADD CONTACT MODAL ──────────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={()=>{setShowAddModal(false);resetForm();}}>
-          <div className="bg-[#fefcf6] rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#E5E7EB]">
-              <h2 className="text-lg font-bold text-slate-800">Add New Contact</h2>
-              <button onClick={()=>{setShowAddModal(false);resetForm();}} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer"><X className="w-4 h-4"/></button>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e=>e.stopPropagation()}>
+            <div className={`flex items-center justify-between px-6 py-5 border-b ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
+              <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmAddNewContact}</h2>
+              <button onClick={()=>{setShowAddModal(false);resetForm();}} className={`w-8 h-8 rounded-lg ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} flex items-center justify-center text-slate-400 cursor-pointer`}><X className="w-4 h-4"/></button>
             </div>
             <div className="px-6 py-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">First Name *</label><input value={form.firstName} onChange={e=>setForm(f=>({...f,firstName:e.target.value}))} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="First name"/></div>
-                <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Last Name *</label><input value={form.lastName} onChange={e=>setForm(f=>({...f,lastName:e.target.value}))} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="Last name"/></div>
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{lang === 'es' ? 'Nombre' : 'First Name'} *</label>
+                  <input value={form.firstName} onChange={e=>setForm(f=>({...f,firstName:e.target.value}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder={lang === 'es' ? 'Nombre' : 'First name'} />
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{lang === 'es' ? 'Apellido' : 'Last Name'} *</label>
+                  <input value={form.lastName} onChange={e=>setForm(f=>({...f,lastName:e.target.value}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder={lang === 'es' ? 'Apellido' : 'Last name'} />
+                </div>
               </div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Email</label><input value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} type="email" className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="email@example.com"/></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Phone</label><input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="+1 (555) 000-0000"/></div>
-                <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Birthday</label><input value={form.birthday} onChange={e=>setForm(f=>({...f,birthday:e.target.value}))} type="date" className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"/></div>
+              <div>
+                <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{t.crmEmail}</label>
+                <input value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} type="email" className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder="email@example.com" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Status</label><select value={form.leadStatus} onChange={e=>setForm(f=>({...f,leadStatus:e.target.value as Customer["leadStatus"]}))} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"><option>Cold Lead</option><option>Warm Lead</option><option>Interested</option><option>Sale Completed</option></select></div>
-                <div><label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Tags</label><input value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} className="w-full h-10 px-3 text-sm rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300" placeholder="VIP, Enterprise"/></div>
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{t.crmPhone}</label>
+                  <input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder="+1 (555) 000-0000" />
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{lang === 'es' ? 'CumpleaÃƒÂ±os' : 'Birthday'}</label>
+                  <input value={form.birthday} onChange={e=>setForm(f=>({...f,birthday:e.target.value}))} type="date" className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>Company</label>
+                  <input value={form.company} onChange={e=>setForm(f=>({...f,company:e.target.value}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder="Acme Corp" />
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>Location</label>
+                  <input value={form.location} onChange={e=>setForm(f=>({...f,location:e.target.value}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder="New York, NY" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{t.crmLeadStatus}</label>
+                  <select value={form.leadStatus} onChange={e=>setForm(f=>({...f,leadStatus:e.target.value as Customer["leadStatus"]}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`}>
+                    <option value="Cold Lead">{getStatusLabel("Cold Lead", lang === "es")}</option>
+                    <option value="Warm Lead">{getStatusLabel("Warm Lead", lang === "es")}</option>
+                    <option value="Interested">{getStatusLabel("Interested", lang === "es")}</option>
+                    <option value="Sale Completed">{getStatusLabel("Sale Completed", lang === "es")}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{t.crmTags}</label>
+                  <input value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder="VIP, Enterprise" />
+                </div>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#E5E7EB] bg-[#faf6ed]/50">
+            <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#faf6ed]/50'}`}>
               <button onClick={()=>{setShowAddModal(false);resetForm();}} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-sm font-medium text-slate-600 hover:bg-[#faf6ed] cursor-pointer">Cancel</button>
               <button onClick={handleAddContact} disabled={!form.firstName.trim()||!form.lastName.trim()} className="px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer">Add Contact</button>
             </div>
@@ -2225,7 +2211,121 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â• TOAST NOTIFICATIONS â•â•â•â•â•â• */}
+      {showCSVModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowCSVModal(false); setCsvText(""); setCsvFile(null); }}>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+            <div className={`flex items-center justify-between px-6 py-5 border-b ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
+              <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                {lang === 'es' ? 'Importar Contactos por CSV' : 'Import Contacts via CSV'}
+              </h2>
+              <button onClick={() => { setShowCSVModal(false); setCsvText(""); setCsvFile(null); }} className={`w-8 h-8 rounded-lg ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} flex items-center justify-center text-slate-400 cursor-pointer`}><X className="w-4 h-4" /></button>
+            </div>
+            
+            <div className="px-6 py-6 space-y-5">
+              <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} leading-relaxed space-y-2.5`}>
+                <p>
+                  Import multiple contacts at once using a <strong className={isDarkMode ? 'text-white' : 'text-slate-700'}>CSV file</strong> or by <strong className={isDarkMode ? 'text-white' : 'text-slate-700'}>pasting text</strong> directly below.
+                </p>
+                <p>
+                  Your CSV <em>must</em> include a <strong className={isDarkMode ? 'text-white' : 'text-slate-700'}>header row</strong> with column names that <strong className={isDarkMode ? 'text-white' : 'text-slate-700'}>exactly match</strong> the CRM field names in <strong className={isDarkMode ? 'text-white' : 'text-slate-700'}>camelCase</strong> format:
+                </p>
+                <div className={`px-3 py-2 rounded-lg font-mono text-[10px] leading-relaxed ${isDarkMode ? 'bg-slate-800 text-indigo-300 border border-slate-700' : 'bg-slate-100 text-indigo-700 border border-slate-200'}`}>
+                  firstName, lastName, company, email, phoneNumber,{' '}<br />pipelineStage, revenue, tags, location, lastContactedDate
+                </div>
+                <p>
+                  <strong className={isDarkMode ? 'text-white' : 'text-slate-700'}>firstName</strong> and <strong className={isDarkMode ? 'text-white' : 'text-slate-700'}>lastName</strong> are <em>required</em>. All other columns are optional. Unrecognized column names will be <strong className={isDarkMode ? 'text-red-400' : 'text-red-600'}>rejected</strong>.
+                </p>
+              </div>
+
+              {/* Monospace CSV Text area */}
+              <div className="space-y-1.5">
+                <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
+                  {lang === 'es' ? 'Pegar Datos CSV' : 'Paste CSV Data'}
+                </label>
+                <textarea
+                  value={csvText}
+                  onChange={e => setCsvText(e.target.value)}
+                  rows={5}
+                  disabled={!!csvFile}
+                  className={`w-full p-3 text-xs rounded-lg border font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'} disabled:opacity-55`}
+                  placeholder={"firstName, lastName, company, email, phoneNumber, pipelineStage, revenue, tags, location, lastContactedDate\nJohn, Doe, Acme Corp, john@test.com, 555-1234, Warm Lead, 0, VIP, New York, 2025-06-01"}
+                />
+              </div>
+
+              <div className="flex items-center justify-center gap-2">
+                <div className={`h-px flex-1 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{lang === 'es' ? 'O' : 'Or'}</span>
+                <div className={`h-px flex-1 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+              </div>
+
+              {/* Upload file selection */}
+              <div className="space-y-1.5">
+                <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
+                  {lang === 'es' ? 'Subir Archivo .csv' : 'Upload .csv File'}
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={e => {
+                      if (e.target.files && e.target.files[0]) {
+                        setCsvFile(e.target.files[0]);
+                        setCsvText("");
+                      }
+                    }}
+                    className="hidden"
+                    id="csv-file-selector"
+                  />
+                  <label
+                    htmlFor="csv-file-selector"
+                    className={`px-4 py-2 border rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-sm ${
+                      isDarkMode 
+                        ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' 
+                        : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {lang === 'es' ? 'Seleccionar archivo' : 'Choose File'}
+                  </label>
+                  <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} truncate flex-1`}>
+                    {csvFile ? csvFile.name : (lang === 'es' ? 'NingÃƒÂºn archivo seleccionado' : 'No file selected')}
+                  </span>
+                  {csvFile && (
+                    <button
+                      onClick={() => setCsvFile(null)}
+                      className={`w-7 h-7 rounded-md flex items-center justify-center text-slate-400 ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} cursor-pointer`}
+                      title="Clear file"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#faf6ed]/50'}`}>
+              <button
+                onClick={() => { setShowCSVModal(false); setCsvText(""); setCsvFile(null); }}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-colors ${
+                  isDarkMode 
+                    ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' 
+                    : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'
+                }`}
+              >
+                {lang === 'es' ? 'Cancelar' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleCSVSubmit}
+                disabled={(!csvText.trim() && !csvFile)}
+                className="px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer"
+              >
+                {lang === 'es' ? 'Importar' : 'Import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â TOAST NOTIFICATIONS ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
       <ToastContainer />
     </div>
   );

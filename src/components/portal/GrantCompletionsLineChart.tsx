@@ -11,6 +11,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
+import { useDarkMode } from '@/lib/useDarkMode';
 import type { GrantRecord } from "@/hooks/useGrantsData";
 
 /**
@@ -34,6 +36,8 @@ interface Props {
 }
 
 export function GrantCompletionsLineChart({ grants = [], loading }: Props) {
+  const { t } = useTranslation();
+  const isDarkMode = useDarkMode();
   const chartData = useMemo(() => {
     const days = getLast7Days();
 
@@ -81,26 +85,26 @@ export function GrantCompletionsLineChart({ grants = [], loading }: Props) {
   return (
     <div className="h-full w-full flex flex-col min-h-0">
       <div className="flex items-center justify-between mb-1.5 shrink-0">
-        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-          Grants Completed (7d)
+        <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>
+          {t.grantsCompleted7d}
         </span>
-        <span className="text-[8px] font-semibold text-slate-300 tabular-nums">
-          {totalActioned} total
+        <span className={`text-[8px] font-semibold tabular-nums ${isDarkMode ? 'text-slate-400' : 'text-slate-300'}`}>
+          {totalActioned} {t.total}
         </span>
       </div>
       <div className="flex-1 min-h-0 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} vertical={false} />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 8, fill: "#94a3b8", fontWeight: 600 }}
+              tick={{ fontSize: 8, fill: isDarkMode ? '#cbd5e1' : '#94a3b8', fontWeight: 600 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               allowDecimals={false}
-              tick={{ fontSize: 8, fill: "#94a3b8", fontWeight: 600 }}
+              tick={{ fontSize: 8, fill: isDarkMode ? '#cbd5e1' : '#94a3b8', fontWeight: 600 }}
               axisLine={false}
               tickLine={false}
               domain={[0, "auto"]}
@@ -123,9 +127,9 @@ export function GrantCompletionsLineChart({ grants = [], loading }: Props) {
               dataKey="count"
               stroke="#818cf8"
               strokeWidth={2}
-              dot={{ r: 3, fill: "#818cf8", stroke: "#fff", strokeWidth: 1.5 }}
-              activeDot={{ r: 4, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }}
-              name="Completed"
+              dot={{ r: 3, fill: '#818cf8', stroke: isDarkMode ? '#1e293b' : '#fff', strokeWidth: 1.5 }}
+              activeDot={{ r: 4, fill: '#6366f1', stroke: isDarkMode ? '#1e293b' : '#fff', strokeWidth: 2 }}
+              name={t.completedLabel}
             />
           </LineChart>
         </ResponsiveContainer>

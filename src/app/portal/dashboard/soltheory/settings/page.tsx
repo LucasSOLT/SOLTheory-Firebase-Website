@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { TIMEZONE_OPTIONS, useTranslation } from "@/lib/i18n";
 import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield } from "lucide-react";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -16,7 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 // Translation Dictionary
-const t = {
+const localDict = {
   en: {
     settings: "Settings",
     profile: "Profile",
@@ -121,6 +122,7 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const { user, isUserLoading } = useUser();
+  const { t } = useTranslation();
   const auth = useAuth();
   const firestore = useFirestore();
   const searchParams = useSearchParams();
@@ -190,16 +192,21 @@ function SettingsContent() {
 
   useEffect(() => {
     if (user) {
-      setDisplayName(user.displayName || "");
+      const rawName = user.displayName || "";
+      const translatedName = rawName.replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke');
+      setDisplayName(translatedName);
       setEmails(user.email ? [user.email] : []);
-      setAccountName(user.displayName || "");
+      setAccountName(translatedName);
       if (firestore) {
         getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
           if (docSnap.exists()) {
             const data = docSnap.data();
             setBio(data.bio || "");
             setLocation(data.location || "");
-            if (data.accountName) setAccountName(data.accountName);
+            if (data.accountName) {
+              const accName = data.accountName.replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke');
+              setAccountName(accName);
+            }
             if (data.additionalEmails) setEmails([user.email || '', ...data.additionalEmails]);
             if (data.phoneNumber) setPhoneNumber(data.phoneNumber);
             if (data.address) setAddress(data.address);
@@ -218,7 +225,7 @@ function SettingsContent() {
         });
       }
     }
-  }, [user, firestore]);
+  }, [user, firestore, lang]);
 
   useEffect(() => {
     if (isUserLoading) return;
@@ -297,8 +304,9 @@ function SettingsContent() {
     setProfileMessage("");
     try {
       await updateProfile(auth.currentUser, { displayName });
-      await setDoc(doc(firestore, "users", user.uid), { bio, location }, { merge: true });
-      logActivity(firestore, 'profile_updated', { email: user?.email || '', displayName }, 'Updated profile: display name, bio, location');
+      await setDoc(doc(firestore, "users", user.uid), { bio, location, timezone: location }, { merge: true });
+      localStorage.setItem('user_timezone', location);
+      logActivity(firestore, 'profile_updated', { email: user?.email || '', displayName }, 'Updated profile: display name, bio, timezone');
       setProfileMessage("OK");
     } catch (err: any) {
       console.error(err);
@@ -447,7 +455,7 @@ function SettingsContent() {
     }
   };
 
-  const dict = t[lang];
+  const dict = localDict[lang];
 
   // Dark mode state for settings page
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -479,7 +487,7 @@ function SettingsContent() {
                 <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-white'} border-4 shadow-lg overflow-hidden flex items-center justify-center text-xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
                   {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : (user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                 </div>
-                <h3 className={`font-bold text-base line-clamp-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{user?.displayName || "User"}</h3>
+                <h3 className={`font-bold text-base line-clamp-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{(user?.displayName || "User").replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke')}</h3>
                 <p className={`text-[10px] font-medium uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{user?.email}</p>
               </div>
 
@@ -502,7 +510,7 @@ function SettingsContent() {
                   onClick={() => setActiveTab('general')}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-sm ${activeTab === 'general' ? (isDarkMode ? 'bg-slate-800 text-white' : 'bg-slate-900 text-white') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')}`}
                 >
-                  <Settings className="w-4 h-4" /> General
+                  <Settings className="w-4 h-4" /> {t.general}
                 </button>
               </div>
             </div>
@@ -514,14 +522,14 @@ function SettingsContent() {
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
                     <div className="px-8 pt-7 pb-2">
-                      <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>General</h2>
-                      <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your platform-wide preferences.</p>
+                      <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.general}</h2>
+                      <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.managePlatformPrefs}</p>
                     </div>
                     <div className="px-8 pb-8 pt-4 space-y-0">
                       <div className={`flex items-center justify-between py-5 ${isDarkMode ? 'border-slate-700/40' : 'border-slate-100'} border-b`}>
                         <div className="space-y-0.5">
-                          <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Dark Mode</span>
-                          <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Switch the entire dashboard to a dark color scheme.</p>
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.darkMode}</span>
+                          <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.darkModeDesc}</p>
                         </div>
                         <Switch 
                           checked={isDarkMode}
@@ -544,44 +552,44 @@ function SettingsContent() {
                   {subPage === 'personal-info' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                       <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
-                        <ArrowLeft className="w-4 h-4" /> Back to Profile
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? "Volver al Perfil" : "Back to Profile"}
                       </button>
 
                       <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
                         <div className="px-8 pt-7 pb-2">
-                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Personal Information</h2>
-                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your account details. This is separate from your public display profile.</p>
+                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.personalInfo}</h2>
+                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.personalInfoDesc}</p>
                         </div>
                         <div className="px-8 pb-8 pt-4 space-y-6">
                           {/* Account Name */}
                           <div className="space-y-1.5">
-                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Account Name</Label>
-                            <Input value={accountName} onChange={e => setAccountName(e.target.value)} placeholder="Your legal or account name" className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
-                            <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>This is different from your public display name.</p>
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.accountName}</Label>
+                            <Input value={accountName} onChange={e => setAccountName(e.target.value)} placeholder={lang === 'es' ? "Tu nombre legal o de la cuenta" : "Your legal or account name"} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
+                            <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.accountNameNote}</p>
                           </div>
 
                           {/* Emails */}
                           <div className="space-y-3">
-                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Email Addresses</Label>
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.emailAddresses}</Label>
                             <div className="space-y-2">
                               {emails.map((email, i) => (
                                 <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800/60 border-slate-700/40' : 'bg-slate-50 border-slate-100'} border`}>
                                   <Mail className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                                   <span className={`text-sm flex-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{email}</span>
-                                  {i === 0 && <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Primary</span>}
+                                  {i === 0 && <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>{t.primary}</span>}
                                   {i > 0 && <button onClick={() => setEmails(emails.filter((_, j) => j !== i))} className={`${isDarkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-300 hover:text-red-500'} transition-colors`}><X className="w-3.5 h-3.5" /></button>}
                                 </div>
                               ))}
                             </div>
                             <div className="flex gap-2">
-                              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Add another email" className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-9 text-sm`} />
+                              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={lang === 'es' ? "Agregar otro correo" : "Add another email"} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-9 text-sm`} />
                               <Button onClick={() => { if (newEmail.trim() && newEmail.includes('@')) { setEmails([...emails, newEmail.trim()]); setNewEmail(''); }}} variant="outline" className={`h-9 px-3 shrink-0 ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /></Button>
                             </div>
                           </div>
 
                           {/* Phone */}
                           <div className="space-y-1.5">
-                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Phone Number</Label>
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.phoneNumber}</Label>
                             <div className="relative">
                               <Phone className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                               <Input value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="+1 (555) 000-0000" className={`pl-10 ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
@@ -590,7 +598,7 @@ function SettingsContent() {
 
                           {/* Address */}
                           <div className="space-y-1.5">
-                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Address</Label>
+                            <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.address}</Label>
                             <div className="relative">
                               <MapPin className={`absolute left-3 top-3 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                               <textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, State ZIP" className={`w-full h-20 pl-10 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-600' : 'bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400'} border focus:outline-none focus:ring-2 focus:ring-slate-400/30 text-sm resize-none`} />
@@ -598,7 +606,7 @@ function SettingsContent() {
                           </div>
 
                           <div className="flex justify-end pt-2">
-                            <Button onClick={async () => { if (!user?.uid || !firestore) return; try { await setDoc(doc(firestore, 'users', user.uid), { accountName, additionalEmails: emails.slice(1), phoneNumber, address }, { merge: true }); setProfileMessage('OK'); } catch { setProfileMessage('Error'); } setTimeout(() => setProfileMessage(''), 3000); }} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-5 rounded-lg shadow-sm">Save Changes</Button>
+                            <Button onClick={async () => { if (!user?.uid || !firestore) return; try { await setDoc(doc(firestore, 'users', user.uid), { accountName, additionalEmails: emails.slice(1), phoneNumber, address }, { merge: true }); setProfileMessage('OK'); } catch { setProfileMessage('Error'); } setTimeout(() => setProfileMessage(''), 3000); }} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-5 rounded-lg shadow-sm">{t.saveChanges}</Button>
                           </div>
                         </div>
                       </div>
@@ -609,21 +617,21 @@ function SettingsContent() {
                   {subPage === 'sign-in-security' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                       <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
-                        <ArrowLeft className="w-4 h-4" /> Back to Profile
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? "Volver al Perfil" : "Back to Profile"}
                       </button>
 
                       <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
                         <div className="px-8 pt-7 pb-2">
-                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Sign-In & Security</h2>
-                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your password and account security settings.</p>
+                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.security}</h2>
+                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.securityDesc}</p>
                         </div>
                         <div className="px-8 pb-8 pt-4 space-y-6">
 
                           {/* Current Password */}
                           <div className={`p-5 rounded-xl ${isDarkMode ? 'bg-slate-800/50 border-slate-700/40' : 'bg-slate-50 border-slate-100'} border space-y-3`}>
                             <div>
-                              <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Current Password</h3>
-                              <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Your current account password</p>
+                              <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.currentPassword}</h3>
+                              <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.currentPasswordDesc}</p>
                             </div>
 
                             <div className={`flex items-center gap-3 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border`}>
@@ -635,7 +643,7 @@ function SettingsContent() {
                             </div>
 
                             <button onClick={() => setShowResetModal(true)} className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors">
-                              Reset my password
+                              {lang === 'es' ? "Restablecer mi contraseña" : "Reset my password"}
                             </button>
                           </div>
 
@@ -643,12 +651,12 @@ function SettingsContent() {
                           {showPasswordModal && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
                               <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}>
-                                <h3 className={`text-base font-semibold mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Verify Your Identity</h3>
-                                <p className={`text-xs mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Enter your current password to reveal it. It will auto-hide after 30 seconds for security.</p>
-                                <Input type="password" value={passwordVerify} onChange={e => setPasswordVerify(e.target.value)} placeholder="Enter current password" autoFocus onKeyDown={e => { if (e.key === 'Enter' && passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10 mb-4`} />
+                                <h3 className={`text-base font-semibold mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.verifyIdentity}</h3>
+                                <p className={`text-xs mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? "Ingresa tu contraseña actual para verla. Se ocultará automáticamente después de 30 segundos por seguridad." : "Enter your current password to reveal it. It will auto-hide after 30 seconds for security."}</p>
+                                <Input type="password" value={passwordVerify} onChange={e => setPasswordVerify(e.target.value)} placeholder={lang === 'es' ? "Ingresa la contraseña actual" : "Enter current password"} autoFocus onKeyDown={e => { if (e.key === 'Enter' && passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10 mb-4`} />
                                 <div className="flex gap-2 justify-end">
-                                  <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setPasswordVerify(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>Cancel</Button>
-                                  <Button onClick={() => { if (passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className="h-9 text-sm bg-slate-900 hover:bg-slate-800 text-white px-5 rounded-lg shadow-sm">Confirm</Button>
+                                  <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setPasswordVerify(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
+                                  <Button onClick={() => { if (passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className="h-9 text-sm bg-slate-900 hover:bg-slate-800 text-white px-5 rounded-lg shadow-sm">{t.confirm}</Button>
                                 </div>
                               </div>
                             </div>
@@ -663,11 +671,11 @@ function SettingsContent() {
                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
                                       <Mail className="w-6 h-6" />
                                     </div>
-                                    <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Reset Your Password</h3>
-                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>We&apos;ll send a password reset link to your email address <span className="font-semibold">{user?.email}</span>. Click the link to set a new password.</p>
+                                    <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.resetPassword}</h3>
+                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? <>Enviaremos un enlace de restablecimiento de contraseña a tu correo electrónico <span className="font-semibold">{user?.email}</span>. Haz clic en el enlace para establecer una nueva contraseña.</> : <>We&apos;ll send a password reset link to your email address <span className="font-semibold">{user?.email}</span>. Click the link to set a new password.</>}</p>
                                     <div className="flex gap-2 justify-end">
-                                      <Button variant="ghost" onClick={() => setShowResetModal(false)} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>Cancel</Button>
-                                      <Button onClick={async () => { if (auth && user?.email) { try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/soltheory/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'settings_changed', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e) { console.error(e); }}}} className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm">Send Reset Email</Button>
+                                      <Button variant="ghost" onClick={() => setShowResetModal(false)} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
+                                      <Button onClick={async () => { if (auth && user?.email) { try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/soltheory/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'settings_changed', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e) { console.error(e); }}}} className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm">{t.sendResetEmail}</Button>
                                     </div>
                                   </>
                                 ) : (
@@ -675,11 +683,11 @@ function SettingsContent() {
                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 bg-emerald-500/10 text-emerald-500`}>
                                       <Mail className="w-6 h-6" />
                                     </div>
-                                    <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Check Your Email</h3>
-                                    <p className={`text-xs text-center mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>We&apos;ve sent a password reset link to <span className="font-semibold">{user?.email}</span>. Click the link in the email to create a new password.</p>
-                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-amber-400/80' : 'text-amber-600'}`}>💡 Don&apos;t see it? Check your <span className="font-semibold">spam or junk folder</span>.</p>
+                                    <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.checkEmail}</h3>
+                                    <p className={`text-xs text-center mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? <>Hemos enviado un enlace de restablecimiento a <span className="font-semibold">{user?.email}</span>. Haz clic en el enlace del correo para crear una nueva contraseña.</> : <>We&apos;ve sent a password reset link to <span className="font-semibold">{user?.email}</span>. Click the link in the email to create a new password.</>}</p>
+                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-amber-400/80' : 'text-amber-600'}`}>{lang === 'es' ? <>💡 ¿No lo ves? Revisa tu <span className="font-semibold">carpeta de correo no deseado o spam</span>.</> : <>💡 Don&apos;t see it? Check your <span className="font-semibold">spam or junk folder</span>.</>}</p>
                                     <div className="flex justify-center">
-                                      <Button onClick={() => { setShowResetModal(false); setResetEmailSent(false); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); }} className={`h-9 text-sm px-6 rounded-lg shadow-sm ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>Done</Button>
+                                      <Button onClick={() => { setShowResetModal(false); setResetEmailSent(false); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); }} className={`h-9 text-sm px-6 rounded-lg shadow-sm ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>{t.doneBtnLabel}</Button>
                                     </div>
                                   </>
                                 )}
@@ -695,13 +703,13 @@ function SettingsContent() {
                                   <Shield className="w-5 h-5" />
                                 </div>
                                 <div>
-                                  <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Two-Factor Authentication</h3>
-                                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Add an extra layer of security with 2FA</p>
+                                  <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.twoFactorAuth}</h3>
+                                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.twoFactorDesc}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
-                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Not Enabled</span>
-                                <Button variant="outline" className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Enable 2FA</Button>
+                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>{t.notEnabled}</span>
+                                <Button variant="outline" className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{lang === 'es' ? "Activar 2FA" : "Enable 2FA"}</Button>
                               </div>
                             </div>
                           </div>
@@ -715,13 +723,13 @@ function SettingsContent() {
                   {subPage === 'integrations' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                       <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
-                        <ArrowLeft className="w-4 h-4" /> Back to Profile
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? "Volver al Perfil" : "Back to Profile"}
                       </button>
 
                       <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm`}>
                         <div className="px-8 pt-7 pb-2">
-                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Third-Party Integrations</h2>
-                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Connect external services to enhance your Insight experience.</p>
+                          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.integrations}</h2>
+                          <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.integrationsDesc}</p>
                         </div>
                         <div className="px-8 pb-8 pt-4 space-y-0">
 
@@ -732,8 +740,8 @@ function SettingsContent() {
                                 <MessageCircle className="w-5 h-5" />
                               </div>
                               <div>
-                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>SMS / Text Messaging</h3>
-                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Get a dedicated phone number for sending and receiving texts.</p>
+                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.smsIntegration}</h3>
+                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.smsIntegrationDesc}</p>
                                 {imConnected && imServerUrl && (
                                   <p className="text-xs text-emerald-500 font-medium mt-1 flex items-center gap-1"><Wifi className="w-3 h-3" /> Active · <span className="font-mono text-emerald-600">{imServerUrl}</span></p>
                                 )}
@@ -742,11 +750,11 @@ function SettingsContent() {
                             <div className="flex items-center gap-2">
                               {imConnected && imServerUrl ? (
                                 <>
-                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Connected</span>
-                                  <Button variant="outline" onClick={handleDisconnectImessage} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>Disconnect</Button>
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>{t.connected}</span>
+                                  <Button variant="outline" onClick={handleDisconnectImessage} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>{t.disconnect}</Button>
                                 </>
                               ) : (
-                                <Button onClick={() => window.location.href = window.location.pathname.replace("/settings", "/communications/imessage")} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-4 rounded-lg shadow-sm">Set Up</Button>
+                                <Button onClick={() => window.location.href = window.location.pathname.replace("/settings", "/communications/imessage")} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-4 rounded-lg shadow-sm">{t.setUp}</Button>
                               )}
                             </div>
                           </div>
@@ -758,8 +766,8 @@ function SettingsContent() {
                                 <Mail className="w-5 h-5" />
                               </div>
                               <div>
-                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Google Account</h3>
-                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Connect Google for email, calendar, and document access.</p>
+                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.googleAccount}</h3>
+                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.googleAccountDesc}</p>
                                 {gmailConnected && <p className="text-xs text-emerald-500 font-medium mt-1">✓ Connected Successfully</p>}
                                 {oauthError && <p className="text-xs text-red-400 font-medium mt-1">✗ {oauthError}</p>}
                               </div>
@@ -767,11 +775,11 @@ function SettingsContent() {
                             <div className="flex items-center gap-2">
                               {gmailConnected ? (
                                 <>
-                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Connected</span>
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>{t.connected}</span>
                                   <Button variant="outline" onClick={handleSyncInbox} disabled={isSyncing} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                                     {isSyncing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />} Refresh
                                   </Button>
-                                  <Button variant="outline" onClick={handleDisconnectGmail} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>Disconnect</Button>
+                                  <Button variant="outline" onClick={handleDisconnectGmail} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>{t.disconnect}</Button>
                                 </>
                               ) : (
                                 <Button onClick={handleConnectGmail} disabled={isUserLoading} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-4 rounded-lg shadow-sm">
@@ -788,8 +796,8 @@ function SettingsContent() {
                                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-2h2v2zm0-4h-2V7h2v6zm4 4h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
                               </div>
                               <div>
-                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>QuickBooks</h3>
-                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Sync financial data including expenses, invoices, and P&L reports.</p>
+                                <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.quickbooksLabel}</h3>
+                                <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.quickbooksDesc}</p>
                                 {qbConnected && <p className="text-xs text-emerald-500 font-medium mt-1">✓ Connected Successfully</p>}
                                 {qbError && <p className="text-xs text-red-400 font-medium mt-1">✗ {qbError}</p>}
                               </div>
@@ -797,8 +805,8 @@ function SettingsContent() {
                             <div className="flex items-center gap-2">
                               {qbConnected ? (
                                 <>
-                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Connected</span>
-                                  <Button variant="outline" onClick={handleDisconnectQuickBooks} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>Disconnect</Button>
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>{t.connected}</span>
+                                  <Button variant="outline" onClick={handleDisconnectQuickBooks} className={`h-8 px-3 text-xs ${isDarkMode ? 'border-slate-600 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-red-500 hover:bg-red-50'}`}>{t.disconnect}</Button>
                                 </>
                               ) : (
                                 <Button onClick={handleConnectQuickBooks} disabled={isUserLoading || qbConnecting} className="bg-slate-900 hover:bg-slate-800 text-white text-sm h-9 px-4 rounded-lg shadow-sm">
@@ -843,7 +851,12 @@ function SettingsContent() {
                         </div>
                         <div className="space-y-1.5 md:col-span-2">
                           <Label htmlFor="location" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.location}</Label>
-                          <Input id="location" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. New York, NY (EST)" className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
+                          <select id="location" value={location} onChange={e => setLocation(e.target.value)} className={`w-full px-3 rounded-lg border ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-800'} focus:outline-none focus:ring-2 focus:ring-slate-400/30 h-10 text-sm appearance-none cursor-pointer`}>
+                            <option value="">{dict.location}...</option>
+                            {TIMEZONE_OPTIONS.map(tz => (
+                              <option key={tz.value} value={tz.value}>{tz.label}</option>
+                            ))}
+                          </select>
                         </div>
                         <div className="space-y-1.5 md:col-span-2">
                           <Label htmlFor="bio" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.bio}</Label>
@@ -866,10 +879,10 @@ function SettingsContent() {
                   <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                     <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
                       {[
-                        { icon: <User className="w-4 h-4" />, label: 'Personal Information', desc: 'Name, email, phone, and address', action: () => setSubPage('personal-info') },
-                        { icon: <Lock className="w-4 h-4" />, label: 'Sign-In & Security', desc: 'Password, 2FA, and login activity', action: () => setSubPage('sign-in-security') },
-                        { icon: <Smartphone className="w-4 h-4" />, label: 'Payment & Shipping', desc: 'Payment methods and billing address', action: undefined },
-                        { icon: <Bell className="w-4 h-4" />, label: 'Subscriptions', desc: 'Manage your plan and billing cycle', action: undefined },
+                        { icon: <User className="w-4 h-4" />, label: t.personalInfo, desc: t.personalInfoDescShort, action: () => setSubPage('personal-info') },
+                        { icon: <Lock className="w-4 h-4" />, label: t.security, desc: t.securityDescShort, action: () => setSubPage('sign-in-security') },
+                        { icon: <Smartphone className="w-4 h-4" />, label: t.paymentShipping, desc: t.paymentShippingDesc, action: undefined },
+                        { icon: <Bell className="w-4 h-4" />, label: t.subscriptionsLabel, desc: t.subscriptionsDesc, action: undefined },
                       ].map((item, i) => (
                         <button key={i} onClick={item.action} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.action ? 'cursor-pointer' : 'cursor-default'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
@@ -889,9 +902,9 @@ function SettingsContent() {
                   <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                     <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
                       {[
-                        { icon: <HardDrive className="w-4 h-4" />, label: 'Cloud Storage', desc: 'Manage files and documents', action: undefined },
-                        { icon: <Globe className="w-4 h-4" />, label: 'Third-Party Integrations', desc: 'Connected services and API access', action: () => setSubPage('integrations') },
-                        { icon: <Smartphone className="w-4 h-4" />, label: 'Signed-In Devices', desc: 'Manage active sessions and devices', action: undefined },
+                        { icon: <HardDrive className="w-4 h-4" />, label: t.cloudStorage, desc: t.cloudStorageDesc, action: undefined },
+                        { icon: <Globe className="w-4 h-4" />, label: t.integrations, desc: t.integrationsDescShort, action: () => setSubPage('integrations') },
+                        { icon: <Smartphone className="w-4 h-4" />, label: t.signedInDevices, desc: t.signedInDevicesDesc, action: undefined },
                       ].map((item, i) => (
                         <button key={i} onClick={item.action} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.action ? 'cursor-pointer' : 'cursor-default'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>

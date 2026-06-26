@@ -3,8 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { FileText, LogIn, LogOut, Bot, Ticket, ClipboardList, Users, Clock, MessageSquare, Settings, Upload, Trash2, Edit, Plus } from 'lucide-react';
+import { FileText, LogIn, LogOut, Bot, Ticket, ClipboardList, Users, Clock, MessageSquare, Settings, Upload, Trash2, Edit, Plus, ExternalLink } from 'lucide-react';
 import type { ActivityType } from '@/lib/activity-logger';
+import { useTranslation } from '@/lib/i18n';
+import { useDarkMode } from '@/lib/useDarkMode';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface ActivityItem {
   id: string;
@@ -51,11 +54,18 @@ function timeAgo(seconds: number): string {
 }
 
 export function OrgActivityFeed() {
+  const { t } = useTranslation();
   const firestore = useFirestore();
   const { user } = useUser();
+  const isDarkMode = useDarkMode();
+  const router = useRouter();
+  const pathname = usePathname();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [filter, setFilter] = useState<'all' | ActivityType>('all');
   const [loading, setLoading] = useState(true);
+
+  const isNxtChapter = pathname.includes('/nxtchapter');
+  const dashboardHome = isNxtChapter ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
 
   const orgDomain = user?.email?.split('@')[1] || '';
 
@@ -110,69 +120,93 @@ export function OrgActivityFeed() {
       {/* Header */}
       <div className="flex items-center justify-between mb-1 shrink-0">
         <div>
-          <h3 className="text-lg font-bold text-slate-900 tracking-tight" style={{ fontFamily: "'Inter', sans-serif" }}>
-            Activity
+          <h3 className={`text-lg font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Inter', sans-serif" }}>
+            {t.activity}
           </h3>
-          <p className="text-[11px] text-slate-400 font-medium">
-            Last 24 hours across your team.
+          <p className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+            {t.last24Hours}
           </p>
         </div>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as typeof filter)}
-          className="text-xs font-semibold text-indigo-600 bg-transparent border-none outline-none cursor-pointer hover:text-indigo-800 transition-colors appearance-none pr-1"
-        >
-          <option value="all">All</option>
-          <option value="login">Logins</option>
-          <option value="grant_agent_created">Grant Agents</option>
-          <option value="support_ticket_created">Tickets</option>
-          <option value="action_board_created">Tasks</option>
-          <option value="crm_entry_created">CRM</option>
-          <option value="timesheet_entry_created">Timesheets</option>
-          <option value="ai_chat_sent">AI Chat</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as typeof filter)}
+            className={`text-xs font-semibold bg-transparent border-none outline-none cursor-pointer transition-colors appearance-none pr-1 ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-800'}`}
+          >
+            <option value="all">{t.all}</option>
+            <option value="login">{t.logins}</option>
+            <option value="grant_agent_created">{t.grantAgents}</option>
+            <option value="support_ticket_created">{t.tickets}</option>
+            <option value="action_board_created">{t.tasks}</option>
+            <option value="crm_entry_created">{t.crm}</option>
+            <option value="timesheet_entry_created">{t.timesheets}</option>
+            <option value="ai_chat_sent">{t.aiChat}</option>
+          </select>
+          <button
+            onClick={() => router.push(`${dashboardHome}/timesheets`)}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-colors cursor-pointer ${
+              isDarkMode 
+                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-350 hover:text-white' 
+                : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900'
+            }`}
+            title="Timesheets"
+          >
+            <Clock className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => router.push(`${dashboardHome}/activity-log`)}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-colors cursor-pointer ${
+              isDarkMode 
+                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-350 hover:text-white' 
+                : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900'
+            }`}
+            title="Activity Log"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Divider */}
-      <div className="h-px bg-slate-100 mb-2 shrink-0" />
+      <div className={`h-px mb-2 shrink-0 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`} />
 
       {/* Activity List */}
       <div className="flex-1 overflow-y-auto min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+            <div className={`w-5 h-5 border-2 rounded-full animate-spin ${isDarkMode ? 'border-slate-600 border-t-indigo-400' : 'border-slate-200 border-t-indigo-500'}`} />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <FileText className="w-8 h-8 text-slate-200 mb-2" />
-            <p className="text-xs text-slate-400 font-medium">No activity yet</p>
-            <p className="text-[10px] text-slate-300 mt-0.5">Events will appear here as your team works.</p>
+            <FileText className={`w-8 h-8 mb-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-200'}`} />
+            <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.noActivityYet}</p>
+            <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{t.eventsWillAppear}</p>
           </div>
         ) : (
           <div className="space-y-0.5">
             {filtered.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start gap-3 px-2 py-2.5 rounded-lg hover:bg-[#faf6ed]/70 transition-colors group"
+                className={`flex items-start gap-3 px-2 py-2.5 rounded-lg transition-colors group ${isDarkMode ? 'hover:bg-slate-800/70' : 'hover:bg-[#faf6ed]/70'}`}
               >
                 {/* Icon */}
-                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-slate-200/70 transition-colors">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${isDarkMode ? 'bg-slate-800 group-hover:bg-slate-700' : 'bg-slate-100 group-hover:bg-slate-200/70'}`}>
                   {ICON_MAP[item.type] || <FileText className="w-4 h-4 text-slate-400" />}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] text-slate-700 font-medium leading-snug truncate" style={{ fontFamily: "'Inter', sans-serif" }}>
-                    <span className="font-semibold text-slate-900">{item.userName}</span>{' '}
+                  <p className={`text-[13px] font-medium leading-snug truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`} style={{ fontFamily: "'Inter', sans-serif" }}>
+                    <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{item.userName}</span>{' '}
                     {item.description.replace(item.userName, '').trim() || item.type.replace(/_/g, ' ')}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                  <p className={`text-[10px] font-medium mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                     {item.category}
                   </p>
                 </div>
 
                 {/* Time */}
-                <span className="text-[11px] text-slate-400 font-medium shrink-0 mt-1 tabular-nums">
+                <span className={`text-[11px] font-medium shrink-0 mt-1 tabular-nums ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                   {item.timestamp ? timeAgo(item.timestamp.seconds) : 'â€”'}
                 </span>
               </div>

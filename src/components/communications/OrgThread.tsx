@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { playMessageSendSound } from "@/lib/send-sound";
 import { logActivity } from '@/lib/activity-logger';
+import { useTranslation } from "@/lib/i18n";
 
 interface Channel {
   id: string;
@@ -32,44 +33,45 @@ interface ThreadMessage {
 
 type Role = "admin" | "executive" | "member";
 
-const ChatToolsMenu = ({ onInsertList }: { onInsertList: (rows: number, isCheckbox: boolean) => void }) => {
+const ChatToolsMenu = ({ onInsertList, isDarkMode }: { onInsertList: (rows: number, isCheckbox: boolean) => void, isDarkMode: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<'menu' | 'listForm'>('menu');
   const [rows, setRows] = useState(5);
   const [isCheckbox, setIsCheckbox] = useState(false);
+  const { t } = useTranslation();
 
   return (
-    <div className="absolute left-12 top-1/2 -translate-y-1/2 z-20">
-      <button onClick={() => setIsOpen(!isOpen)} className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors flex items-center justify-center cursor-pointer" title="Tools">
+    <div className="relative z-20">
+      <button onClick={() => setIsOpen(!isOpen)} className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors flex items-center justify-center cursor-pointer" title={t.otTools}>
         <Wrench className="w-4 h-4 text-slate-600" />
       </button>
       {isOpen && (
-        <div className="absolute bottom-12 left-0 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50">
+        <div className={`absolute bottom-12 left-0 w-64 rounded-xl shadow-xl p-2 z-50 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
           {view === 'menu' ? (
             <div className="flex flex-col gap-1">
-              <button onClick={() => setView('listForm')} className="text-left px-3 py-2 text-[15px] font-medium text-slate-700 hover:bg-slate-100 rounded-md">Create List</button>
-              <button disabled className="text-left px-3 py-2 text-[15px] font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Poll</button>
+              <button onClick={() => setView('listForm')} className="text-left px-3 py-2 text-[15px] font-medium text-slate-700 hover:bg-slate-100 rounded-md">{t.otCreateList}</button>
+              <button disabled className="text-left px-3 py-2 text-[15px] font-medium text-slate-400 opacity-50 cursor-not-allowed">{t.otCreatePoll}</button>
               <button disabled className="text-left px-3 py-2 text-[15px] font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Thread</button>
             </div>
           ) : (
             <div className="p-2 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-slate-700">New List</span>
+                <span className="text-sm font-bold text-slate-700">{t.otNewList}</span>
                 <button onClick={() => { setView('menu'); setIsOpen(false); }} className="hover:text-slate-600"><X className="w-4 h-4 text-slate-400" /></button>
               </div>
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Rows (Max 50)</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otRowsMax50}</label>
                 <input type="number" min="1" max="50" value={rows} onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} className="w-full mt-1 border border-slate-200 bg-slate-50 rounded-md p-1.5 text-[15px] outline-none focus:ring-1 focus:ring-indigo-500" />
               </div>
               <label className="flex items-center gap-2 cursor-pointer mt-3 mb-1">
                 <input type="checkbox" checked={isCheckbox} onChange={e => setIsCheckbox(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer" />
-                <span className="text-[13px] font-medium text-slate-700">Add Checkboxes</span>
+                <span className="text-[13px] font-medium text-slate-700">{t.otAddCheckboxes}</span>
               </label>
               <Button size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium h-9" onClick={() => {
                 onInsertList(rows, isCheckbox);
                 setIsOpen(false);
                 setView('menu');
-              }}>Send List</Button>
+              }}>{t.otSendList}</Button>
             </div>
           )}
         </div>
@@ -82,6 +84,7 @@ const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: 
   const [localLines, setLocalLines] = useState<string[]>(text.split('\n'));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(text);
+  const { t: translate } = useTranslation();
 
   useEffect(() => {
     if (text !== lastSavedRef.current) {
@@ -130,10 +133,10 @@ const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: 
   return (
     <div className="space-y-1 mt-0.5 text-[15px] leading-relaxed flex flex-col">
       {localLines.map((line, i) => {
-        const t = line.trimStart();
-        const isUnchecked = /^- \[ \]/.test(t);
-        const isChecked = /^- \[x\]/.test(t);
-        const isBullet = t.startsWith('- •');
+        const tVal = line.trimStart();
+        const isUnchecked = /^- \[ \]/.test(tVal);
+        const isChecked = /^- \[x\]/.test(tVal);
+        const isBullet = tVal.startsWith('- •');
         if (!(isUnchecked || isChecked || isBullet)) return <span key={i} className="block text-slate-700">{line}</span>;
         const content = getContent(line);
         return (
@@ -158,10 +161,10 @@ const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: 
                 }}
                 rows={1}
                 className={`flex-1 bg-transparent border-none outline-none focus:ring-0 p-0 m-0 text-[15px] resize-none overflow-hidden leading-snug ${isChecked ? 'line-through opacity-60' : 'text-slate-800 placeholder-slate-400'}`}
-                placeholder="Type a task..."
+                placeholder={translate.otTypeTask}
               />
             ) : (
-              <span className={`flex-1 text-[15px] leading-snug ${isChecked ? 'line-through opacity-60' : 'text-slate-800'}`}>{content || <span className="opacity-40 italic">Empty</span>}</span>
+              <span className={`flex-1 text-[15px] leading-snug ${isChecked ? 'line-through opacity-60' : 'text-slate-800'}`}>{content || <span className="opacity-40 italic">{translate.otEmpty}</span>}</span>
             )}
           </div>
         );
@@ -179,6 +182,10 @@ const ROLE_COLORS: Record<Role, string> = {
 export function OrgThread() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { t } = useTranslation();
+
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => { const check = () => setIsDarkMode(localStorage.getItem('insight_theme') === 'dark'); check(); const interval = setInterval(check, 500); window.addEventListener('storage', check); return () => { clearInterval(interval); window.removeEventListener('storage', check); }; }, []);
 
   const [internalChannels, setInternalChannels] = useState<Channel[]>([]);
   const [guestChannels, setGuestChannels] = useState<Channel[]>([]);
@@ -444,29 +451,11 @@ export function OrgThread() {
   const handleSendMessage = async (customImageUrl?: string, customFileName?: string) => {
     if (!firestore || !user?.email || !activeChannelId) return;
     const textToSend = customImageUrl ? `Uploaded image: ${customFileName}` : inputText.trim();
-    if (!textToSend && !customImageUrl) return;
+    if (!textToSend && !customImageUrl && pendingAttachments.length === 0) return;
     setInputText("");
     playMessageSendSound();
-    try {
-      const payload: any = {
-        text: textToSend,
-        senderEmail: user.email,
-        createdAt: serverTimestamp(),
-      };
-      if (customImageUrl) payload.imageUrl = customImageUrl;
-      await addDoc(collection(firestore, `org_channels/${activeChannelId}/messages`), payload);
-      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent org thread message', { messagePreview: textToSend.substring(0, 200) });
-      // Update channel metadata for notification bell
-      await updateDoc(doc(firestore, "org_channels", activeChannelId), {
-        lastMessageBy: user.email,
-        lastMessageAt: serverTimestamp(),
-      }).catch(() => {});
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    } catch (e) {
-      console.error(e);
-      alert("Failed to send message.");
-    }
-    // Send any pending paste attachments
+
+    // Send any pending paste attachments (image-only sends with no text)
     if (!customImageUrl && pendingAttachments.length > 0) {
       const toProcess = [...pendingAttachments];
       setPendingAttachments([]);
@@ -475,6 +464,29 @@ export function OrgThread() {
         if (att.file.type.startsWith('image/')) {
           processImageFile(att.file);
         }
+      }
+    }
+
+    // Send text message (or the customImageUrl message)
+    if (textToSend || customImageUrl) {
+      try {
+        const payload: any = {
+          text: textToSend,
+          senderEmail: user.email,
+          createdAt: serverTimestamp(),
+        };
+        if (customImageUrl) payload.imageUrl = customImageUrl;
+        await addDoc(collection(firestore, `org_channels/${activeChannelId}/messages`), payload);
+        logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent org thread message', { messagePreview: textToSend.substring(0, 200) });
+        // Update channel metadata for notification bell
+        await updateDoc(doc(firestore, "org_channels", activeChannelId), {
+          lastMessageBy: user.email,
+          lastMessageAt: serverTimestamp(),
+        }).catch(() => {});
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      } catch (e) {
+        console.error(e);
+        alert("Failed to send message.");
       }
     }
   };
@@ -504,7 +516,7 @@ export function OrgThread() {
   };
 
   const processImageFile = (file: File) => {
-    if (file.type === "image/jpeg" || file.type === "image/png") {
+    if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -604,9 +616,9 @@ export function OrgThread() {
     const currentRole = getUserRole(channel, email);
     const roles: Role[] = ["member", "executive", "admin"];
     return (
-      <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+      <div className={`absolute right-0 top-full mt-1 w-48 border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
         <div className="px-3 py-2 border-b border-slate-100">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Set Role</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.otSetRole}</p>
           <p className="text-xs font-bold text-slate-700 truncate">{email.split("@")[0]}</p>
         </div>
         {roles.map((r) => (
@@ -626,7 +638,7 @@ export function OrgThread() {
             onClick={() => handleRemove(email)}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors"
           >
-            <Trash2 className="w-3 h-3" /> Remove from Channel
+            <Trash2 className="w-3 h-3" /> {t.otRemoveFromChannel}
           </button>
         </div>
       </div>
@@ -644,7 +656,7 @@ export function OrgThread() {
           setRolePopupEmail(null);
         }}
         className={`flex items-center justify-between gap-1 py-1 px-2 rounded-md cursor-pointer transition-colors group ${
-          isActive ? "bg-indigo-100 text-indigo-900" : "hover:bg-slate-200/50 text-slate-600"
+          isActive ? (isDarkMode ? "bg-slate-600 text-white" : "bg-indigo-100 text-indigo-900") : (isDarkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200/50 text-slate-600")
         } ${isSubthread ? "ml-4 my-0.5" : "my-0.5 py-1.5"}`}
       >
         <div className="flex items-center gap-2 overflow-hidden flex-1">
@@ -670,7 +682,7 @@ export function OrgThread() {
     const isSelf = email === user?.email;
 
     return (
-      <div className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-white border border-slate-200 shadow-sm hover:border-indigo-200 transition-all relative">
+      <div className={`flex items-center justify-between py-2 px-2.5 rounded-lg shadow-sm hover:border-indigo-200 transition-all relative ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
         <div className="flex flex-col min-w-0 pr-2 overflow-hidden flex-1">
           <span className="text-[13px] font-bold text-slate-800 truncate">{email.split("@")[0]}</span>
           {label && <span className="text-[10px] font-semibold text-slate-400">{label}</span>}
@@ -698,19 +710,19 @@ export function OrgThread() {
   };
 
   return (
-    <div className="flex h-full w-full bg-white rounded-[2rem] overflow-hidden border border-slate-200 shadow-sm relative">
+    <div className={`flex h-full w-full rounded-[2rem] overflow-hidden shadow-sm relative ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200'}`}>
       {/* Left Pane: Server Sidebar */}
-      <div className="w-64 flex flex-col border-r border-slate-100 bg-[#f8f9fa] relative z-20 shrink-0">
-        <div className="h-16 px-4 border-b border-slate-200 flex items-center shadow-sm bg-white shrink-0">
+      <div className={`w-64 flex flex-col border-r shrink-0 relative z-20 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-[#f8f9fa]'}`}>
+        <div className={`h-16 px-4 border-b flex items-center shadow-sm shrink-0 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
           <div className="flex flex-col min-w-0">
-            <h2 className="text-[13px] font-black text-slate-900 truncate uppercase tracking-widest">{userDomain || "Organization"}</h2>
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Internal Server</span>
+            <h2 className={`text-[13px] font-black truncate uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{userDomain || t.otOrganization}</h2>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t.otInternalServer}</span>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
           <div className="flex items-center justify-between px-2 pt-2 pb-1">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Channels</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otChannels}</span>
             <Plus className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-800 transition-colors" onClick={() => setIsCreatingChannel(!isCreatingChannel)} />
           </div>
 
@@ -718,7 +730,7 @@ export function OrgThread() {
             <div className="px-2 py-2 mb-2 flex flex-col gap-2">
               <Input
                 autoFocus
-                placeholder="new-channel"
+                placeholder={t.otNewChannelPlaceholder}
                 value={newChannelName}
                 onChange={(e) => setNewChannelName(e.target.value)}
                 className="h-8 text-xs rounded-md focus-visible:ring-indigo-200 bg-white shadow-sm font-medium border-slate-200"
@@ -726,10 +738,10 @@ export function OrgThread() {
               />
               <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setIsCreatingChannel(false)} className="h-7 text-xs flex-1">
-                  Cancel
+                  {t.otCancel}
                 </Button>
                 <Button size="sm" onClick={handleCreateChannel} className="h-7 text-xs flex-1 bg-slate-800 hover:bg-slate-900 text-white shadow-none">
-                  Create
+                  {t.otCreate}
                 </Button>
               </div>
             </div>
@@ -747,7 +759,7 @@ export function OrgThread() {
           {Object.keys(guestChannelsByDomain).length > 0 && (
             <div className="mt-6">
               <div className="flex items-center justify-between px-2 pt-2 pb-1">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Guest Access</span>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otGuestAccess}</span>
               </div>
               {Object.entries(guestChannelsByDomain).map(([domain, domainChannels]) => (
                 <div key={domain} className="mb-3">
@@ -772,20 +784,20 @@ export function OrgThread() {
       </div>
 
       {/* Center Pane: Channel Feed */}
-      <div className="flex-1 flex flex-col bg-white relative min-w-0">
+      <div className={`flex-1 flex flex-col relative min-w-0 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
         {activeChannelId && activeChannel ? (
           <>
             {/* Header */}
-            <div className="h-16 border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-sm bg-white z-10">
-              <div className="flex items-center gap-2 text-slate-800">
+            <div className={`h-16 border-b px-6 flex items-center justify-between shrink-0 shadow-sm z-10 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+              <div className={`flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Hash className="w-5 h-5 text-slate-400" />
                 <h3 className="text-[15px] font-bold">{activeChannel.name}</h3>
                 {activeChannel.domain !== userDomain && (
-                  <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-bold uppercase border border-slate-200">Guest</span>
+                  <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-bold uppercase border border-slate-200">{t.otGuest}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline-block">Channel Info.</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline-block">{t.otChannelInfo}</span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -808,31 +820,31 @@ export function OrgThread() {
                     <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
                       <Hash className="w-8 h-8 text-slate-400" />
                     </div>
-                    <h1 className="text-3xl font-black text-slate-900 mb-2">Welcome to #{activeChannel.name}!</h1>
+                    <h1 className={`text-3xl font-black mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.otWelcomeTo}{activeChannel.name}!</h1>
                     <p className="text-slate-500 text-sm font-medium">
-                      This is the start of the #{activeChannel.name} channel for the {activeChannel.domain} organization.
+                      {t.otStartOfChannel}{activeChannel.name} {t.otChannelFor} {activeChannel.domain}{t.otOrganizationPeriod}
                     </p>
                   </div>
                   <div className="h-px bg-slate-100 w-full mb-6"></div>
                   {messages.filter(m => !(m.hiddenFor || []).includes(user?.email || '')).map((msg, idx) => {
                     const isMe = msg.senderEmail === user?.email;
                     return (
-                    <div key={msg.id || idx} className={`group hover:bg-[#F4F7FF] rounded-lg transition-colors flex gap-4 pr-4 py-2 ${isMe ? "bg-[#F8FAFF]" : ""}`}
+                    <div key={msg.id || idx} className={`group rounded-lg transition-colors flex gap-4 pr-4 py-2 ${isDarkMode ? (isMe ? 'bg-slate-800/50 hover:bg-slate-800' : 'hover:bg-slate-800/50') : (isMe ? 'bg-[#F8FAFF] hover:bg-[#F4F7FF]' : 'hover:bg-[#F4F7FF]')}`}
                       onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: 0, y: 0, msgId: msg.id, isMe }); }}
                     >
-                      <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="font-bold text-indigo-600 text-sm">{msg.senderEmail.charAt(0).toUpperCase()}</span>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isDarkMode ? 'bg-indigo-900/40' : 'bg-indigo-50'}`}>
+                        <span className={`font-bold text-sm ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{msg.senderEmail.charAt(0).toUpperCase()}</span>
                       </div>
                       <div className="flex flex-col min-w-0 flex-1 relative">
                         {contextMenu?.msgId === msg.id && (
-                            <div className="absolute top-6 left-0 z-[9999] bg-white rounded-xl shadow-lg border border-slate-200 py-1 w-48 overflow-hidden pointer-events-auto">
-                               <button onClick={(e) => { e.stopPropagation(); handleCreateSubthread(msg); }} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Create a subthread</button>
-                               <button onClick={(e) => { e.stopPropagation(); handleDeleteForMe(contextMenu.msgId); }} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 font-medium">Delete for me</button>
-                               {contextMenu.isMe && <button onClick={(e) => { e.stopPropagation(); handleDeleteForEveryone(contextMenu.msgId); }} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium">Delete for everyone</button>}
+                            <div className={`absolute top-6 left-0 z-[9999] rounded-xl shadow-lg py-1 w-48 overflow-hidden pointer-events-auto ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+                               <button onClick={(e) => { e.stopPropagation(); handleCreateSubthread(msg); }} className={`w-full text-left px-4 py-2.5 text-sm font-medium ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>{t.otCreateSubthread}</button>
+                               <button onClick={(e) => { e.stopPropagation(); handleDeleteForMe(contextMenu.msgId); }} className={`w-full text-left px-4 py-2.5 text-sm font-medium ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>{t.otDeleteForMe}</button>
+                               {contextMenu.isMe && <button onClick={(e) => { e.stopPropagation(); handleDeleteForEveryone(contextMenu.msgId); }} className={`w-full text-left px-4 py-2.5 text-sm text-red-600 font-medium ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>{t.otDeleteForEveryone}</button>}
                             </div>
                         )}
                         <div className="flex items-baseline gap-2">
-                          <span className="font-bold text-[15px] text-slate-900 truncate max-w-[200px] capitalize">{msg.senderEmail.split("@")[0]}</span>
+                          <span className={`font-bold text-[15px] truncate max-w-[200px] capitalize ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{msg.senderEmail.split("@")[0]}</span>
                           <span className="text-xs font-medium text-slate-400">
                             {msg.createdAt ? new Date(msg.createdAt.toMillis?.() || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now"}
                           </span>
@@ -843,7 +855,7 @@ export function OrgThread() {
                             <img 
                               src={msg.imageUrl} 
                               alt="Uploaded Preview" 
-                              className="max-w-[300px] max-h-[300px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity" 
+                              className="max-w-[480px] max-h-[480px] object-cover rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity" 
                               onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.replace('Uploaded image: ', '') })}
                             />
                           </div>
@@ -860,9 +872,9 @@ export function OrgThread() {
 
               {/* Right Pane: Channel Info */}
               {showChannelInfo && (
-                <div className="w-80 bg-slate-50 border-l border-slate-200 flex flex-col shrink-0 animate-in slide-in-from-right-4 duration-300 relative z-20 overflow-y-auto">
-                  <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-10">
-                    <h3 className="text-sm font-bold text-slate-800">Channel Info</h3>
+                <div className={`w-80 border-l flex flex-col shrink-0 animate-in slide-in-from-right-4 duration-300 relative z-20 overflow-y-auto ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`p-4 border-b flex justify-between items-center sticky top-0 z-10 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.otChannelInfo}</h3>
                     <Button variant="ghost" size="icon" onClick={() => setShowChannelInfo(false)} className="h-6 w-6 text-slate-400">
                       <X className="w-3.5 h-3.5" />
                     </Button>
@@ -870,8 +882,8 @@ export function OrgThread() {
 
                   <div className="p-4 flex flex-col gap-5">
                     {/* Channel Name (editable) */}
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Channel Name</p>
+                    <div className={`p-3 rounded-xl shadow-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.otChannelName}</p>
                       {isRenaming ? (
                         <div className="flex gap-2">
                           <Input
@@ -890,7 +902,7 @@ export function OrgThread() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-black text-slate-800">#{activeChannel.name}</span>
+                          <span className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>#{activeChannel.name}</span>
                           {isActiveUserAdmin && (
                             <Button
                               variant="ghost"
@@ -909,12 +921,12 @@ export function OrgThread() {
                     </div>
 
                     {/* Member count */}
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                    <div className={`p-3 rounded-xl shadow-sm flex items-center gap-3 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
                       <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
                         <Shield className="w-5 h-5 text-indigo-500" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Members</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.otTotalMembers}</p>
                         <p className="text-sm font-black text-slate-700">
                           {orgUsersArray.filter((u) => !activeChannel.bannedUsers?.includes(u.email)).length +
                             (activeChannel.invitedUsers?.filter((e) => !activeChannel.bannedUsers?.includes(e)).length || 0)}
@@ -924,18 +936,18 @@ export function OrgThread() {
 
                     {/* Add People */}
                     {canInvite && (
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Add People</p>
+                      <div className={`p-3.5 rounded-xl shadow-sm flex flex-col gap-3 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otAddPeople}</p>
                         <div className="flex gap-2">
                           <Input
                             value={inviteEmail}
                             onChange={(e) => setInviteEmail(e.target.value)}
-                            placeholder="Email address"
+                            placeholder={t.otEmailAddressPlaceholder}
                             className="h-8 text-xs flex-1 bg-slate-50 shadow-inner"
                             onKeyDown={(e) => e.key === "Enter" && handleInviteUser()}
                           />
                           <Button size="sm" onClick={handleInviteUser} className="h-8 px-4 bg-indigo-600 hover:bg-indigo-700 text-xs shadow-none">
-                            Add
+                            {t.otAdd}
                           </Button>
                         </div>
                       </div>
@@ -943,7 +955,7 @@ export function OrgThread() {
 
                     {/* Internal Org Members */}
                     <div>
-                      <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Organization ({activeChannel.domain})</h4>
+                      <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">{t.otOrganization} ({activeChannel.domain})</h4>
                       <div className="space-y-2">
                         {orgUsersArray
                           .filter((u) => !activeChannel.bannedUsers?.includes(u.email))
@@ -956,12 +968,12 @@ export function OrgThread() {
                     {/* External Guests */}
                     {activeChannel.invitedUsers && activeChannel.invitedUsers.filter((e) => !activeChannel.bannedUsers?.includes(e)).length > 0 && (
                       <div>
-                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">External Guests</h4>
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">{t.otExternalGuests}</h4>
                         <div className="space-y-2">
                           {activeChannel.invitedUsers
                             .filter((e) => !activeChannel.bannedUsers?.includes(e))
                             .map((guestEmail) => (
-                              <MemberRow key={guestEmail} email={guestEmail} channel={activeChannel} label="Guest" />
+                              <MemberRow key={guestEmail} email={guestEmail} channel={activeChannel} label={t.otGuest} />
                             ))}
                         </div>
                       </div>
@@ -970,7 +982,7 @@ export function OrgThread() {
                     {/* Removed Users */}
                     {isActiveUserAdmin && activeChannel.bannedUsers && activeChannel.bannedUsers.length > 0 && (
                       <div className="mt-2">
-                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Removed</h4>
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.otRemoved}</h4>
                         <div className="space-y-2">
                           {activeChannel.bannedUsers.map((removed) => (
                             <div key={removed} className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white border border-dashed border-slate-200">
@@ -981,7 +993,7 @@ export function OrgThread() {
                                 onClick={() => handleReAdd(removed)}
                                 className="h-5 px-2 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50"
                               >
-                                Re-add
+                                {t.otReAdd}
                               </Button>
                             </div>
                           ))}
@@ -994,30 +1006,16 @@ export function OrgThread() {
             </div>
 
             {/* Message Input */}
-            <div className="px-6 pb-6 pt-2 shrink-0 bg-white">
-              <div className="relative">
-                <label className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors flex items-center justify-center cursor-pointer z-10" title="Upload Photo">
-                  <Paperclip className="w-4 h-4 text-slate-600" />
-                  <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
-                </label>
-                <ChatToolsMenu onInsertList={async (rows, isCheckbox) => {
-                   const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
-                   const msgData = {
-                     text: payload,
-                     senderEmail: user?.email,
-                     createdAt: serverTimestamp()
-                   };
-                   await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
-                   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                 }} />
+            <div className={`px-6 pb-6 pt-2 shrink-0 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
+              <div className={`flex flex-col rounded-xl border border-transparent focus-within:border-indigo-200 transition-colors overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
                 {pendingAttachments.length > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-200/60 bg-slate-50/30">
+                  <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200/60 bg-slate-50/50">
                     {pendingAttachments.map((att, idx) => (
                       <div key={idx} className="relative shrink-0 group">
                         {att.preview ? (
-                          <img src={att.preview} alt="" className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                          <img src={att.preview} alt="" className="w-14 h-14 rounded-lg object-cover border border-slate-200 shadow-sm" />
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
+                          <div className="w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
                             <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
                           </div>
                         )}
@@ -1031,25 +1029,43 @@ export function OrgThread() {
                     ))}
                   </div>
                 )}
-                <Input
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onPaste={handlePaste}
-                  placeholder={`Message #${activeChannel.name}`}
-                  className="w-full bg-slate-100 border-transparent focus-visible:ring-0 rounded-xl h-12 pl-[5.5rem] pr-12 shadow-none text-[15px] text-slate-800 placeholder:text-slate-500"
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                />
+                <div className="flex items-center h-12">
+                  <div className="flex items-center gap-1 pl-3 shrink-0">
+                    <label className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors flex items-center justify-center cursor-pointer" title={t.otUploadPhoto}>
+                      <Paperclip className="w-4 h-4 text-slate-600" />
+                      <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
+                    </label>
+                    <ChatToolsMenu isDarkMode={isDarkMode} onInsertList={async (rows, isCheckbox) => {
+                       const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
+                       const msgData = {
+                         text: payload,
+                         senderEmail: user?.email,
+                         createdAt: serverTimestamp()
+                       };
+                       await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
+                       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                     }} />
+                  </div>
+                  <Input
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onPaste={handlePaste}
+                    placeholder={`${t.otMessagePlaceholder}${activeChannel.name}`}
+                    className={`flex-1 bg-transparent border-transparent focus-visible:ring-0 h-12 pl-3 pr-4 shadow-none text-[15px] placeholder:text-slate-500 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                  />
+                </div>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-slate-50/50">
-            <div className="w-20 h-20 bg-white rounded-[2rem] shadow-sm flex items-center justify-center text-slate-300 mb-6 border border-slate-100 rotate-12 transition-transform hover:rotate-0 duration-300">
+          <div className={`flex-1 flex flex-col items-center justify-center text-center px-6 ${isDarkMode ? 'bg-slate-900/50' : 'bg-slate-50/50'}`}>
+            <div className={`w-20 h-20 rounded-[2rem] shadow-sm flex items-center justify-center mb-6 rotate-12 transition-transform hover:rotate-0 duration-300 ${isDarkMode ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-white text-slate-300 border border-slate-100'}`}>
               <MessagesSquare className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-black text-slate-800">No Channel Selected</h2>
+            <h2 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.otNoChannelSelected}</h2>
             <p className="text-slate-500 mt-2 max-w-sm font-medium">
-              Join the conversation! Choose an organization channel from the left sidebar or create a new one for your team.
+              {t.otNoChannelSelectedDesc}
             </p>
           </div>
         )}
