@@ -917,6 +917,24 @@ function SettingsContent() {
                           <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
                         </button>
                       ))}
+                      {/* Language Selector */}
+                      <div className={`w-full flex items-center gap-4 px-6 py-4 ${isDarkMode ? '' : ''}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                          <Globe className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.languageLabel}</div>
+                          <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.languageDesc}</div>
+                        </div>
+                        <select
+                          value={lang}
+                          onChange={(e) => changeLang(e.target.value as Lang)}
+                          className={`text-sm font-medium rounded-lg border px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
+                        >
+                          <option value="en">English</option>
+                          <option value="es">Español</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                     </>
