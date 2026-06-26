@@ -5,7 +5,7 @@ import {
   Mail, MessageSquare, Send, ChevronRight, ChevronLeft,
   Search, Star, StarOff, Inbox, Archive, Trash2, RefreshCw,
   Clock, Paperclip, Reply, ReplyAll, Forward,
-  ArrowLeft, Pen, X, Plus, Filter, Check, Zap, CalendarDays,
+  ArrowLeft, Pen, X, Plus, Filter, Check, Zap, CalendarDays, Maximize2, Minimize2,
   Phone, Hash, Globe, Link2, Loader2, ChevronUp, LogOut, UserPlus, Settings,
 } from "lucide-react";
 import CampaignManager from "@/components/campaigning/CampaignManager";
@@ -831,6 +831,9 @@ export default function AgenticCampaigningPage() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [zoomMode, setZoomMode] = useState<'off' | 'picking-start' | 'picking-end' | 'zoomed'>('off');
+  const [zoomStart, setZoomStart] = useState<number | null>(null);
+  const [zoomEnd, setZoomEnd] = useState<number | null>(null);
   useEffect(() => {
     const saved = localStorage.getItem('insight_theme');
     if (saved === 'dark') setIsDarkMode(true);
@@ -978,52 +981,130 @@ export default function AgenticCampaigningPage() {
 
         {/* Campaign Calendar */}
         <div className={`rounded-xl ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200 shadow-sm'}`}>
-          <div className={`flex items-center justify-between px-5 py-3.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200/60'}`}>
-            <div className="flex items-center gap-2">
-              <CalendarDays className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
-              <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                {new Date(calYear, calMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </h3>
-            </div>
+          <div className={`flex items-center justify-between px-5 py-3.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+            {/* Left: arrows + month name */}
             <div className="flex items-center gap-1">
-              <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }}
+              <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); setZoomMode('off'); setZoomStart(null); setZoomEnd(null); }}
                 className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button onClick={() => { setCalMonth(new Date().getMonth()); setCalYear(new Date().getFullYear()); }}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>Today</button>
-              <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }}
+              <button onClick={() => { setCalMonth(new Date().getMonth()); setCalYear(new Date().getFullYear()); setZoomMode('off'); setZoomStart(null); setZoomEnd(null); }}
+                className={`px-2 py-1 rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
+                <span className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                  {new Date(calYear, calMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </span>
+              </button>
+              <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); setZoomMode('off'); setZoomStart(null); setZoomEnd(null); }}
                 className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+            {/* Right: zoom range button */}
+            <div className="flex items-center gap-2">
+              {zoomMode === 'picking-start' && (
+                <span className={`text-[10px] font-medium ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Click a start date...</span>
+              )}
+              {zoomMode === 'picking-end' && (
+                <span className={`text-[10px] font-medium ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Click an end date...</span>
+              )}
+              {zoomMode === 'zoomed' ? (
+                <button onClick={() => { setZoomMode('off'); setZoomStart(null); setZoomEnd(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors border ${isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                  <Minimize2 className="w-3 h-3" /> Monthly View
+                </button>
+              ) : (
+                <button onClick={() => { setZoomMode(zoomMode === 'off' ? 'picking-start' : 'off'); setZoomStart(null); setZoomEnd(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors border ${
+                    zoomMode !== 'off'
+                      ? (isDarkMode ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : 'border-indigo-400 bg-indigo-50 text-indigo-600')
+                      : (isDarkMode ? 'border-slate-700 text-slate-400 hover:bg-slate-800' : 'border-slate-200 text-slate-500 hover:bg-slate-50')
+                  }`}>
+                  <Maximize2 className="w-3 h-3" /> Zoom Range
+                </button>
+              )}
+            </div>
           </div>
           <div className="p-4">
-            <div className="grid grid-cols-7 mb-2">
-              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
-                <div key={d} className={`text-center text-[10px] font-semibold py-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{d}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7">
-              {(() => {
-                const firstDay = new Date(calYear, calMonth, 1).getDay();
-                const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-                const today = new Date();
-                const isToday = (day: number) => today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear;
-                const cells: React.ReactElement[] = [];
-                for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className="h-16" />);
-                for (let day = 1; day <= daysInMonth; day++) {
-                  cells.push(
-                    <div key={day} className={`h-16 p-1 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'} relative`}>
-                      <span className={`text-[11px] font-medium inline-flex items-center justify-center w-5 h-5 rounded-full ${
-                        isToday(day) ? 'bg-indigo-600 text-white' : isDarkMode ? 'text-slate-300' : 'text-slate-600'
-                      }`}>{day}</span>
-                    </div>
-                  );
-                }
-                return cells;
-              })()}
-            </div>
+            {zoomMode === 'zoomed' && zoomStart !== null && zoomEnd !== null ? (
+              /* ── Zoomed View ── */
+              <>
+                <div className={`grid gap-px ${(zoomEnd - zoomStart + 1) <= 4 ? 'grid-cols-' + (zoomEnd - zoomStart + 1) : 'grid-cols-4'}`} style={{ gridTemplateColumns: `repeat(${Math.min(zoomEnd - zoomStart + 1, 7)}, 1fr)` }}>
+                  {Array.from({ length: zoomEnd - zoomStart + 1 }, (_, i) => zoomStart + i).map(day => {
+                    const date = new Date(calYear, calMonth, day);
+                    const dayName = date.toLocaleString('default', { weekday: 'short' });
+                    const today = new Date();
+                    const isToday = today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear;
+                    return (
+                      <div key={day} className={`min-h-[200px] p-3 border ${isDarkMode ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-white'} rounded-lg`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`text-[10px] font-semibold uppercase ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{dayName}</span>
+                          <span className={`text-lg font-bold inline-flex items-center justify-center w-8 h-8 rounded-full ${
+                            isToday ? 'bg-indigo-600 text-white' : isDarkMode ? 'text-slate-200' : 'text-slate-700'
+                          }`}>{day}</span>
+                        </div>
+                        <p className={`text-[10px] italic ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>No events</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              /* ── Monthly View ── */
+              <>
+                <div className="grid grid-cols-7 mb-1">
+                  {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                    <div key={d} className={`text-center text-[10px] font-semibold py-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7">
+                  {(() => {
+                    const firstDay = new Date(calYear, calMonth, 1).getDay();
+                    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                    const today = new Date();
+                    const isToday = (day: number) => today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear;
+                    const isInRange = (day: number) => {
+                      if (zoomMode === 'picking-end' && zoomStart !== null) return day >= zoomStart && day <= (zoomEnd || day);
+                      return false;
+                    };
+                    const cells: React.ReactElement[] = [];
+                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`aspect-square border-r border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
+                    for (let day = 1; day <= daysInMonth; day++) {
+                      const clickable = zoomMode === 'picking-start' || zoomMode === 'picking-end';
+                      cells.push(
+                        <div key={day}
+                          onClick={() => {
+                            if (zoomMode === 'picking-start') {
+                              setZoomStart(day);
+                              setZoomEnd(null);
+                              setZoomMode('picking-end');
+                            } else if (zoomMode === 'picking-end' && zoomStart !== null) {
+                              const end = day >= zoomStart ? day : zoomStart;
+                              const start = day < zoomStart ? day : zoomStart;
+                              setZoomStart(start);
+                              setZoomEnd(end);
+                              setZoomMode('zoomed');
+                            }
+                          }}
+                          className={`aspect-square p-1.5 border-r border-b relative transition-colors ${
+                            isDarkMode ? 'border-slate-700' : 'border-slate-200'
+                          } ${
+                            clickable ? 'cursor-pointer ' + (isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-indigo-50') : ''
+                          } ${
+                            isInRange(day) ? (isDarkMode ? 'bg-indigo-900/20' : 'bg-indigo-50') : ''
+                          } ${
+                            zoomStart === day ? (isDarkMode ? 'bg-indigo-900/30' : 'bg-indigo-100') : ''
+                          }`}>
+                          <span className={`text-[11px] font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
+                            isToday(day) ? 'bg-indigo-600 text-white' : isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                          }`}>{day}</span>
+                        </div>
+                      );
+                    }
+                    return cells;
+                  })()}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
