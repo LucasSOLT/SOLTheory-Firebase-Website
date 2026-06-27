@@ -522,19 +522,19 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const { user } = useUser();
   const creatorFirestore = useFirestore();
-  const [personalInfo, setPersonalInfo] = useState<{ senderName: string; orgName: string; phoneNumber: string }>({ senderName: campaignSettings.senderName || '', orgName: campaignSettings.orgName || '', phoneNumber: '' });
+  const [personalInfo, setPersonalInfo] = useState<{ senderName: string; orgName: string; phoneNumber: string }>({ senderName: campaignSettings.senderName || '', orgName: campaignSettings.orgName || '', phoneNumber: campaignSettings.phoneNumber || '' });
   const [savedPresets, setSavedPresets] = useState<{ id: string; label: string; senderName: string; orgName: string; phoneNumber: string }[]>([]);
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
   const [presetLabel, setPresetLabel] = useState('');
   const [showSaveForm, setShowSaveForm] = useState(false);
 
-  // Sync personal info defaults from campaignSettings
+  // Sync personal info defaults from campaignSettings (Sender Profile)
   useEffect(() => {
     if (!user?.uid) return;
     setPersonalInfo(prev => ({
       senderName: prev.senderName || campaignSettings.senderName || '',
       orgName: prev.orgName || campaignSettings.orgName || '',
-      phoneNumber: prev.phoneNumber || '',
+      phoneNumber: prev.phoneNumber || campaignSettings.phoneNumber || '',
     }));
   }, [campaignSettings, user?.uid]);
 
@@ -1233,13 +1233,17 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
             const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
             let resolvedBody = resolveMergeFields(campaign.body, recipient, effectiveSettings);
 
-            // Append sign-off with sender name and phone
+            // Append professional sign-off
             const senderName = effectiveSettings.senderName || '';
             const phone = effectiveSettings.phoneNumber || '';
-            if (senderName || phone) {
+            const replyEmail = effectiveSettings.replyToEmail || '';
+            const website = effectiveSettings.website || '';
+            if (senderName || phone || replyEmail || website) {
               resolvedBody += '\n\n---\n';
               if (senderName) resolvedBody += senderName + '\n';
               if (phone) resolvedBody += phone + '\n';
+              if (replyEmail) resolvedBody += replyEmail + '\n';
+              if (website) resolvedBody += website + '\n';
             }
 
             try {
