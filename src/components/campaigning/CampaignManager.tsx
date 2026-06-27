@@ -30,6 +30,7 @@ export interface Campaign {
   body: string;
   recipients: { id: string; name: string; email: string }[];
   triggerAt: string;
+  endAt?: string;
   repeatDays: number;
   createdAt: string;
   sent: number;
@@ -516,6 +517,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [recipients, setRecipients] = useState<{ id: string; name: string; email: string }[]>(editCampaign?.recipients || []);
   const [triggerAt, setTriggerAt] = useState(toLocalDatetimeValue(editCampaign?.triggerAt || ""));
   const [repeatDays, setRepeatDays] = useState(editCampaign?.repeatDays ?? 0);
+  const [endAt, setEndAt] = useState(editCampaign?.endAt ? toLocalDatetimeValue(editCampaign.endAt).split('T')[0] : '');
   const [contactSearch, setContactSearch] = useState("");
   const [showFromScratch, setShowFromScratch] = useState(!!(editCampaign && !editCampaign.templateId));
   const [showPreview, setShowPreview] = useState(false);
@@ -642,6 +644,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
         body,
         recipients,
         triggerAt: isoTrigger,
+        endAt: endAt ? new Date(endAt + 'T' + (triggerAt.split('T')[1] || '12:00')).toISOString() : undefined,
         repeatDays,
         createdAt: editCampaign?.createdAt || new Date().toISOString(),
         sent: editCampaign?.sent || 0,
@@ -973,6 +976,15 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 ))}
               </div>
             </div>
+
+            {repeatDays > 0 && (
+              <div>
+                <label className="text-sm font-bold text-slate-500 uppercase tracking-wider block mb-2">End Date</label>
+                <input type="date" value={endAt} onChange={(e) => setEndAt(e.target.value)}
+                  className="w-full px-5 py-4 rounded-xl border border-slate-200 text-base outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 transition-all" />
+                <p className="text-xs text-slate-400 mt-1">The campaign will stop sending after this date. Leave empty for no end date.</p>
+              </div>
+            )}
 
             <p className="text-xs text-slate-400 mt-1">
               {repeatDays === 0 ? 'This campaign will be sent once on the trigger date and time.' :

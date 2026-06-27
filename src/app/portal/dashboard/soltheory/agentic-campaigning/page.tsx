@@ -9,6 +9,7 @@ import {
   Phone, Hash, Globe, Link2, Loader2, ChevronUp, LogOut, UserPlus, Settings,
 } from "lucide-react";
 import CampaignManager from "@/components/campaigning/CampaignManager";
+import type { Campaign } from "@/components/campaigning/CampaignManager";
 import AIComposeAssist from "@/components/campaigning/AIComposeAssist";
 import SmartReply from "@/components/campaigning/SmartReply";
 import { useUser, useFirestore } from "@/firebase/provider";
@@ -835,6 +836,12 @@ export default function AgenticCampaigningPage() {
   const [zoomStart, setZoomStart] = useState<number | null>(null);
   const [zoomEnd, setZoomEnd] = useState<number | null>(null);
   const [hoverDay, setHoverDay] = useState<number | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<Campaign | null>(null);
+
+  // Color palette for campaign events
+  const EVENT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+  const getCampaignColor = (id: string) => EVENT_COLORS[Math.abs(id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % EVENT_COLORS.length];
   useEffect(() => {
     const saved = localStorage.getItem('insight_theme');
     if (saved === 'dark') setIsDarkMode(true);
@@ -844,6 +851,22 @@ export default function AgenticCampaigningPage() {
     window.addEventListener('storage', handler);
     return () => window.removeEventListener('storage', handler);
   }, []);
+
+  // Load campaigns from Firestore for calendar
+  useEffect(() => {
+    if (!user?.uid) return;
+    import('firebase/firestore').then(({ collection: col, query: q, onSnapshot: snap }) => {
+      import('@/firebase').then(({ initializeFirebase }) => {
+        const { firestore } = initializeFirebase();
+        const unsub = snap(q(col(firestore, `users/${user.uid}/campaigns`)), (snapshot) => {
+          const loaded: Campaign[] = [];
+          snapshot.forEach((d) => loaded.push({ ...(d.data() as Campaign), id: d.id }));
+          setCampaigns(loaded);
+        });
+        return () => unsub();
+      });
+    });
+  }, [user?.uid]);
 
   const { t, lang } = useTranslation();
 
@@ -1073,8 +1096,43 @@ export default function AgenticCampaigningPage() {
                     };
                     const cells: React.ReactElement[] = [];
                     for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[88px] border-r border-b border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
+
+                    // Get campaign events for a given day
+                    const getEventsForDay = (day: number): { campaign: Campaign; isMultiDay: boolean; isStart: boolean; isEnd: boolean; isMiddle: boolean }[] => {
+                      const dayDate = new Date(calYear, calMonth, day);
+                      const evts: { campaign: Campaign; isMultiDay: boolean; isStart: boolean; isEnd: boolean; isMiddle: boolean }[] = [];
+                      for (const c of campaigns) {
+                        if (c.status !== 'active' && c.status !== 'completed') continue;
+                        const start = new Date(c.triggerAt);
+                        const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+                        const end = c.endAt ? new Date(c.endAt) : null;
+                        const endDay = end ? new Date(end.getFullYear(), end.getMonth(), end.getDate()) : null;
+                        if (c.repeatDays === 0) {
+                          if (startDay.getTime() === dayDate.getTime()) {
+                            evts.push({ campaign: c, isMultiDay: false, isStart: true, isEnd: true, isMiddle: false });
+                          }
+                        } else {
+                          const effectiveEnd = endDay || new Date(calYear, calMonth + 1, 0);
+                          if (dayDate >= startDay && dayDate <= effectiveEnd) {
+                            const isFirstDay = dayDate.getTime() === startDay.getTime();
+                            const isLastDay = endDay ? dayDate.getTime() === endDay.getTime() : false;
+                            if (c.repeatDays === 1) {
+                              evts.push({ campaign: c, isMultiDay: true, isStart: isFirstDay, isEnd: isLastDay, isMiddle: !isFirstDay && !isLastDay });
+                            } else {
+                              const diffDays = Math.floor((dayDate.getTime() - startDay.getTime()) / 86400000);
+                              if (diffDays % c.repeatDays === 0) {
+                                evts.push({ campaign: c, isMultiDay: false, isStart: true, isEnd: true, isMiddle: false });
+                              }
+                            }
+                          }
+                        }
+                      }
+                      return evts;
+                    };
+
                     for (let day = 1; day <= daysInMonth; day++) {
                       const clickable = zoomMode === 'picking-start' || zoomMode === 'picking-end';
+                      const dayEvents = getEventsForDay(day);
                       cells.push(
                         <div key={day}
                           onClick={() => {
@@ -1106,12 +1164,69 @@ export default function AgenticCampaigningPage() {
                           <span className={`text-[11px] font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
                             isToday(day) ? 'bg-indigo-600 text-white' : isDarkMode ? 'text-slate-300' : 'text-slate-700'
                           }`}>{day}</span>
+                          {/* Campaign events */}
+                          <div className="mt-0.5 space-y-px overflow-hidden" style={{ maxHeight: '52px' }}>
+                            {dayEvents.map((ev, ei) => {
+                              const color = getCampaignColor(ev.campaign.id);
+                              if (!ev.isMultiDay) {
+                                return (
+                                  <div key={ei} onClick={(e) => { e.stopPropagation(); setSelectedEvent(ev.campaign); }}
+                                    className="flex items-center gap-1 cursor-pointer hover:opacity-80 truncate px-0.5">
+                                    <span className="w-[5px] h-[5px] rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                    <span className="text-[8px] truncate" style={{ color }}>{ev.campaign.name}</span>
+                                  </div>
+                                );
+                              } else {
+                                return (
+                                  <div key={ei} onClick={(e) => { e.stopPropagation(); setSelectedEvent(ev.campaign); }}
+                                    className={`text-[8px] text-white font-medium truncate cursor-pointer hover:opacity-90 px-1 py-px ${
+                                      ev.isStart ? 'rounded-l' : ''} ${ev.isEnd ? 'rounded-r' : ''}`}
+                                    style={{
+                                      backgroundColor: color,
+                                      marginLeft: ev.isStart ? '0' : '-6px',
+                                      marginRight: ev.isEnd ? '0' : '-6px',
+                                      paddingLeft: ev.isStart ? '4px' : '2px',
+                                    }}>
+                                    {ev.isStart ? ev.campaign.name : ''}
+                                  </div>
+                                );
+                              }
+                            })}
+                          </div>
                         </div>
                       );
                     }
                     return cells;
                   })()}
                 </div>
+
+                {/* Campaign Event Detail Popup */}
+                {selectedEvent && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setSelectedEvent(null)}>
+                    <div onClick={(e) => e.stopPropagation()} className={`rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{selectedEvent.name}</h3>
+                        <button onClick={() => setSelectedEvent(null)} className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer ${isDarkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-400'}`}>
+                          <span className="text-lg">&times;</span>
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getCampaignColor(selectedEvent.id) }} />
+                          <span className={`text-xs font-semibold uppercase tracking-wider ${selectedEvent.status === 'active' ? 'text-emerald-600' : selectedEvent.status === 'paused' ? 'text-amber-600' : isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{selectedEvent.status}</span>
+                        </div>
+                        <div className={`text-sm space-y-1.5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                          <p><span className="font-semibold">Subject:</span> {selectedEvent.subject}</p>
+                          <p><span className="font-semibold">Recipients:</span> {selectedEvent.recipients?.length || 0} contacts</p>
+                          <p><span className="font-semibold">Starts:</span> {new Date(selectedEvent.triggerAt).toLocaleString()}</p>
+                          {selectedEvent.endAt && <p><span className="font-semibold">Ends:</span> {new Date(selectedEvent.endAt).toLocaleString()}</p>}
+                          <p><span className="font-semibold">Repeat:</span> {selectedEvent.repeatDays === 0 ? 'One-time' : selectedEvent.repeatDays === 1 ? 'Daily' : selectedEvent.repeatDays === 7 ? 'Weekly' : 'Monthly'}</p>
+                          <p><span className="font-semibold">Sent:</span> {selectedEvent.sent || 0}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
