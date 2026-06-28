@@ -35,7 +35,7 @@ export default function DataDeletionPage() {
         </ol>
 
         <h3 className="text-base font-semibold text-slate-800 mt-4">Option B: Email Request</h3>
-        <p>Send an email to <a href="mailto:privacy@soltheory.com" className="text-pink-600 underline">privacy@soltheory.com</a> with the subject line <strong>&quot;Data Deletion Request&quot;</strong> and include:</p>
+        <p>Send an email to <a href="mailto:team@soltheory.com" className="text-pink-600 underline">team@soltheory.com</a> with the subject line <strong>&quot;Data Deletion Request&quot;</strong> and include:</p>
         <ul className="list-disc pl-6 space-y-1">
           <li>Your full name</li>
           <li>The email address associated with your SOLTheory account</li>
@@ -74,7 +74,7 @@ export default function DataDeletionPage() {
         <h2 className="text-lg font-semibold text-slate-800 mt-8">5. Contact Us</h2>
         <p>If you have any questions about data deletion or your privacy rights, please contact us:</p>
         <ul className="list-disc pl-6 space-y-1">
-          <li><strong>Email:</strong> <a href="mailto:privacy@soltheory.com" className="text-pink-600 underline">privacy@soltheory.com</a></li>
+          <li><strong>Email:</strong> <a href="mailto:team@soltheory.com" className="text-pink-600 underline">team@soltheory.com</a></li>
           <li><strong>Website:</strong> <a href="https://soltheory.com" className="text-pink-600 underline">soltheory.com</a></li>
         </ul>
 
