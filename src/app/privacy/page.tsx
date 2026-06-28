@@ -53,6 +53,7 @@ export default function PrivacyPage() {
         <p>The Platform integrates with the following third-party services, each governed by their own privacy policies:</p>
         <ul className="list-disc pl-6 space-y-1">
           <li><strong>Google Workspace</strong> (Gmail, Calendar, Drive) — for email and scheduling integration</li>
+          <li><strong>Meta/Instagram</strong> (Instagram Graph API, Facebook Pages API) — for social media content publishing and campaign management</li>
           <li><strong>QuickBooks Online</strong> — for financial dashboard and invoicing</li>
           <li><strong>Twilio</strong> — for SMS/text messaging capabilities</li>
           <li><strong>Firebase/Google Cloud</strong> — for authentication, data storage, and hosting</li>
