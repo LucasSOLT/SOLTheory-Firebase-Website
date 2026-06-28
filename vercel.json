@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/campaigning/instagram/cron",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

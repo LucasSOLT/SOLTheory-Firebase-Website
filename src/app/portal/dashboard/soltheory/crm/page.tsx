@@ -20,7 +20,7 @@ import {
   CheckSquare, Square, Tag, MailPlus, Calendar, Clock, ToggleLeft, ToggleRight,
   CalendarCheck, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
-  Table2, MapPin, Building2,
+  Table2, MapPin, Building2, ChevronLeft, ChevronRight, AlertTriangle, Save, Contact,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -46,7 +46,7 @@ const STATUS_COLORS: Record<string, string> = {
   "Sale Completed": "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ NAV CONFIG Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ─────────────────────────── NAV CONFIG ─────────────────────────── */
 
 const crmNavItems = [
   { id: "dashboard", label: "Database", icon: Table2 },
@@ -55,12 +55,12 @@ const crmNavItems = [
 
 type CrmView = "dashboard" | "campaigns" | "analytics";
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ STATUS & TAG HELPERS Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ─── STATUS & TAG HELPERS ─── */
 
 const getStatusLabel = (status: string, isSpanish: boolean) => {
   if (!isSpanish) return status;
   switch (status) {
-    case "Cold Lead": return "Prospecto FrÃƒÂ­o";
+    case "Cold Lead": return "Prospecto Frío";
     case "Warm Lead": return "Prospecto Tibio";
     case "Interested": return "Interesado";
     case "Sale Completed": return "Venta Completada";
@@ -97,7 +97,7 @@ const getStatusStyles = (status: string, isDarkMode: boolean) => {
   }
 };
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ EMPTY STATES Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ─── EMPTY STATES ─── */
 
 function EmptyContacts({ onAdd }: { onAdd: () => void }) {
   const { t, lang } = useTranslation();
@@ -174,7 +174,7 @@ function EmptyAnalytics() {
   );
 }
 
-/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ METRIC CARD ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+/* ─────────────────────────── METRIC CARD ─────────────────────── */
 
 function MetricCard({
   label,
@@ -217,7 +217,7 @@ export default function CRMPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
 
-  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ ZUSTAND STORE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+  /* ─────────── ZUSTAND STORE ─────────── */
   const store = useCRMStore();
   const { customers, meetings, notifications, conversations, chatMessages, customTags, integrations,
     isLoading, isAddingContact, isDeducing, isSendingReply,
@@ -227,7 +227,7 @@ export default function CRMPage() {
     addJarvisMessage, runDeduction,
     setCustomTags, setIntegrations, showToast } = store;
 
-  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ LOCAL UI STATE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+  /* ─────────── LOCAL UI STATE ─────────── */
   const [activeView, setActiveView] = useState<CrmView>("dashboard");
   const { t, lang } = useTranslation();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -370,11 +370,62 @@ export default function CRMPage() {
     const contactParts = [];
     if (emailSignature.phone) contactParts.push(emailSignature.phone);
     if (emailSignature.website) contactParts.push(emailSignature.website);
-    if (contactParts.length > 0) parts.push(`<p style="margin:2px 0 0 0;color:#9ca3af;font-size:12px;">${contactParts.join(" Ãƒâ€šÃ‚Â· ")}</p>`);
+    if (contactParts.length > 0) parts.push(`<p style="margin:2px 0 0 0;color:#9ca3af;font-size:12px;">${contactParts.join(" · ")}</p>`);
     return parts.length > 0 ? `<br/><div style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px;">${parts.join("")}</div>` : "";
   };
   const [showNotifications, setShowNotifications] = useState(false);
   const [viewingCustomer, setViewingCustomer] = useState<string | null>(null);
+  // ── Multi-user edit, contact view, delete confirm state ──
+  const [editModalIds, setEditModalIds] = useState<string[]>([]);
+  const [editModalIndex, setEditModalIndex] = useState(0);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const [showContactView, setShowContactView] = useState(false);
+  const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const openEditModal = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setEditModalIds(ids);
+    setEditModalIndex(0);
+    const c = customers.find(x => x.id === ids[0]);
+    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus });
+  };
+
+  const saveEditForm = async (customerId: string) => {
+    setIsSavingEdit(true);
+    await store.updateCustomer(customerId, {
+      firstName: editForm.firstName,
+      lastName: editForm.lastName,
+      email: editForm.email,
+      phone: editForm.phone,
+      birthday: editForm.birthday,
+      totalRevenue: parseFloat(editForm.totalRevenue) || 0,
+      outstandingBalance: parseFloat(editForm.outstandingBalance) || 0,
+      leadStatus: editForm.leadStatus,
+    });
+    setIsSavingEdit(false);
+    showToast("Contact updated successfully", "success");
+  };
+
+  const navigateEdit = async (direction: "prev" | "next") => {
+    // Auto-save current before navigating
+    const currentId = editModalIds[editModalIndex];
+    if (currentId) await saveEditForm(currentId);
+    const newIndex = direction === "next" ? editModalIndex + 1 : editModalIndex - 1;
+    if (newIndex < 0 || newIndex >= editModalIds.length) return;
+    setEditModalIndex(newIndex);
+    const c = customers.find(x => x.id === editModalIds[newIndex]);
+    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus });
+  };
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selectedIds);
+    bulkDelete(ids);
+    setSelectedIds(new Set());
+    setShowDeleteConfirm(false);
+    showToast(`Deleted ${ids.length} contact${ids.length === 1 ? "" : "s"}`, "success");
+  };
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("");
   const [meetingTitle, setMeetingTitle] = useState("");
@@ -430,7 +481,7 @@ export default function CRMPage() {
       const data = await res.json();
       
       if (res.ok) {
-        showToast(`Ã¢Å“â€¦ Successfully sent ${data.sentCount} emails!`);
+        showToast(`✅ Successfully sent ${data.sentCount} emails!`);
         logActivity(db, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent email campaign: ' + emailSubject);
         setShowEmailModal(false);
         setEmailSubject("");
@@ -446,7 +497,7 @@ export default function CRMPage() {
     }
   };
 
-  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ INITIALIZE FIRESTORE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+  /* ─────────── INITIALIZE FIRESTORE ─────────── */
   useEffect(() => {
     if (user?.uid && db) {
       initializeStore(db, user.uid);
@@ -461,7 +512,7 @@ export default function CRMPage() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ INBOX LOCAL UI ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+  /* ─────────── INBOX LOCAL UI ─────────── */
   const [activeConversation, setActiveConversation] = useState<string>("conv-1");
   const [inboxReply, setInboxReply] = useState("");
   const inboxChatEndRef = useRef<HTMLDivElement>(null);
@@ -491,7 +542,7 @@ export default function CRMPage() {
     updateTicketStatus(convId, status);
   };
 
-  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ OMNI-SEARCH ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+  /* ─────────── OMNI-SEARCH ─────────── */
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -765,7 +816,7 @@ export default function CRMPage() {
     return "";
   };
 
-  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ JARVIS AI COPILOT STATE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+  /* ─────────── JARVIS AI COPILOT STATE ─────────── */
   const [isJarvisOpen, setIsJarvisOpen] = useState(false);
   const [jarvisInput, setJarvisInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -779,24 +830,24 @@ export default function CRMPage() {
     const lower = input.toLowerCase().trim();
     addJarvisMessage({ id: `u-${Date.now()}`, role: "user", content: input, timestamp: new Date() });
 
-    // READ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â show all
+    // READ — show all
     if (lower.includes("show") && (lower.includes("all") || lower.includes("contacts") || lower.includes("everyone"))) {
       if (customers.length === 0) { addJarvisMsg("Your contact list is currently empty. Want me to add someone?"); return; }
-      const summary = customers.map(c => `ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **${c.firstName} ${c.lastName}** (${c.id}) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${c.leadStatus}${c.tags.length ? ` [${c.tags.join(", ")}]` : ""}`).join("\n");
+      const summary = customers.map(c => `• **${c.firstName} ${c.lastName}** (${c.id}) — ${c.leadStatus}${c.tags.length ? ` [${c.tags.join(", ")}]` : ""}`).join("\n");
       addJarvisMsg(`Here are all ${customers.length} contacts:\n\n${summary}`); return;
     }
 
-    // READ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â find specific contact
+    // READ — find specific contact
     if (lower.match(/\b(find|lookup|look up|show|who is|get)\s+/)) {
       const nameQuery = input.replace(/.*?\b(find|lookup|look up|show|who is|get)\s+/i, "").trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
-        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹ **${match.firstName} ${match.lastName}** (${match.id})\n\nÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â§ ${match.email || "No email"}\nÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¾ ${match.phone || "No phone"}\nÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å¡ ${match.birthday || "No birthday"}\nÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â  Status: ${match.leadStatus}\nÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â·ÃƒÂ¯Ã‚Â¸Ã‚Â Tags: ${match.tags.length ? match.tags.join(", ") : "None"}\nÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Revenue: $${match.totalRevenue.toFixed(2)}\nÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â  AI Notes: ${match.aiNotes || "None yet"}`); return;
+        addJarvisMsg(`📋 **${match.firstName} ${match.lastName}** (${match.id})\n\n📧 ${match.email || "No email"}\n📞 ${match.phone || "No phone"}\n🎂 ${match.birthday || "No birthday"}\n📌 Status: ${match.leadStatus}\n🏷️ Tags: ${match.tags.length ? match.tags.join(", ") : "None"}\n💰 Revenue: $${match.totalRevenue.toFixed(2)}\n🧠 AI Notes: ${match.aiNotes || "None yet"}`); return;
       }
       addJarvisMsg(`I couldn't find anyone matching "${nameQuery}". Try \"show all contacts\" to see who's in the system.`); return;
     }
 
-    // CREATE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â add contact
+    // CREATE — add contact
     if (lower.match(/\b(add|create)\s+/)) {
       const parts = input.replace(/.*?\b(add|create)\s+(?:contact\s+)?/i, "").trim().split(/\s+/);
       if (parts.length < 2) { addJarvisMsg("Please provide at least a first and last name. Example: \"Add contact Jane Doe jane@test.com\""); return; }
@@ -806,10 +857,10 @@ export default function CRMPage() {
       const newId = `CUST-${String(customers.length + 1).padStart(3, "0")}`;
       const newCustomer: Customer = { id: newId, firstName, lastName, phone: phoneMatch || "", email: emailMatch || "", birthday: "", leadStatus: "Cold Lead", tags: [], totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0, company: "", location: "", lastContactedDate: "" };
       addContact(newCustomer);
-      addJarvisMsg(`ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
+      addJarvisMsg(`✓ Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
     }
 
-    // UPDATE STATUS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â set X to Y
+    // UPDATE STATUS — set X to Y
     if (lower.match(/\b(set|change|move|update status)\b/)) {
       const statusMap: Record<string, Customer["leadStatus"]> = { "cold": "Cold Lead", "cold lead": "Cold Lead", "warm": "Warm Lead", "warm lead": "Warm Lead", "interested": "Interested", "sale": "Sale Completed", "sale completed": "Sale Completed", "completed": "Sale Completed" };
       let foundStatus: Customer["leadStatus"] | null = null;
@@ -819,7 +870,7 @@ export default function CRMPage() {
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(cleaned.toLowerCase()));
       if (match) {
         handleStatusChange(match.id, foundStatus);
-        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Å¾ Updated **${match.firstName} ${match.lastName}** from ${match.leadStatus} ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ **${foundStatus}**.`); return;
+        addJarvisMsg(`📝 Updated **${match.firstName} ${match.lastName}** from ${match.leadStatus} → **${foundStatus}**.`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${cleaned}".`); return;
     }
@@ -830,16 +881,16 @@ export default function CRMPage() {
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
       if (match) {
         deleteContact(match.id);
-        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â Deleted **${match.firstName} ${match.lastName}** (${match.id}) from the CRM.`); return;
+        addJarvisMsg(`🗑️ Deleted **${match.firstName} ${match.lastName}** (${match.id}) from the CRM.`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}" to delete.`); return;
     }
 
-    // ANALYZE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â add AI notes
+    // ANALYZE — add AI notes
     if (lower.match(/\b(analyze|note|insight)\b/)) {
       const body = input.replace(/.*?\b(analyze|note|insight)\s+/i, "").trim();
       const colonIdx = body.indexOf(":");
-      if (colonIdx === -1) { addJarvisMsg("Use the format: \"Analyze [Name]: [Your note]\" ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â e.g., \"Analyze Jane Doe: Very interested in automation\""); return; }
+      if (colonIdx === -1) { addJarvisMsg("Use the format: \"Analyze [Name]: [Your note]\" — e.g., \"Analyze Jane Doe: Very interested in automation\""); return; }
       const nameQuery = body.slice(0, colonIdx).trim();
       const noteText = body.slice(colonIdx + 1).trim();
       const match = customers.find(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(nameQuery.toLowerCase()));
@@ -847,7 +898,7 @@ export default function CRMPage() {
         const stamp = `Jarvis Deduction (${new Date().toLocaleDateString()}): ${noteText}`;
         const newNotes = match.aiNotes ? match.aiNotes + "\n" + stamp : stamp;
         store.updateCustomer(match.id, { aiNotes: newNotes });
-        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â  Added AI note to **${match.firstName} ${match.lastName}**:\n\n_${stamp}_`); return;
+        addJarvisMsg(`🧠 Added AI note to **${match.firstName} ${match.lastName}**:\n\n_${stamp}_`); return;
       }
       addJarvisMsg(`Couldn't find a contact matching "${nameQuery}".`); return;
     }
@@ -900,7 +951,7 @@ export default function CRMPage() {
       const capitalTitle = meetTitle.charAt(0).toUpperCase() + meetTitle.slice(1);
 
       scheduleMeeting(customer.id, `${customer.firstName} ${customer.lastName}`, capitalTitle, meetDate, meetTime, true, "jarvis");
-      addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¦ Done! I've scheduled a **${capitalTitle}** with **${customer.firstName} ${customer.lastName}** for **${meetDate}** at **${meetTime}**.\n\nÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Synced to Google Calendar\nÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Â Notification created`); return;
+      addJarvisMsg(`📆 Done! I've scheduled a **${capitalTitle}** with **${customer.firstName} ${customer.lastName}** for **${meetDate}** at **${meetTime}**.\n\n✓ Synced to Google Calendar\n📍 Notification created`); return;
     }
 
     // FINANCIAL QUERIES
@@ -909,8 +960,8 @@ export default function CRMPage() {
       const numMatch = lower.match(/(\d+)/);
       const count = numMatch ? parseInt(numMatch[1]) : 5;
       const sorted = [...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, count);
-      const list = sorted.map((c, i) => `${i + 1}. **${c.firstName} ${c.lastName}** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â $${c.totalRevenue.toFixed(2)}`).join("\n");
-      addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Top ${count} customers by revenue:\n\n${list}`); return;
+      const list = sorted.map((c, i) => `${i + 1}. **${c.firstName} ${c.lastName}** — $${c.totalRevenue.toFixed(2)}`).join("\n");
+      addJarvisMsg(`💰 Top ${count} customers by revenue:\n\n${list}`); return;
     }
 
     if ((lower.includes("how much") || lower.includes("revenue") || lower.includes("money") || lower.includes("total")) && (lower.includes("cold") || lower.includes("warm") || lower.includes("interested") || lower.includes("completed") || lower.includes("sale"))) {
@@ -920,18 +971,18 @@ export default function CRMPage() {
       if (qStatus) {
         const filtered = customers.filter(c => c.leadStatus === qStatus);
         const total = filtered.reduce((sum, c) => sum + c.totalRevenue, 0);
-        addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° **${qStatus}** column:\n\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Contacts: ${filtered.length}\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Total Revenue: **$${total.toFixed(2)}**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Avg Revenue: $${filtered.length ? (total / filtered.length).toFixed(2) : "0.00"}`); return;
+        addJarvisMsg(`💰 **${qStatus}** column:\n\n• Contacts: ${filtered.length}\n• Total Revenue: **$${total.toFixed(2)}**\n• Avg Revenue: $${filtered.length ? (total / filtered.length).toFixed(2) : "0.00"}`); return;
       }
     }
 
     if (lower.includes("total revenue") || lower.includes("overall revenue") || (lower.includes("how much") && lower.includes("total"))) {
       const total = customers.reduce((sum, c) => sum + c.totalRevenue, 0);
       const outstanding = customers.reduce((sum, c) => sum + c.outstandingBalance, 0);
-      addJarvisMsg(`ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° **Financial Summary**\n\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Total Revenue: **$${total.toFixed(2)}**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Outstanding Balances: **$${outstanding.toFixed(2)}**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Contacts: ${customers.length}\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Avg Revenue/Contact: $${customers.length ? (total / customers.length).toFixed(2) : "0.00"}`); return;
+      addJarvisMsg(`💰 **Financial Summary**\n\n• Total Revenue: **$${total.toFixed(2)}**\n• Outstanding Balances: **$${outstanding.toFixed(2)}**\n• Contacts: ${customers.length}\n• Avg Revenue/Contact: $${customers.length ? (total / customers.length).toFixed(2) : "0.00"}`); return;
     }
 
     // FALLBACK
-    addJarvisMsg("I'm not sure what you mean. Here's what I can do:\n\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **show all contacts** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â list everyone\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **find [name]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â look up a contact\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **add [first] [last] [email]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â create a contact\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **set [name] to [status]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â update status\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **delete [name]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â remove a contact\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **analyze [name]: [note]** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â add AI insight\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **schedule meeting with [name] for [date] at [time]**\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **top 5 customers by revenue** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â leaderboard\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **how much revenue in Warm Leads?** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â status breakdown\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **total revenue** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â financial summary");
+    addJarvisMsg("I'm not sure what you mean. Here's what I can do:\n\n• **show all contacts** — list everyone\n• **find [name]** — look up a contact\n• **add [first] [last] [email]** — create a contact\n• **set [name] to [status]** — update status\n• **delete [name]** — remove a contact\n• **analyze [name]: [note]** — add AI insight\n• **schedule meeting with [name] for [date] at [time]**\n• **top 5 customers by revenue** — leaderboard\n• **how much revenue in Warm Leads?** — status breakdown\n• **total revenue** — financial summary");
   }, [customers, addJarvisMsg, handleStatusChange, setCustomers, scheduleMeeting]);
 
   const handleJarvisSend = () => {
@@ -940,7 +991,7 @@ export default function CRMPage() {
     setJarvisInput("");
   };
 
-  /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ AUTH GATE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+  /* ─────────── AUTH GATE ─────────── */
   if (isUserLoading) {
     return (
       <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB]'}`}>
@@ -986,14 +1037,14 @@ export default function CRMPage() {
       {/* Load cursive font for email signatures */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet" />
-      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Mobile Sidebar Overlay ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      {/* ──── Mobile Sidebar Overlay ──── */}
       {isMobileSidebarOpen && (
         <div className="fixed inset-0 z-[80] lg:hidden" onClick={() => setIsMobileSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
         </div>
       )}
 
-      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ CRM Sidebar ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      {/* ──── CRM Sidebar ──── */}
       <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#fefcf6] border-[#E5E7EB]'} border-r shrink-0 transition-transform duration-200 ease-in-out ${
         isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}>
@@ -1055,11 +1106,46 @@ export default function CRMPage() {
             );
           })}
         </nav>
+
+        {/* ── Sidebar Actions (visible when contacts selected) ── */}
+        <div className={`px-3 pb-4 space-y-1 shrink-0 ${selectedIds.size > 0 ? '' : 'opacity-40 pointer-events-none'}`}>
+          <div className={`h-px mx-2 mb-2 ${isDarkMode ? 'bg-slate-800' : 'bg-[#E5E7EB]'}`} />
+          <span className={`block px-3 text-[9px] font-bold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+            Actions {selectedIds.size > 0 && <span className="text-indigo-500">({selectedIds.size})</span>}
+          </span>
+          <button
+            onClick={() => { if (selectedIds.size > 0) openEditModal(Array.from(selectedIds)); }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+              isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-indigo-50'
+            }`}
+          >
+            <Edit3 className="w-[18px] h-[18px] text-indigo-500" />
+            Edit
+          </button>
+          <button
+            onClick={() => { if (selectedIds.size > 0) setShowContactView(true); }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+              isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-sky-50'
+            }`}
+          >
+            <Contact className="w-[18px] h-[18px] text-sky-500" />
+            Contact
+          </button>
+          <button
+            onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+              isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30' : 'text-red-500 hover:text-red-700 hover:bg-red-50'
+            }`}
+          >
+            <Trash2 className="w-[18px] h-[18px]" />
+            Delete
+          </button>
+        </div>
       </aside>
 
-      {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Main Content Area ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+      {/* ──── Main Content Area ──── */}
       <div className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-[margin] duration-300 ease-in-out ${isJarvisOpen ? 'mr-[340px]' : ''}`}>
-        {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Top Navigation Bar ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+        {/* ──── Top Navigation Bar ──── */}
         <header className={`h-14 border-b flex items-center justify-between px-5 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
           {/* Mobile nav toggle + breadcrumb */}
           <div className="flex items-center gap-3">
@@ -1076,7 +1162,7 @@ export default function CRMPage() {
           </div>
         </header>
 
-        {/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ Scrollable Content Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */}
+        {/* ———— Scrollable Content ———— */}
         <main className="flex-1 overflow-y-auto p-4 md:p-5">
           {/* Skeleton Loading */}
           {isLoading ? (
@@ -1085,7 +1171,7 @@ export default function CRMPage() {
             <DashboardSkeleton />
           ) : (
           <>
-          {/* Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ DATABASE VIEW Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ Ã¢â€â‚¬Ã¢â€â‚¬ */}
+          {/* ── ── ── ── ── ── ── DATABASE VIEW ── ── ── ── ── ── ── */}
           {activeView === "dashboard" && (
             <div className="w-full space-y-4">
               {/* Page Header */}
@@ -1144,7 +1230,7 @@ export default function CRMPage() {
                 </div>
               </div>
 
-              {/* Ã¢â€â‚¬Ã¢â€â‚¬ Spreadsheet Grid Ã¢â€â‚¬Ã¢â€â‚¬ */}
+              {/* ── Spreadsheet Grid ── */}
               {customers.length === 0 ? (
                 <EmptyContacts onAdd={() => setShowAddModal(true)} />
               ) : (
@@ -1194,7 +1280,7 @@ export default function CRMPage() {
                         {filteredSortedCustomers.map((c, idx) => (
                           <tr
                             key={c.id}
-                            onClick={() => setViewingCustomer(c.id)}
+                            onClick={() => openEditModal([c.id])}
                             className={`group border-b transition-colors cursor-pointer ${
                               isDarkMode
                                 ? `border-slate-800 ${idx % 2 === 1 ? 'bg-slate-800/20' : ''} hover:bg-slate-800/50`
@@ -1206,7 +1292,7 @@ export default function CRMPage() {
                             </td>
                             {/* ID */}
                             <td className={`px-3 py-3 font-mono text-[11px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                              {c.id.length > 16 ? c.id.slice(0, 16) + 'Ã¢â‚¬Â¦' : c.id}
+                              {c.id.length > 16 ? c.id.slice(0, 16) + '…' : c.id}
                             </td>
                             {/* First Name */}
                             <td className={`px-3 py-3 font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
@@ -1272,7 +1358,7 @@ export default function CRMPage() {
                       </tbody>
                     </table>
                   </div>
-                  {/* Footer Ã¢â‚¬â€ record count */}
+                  {/* Footer — record count */}
                   <div className={`flex items-center justify-between px-4 py-2.5 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/40' : 'border-[#E5E7EB] bg-[#FAFBFC]'}`}>
                     <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                       Showing {filteredSortedCustomers.length} of {customers.length} record{customers.length !== 1 ? 's' : ''}
@@ -1289,7 +1375,7 @@ export default function CRMPage() {
 
 
 
-          {/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ CUSTOMER PROFILE VIEW Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */}
+          {/* ——————————— CUSTOMER PROFILE VIEW ——————————— */}
           {viewingCustomer && (() => {
             const c = customers.find(x => x.id === viewingCustomer);
             if (!c) return null;
@@ -1320,15 +1406,15 @@ export default function CRMPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Email</span>
-                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.email || "Ã¢â‚¬â€"}</span>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.email || "—"}</span>
                       </div>
                       <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Phone</span>
-                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.phone || "Ã¢â‚¬â€"}</span>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.phone || "—"}</span>
                       </div>
                       <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Birthday</span>
-                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.birthday || "Ã¢â‚¬â€"}</span>
+                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.birthday || "—"}</span>
                       </div>
                       <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Revenue</span>
@@ -1371,7 +1457,7 @@ export default function CRMPage() {
                       )}
                     </div>
 
-                    {/* Ã¢â€â‚¬Ã¢â€â‚¬ Financials Card Ã¢â€â‚¬Ã¢â€â‚¬ */}
+                    {/* ── Financials Card ── */}
                     <div className={`border-t pt-5 ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                       <div className="flex items-center gap-2 mb-4">
                         <DollarSign className="w-4 h-4 text-emerald-600" />
@@ -1416,56 +1502,7 @@ export default function CRMPage() {
                       </div>
                     </div>
 
-                    {/* Ã¢â€â‚¬Ã¢â€â‚¬ Schedule Meeting Section Ã¢â€â‚¬Ã¢â€â‚¬ */}
-                    <div className={`border-t pt-5 ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Calendar className="w-4 h-4 text-indigo-600" />
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Schedule Meeting</h3>
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Meeting Title</label>
-                          <input value={meetingTitle} onChange={e => setMeetingTitle(e.target.value)} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
-                            isDarkMode ? "border-slate-750 bg-slate-800 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
-                          }`} placeholder="e.g. Consultation Call" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Date</label>
-                            <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
-                              isDarkMode ? "border-slate-750 bg-slate-800 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
-                            }`} />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Time</label>
-                            <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
-                              isDarkMode ? "border-slate-750 bg-slate-800 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
-                            }`} />
-                          </div>
-                        </div>
-                        <div className={`flex items-center justify-between p-3 rounded-lg border ${
-                          isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span className={`text-sm ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>Sync to Google Calendar</span>
-                          </div>
-                          <button onClick={() => setMeetingSyncGoogle(!meetingSyncGoogle)} className="cursor-pointer text-slate-400">
-                            {meetingSyncGoogle ? <ToggleRight className="w-8 h-8 text-indigo-600" /> : <ToggleLeft className="w-8 h-8" />}
-                          </button>
-                        </div>
-                        <button
-                          disabled={!meetingTitle.trim() || !meetingDate || !meetingTime}
-                          onClick={() => {
-                            scheduleMeeting(c.id, `${c.firstName} ${c.lastName}`, meetingTitle.trim(), meetingDate, meetingTime, meetingSyncGoogle, "user");
-                            setMeetingTitle(""); setMeetingDate(""); setMeetingTime(""); setMeetingSyncGoogle(false);
-                          }}
-                          className="w-full h-10 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
-                        >
-                          <CalendarCheck className="w-4 h-4" />Schedule Meeting
-                        </button>
-                      </div>
-                    </div>
+
 
                     {/* Upcoming Meetings */}
                     {customerMeetings.length > 0 && (
@@ -1480,7 +1517,7 @@ export default function CRMPage() {
                                 <CalendarCheck className="w-4 h-4 text-emerald-600" />
                                 <div>
                                   <p className={`text-xs font-semibold ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{m.title}</p>
-                                  <p className="text-[10px] text-slate-400">{m.date} at {m.time} {m.syncToGoogle && "Ãƒâ€šÃ‚Â· Google Calendar"}</p>
+                                  <p className="text-[10px] text-slate-400">{m.date} at {m.time} {m.syncToGoogle && "· Google Calendar"}</p>
                                 </div>
                               </div>
                               <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{m.createdBy === "jarvis" ? "Via Jarvis" : "Manual"}</span>
@@ -1496,7 +1533,7 @@ export default function CRMPage() {
           })()}
 
 
-          {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â ANALYTICS VIEW ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
+          {/* ━━━━━━━━━━━ ANALYTICS VIEW ━━━━━━━━━━━ */}
           {activeView === "analytics" && (() => {
             const totalRevenue = customers.reduce((s, c) => s + c.totalRevenue, 0);
             const totalOutstanding = customers.reduce((s, c) => s + c.outstandingBalance, 0);
@@ -1544,7 +1581,7 @@ export default function CRMPage() {
 
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Bar Chart ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Revenue by Lead Status */}
+                  {/* Bar Chart — Revenue by Lead Status */}
                   <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
                     <h2 className={`text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Revenue by Lead Status</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Breakdown of total revenue across pipeline stages</p>
@@ -1567,7 +1604,7 @@ export default function CRMPage() {
                     )}
                   </div>
 
-                  {/* Line Chart ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Revenue Over Time */}
+                  {/* Line Chart — Revenue Over Time */}
                   <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
                     <h2 className={`text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Revenue Over Time</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Monthly revenue trend from transactions</p>
@@ -1632,7 +1669,7 @@ export default function CRMPage() {
           })()}
 
 
-          {/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ CAMPAIGNS VIEW Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */}
+          {/* —————————— CAMPAIGNS VIEW —————————— */}
           {activeView === "campaigns" && (
             <CampaignCalendar />
           )}
@@ -1643,28 +1680,10 @@ export default function CRMPage() {
 
       <ToastContainer />
 
-      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â FLOATING BULK ACTIONS BAR ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
-      {selectedIds.size > 0 && (
-        <div className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-[85] rounded-xl border shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white shadow-black/40' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
-          <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-250' : 'text-slate-700'}`}>{selectedIds.size} selected</span>
-          <div className={`w-px h-6 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-          <button onClick={() => setShowEmailModal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer">
-            <MailPlus className="w-4 h-4" />New Email Campaign
-          </button>
-          <button onClick={() => { 
-            const ids = Array.from(selectedIds); 
-            if (window.confirm(`Are you sure you want to permanently delete ${ids.length} contact${ids.length === 1 ? '' : 's'}?`)) {
-              bulkDelete(ids); 
-              setSelectedIds(new Set()); 
-            }
-          }} className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-red-900 bg-red-950/20 text-red-400 hover:bg-red-900/30' : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'}`}>
-            <Trash2 className="w-3.5 h-3.5" />Delete
-          </button>
-          <button onClick={() => setSelectedIds(new Set())} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Clear</button>
-        </div>
-      )}
 
-      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â EMAIL CAMPAIGN MODAL ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
+
+
+      {/* ━━━━━━ EMAIL CAMPAIGN MODAL ━━━━━━ */}
       {showEmailModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setShowSignatureEditor(false); setShowDrafts(false); }}>
           <div className={`rounded-2xl border shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
@@ -1678,7 +1697,7 @@ export default function CRMPage() {
                   <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Email Campaign</h2>
                   <p className="text-xs text-slate-400 flex items-center gap-2">
                     <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedCustomers.filter(c => c.email).length} recipients</span>
-                    <span className="text-slate-300">Ãƒâ€šÃ‚Â·</span>
+                    <span className="text-slate-300">·</span>
                     <span>{selectedCustomers.length} selected</span>
                   </p>
                 </div>
@@ -1712,7 +1731,7 @@ export default function CRMPage() {
 
             {/* Body */}
             <div className="flex-1 overflow-hidden flex">
-              {/* Compose Panel Ã¢â‚¬â€ hidden when Preview tab is active on mobile */}
+              {/* Compose Panel — hidden when Preview tab is active on mobile */}
               <div className={`flex-1 flex flex-col overflow-y-auto ${emailTab === "preview" ? "hidden" : ""}`}>
                 <div className="px-6 py-5 space-y-4 flex-1">
                   {/* Subject */}
@@ -1721,7 +1740,7 @@ export default function CRMPage() {
                     <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className={`w-full h-11 px-4 text-sm font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-800'}`} placeholder="e.g. Exciting update for our valued partners" />
                   </div>
 
-                  {/* Email Body Ã¢â‚¬â€ LARGER */}
+                  {/* Email Body — LARGER */}
                   <div className="flex-1 flex flex-col">
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Email Body</label>
                     <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className={`w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-700'}`} placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
@@ -1743,7 +1762,7 @@ export default function CRMPage() {
                           <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl text-white" : "font-bold"}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
                         )}
                         {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
-                        {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Ã‚Â· ")}</p>}
+                        {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" · ")}</p>}
                       </div>
                     )}
                     {showSignatureEditor && (
@@ -1842,7 +1861,7 @@ export default function CRMPage() {
                 </div>
               </div>
 
-              {/* Preview Panel Ã¢â‚¬â€ full-width when Preview tab is active */}
+              {/* Preview Panel — full-width when Preview tab is active */}
               <div className={`flex flex-col overflow-y-auto ${emailTab === "preview" ? "flex-1" : "hidden lg:flex lg:w-[380px] lg:shrink-0"} border-l ${isDarkMode ? 'border-slate-800 bg-slate-900/60 text-white' : 'border-[#E5E7EB] bg-[#faf6ed]'}`}>
                 <div className={`px-5 py-3 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-[#fefcf6]'}`}>
                   <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />Email Preview</h4>
@@ -1873,7 +1892,7 @@ export default function CRMPage() {
                             <p className={`mt-0.5 ${emailSignature.useCursive ? "text-xl " + (isDarkMode ? "text-white" : "text-slate-800") : ("font-bold " + (isDarkMode ? "text-slate-300" : "text-slate-700"))}`} style={emailSignature.useCursive ? { fontFamily: "'Dancing Script', cursive" } : undefined}>{emailSignature.name}</p>
                           )}
                           {(emailSignature.role || emailSignature.company) && <p className="text-xs text-slate-400">{[emailSignature.role, emailSignature.company].filter(Boolean).join(" | ")}</p>}
-                          {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" Ã‚Â· ")}</p>}
+                          {(emailSignature.phone || emailSignature.website) && <p className="text-[11px] text-slate-400 mt-0.5">{[emailSignature.phone, emailSignature.website].filter(Boolean).join(" · ")}</p>}
                         </div>
                       )}
                     </div>
@@ -1932,7 +1951,7 @@ export default function CRMPage() {
       )}
 
 
-      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â JARVIS COPILOT SIDEBAR ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
+      {/* ━━━━━━ JARVIS COPILOT SIDEBAR ━━━━━━ */}
       {/* ────── JARVIS COPILOT SIDEBAR ────── */}
       <div className={`fixed top-0 right-0 h-full z-[80] transition-all duration-300 ease-in-out ${isJarvisOpen ? "w-[340px]" : "w-0"} overflow-hidden`}>
         <div className={`w-[340px] h-full border-l flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
@@ -2021,7 +2040,7 @@ export default function CRMPage() {
                   <input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} placeholder="+1 (555) 000-0000" />
                 </div>
                 <div>
-                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{lang === 'es' ? 'CumpleaÃƒÂ±os' : 'Birthday'}</label>
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-1.5 uppercase tracking-wider`}>{lang === 'es' ? 'Cumpleaños' : 'Birthday'}</label>
                   <input value={form.birthday} onChange={e=>setForm(f=>({...f,birthday:e.target.value}))} type="date" className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'}`} />
                 </div>
               </div>
@@ -2135,7 +2154,7 @@ export default function CRMPage() {
                     {lang === 'es' ? 'Seleccionar archivo' : 'Choose File'}
                   </label>
                   <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} truncate flex-1`}>
-                    {csvFile ? csvFile.name : (lang === 'es' ? 'NingÃƒÂºn archivo seleccionado' : 'No file selected')}
+                    {csvFile ? csvFile.name : (lang === 'es' ? 'Ningún archivo seleccionado' : 'No file selected')}
                   </span>
                   {csvFile && (
                     <button
@@ -2173,8 +2192,242 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â TOAST NOTIFICATIONS ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */}
+      {/* ━━━━━━ TOAST NOTIFICATIONS ━━━━━━ */}
       <ToastContainer />
+
+      {/* ━━━━━━ EDITABLE CONTACT POPUP WITH MULTI-USER NAV ━━━━━━ */}
+      {editModalIds.length > 0 && (() => {
+        const currentCustomer = customers.find(x => x.id === editModalIds[editModalIndex]);
+        if (!currentCustomer) return null;
+        const inputClass = `w-full h-9 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+          isDarkMode ? "border-slate-700 bg-slate-800 text-white" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700"
+        }`;
+        const labelClass = "block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5";
+        return (
+          <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => { setEditModalIds([]); setEditForm({}); }}>
+            <div className={`rounded-2xl border shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+              {/* Header with Navigation */}
+              <div className={`px-6 py-4 border-b flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm border ${
+                    isDarkMode ? "bg-indigo-950/40 text-indigo-400 border-indigo-900" : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                  }`}>{editForm.firstName?.[0] || ""}{editForm.lastName?.[0] || ""}</div>
+                  <div>
+                    <h2 className={`text-base font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Edit Contact</h2>
+                    {editModalIds.length > 1 && (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <button onClick={() => navigateEdit("prev")} disabled={editModalIndex === 0} className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className={`text-xs font-semibold tabular-nums ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{editModalIndex + 1}/{editModalIds.length}</span>
+                        <button onClick={() => navigateEdit("next")} disabled={editModalIndex === editModalIds.length - 1} className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => { setEditModalIds([]); setEditForm({}); }} className={`w-8 h-8 rounded-lg ${isDarkMode ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-400"} flex items-center justify-center cursor-pointer`}><X className="w-4 h-4" /></button>
+              </div>
+
+              {/* Editable Form */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                {/* Name row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>First Name</label>
+                    <input value={editForm.firstName || ""} onChange={e => setEditForm(f => ({...f, firstName: e.target.value}))} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Last Name</label>
+                    <input value={editForm.lastName || ""} onChange={e => setEditForm(f => ({...f, lastName: e.target.value}))} className={inputClass} />
+                  </div>
+                </div>
+
+                {/* Contact row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Email</label>
+                    <input type="email" value={editForm.email || ""} onChange={e => setEditForm(f => ({...f, email: e.target.value}))} className={inputClass} placeholder="email@example.com" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Phone</label>
+                    <input type="tel" value={editForm.phone || ""} onChange={e => setEditForm(f => ({...f, phone: e.target.value}))} className={inputClass} placeholder="+1 (555) 000-0000" />
+                  </div>
+                </div>
+
+                {/* Birthday + Status row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Birthday</label>
+                    <input type="date" value={editForm.birthday || ""} onChange={e => setEditForm(f => ({...f, birthday: e.target.value}))} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Lead Status</label>
+                    <select value={editForm.leadStatus || "Cold Lead"} onChange={e => setEditForm(f => ({...f, leadStatus: e.target.value}))} className={inputClass}>
+                      <option value="Cold Lead">Cold Lead</option>
+                      <option value="Warm Lead">Warm Lead</option>
+                      <option value="Interested">Interested</option>
+                      <option value="Sale Completed">Sale Completed</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Created date (read-only display) */}
+                {currentCustomer?.createdAt && (
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/40' : 'bg-slate-50 border-slate-200/60'}`}>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Created:</span>
+                    <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {(() => {
+                        const ts = typeof currentCustomer.createdAt?.toMillis === "function" ? currentCustomer.createdAt.toMillis() : new Date(currentCustomer.createdAt).getTime();
+                        return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+                      })()}
+                    </span>
+                  </div>
+                )}
+
+                {/* Financials row */}
+                <div className={`border-t pt-4 ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <DollarSign className="w-4 h-4 text-emerald-500" />
+                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Financials</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Total Revenue ($)</label>
+                      <input type="number" step="0.01" value={editForm.totalRevenue ?? 0} onChange={e => setEditForm(f => ({...f, totalRevenue: e.target.value}))} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Outstanding Balance ($)</label>
+                      <input type="number" step="0.01" value={editForm.outstandingBalance ?? 0} onChange={e => setEditForm(f => ({...f, outstandingBalance: e.target.value}))} className={inputClass} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className={`px-6 py-4 border-t flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
+                <button onClick={() => { setEditModalIds([]); setEditForm({}); }} className={`text-sm font-medium cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'}`}>Cancel</button>
+                <button
+                  disabled={isSavingEdit}
+                  onClick={async () => {
+                    await saveEditForm(editModalIds[editModalIndex]);
+                    if (editModalIds.length === 1) { setEditModalIds([]); setEditForm({}); }
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
+                >
+                  {isSavingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ━━━━━━ CONTACT DETAILS VIEW ━━━━━━ */}
+      {showContactView && (() => {
+        const contactList = customers.filter(c => selectedIds.has(c.id));
+        return (
+          <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => { setShowContactView(false); setExpandedContactId(null); }}>
+            <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[85vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className={`px-6 py-4 border-b flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-sky-950/40' : 'bg-sky-50'}`}>
+                    <Contact className="w-4 h-4 text-sky-500" />
+                  </div>
+                  <div>
+                    <h2 className={`text-base font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Contact Details</h2>
+                    <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{contactList.length} contact{contactList.length !== 1 ? "s" : ""}</p>
+                  </div>
+                </div>
+                <button onClick={() => { setShowContactView(false); setExpandedContactId(null); }} className={`w-8 h-8 rounded-lg ${isDarkMode ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-400"} flex items-center justify-center cursor-pointer`}><X className="w-4 h-4" /></button>
+              </div>
+
+              {/* List */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+                {contactList.map(c => (
+                  <div key={c.id} className={`rounded-xl border overflow-hidden transition-all ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
+                    <button
+                      onClick={() => setExpandedContactId(prev => prev === c.id ? null : c.id)}
+                      className={`w-full flex items-center justify-between px-4 py-3 cursor-pointer transition-colors ${
+                        isDarkMode
+                          ? expandedContactId === c.id ? 'bg-slate-800' : 'hover:bg-slate-800/60'
+                          : expandedContactId === c.id ? 'bg-slate-50' : 'hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${isDarkMode ? 'bg-indigo-950/40 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>{c.firstName[0]}{c.lastName[0]}</div>
+                        <span className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{c.firstName} {c.lastName}</span>
+                      </div>
+                      {expandedContactId === c.id ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                    </button>
+                    {expandedContactId === c.id && (
+                      <div className={`px-4 pb-3 space-y-2 ${isDarkMode ? 'bg-slate-800/40' : 'bg-slate-50/40'}`}>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: "Email", value: c.email || "—", icon: <Mail className="w-3 h-3 text-indigo-500" /> },
+                            { label: "Phone", value: c.phone || "—", icon: <Phone className="w-3 h-3 text-emerald-500" /> },
+                            { label: "Birthday", value: c.birthday || "—", icon: <Calendar className="w-3 h-3 text-amber-500" /> },
+                            { label: "Revenue", value: `$${c.totalRevenue.toFixed(2)}`, icon: <DollarSign className="w-3 h-3 text-emerald-500" /> },
+                          ].map(item => (
+                            <div key={item.label} className={`p-2.5 rounded-lg border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                {item.icon}
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{item.label}</span>
+                              </div>
+                              <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>{c.leadStatus}</span>
+                          {c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(t, isDarkMode)}`}>{t}</span>)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ━━━━━━ DELETE CONFIRMATION DIALOG ━━━━━━ */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowDeleteConfirm(false)}>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-sm mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-6 text-center">
+              <div className={`w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-red-950/40' : 'bg-red-50'}`}>
+                <AlertTriangle className="w-7 h-7 text-red-500" />
+              </div>
+              <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Delete Contacts?</h3>
+              <p className={`text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                You are about to permanently delete <span className="font-bold text-red-500">{selectedIds.size}</span> contact{selectedIds.size !== 1 ? "s" : ""}.
+              </p>
+              <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>This action cannot be undone.</p>
+
+              {/* Show names preview */}
+              <div className={`mt-4 max-h-24 overflow-y-auto rounded-lg border p-2.5 text-left ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                {customers.filter(c => selectedIds.has(c.id)).slice(0, 10).map(c => (
+                  <div key={c.id} className={`text-xs py-0.5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {c.firstName} {c.lastName}
+                  </div>
+                ))}
+                {selectedIds.size > 10 && <span className="text-[10px] text-slate-400">...and {selectedIds.size - 10} more</span>}
+              </div>
+            </div>
+            <div className={`px-6 py-4 border-t flex items-center justify-end gap-3 ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
+              <button onClick={() => setShowDeleteConfirm(false)} className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}>Cancel</button>
+              <button onClick={handleBulkDelete} className="px-4 py-2 rounded-lg bg-red-600 text-sm font-semibold text-white hover:bg-red-700 transition-colors cursor-pointer shadow-sm">
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

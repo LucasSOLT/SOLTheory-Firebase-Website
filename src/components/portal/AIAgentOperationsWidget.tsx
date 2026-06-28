@@ -1,16 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Cpu, DollarSign, Clock, ShieldCheck, Activity, Info } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useDarkMode } from "@/lib/useDarkMode";
 import { useGrantsData } from "@/hooks/useGrantsData";
+import { useFirestore } from "@/firebase";
 
 export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: string }) {
   const { lang } = useTranslation();
   const isDarkMode = useDarkMode();
   const { grants } = useGrantsData(orgId);
+  const firestore = useFirestore();
   const [activeTab, setActiveTab] = useState<"agents" | "logs">("agents");
+
+  // Token costs from Firestore ai_usage collection
+  const [totalTokenCost, setTotalTokenCost] = useState(0);
+  const [totalTokens, setTotalTokens] = useState(0);
+
+  useEffect(() => {
+    if (!firestore) return;
+    let unsub: (() => void) | undefined;
+    import("firebase/firestore").then(({ collection, onSnapshot, query, orderBy }) => {
+      const q = query(collection(firestore, "ai_usage"), orderBy("timestamp", "desc"));
+      unsub = onSnapshot(q, (snap) => {
+        let tokens = 0;
+        let cost = 0;
+        snap.forEach((d) => {
+          const data = d.data();
+          tokens += data.totalTokens || 0;
+          cost += data.costUsd || 0;
+        });
+        setTotalTokens(tokens);
+        setTotalTokenCost(cost);
+      }, (err) => {
+        console.error("[AI Operations] Failed to load usage:", err);
+      });
+    });
+    return () => { if (unsub) unsub(); };
+  }, [firestore]);
 
   // Calculate dynamic hours saved: Every grant found = 15 minutes of human time
   const grantsCount = grants?.length || 0;
@@ -23,17 +51,22 @@ export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: strin
 
   const totalHoursSaved = grantsHoursSaved + (emailsWritten * 5) / 60 + phoneCallsMinutes / 60 + (crmLeadsFound * 10) / 60;
 
-  // Setup agents list with current operational status (Only Grant Scrapers Alpha->Delta are functional)
+  // Setup agents list with current operational status
+  // "active" = currently running/processing, "idle" = deployed but not running, "inactive" = not built yet
   const agents = [
-    { name: lang === "es" ? "Scraper de Subvenciones Alpha" : "Grant Scraper Alpha", status: "active", version: "v1.2" },
-    { name: lang === "es" ? "Scraper de Subvenciones Beta" : "Grant Scraper Beta", status: "active", version: "v1.2" },
-    { name: lang === "es" ? "Scraper de Subvenciones Gamma" : "Grant Scraper Gamma", status: "active", version: "v1.1" },
-    { name: lang === "es" ? "Scraper de Subvenciones Delta" : "Grant Scraper Delta", status: "active", version: "v1.1" },
+    { name: lang === "es" ? "Scraper de Subvenciones Alpha" : "Grant Scraper Alpha", status: "idle", version: "v1.2" },
+    { name: lang === "es" ? "Scraper de Subvenciones Beta" : "Grant Scraper Beta", status: "idle", version: "v1.2" },
+    { name: lang === "es" ? "Scraper de Subvenciones Gamma" : "Grant Scraper Gamma", status: "idle", version: "v1.1" },
+    { name: lang === "es" ? "Scraper de Subvenciones Delta" : "Grant Scraper Delta", status: "idle", version: "v1.1" },
     { name: lang === "es" ? "Agente de Correos Salientes" : "Outbound Email Agent", status: "inactive", version: "v0.1" },
     { name: lang === "es" ? "Agente de Correos Entrantes" : "Inbound Email Agent", status: "inactive", version: "v0.1" },
     { name: lang === "es" ? "Agente de Llamadas Entrantes" : "Inbound Phone Agent", status: "inactive", version: "v0.1" },
     { name: lang === "es" ? "Scraper de Prospectos CRM" : "CRM Lead Scraper", status: "inactive", version: "v0.2" },
   ];
+
+  const activeCount = agents.filter(a => a.status === "active").length;
+  const idleCount = agents.filter(a => a.status === "idle").length;
+  const readyCount = activeCount + idleCount;
 
   return (
     <div className="flex flex-col h-full w-full min-h-0 select-none">
@@ -47,9 +80,13 @@ export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: strin
             {lang === "es" ? "Monitoreo de estado en tiempo real" : "Real-time state monitoring & ROI"}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          <Activity className="w-3.5 h-3.5 animate-pulse" />
-          <span>{lang === "es" ? "4 de 8 Activos" : "4 of 8 Active"}</span>
+        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold ${activeCount > 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}`}>
+          {activeCount > 0 ? (
+            <Activity className="w-3.5 h-3.5 animate-pulse" />
+          ) : (
+            <Activity className="w-3.5 h-3.5" />
+          )}
+          <span>{lang === "es" ? `${readyCount} de ${agents.length} Listos` : `${readyCount} of ${agents.length} Ready`}</span>
         </div>
       </div>
 
@@ -67,14 +104,14 @@ export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: strin
           </div>
         </div>
 
-        {/* Token Costs */}
+        {/* Token Costs — now live from Firestore */}
         <div className={`p-2 rounded-xl border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-slate-50 border-[#ede8da]/70'} flex flex-col justify-between`}>
           <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block">
             {lang === "es" ? "Costo Tokens" : "Token Costs"}
           </span>
           <div className="mt-1.5">
             <span className={`text-sm font-extrabold tracking-tight ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-              $0.00
+              ${totalTokenCost.toFixed(4)}
             </span>
           </div>
         </div>
@@ -136,6 +173,8 @@ export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: strin
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                       </>
+                    ) : agent.status === "idle" ? (
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400"></span>
                     ) : (
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-500"></span>
                     )}
@@ -149,11 +188,15 @@ export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: strin
                     {agent.version}
                   </span>
                   <span className={`font-bold ${
-                    agent.status === "active" ? "text-emerald-500" : "text-slate-450"
+                    agent.status === "active" ? "text-emerald-500"
+                    : agent.status === "idle" ? "text-amber-400"
+                    : "text-slate-450"
                   }`}>
                     {agent.status === "active"
                       ? (lang === "es" ? "ACTIVO" : "ACTIVE")
-                      : (lang === "es" ? "INACTIVO" : "INACTIVE")
+                      : agent.status === "idle"
+                      ? (lang === "es" ? "INACTIVO" : "IDLE")
+                      : (lang === "es" ? "NO CONSTRUIDO" : "INACTIVE")
                     }
                   </span>
                 </div>

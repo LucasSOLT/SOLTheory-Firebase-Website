@@ -233,6 +233,14 @@ service cloud.firestore {
       match /campaigns/{campaignId} {
         allow read, write: if isOwner(userId);
       }
+
+      /**
+       * @description Instagram media assets uploaded for campaign creation.
+       * @path /users/{userId}/instagram_media/{mediaId}
+       */
+      match /instagram_media/{mediaId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     /**
@@ -495,6 +503,36 @@ service cloud.firestore {
       }
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn() && isWalkthroughAdmin();
+    }
+    /**
+     * @description Instagram connection data for Agentic Campaigning.
+     * @path /instagram_connections/{orgId}
+     * @allow (read) Any signed-in user can read connection status.
+     * @deny (write) Client writes are denied — writes are handled by the
+     *   server-side OAuth callback via Firebase Admin SDK.
+     */
+    match /instagram_connections/{orgId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    /**
+     * @description Scheduled Instagram posts for the campaign system.
+     * @path /instagram_posts/{postId}
+     * @allow (read, create, update) Any signed-in user can manage posts.
+     * @allow (delete) Any signed-in user can delete their scheduled posts.
+     */
+    match /instagram_posts/{postId} {
+      allow read, create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Scheduled Instagram posts created by the Campaign Planner.
+     * @path /scheduled_instagram_posts/{postId}
+     * @allow (read, create, update, delete) Any signed-in user can manage scheduled posts.
+     */
+    match /scheduled_instagram_posts/{postId} {
+      allow read, create, update, delete: if isSignedIn();
     }
   }
 }

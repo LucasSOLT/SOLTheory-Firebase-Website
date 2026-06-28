@@ -17,33 +17,33 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3 bg-white text-slate-900", className)}
+      className={cn("p-4 bg-white text-slate-900 rounded-xl shadow-lg border border-slate-100", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-semibold text-slate-800",
+        caption: "flex justify-center pt-1 relative items-center px-2",
+        caption_label: "text-sm font-bold tracking-tight text-slate-800",
         nav: "space-x-1 flex items-center",
         nav_button:
-          "h-7 w-7 bg-transparent p-0 opacity-60 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors",
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+          "h-8 w-8 bg-transparent p-0 opacity-60 hover:opacity-100 inline-flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all",
+        nav_button_previous: "absolute left-2",
+        nav_button_next: "absolute right-2",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
         head_cell:
-          "text-slate-500 rounded-md w-9 font-medium text-[0.8rem]",
-        row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-indigo-50 [&:has([aria-selected])]:bg-indigo-50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-        day: "h-9 w-9 p-0 font-normal inline-flex items-center justify-center rounded-md text-slate-800 hover:bg-slate-100 transition-colors aria-selected:opacity-100 cursor-pointer",
+          "text-slate-400 rounded-md w-10 font-semibold text-[0.7rem] uppercase tracking-wider",
+        row: "flex w-full mt-1",
+        cell: "h-10 w-10 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-lg [&:has([aria-selected].day-outside)]:bg-pink-50 [&:has([aria-selected])]:bg-pink-50 first:[&:has([aria-selected])]:rounded-l-lg last:[&:has([aria-selected])]:rounded-r-lg focus-within:relative focus-within:z-20",
+        day: "h-10 w-10 p-0 font-medium inline-flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 transition-all aria-selected:opacity-100 cursor-pointer text-[13px]",
         day_range_end: "day-range-end",
         day_selected:
-          "bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white focus:bg-indigo-600 focus:text-white",
-        day_today: "bg-slate-100 text-slate-900 font-bold",
+          "bg-gradient-to-br from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600 hover:text-white focus:from-pink-500 focus:to-purple-500 focus:text-white shadow-md shadow-pink-500/20 font-semibold",
+        day_today: "bg-slate-100 text-slate-900 font-bold ring-1 ring-slate-300",
         day_outside:
-          "day-outside text-slate-400 aria-selected:bg-indigo-50 aria-selected:text-slate-500",
-        day_disabled: "text-slate-300",
+          "day-outside text-slate-300 aria-selected:bg-pink-50 aria-selected:text-slate-400",
+        day_disabled: "text-slate-200 cursor-not-allowed",
         day_range_middle:
-          "aria-selected:bg-indigo-50 aria-selected:text-indigo-700",
+          "aria-selected:bg-pink-50 aria-selected:text-pink-700",
         day_hidden: "invisible",
         ...classNames,
       }}

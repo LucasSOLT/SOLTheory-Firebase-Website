@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -971,6 +971,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Users className="w-5 h-5" />
                     <span>{t.agentManager}</span>
                   </Link>
+                  <Link href={`${dashboardHome}/ai-knowledge-base`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-knowledge-base') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Brain className="w-5 h-5" />
+                    <span>{t.aiKnowledgeBase}</span>
+                  </Link>
                   <Link href={`${dashboardHome}/walkthroughs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/walkthroughs') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
                     <Lightbulb className="w-5 h-5" />
                     <span>{t.insightWalkthroughs}</span>
@@ -1028,52 +1032,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <ClipboardList className="w-5 h-5" />
                       <span>{t.surveys}</span>
                     </Link>
-                  </div>
-                </div>
-
-                {/* Communications */}
-                <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
-                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">{t.communications}</span>
-                  <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/communications/imessage`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/imessage') ? (isDarkMode ? 'bg-blue-900/30 text-blue-300 shadow-sm' : 'bg-blue-50 text-blue-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
-                      <MessageCircle className="w-5 h-5" />
-                      <span>{t.sms}</span>
-                    </Link>
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 cursor-not-allowed font-semibold text-base">
-                      <MessageCircle className="w-5 h-5" />
-                      <span>WhatsApp</span>
-                    </div>
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 cursor-not-allowed font-semibold text-base">
-                      <Hash className="w-5 h-5" />
-                      <span>Slack</span>
-                    </div>
-                    <Link href={`${dashboardHome}/communications/dm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/dm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
-                      <MessageSquare className="w-5 h-5" />
-                      <span>{t.directMessages}</span>
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Social Media */}
-                <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
-                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">{t.socialMediaIntegrations} <span className="text-blue-500 font-bold text-[10px] tracking-normal">{t.beta}</span></span>
-                  <div className="space-y-1 mt-2">
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-base text-slate-400 cursor-not-allowed opacity-50">
-                      <CalendarDays className="w-5 h-5 text-slate-400" />
-                      <span>{t.uploadCalendar}</span>
-                    </div>
-                    <Link href={`${dashboardHome}/youtube`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/youtube') ? (isDarkMode ? 'bg-fuchsia-900/30 text-fuchsia-300 shadow-sm' : 'bg-fuchsia-50 text-fuchsia-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
-                      <Youtube className="w-5 h-5" />
-                      <span>YouTube</span>
-                    </Link>
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-base text-slate-400 cursor-not-allowed opacity-50">
-                      <Instagram className="w-5 h-5 text-slate-400" />
-                      <span>Instagram</span>
-                    </div>
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-base text-slate-400 cursor-not-allowed opacity-50">
-                      <Facebook className="w-5 h-5 text-slate-400" />
-                      <span>Facebook</span>
-                    </div>
                   </div>
                 </div>
 
@@ -1296,6 +1254,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 <span className="text-sm font-medium">{t.agentManager}</span>
               </Link>
+              <Link href={`${dashboardHome}/ai-knowledge-base`} className={getSidebarLinkClass(pathname.includes('/ai-knowledge-base'))}>
+                <div className={getSidebarIconClass(pathname.includes('/ai-knowledge-base'))}>
+                  <Brain className="w-4 h-4" />
+                </div>
+                <span className="text-sm font-medium">{t.aiKnowledgeBase}</span>
+              </Link>
               <Link href={`${dashboardHome}/walkthroughs`} className={getSidebarLinkClass(pathname.includes('/walkthroughs'))}>
                 <div className={getSidebarIconClass(pathname.includes('/walkthroughs'))}>
                   <Lightbulb className="w-4 h-4" />
@@ -1429,98 +1393,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>}
           </div>
 
-          {/* Communications */}
-          <div className="mb-2">
-            <button onClick={() => toggleSection('comms')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['comms'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.communications}</span>
-            </button>
-            {!collapsedSections['comms'] && <div className="space-y-1 animate-in fade-in duration-150">
-              <Link href={`${dashboardHome}/communications/imessage`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/communications/imessage') ? 'bg-blue-50 text-blue-900 shadow-sm' : 'hover:bg-[#faf6ed] text-slate-700 hover:text-blue-900'}`}>
-                <MessageCircle className="w-4 h-4 ml-1" />
-                <span className="text-sm">{t.sms}</span>
-              </Link>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 cursor-not-allowed mb-1">
-                <MessageCircle className="w-4 h-4 ml-1" />
-                <span className="text-sm">WhatsApp</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 cursor-not-allowed mb-1">
-                <Hash className="w-4 h-4 ml-1" />
-                <span className="text-sm">Slack</span>
-              </div>
-            </div>}
-          </div>
-
-          {/* Social Media Integrations */}
-          <div className="mb-2">
-            <button onClick={() => toggleSection('social')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['social'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.socialMediaIntegrations} <span className="text-blue-500 font-bold text-[10px] tracking-normal">{t.beta}</span></span>
-            </button>
-            {!collapsedSections['social'] && <div className="space-y-1 animate-in fade-in duration-150">
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 font-semibold text-slate-400 cursor-not-allowed opacity-50">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-transparent text-slate-400">
-                  <CalendarDays className="w-4 h-4 ml-1" />
-                </div>
-                <span className="text-sm">{t.uploadCalendar}</span>
-              </div>
-              <Link href={`${dashboardHome}/youtube`} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 font-semibold ${pathname.endsWith('/youtube') ? 'bg-fuchsia-50 text-fuchsia-900 shadow-sm' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-fuchsia-900'}`}>
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${pathname.endsWith('/youtube') ? 'bg-fuchsia-600 text-white' : 'bg-transparent text-slate-500 group-hover:text-fuchsia-600'}`}>
-                  <Youtube className="w-4 h-4 ml-1" />
-                </div>
-                <span className="text-sm">YouTube</span>
-              </Link>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 font-semibold text-slate-400 cursor-not-allowed opacity-50">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-transparent text-slate-400">
-                  <Instagram className="w-4 h-4 ml-1" />
-                </div>
-                <span className="text-sm">Instagram</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 font-semibold text-slate-400 cursor-not-allowed opacity-50">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-transparent text-slate-400">
-                  <Facebook className="w-4 h-4 ml-1" />
-                </div>
-                <span className="text-sm">Facebook</span>
-              </div>
-            </div>}
-          </div>
 
 
-
-
-          {/* Microsoft Suite */}
-          <div className="mb-2">
-            <button onClick={() => toggleSection('microsoft')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['microsoft'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.microsoftSuite}</span>
-            </button>
-            {!collapsedSections['microsoft'] && <div className="space-y-1 animate-in fade-in duration-150">
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <Mail className="w-4 h-4 ml-1" />
-                <span className="text-sm">Outlook</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <FileText className="w-4 h-4 ml-1" />
-                <span className="text-sm">Word</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <Table className="w-4 h-4 ml-1" />
-                <span className="text-sm">Excel</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <Presentation className="w-4 h-4 ml-1" />
-                <span className="text-sm">PowerPoint</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <Users className="w-4 h-4 ml-1" />
-                <span className="text-sm">Teams</span>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 cursor-not-allowed mb-1">
-                <HardDrive className="w-4 h-4 ml-1" />
-                <span className="text-sm">OneDrive</span>
-              </div>
-            </div>}
-          </div>
         </div>
 
         {/* User Footer Profile */}

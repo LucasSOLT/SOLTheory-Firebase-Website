@@ -17,7 +17,7 @@ import { useGrantsData } from "@/hooks/useGrantsData";
 import { AgentWorkerController, type AgentSlotData } from "@/components/portal/AgentWorkerController";
 import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
 import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
-import { OrgActivityFeed } from "@/components/portal/OrgActivityFeed";
+import { QuickOverviewWidget } from "@/components/portal/QuickOverviewWidget";
 import { AIAgentOperationsWidget } from "@/components/portal/AIAgentOperationsWidget";
 import { CRMPipelineWidget } from "@/components/portal/CRMPipelineWidget";
 import { UpcomingDeadlinesWidget } from "@/components/portal/UpcomingDeadlinesWidget";
@@ -337,13 +337,24 @@ export default function SolTheoryDashboard() {
               </CmsTileWrapper>
             </div>
 
-            {/* Slot 2: Unified Grant Analytics (merged Tiles 3+4+5) */}
-            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[8] aspect-[16/7.5]">
+            {/* Slot 2: News Slideshow (Tile 6) — tall hero card */}
+            <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-[8] aspect-[16/7.5]">
+            <div className="relative w-full h-full rounded-2xl overflow-hidden">
+              <NewsSlideshow />
+              <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
+            </div>
+            </CmsTileWrapper>
+          </div>
+
+          {/* Row 2: Middle (Left Grant Analytics, Right Quick Overview) */}
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch" style={{ maxHeight: "420px" }}>
+            {/* Slot 3: Grant Analytics (merged Tiles 3+4+5) — wider */}
+            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[2.5] min-w-0 overflow-hidden">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
               <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                 Grant Analytics
               </div>
-              <div className="flex-1 flex gap-5 min-h-0">
+              <div className="flex-1 flex gap-5 min-h-0 overflow-hidden">
                 {/* Left Column: Charts */}
                 <div className="flex-1 flex flex-col min-h-0">
                   {/* Header row with button */}
@@ -369,7 +380,7 @@ export default function SolTheoryDashboard() {
                 <div className={`w-px shrink-0 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
 
                 {/* Right Column: Suggested Grants */}
-                <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   {/* Header row with button */}
                   <div className="flex items-center justify-between mb-3 shrink-0">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.suggestedGrants}</span>
@@ -381,33 +392,21 @@ export default function SolTheoryDashboard() {
                       {t.viewAllGrants}
                     </button>
                   </div>
-                  <div className="flex-1 min-h-0 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-y-auto">
                     <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
                   </div>
                 </div>
               </div>
             </div>
             </CmsTileWrapper>
-          </div>
 
-          {/* Row 2: Middle (Left News Slideshow, Right Activity Feed) */}
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch">
-            {/* Slot 3: News Slideshow (Tile 6) — wider */}
-            <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-[2.5] min-w-0">
-            <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden">
-              <NewsSlideshow />
-              {/* Very light pastel yellow overlay to blend with earthy theme */}
-              <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
-            </div>
-            </CmsTileWrapper>
-
-            {/* Slot 4: Organization Activity Feed (merged Tile 7+8) — narrower */}
-            <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[1.5] min-w-0 relative">
-            <div className={`relative lg:absolute lg:inset-0 group ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow overflow-hidden flex flex-col aspect-[16/9] lg:aspect-auto`}>
+            {/* Slot 4: Quick Overview — narrower */}
+            <CmsTileWrapper tileId="tile-7" tileName="Quick Overview" className="flex-[1.5] min-w-0">
+            <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden flex flex-col`}>
               <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                Organization Activity
+                Quick Overview
               </div>
-              <OrgActivityFeed />
+              <QuickOverviewWidget />
             </div>
             </CmsTileWrapper>
           </div>
@@ -494,7 +493,7 @@ export default function SolTheoryDashboard() {
             'tile-7': 'Organization Activity',
             'tile-9': 'Tile 9',
             'tile-10': 'Tile 10',
-            'tile-11': 'Tile 11',
+            'tile-11': 'Customer Relations',
             'tile-13': 'Tile 13',
           }[activeTilePopup] || activeTilePopup}
           isOpen={true}

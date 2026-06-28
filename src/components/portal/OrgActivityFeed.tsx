@@ -207,7 +207,7 @@ export function OrgActivityFeed() {
 
                 {/* Time */}
                 <span className={`text-[11px] font-medium shrink-0 mt-1 tabular-nums ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {item.timestamp ? timeAgo(item.timestamp.seconds) : 'â€”'}
+                  {item.timestamp ? timeAgo(item.timestamp.seconds) : '—'}
                 </span>
               </div>
             ))}

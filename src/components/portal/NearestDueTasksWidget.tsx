@@ -62,9 +62,9 @@ function formatTimestamp(ts: any): string {
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-  High: "bg-red-100 text-red-700 border-red-200",
-  Medium: "bg-amber-100 text-amber-700 border-amber-200",
-  Low: "bg-blue-100 text-blue-700 border-blue-200",
+  High: "bg-rose-50 text-rose-600 border-rose-200/60",
+  Medium: "bg-amber-50 text-amber-600 border-amber-200/60",
+  Low: "bg-sky-50 text-sky-600 border-sky-200/60",
 };
 
 // Unique assignee color palette — deterministic per name
@@ -248,7 +248,7 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
               {t.needsYourAttention}
             </h3>
             {overdueCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="w-5 h-5 rounded-full bg-rose-500/80 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
                 {overdueCount}
               </span>
             )}
@@ -303,7 +303,7 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
                   }}
                 >
                   {/* Priority indicator bar */}
-                  <div className={`w-1 h-10 rounded-full shrink-0 ${isOverdue ? 'bg-rose-400' : 'bg-amber-400'}`} />
+                  <div className={`w-1 h-10 rounded-full shrink-0 ${isOverdue ? 'bg-rose-400/80' : 'bg-indigo-400/60'}`} />
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -319,8 +319,8 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
                   <span
                     className={`text-[9px] font-bold px-2 py-1 rounded-full shrink-0 whitespace-nowrap ${
                       isOverdue
-                        ? isDarkMode ? "bg-rose-950/60 text-rose-400 border border-rose-800" : "bg-rose-50 text-rose-600 border border-rose-200"
-                        : isDarkMode ? "bg-amber-950/60 text-amber-400 border border-amber-800" : "bg-amber-50 text-amber-600 border border-amber-200"
+                        ? isDarkMode ? "bg-rose-950/50 text-rose-400 border border-rose-800/60" : "bg-rose-50 text-rose-500 border border-rose-200/60"
+                        : isDarkMode ? "bg-indigo-950/50 text-indigo-400 border border-indigo-800/60" : "bg-indigo-50 text-indigo-500 border border-indigo-200/60"
                     }`}
                   >
                     {dueLabel}
@@ -379,7 +379,7 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
                     const dueMs = typeof selectedTask.dueDate.toMillis === "function" ? selectedTask.dueDate.toMillis() : new Date(selectedTask.dueDate).getTime();
                     const isOverdue = dueMs < now;
                     return (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${isOverdue ? (isDarkMode ? 'bg-rose-950/60 text-rose-400 border-rose-800' : 'bg-rose-50 text-rose-600 border-rose-200') : (isDarkMode ? 'bg-amber-950/60 text-amber-400 border-amber-800' : 'bg-amber-50 text-amber-600 border-amber-200')}`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${isOverdue ? (isDarkMode ? 'bg-rose-950/50 text-rose-400 border-rose-800/60' : 'bg-rose-50 text-rose-500 border-rose-200/60') : (isDarkMode ? 'bg-indigo-950/50 text-indigo-400 border-indigo-800/60' : 'bg-indigo-50 text-indigo-500 border-indigo-200/60')}`}>
                         {formatDueLabel(selectedTask.dueDate, t)}
                       </span>
                     );

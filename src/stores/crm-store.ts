@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import {
   collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot,
-  query, orderBy, Unsubscribe, Firestore,
+  query, orderBy, Unsubscribe, Firestore, serverTimestamp,
 } from "firebase/firestore";
 
 /* ─────────────── TYPES ─────────────── */
@@ -29,6 +29,7 @@ export interface Customer {
   company: string;
   location: string;
   lastContactedDate: string;
+  createdAt?: any;
 }
 
 export interface Meeting {
@@ -112,6 +113,7 @@ function docToCustomer(data: Record<string, unknown>, id: string): Customer {
     company: (data.company as string) || "",
     location: (data.location as string) || "",
     lastContactedDate: (data.lastContactedDate as string) || "",
+    createdAt: data.createdAt || null,
   };
 }
 
@@ -333,6 +335,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
         aiNotes: customer.aiNotes,
         transactions: customer.transactions,
         outstandingBalance: customer.outstandingBalance,
+        createdAt: (customer as any).createdAt || serverTimestamp(),
       });
       // onSnapshot will update local state automatically
       get().showToast(`✅ ${customer.firstName} ${customer.lastName} added successfully`);
