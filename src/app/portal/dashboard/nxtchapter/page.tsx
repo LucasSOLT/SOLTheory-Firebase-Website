@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 
 import { doc, updateDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
-import { Clock, ExternalLink, Activity, Settings } from "lucide-react";
+import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useDarkMode } from '@/lib/useDarkMode';
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
@@ -19,6 +19,7 @@ import { AgentWorkerController, type AgentSlotData } from "@/components/portal/A
 
 import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
 import { OrgActivityFeed } from "@/components/portal/OrgActivityFeed";
+import { QuickOverviewWidget } from "@/components/portal/QuickOverviewWidget";
 import { AIAgentOperationsWidget } from "@/components/portal/AIAgentOperationsWidget";
 import { CRMPipelineWidget } from "@/components/portal/CRMPipelineWidget";
 import { UpcomingDeadlinesWidget } from "@/components/portal/UpcomingDeadlinesWidget";
@@ -168,8 +169,8 @@ export default function NxtChapterDashboard() {
   }, [userTimezone, lang]);
 
   return (
-    <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pt-4 md:pt-6 pb-10 px-4 sm:px-8 focus:outline-none ${isDarkMode ? 'bg-slate-950 text-white' : ''}`} tabIndex={-1}>
-      <div className="space-y-6 min-w-0 w-full">
+    <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
+      <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
         {contentManagerActive && (
           <ContentManagerBar
@@ -183,16 +184,16 @@ export default function NxtChapterDashboard() {
 
         {/* Dashboard Header */}
         <div className="flex flex-col gap-1">
-          <h1 className={`text-3xl font-light italic font-cormorant tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+          <h1 className={`text-xl sm:text-3xl font-light italic font-cormorant tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
             {t.welcomeBack} <span className="not-italic font-semibold">{isGuestMode ? t.guest : ((user?.displayName || t.user).replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke'))}</span>.
           </h1>
-          <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             {isGuestMode ? t.guestViewMsg : t.weekAtGlance}
           </p>
         </div>
 
         {/* Uniform Grid Layout with Solid White Structural Tiles & Hover Bookmarks */}
-        <div className={`space-y-5 transition-all duration-500 ${contentManagerActive ? 'opacity-80 saturate-[0.6] select-none' : ''}`}>
+        <div className={`space-y-4 md:space-y-5 transition-all duration-500 ${contentManagerActive ? 'opacity-80 saturate-[0.6] select-none' : ''}`}>
           {/* CMS overlay label */}
           {contentManagerActive && (
             <div className="!pointer-events-none flex items-center justify-center py-4">
@@ -203,12 +204,12 @@ export default function NxtChapterDashboard() {
           )}
           
           {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
-          <div className="flex flex-col lg:flex-row gap-5 w-full">
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full">
             {/* Slot 1: Aspect 4:5 (Shorter) -> Splits vertically into 2 cards */}
-            <div className="flex-[3] aspect-[4/5] flex flex-col gap-5">
+            <div className="flex-[3] aspect-[4/5] flex flex-col gap-4 md:gap-5">
               {/* Card 1A: Weekly Timesheet Hours */}
               <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 1
                 </div>
@@ -230,7 +231,7 @@ export default function NxtChapterDashboard() {
 
               {/* Card 1B: Needs Your Attention (Action Board tasks) */}
               <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-1 min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
                 <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                   Tile 2
                 </div>
@@ -248,8 +249,19 @@ export default function NxtChapterDashboard() {
               </CmsTileWrapper>
             </div>
 
-            {/* Slot 2: Unified Grant Analytics (merged Tiles 3+4+5) */}
-            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[8] aspect-[16/7.5]">
+            {/* Slot 2: News Slideshow (Tile 6) — tall hero card */}
+            <CmsTileWrapper tileId="tile-6" tileName="Company News" className="flex-[8] aspect-[16/7.5]">
+            <div className="relative w-full h-full rounded-2xl overflow-hidden">
+              <NewsSlideshow />
+              <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
+            </div>
+            </CmsTileWrapper>
+          </div>
+
+          {/* Row 2: Middle (Left Grant Analytics, Right Quick Overview) */}
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch" style={{ maxHeight: "420px" }}>
+            {/* Slot 3: Grant Analytics (merged Tiles 3+4+5) — wider */}
+            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[2.5] min-w-0 overflow-hidden">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
               <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
                 Grant Analytics
@@ -259,7 +271,7 @@ export default function NxtChapterDashboard() {
                   <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-300'}`}>{t.noGrantDataGuestMode}</span>
                 </div>
               ) : (
-                <div className="flex-1 flex gap-5 min-h-0">
+                <div className="flex-1 flex gap-5 min-h-0 overflow-hidden">
                   {/* Left Column: Charts */}
                   <div className="flex-1 flex flex-col min-h-0">
                     {/* Header row with button */}
@@ -282,10 +294,10 @@ export default function NxtChapterDashboard() {
                   </div>
 
                   {/* Divider */}
-                  <div className={`w-px shrink-0 ${isDarkMode ? 'bg-slate-700/60' : 'bg-slate-200/60'}`} />
+                  <div className={`w-px shrink-0 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
 
                   {/* Right Column: Suggested Grants */}
-                  <div className="flex-1 flex flex-col min-h-0">
+                  <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                     {/* Header row with button */}
                     <div className="flex items-center justify-between mb-3 shrink-0">
                       <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.suggestedGrants}</span>
@@ -297,7 +309,7 @@ export default function NxtChapterDashboard() {
                         {t.viewAllGrants}
                       </button>
                     </div>
-                    <div className="flex-1 min-h-0 overflow-hidden">
+                    <div className="flex-1 min-h-0 overflow-y-auto">
                       <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
                     </div>
                   </div>
@@ -305,31 +317,19 @@ export default function NxtChapterDashboard() {
               )}
             </div>
             </CmsTileWrapper>
-          </div>
 
-          {/* Row 2: Middle (Left News Slideshow, Right Activity Feed) */}
-          <div className="flex flex-col lg:flex-row gap-5 w-full items-stretch">
-            {/* Slot 3: News Slideshow (Tile 6) — wider */}
-            <CmsTileWrapper tileId="tile-6" tileName="Company News" className="flex-[2.8] min-w-0">
-            <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden">
-              <NewsSlideshow />
-              {/* Very light pastel yellow overlay to blend with earthy theme */}
-              {!isDarkMode && <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />}
-            </div>
-            </CmsTileWrapper>
-
-            {/* Slot 4: Organization Activity Feed (merged Tile 7+8) — narrower */}
-            <CmsTileWrapper tileId="tile-7" tileName="Organization Activity" className="flex-[1.2] min-w-0">
-            <div className={`relative group ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow overflow-hidden flex flex-col aspect-[16/9] lg:aspect-auto h-full`}>
+            {/* Slot 4: Quick Overview — narrower */}
+            <CmsTileWrapper tileId="tile-7" tileName="Quick Overview" className="flex-[1.5] min-w-0">
+            <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden flex flex-col`}>
               <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                Organization Activity
+                Quick Overview
               </div>
               {isGuestMode ? (
                 <div className="flex-1 flex items-center justify-center">
                   <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-300'}`}>{t.noActivityGuestMode}</span>
                 </div>
               ) : (
-                <OrgActivityFeed />
+                <QuickOverviewWidget />
               )}
             </div>
             </CmsTileWrapper>
@@ -417,7 +417,7 @@ export default function NxtChapterDashboard() {
             'tile-7': 'Organization Activity',
             'tile-9': 'Tile 9',
             'tile-10': 'Tile 10',
-            'tile-11': 'Tile 11',
+            'tile-11': 'Customer Relations',
             'tile-13': 'Tile 13',
           }[activeTilePopup] || activeTilePopup}
           isOpen={true}
