@@ -10,13 +10,21 @@ export function initAdmin() {
   if (getApps().length === 0) {
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
       // Production: use inline service account JSON from env var
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      adminApp = initializeApp({
-        credential: cert(serviceAccount),
-      });
-    } else {
-      // Local dev: read Firebase CLI's access token directly
-      // This avoids RAPT (Re-Authentication Policy) issues with Google Workspace
+      try {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        adminApp = initializeApp({
+          credential: cert(serviceAccount),
+        });
+        console.log("[Admin] Initialized with FIREBASE_SERVICE_ACCOUNT env var");
+        return;
+      } catch (e) {
+        console.error("[Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT:", e);
+      }
+    }
+    
+    // Local dev: read Firebase CLI's access token directly
+    // This avoids RAPT (Re-Authentication Policy) issues with Google Workspace
+    if (typeof process !== "undefined" && process.env.APPDATA !== undefined || (typeof process !== "undefined" && process.env.HOME)) {
       const configPath = path.join(
         process.env.APPDATA || path.join(process.env.HOME || "", ".config"),
         "configstore",
@@ -58,12 +66,13 @@ export function initAdmin() {
       } catch (e) {
         console.warn("[Admin] Could not load Firebase CLI credentials:", e);
       }
-
-      // Final fallback
-      adminApp = initializeApp({
-        projectId: firebaseConfig.projectId,
-      });
     }
+
+    // Final fallback — try applicationDefault (works on GCP, may fail elsewhere)
+    console.warn("[Admin] No FIREBASE_SERVICE_ACCOUNT env var set. Using projectId-only fallback. Some features requiring admin auth may fail.");
+    adminApp = initializeApp({
+      projectId: firebaseConfig.projectId,
+    });
   }
 }
 

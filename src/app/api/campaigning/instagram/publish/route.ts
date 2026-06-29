@@ -257,7 +257,11 @@ export async function POST(req: Request) {
     const { getAuth } = await import('firebase-admin/auth');
     initAdmin();
     await getAuth().verifyIdToken(authHeader.split('Bearer ')[1]);
-  } catch {
+  } catch (authErr: any) {
+    const msg = authErr?.message || "";
+    if (msg.includes("default credentials") || msg.includes("FIREBASE_SERVICE_ACCOUNT")) {
+      return NextResponse.json({ error: 'Server configuration error: Firebase Admin credentials not set. Please add the FIREBASE_SERVICE_ACCOUNT environment variable on Vercel.' }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
