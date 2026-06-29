@@ -128,7 +128,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
   const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
 
-  const DUAL_ORG_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
+  const DUAL_ORG_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'];
   const isDualOrgUser = DUAL_ORG_EMAILS.includes(user?.email || '');
   const isNxtChapter = pathname.includes('/nxtchapter');
   const userIsAdmin = isAdmin(user?.email);
@@ -377,19 +377,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Detect which org the user is in based on the current path
   const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
 
-  // Guest mode: admins visiting orgs that aren't their home org
-  // Exception: lucas and steve have FULL access to both orgs (never guest)
-  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'];
-  const FULL_ACCESS_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com'];
-  const isAdminUser = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
-  const isFullAccessUser = user?.email ? FULL_ACCESS_EMAILS.includes(user.email) : false;
-  const isOnHomeOrg = pathname.includes('/soltheory');
-  const isGuestMode = isAdminUser && !isOnHomeOrg && !isFullAccessUser;
-  const rawDisplayName = isGuestMode ? 'Guest' : (user?.displayName || 'User');
+  // All admin/dual-org users have full access to both orgs — no guest mode
+  const isGuestMode = false;
+  const rawDisplayName = user?.displayName || 'User';
   const guestDisplayName = rawDisplayName.replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke');
-  const guestEmail = isGuestMode ? '' : (user?.email || '');
-  const guestInitials = isGuestMode ? 'G' : (guestDisplayName.split(' ').map((n: string) => n.charAt(0)).join('') || 'U');
-  const guestAvatar = isGuestMode ? '' : (user?.photoURL || '');
+  const guestEmail = user?.email || '';
+  const guestInitials = guestDisplayName.split(' ').map((n: string) => n.charAt(0)).join('') || 'U';
+  const guestAvatar = user?.photoURL || '';
 
   React.useEffect(() => {
     document.documentElement.classList.remove('dark');

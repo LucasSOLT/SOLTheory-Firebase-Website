@@ -39,9 +39,8 @@ export default function NxtChapterDashboard() {
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
 
-  // Guest mode: admins from soltheory visiting NXT Chapter
-  const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'];
-  const isGuestMode = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
+  // All admin users are full members of both orgs — no guest mode
+  const isGuestMode = false;
 
   // Admin Content Manager state (from shared store)
   const contentManagerActive = useContentManagerStore((s) => s.active);

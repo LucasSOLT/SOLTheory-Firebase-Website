@@ -6,6 +6,7 @@ import { ai } from "@/ai/genkit";
 // ---------------------------------------------------------------------------
 
 interface InstagramAIRequest {
+  action?: "describe" | "enhance";
   mediaUrls: string[];
   campaignGoal: string;
   tone: string;

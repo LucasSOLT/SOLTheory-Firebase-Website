@@ -44,7 +44,7 @@ import {
 import { ALL_ORGS } from "@/lib/admin";
 
 // ---- Constants ----
-const ADMIN_EMAILS = ["lucas@soltheory.com", "steve@soltheory.com"];
+const ADMIN_EMAILS = ["lucas@soltheory.com", "steve@soltheory.com", "gerard@soltheory.com"];
 const ORG_ID = "nxtchapter";
 const ORG_NAME =
   ALL_ORGS.find((o) => o.id === ORG_ID)?.name || "NXT Chapter";
