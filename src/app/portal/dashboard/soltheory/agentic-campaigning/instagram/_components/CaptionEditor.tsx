@@ -6,23 +6,17 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { motion, AnimatePresence } from "framer-motion";
-import { ImageIcon } from "lucide-react";
 import {
   Smile,
-  Sparkles,
   Hash,
   Wand2,
   Loader2,
   Check,
-  ChevronRight,
   AlertTriangle,
   Save,
-  RotateCcw,
-  Megaphone,
-  Lightbulb,
   MessageSquareText,
-  Zap,
   X,
+  ImageIcon,
 } from "lucide-react";
 import {
   Popover,
@@ -48,16 +42,6 @@ const EMOJI_GRID = [
   ["👏", "🙌", "💪", "✌️", "🤝", "👋", "🫶", "👍"],
   ["📸", "🎬", "🎨", "🎵", "📱", "💡", "🚀", "🌈"],
 ];
-
-/** Tone presets for AI enhancement. */
-const TONE_OPTIONS = [
-  { id: "professional", label: "Professional", icon: <Megaphone className="w-3.5 h-3.5" />, desc: "Polished & brand-safe" },
-  { id: "enthusiastic", label: "Enthusiastic", icon: <Zap className="w-3.5 h-3.5" />, desc: "Energetic & exciting" },
-  { id: "concise", label: "Concise", icon: <MessageSquareText className="w-3.5 h-3.5" />, desc: "Short & punchy" },
-  { id: "storytelling", label: "Storytelling", icon: <Lightbulb className="w-3.5 h-3.5" />, desc: "Narrative & engaging" },
-] as const;
-
-type ToneId = (typeof TONE_OPTIONS)[number]["id"];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -147,10 +131,7 @@ export default function CaptionEditor({ isDark }: CaptionEditorProps) {
     }
   }, [campaignDraft.caption, editor]);
 
-  // Update tone in zustand when it changes
-  useEffect(() => {
-    updateDraft({ tone: selectedTone });
-  }, [selectedTone, updateDraft]);
+
 
   // ---------------------------------------------------------------------------
   // Computed values

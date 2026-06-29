@@ -551,13 +551,16 @@ export default function WorkspaceLayout({ orgId }: WorkspaceLayoutProps) {
 
                     {/* Delete button on hover (uploads only, not when selected) */}
                     {asset.source === "upload" && !selected && (
-                      <button
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => handleDeleteAsset(e, asset)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDeleteAsset(e as any, asset); }}
                         className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
                         title="Delete"
                       >
                         <Trash2 className="w-3 h-3 text-white" />
-                      </button>
+                      </div>
                     )}
 
                     {/* Selection badge */}
