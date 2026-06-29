@@ -171,6 +171,8 @@ RULES:
       const statusStr = email.read !== undefined ? (email.read ? "Read" : "Unread") : "Unknown";
       prompt += `- ID: ${email.id} | From: ${email.from} | Subject: ${email.subject} | Snippet: ${email.snippet} | Status: ${statusStr}\n`;
     }
+  } else {
+    prompt += "\n\n[CURRENT EMAIL CONTEXT]\nNo emails are currently loaded. If the user asks to summarize, search, or reference emails, tell them that no emails were found in their inbox or that their Gmail connection may need to be refreshed. DO NOT invent or fabricate any emails. NEVER mention senders like 'John Doe', 'Jane Smith', or any placeholder names.";
   }
 
   if (contacts && contacts.length > 0) {
@@ -253,6 +255,59 @@ async function executeGmailSearch(
   );
 
   return results;
+}
+
+/**
+ * Server-side fallback: fetch real inbox emails when the frontend passes an empty context.
+ * This prevents the AI from hallucinating fake emails.
+ */
+async function fetchInboxForContext(
+  refreshToken: string,
+  maxResults = 30
+): Promise<EmailContext[]> {
+  try {
+    const oauth2Client = createOAuth2Client(refreshToken);
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+    const listResponse = await gmail.users.messages.list({
+      userId: "me",
+      labelIds: ["INBOX"],
+      maxResults,
+    });
+
+    const messageRefs = listResponse.data.messages || [];
+    if (messageRefs.length === 0) return [];
+
+    const results = await Promise.all(
+      messageRefs.map(async (ref) => {
+        const detail = await gmail.users.messages.get({
+          userId: "me",
+          id: ref.id as string,
+          format: "metadata",
+          metadataHeaders: ["From", "Subject"],
+        });
+
+        const headers = detail.data.payload?.headers || [];
+        const from = headers.find((h) => h.name === "From")?.value || "Unknown";
+        const subject = headers.find((h) => h.name === "Subject")?.value || "No Subject";
+        const labelIds = detail.data.labelIds || [];
+        const isUnread = labelIds.includes("UNREAD");
+
+        return {
+          id: detail.data.id || ref.id || "",
+          from,
+          subject,
+          snippet: detail.data.snippet || "",
+          read: !isUnread,
+        };
+      })
+    );
+
+    return results;
+  } catch (err: any) {
+    console.error("[Gmail AI] Failed to fetch inbox for context:", err?.message);
+    return [];
+  }
 }
 
 async function executeConfirmedAction(
@@ -826,10 +881,19 @@ ${emailList}`;
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const model = "llama-3.3-70b-versatile";
 
+    // If frontend passed empty/missing email context, fetch real emails server-side
+    // This is the critical fix: prevents AI from hallucinating fake emails
+    let resolvedEmailContext = emailContext;
+    if (!resolvedEmailContext || resolvedEmailContext.length === 0) {
+      console.log("[Gmail AI] Email context empty — fetching inbox server-side");
+      resolvedEmailContext = await fetchInboxForContext(refreshToken);
+      console.log(`[Gmail AI] Fetched ${resolvedEmailContext.length} emails from inbox`);
+    }
+
     // Fetch email memory for contextual summaries
     const emailMemory = uid ? await getEmailMemory(uid) : [];
     const existingTags = uid ? await getExistingTags(uid) : [];
-    const systemPrompt = buildSystemPrompt(emailContext, body.contacts, emailMemory, existingTags, body.dashboardId);
+    const systemPrompt = buildSystemPrompt(resolvedEmailContext, body.contacts, emailMemory, existingTags, body.dashboardId);
 
     const completion = await groq.chat.completions.create({
       messages: [
