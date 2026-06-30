@@ -6,7 +6,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function POST(req: Request) {
   try {
-    const { uid, refreshToken, agentId: rawAgentId, soul, brain, selectedEmailIds, contacts, knowledgeBaseText } = await req.json();
+    const { uid, refreshToken, agentId: rawAgentId, soul, brain, selectedEmailIds, contacts, knowledgeBaseText, pactText } = await req.json();
     if (!uid || !refreshToken) return NextResponse.json({ error: "Missing uid or refresh token" }, { status: 400 });
 
     const agentId = (rawAgentId || "").replace("soltheory_", "").replace("nxtchapter_", "");
@@ -95,6 +95,9 @@ export async function POST(req: Request) {
         let dynamicRole = agentRole;
         if (retrievedContext) {
           dynamicRole += `\n\n[KNOWLEDGE BASE DATA]\nThe following is factual reference data from uploaded documents. Use this to craft accurate, comprehensive replies.\n\n${retrievedContext}`;
+        }
+        if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
+          dynamicRole += `\n\n[USER FACTS]\nKnown facts about the user and their preferences:\n${pactText.substring(0, 10000)}`;
         }
 
         // Generate Reply via Groq

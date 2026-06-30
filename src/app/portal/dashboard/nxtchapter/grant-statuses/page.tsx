@@ -129,7 +129,7 @@ function GrantRow({
       ? "bg-emerald-50/30 border-emerald-100/60"
       : grant.status === "denied"
       ? "bg-red-50/20 border-red-100/50"
-      : "bg-[#fefcf6] border-slate-100";
+      : "bg-[#faf8f3] border-slate-100";
 
   const isUpdating = updatingId === grant.id;
 
@@ -287,7 +287,7 @@ function GrantRow({
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 grant.status === "applied"
                   ? "bg-amber-100 border-amber-300 text-amber-800"
-                  : "bg-[#fefcf6] border-amber-200 text-amber-700 hover:bg-amber-50"
+                  : "bg-[#faf8f3] border-amber-200 text-amber-700 hover:bg-amber-50"
               }`}
             >
               <Send className="w-3.5 h-3.5" />
@@ -300,7 +300,7 @@ function GrantRow({
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 grant.status === "approved"
                   ? "bg-emerald-100 border-emerald-300 text-emerald-800"
-                  : "bg-[#fefcf6] border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  : "bg-[#faf8f3] border-emerald-200 text-emerald-700 hover:bg-emerald-50"
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -313,7 +313,7 @@ function GrantRow({
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 grant.status === "denied"
                   ? "bg-red-100 border-red-300 text-red-800"
-                  : "bg-[#fefcf6] border-red-200 text-red-700 hover:bg-red-50"
+                  : "bg-[#faf8f3] border-red-200 text-red-700 hover:bg-red-50"
               }`}
             >
               <XCircle className="w-3.5 h-3.5" />
@@ -324,7 +324,7 @@ function GrantRow({
               <button
                 onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "unapplied"); }}
                 disabled={isUpdating}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-[#faf6ed] transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-[#f2ece0] transition-colors cursor-pointer"
               >
                 Reset
               </button>
@@ -550,7 +550,7 @@ export default function GrantStatusesPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search grants by name or agency..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#fefcf6] focus:bg-[#fefcf6] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 shadow-sm"
           />
         </div>
       </div>

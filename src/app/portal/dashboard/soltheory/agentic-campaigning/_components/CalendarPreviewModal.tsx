@@ -27,15 +27,10 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFirestore, useAuth } from "@/firebase";
+import { stripHtml } from "@/lib/utils";
 import {
   doc,
   updateDoc,
@@ -125,20 +120,7 @@ function formatDate(d: Date): string {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Strip HTML tags from Tiptap output — Instagram expects plain text. */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<\/p>\s*<p>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .trim();
-}
+
 
 // ---------------------------------------------------------------------------
 // Component
@@ -432,7 +414,7 @@ export default function CalendarPreviewModal({
                 />
               ) : (
                 <p className={`text-sm leading-relaxed ${textSecondary}`}>
-                  {post.caption || "(no caption)"}
+                  {stripHtml(post.caption) || "(no caption)"}
                 </p>
               )}
               {isEditable && (

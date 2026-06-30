@@ -266,7 +266,7 @@ export default function SolTheoryDashboard() {
 
   const tileStyle = isDarkMode
     ? 'bg-slate-900/80 border border-slate-700/60'
-    : 'bg-[#fefcf6] border border-[#ede8da]/80';
+    : 'bg-[#faf8f3] border border-[#ede8da]/80';
 
   return (
     <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
@@ -304,41 +304,22 @@ export default function SolTheoryDashboard() {
             </div>
           )}
           
-          {/* Row 1: Top (Left 2:3 stacked, Right 16:9 split) */}
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full">
-            {/* Slot 1: Aspect 4:5 (Shorter) -> Splits vertically into 2 cards */}
-            <div className="flex-[3] aspect-[4/5] flex flex-col gap-4 md:gap-5">
-              {/* Card 1A: Weekly Timesheet Hours (Real QuickBooks data!) */}
-              <CmsTileWrapper tileId="tile-1" tileName="Weekly Hours Worked" className="flex-1 min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 1
-                </div>
-                <div className="flex items-center justify-between mb-3 shrink-0">
-                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.weeklyHoursWorked}</span>
-                  <Clock className={`w-4 h-4 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
-                </div>
-                <div className="flex-1 min-h-0 w-full">
-                  <WeeklyTimesheetChart />
-                </div>
+          {/* Row 1: Top (Left: Focus tile, Right: News — balanced inline) */}
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full" style={{ height: '420px', minHeight: '420px' }}>
+            {/* Card: Here's what to focus on today */}
+            <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-[5] min-h-0">
+            <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
+              <div className="flex items-center justify-between mb-3 shrink-0">
+                <span className={`text-xl font-medium font-cormorant tracking-wide ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Here&apos;s what to focus on today</span>
               </div>
-              </CmsTileWrapper>
-
-              {/* Card 1B: Needs Your Attention (Action Board tasks) */}
-              <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-1 min-h-0">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 2
-                </div>
-                <div className="flex-1 min-h-0 w-full">
-                  <NearestDueTasksWidget orgId="soltheory" />
-                </div>
+              <div className="flex-1 min-h-0 w-full overflow-y-auto">
+                <NearestDueTasksWidget orgId="soltheory" />
               </div>
-              </CmsTileWrapper>
             </div>
+            </CmsTileWrapper>
 
-            {/* Slot 2: News Slideshow (Tile 6) — tall hero card */}
-            <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-[8] aspect-[16/7.5]">
+            {/* Slot: News Slideshow (Tile 6) — compact inline */}
+            <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-[6] h-full">
             <div className="relative w-full h-full rounded-2xl overflow-hidden">
               <NewsSlideshow />
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
@@ -351,9 +332,6 @@ export default function SolTheoryDashboard() {
             {/* Slot 3: Grant Analytics (merged Tiles 3+4+5) — wider */}
             <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[2.5] min-w-0 overflow-hidden">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
-              <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                Grant Analytics
-              </div>
               <div className="flex-1 flex gap-5 min-h-0 overflow-hidden">
                 {/* Left Column: Charts */}
                 <div className="flex-1 flex flex-col min-h-0">
@@ -403,9 +381,6 @@ export default function SolTheoryDashboard() {
             {/* Slot 4: Quick Overview — narrower */}
             <CmsTileWrapper tileId="tile-7" tileName="Quick Overview" className="flex-[1.5] min-w-0">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden flex flex-col`}>
-              <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                Quick Overview
-              </div>
               <QuickOverviewWidget />
             </div>
             </CmsTileWrapper>
@@ -418,9 +393,6 @@ export default function SolTheoryDashboard() {
               {/* Tile 9: AI Agent Operations */}
               <CmsTileWrapper tileId="tile-9" tileName="Tile 9" className="h-full">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 9
-                </div>
                 <AIAgentOperationsWidget orgId="soltheory" />
               </div>
               </CmsTileWrapper>
@@ -428,9 +400,6 @@ export default function SolTheoryDashboard() {
               {/* Tile 11: CRM Pipeline */}
               <CmsTileWrapper tileId="tile-11" tileName="Tile 11" className="h-full">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 11
-                </div>
                 <CRMPipelineWidget />
               </div>
               </CmsTileWrapper>
@@ -441,18 +410,19 @@ export default function SolTheoryDashboard() {
               {/* Card 6A: Upcoming Milestones (Deadlines Widget) */}
               <CmsTileWrapper tileId="tile-10" tileName="Tile 10" className="flex-1">
               <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 10
-                </div>
                 <UpcomingDeadlinesWidget />
               </div>
               </CmsTileWrapper>
 
-              {/* Card 6B: System Status / Health (Blank White Card) */}
-              <CmsTileWrapper tileId="tile-13" tileName="Tile 13" className="flex-1">
-              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow`}>
-                <div className="absolute top-0 left-0 bg-slate-950 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-tl-2xl rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none tracking-wider uppercase">
-                  Tile 13
+              {/* Card 6B: Weekly Hours Worked (moved from Row 1) */}
+              <CmsTileWrapper tileId="tile-13" tileName="Weekly Hours Worked" className="flex-1">
+              <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow p-3 sm:p-4 md:p-5 flex flex-col`}>
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.weeklyHoursWorked}</span>
+                  <Clock className={`w-4 h-4 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                </div>
+                <div className="flex-1 min-h-0 w-full">
+                  <WeeklyTimesheetChart />
                 </div>
               </div>
               </CmsTileWrapper>
@@ -487,14 +457,13 @@ export default function SolTheoryDashboard() {
         <TileSettingsPopup
           tileId={activeTilePopup}
           tileName={{
-            'tile-1': 'Weekly Hours Worked',
-            'tile-2': 'Nearest Due Tasks',
+            'tile-2': "Here's What to Focus On",
             'tile-grants': 'Grant Analytics',
             'tile-7': 'Organization Activity',
             'tile-9': 'Tile 9',
             'tile-10': 'Tile 10',
             'tile-11': 'Customer Relations',
-            'tile-13': 'Tile 13',
+            'tile-13': 'Weekly Hours Worked',
           }[activeTilePopup] || activeTilePopup}
           isOpen={true}
           onClose={() => setActiveTilePopup(null)}

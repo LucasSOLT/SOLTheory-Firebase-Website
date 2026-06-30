@@ -195,7 +195,7 @@ export default function EndUserDashboardPage() {
                       {isDropdownOpen && !isProtectedAdmin && (
                         <>
                           <div className="fixed inset-0 z-30" onClick={() => setOpenDropdown(null)} />
-                          <div className="absolute left-4 top-full mt-1 w-40 bg-[#fefcf6] border border-slate-200 rounded-lg shadow-lg z-40 py-1 animate-in fade-in slide-in-from-top-1 duration-100">
+                          <div className="absolute left-4 top-full mt-1 w-40 bg-[#faf8f3] border border-slate-200 rounded-lg shadow-lg z-40 py-1 animate-in fade-in slide-in-from-top-1 duration-100">
                             {ASSIGNABLE_LEVELS.map((level) => (
                               <button
                                 key={level}
@@ -203,7 +203,7 @@ export default function EndUserDashboardPage() {
                                 className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors ${
                                   u.accessLevel === level
                                     ? "bg-slate-100 text-slate-900 font-bold"
-                                    : "text-slate-600 hover:bg-[#faf6ed] hover:text-slate-900"
+                                    : "text-slate-600 hover:bg-[#f2ece0] hover:text-slate-900"
                                 }`}
                               >
                                 {level}

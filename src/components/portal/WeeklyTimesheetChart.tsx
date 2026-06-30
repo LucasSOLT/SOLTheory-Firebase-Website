@@ -248,16 +248,16 @@ export function WeeklyTimesheetChart() {
         <ChevronDown className={`w-2.5 h-2.5 transition-transform ${sourceOpen ? "rotate-180" : ""}`} />
       </button>
       {sourceOpen && (
-        <div className={`absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg py-1 min-w-[130px] animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#fefcf6] border border-slate-200'}`}>
+        <div className={`absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg py-1 min-w-[130px] animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
           <button
             onClick={() => { setSource("insight"); setSourceOpen(false); }}
-            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "insight" ? (isDarkMode ? "text-blue-400 bg-blue-900/40" : "text-blue-600 bg-blue-50/60") : (isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]")}`}
+            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "insight" ? (isDarkMode ? "text-blue-400 bg-blue-900/40" : "text-blue-600 bg-blue-50/60") : (isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#f2ece0]")}`}
           >
             {t.insightTimesheet}
           </button>
           <button
             onClick={() => { setSource("quickbooks"); setSourceOpen(false); }}
-            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "quickbooks" ? (isDarkMode ? "text-blue-400 bg-blue-900/40" : "text-blue-600 bg-blue-50/60") : (isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]")}`}
+            className={`w-full text-left px-3 py-1.5 text-[10px] font-semibold transition-colors ${source === "quickbooks" ? (isDarkMode ? "text-blue-400 bg-blue-900/40" : "text-blue-600 bg-blue-50/60") : (isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#f2ece0]")}`}
           >
             {t.quickbooks}
           </button>

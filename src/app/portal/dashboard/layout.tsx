@@ -817,7 +817,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const renderSkeletonBoxes = (count: number) => {
     return Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#faf6ed] transition-colors cursor-pointer mb-2">
+      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f2efe6] transition-colors cursor-pointer mb-2">
         <div className="w-5 h-5 rounded-md bg-slate-200"></div>
         <div className="h-2.5 w-24 rounded-full bg-slate-200"></div>
       </div>
@@ -849,14 +849,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#faf6ed] text-slate-900'}`}>
+    <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>
 
       {/* ========== MOBILE TOP BAR ========== */}
       {isMobile && (
-        <div className={`fixed top-0 left-0 right-0 h-14 border-b flex items-center justify-between px-4 z-[60] shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700/80' : 'bg-[#faf6ed] border-slate-200/80'}`}>
+        <div className={`fixed top-0 left-0 right-0 h-14 border-b flex items-center justify-between px-4 z-[60] shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700/80' : 'bg-[#f0e8d0] border-slate-200/80'}`}>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`w-10 h-10 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#fefcf6] border-slate-200 text-slate-600 active:bg-slate-100'}`}
+            className={`w-10 h-10 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
           >
             {isMobileMenuOpen ? (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -890,12 +890,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div ref={orgSwitcherMobileRef} className="relative p-4 pt-4 pb-4">
                   <button
                     onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed]'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0]'}`}
                   >
                     {isNxtChapter ? (
                       <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
                     ) : (
-                      <div className="bg-black p-1 rounded-lg flex items-center justify-center">
+                      <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
                         <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-6 h-6 object-contain" />
                       </div>
                     )}
@@ -904,7 +904,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </button>
 
                   {isOrgSwitcherOpen && (
-                    <div className={`absolute left-4 right-4 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#fefcf6] border border-slate-200'}`}>
+                    <div className={`absolute left-4 right-4 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-slate-200'}`}>
                       {/* SOL Theory option */}
                       <button
                         onClick={() => {
@@ -912,9 +912,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           setIsMobileMenuOpen(false);
                           if (isNxtChapter) router.push('/portal/dashboard/soltheory');
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#faf6ed]')}`}
+                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2ece0]')}`}
                       >
-                        <div className="bg-black p-1 rounded-lg flex items-center justify-center">
+                        <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
                           <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-6 h-6 object-contain" />
                         </div>
                         <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? (isDarkMode ? 'text-white' : 'text-indigo-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>SOL Theory</span>
@@ -927,7 +927,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           setIsMobileMenuOpen(false);
                           if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100'} ${isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#faf6ed]')}`}
+                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100'} ${isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2ece0]')}`}
                       >
                         <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
                         <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? (isDarkMode ? 'text-white' : 'text-indigo-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>NXT Chapter</span>
@@ -937,7 +937,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                 </div>
               ) : (
-                <Link href={dashboardHome} className={`p-6 pt-6 pb-6 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#faf6ed]'}`} onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href={dashboardHome} className={`p-6 pt-6 pb-6 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2ece0]'}`} onClick={() => setIsMobileMenuOpen(false)}>
                   {isNxtChapter ? (
                     <>
                       <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-32 h-auto object-contain object-left" />
@@ -945,7 +945,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </>
                   ) : (
                     <>
-                      <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
+                      <div className="bg-[#8b7355] p-2 rounded-2xl flex items-center justify-center">
                         <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-12 h-12 object-contain" />
                       </div>
                       <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
@@ -957,19 +957,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex-grow overflow-y-auto px-4 space-y-4 pb-8">
                 {/* Reuse the same nav items â€” these render the same sidebar links */}
                 <div className="space-y-1">
-                  <Link href={`${dashboardHome}`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname === dashboardHome ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname === dashboardHome ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Home className="w-5 h-5" />
                     <span>{t.homepage}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/ai-agents/jarvis`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-agents') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/ai-agents/jarvis`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-agents') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Users className="w-5 h-5" />
                     <span>{t.agentManager}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/ai-knowledge-base`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-knowledge-base') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/ai-knowledge-base`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-knowledge-base') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Brain className="w-5 h-5" />
                     <span>{t.aiKnowledgeBase}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/walkthroughs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/walkthroughs') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/walkthroughs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/walkthroughs') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Lightbulb className="w-5 h-5" />
                     <span>{t.insightWalkthroughs}</span>
                   </Link>
@@ -979,12 +979,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">{t.flagshipTools}</span>
                   <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/crm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/crm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Users className="w-5 h-5 text-slate-500" />
                       <span>{t.crm}</span>
                     </Link>
 
-                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Mail className="w-5 h-5 text-slate-500" />
                       <span>{t.email}</span>
                     </Link>
@@ -993,20 +993,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <BarChart3 className="w-5 h-5" />
                       <span>{t.businessIntelligence}</span>
                     </div>
-                    <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/action-board') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/action-board') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <LayoutDashboard className="w-5 h-5 text-slate-500" />
                       <span>{t.actionBoard}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/timesheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/timesheets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/timesheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/timesheets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <CalendarDays className="w-5 h-5 text-slate-500" />
                       <span>{t.timesheets}</span>
                     </Link>
 
-                    <Link href={`${dashboardHome}/media-library`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/media-library') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/media-library`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/media-library') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <HardDrive className="w-5 h-5 text-slate-500" />
                       <span>{t.mediaLibrary}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Send className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticCampaigning}</span>
                     </Link>
@@ -1018,11 +1018,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">{t.reports}</span>
                   <div className="space-y-1 mt-2">
 
-                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/support-tickets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/support-tickets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Ticket className="w-5 h-5" />
                       <span>{t.supportTickets}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/surveys') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/surveys') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <ClipboardList className="w-5 h-5" />
                       <span>{t.surveys}</span>
                     </Link>
@@ -1032,7 +1032,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Settings */}
                 <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
-                  <Link href={`${dashboardHome}/settings`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/settings') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#faf6ed] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/settings`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/settings') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Settings className="w-5 h-5" />
                     <span>{t.settingsLabel}</span>
                   </Link>
@@ -1114,12 +1114,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 dark-sidebar shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f8f6f1] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
+        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 dark-sidebar shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
           {isDarkMode && (
             <style>{`
               .dark-sidebar .bg-\[\#f0ede4\] { background-color: rgb(30 41 59) !important; }
               .dark-sidebar .bg-\[\#f2efe8\] { background-color: rgb(30 41 59) !important; }
-              .dark-sidebar .bg-\[\#fefcf6\] { background-color: rgb(15 23 42) !important; }
+              .dark-sidebar .bg-\[\#faf8f3\] { background-color: rgb(15 23 42) !important; }
               .dark-sidebar .bg-slate-100 { background-color: rgb(51 65 85) !important; }
               .dark-sidebar .hover\:bg-\[\#f2efe8\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
               .dark-sidebar .hover\:bg-\[\#faf6ed\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
@@ -1162,7 +1162,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {isNxtChapter ? (
                     <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
                   ) : (
-                    <div className="bg-black p-1.5 rounded-xl flex items-center justify-center">
+                    <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
                       <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
                     </div>
                   )}
@@ -1171,7 +1171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </button>
 
                 {isOrgSwitcherOpen && (
-                  <div className={`absolute left-5 right-5 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#fefcf6] border border-[#e0ddd4]'}`}>
+                  <div className={`absolute left-5 right-5 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-[#e0ddd4]'}`}>
                     {/* SOL Theory option */}
                     <button
                       onClick={() => {
@@ -1180,7 +1180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       }}
                       className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
                     >
-                      <div className="bg-black p-1.5 rounded-xl flex items-center justify-center">
+                      <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
                         <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
                       </div>
                       <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>SOL Theory</span>
@@ -1210,7 +1210,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </>
                 ) : (
                   <>
-                    <div className="bg-black p-2 rounded-2xl flex items-center justify-center">
+                    <div className="bg-[#8b7355] p-2 rounded-2xl flex items-center justify-center">
                       <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-16 h-16 object-contain" />
                     </div>
                     <span className={`font-bold text-2xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
@@ -1414,12 +1414,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0 ${isMobile ? 'pt-14' : ''}`}>
         {/* Top Navbar — hidden on mobile */}
-        <header className={`h-[72px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex ${isDarkMode ? 'bg-slate-900' : ''}`}>
+        <header className={`h-[72px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex ${isDarkMode ? 'bg-slate-900' : 'bg-[#f0e8d0]'}`}>
           <div className="flex-grow max-w-[480px] relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
               placeholder={t.searchPlaceholder}
-              className={`pl-12 border shadow-sm focus-visible:ring-1 rounded-full h-10 w-full text-sm font-medium ${isDarkMode ? 'bg-slate-800 border-slate-700 focus-visible:ring-slate-600 text-white placeholder:text-slate-400' : 'bg-[#fefcf6] border-slate-100 focus-visible:ring-slate-200 text-slate-700 placeholder:text-slate-400'}`}
+              className={`pl-12 border shadow-sm focus-visible:ring-1 rounded-full h-10 w-full text-sm font-medium ${isDarkMode ? 'bg-slate-800 border-slate-700 focus-visible:ring-slate-600 text-white placeholder:text-slate-400' : 'bg-[#faf8f3] border-slate-100 focus-visible:ring-slate-200 text-slate-700 placeholder:text-slate-400'}`}
             />
           </div>
           <div className="flex items-center gap-3">
@@ -1433,7 +1433,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="relative" ref={(el) => { if (el) (el as any)._profileDropdown = true; }}>
                 <button
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors cursor-pointer border border-transparent ${isDarkMode ? 'hover:bg-slate-800 hover:border-slate-700 text-white' : 'hover:bg-[#faf6ed] hover:border-slate-100'}`}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors cursor-pointer border border-transparent ${isDarkMode ? 'hover:bg-slate-800 hover:border-slate-700 text-white' : 'hover:bg-[#f2ece0] hover:border-slate-100'}`}
                 >
                   <Avatar className="h-8 w-8 shrink-0">
                     <AvatarImage src={guestAvatar} />
@@ -1447,7 +1447,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {isProfileDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)} />
-                    <div className={`absolute right-0 top-full mt-2 w-52 border rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#fefcf6] border-slate-200'}`}>
+                    <div className={`absolute right-0 top-full mt-2 w-52 border rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
                       <div className={`px-4 py-2.5 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                         <p className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{guestDisplayName}</p>
                         <p className={`text-[11px] truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{guestEmail}</p>
@@ -1455,7 +1455,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link
                         href={`${dashboardHome}/settings?tab=profile`}
                         onClick={() => setIsProfileDropdownOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#faf6ed]'}`}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
                       >
                         <UserSquare className="w-4 h-4 text-slate-400" />
                         {t.profile}
@@ -1463,7 +1463,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link
                         href={`${dashboardHome}/settings?tab=general`}
                         onClick={() => setIsProfileDropdownOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#faf6ed]'}`}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
                       >
                         <Settings className="w-4 h-4 text-slate-400" />
                         {t.settingsLabel}
@@ -1471,7 +1471,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link
                         href={`${dashboardHome}/faq`}
                         onClick={() => setIsProfileDropdownOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#faf6ed]'}`}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
                       >
                         <HelpCircle className="w-4 h-4 text-slate-400" />
                         {t.help}
@@ -1483,7 +1483,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {/* Notifications Bell */}
               <div className="relative">
-                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`p-2.5 text-slate-400 transition-colors shadow-sm border rounded-full flex items-center justify-center relative ${isDarkMode ? 'hover:text-white hover:bg-slate-800 bg-slate-800 border-slate-700' : 'hover:text-slate-700 hover:bg-[#fefcf6] bg-[#fefcf6] border-slate-100'}`}>
+                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`p-2.5 text-slate-400 transition-colors shadow-sm border rounded-full flex items-center justify-center relative ${isDarkMode ? 'hover:text-white hover:bg-slate-800 bg-slate-800 border-slate-700' : 'hover:text-slate-700 hover:bg-[#faf8f3] bg-[#faf8f3] border-slate-100'}`}>
                   <Bell className="h-4 w-4" />
                   {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
                     <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
@@ -1494,7 +1494,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {isNotificationsOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
-                    <div className={`absolute right-0 top-full mt-2 w-[380px] rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#fefcf6] border-slate-200'}`}>
+                    <div className={`absolute right-0 top-full mt-2 w-[380px] rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
                       <div className={`flex items-center justify-between px-5 py-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                         <div className="flex items-center gap-2">
                           <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.notifications}</h3>
@@ -1521,7 +1521,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   setIsNotificationsOpen(false);
                                   if (n.link) router.push(n.link);
                                 }}
-                                className={`flex items-start gap-3 p-3 rounded-xl transition-colors mb-1.5 cursor-pointer border border-transparent group/notif ${isDarkMode ? 'hover:bg-slate-800 hover:border-slate-700' : 'hover:bg-[#faf6ed] hover:border-slate-100'}`}
+                                className={`flex items-start gap-3 p-3 rounded-xl transition-colors mb-1.5 cursor-pointer border border-transparent group/notif ${isDarkMode ? 'hover:bg-slate-800 hover:border-slate-700' : 'hover:bg-[#f2ece0] hover:border-slate-100'}`}
                               >
                                 <div className={`w-8 h-8 rounded-lg ${n.bg} flex items-center justify-center shrink-0 mt-0.5`}>
                                   {n.icon}
@@ -1581,7 +1581,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="relative">
                   <button
                     onClick={() => setIsDevToolsOpen(!isDevToolsOpen)}
-                    className={`p-2.5 text-slate-400 transition-colors shadow-sm border rounded-full flex items-center justify-center relative group ${isDarkMode ? 'hover:text-white hover:bg-slate-800 bg-slate-800 border-slate-700' : 'hover:text-slate-700 hover:bg-[#fefcf6] bg-[#fefcf6] border-slate-100'}`}
+                    className={`p-2.5 text-slate-400 transition-colors shadow-sm border rounded-full flex items-center justify-center relative group ${isDarkMode ? 'hover:text-white hover:bg-slate-800 bg-slate-800 border-slate-700' : 'hover:text-slate-700 hover:bg-[#faf8f3] bg-[#faf8f3] border-slate-100'}`}
                     title={t.devTools}
                   >
                     <Monitor className="h-4 w-4" />
@@ -1593,7 +1593,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {isDevToolsOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsDevToolsOpen(false)} />
-                      <div className={`absolute right-0 top-full mt-2 w-52 border rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#fefcf6] border-slate-200'}`}>
+                      <div className={`absolute right-0 top-full mt-2 w-52 border rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
                         <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.developerTools}</p>
                         </div>
@@ -1602,7 +1602,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             setContentManagerActive(!contentManagerActive);
                             setIsDevToolsOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#faf6ed]'}`}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
                         >
                           <ShieldCheck className={`w-4 h-4 ${contentManagerActive ? 'text-green-600' : 'text-slate-400'}`} />
                           <span>{t.contentManager}</span>
@@ -1611,7 +1611,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link
                           href={`${dashboardHome}/activity-log`}
                           onClick={() => setIsDevToolsOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#faf6ed]'}`}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
                         >
                           <Activity className="w-4 h-4 text-slate-400" />
                           {t.sessionAuditor}
@@ -1619,7 +1619,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link
                           href={`${dashboardHome}/end-users`}
                           onClick={() => setIsDevToolsOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#faf6ed]'}`}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
                         >
                           <Users className="w-4 h-4 text-slate-400" />
                           {t.endUserDashboard}
@@ -1652,7 +1652,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Welcome Walkthrough Modal */}
       {showWelcome && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-xl p-4 animate-in fade-in duration-300">
-          <div className="bg-[#fefcf6]/90 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row min-h-[520px] relative">
+          <div className="bg-[#faf8f3]/90 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row min-h-[520px] relative">
             {/* Close / X button */}
             <button onClick={handleSkipWalkthrough} className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer" title="Skip for now">
               <X className="w-4 h-4" />
@@ -1819,7 +1819,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
                             wtLanguage === "en"
                               ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
-                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                              : "bg-[#faf6ed]/30 hover:bg-[#f2ece0]/80 border-slate-200 text-slate-600"
                           }`}
                         >
                           🇺🇸 English
@@ -1831,7 +1831,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
                             wtLanguage === "es"
                               ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
-                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                              : "bg-[#faf6ed]/30 hover:bg-[#f2ece0]/80 border-slate-200 text-slate-600"
                           }`}
                         >
                           🇪🇸 Español
@@ -1852,7 +1852,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
                             wtTheme === "light"
                               ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
-                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                              : "bg-[#faf6ed]/30 hover:bg-[#f2ece0]/80 border-slate-200 text-slate-600"
                           }`}
                         >
                           <Sun className="w-3.5 h-3.5" />
@@ -1865,7 +1865,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           className={`py-2 px-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all ${
                             wtTheme === "dark"
                               ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm ring-1 ring-indigo-300/40"
-                              : "bg-[#faf6ed]/30 hover:bg-[#faf6ed]/80 border-slate-200 text-slate-600"
+                              : "bg-[#faf6ed]/30 hover:bg-[#f2ece0]/80 border-slate-200 text-slate-600"
                           }`}
                         >
                           <Moon className="w-3.5 h-3.5" />

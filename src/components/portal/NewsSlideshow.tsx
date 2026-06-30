@@ -260,7 +260,7 @@ export function NewsSlideshow() {
             }}
             className={`rounded-full transition-all duration-300 cursor-pointer ${
               i === currentSlide
-                ? "w-6 h-2 bg-[#fefcf6] shadow-lg"
+                ? "w-6 h-2 bg-[#faf8f3] shadow-lg"
                 : "w-2 h-2 bg-white/40 hover:bg-white/60"
             }`}
             aria-label={`Go to slide ${i + 1}`}

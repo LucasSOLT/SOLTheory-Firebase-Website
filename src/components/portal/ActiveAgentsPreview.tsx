@@ -53,7 +53,7 @@ export function ActiveAgentsPreview({
             <button
               key={slot.id}
               onClick={onOpenHub}
-              className={`rounded-xl border border-dashed flex items-center justify-center transition-colors cursor-pointer min-h-[60px] ${isDarkMode ? 'border-slate-600 bg-slate-800/30 hover:bg-slate-800/60' : 'border-slate-200 bg-[#faf6ed]/30 hover:bg-[#faf6ed]/60'}`}
+              className={`rounded-xl border border-dashed flex items-center justify-center transition-colors cursor-pointer min-h-[60px] ${isDarkMode ? 'border-slate-600 bg-slate-800/30 hover:bg-slate-800/60' : 'border-slate-200 bg-[#faf6ed]/30 hover:bg-[#f2ece0]/60'}`}
             >
               <span className={`text-[7px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>
                 {t.empty}
@@ -66,7 +66,7 @@ export function ActiveAgentsPreview({
           <button
             key={slot.id}
             onClick={onOpenHub}
-            className={`rounded-xl border shadow-sm p-2 flex flex-col min-h-[60px] hover:shadow transition-shadow cursor-pointer text-left overflow-hidden ${isDarkMode ? 'border-slate-700/60 bg-slate-800' : 'border-slate-200/60 bg-[#fefcf6]'}`}
+            className={`rounded-xl border shadow-sm p-2 flex flex-col min-h-[60px] hover:shadow transition-shadow cursor-pointer text-left overflow-hidden ${isDarkMode ? 'border-slate-700/60 bg-slate-800' : 'border-slate-200/60 bg-[#faf8f3]'}`}
           >
             {/* Mini header */}
             <div className="flex items-center justify-between mb-1 shrink-0">

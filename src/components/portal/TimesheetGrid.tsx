@@ -336,7 +336,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
   const summaryColWidth = 100;
 
   return (
-    <div className={`flex flex-col h-full font-sans overflow-hidden ${isDarkMode ? 'bg-[#0f172a] text-slate-100' : 'bg-[#faf6ed] text-slate-900'}`}>
+    <div className={`flex flex-col h-full font-sans overflow-hidden -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-[#0f172a] text-slate-100' : 'bg-[#f5f1e8] text-slate-900'}`}>
       {/* Page Header */}
       <div className="shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
         <div className="flex flex-col gap-4">
@@ -413,7 +413,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
               </div>
 
               {/* View Mode Toggles */}
-              <div className={`flex items-center gap-1 border rounded-xl p-1 ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+              <div className={`flex items-center gap-1 border rounded-xl p-1 ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-[#fefdfb] border-slate-200'}`}>
                 {(["week", "month", "custom"] as ViewMode[]).map((mode) => (
                   <button
                     key={mode}
@@ -456,7 +456,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
         <div
           className={`rounded-2xl border shadow-sm overflow-hidden transition-opacity duration-150 ${
             isTransitioning ? "opacity-0" : "opacity-100"
-          } ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+          } ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefdfb] border-slate-200'}`}
         >
           {/* Header Row */}
           <div
@@ -505,7 +505,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                   transition: "grid-template-columns 300ms ease",
                 }}
               >
-                <div className={`px-4 py-3 flex items-center gap-3 sticky left-0 z-10 border-r ${isDarkMode ? `border-slate-700 ${rowIdx % 2 === 0 ? 'bg-slate-800' : 'bg-slate-800/80'}` : `border-slate-100 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#faf9f5]'}`}`}>
+                <div className={`px-4 py-3 flex items-center gap-3 sticky left-0 z-10 border-r ${isDarkMode ? `border-slate-700 ${rowIdx % 2 === 0 ? 'bg-slate-800' : 'bg-slate-800/80'}` : `border-slate-100 ${rowIdx % 2 === 0 ? 'bg-[#fefdfb]' : 'bg-[#faf9f5]'}`}`}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold shadow-sm" style={{ backgroundColor: user.color }}>
                     {user.initials}
                   </div>
@@ -533,10 +533,10 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                             : isWeekend
                               ? isDarkMode
                                 ? rowIdx % 2 === 0 ? "bg-slate-700/40 hover:bg-slate-700/60" : "bg-slate-700/30 hover:bg-slate-700/50"
-                                : rowIdx % 2 === 0 ? "bg-slate-50/60 hover:bg-slate-100/60" : "bg-slate-50/40 hover:bg-slate-100/40"
+                                : rowIdx % 2 === 0 ? "bg-[#faf8f3]/60 hover:bg-slate-100/60" : "bg-[#faf8f3]/40 hover:bg-slate-100/40"
                               : isDarkMode
                                 ? rowIdx % 2 === 0 ? "bg-slate-800 hover:bg-blue-900/30" : "bg-slate-800/80 hover:bg-blue-900/20"
-                                : rowIdx % 2 === 0 ? "bg-white hover:bg-blue-50/40" : "bg-[#faf9f5] hover:bg-blue-50/30"
+                                : rowIdx % 2 === 0 ? "bg-[#fefdfb] hover:bg-blue-50/40" : "bg-[#faf9f5] hover:bg-blue-50/30"
                           : ""
                       }`}
                       style={hasData ? { backgroundColor: cellBgColor } : undefined}
@@ -564,7 +564,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                   );
                 })}
                 {/* Average */}
-                <div className={`py-2 px-2 flex flex-col items-center justify-center border-r ${isDarkMode ? `border-slate-700 ${rowIdx % 2 === 0 ? 'bg-slate-700/50' : 'bg-slate-700/30'}` : `border-slate-100 ${rowIdx % 2 === 0 ? 'bg-slate-50' : 'bg-slate-50/70'}`}`}>
+                <div className={`py-2 px-2 flex flex-col items-center justify-center border-r ${isDarkMode ? `border-slate-700 ${rowIdx % 2 === 0 ? 'bg-slate-700/50' : 'bg-slate-700/30'}` : `border-slate-100 ${rowIdx % 2 === 0 ? 'bg-[#faf8f3]' : 'bg-[#faf8f3]/70'}`}`}>
                   {summary.avgMins > 0 ? (
                     <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{formatDuration(summary.avgMins)}</span>
                   ) : (
@@ -572,7 +572,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                   )}
                 </div>
                 {/* Total */}
-                <div className={`py-2 px-2 flex flex-col items-center justify-center ${isDarkMode ? (rowIdx % 2 === 0 ? 'bg-slate-700/50' : 'bg-slate-700/30') : (rowIdx % 2 === 0 ? 'bg-slate-50' : 'bg-slate-50/70')}`}>
+                <div className={`py-2 px-2 flex flex-col items-center justify-center ${isDarkMode ? (rowIdx % 2 === 0 ? 'bg-slate-700/50' : 'bg-slate-700/30') : (rowIdx % 2 === 0 ? 'bg-[#faf8f3]' : 'bg-[#faf8f3]/70')}`}>
                   {summary.totalMins > 0 ? (
                     <>
                       <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{formatDuration(summary.totalMins)}</span>

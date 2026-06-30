@@ -28,6 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFirestore } from "@/firebase";
@@ -218,20 +220,7 @@ export default function CampaignPlanner({
       const postsRef = collection(firestore, "scheduled_instagram_posts");
       const batch = writeBatch(firestore);
 
-      // Strip HTML tags from Tiptap editor output — Instagram API expects plain text
-      const stripHtml = (html: string): string => {
-        return html
-          .replace(/<\/p>\s*<p>/gi, '\n')       // paragraph breaks → newlines
-          .replace(/<br\s*\/?>/gi, '\n')          // <br> → newline
-          .replace(/<[^>]+>/g, '')                // remove all remaining tags
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&#39;/g, "'")
-          .replace(/&quot;/g, '"')
-          .trim();
-      };
+
 
       const plainCaption = stripHtml(campaignDraft.caption || "");
 

@@ -166,7 +166,7 @@ export default function NotificationsPage() {
                 <div
                   key={n.id}
                   onClick={() => markAsRead(n.id)}
-                  className="flex items-start gap-3 p-4 bg-[#fefcf6] border border-[#e8e3d8] rounded-xl hover:bg-[#f5f2ea] transition-colors cursor-pointer group/card"
+                  className="flex items-start gap-3 p-4 bg-[#faf8f3] border border-[#e8e3d8] rounded-xl hover:bg-[#f5f2ea] transition-colors cursor-pointer group/card"
                 >
                   {getIcon(n.type)}
 

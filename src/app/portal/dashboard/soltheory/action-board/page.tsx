@@ -1138,7 +1138,7 @@ function ActionBoardContent() {
   // Loading State
   if (isLoading) {
     return (
-      <div className={`flex items-center justify-center h-full ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf6ed]'}`}>
+      <div className={`flex items-center justify-center h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900' : 'bg-[#f5f1e8]'}`}>
         <div className="flex flex-col items-center gap-3">
           <div className={`w-10 h-10 rounded-xl ${isDarkMode ? 'bg-indigo-900/50' : 'bg-indigo-100'} flex items-center justify-center text-indigo-600 animate-pulse`}>
             <LayoutDashboard className="w-5 h-5" />
@@ -1150,7 +1150,7 @@ function ActionBoardContent() {
   }
 
   return (
-    <div className={`flex flex-col h-full ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#faf6ed] text-slate-900'} font-sans overflow-hidden`}>
+    <div className={`flex flex-col h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-hidden`}>
       {showConfetti && <ActionBoardConfetti onDone={() => setShowConfetti(false)} />}
 
       {/* Page Header */}
@@ -1181,7 +1181,7 @@ function ActionBoardContent() {
             )}
 
             {/* Archive - always visible, left of Incoming */}
-            <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300' : 'border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600'} transition-colors text-sm font-medium cursor-pointer`}>
+            <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300' : 'border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0] text-slate-600'} transition-colors text-sm font-medium cursor-pointer`}>
               <Archive className="w-4 h-4" />
               <span className="hidden sm:inline">{t.abArchive}</span>
               {(deniedTasks.length + allArchivedTasks.length) > 0 && (
@@ -1190,7 +1190,7 @@ function ActionBoardContent() {
             </button>
 
             {/* Incoming Tasks */}
-            <button onClick={() => setIsInboxOpen(true)} className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300' : 'border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600'} transition-colors text-sm font-medium cursor-pointer`}>
+            <button onClick={() => setIsInboxOpen(true)} className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300' : 'border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0] text-slate-600'} transition-colors text-sm font-medium cursor-pointer`}>
               <Inbox className="w-4 h-4" />
               <span className="hidden sm:inline">{t.abIncoming}</span>
               {pendingTasks.length > 0 && (
@@ -1203,26 +1203,26 @@ function ActionBoardContent() {
               <div className="relative">
                 <button
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${viewFilter !== "my_tasks" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : isDarkMode ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300" : "border-slate-200 bg-[#fefcf6] hover:bg-[#faf6ed] text-slate-600"}`}
+                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${viewFilter !== "my_tasks" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : isDarkMode ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300" : "border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0] text-slate-600"}`}
                 >
                   <Filter className="w-4 h-4" />
                   <span className="hidden sm:inline">{viewFilter === "my_tasks" ? t.abMyTasks : viewFilter === "all_users" ? t.abAllUsers : t.abFiltered}</span>
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
                 {isFilterOpen && (
-                  <div className={`absolute right-0 top-12 w-64 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'} border rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150`}>
+                  <div className={`absolute right-0 top-12 w-64 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#faf8f3] border-slate-200'} border rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150`}>
                     <div className="p-2">
-                      <button onClick={() => { setViewFilter("my_tasks"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "my_tasks" ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
+                      <button onClick={() => { setViewFilter("my_tasks"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "my_tasks" ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#f2ece0]"}`}>
                         <UserIcon className="w-4 h-4" /> {t.abMyTasks}
                       </button>
-                      <button onClick={() => { setViewFilter("all_users"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "all_users" ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
+                      <button onClick={() => { setViewFilter("all_users"); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "all_users" ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#f2ece0]"}`}>
                         <Users className="w-4 h-4" /> {t.abAllUsers}
                       </button>
                     </div>
                     <div className={`border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} p-2`}>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3.5 py-1">{t.abSpecificUser}</p>
                       {orgMembers.filter(m => m.uid !== user?.uid).slice(0, 8).map(m => (
-                        <button key={m.uid} onClick={() => { setViewFilter("specific_user"); setFilterUserId(m.uid); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "specific_user" && filterUserId === m.uid ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"}`}>
+                        <button key={m.uid} onClick={() => { setViewFilter("specific_user"); setFilterUserId(m.uid); setIsFilterOpen(false); }} className={`w-full text-left px-3.5 py-2 rounded-xl text-sm flex items-center gap-2.5 transition-colors ${viewFilter === "specific_user" && filterUserId === m.uid ? "bg-indigo-50 text-indigo-700 font-semibold" : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#f2ece0]"}`}>
                           <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${getAvatarColor(m.uid)} flex items-center justify-center text-white text-[9px] font-bold`}>{getInitials(m.displayName, m.email)}</div>
                           <span className="truncate">{m.displayName || m.email}</span>
                         </button>
@@ -1294,7 +1294,7 @@ function ActionBoardContent() {
                           draggable
                           onDragStart={e => onDragStart(e, task.id)}
                           onDragEnd={onDragEnd}
-                          className={`group ${isDarkMode ? 'bg-slate-800' : 'bg-white'} rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
+                          className={`group ${isDarkMode ? 'bg-slate-800' : 'bg-[#fefdfb]'} rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
                             openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
                           } ${
                             highlightedTaskId === task.id
@@ -1322,20 +1322,20 @@ function ActionBoardContent() {
                                 <MoreHorizontal className="w-4 h-4" />
                               </button>
                               {openMenuId === task.id && (
-                                <div onClick={e => e.stopPropagation()} className={`absolute right-0 top-8 w-44 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150`}>
+                                <div onClick={e => e.stopPropagation()} className={`absolute right-0 top-8 w-44 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#faf8f3] border-slate-200'} border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150`}>
                                   {COLUMNS.filter(c => c.id !== task.column).map(c => (
-                                    <button key={c.id} onClick={(e) => { e.stopPropagation(); moveTask(task.id, c.id); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                    <button key={c.id} onClick={(e) => { e.stopPropagation(); moveTask(task.id, c.id); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#f2ece0]'} transition-colors flex items-center gap-2`}>
                                       <ArrowRight className="w-3.5 h-3.5 text-slate-400" /> {t.abMoveTo} {c.label}
                                     </button>
                                   ))}
                                   <div className={`border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`} />
                                   {(task.createdBy === user?.uid || isAdmin) && (
                                     <>
-                                      <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                      <button onClick={(e) => { e.stopPropagation(); openEditTaskModal(task); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#f2ece0]'} transition-colors flex items-center gap-2`}>
                                         <Edit2 className="w-3.5 h-3.5 text-slate-400" /> {t.abEditTask}
                                       </button>
                                       {task.column === "done" ? (
-                                        <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                        <button onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }} className={`w-full text-left px-3.5 py-2.5 text-sm ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-[#f2ece0]'} transition-colors flex items-center gap-2`}>
                                           <Archive className="w-3.5 h-3.5 text-slate-400" /> {t.abArchive}
                                         </button>
                                       ) : (
@@ -1465,7 +1465,7 @@ function ActionBoardContent() {
 
                 {/* Quick Add */}
                 <div className="p-3 pt-0">
-                  <button onClick={() => openNewTaskModalInColumn(col.id)} className={`w-full py-2.5 rounded-xl border border-dashed ${isDarkMode ? 'border-slate-600 text-slate-500 hover:text-slate-300 hover:border-slate-500 hover:bg-slate-700/50' : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-[#faf6ed]'} text-xs font-semibold transition-all flex items-center justify-center gap-1.5`}>
+                  <button onClick={() => openNewTaskModalInColumn(col.id)} className={`w-full py-2.5 rounded-xl border border-dashed ${isDarkMode ? 'border-slate-600 text-slate-500 hover:text-slate-300 hover:border-slate-500 hover:bg-slate-700/50' : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-[#f2ece0]'} text-xs font-semibold transition-all flex items-center justify-center gap-1.5`}>
                     <Plus className="w-3.5 h-3.5" /> {t.abAddCard}
                   </button>
                 </div>
@@ -1478,7 +1478,7 @@ function ActionBoardContent() {
       {/* ── Add Task Modal ── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={handleCloseModal}>
-          <div className={`${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#fefcf6]'} rounded-2xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto`} onClick={e => e.stopPropagation()} onPaste={(e) => {
+          <div className={`${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3]'} rounded-2xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto`} onClick={e => e.stopPropagation()} onPaste={(e) => {
             const items = e.clipboardData?.items;
             if (items) {
               const imageItems = Array.from(items).filter(item => item.type.startsWith('image/'));
@@ -1491,7 +1491,7 @@ function ActionBoardContent() {
             }
           }}>
             {/* Modal Header */}
-            <div className={`px-6 py-5 border-b flex items-center justify-between sticky top-0 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-100'} rounded-t-2xl z-10`}>
+            <div className={`px-6 py-5 border-b flex items-center justify-between sticky top-0 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#faf8f3] border-slate-100'} rounded-t-2xl z-10`}>
               <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}>
                 {editingTaskId ? (
                   <>
@@ -1512,13 +1512,13 @@ function ActionBoardContent() {
               {/* Title */}
               <div>
                 <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abTitle_label} <span className="text-red-400">*</span></label>
-                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && (editingTaskId ? saveTask() : addTask())} placeholder={t.abWhatNeedsDone} className={`w-full px-4 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm`} />
+                <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && newTitle.trim() && (editingTaskId ? saveTask() : addTask())} placeholder={t.abWhatNeedsDone} className={`w-full px-4 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm`} />
               </div>
 
               {/* Description */}
               <div>
                 <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abDescription_label} <span className={`${isDarkMode ? 'text-slate-500' : 'text-slate-300'} font-normal normal-case`}>{t.abOptional}</span></label>
-                <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder={t.abAddDetails} rows={3} className={`w-full px-4 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm resize-none`} />
+                <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder={t.abAddDetails} rows={3} className={`w-full px-4 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm resize-none`} />
               </div>
 
               {/* Attachments */}
@@ -1586,7 +1586,7 @@ function ActionBoardContent() {
                 <div>
                   <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abPriority}</label>
                   <div className="relative">
-                    <select value={newPriority} onChange={e => setNewPriority(e.target.value as Priority)} className={`w-full appearance-none px-4 py-3 pr-10 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`}>
+                    <select value={newPriority} onChange={e => setNewPriority(e.target.value as Priority)} className={`w-full appearance-none px-4 py-3 pr-10 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`}>
                       <option value="High">{"\uD83D\uDD34"} {t.abHigh}</option>
                       <option value="Medium">{"\uD83D\uDFE1"} {t.abMedium}</option>
                       <option value="Low">{"\uD83D\uDD35"} {t.abLow}</option>
@@ -1597,7 +1597,7 @@ function ActionBoardContent() {
                 <div>
                   <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abColumn}</label>
                   <div className="relative">
-                    <select value={newColumn} onChange={e => setNewColumn(e.target.value as ColumnId)} className={`w-full appearance-none px-4 py-3 pr-10 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`}>
+                    <select value={newColumn} onChange={e => setNewColumn(e.target.value as ColumnId)} className={`w-full appearance-none px-4 py-3 pr-10 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`}>
                       <option value="todo">{t.abToDo}</option>
                       <option value="doing">{t.abDoing}</option>
                       <option value="done">{t.abDone}</option>
@@ -1613,13 +1613,13 @@ function ActionBoardContent() {
                   <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>
                     <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {t.abStartDate}</span>
                   </label>
-                  <input type="datetime-local" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`} />
+                  <input type="datetime-local" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {t.abDueDate}</span>
                   </label>
-                  <input type="datetime-local" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} min={newStartDate || undefined} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`} />
+                  <input type="datetime-local" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} min={newStartDate || undefined} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`} />
                 </div>
               </div>
 
@@ -1627,7 +1627,7 @@ function ActionBoardContent() {
               <div>
                 <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>{t.abAssignTo}</label>
                 <div className="space-y-2">
-                  <button onClick={() => setNewAssignee("self")} className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${newAssignee === "self" ? `border-indigo-300 ${isDarkMode ? 'bg-indigo-950/70 text-indigo-200 ring-2 ring-indigo-500/30' : 'bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'}` : `border-slate-700 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-700 text-white' : 'bg-[#faf6ed] hover:bg-[#fefcf6]'}`}`}>
+                  <button onClick={() => setNewAssignee("self")} className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${newAssignee === "self" ? `border-indigo-300 ${isDarkMode ? 'bg-indigo-950/70 text-indigo-200 ring-2 ring-indigo-500/30' : 'bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'}` : `border-slate-700 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-700 text-white' : 'bg-[#faf6ed] hover:bg-[#faf8f3]'}`}`}>
                     <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${getAvatarColor(user?.uid || "")} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{getInitials(user?.displayName || undefined, user?.email || undefined)}</div>
                     <div><span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.abMyself}</span><span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} ml-2`}>{user?.email}</span></div>
                     {newAssignee === "self" && <CheckCircle2 className="w-4 h-4 text-indigo-500 ml-auto" />}
@@ -1635,12 +1635,12 @@ function ActionBoardContent() {
 
                   <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input value={assigneeSearch} onChange={e => setAssigneeSearch(e.target.value)} placeholder={t.abSearchTeam} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm`} />
+                    <input value={assigneeSearch} onChange={e => setAssigneeSearch(e.target.value)} placeholder={t.abSearchTeam} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm`} />
                   </div>
 
-                  <div className={`max-h-36 overflow-y-auto space-y-1 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-white'} p-1`}>
+                  <div className={`max-h-36 overflow-y-auto space-y-1 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-[#fefdfb]'} p-1`}>
                     {filteredAssignees.filter(m => m.uid !== user?.uid).slice(0, 10).map(m => (
-                      <button key={m.uid} onClick={() => setNewAssignee(m.uid)} className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${newAssignee === m.uid ? (isDarkMode ? "bg-indigo-950/80 ring-1 ring-indigo-800 text-white" : "bg-indigo-50 ring-1 ring-indigo-200 text-indigo-900") : (isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-[#faf6ed] text-slate-700")}`}>
+                      <button key={m.uid} onClick={() => setNewAssignee(m.uid)} className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${newAssignee === m.uid ? (isDarkMode ? "bg-indigo-950/80 ring-1 ring-indigo-800 text-white" : "bg-indigo-50 ring-1 ring-indigo-200 text-indigo-900") : (isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-[#f2ece0] text-slate-700")}`}>
                         <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(m.uid)} flex items-center justify-center text-white text-[9px] font-bold`}>{getInitials(m.displayName, m.email)}</div>
                         <div className="flex-1 min-w-0">
                           <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'} truncate block`}>{m.displayName || m.email}</span>
@@ -1680,7 +1680,7 @@ function ActionBoardContent() {
                 </button>
 
                 {isAutomationsOpen && (
-                  <div className={`p-4 space-y-5 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/80' : 'border-slate-200 bg-[#fefcf6]'}`}>
+                  <div className={`p-4 space-y-5 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/80' : 'border-slate-200 bg-[#faf8f3]'}`}>
                     <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.abSendNotifications}</p>
 
                     {/* Email Chip Input */}
@@ -1688,7 +1688,7 @@ function ActionBoardContent() {
                       <label className={`flex items-center gap-1.5 text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-505'} uppercase tracking-wider mb-1.5`}>
                         <Mail className="w-3 h-3 text-blue-500" /> {t.abRecipients}
                       </label>
-                      <div className={`min-h-[42px] flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg border ${isDarkMode ? 'border-slate-700 bg-slate-900 focus-within:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] focus-within:bg-[#fefcf6]'} focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all`}>
+                      <div className={`min-h-[42px] flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg border ${isDarkMode ? 'border-slate-700 bg-slate-900 focus-within:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] focus-within:bg-[#faf8f3]'} focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all`}>
                         {autoEmailChips.map((email, i) => (
                           <span key={i} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-indigo-950/80 border-indigo-800 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-700'} text-xs font-medium animate-in fade-in slide-in-from-left-1 duration-150`}>
                             {email}
@@ -1753,7 +1753,7 @@ function ActionBoardContent() {
                                     prev.includes(trigger.id) ? prev.filter(t => t !== trigger.id) : [...prev, trigger.id]
                                   );
                                 }}
-                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 ${isActive ? trigger.activeColor : isDarkMode ? "border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-900" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-[#faf6ed]"}`}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 ${isActive ? trigger.activeColor : isDarkMode ? "border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-900" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-[#f2ece0]"}`}
                               >
                                 <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${isActive ? "border-current bg-current" : "border-slate-300"}`}>
                                   {isActive && <Check className="w-2.5 h-2.5 text-white" />}
@@ -1792,7 +1792,7 @@ function ActionBoardContent() {
                   </button>
 
                   {isCommentsOpen && (
-                    <div className={`p-4 space-y-3 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-[#fefcf6]'}`}>
+                    <div className={`p-4 space-y-3 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-[#faf8f3]'}`}>
                       {/* Existing comments */}
                       {(() => {
                         const tk = tasks.find(t => t.id === editingTaskId);
@@ -1826,7 +1826,7 @@ function ActionBoardContent() {
                           onChange={e => setCommentInput(e.target.value)}
                           onKeyDown={e => { if (e.key === "Enter" && commentInput.trim()) { e.preventDefault(); addComment(editingTaskId); } }}
                           placeholder={t.abWriteComment}
-                          className={`flex-1 px-3 py-2 rounded-lg border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#fefcf6]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs`}
+                          className={`flex-1 px-3 py-2 rounded-lg border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs`}
                         />
                         <button
                           type="button"
@@ -1844,7 +1844,7 @@ function ActionBoardContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className={`px-6 py-4 border-t flex items-center justify-end gap-3 sticky bottom-0 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-[#fefcf6]'}`}>
+            <div className={`px-6 py-4 border-t flex items-center justify-end gap-3 sticky bottom-0 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-[#faf8f3]'}`}>
               <button onClick={handleCloseModal} className={`px-5 py-2.5 rounded-xl text-sm font-semibold ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} transition-colors`}>{t.abCancel}</button>
               {editingTaskId ? (
                 <button onClick={saveTask} disabled={!newTitle.trim()} className={`px-6 py-2.5 rounded-xl ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-900 hover:bg-slate-800'} text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md cursor-pointer`}>{t.abSaveChanges}</button>
@@ -1860,7 +1860,7 @@ function ActionBoardContent() {
       {isInboxOpen && (
         <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => setIsInboxOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
-          <div className={`relative w-full max-w-md ${isDarkMode ? 'bg-slate-900 border-l border-slate-700 text-white' : 'bg-[#fefcf6]'} shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col`} onClick={e => e.stopPropagation()}>
+          <div className={`relative w-full max-w-md ${isDarkMode ? 'bg-slate-900 border-l border-slate-700 text-white' : 'bg-[#faf8f3]'} shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col`} onClick={e => e.stopPropagation()}>
             <div className={`px-6 py-5 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-between shrink-0`}>
               <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}>
                 <Inbox className="w-5 h-5 text-amber-500" /> {t.abIncomingTasks}
@@ -1877,7 +1877,7 @@ function ActionBoardContent() {
                 </div>
               ) : (
                 pendingTasks.map(task => (
-                  <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl p-4 shadow-sm`}>
+                  <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-[#faf8f3] border-slate-200'} border rounded-xl p-4 shadow-sm`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-amber-950/50 text-amber-400 border border-amber-800' : 'bg-amber-50 text-amber-600 border border-amber-200'}`}>{t.abPending}</span>
@@ -1896,7 +1896,7 @@ function ActionBoardContent() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => acceptTask(task.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer"><Check className="w-4 h-4" /> {t.abAccept}</button>
-                      <button onClick={() => denyTask(task.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl ${isDarkMode ? 'bg-slate-900 border-red-900 text-red-400 hover:bg-red-955/30' : 'bg-[#fefcf6] border border-red-200 text-red-500'} text-sm font-semibold transition-colors cursor-pointer`}><XCircle className="w-4 h-4" /> {t.abDeny}</button>
+                      <button onClick={() => denyTask(task.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl ${isDarkMode ? 'bg-slate-900 border-red-900 text-red-400 hover:bg-red-955/30' : 'bg-[#faf8f3] border border-red-200 text-red-500'} text-sm font-semibold transition-colors cursor-pointer`}><XCircle className="w-4 h-4" /> {t.abDeny}</button>
                     </div>
                   </div>
                 ))
@@ -1910,7 +1910,7 @@ function ActionBoardContent() {
       {isArchiveOpen && (
         <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => { setIsArchiveOpen(false); setConfirmDeleteId(null); setRestoreDropdownId(null); }}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
-          <div className={`relative w-full max-w-md ${isDarkMode ? 'bg-slate-900 border-l border-slate-700 text-white' : 'bg-[#fefcf6]'} shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col`} onClick={e => e.stopPropagation()}>
+          <div className={`relative w-full max-w-md ${isDarkMode ? 'bg-slate-900 border-l border-slate-700 text-white' : 'bg-[#faf8f3]'} shadow-2xl h-full animate-in slide-in-from-right duration-300 flex flex-col`} onClick={e => e.stopPropagation()}>
             <div className={`px-6 py-5 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} shrink-0`}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}><Archive className="w-5 h-5 text-slate-400" /> {t.abArchive} <span className={`text-xs font-bold ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'} px-2 py-0.5 rounded-lg`}>{allArchivedTasks.length}</span></h3>
@@ -1939,7 +1939,7 @@ function ActionBoardContent() {
                 <>
                   <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider px-1 pt-2`}>{t.abArchivedAssignments}</p>
                   {archivedTasks.map(task => (
-                    <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-emerald-900 text-white' : 'bg-[#fefcf6] border-emerald-200'} border rounded-xl p-4 shadow-sm`}>
+                    <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-emerald-900 text-white' : 'bg-[#faf8f3] border-emerald-200'} border rounded-xl p-4 shadow-sm`}>
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>{t.abArchived}</span>
@@ -1960,14 +1960,14 @@ function ActionBoardContent() {
                                 <ChevronDown className={`w-3 h-3 transition-transform ${restoreDropdownId === task.id ? "rotate-180" : ""}`} />
                               </button>
                               {restoreDropdownId === task.id && (
-                                <div className={`absolute left-0 bottom-full mb-1 w-52 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150`}>
-                                  <button onClick={() => restoreTask(task.id)} className={`w-full text-left px-3 py-2 text-xs ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                <div className={`absolute left-0 bottom-full mb-1 w-52 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'} border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150`}>
+                                  <button onClick={() => restoreTask(task.id)} className={`w-full text-left px-3 py-2 text-xs ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-[#f2ece0]'} transition-colors flex items-center gap-2`}>
                                     <ArchiveRestore className="w-3 h-3 text-indigo-400" /> {t.abRestoreOriginal}
                                   </button>
                                   <div className={`border-t ${isDarkMode ? 'border-slate-850 border-slate-700' : 'border-slate-100'}`} />
                                   <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">{t.abRestoreToUser}</p>
                                   {orgMembers.map(m => (
-                                    <button key={m.uid} onClick={() => restoreTask(task.id, m.uid, m.email, m.displayName || m.email)} className={`w-full text-left px-3 py-2 text-xs ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-[#faf6ed]'} transition-colors flex items-center gap-2`}>
+                                    <button key={m.uid} onClick={() => restoreTask(task.id, m.uid, m.email, m.displayName || m.email)} className={`w-full text-left px-3 py-2 text-xs ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-[#f2ece0]'} transition-colors flex items-center gap-2`}>
                                       <UserIcon className="w-3 h-3 text-slate-400" /> {m.displayName || m.email}
                                     </button>
                                   ))}
@@ -2004,7 +2004,7 @@ function ActionBoardContent() {
                   <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-550' : 'text-slate-400'} uppercase tracking-wider px-1 pt-2`}>{t.abDeniedTasks}</p>
                   <p className={`text-xs ${isDarkMode ? 'text-slate-400 bg-slate-950/80 border border-slate-800' : 'text-slate-400 bg-[#faf6ed]'} px-3 py-2 rounded-lg`}>{t.abDeniedAutoDelete}</p>
                   {deniedTasks.map(task => (
-                    <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-[#fefcf6] border-slate-200'} border rounded-xl p-4 shadow-sm opacity-70`}>
+                    <div key={task.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-[#faf8f3] border-slate-200'} border rounded-xl p-4 shadow-sm opacity-70`}>
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-red-950/50 text-red-400 border border-red-900' : 'bg-red-50 text-red-500 border border-red-200'}`}>{t.abDenied}</span>

@@ -4,7 +4,10 @@ import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 
 export async function POST(req: Request) {
   try {
-    const { description, uid, orgId } = await req.json();
+    const body = await req.json();
+    const { description, uid, orgId } = body;
+    const kbText = ((body.knowledgeBaseText as string) || "").slice(0, 20000);
+    const pactTextVal = ((body.pactText as string) || "").slice(0, 5000);
 
     if (!description) {
       return NextResponse.json({ error: "Description is required" }, { status: 400 });
@@ -43,6 +46,8 @@ The JSON must have this exact structure:
 }
 Allowed types for questions are: "text", "choice", "rating".
 Make the survey professional and perfectly tailored to their request.`
++ (kbText ? `\n\nContext about the user's business — use this to make the survey domain-relevant:\n${kbText}` : "")
++ (pactTextVal ? `\n\nKnown facts about the user:\n${pactTextVal}` : "")
         },
         {
           role: "user",

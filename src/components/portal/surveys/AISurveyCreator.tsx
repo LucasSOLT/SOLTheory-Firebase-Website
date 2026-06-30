@@ -6,6 +6,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { Bot, Check, Trash2, RefreshCw, Send, Copy, X, Plus, Globe, Lock, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 
 interface AISurveyCreatorProps {
   onClose: () => void;
@@ -15,6 +16,7 @@ interface AISurveyCreatorProps {
 export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCreatorProps) {
   const firestore = useFirestore();
   const auth = getAuth();
+  const { knowledgeBaseText, pactText } = useKnowledgeBase('soltheory');
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [generatedSurvey, setGeneratedSurvey] = useState<any>(null);
@@ -37,7 +39,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
       const res = await fetch("/api/generate-survey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description })
+        body: JSON.stringify({ description, knowledgeBaseText, pactText })
       });
       const data = await res.json();
       if (data.survey) {
@@ -184,7 +186,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
                   <div className="space-y-2">
                     <button
                       onClick={() => setVisibility("organization")}
-                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "organization" ? "border-slate-900 bg-slate-50" : "border-slate-100 bg-[#fefcf6] hover:border-slate-200"}`}
+                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "organization" ? "border-slate-900 bg-slate-50" : "border-slate-100 bg-[#faf8f3] hover:border-slate-200"}`}
                     >
                       <div className="flex items-center gap-3">
                         <Globe className={`w-5 h-5 ${visibility === "organization" ? "text-slate-700" : "text-slate-400"}`} />
@@ -197,7 +199,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
 
                     <button
                       onClick={() => setVisibility("specific")}
-                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "specific" ? "border-slate-900 bg-slate-50" : "border-slate-100 bg-[#fefcf6] hover:border-slate-200"}`}
+                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${visibility === "specific" ? "border-slate-900 bg-slate-50" : "border-slate-100 bg-[#faf8f3] hover:border-slate-200"}`}
                     >
                       <div className="flex items-center gap-3">
                         <Lock className={`w-5 h-5 ${visibility === "specific" ? "text-slate-700" : "text-slate-400"}`} />

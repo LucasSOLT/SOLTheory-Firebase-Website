@@ -447,7 +447,7 @@ export default function NxtChapterSurveyPage() {
   // ---- Loading State ----
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center bg-[#f5f1e8] -mx-4 -mb-4 md:-mx-10 md:-mb-10">
         <div className="text-center space-y-4 animate-in fade-in duration-300">
           <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-sm text-slate-400">Loading surveys…</p>
@@ -461,7 +461,7 @@ export default function NxtChapterSurveyPage() {
   // ============================================================
   if (isAdmin && viewMode === "builder") {
     return (
-      <div className="flex-1 overflow-y-auto px-6 py-10">
+      <div className="flex-1 overflow-y-auto px-6 py-10 bg-[#f5f1e8] -mx-4 -mb-4 md:-mx-10 md:-mb-10">
         <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* Header */}
           <div>
@@ -512,7 +512,7 @@ export default function NxtChapterSurveyPage() {
             {editQuestions.map((q, idx) => (
               <Card
                 key={q.id}
-                className="bg-white border border-slate-200 shadow-sm rounded-xl"
+                className="bg-[#fefdfb] border border-slate-200 shadow-sm rounded-xl"
               >
                 <CardContent className="pt-5 pb-5 space-y-4">
                   <div className="flex items-start gap-3">
@@ -673,7 +673,7 @@ export default function NxtChapterSurveyPage() {
     const surveyQuestions = currentSurvey.questions || [];
 
     return (
-      <div className="flex-1 overflow-y-auto px-6 py-10">
+      <div className="flex-1 overflow-y-auto px-6 py-10 bg-[#f5f1e8] -mx-4 -mb-4 md:-mx-10 md:-mb-10">
         <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* Header */}
           <div>
@@ -728,7 +728,7 @@ export default function NxtChapterSurveyPage() {
 
           {/* Response summary */}
           {responses.length === 0 ? (
-            <Card className="bg-white border border-slate-200 shadow-sm rounded-xl">
+            <Card className="bg-[#fefdfb] border border-slate-200 shadow-sm rounded-xl">
               <CardContent className="py-12 text-center">
                 <BarChart3 className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                 <p className="text-sm text-slate-400">
@@ -747,7 +747,7 @@ export default function NxtChapterSurveyPage() {
                 return (
                   <Card
                     key={q.id}
-                    className="bg-white border border-slate-200 shadow-sm rounded-xl"
+                    className="bg-[#fefdfb] border border-slate-200 shadow-sm rounded-xl"
                   >
                     <CardHeader className="pb-2">
                       <div className="flex items-start gap-3">
@@ -874,7 +874,7 @@ export default function NxtChapterSurveyPage() {
                             qAnswers.map((a, i) => (
                               <div
                                 key={i}
-                                className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 text-xs text-slate-700 leading-relaxed"
+                                className="px-3 py-2 rounded-lg bg-[#faf8f3] border border-slate-100 text-xs text-slate-700 leading-relaxed"
                               >
                                 {String(a)}
                               </div>
@@ -900,7 +900,7 @@ export default function NxtChapterSurveyPage() {
     const weeks = getWeeksList();
 
     return (
-      <div className="flex-1 overflow-y-auto px-6 py-10">
+      <div className="flex-1 overflow-y-auto px-6 py-10 bg-[#f5f1e8] -mx-4 -mb-4 md:-mx-10 md:-mb-10">
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-300">
           {/* Header */}
           <div className="flex items-start justify-between">
@@ -938,8 +938,8 @@ export default function NxtChapterSurveyPage() {
                     isCurrent
                       ? "border-indigo-300 ring-1 ring-indigo-100"
                       : survey
-                      ? "border-slate-200 bg-white"
-                      : "border-dashed border-slate-200 bg-white/60"
+                      ? "border-slate-200 bg-[#fefdfb]"
+                      : "border-dashed border-slate-200 bg-[#fefdfb]/60"
                   } ${isFuture && !survey ? "opacity-60" : ""}`}
                   onClick={() => {
                     if (survey) {
@@ -1014,9 +1014,9 @@ export default function NxtChapterSurveyPage() {
   if (submitted || alreadySubmitted) {
     const questionCount = currentSurvey?.questions.length || 0;
     return (
-      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="flex-1 flex items-center justify-center px-6 bg-[#f5f1e8] -mx-4 -mb-4 md:-mx-10 md:-mb-10">
         <div className="text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-20 h-20 mx-auto bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto bg-[#faf8f3] rounded-xl border border-slate-200 flex items-center justify-center">
             <CheckCircle2 className="w-10 h-10 text-slate-900" />
           </div>
           <div>
@@ -1047,9 +1047,9 @@ export default function NxtChapterSurveyPage() {
   // ============================================================
   if (!isAdmin && !currentSurvey) {
     return (
-      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="flex-1 flex items-center justify-center px-6 bg-[#f5f1e8] -mx-4 -mb-4 md:-mx-10 md:-mb-10">
         <div className="text-center space-y-6 animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-16 h-16 mx-auto bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto bg-[#faf8f3] rounded-xl border border-slate-200 flex items-center justify-center">
             <FileText className="w-8 h-8 text-slate-300" />
           </div>
           <div>
@@ -1096,7 +1096,7 @@ export default function NxtChapterSurveyPage() {
     };
 
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 overflow-y-auto bg-[#f5f1e8] -mx-4 -mb-4 md:-mx-10 md:-mb-10">
         <div className="w-full max-w-2xl space-y-8">
           {/* Header */}
           <div className="text-center space-y-3 pb-2">
@@ -1129,7 +1129,7 @@ export default function NxtChapterSurveyPage() {
 
           {/* Question Card */}
           <Card
-            className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300"
+            className="bg-[#fefdfb] border border-slate-200 shadow-sm rounded-xl overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300"
             key={question.id}
           >
             <CardHeader className="pb-2">

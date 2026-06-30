@@ -140,7 +140,9 @@ export async function POST(req: Request) {
     }
 
     // ── Parse & validate request ────────────────────────────────────────
-    const body = (await req.json()) as Partial<InstagramAIRequest>;
+    const body = (await req.json()) as Partial<InstagramAIRequest> & { knowledgeBaseText?: string; pactText?: string };
+    const kbText = (body.knowledgeBaseText || "").slice(0, 20000);
+    const pactTextVal = (body.pactText || "").slice(0, 5000);
 
     if (!body.mediaUrls || !Array.isArray(body.mediaUrls) || body.mediaUrls.length === 0) {
       return NextResponse.json(
@@ -182,8 +184,13 @@ export async function POST(req: Request) {
 
     if (acceptsStream) {
       // ── Streaming response ──────────────────────────────────────────
+      // Build dynamic system prompt with user context
+      let dynamicSystemPrompt = SYSTEM_PROMPT;
+      if (kbText) dynamicSystemPrompt += `\n\nContext about the user's business/brand:\n${kbText}`;
+      if (pactTextVal) dynamicSystemPrompt += `\n\nKnown facts about the user:\n${pactTextVal}`;
+
       const { stream, response } = ai.generateStream({
-        system: SYSTEM_PROMPT,
+        system: dynamicSystemPrompt,
         prompt: buildPromptParts(request),
         config: { temperature: 0.8, maxOutputTokens: 2048 },
       });
@@ -231,8 +238,13 @@ export async function POST(req: Request) {
     }
 
     // ── Standard (non-streaming) response ─────────────────────────────
+    // Build dynamic system prompt with user context
+    let dynamicSystemPromptStd = SYSTEM_PROMPT;
+    if (kbText) dynamicSystemPromptStd += `\n\nContext about the user's business/brand:\n${kbText}`;
+    if (pactTextVal) dynamicSystemPromptStd += `\n\nKnown facts about the user:\n${pactTextVal}`;
+
     const result = await ai.generate({
-      system: SYSTEM_PROMPT,
+      system: dynamicSystemPromptStd,
       prompt: buildPromptParts(request),
       config: { temperature: 0.8, maxOutputTokens: 2048 },
     });

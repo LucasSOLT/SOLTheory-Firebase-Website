@@ -27,6 +27,7 @@ import { usePathname } from "next/navigation";
 import { doc, getDoc, collection, addDoc } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -86,6 +87,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const pathname = usePathname();
+  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase('soltheory');
 
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [isFetched, setIsFetched] = useState(false);
@@ -161,7 +163,9 @@ When creating Google Docs, you MUST follow these rules:
           uid: user?.uid,
           refreshToken: rToken,
           contacts: [],
-          knowledgeBaseText: ""
+          knowledgeBaseText,
+          pactText,
+          orgBrainText
         }),
       });
 

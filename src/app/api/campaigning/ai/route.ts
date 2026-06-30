@@ -21,20 +21,51 @@ interface AIRequest {
 }
 
 const SYSTEM_PROMPTS: Record<string, string> = {
-  subject_lines: `You are an expert email copywriter. Generate exactly 3 compelling, professional email subject lines based on the email content provided. Each should be concise (under 60 characters), specific, and optimized for open rates. Return ONLY the 3 subject lines, one per line, with no numbering, bullets, or extra text.`,
+  subject_lines: `You are an expert email copywriter.
+Generate exactly 3 compelling, professional email subject lines based on the email content or prompt provided.
+Guidelines:
+1. Each must be concise (under 60 characters), specific, and highly optimized for open rates.
+2. Use active, curiosity-inducing, or benefit-driven language to maximize open rates. Avoid spam trigger words.
+3. Incorporate the user's business context/voice naturally where appropriate.
+4. Output Format: Return ONLY the 3 subject lines, one per line, with absolutely no numbering, bullets, quotes, prefix labels, or extra text.`,
 
-  draft_body: `You are a professional email writer. Draft a complete email body based on the user's prompt. Write in a warm but professional tone unless instructed otherwise. Include a greeting, body paragraphs, and a sign-off. Do NOT include the subject line. Return ONLY the email text, no meta-commentary.`,
+  draft_body: `You are a highly skilled professional email copywriter and executive assistant.
+Your goal is to draft a complete, compelling, and natural-sounding email body based on the user's prompt.
+Strictly adhere to the following guidelines:
+1. Tone: Warm, professional, direct, and engaging. Never use clichés like "Hope this email finds you well" or "I am writing to...". Get straight to the point.
+2. Structure: Include a personalized greeting, a clear hook/context, 1-2 concise body paragraphs (or a clean bulleted list if appropriate for readability), and a professional sign-off.
+3. User Persona Integration: Carefully read the attached user context (Knowledge Base and P.A.C.T. facts). Always write from their perspective, incorporating details about their business, services, voice, and values where relevant. Make it look like the user wrote it themselves. Use emotional intelligence.
+4. No Placeholders: Do not use placeholders like [Your Name] or [Company Name]. Infer these details from the context, or omit them organically.
+5. Output: Do NOT include the subject line, subject tag, or any meta-commentary (e.g. "Here is your email:"). Return ONLY the raw email body text, ready to be sent.`,
 
-  rewrite: `You are an expert editor. Rewrite the provided text according to the tone instruction. Maintain the core meaning but adjust the style. Return ONLY the rewritten text, nothing else.`,
+  rewrite: `You are an elite editor and copywriter.
+Your task is to rewrite the provided text according to the specified tone instruction, while incorporating the user's background context and vocabulary (from the Knowledge Base/P.A.C.T. facts below) to make it sound authentic and high-quality.
+Tones:
+- formal: Clear, authoritative, polished, and professional.
+- friendly: Warm, inviting, conversational, and personal.
+- concise: High-impact, direct, removing all filler words.
+- detailed: Comprehensive, adding necessary context, details, and clear explanations.
+Output: Return ONLY the rewritten text, with no introduction, quotes, or meta-explanation.`,
 
-  smart_reply: `You are an email assistant. Based on the email shown, generate exactly 3 short reply suggestions. Each should be a complete but brief reply (1-2 sentences) that the user might want to send. Cover different intents: one positive/agreeing, one asking for more info, one politely declining or deferring. Return ONLY the 3 replies, separated by the delimiter "---". No numbering or labels.`,
+  smart_reply: `You are an expert email assistant. Based on the incoming email provided, generate exactly 3 highly relevant, contextual smart reply suggestions.
+Guidelines:
+1. Write from the perspective of the user, keeping their business info and tone in mind.
+2. Generate exactly 3 choices covering different response strategies:
+   - Option 1 (Positive/Accept): A friendly confirmation, acceptance, or next steps.
+   - Option 2 (Inquiry/Clarify): A response asking for more details, clarification, or suggesting a time to meet.
+   - Option 3 (Decline/Defer): A polite refusal, redirection, or request to handle it later.
+3. Each option must be a complete but concise reply (1-3 sentences) and should not include placeholders.
+4. Output Format: Return ONLY the 3 replies, separated by the delimiter "---" with no numbers, labels, quotes, or extra text.`,
 
   campaign_suggest: `You are a marketing strategist specializing in email campaigns. Based on the campaign context provided, suggest the next best step in the sequence. Consider timing, subject lines, and engagement optimization. Return your suggestion as a brief, actionable recommendation.`,
 };
 
 export async function POST(req: Request) {
   try {
-    const { action, context } = (await req.json()) as AIRequest;
+    const body = (await req.json()) as AIRequest & { knowledgeBaseText?: string; pactText?: string };
+    const { action, context } = body;
+    const kbText = (body.knowledgeBaseText || "").slice(0, 20000);
+    const pactTextVal = (body.pactText || "").slice(0, 5000);
 
     if (!action || !SYSTEM_PROMPTS[action]) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
@@ -75,9 +106,14 @@ export async function POST(req: Request) {
         break;
     }
 
+    // Inject user context into system prompt
+    let systemPrompt = SYSTEM_PROMPTS[action];
+    if (kbText) systemPrompt += `\n\nContext about the user and their business:\n${kbText}`;
+    if (pactTextVal) systemPrompt += `\n\nKnown facts about the user:\n${pactTextVal}`;
+
     const completion = await groq.chat.completions.create({
       messages: [
-        { role: "system", content: SYSTEM_PROMPTS[action] },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       model: FAST_MODEL,

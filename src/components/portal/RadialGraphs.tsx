@@ -21,7 +21,7 @@ const mockData3 = [
 
 function RadialItem({ title, value, label, data, color }: { title: string, value: string, label: string, data: any[], color: string }) {
   return (
-    <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-[#faf6ed] transition-colors">
+    <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-[#f2ece0] transition-colors">
       <div className="w-16 h-16 shrink-0 relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>

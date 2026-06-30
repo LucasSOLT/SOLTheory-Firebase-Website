@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { playMessageSendSound } from "@/lib/send-sound";
 import { logActivity } from '@/lib/activity-logger';
+import { useTranslation } from "@/lib/i18n";
 
 function useDarkMode() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -195,6 +196,7 @@ export function DMChat() {
   const firestore = useFirestore();
   const storage = useStorage();
   const isDarkMode = useDarkMode();
+  const { lang } = useTranslation();
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -678,9 +680,11 @@ export function DMChat() {
             <div className={`w-20 h-20 rounded-full shadow-sm flex items-center justify-center mb-6 border ${isDarkMode ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-white text-slate-300 border-slate-100'}`}>
                <MessageSquareX className="w-10 h-10" />
             </div>
-            <h2 className={`text-2xl font-extrabold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Sin Chat Seleccionado</h2>
+            <h2 className={`text-2xl font-extrabold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{lang === 'es' ? 'Sin Chat Seleccionado' : 'No Chat Selected'}</h2>
             <p className="text-slate-400 mt-2 max-w-sm">
-              Selecciona un contacto existente del menú izquierdo o escribe un correo electrónico para iniciar un nuevo hilo de mensajes directos.
+              {lang === 'es'
+                ? 'Selecciona un contacto existente del menú izquierdo o escribe un correo electrónico para iniciar un nuevo hilo de mensajes directos.'
+                : 'Select an existing contact from the left menu or type an email to start a new direct message thread.'}
             </p>
           </div>
         )}

@@ -259,10 +259,10 @@ export default function IMessagePage() {
   if (isProvisioned === false) {
     return (
       <div className="w-full h-full flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-[#fefcf6] border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="max-w-md w-full bg-[#faf8f3] border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           {/* Header strip */}
           <div className="bg-[#F0F2F5] px-8 pt-8 pb-6 text-center border-b border-slate-100">
-            <div className="w-16 h-16 rounded-full bg-[#fefcf6] mx-auto flex items-center justify-center shadow-sm border border-slate-200 mb-4">
+            <div className="w-16 h-16 rounded-full bg-[#faf8f3] mx-auto flex items-center justify-center shadow-sm border border-slate-200 mb-4">
               <MessageCircle className="w-8 h-8 text-[#25D366]" />
             </div>
             <h2 className="text-xl font-bold text-slate-900">Connect Your Number</h2>
@@ -291,7 +291,7 @@ export default function IMessagePage() {
                 placeholder="(720) 356-0494"
                 value={setupNumber}
                 onChange={(e) => setSetupNumber(e.target.value)}
-                className="h-12 text-center text-lg font-mono !bg-[#fefcf6] border-slate-200 rounded-xl !text-slate-900 placeholder:!text-slate-400"
+                className="h-12 text-center text-lg font-mono !bg-[#faf8f3] border-slate-200 rounded-xl !text-slate-900 placeholder:!text-slate-400"
               />
             </div>
 
@@ -370,14 +370,14 @@ export default function IMessagePage() {
       {/* Main content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0 overflow-hidden">
         {/* Conversation List */}
-        <Card className={`lg:col-span-4 bg-[#fefcf6] border border-slate-200 flex flex-col overflow-hidden shadow-sm rounded-2xl ${(activeContact || showNewConversation) ? "hidden lg:flex" : "flex"}`}>
+        <Card className={`lg:col-span-4 bg-[#faf8f3] border border-slate-200 flex flex-col overflow-hidden shadow-sm rounded-2xl ${(activeContact || showNewConversation) ? "hidden lg:flex" : "flex"}`}>
           <CardHeader className="border-b border-slate-100 pb-3 pt-4 px-4 space-y-3 bg-[#F0F2F5]">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base text-slate-900 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-[#25D366]" />
                 Chats
                 {conversations.length > 0 && (
-                  <span className="text-xs bg-[#fefcf6] text-slate-500 px-2 py-0.5 rounded-full">{conversations.length}</span>
+                  <span className="text-xs bg-[#faf8f3] text-slate-500 px-2 py-0.5 rounded-full">{conversations.length}</span>
                 )}
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={loadConversations} disabled={isLoadingConvos} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-700">
@@ -386,7 +386,7 @@ export default function IMessagePage() {
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <Input placeholder="Search or start new chat" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 !bg-[#fefcf6] border-slate-200 rounded-lg text-sm !text-slate-900 placeholder:!text-slate-400" />
+              <Input placeholder="Search or start new chat" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 !bg-[#faf8f3] border-slate-200 rounded-lg text-sm !text-slate-900 placeholder:!text-slate-400" />
             </div>
           </CardHeader>
           <CardContent className="flex-grow overflow-y-auto p-0">
@@ -412,7 +412,7 @@ export default function IMessagePage() {
                   <button
                     key={conv.contact}
                     onClick={() => { setActiveContact(conv.contact); setShowNewConversation(false); }}
-                    className={`w-full text-left p-4 hover:bg-[#faf6ed] transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`w-full text-left p-4 hover:bg-[#f2ece0] transition-all cursor-pointer flex items-start gap-3 ${
                       activeContact === conv.contact ? "bg-emerald-50/60 border-l-2 border-emerald-500" : "border-l-2 border-transparent"
                     }`}
                   >
@@ -446,7 +446,7 @@ export default function IMessagePage() {
         </Card>
 
         {/* Message Thread */}
-        <Card className={`lg:col-span-8 bg-[#fefcf6] border border-slate-200 flex flex-col overflow-hidden shadow-sm rounded-2xl ${(!activeContact && !showNewConversation) ? "hidden lg:flex" : "flex"}`}>
+        <Card className={`lg:col-span-8 bg-[#faf8f3] border border-slate-200 flex flex-col overflow-hidden shadow-sm rounded-2xl ${(!activeContact && !showNewConversation) ? "hidden lg:flex" : "flex"}`}>
           {activeContact || showNewConversation ? (
             <>
               {/* Thread header â€” WhatsApp teal */}
@@ -464,7 +464,7 @@ export default function IMessagePage() {
                         placeholder="Enter phone number (e.g. 555-123-4567)"
                         value={newContactNumber}
                         onChange={(e) => setNewContactNumber(e.target.value)}
-                        className="h-9 border-slate-200 text-sm !bg-[#fefcf6] !text-slate-900 placeholder:!text-slate-400"
+                        className="h-9 border-slate-200 text-sm !bg-[#faf8f3] !text-slate-900 placeholder:!text-slate-400"
                         autoFocus
                       />
                     </div>
@@ -519,7 +519,7 @@ export default function IMessagePage() {
                           <div className={`max-w-[75%] px-3 py-2 rounded-lg text-sm leading-relaxed shadow-sm ${
                             isMe
                               ? "bg-[#DCF8C6] text-slate-900 rounded-tr-none"
-                              : "bg-[#fefcf6] text-slate-900 rounded-tl-none"
+                              : "bg-[#faf8f3] text-slate-900 rounded-tl-none"
                           }`}>
                             {msg.body || "Media"}
                             <div className={`flex items-center gap-1 mt-1 ${isMe ? "justify-end" : ""}`}>
@@ -544,7 +544,7 @@ export default function IMessagePage() {
                     placeholder="Type a message..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    className="flex-1 !bg-[#fefcf6] border-slate-200 rounded-full h-11 text-sm !text-slate-900 placeholder:!text-slate-400 px-5"
+                    className="flex-1 !bg-[#faf8f3] border-slate-200 rounded-full h-11 text-sm !text-slate-900 placeholder:!text-slate-400 px-5"
                     disabled={isSending}
                   />
                   <Button

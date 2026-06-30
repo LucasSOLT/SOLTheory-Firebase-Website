@@ -12,15 +12,27 @@ import { useCRMStore } from "@/stores/crm-store";
 import type { Customer, Meeting, CrmNotification, Conversation, InboxMessage, InboxChannel, TicketStatus, ChatMessage } from "@/stores/crm-store";
 import { ToastContainer } from "@/components/crm/Toast";
 import { DashboardSkeleton, AnalyticsSkeleton } from "@/components/crm/Skeletons";
+import ManageFieldsSidebar from "@/components/crm/ManageFieldsSidebar";
+import CSVFieldMergeDialog from "@/components/crm/CSVFieldMergeDialog";
+import ExportModal from "@/components/crm/ExportModal";
+import { useContactFields } from "@/hooks/useContactFields";
+import {
+  type ContactFieldDef,
+  matchAllCSVHeaders,
+  needsMergeDialog,
+  createCustomField,
+  type CSVFieldMatch,
+} from "@/lib/contactFieldTypes";
 import {
   Search, Plus, Bell, LayoutDashboard, Users, GitBranch, BarChart3,
   UserPlus, Mail, ChevronDown, ChevronUp, Filter, Download, Brain,
   Phone, DollarSign, Activity, ArrowUpRight, MoreHorizontal, X,
   MessageCircle, PanelRightClose, PanelRightOpen, Send, Sparkles, Trash2,
   CheckSquare, Square, Tag, MailPlus, Calendar, Clock, ToggleLeft, ToggleRight,
-  CalendarCheck, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
+  CalendarCheck, Check, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
   Table2, MapPin, Building2, ChevronLeft, ChevronRight, AlertTriangle, Save, Contact,
+  Settings2,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -79,7 +91,7 @@ const getTagStyles = (tag: string, isDarkMode: boolean) => {
       default: return "bg-slate-900 text-slate-300 border-slate-700";
     }
   } else {
-    return TAG_COLORS[tag] || "${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-[#faf6ed] text-slate-600 border-slate-200'}";
+    return TAG_COLORS[tag] || (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-[#faf6ed] text-slate-600 border-slate-200');
   }
 };
 
@@ -285,6 +297,21 @@ export default function CRMPage() {
   const [showDrafts, setShowDrafts] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
+  // ── Manage Fields state ──
+  const [showManageFields, setShowManageFields] = useState(false);
+  const contactFieldsHook = useContactFields("crm");
+  const { fieldConfig, setVisibleFields, addCustomField: hookAddCustomField, addFieldsFromCSV, saveConfig, getVisibleFieldDefs, applyConfig } = contactFieldsHook;
+
+  // ── CSV Merge Dialog state ──
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [csvMergeMatches, setCsvMergeMatches] = useState<CSVFieldMatch[]>([]);
+  const [csvMergeHeaders, setCsvMergeHeaders] = useState<string[]>([]);
+  const [pendingCSVData, setPendingCSVData] = useState<string>("");
+
+  // ── Export Modal state ──
+  const [showExportModal, setShowExportModal] = useState(false);
+
+
   // Load signature from Firestore
   useEffect(() => {
     if (!user?.uid || !db) return;
@@ -389,7 +416,7 @@ export default function CRMPage() {
     setEditModalIds(ids);
     setEditModalIndex(0);
     const c = customers.find(x => x.id === ids[0]);
-    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus });
+    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus, company: c.company || "", location: c.location || "" });
   };
 
   const saveEditForm = async (customerId: string) => {
@@ -403,6 +430,8 @@ export default function CRMPage() {
       totalRevenue: parseFloat(editForm.totalRevenue) || 0,
       outstandingBalance: parseFloat(editForm.outstandingBalance) || 0,
       leadStatus: editForm.leadStatus,
+      company: editForm.company || "",
+      location: editForm.location || "",
     });
     setIsSavingEdit(false);
     showToast("Contact updated successfully", "success");
@@ -416,7 +445,7 @@ export default function CRMPage() {
     if (newIndex < 0 || newIndex >= editModalIds.length) return;
     setEditModalIndex(newIndex);
     const c = customers.find(x => x.id === editModalIds[newIndex]);
-    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus });
+    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus, company: c.company || "", location: c.location || "" });
   };
 
   const handleBulkDelete = () => {
@@ -633,13 +662,16 @@ export default function CRMPage() {
       let inQuotes = false;
       for (let i = 0; i < line.length; i++) {
         const ch = line[i];
-        if (ch === '"' || ch === "'") { inQuotes = !inQuotes; }
+        if (ch === '"') {
+          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        }
         else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; }
         else { current += ch; }
       }
       values.push(current.trim());
       return values.map(v => {
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
         return v.trim();
       });
     };
@@ -723,52 +755,225 @@ export default function CRMPage() {
       showToast("Please paste CSV text or upload a CSV file.", "error");
       return;
     }
-    
-    const parsed = parseCSV(textToParse);
-    if (parsed.length === 0) {
-      showToast("No valid contacts found. Ensure you have First Name and Last Name.", "error");
+
+    // Parse headers from the first line
+    const lines = textToParse.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (lines.length < 2) {
+      showToast("CSV must have a header row and at least one data row.", "error");
       return;
     }
+
+    const parseRow = (line: string): string[] => {
+      const values: string[] = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        }
+        else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; }
+        else { current += ch; }
+      }
+      values.push(current.trim());
+      return values.map(v => {
+        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+        return v.trim();
+      });
+    };
+
+    const csvHeaders = parseRow(lines[0]);
+    const matches = matchAllCSVHeaders(csvHeaders, fieldConfig.allFields);
+
+    // If all exact matches → import directly
+    if (!needsMergeDialog(matches)) {
+      await executeCSVImport(textToParse, Object.fromEntries(matches.map(m => [m.csvHeader, m.matchedFieldId])));
+    } else {
+      // Show merge dialog
+      setPendingCSVData(textToParse);
+      setCsvMergeHeaders(csvHeaders);
+      setCsvMergeMatches(matches);
+      setShowMergeDialog(true);
+    }
+  };
+
+  /** Handle auto-merge from the merge dialog */
+  const handleAutoMerge = async () => {
+    const mappings: Record<string, string | null> = {};
+    const newFieldsToCreate: ContactFieldDef[] = [];
+
+    for (const match of csvMergeMatches) {
+      if (match.matchResult === "exact" || match.matchResult === "fuzzy") {
+        mappings[match.csvHeader] = match.matchedFieldId;
+      } else {
+        // Create new custom field for unrecognized columns
+        const newField = createCustomField(match.csvHeader, "text");
+        newFieldsToCreate.push(newField);
+        mappings[match.csvHeader] = newField.id;
+      }
+    }
+
+    // Add new fields to the field config (never delete existing)
+    if (newFieldsToCreate.length > 0) {
+      addFieldsFromCSV(newFieldsToCreate);
+      // Build the complete updated config to avoid stale-state race condition
+      const existingIds = new Set(fieldConfig.allFields.map(f => f.id));
+      const trulyNew = newFieldsToCreate.filter(f => !existingIds.has(f.id));
+      const updatedConfig = {
+        visibleFields: [...fieldConfig.visibleFields, ...trulyNew.map(f => f.id)],
+        allFields: [...fieldConfig.allFields, ...trulyNew],
+      };
+      await saveConfig(updatedConfig);
+    }
+
+    setShowMergeDialog(false);
+    await executeCSVImport(pendingCSVData, mappings);
+  };
+
+  /** Handle manual merge from the merge dialog */
+  const handleManualMerge = async (mappings: Record<string, string | null>) => {
+    const newFieldsToCreate: ContactFieldDef[] = [];
+
+    // Find any mappings that point to "__create_new__" sentinel
+    for (const [csvHeader, fieldId] of Object.entries(mappings)) {
+      if (fieldId === null) {
+        const newField = createCustomField(csvHeader, "text");
+        newFieldsToCreate.push(newField);
+        mappings[csvHeader] = newField.id;
+      }
+    }
+
+    if (newFieldsToCreate.length > 0) {
+      addFieldsFromCSV(newFieldsToCreate);
+      // Build the complete updated config to avoid stale-state race condition
+      const existingIds = new Set(fieldConfig.allFields.map(f => f.id));
+      const trulyNew = newFieldsToCreate.filter(f => !existingIds.has(f.id));
+      const updatedConfig = {
+        visibleFields: [...fieldConfig.visibleFields, ...trulyNew.map(f => f.id)],
+        allFields: [...fieldConfig.allFields, ...trulyNew],
+      };
+      await saveConfig(updatedConfig);
+    }
+
+    setShowMergeDialog(false);
+    await executeCSVImport(pendingCSVData, mappings);
+  };
+
+  /** Execute the actual CSV import with resolved field mappings */
+  const executeCSVImport = async (text: string, mappings: Record<string, string | null>) => {
+    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (lines.length < 2) return;
+
+    const parseRow = (line: string): string[] => {
+      const values: string[] = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        }
+        else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; }
+        else { current += ch; }
+      }
+      values.push(current.trim());
+      return values.map(v => {
+        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+        return v.trim();
+      });
+    };
+
+    const csvHeaders = parseRow(lines[0]);
     
+    // Known Customer fields that map directly
+    const knownFieldKeys = new Set(["firstName", "lastName", "email", "phone", "company", "location", "birthday", "lastContactedDate", "tags", "totalRevenue", "outstandingBalance", "leadStatus", "aiNotes"]);
+    
+    const matchStatus = (str: string): Customer["leadStatus"] | null => {
+      const s = str.trim().toLowerCase();
+      if (s.includes("cold")) return "Cold Lead";
+      if (s.includes("warm")) return "Warm Lead";
+      if (s.includes("interest")) return "Interested";
+      if (s.includes("sale") || s.includes("complet")) return "Sale Completed";
+      return null;
+    };
+
     let addedCount = 0;
-    for (const item of parsed) {
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseRow(lines[i]);
+      
+      // Build a record of all values mapped to their field IDs
+      const rowData: Record<string, string> = {};
+      csvHeaders.forEach((header, idx) => {
+        const fieldId = mappings[header];
+        if (fieldId && idx < values.length) {
+          rowData[fieldId] = values[idx];
+        }
+      });
+
+      const firstName = rowData["firstName"] || "";
+      const lastName = rowData["lastName"] || "";
+      if (!firstName && !lastName) continue;
+
+      // Determine lead status
+      let leadStatus: Customer["leadStatus"] = "Cold Lead";
+      if (rowData["leadStatus"]) {
+        const matched = matchStatus(rowData["leadStatus"]);
+        if (matched) leadStatus = matched;
+      }
+
+      // Separate known fields from custom fields
+      const customFieldValues: Record<string, any> = {};
+      for (const [fieldId, value] of Object.entries(rowData)) {
+        if (!knownFieldKeys.has(fieldId) && value) {
+          customFieldValues[fieldId] = value;
+        }
+      }
+
       const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const parsedTags = item.tags.split(",").map(t=>t.trim()).filter(Boolean);
+      const parsedTags = (rowData["tags"] || "").split(",").map(t => t.trim()).filter(Boolean);
+
       const c: Customer = {
         id,
-        firstName: item.firstName,
-        lastName: item.lastName,
-        phone: item.phone,
-        email: item.email,
-        birthday: "",
-        leadStatus: item.leadStatus,
+        firstName,
+        lastName,
+        phone: rowData["phone"] || "",
+        email: rowData["email"] || "",
+        birthday: rowData["birthday"] || "",
+        leadStatus,
         tags: parsedTags,
-        totalRevenue: item.revenue || 0,
-        aiNotes: "",
+        totalRevenue: parseFloat(rowData["totalRevenue"] || "0") || 0,
+        aiNotes: rowData["aiNotes"] || "",
         transactions: [],
-        outstandingBalance: 0,
-        company: item.company || "",
-        location: item.location || "",
-        lastContactedDate: item.lastContactedDate || ""
+        outstandingBalance: parseFloat(rowData["outstandingBalance"] || "0") || 0,
+        company: rowData["company"] || "",
+        location: rowData["location"] || "",
+        lastContactedDate: rowData["lastContactedDate"] || "",
+        ...(Object.keys(customFieldValues).length > 0 ? { customFields: customFieldValues } : {}),
       };
-      
+
+      // Auto-sync new tags
       const existingTagNames = customTags.map(t => t.name.toLowerCase());
       const newTags = parsedTags.filter(t => !existingTagNames.includes(t.toLowerCase()));
       if (newTags.length > 0) {
         const tagColors = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#ef4444"];
         setCustomTags((prev: any) => [...prev, ...newTags.map((name, i) => ({ name, color: tagColors[(prev.length + i) % tagColors.length] }))]);
       }
-      
+
       await addContact(c);
       addedCount++;
     }
-    
+
     logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Imported ${addedCount} contacts via CSV`);
     showToast(`Successfully imported ${addedCount} contact(s).`, "success");
-    
+
     setCsvText("");
     setCsvFile(null);
     setShowCSVModal(false);
+    setPendingCSVData("");
+    setCsvMergeHeaders([]);
+    setCsvMergeMatches([]);
   };
 
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortDir(d => d==="asc"?"desc":"asc"); else { setSortKey(key); setSortDir("asc"); } };
@@ -854,7 +1059,7 @@ export default function CRMPage() {
       const firstName = parts[0], lastName = parts[1];
       const emailMatch = parts.find(p => p.includes("@"));
       const phoneMatch = parts.find(p => /^\+?\d[\d\-() ]{6,}$/.test(p));
-      const newId = `CUST-${String(customers.length + 1).padStart(3, "0")}`;
+      const newId = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const newCustomer: Customer = { id: newId, firstName, lastName, phone: phoneMatch || "", email: emailMatch || "", birthday: "", leadStatus: "Cold Lead", tags: [], totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0, company: "", location: "", lastContactedDate: "" };
       addContact(newCustomer);
       addJarvisMsg(`✓ Created **${firstName} ${lastName}** (${newId}) as a Cold Lead.${emailMatch ? " Email: " + emailMatch : ""}${phoneMatch ? " Phone: " + phoneMatch : ""}`); return;
@@ -1006,7 +1211,7 @@ export default function CRMPage() {
   if (!user) {
     return (
       <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB]'}`}>
-        <div className={`rounded-2xl border shadow-xl p-10 max-w-md w-full mx-4 text-center space-y-6 ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+        <div className={`rounded-2xl border shadow-xl p-10 max-w-md w-full mx-4 text-center space-y-6 ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#faf8f3] border-[#E5E7EB]'}`}>
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto shadow-lg">
             <Users className="w-8 h-8 text-white" />
           </div>
@@ -1033,7 +1238,7 @@ export default function CRMPage() {
   }
 
   return (
-    <div className={`flex h-[calc(100vh-0px)] md:h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB] text-slate-800'} overflow-hidden -m-0`}>
+    <div className={`flex h-[calc(100vh-0px)] md:h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#f5f1e8] text-slate-800'} overflow-hidden -mx-4 -mb-4 md:-mx-10 md:-mb-10`}>
       {/* Load cursive font for email signatures */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet" />
@@ -1045,7 +1250,7 @@ export default function CRMPage() {
       )}
 
       {/* ──── CRM Sidebar ──── */}
-      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#fefcf6] border-[#E5E7EB]'} border-r shrink-0 transition-transform duration-200 ease-in-out ${
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#f5f0e6] border-[#e8e0cc]'} border-r shrink-0 transition-transform duration-200 ease-in-out ${
         isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}>
         {/* Sidebar Header */}
@@ -1097,7 +1302,7 @@ export default function CRMPage() {
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
                   isActive
                     ? (isDarkMode ? "bg-indigo-950/40 text-indigo-400 font-semibold" : "bg-indigo-50 text-indigo-700 font-semibold")
-                    : (isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed]")
+                    : (isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-700 hover:bg-[#f2ece0]")
                 }`}
               >
                 <item.icon className={`w-[18px] h-[18px] ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
@@ -1146,11 +1351,11 @@ export default function CRMPage() {
       {/* ──── Main Content Area ──── */}
       <div className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-[margin] duration-300 ease-in-out ${isJarvisOpen ? 'mr-[340px]' : ''}`}>
         {/* ──── Top Navigation Bar ──── */}
-        <header className={`h-14 border-b flex items-center justify-between px-5 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+        <header className={`h-14 border-b flex items-center justify-between px-5 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#f5f0e6] border-[#e8e0cc]'}`}>
           {/* Mobile nav toggle + breadcrumb */}
           <div className="flex items-center gap-3">
             {/* Hamburger menu (mobile) */}
-            <button onClick={() => setIsMobileSidebarOpen(true)} className={`lg:hidden w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#faf6ed]'}`}>
+            <button onClick={() => setIsMobileSidebarOpen(true)} className={`lg:hidden w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2ece0]'}`}>
               <Menu className="w-5 h-5" />
             </button>
             {/* Breadcrumb (desktop) */}
@@ -1163,7 +1368,7 @@ export default function CRMPage() {
         </header>
 
         {/* ———— Scrollable Content ———— */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-5">
+        <main className={`flex-1 overflow-y-auto p-4 md:p-5 ${isDarkMode ? '' : 'bg-[#fefdfb]'}`}>
           {/* Skeleton Loading */}
           {isLoading ? (
             activeView === "campaigns" ? <DashboardSkeleton /> :
@@ -1194,9 +1399,19 @@ export default function CRMPage() {
                       className={`w-56 h-9 pl-9 pr-4 text-sm rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-[#E5E7EB] text-slate-700'}`}
                     />
                   </div>
-                  <button className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}>
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}
+                  >
                     <Download className="w-3.5 h-3.5" />
                     Export
+                  </button>
+                  <button
+                    onClick={() => setShowManageFields(true)}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    Manage Fields
                   </button>
                   <div className="relative">
                     <button
@@ -1242,38 +1457,30 @@ export default function CRMPage() {
                           <th className={`sticky left-0 z-10 w-10 px-3 py-3 border-b ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
                             <input type="checkbox" checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                           </th>
-                          {[
-                            { key: "id" as const, label: "id", w: "w-[110px]" },
-                            { key: "name" as const, label: "firstName", w: "w-[110px]" },
-                            { key: "name" as const, label: "lastName", w: "w-[110px]" },
-                            { key: "company" as const, label: "company", w: "w-[130px]" },
-                            { key: "email" as const, label: "email", w: "w-[180px]" },
-                            { key: "phone" as const, label: "phoneNumber", w: "w-[130px]" },
-                            { key: "status" as const, label: "pipelineStage", w: "w-[140px]" },
-                            { key: "revenue" as const, label: "revenue", w: "w-[110px]" },
-                            { key: "tags" as const, label: "tags", w: "w-[140px]" },
-                            { key: "location" as const, label: "location", w: "w-[130px]" },
-                            { key: "lastContacted" as const, label: "lastContactedDate", w: "w-[130px]" },
-                          ].map((col) => (
-                            <th
-                              key={col.label}
-                              onClick={() => {
-                                if (col.key === "name" || col.key === "email" || col.key === "phone" || col.key === "tags" || col.key === "status") {
-                                  toggleSort(col.key as SortKey);
-                                }
-                              }}
-                              className={`${col.w} text-left text-[11px] font-semibold px-3 py-3 border-b select-none ${
-                                (col.key === "name" || col.key === "email" || col.key === "phone" || col.key === "tags" || col.key === "status") ? 'cursor-pointer hover:text-indigo-600' : ''
-                              } ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-[#E5E7EB]'}`}
-                            >
-                              <span className="inline-flex items-center gap-0.5">
-                                {col.label}
-                                {(col.key === "name" || col.key === "email" || col.key === "phone" || col.key === "tags" || col.key === "status") && sortKey === col.key && (
-                                  sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                                )}
-                              </span>
-                            </th>
-                          ))}
+                          {getVisibleFieldDefs().map((field) => {
+                            const sortableMap: Record<string, SortKey> = {
+                              firstName: "name", lastName: "name", email: "email",
+                              phone: "phone", tags: "tags", leadStatus: "status",
+                            };
+                            const fieldSortKey = sortableMap[field.id];
+                            const isSortable = !!fieldSortKey;
+                            return (
+                              <th
+                                key={field.id}
+                                onClick={() => { if (isSortable) toggleSort(fieldSortKey); }}
+                                className={`${field.width || 'w-[130px]'} text-left text-[11px] font-semibold px-3 py-3 border-b select-none ${
+                                  isSortable ? 'cursor-pointer hover:text-indigo-600' : ''
+                                } ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-[#E5E7EB]'}`}
+                              >
+                                <span className="inline-flex items-center gap-0.5">
+                                  {field.label}
+                                  {isSortable && sortKey === fieldSortKey && (
+                                    sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                                  )}
+                                </span>
+                              </th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody>
@@ -1290,69 +1497,118 @@ export default function CRMPage() {
                             <td className={`sticky left-0 z-10 px-3 py-3 ${isDarkMode ? (idx % 2 === 1 ? 'bg-slate-800/20' : 'bg-slate-900') : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white')} group-hover:${isDarkMode ? 'bg-slate-800/50' : 'bg-indigo-50/30'}`} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                             </td>
-                            {/* ID */}
-                            <td className={`px-3 py-3 font-mono text-[11px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                              {c.id.length > 16 ? c.id.slice(0, 16) + '…' : c.id}
-                            </td>
-                            {/* First Name */}
-                            <td className={`px-3 py-3 font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                              {c.firstName}
-                            </td>
-                            {/* Last Name */}
-                            <td className={`px-3 py-3 font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                              {c.lastName}
-                            </td>
-                            {/* Company */}
-                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                              {c.company ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                                  {c.company}
-                                </span>
-                              ) : <span className="text-slate-400">&mdash;</span>}
-                            </td>
-                            {/* Email */}
-                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                              {c.email || <span className="text-slate-400">&mdash;</span>}
-                            </td>
-                            {/* Phone */}
-                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              {c.phone || <span className="text-slate-400">&mdash;</span>}
-                            </td>
-                            {/* Pipeline Stage */}
-                            <td className="px-3 py-3">
-                              <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>
-                                {c.leadStatus}
-                              </span>
-                            </td>
-                            {/* Revenue */}
-                            <td className={`px-3 py-3 text-right font-semibold tabular-nums ${c.totalRevenue > 0 ? 'text-emerald-600' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
-                              ${c.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                            {/* Tags */}
-                            <td className="px-3 py-3">
-                              {c.tags.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {c.tags.slice(0, 2).map(tag => (
-                                    <span key={tag} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(tag, isDarkMode)}`}>{tag}</span>
-                                  ))}
-                                  {c.tags.length > 2 && <span className="text-[9px] font-medium text-slate-400">+{c.tags.length - 2}</span>}
-                                </div>
-                              ) : <span className="text-slate-400">&mdash;</span>}
-                            </td>
-                            {/* Location */}
-                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              {c.location ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                  {c.location}
-                                </span>
-                              ) : <span className="text-slate-400">&mdash;</span>}
-                            </td>
-                            {/* Last Contacted */}
-                            <td className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              {c.lastContactedDate ? new Date(c.lastContactedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : <span className="text-slate-400">&mdash;</span>}
-                            </td>
+                            {getVisibleFieldDefs().map((field) => {
+                              // Get the value — check known Customer properties first, then customFields
+                              const knownKeys: Record<string, any> = {
+                                firstName: c.firstName, lastName: c.lastName, email: c.email,
+                                phone: c.phone, company: c.company, location: c.location,
+                                birthday: c.birthday, lastContactedDate: c.lastContactedDate,
+                                tags: c.tags, totalRevenue: c.totalRevenue,
+                                outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus,
+                                aiNotes: c.aiNotes,
+                              };
+                              const val = field.id in knownKeys ? knownKeys[field.id] : (c.customFields?.[field.id] ?? "");
+                              const dash = <span className="text-slate-400">&mdash;</span>;
+
+                              // Render based on field type
+                              switch (field.type) {
+                                case "currency":
+                                  const numVal = typeof val === "number" ? val : parseFloat(val) || 0;
+                                  return (
+                                    <td key={field.id} className={`px-3 py-3 text-right font-semibold tabular-nums ${numVal > 0 ? 'text-emerald-600' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
+                                      ${numVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                  );
+                                case "tags":
+                                  const tagsArr = Array.isArray(val) ? val : [];
+                                  return (
+                                    <td key={field.id} className="px-3 py-3">
+                                      {tagsArr.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {tagsArr.slice(0, 2).map((tag: string) => (
+                                            <span key={tag} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(tag, isDarkMode)}`}>{tag}</span>
+                                          ))}
+                                          {tagsArr.length > 2 && <span className="text-[9px] font-medium text-slate-400">+{tagsArr.length - 2}</span>}
+                                        </div>
+                                      ) : dash}
+                                    </td>
+                                  );
+                                case "select":
+                                  if (field.id === "leadStatus") {
+                                    return (
+                                      <td key={field.id} className="px-3 py-3">
+                                        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getStatusStyles(String(val), isDarkMode)}`}>
+                                          {String(val)}
+                                        </span>
+                                      </td>
+                                    );
+                                  }
+                                  return (
+                                    <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                      {val ? String(val) : dash}
+                                    </td>
+                                  );
+                                case "date":
+                                  return (
+                                    <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                      {val ? new Date(String(val)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dash}
+                                    </td>
+                                  );
+                                case "boolean":
+                                  return (
+                                    <td key={field.id} className="px-3 py-3">
+                                      {val ? <Check className="w-4 h-4 text-emerald-500" /> : dash}
+                                    </td>
+                                  );
+                                case "email":
+                                  return (
+                                    <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                      {val ? String(val) : dash}
+                                    </td>
+                                  );
+                                case "number":
+                                  return (
+                                    <td key={field.id} className={`px-3 py-3 tabular-nums ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                      {val !== undefined && val !== "" ? String(val) : dash}
+                                    </td>
+                                  );
+                                default: {
+                                  // text, phone, url — with special rendering for known fields
+                                  const isName = field.id === "firstName" || field.id === "lastName";
+                                  const isCompany = field.id === "company";
+                                  const isLocation = field.id === "location";
+                                  if (isCompany) {
+                                    return (
+                                      <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                        {val ? (
+                                          <span className="inline-flex items-center gap-1">
+                                            <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                            {String(val)}
+                                          </span>
+                                        ) : dash}
+                                      </td>
+                                    );
+                                  }
+                                  if (isLocation) {
+                                    return (
+                                      <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        {val ? (
+                                          <span className="inline-flex items-center gap-1">
+                                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                            {String(val)}
+                                          </span>
+                                        ) : dash}
+                                      </td>
+                                    );
+                                  }
+                                  return (
+                                    <td key={field.id} className={`px-3 py-3 ${isName ? 'font-medium' : ''} ${isDarkMode ? (isName ? 'text-white' : 'text-slate-300') : (isName ? 'text-slate-800' : 'text-slate-600')}`}>
+                                      {val ? String(val) : dash}
+                                    </td>
+                                  );
+                                }
+                              }
+                            })}
                           </tr>
                         ))}
                       </tbody>
@@ -1382,7 +1638,7 @@ export default function CRMPage() {
             const customerMeetings = meetings.filter(m => m.customerId === c.id);
             return (
               <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setViewingCustomer(null)}>
-                <div className={`rounded-2xl border shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+                <div className={`rounded-2xl border shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
                   {/* Profile Header */}
                   <div className={`px-6 py-5 border-b flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                     <div className="flex items-center gap-4">
@@ -1582,7 +1838,7 @@ export default function CRMPage() {
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Bar Chart — Revenue by Lead Status */}
-                  <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+                  <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#faf8f3] border-[#E5E7EB]'}`}>
                     <h2 className={`text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Revenue by Lead Status</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Breakdown of total revenue across pipeline stages</p>
                     {customers.length === 0 ? (
@@ -1605,7 +1861,7 @@ export default function CRMPage() {
                   </div>
 
                   {/* Line Chart — Revenue Over Time */}
-                  <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+                  <div className={`rounded-xl border p-6 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#faf8f3] border-[#E5E7EB]'}`}>
                     <h2 className={`text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Revenue Over Time</h2>
                     <p className="text-[10px] text-slate-400 mb-5">Monthly revenue trend from transactions</p>
                     <ResponsiveContainer width="100%" height={260}>
@@ -1621,7 +1877,7 @@ export default function CRMPage() {
                 </div>
 
                 {/* Revenue Leaderboard Table */}
-                <div className={`rounded-xl border shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+                <div className={`rounded-xl border shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#faf8f3] border-[#E5E7EB]'}`}>
                   <div className={`px-6 py-4 border-b ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                     <h2 className={`text-sm font-bold ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>Top Customers by Revenue</h2>
                   </div>
@@ -1642,7 +1898,7 @@ export default function CRMPage() {
                         <tbody>
                           {[...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 10).map((c, i) => (
                             <tr key={c.id} className={`border-b transition-colors ${
-                              isDarkMode ? "border-slate-800 hover:bg-slate-850" : "border-slate-50 hover:bg-[#faf6ed]/50"
+                              isDarkMode ? "border-slate-800 hover:bg-slate-850" : "border-slate-50 hover:bg-[#f2ece0]/50"
                             }`}>
                               <td className="py-3 pl-6 pr-4">
                                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
@@ -1678,7 +1934,43 @@ export default function CRMPage() {
         </main>
       </div>
 
-      <ToastContainer />
+      {/* ━━━━━━ MANAGE FIELDS SIDEBAR ━━━━━━ */}
+      <ManageFieldsSidebar
+        isOpen={showManageFields}
+        onClose={() => setShowManageFields(false)}
+        fieldConfig={fieldConfig}
+        onApply={async (visibleFields, allFields) => {
+          applyConfig(visibleFields, allFields);
+          await saveConfig({ visibleFields, allFields });
+          setShowManageFields(false);
+          showToast("✅ Field configuration updated");
+        }}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* ━━━━━━ EXPORT MODAL ━━━━━━ */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        fieldConfig={fieldConfig}
+        customers={customers}
+        filteredCustomers={filteredSortedCustomers}
+        selectedCustomers={selectedCustomers}
+        isDarkMode={isDarkMode}
+      />
+      {/* ━━━━━━ CSV FIELD MERGE DIALOG ━━━━━━ */}
+      <CSVFieldMergeDialog
+        isOpen={showMergeDialog}
+        onClose={() => { setShowMergeDialog(false); setPendingCSVData(""); }}
+        csvHeaders={csvMergeHeaders}
+        matches={csvMergeMatches}
+        allFields={fieldConfig.allFields}
+        onAutoMerge={handleAutoMerge}
+        onManualMerge={handleManualMerge}
+        isDarkMode={isDarkMode}
+      />
+
+
 
 
 
@@ -1686,7 +1978,7 @@ export default function CRMPage() {
       {/* ━━━━━━ EMAIL CAMPAIGN MODAL ━━━━━━ */}
       {showEmailModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setShowSignatureEditor(false); setShowDrafts(false); }}>
-          <div className={`rounded-2xl border shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 bg-gradient-to-r ${isDarkMode ? 'border-slate-800 from-slate-900 to-slate-900/45 text-white' : 'border-[#E5E7EB] from-indigo-50/50 to-white'}`}>
               <div className="flex items-center gap-3">
@@ -1705,8 +1997,8 @@ export default function CRMPage() {
               <div className="flex items-center gap-2">
                 {/* Tab Switcher */}
                 <div className={`flex rounded-lg p-0.5 ${isDarkMode ? 'bg-slate-850' : 'bg-slate-100'}`}>
-                  <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#fefcf6] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Compose</button>
-                  <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#fefcf6] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Preview</button>
+                  <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#faf8f3] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Compose</button>
+                  <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#faf8f3] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Preview</button>
                 </div>
                 <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}><X className="w-4 h-4" /></button>
               </div>
@@ -1719,7 +2011,7 @@ export default function CRMPage() {
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To:</span>
                 {selectedCustomers.slice(0, 8).map(c => (
                   <span key={c.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium shadow-sm ${
-                    isDarkMode ? "bg-slate-850 border-slate-700 text-slate-300" : "bg-[#fefcf6] border-slate-200 text-slate-600"
+                    isDarkMode ? "bg-slate-850 border-slate-700 text-slate-300" : "bg-[#faf8f3] border-slate-200 text-slate-600"
                   }`}>
                     <span className="w-3.5 h-3.5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[7px] font-bold">{c.firstName[0]}</span>
                     {c.firstName} {c.lastName}
@@ -1737,13 +2029,13 @@ export default function CRMPage() {
                   {/* Subject */}
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Subject Line</label>
-                    <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className={`w-full h-11 px-4 text-sm font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-800'}`} placeholder="e.g. Exciting update for our valued partners" />
+                    <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className={`w-full h-11 px-4 text-sm font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#faf8f3] text-slate-800'}`} placeholder="e.g. Exciting update for our valued partners" />
                   </div>
 
                   {/* Email Body — LARGER */}
                   <div className="flex-1 flex flex-col">
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Email Body</label>
-                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className={`w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-700'}`} placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
+                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} className={`w-full flex-1 min-h-[320px] px-4 py-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all resize-none leading-relaxed ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-[#E5E7EB] bg-[#faf8f3] text-slate-700'}`} placeholder={"Write your email content here...\n\nUse line breaks to create paragraphs. Your signature will be appended automatically."} />
                   </div>
 
                   {/* Signature Block */}
@@ -1774,13 +2066,13 @@ export default function CRMPage() {
                             {sigForm.logoUrl ? (
                               <div className="relative group">
                                 <img src={sigForm.logoUrl} alt="Logo" className={`h-10 max-w-[120px] rounded border object-contain p-1 ${
-                                  isDarkMode ? "border-slate-750 bg-slate-900" : "border-slate-200 bg-[#fefcf6]"
+                                  isDarkMode ? "border-slate-750 bg-slate-900" : "border-slate-200 bg-[#faf8f3]"
                                 }`} />
                                 <button onClick={() => setSigForm(f => ({...f, logoUrl: ""}))} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><X className="w-2.5 h-2.5" /></button>
                               </div>
                             ) : null}
                             <label className={`px-3 py-1.5 rounded-lg border border-dashed text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                              isDarkMode ? "border-slate-700 text-slate-400 hover:bg-slate-800" : "border-slate-300 text-slate-500 hover:bg-[#faf6ed]"
+                              isDarkMode ? "border-slate-700 text-slate-400 hover:bg-slate-800" : "border-slate-300 text-slate-500 hover:bg-[#f2ece0]"
                             }`}>
                               <ImagePlus className="w-3 h-3" />{isUploadingLogo ? "Uploading..." : sigForm.logoUrl ? "Change" : "Upload Logo"}
                               <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
@@ -1816,7 +2108,7 @@ export default function CRMPage() {
                           </button>
                         </div>
                         {sigForm.useCursive && sigForm.name && (
-                          <div className={`px-3 py-2 rounded-lg border ${isDarkMode ? "bg-slate-900 border-slate-850" : "bg-[#fefcf6] border-slate-200"}`}>
+                          <div className={`px-3 py-2 rounded-lg border ${isDarkMode ? "bg-slate-900 border-slate-850" : "bg-[#faf8f3] border-slate-200"}`}>
                             <p className="text-[9px] text-slate-400 mb-1 uppercase tracking-wider font-semibold">Preview</p>
                             <p className={`text-2xl ${isDarkMode ? "text-white" : "text-slate-800"}`} style={{ fontFamily: "'Dancing Script', cursive" }}>{sigForm.name}</p>
                           </div>
@@ -1852,7 +2144,7 @@ export default function CRMPage() {
                         <div className="flex items-center gap-2 pt-1">
                           <button onClick={saveSignature} className="px-4 py-1.5 rounded-lg bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer">Save Signature</button>
                           <button onClick={() => setShowSignatureEditor(false)} className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
-                            isDarkMode ? "border-slate-750 text-slate-400 hover:bg-slate-800" : "border-[#E5E7EB] text-slate-500 hover:bg-[#faf6ed]"
+                            isDarkMode ? "border-slate-750 text-slate-400 hover:bg-slate-800" : "border-[#E5E7EB] text-slate-500 hover:bg-[#f2ece0]"
                           }`}>Cancel</button>
                         </div>
                       </div>
@@ -1863,11 +2155,11 @@ export default function CRMPage() {
 
               {/* Preview Panel — full-width when Preview tab is active */}
               <div className={`flex flex-col overflow-y-auto ${emailTab === "preview" ? "flex-1" : "hidden lg:flex lg:w-[380px] lg:shrink-0"} border-l ${isDarkMode ? 'border-slate-800 bg-slate-900/60 text-white' : 'border-[#E5E7EB] bg-[#faf6ed]'}`}>
-                <div className={`px-5 py-3 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-[#fefcf6]'}`}>
+                <div className={`px-5 py-3 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-[#faf8f3]'}`}>
                   <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />Email Preview</h4>
                 </div>
                 <div className="flex-1 p-5 flex justify-center">
-                  <div className={`rounded-xl border shadow-sm overflow-hidden w-full ${emailTab === "preview" ? "max-w-2xl" : ""} ${isDarkMode ? 'bg-slate-950 border-slate-850' : 'bg-[#fefcf6] border-slate-200'}`}>
+                  <div className={`rounded-xl border shadow-sm overflow-hidden w-full ${emailTab === "preview" ? "max-w-2xl" : ""} ${isDarkMode ? 'bg-slate-950 border-slate-850' : 'bg-[#faf8f3] border-slate-200'}`}>
                     {/* Fake email header */}
                     <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-slate-850 bg-slate-900/50' : 'border-slate-100 bg-[#faf6ed]/50'}`}>
                       <div className="flex items-center gap-3 mb-3">
@@ -1911,7 +2203,7 @@ export default function CRMPage() {
                     <Download className="w-3 h-3" />{campaignDrafts.length > 0 ? `Drafts (${campaignDrafts.length})` : "Drafts"}
                   </button>
                   {showDrafts && (
-                    <div className={`absolute bottom-full left-0 mb-2 w-72 rounded-xl border shadow-xl z-10 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#fefcf6] border-slate-200'}`}>
+                    <div className={`absolute bottom-full left-0 mb-2 w-72 rounded-xl border shadow-xl z-10 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#faf8f3] border-slate-200'}`}>
                       <div className={`px-4 py-2.5 border-b flex items-center justify-between ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                         <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-250' : 'text-slate-700'}`}>Saved Drafts</span>
                         <button onClick={() => setShowDrafts(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
@@ -1920,7 +2212,7 @@ export default function CRMPage() {
                         {campaignDrafts.length === 0 ? (
                           <p className="px-4 py-4 text-xs text-slate-400 text-center">No drafts saved yet</p>
                         ) : campaignDrafts.map(draft => (
-                          <div key={draft.id} className={`px-4 py-2.5 border-b flex items-center justify-between group cursor-pointer ${isDarkMode ? 'border-slate-800 hover:bg-slate-800' : 'border-slate-50 hover:bg-[#faf6ed]'}`} onClick={() => loadDraft(draft)}>
+                          <div key={draft.id} className={`px-4 py-2.5 border-b flex items-center justify-between group cursor-pointer ${isDarkMode ? 'border-slate-800 hover:bg-slate-800' : 'border-slate-50 hover:bg-[#f2ece0]'}`} onClick={() => loadDraft(draft)}>
                             <div className="min-w-0">
                               <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{draft.subject || "(No subject)"}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">{new Date(draft.savedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
@@ -1935,10 +2227,10 @@ export default function CRMPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={saveDraft} disabled={!emailSubject.trim()} className={`px-3 py-2 rounded-lg border text-xs font-medium cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${
-                  isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-350 hover:bg-slate-750' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'
+                  isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-350 hover:bg-slate-750' : 'border-[#E5E7EB] bg-[#faf8f3] text-slate-600 hover:bg-[#f2ece0]'
                 }`}><Download className="w-3 h-3" />Save Draft</button>
                 <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className={`px-4 py-2 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
-                  isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-350 hover:bg-slate-750' : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'
+                  isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-350 hover:bg-slate-750' : 'border-[#E5E7EB] bg-[#faf8f3] text-slate-600 hover:bg-[#f2ece0]'
                 }`}>Cancel</button>
                 <button disabled={!emailSubject.trim() || !emailBody.trim() || isSendingCampaign} onClick={handleSendCampaign} className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-xs font-bold text-white hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer">
                   {isSendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
@@ -1954,7 +2246,7 @@ export default function CRMPage() {
       {/* ━━━━━━ JARVIS COPILOT SIDEBAR ━━━━━━ */}
       {/* ────── JARVIS COPILOT SIDEBAR ────── */}
       <div className={`fixed top-0 right-0 h-full z-[80] transition-all duration-300 ease-in-out ${isJarvisOpen ? "w-[340px]" : "w-0"} overflow-hidden`}>
-        <div className={`w-[340px] h-full border-l flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#fefcf6] border-[#E5E7EB]'}`}>
+        <div className={`w-[340px] h-full border-l flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#f0e8d0] border-[#E5E7EB]'}`}>
           {/* Header */}
           <div className={`h-16 flex items-center justify-between px-5 border-b shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
             <div className="flex items-center gap-2.5">
@@ -1988,7 +2280,7 @@ export default function CRMPage() {
           </div>
 
           {/* Input */}
-          <div className={`border-t px-4 py-3 shrink-0 ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#fefcf6]'}`}>
+          <div className={`border-t px-4 py-3 shrink-0 ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#f0e8d0]'}`}>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -2014,7 +2306,7 @@ export default function CRMPage() {
       {/* ──────────────────────────────────── ADD CONTACT MODAL ──────────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={()=>{setShowAddModal(false);resetForm();}}>
-          <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e=>e.stopPropagation()}>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} onClick={e=>e.stopPropagation()}>
             <div className={`flex items-center justify-between px-6 py-5 border-b ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
               <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmAddNewContact}</h2>
               <button onClick={()=>{setShowAddModal(false);resetForm();}} className={`w-8 h-8 rounded-lg ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} flex items-center justify-center text-slate-400 cursor-pointer`}><X className="w-4 h-4"/></button>
@@ -2071,7 +2363,7 @@ export default function CRMPage() {
               </div>
             </div>
             <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#faf6ed]/50'}`}>
-              <button onClick={()=>{setShowAddModal(false);resetForm();}} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#fefcf6] text-sm font-medium text-slate-600 hover:bg-[#faf6ed] cursor-pointer">Cancel</button>
+              <button onClick={()=>{setShowAddModal(false);resetForm();}} className="px-4 py-2 rounded-lg border border-[#E5E7EB] bg-[#faf8f3] text-sm font-medium text-slate-600 hover:bg-[#f2ece0] cursor-pointer">Cancel</button>
               <button onClick={handleAddContact} disabled={!form.firstName.trim()||!form.lastName.trim()} className="px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer">Add Contact</button>
             </div>
           </div>
@@ -2080,7 +2372,7 @@ export default function CRMPage() {
 
       {showCSVModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowCSVModal(false); setCsvText(""); setCsvFile(null); }}>
-          <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
             <div className={`flex items-center justify-between px-6 py-5 border-b ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
               <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                 {lang === 'es' ? 'Importar Contactos por CSV' : 'Import Contacts via CSV'}
@@ -2175,7 +2467,7 @@ export default function CRMPage() {
                 className={`px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-colors ${
                   isDarkMode 
                     ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' 
-                    : 'border-[#E5E7EB] bg-[#fefcf6] text-slate-600 hover:bg-[#faf6ed]'
+                    : 'border-[#E5E7EB] bg-[#faf8f3] text-slate-600 hover:bg-[#f2ece0]'
                 }`}
               >
                 {lang === 'es' ? 'Cancelar' : 'Cancel'}
@@ -2205,7 +2497,7 @@ export default function CRMPage() {
         const labelClass = "block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5";
         return (
           <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => { setEditModalIds([]); setEditForm({}); }}>
-            <div className={`rounded-2xl border shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+            <div className={`rounded-2xl border shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
               {/* Header with Navigation */}
               <div className={`px-6 py-4 border-b flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                 <div className="flex items-center gap-4">
@@ -2330,7 +2622,7 @@ export default function CRMPage() {
         const contactList = customers.filter(c => selectedIds.has(c.id));
         return (
           <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => { setShowContactView(false); setExpandedContactId(null); }}>
-            <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[85vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+            <div className={`rounded-2xl border shadow-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[85vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className={`px-6 py-4 border-b flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
                 <div className="flex items-center gap-3">
@@ -2398,7 +2690,7 @@ export default function CRMPage() {
       {/* ━━━━━━ DELETE CONFIRMATION DIALOG ━━━━━━ */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowDeleteConfirm(false)}>
-          <div className={`rounded-2xl border shadow-2xl w-full max-w-sm mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#fefcf6] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
+          <div className={`rounded-2xl border shadow-2xl w-full max-w-sm mx-4 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
             <div className="px-6 py-6 text-center">
               <div className={`w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-red-950/40' : 'bg-red-50'}`}>
                 <AlertTriangle className="w-7 h-7 text-red-500" />

@@ -242,13 +242,13 @@ export default function AIKnowledgeBasePage() {
   }, [pactEntries, firestore, user?.uid]);
 
   // ── Render ────────────────────────────────────────────────────────────
-  const bg = isDarkMode ? 'bg-slate-950' : 'bg-[#faf8f4]';
-  const cardBg = isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
+  const bg = isDarkMode ? 'bg-slate-950' : 'bg-[#f5f1e8]';
+  const cardBg = isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-[#fefdfb] border-slate-200';
   const textPrimary = isDarkMode ? 'text-white' : 'text-slate-900';
   const textSecondary = isDarkMode ? 'text-slate-400' : 'text-slate-500';
 
   return (
-    <div className={`w-full h-full overflow-y-auto ${bg} animate-in fade-in duration-500`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
+    <div className={`w-full h-full overflow-y-auto -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${bg} animate-in fade-in duration-500`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 space-y-6">
 
         {/* Header */}
@@ -296,7 +296,7 @@ export default function AIKnowledgeBasePage() {
           </div>
 
           {/* Tab description */}
-          <div className={`px-6 py-3 ${isDarkMode ? 'bg-slate-800/50 border-t border-slate-800' : 'bg-slate-50/50 border-t border-slate-100'}`}>
+          <div className={`px-6 py-3 ${isDarkMode ? 'bg-slate-800/50 border-t border-slate-800' : 'bg-[#faf8f3]/50 border-t border-slate-100'}`}>
             <p className={`text-xs text-center ${textSecondary}`}>
               {activeSettingsTab === "identity" && "Define how your AI agents communicate, their personality, and operational rules."}
               {activeSettingsTab === "data" && "Upload files and text for your agents to reference. Organization-wide knowledge is shared across all agents."}
@@ -505,13 +505,13 @@ export default function AIKnowledgeBasePage() {
                   {(isRAGUploading || pdfUploading) && <div className="text-xs font-bold text-slate-500 animate-pulse flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Saving...</div>}
                 </div>
                 {ragDocs.length === 0 ? (
-                  <div className={`h-24 rounded-2xl border border-dashed flex items-center justify-center text-sm ${isDarkMode ? 'border-slate-700 text-slate-500 bg-slate-900' : 'border-slate-200 text-slate-500 bg-white'}`}>
+                  <div className={`h-24 rounded-2xl border border-dashed flex items-center justify-center text-sm ${isDarkMode ? 'border-slate-700 text-slate-500 bg-slate-900' : 'border-slate-200 text-slate-500 bg-[#fefdfb]'}`}>
                     Knowledge base is currently empty. Upload a PDF or add text above.
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {ragDocs.map((ragDoc, i) => (
-                      <div key={i} className={`p-4 rounded-xl border flex items-center justify-between transition-all ${isDarkMode ? 'border-slate-700 bg-slate-900 hover:border-slate-600' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                      <div key={i} className={`p-4 rounded-xl border flex items-center justify-between transition-all ${isDarkMode ? 'border-slate-700 bg-slate-900 hover:border-slate-600' : 'border-slate-200 bg-[#fefdfb] hover:border-slate-300'}`}>
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-lg ${ragDoc.type === 'pdf' ? 'bg-red-50 text-red-500' : (isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600')}`}>
                             {ragDoc.type === 'pdf' ? <FileText className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
@@ -607,7 +607,7 @@ export default function AIKnowledgeBasePage() {
               </div>
 
               {pactEntries.length === 0 ? (
-                <div className={`h-48 rounded-2xl border border-dashed flex flex-col items-center justify-center text-center gap-3 p-8 ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+                <div className={`h-48 rounded-2xl border border-dashed flex flex-col items-center justify-center text-center gap-3 p-8 ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-[#fefdfb]'}`}>
                   <div className={`w-12 h-12 rounded-xl border flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                     <BookOpen className="w-5 h-5 text-slate-300" />
                   </div>
@@ -627,7 +627,7 @@ export default function AIKnowledgeBasePage() {
                     return (
                       <div key={entry.id} className={`border rounded-xl px-5 py-4 transition-all group ${
                         isMarked ? (isDarkMode ? 'border-red-800 bg-red-900/20' : 'border-red-200 bg-red-50/30')
-                        : isDarkMode ? 'border-slate-700 bg-slate-900 hover:bg-slate-800/50 hover:border-slate-600' : 'border-slate-200 bg-white hover:bg-slate-50/50 hover:border-slate-300'
+                        : isDarkMode ? 'border-slate-700 bg-slate-900 hover:bg-slate-800/50 hover:border-slate-600' : 'border-slate-200 bg-[#fefdfb] hover:bg-slate-50/50 hover:border-slate-300'
                       }`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">

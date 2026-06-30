@@ -67,25 +67,74 @@ const PRIORITY_COLORS: Record<string, string> = {
   Low: "bg-sky-50 text-sky-600 border-sky-200/60",
 };
 
-// Unique assignee color palette — deterministic per name
+// Urgency-based color palette: yellowish-red (most urgent) -> reddish-yellow (less urgent)
+function getUrgencyColor(dueDate: any, isDark: boolean) {
+  const now = Date.now();
+  const dueMs = typeof dueDate?.toMillis === "function" ? dueDate.toMillis() : new Date(dueDate).getTime();
+  const hoursUntilDue = (dueMs - now) / (1000 * 60 * 60);
+
+  if (hoursUntilDue < 0) {
+    // Overdue — warmest red
+    return {
+      bg: isDark ? "rgba(239,68,68,0.10)" : "rgba(220,38,38,0.07)",
+      border: isDark ? "rgb(239,68,68)" : "rgb(220,38,38)",
+      bar: isDark ? "bg-red-400" : "bg-red-500",
+      badge: isDark ? "bg-red-950/60 text-red-400 border border-red-800/60" : "bg-red-50 text-red-600 border border-red-200",
+    };
+  } else if (hoursUntilDue < 24) {
+    // Due within 1 day — red-amber
+    return {
+      bg: isDark ? "rgba(249,115,22,0.10)" : "rgba(234,88,12,0.06)",
+      border: isDark ? "rgb(249,115,22)" : "rgb(234,88,12)",
+      bar: isDark ? "bg-orange-400" : "bg-orange-500",
+      badge: isDark ? "bg-orange-950/60 text-orange-400 border border-orange-800/60" : "bg-orange-50 text-orange-600 border border-orange-200",
+    };
+  } else if (hoursUntilDue < 72) {
+    // Due within 3 days — warm amber
+    return {
+      bg: isDark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.05)",
+      border: isDark ? "rgb(245,158,11)" : "rgb(217,119,6)",
+      bar: isDark ? "bg-amber-400" : "bg-amber-500",
+      badge: isDark ? "bg-amber-950/60 text-amber-400 border border-amber-800/60" : "bg-amber-50 text-amber-600 border border-amber-200",
+    };
+  } else if (hoursUntilDue < 168) {
+    // Due within 7 days — amber-yellow
+    return {
+      bg: isDark ? "rgba(234,179,8,0.06)" : "rgba(234,179,8,0.04)",
+      border: isDark ? "rgb(234,179,8)" : "rgb(202,138,4)",
+      bar: isDark ? "bg-yellow-400" : "bg-yellow-500",
+      badge: isDark ? "bg-yellow-950/60 text-yellow-400 border border-yellow-800/60" : "bg-yellow-50 text-yellow-600 border border-yellow-200",
+    };
+  } else {
+    // More than 7 days — soft warm yellow
+    return {
+      bg: isDark ? "rgba(250,204,21,0.04)" : "rgba(250,204,21,0.03)",
+      border: isDark ? "rgb(250,204,21)" : "rgb(161,130,0)",
+      bar: isDark ? "bg-yellow-300/60" : "bg-yellow-400/60",
+      badge: isDark ? "bg-yellow-950/40 text-yellow-500 border border-yellow-900/40" : "bg-yellow-50/80 text-yellow-700 border border-yellow-200/60",
+    };
+  }
+}
+
+// Keep assignee color for avatar only
 const ASSIGNEE_COLORS = [
-  { bg: "rgba(99,102,241,0.06)", border: "rgb(99,102,241)",  avatar: "bg-indigo-100 text-indigo-700", dot: "bg-indigo-400" },   // indigo
-  { bg: "rgba(16,185,129,0.06)", border: "rgb(16,185,129)",  avatar: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-400" }, // emerald
-  { bg: "rgba(244,63,94,0.06)",  border: "rgb(244,63,94)",   avatar: "bg-rose-100 text-rose-700", dot: "bg-rose-400" },         // rose
-  { bg: "rgba(245,158,11,0.06)", border: "rgb(245,158,11)",  avatar: "bg-amber-100 text-amber-700", dot: "bg-amber-400" },       // amber
-  { bg: "rgba(6,182,212,0.06)",  border: "rgb(6,182,212)",   avatar: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-400" },          // cyan
-  { bg: "rgba(168,85,247,0.06)", border: "rgb(168,85,247)",  avatar: "bg-purple-100 text-purple-700", dot: "bg-purple-400" },    // purple
-  { bg: "rgba(236,72,153,0.06)", border: "rgb(236,72,153)",  avatar: "bg-pink-100 text-pink-700", dot: "bg-pink-400" },          // pink
-  { bg: "rgba(34,197,94,0.06)",  border: "rgb(34,197,94)",   avatar: "bg-green-100 text-green-700", dot: "bg-green-400" },       // green
+  { avatar: "bg-indigo-100 text-indigo-700" },
+  { avatar: "bg-emerald-100 text-emerald-700" },
+  { avatar: "bg-rose-100 text-rose-700" },
+  { avatar: "bg-amber-100 text-amber-700" },
+  { avatar: "bg-cyan-100 text-cyan-700" },
+  { avatar: "bg-purple-100 text-purple-700" },
+  { avatar: "bg-pink-100 text-pink-700" },
+  { avatar: "bg-green-100 text-green-700" },
 ];
 
-function getAssigneeColor(name: string | null, colorMap: Map<string, number>) {
-  if (!name) return { bg: "rgba(148,163,184,0.06)", border: "rgb(148,163,184)", avatar: "bg-slate-100 text-slate-500", dot: "bg-slate-300" };
+function getAssigneeAvatar(name: string | null, colorMap: Map<string, number>) {
+  if (!name) return "bg-slate-100 text-slate-500";
   const key = name.toLowerCase().trim();
   if (!colorMap.has(key)) {
     colorMap.set(key, colorMap.size % ASSIGNEE_COLORS.length);
   }
-  return ASSIGNEE_COLORS[colorMap.get(key)!];
+  return ASSIGNEE_COLORS[colorMap.get(key)!].avatar;
 }
 
 
@@ -244,9 +293,6 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
         {/* Header with title + badge + filter tabs */}
         <div className="flex items-center justify-between mb-3 shrink-0">
           <div className="flex items-center gap-2">
-            <h3 className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Inter', sans-serif" }}>
-              {t.needsYourAttention}
-            </h3>
             {overdueCount > 0 && (
               <span className="w-5 h-5 rounded-full bg-rose-500/80 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
                 {overdueCount}
@@ -260,7 +306,7 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
                 onClick={() => setFilter(f)}
                 className={`px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer capitalize ${
                   filter === f
-                    ? isDarkMode ? 'bg-slate-700 text-white shadow-sm' : 'bg-[#fefcf6] text-slate-900 shadow-sm'
+                    ? isDarkMode ? 'bg-slate-700 text-white shadow-sm' : 'bg-[#faf8f3] text-slate-900 shadow-sm'
                     : isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -289,7 +335,8 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
               const dueMs = typeof task.dueDate.toMillis === "function" ? task.dueDate.toMillis() : new Date(task.dueDate).getTime();
               const isOverdue = dueMs < now;
               const dueLabel = formatDueLabel(task.dueDate, t);
-              const assigneeColor = getAssigneeColor(task.assignedToName, assigneeColorMap);
+              const urgency = getUrgencyColor(task.dueDate, isDarkMode);
+              const avatarClass = getAssigneeAvatar(task.assignedToName, assigneeColorMap);
 
               return (
                 <div
@@ -297,13 +344,13 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
                   onClick={() => setSelectedTask(task)}
                   className="flex items-center gap-3 p-2.5 rounded-xl border transition-all group cursor-pointer hover:shadow-sm"
                   style={{
-                    backgroundColor: assigneeColor.bg,
-                    borderColor: assigneeColor.border,
+                    backgroundColor: urgency.bg,
+                    borderColor: urgency.border,
                     borderLeftWidth: '3px',
                   }}
                 >
                   {/* Priority indicator bar */}
-                  <div className={`w-1 h-10 rounded-full shrink-0 ${isOverdue ? 'bg-rose-400/80' : 'bg-indigo-400/60'}`} />
+                  <div className={`w-1 h-10 rounded-full shrink-0 ${urgency.bar}`} />
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -317,17 +364,13 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
 
                   {/* Due badge */}
                   <span
-                    className={`text-[9px] font-bold px-2 py-1 rounded-full shrink-0 whitespace-nowrap ${
-                      isOverdue
-                        ? isDarkMode ? "bg-rose-950/50 text-rose-400 border border-rose-800/60" : "bg-rose-50 text-rose-500 border border-rose-200/60"
-                        : isDarkMode ? "bg-indigo-950/50 text-indigo-400 border border-indigo-800/60" : "bg-indigo-50 text-indigo-500 border border-indigo-200/60"
-                    }`}
+                    className={`text-[9px] font-bold px-2 py-1 rounded-full shrink-0 whitespace-nowrap ${urgency.badge}`}
                   >
                     {dueLabel}
                   </span>
 
-                  {/* Assignee avatar - colored per person */}
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black uppercase shrink-0 ${assigneeColor.avatar}`}>
+                  {/* Assignee avatar */}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black uppercase shrink-0 ${avatarClass}`}>
                     {task.assignedToName ? task.assignedToName.charAt(0) : "?"}
                   </div>
 
@@ -355,7 +398,7 @@ export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string 
           onClick={() => setSelectedTask(null)}
         >
           <div
-            className={`rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-900' : 'bg-[#fefcf6]'}`}
+            className={`rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf8f3]'}`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

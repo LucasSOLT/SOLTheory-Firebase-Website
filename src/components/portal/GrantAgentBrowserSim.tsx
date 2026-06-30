@@ -200,7 +200,7 @@ export function GrantAgentBrowserSim({
     <div className="relative w-full h-full flex flex-col overflow-hidden select-none">
       {/* â•â•â• Mini Browser Window â•â•â• */}
       <div
-        className={`flex-1 flex flex-col rounded-lg border border-slate-200/80 bg-[#fefcf6] shadow-sm overflow-hidden transition-all origin-bottom-right ${
+        className={`flex-1 flex flex-col rounded-lg border border-slate-200/80 bg-[#faf8f3] shadow-sm overflow-hidden transition-all origin-bottom-right ${
           isMinimizing
             ? "scale-[0.08] opacity-0 translate-x-[60%] translate-y-[60%]"
             : isStored
@@ -223,7 +223,7 @@ export function GrantAgentBrowserSim({
             <div className="w-[7px] h-[7px] rounded-full bg-emerald-400" />
           </div>
           {/* Tab */}
-          <div className="bg-[#fefcf6] rounded-t-md px-2 py-0.5 text-[7px] font-semibold text-slate-500 border border-b-0 border-slate-200/60 max-w-[80px] truncate">
+          <div className="bg-[#faf8f3] rounded-t-md px-2 py-0.5 text-[7px] font-semibold text-slate-500 border border-b-0 border-slate-200/60 max-w-[80px] truncate">
             Grant Search
           </div>
         </div>
@@ -244,7 +244,7 @@ export function GrantAgentBrowserSim({
             </div>
           </div>
           {/* Address bar */}
-          <div className={`flex-1 bg-[#fefcf6] rounded-md px-2 py-0.5 text-[7px] font-mono border transition-colors overflow-hidden whitespace-nowrap ${
+          <div className={`flex-1 bg-[#faf8f3] rounded-md px-2 py-0.5 text-[7px] font-mono border transition-colors overflow-hidden whitespace-nowrap ${
             phase === "cursor_move" || phase === "typing"
               ? "border-indigo-300 ring-1 ring-indigo-200"
               : "border-slate-200"
@@ -262,7 +262,7 @@ export function GrantAgentBrowserSim({
         </div>
 
         {/* Browser Viewport */}
-        <div className="flex-1 relative min-h-[50px] overflow-hidden bg-[#fefcf6]">
+        <div className="flex-1 relative min-h-[50px] overflow-hidden bg-[#faf8f3]">
           {/* Waiting: show countdown */}
           {isWaiting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">

@@ -118,7 +118,7 @@ export function IntegrationPickerModal({
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[80vh] bg-[#fefcf6] rounded-2xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+      <div className="relative w-full max-w-2xl max-h-[80vh] bg-[#faf8f3] rounded-2xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-200">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center justify-between mb-4">
@@ -234,7 +234,7 @@ export function DottedPlaceholder({ onClick, index, side }: { onClick: () => voi
     return (
       <div className="w-full h-[52px] rounded-2xl border-2 border-dashed border-slate-200 bg-[#faf6ed]/50 hover:border-indigo-300 hover:bg-indigo-50/20 px-4 flex items-center justify-between transition-all group cursor-pointer" onClick={onClick}>
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[#fefcf6] shadow-sm">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[#faf8f3] shadow-sm">
             <Plus className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-400" />
           </div>
           <p className="text-xs font-semibold text-slate-400 truncate group-hover:text-indigo-400">Empty Slot</p>
@@ -242,7 +242,7 @@ export function DottedPlaceholder({ onClick, index, side }: { onClick: () => voi
         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
           <button
             onClick={toggleCollapse}
-            className="w-7 h-7 rounded-md bg-[#fefcf6] hover:bg-slate-100 flex items-center justify-center transition-colors shadow-sm"
+            className="w-7 h-7 rounded-md bg-[#faf8f3] hover:bg-slate-100 flex items-center justify-center transition-colors shadow-sm"
           >
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           </button>
@@ -256,13 +256,13 @@ export function DottedPlaceholder({ onClick, index, side }: { onClick: () => voi
       <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
         <button
           onClick={toggleCollapse}
-          className="w-6 h-6 rounded-md bg-[#fefcf6] hover:bg-slate-100 shadow-sm flex items-center justify-center transition-colors"
+          className="w-6 h-6 rounded-md bg-[#faf8f3] hover:bg-slate-100 shadow-sm flex items-center justify-center transition-colors"
         >
           <ChevronUp className="w-3 h-3 text-slate-400" />
         </button>
       </div>
 
-      <div className="w-8 h-8 rounded-full bg-[#fefcf6] shadow-sm flex items-center justify-center transition-colors">
+      <div className="w-8 h-8 rounded-full bg-[#faf8f3] shadow-sm flex items-center justify-center transition-colors">
         <Plus className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
       </div>
       <span className="text-[11px] text-slate-300 group-hover:text-indigo-400 font-medium transition-colors">Click to personalize</span>
@@ -353,7 +353,7 @@ export function IntegrationWidget({
 
   if (isCollapsed) {
     return (
-      <div className="w-full h-[52px] rounded-2xl bg-[#fefcf6] border border-slate-100 shadow-sm px-4 flex items-center justify-between hover:shadow-md transition-all group relative">
+      <div className="w-full h-[52px] rounded-2xl bg-[#faf8f3] border border-slate-100 shadow-sm px-4 flex items-center justify-between hover:shadow-md transition-all group relative">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${integration.isGoogle ? 'bg-blue-50' : 'bg-indigo-50'}`}>
             <Icon className={`w-3.5 h-3.5 ${integration.isGoogle ? 'text-blue-500' : 'text-indigo-500'}`} />
@@ -379,7 +379,7 @@ export function IntegrationWidget({
   }
 
   return (
-    <div className="w-full h-full min-h-[140px] rounded-2xl bg-[#fefcf6] border border-slate-100 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow group relative">
+    <div className="w-full h-full min-h-[140px] rounded-2xl bg-[#faf8f3] border border-slate-100 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow group relative">
       {/* Top Controls */}
       <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
         <button

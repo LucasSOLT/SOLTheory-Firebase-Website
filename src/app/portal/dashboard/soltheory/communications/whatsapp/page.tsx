@@ -69,7 +69,7 @@ export default function WhatsAppPage() {
 
         {/* Connect Card */}
         <div className="relative z-10 max-w-md w-full mx-4">
-          <div className="bg-[#fefcf6] rounded-3xl shadow-2xl shadow-emerald-900/10 border border-slate-200/60 p-10 text-center">
+          <div className="bg-[#faf8f3] rounded-3xl shadow-2xl shadow-emerald-900/10 border border-slate-200/60 p-10 text-center">
             <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
               <MessageCircle className="w-10 h-10 text-white" />
             </div>
@@ -95,9 +95,9 @@ export default function WhatsAppPage() {
 
   // Main WhatsApp UI
   return (
-    <div className="flex-1 flex h-full rounded-2xl overflow-hidden border border-slate-200 bg-[#fefcf6] shadow-sm">
+    <div className="flex-1 flex h-full rounded-2xl overflow-hidden border border-slate-200 bg-[#faf8f3] shadow-sm">
       {/* Chat List Sidebar */}
-      <div className="w-[360px] flex flex-col border-r border-slate-200 bg-[#fefcf6] shrink-0">
+      <div className="w-[360px] flex flex-col border-r border-slate-200 bg-[#faf8f3] shrink-0">
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-4 bg-[#faf6ed]/80 border-b border-slate-200/60 shrink-0">
           <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export default function WhatsAppPage() {
               <div
                 key={chat.id}
                 onClick={() => setSelectedChat(chat.id)}
-                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-slate-100/60 ${selectedChat === chat.id ? 'bg-emerald-50' : 'hover:bg-[#faf6ed]'}`}
+                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-slate-100/60 ${selectedChat === chat.id ? 'bg-emerald-50' : 'hover:bg-[#f2ece0]'}`}
               >
                 <div className="relative shrink-0">
                   <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-500">
@@ -173,10 +173,10 @@ export default function WhatsAppPage() {
               Select a conversation to view messages. Double-click any received message to generate an AI-drafted reply.
             </p>
             <div className="flex items-center gap-4 mt-8">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#fefcf6] border border-slate-200 text-xs font-medium text-slate-500">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#faf8f3] border border-slate-200 text-xs font-medium text-slate-500">
                 <Shield className="w-3.5 h-3.5 text-emerald-500" /> End-to-end encrypted
               </div>
-              <button onClick={() => setSettingsOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#fefcf6] border border-slate-200 text-xs font-medium text-slate-500 hover:border-emerald-300 hover:text-emerald-600 transition-colors">
+              <button onClick={() => setSettingsOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#faf8f3] border border-slate-200 text-xs font-medium text-slate-500 hover:border-emerald-300 hover:text-emerald-600 transition-colors">
                 <Settings className="w-3.5 h-3.5" /> Agent Settings
               </button>
             </div>
@@ -216,7 +216,7 @@ export default function WhatsAppPage() {
                       className={`flex ${msg.fromMe ? 'justify-end' : 'justify-start'}`}
                       onDoubleClick={() => !msg.fromMe && setDraftingMessageId(msg.id)}
                     >
-                      <div className={`max-w-[65%] px-3 py-2 rounded-xl text-sm relative group ${msg.fromMe ? 'bg-emerald-100 text-slate-800 rounded-tr-sm' : 'bg-[#fefcf6] text-slate-800 rounded-tl-sm shadow-sm border border-slate-100 cursor-pointer'}`}>
+                      <div className={`max-w-[65%] px-3 py-2 rounded-xl text-sm relative group ${msg.fromMe ? 'bg-emerald-100 text-slate-800 rounded-tr-sm' : 'bg-[#faf8f3] text-slate-800 rounded-tl-sm shadow-sm border border-slate-100 cursor-pointer'}`}>
                         <span>{msg.text}</span>
                         <span className="text-[10px] text-slate-400 ml-2 inline-flex items-center gap-0.5 float-right mt-1">
                           {msg.time}
@@ -257,7 +257,7 @@ export default function WhatsAppPage() {
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}
                   placeholder="Type a message"
-                  className="flex-1 h-10 px-4 bg-[#fefcf6] rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-300 border border-slate-200"
+                  className="flex-1 h-10 px-4 bg-[#faf8f3] rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-300 border border-slate-200"
                 />
                 <button className="p-2.5 bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors text-white">
                   {inputValue.trim() ? <Send className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
@@ -270,7 +270,7 @@ export default function WhatsAppPage() {
 
       {/* Settings Sidebar */}
       {settingsOpen && (
-        <div className="w-[400px] flex flex-col border-l border-slate-200 bg-[#fefcf6] shrink-0 animate-in slide-in-from-right duration-300 overflow-y-auto">
+        <div className="w-[400px] flex flex-col border-l border-slate-200 bg-[#faf8f3] shrink-0 animate-in slide-in-from-right duration-300 overflow-y-auto">
           {/* Header */}
           <div className="h-14 flex items-center justify-between px-4 bg-[#faf6ed]/80 border-b border-slate-200/60 shrink-0">
             <div className="flex items-center gap-2">
@@ -299,7 +299,7 @@ export default function WhatsAppPage() {
                     <p className="text-[11px] text-slate-400 mt-0.5">AI responds as you, not as an assistant</p>
                   </div>
                   <button onClick={() => setUseFirstPerson(!useFirstPerson)} className={`w-10 h-6 rounded-full transition-colors relative ${useFirstPerson ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 rounded-full bg-[#fefcf6] shadow-sm absolute top-1 transition-all ${useFirstPerson ? 'left-5' : 'left-1'}`} />
+                    <div className={`w-4 h-4 rounded-full bg-[#faf8f3] shadow-sm absolute top-1 transition-all ${useFirstPerson ? 'left-5' : 'left-1'}`} />
                   </button>
                 </div>
               </div>
@@ -316,12 +316,12 @@ export default function WhatsAppPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Rule {idx + 1}</span>
                       <button onClick={() => setAutoReplyRules(prev => prev.map(r => r.id === rule.id ? { ...r, enabled: !r.enabled } : r))} className={`w-8 h-5 rounded-full transition-colors relative ${rule.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                        <div className={`w-3 h-3 rounded-full bg-[#fefcf6] shadow-sm absolute top-1 transition-all ${rule.enabled ? 'left-4' : 'left-1'}`} />
+                        <div className={`w-3 h-3 rounded-full bg-[#faf8f3] shadow-sm absolute top-1 transition-all ${rule.enabled ? 'left-4' : 'left-1'}`} />
                       </button>
                     </div>
-                    <input value={rule.contactName} onChange={e => setAutoReplyRules(prev => prev.map(r => r.id === rule.id ? { ...r, contactName: e.target.value } : r))} placeholder="Contact name or phone" className="w-full h-8 px-3 bg-[#fefcf6] border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-300" />
-                    <textarea value={rule.responseTemplate} onChange={e => setAutoReplyRules(prev => prev.map(r => r.id === rule.id ? { ...r, responseTemplate: e.target.value } : r))} placeholder="Response template or instructions..." rows={2} className="w-full px-3 py-2 bg-[#fefcf6] border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-300 resize-none" />
-                    <input value={rule.context} onChange={e => setAutoReplyRules(prev => prev.map(r => r.id === rule.id ? { ...r, context: e.target.value } : r))} placeholder="Additional context (optional)" className="w-full h-8 px-3 bg-[#fefcf6] border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-300" />
+                    <input value={rule.contactName} onChange={e => setAutoReplyRules(prev => prev.map(r => r.id === rule.id ? { ...r, contactName: e.target.value } : r))} placeholder="Contact name or phone" className="w-full h-8 px-3 bg-[#faf8f3] border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-300" />
+                    <textarea value={rule.responseTemplate} onChange={e => setAutoReplyRules(prev => prev.map(r => r.id === rule.id ? { ...r, responseTemplate: e.target.value } : r))} placeholder="Response template or instructions..." rows={2} className="w-full px-3 py-2 bg-[#faf8f3] border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-300 resize-none" />
+                    <input value={rule.context} onChange={e => setAutoReplyRules(prev => prev.map(r => r.id === rule.id ? { ...r, context: e.target.value } : r))} placeholder="Additional context (optional)" className="w-full h-8 px-3 bg-[#faf8f3] border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-300" />
                   </div>
                 ))}
                 <button onClick={() => setAutoReplyRules(prev => [...prev, { id: Date.now().toString(), contactName: "", responseTemplate: "", context: "", enabled: true }])} className="w-full h-9 border border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-500 hover:border-emerald-400 hover:text-emerald-600 transition-colors">
@@ -342,7 +342,7 @@ export default function WhatsAppPage() {
                     <p className="text-[11px] text-slate-400 mt-0.5">Auto-generate summaries using Org Brain</p>
                   </div>
                   <button onClick={() => setSummaryEnabled(!summaryEnabled)} className={`w-10 h-6 rounded-full transition-colors relative ${summaryEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 rounded-full bg-[#fefcf6] shadow-sm absolute top-1 transition-all ${summaryEnabled ? 'left-5' : 'left-1'}`} />
+                    <div className={`w-4 h-4 rounded-full bg-[#faf8f3] shadow-sm absolute top-1 transition-all ${summaryEnabled ? 'left-5' : 'left-1'}`} />
                   </button>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-[#faf6ed] rounded-xl border border-slate-200">
@@ -351,7 +351,7 @@ export default function WhatsAppPage() {
                     <p className="text-[11px] text-slate-400 mt-0.5">Detect tone and urgency of messages</p>
                   </div>
                   <button onClick={() => setSentimentEnabled(!sentimentEnabled)} className={`w-10 h-6 rounded-full transition-colors relative ${sentimentEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 rounded-full bg-[#fefcf6] shadow-sm absolute top-1 transition-all ${sentimentEnabled ? 'left-5' : 'left-1'}`} />
+                    <div className={`w-4 h-4 rounded-full bg-[#faf8f3] shadow-sm absolute top-1 transition-all ${sentimentEnabled ? 'left-5' : 'left-1'}`} />
                   </button>
                 </div>
               </div>

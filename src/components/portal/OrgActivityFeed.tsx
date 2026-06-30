@@ -187,7 +187,7 @@ export function OrgActivityFeed() {
             {filtered.map((item) => (
               <div
                 key={item.id}
-                className={`flex items-start gap-3 px-2 py-2.5 rounded-lg transition-colors group ${isDarkMode ? 'hover:bg-slate-800/70' : 'hover:bg-[#faf6ed]/70'}`}
+                className={`flex items-start gap-3 px-2 py-2.5 rounded-lg transition-colors group ${isDarkMode ? 'hover:bg-slate-800/70' : 'hover:bg-[#f2ece0]/70'}`}
               >
                 {/* Icon */}
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${isDarkMode ? 'bg-slate-800 group-hover:bg-slate-700' : 'bg-slate-100 group-hover:bg-slate-200/70'}`}>

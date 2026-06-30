@@ -159,13 +159,15 @@ export async function getAIAssist(
     campaignName?: string;
     previousSteps?: string[];
     selectedText?: string;
-  }
+  },
+  knowledgeBaseText?: string,
+  pactText?: string,
 ): Promise<{ suggestions: string[]; error?: string }> {
   try {
     const res = await fetch("/api/campaigning/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, context }),
+      body: JSON.stringify({ action, context, knowledgeBaseText, pactText }),
     });
     const data = await res.json();
     if (!res.ok) return { suggestions: [], error: data.error };

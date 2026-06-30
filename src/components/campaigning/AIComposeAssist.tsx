@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Sparkles, Wand2, RefreshCw, Check, X, ChevronDown } from "lucide-react";
 import { getAIAssist } from "@/lib/gmail-api";
+import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 
 interface AIComposeAssistProps {
   subject: string;
@@ -13,6 +14,7 @@ interface AIComposeAssistProps {
 }
 
 export default function AIComposeAssist({ subject, body, onApplySubject, onApplyBody, onRewriteBody }: AIComposeAssistProps) {
+  const { knowledgeBaseText, pactText } = useKnowledgeBase('soltheory');
   const [loading, setLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -23,7 +25,7 @@ export default function AIComposeAssist({ subject, body, onApplySubject, onApply
   const handleSubjectLines = useCallback(async () => {
     setLoading(true);
     setActiveAction("subject");
-    const res = await getAIAssist("subject_lines", { emailBody: body, emailSubject: subject });
+    const res = await getAIAssist("subject_lines", { emailBody: body, emailSubject: subject }, knowledgeBaseText, pactText);
     setSuggestions(res.suggestions);
     setLoading(false);
   }, [body, subject]);
@@ -33,7 +35,7 @@ export default function AIComposeAssist({ subject, body, onApplySubject, onApply
     setLoading(true);
     setActiveAction("draft");
     setShowPromptInput(false);
-    const res = await getAIAssist("draft_body", { userPrompt: draftPrompt, emailSubject: subject });
+    const res = await getAIAssist("draft_body", { userPrompt: draftPrompt, emailSubject: subject }, knowledgeBaseText, pactText);
     if (res.suggestions[0]) onApplyBody(res.suggestions[0]);
     setSuggestions([]);
     setLoading(false);
@@ -45,7 +47,7 @@ export default function AIComposeAssist({ subject, body, onApplySubject, onApply
     if (!body.trim()) return;
     setLoading(true);
     setActiveAction("rewrite");
-    const res = await getAIAssist("rewrite", { selectedText: body, tone });
+    const res = await getAIAssist("rewrite", { selectedText: body, tone }, knowledgeBaseText, pactText);
     if (res.suggestions[0]) onRewriteBody(res.suggestions[0]);
     setSuggestions([]);
     setLoading(false);

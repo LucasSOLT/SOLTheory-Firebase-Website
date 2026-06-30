@@ -90,7 +90,7 @@ export default function SolTheoryCommunications() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[700px]">
         
         {/* Left Column: Inbound Email Feed */}
-        <Card className={`lg:col-span-5 border flex flex-col overflow-hidden shadow-sm rounded-2xl ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'}`}>
+        <Card className={`lg:col-span-5 border flex flex-col overflow-hidden shadow-sm rounded-2xl ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
           <CardHeader className={`border-b pb-4 ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
             <CardTitle className={`text-lg flex items-center justify-between ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
               <div className="flex items-center gap-2">
@@ -105,7 +105,7 @@ export default function SolTheoryCommunications() {
               {inbox.map((email, idx) => (
                 <div 
                   key={idx} 
-                  className={`p-4 transition-all cursor-pointer group border-l-2 ${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-[#faf6ed]'} ${email.status === 'new' ? (isDarkMode ? 'border-amber-500 bg-amber-900/20' : 'border-amber-400 bg-amber-50/50') : email.status === 'processing' ? (isDarkMode ? 'border-indigo-500 bg-indigo-900/20' : 'border-indigo-500 bg-indigo-50/50') : 'border-transparent'}`}
+                  className={`p-4 transition-all cursor-pointer group border-l-2 ${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-[#f2ece0]'} ${email.status === 'new' ? (isDarkMode ? 'border-amber-500 bg-amber-900/20' : 'border-amber-400 bg-amber-50/50') : email.status === 'processing' ? (isDarkMode ? 'border-indigo-500 bg-indigo-900/20' : 'border-indigo-500 bg-indigo-50/50') : 'border-transparent'}`}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
@@ -141,7 +141,7 @@ export default function SolTheoryCommunications() {
         </Card>
 
         {/* Right Column: Outbound AI Agent */}
-        <Card className={`lg:col-span-7 border flex flex-col shadow-sm relative overflow-hidden rounded-2xl ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'}`}>
+        <Card className={`lg:col-span-7 border flex flex-col shadow-sm relative overflow-hidden rounded-2xl ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
           <CardHeader className={`border-b pb-4 relative z-10 ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
             <CardTitle className={`text-lg flex items-center justify-between ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
               <div className="flex items-center gap-2">
@@ -197,7 +197,7 @@ export default function SolTheoryCommunications() {
               <form onSubmit={(e) => { e.preventDefault(); handleSendDraft(); }} className="flex gap-3 relative">
                 <Input 
                   placeholder="Prompt the AI to modify drafts or send direct commands..." 
-                  className={`h-12 rounded-xl focus-visible:ring-indigo-500 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : 'bg-[#fefcf6] border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                  className={`h-12 rounded-xl focus-visible:ring-indigo-500 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : 'bg-[#faf8f3] border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                 />

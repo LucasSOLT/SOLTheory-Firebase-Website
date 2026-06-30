@@ -126,7 +126,7 @@ export function WalkthroughsLibrary() {
   });
 
   return (
-    <div className={`w-full max-w-6xl mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-white'}`}>
+    <div className={`-mx-4 -mb-4 md:-mx-10 md:-mb-10 w-full animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-6 md:px-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#fefdfb]'}`}>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between pt-8 pb-6 gap-6">
         <div>
@@ -258,11 +258,11 @@ function WalkthroughCard({ walkthrough: w, isAdmin, isDarkMode, t, onDelete, onE
 
   return (
     <div
-      className={`group flex items-stretch border rounded-xl hover:shadow-sm transition-all overflow-hidden cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:border-slate-600' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+      className={`group flex items-stretch border rounded-xl hover:shadow-sm transition-all overflow-hidden cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:border-slate-600' : 'border-slate-200 bg-[#fefdfb] hover:border-slate-300'}`}
       onClick={() => onPlay(w.videoUrl, w.title, w.thumbnailUrl)}
     >
       {/* Thumbnail — left side */}
-      <div className={`relative w-[200px] min-w-[200px] border-r overflow-hidden shrink-0 ${isDarkMode ? 'bg-slate-700 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+      <div className={`relative w-[200px] min-w-[200px] border-r overflow-hidden shrink-0 ${isDarkMode ? 'bg-slate-700 border-slate-700' : 'bg-[#faf8f3] border-slate-100'}`}>
         {w.thumbnailUrl ? (
           <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
         ) : (

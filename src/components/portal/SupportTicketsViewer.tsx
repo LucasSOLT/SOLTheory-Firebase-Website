@@ -199,7 +199,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4">
+    <div className="-mx-4 -mb-4 md:-mx-10 md:-mb-10 w-full max-w-4xl mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4 bg-[#fefdfb]">
       {/* Success Dialog */}
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
         <DialogContent className="sm:max-w-[380px] border-slate-200 shadow-xl rounded-xl bg-white text-center flex flex-col items-center justify-center p-10 [&>button]:hidden">
@@ -325,7 +325,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
           </div>
         ) : filteredTickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-full bg-[#faf8f3] flex items-center justify-center mb-4">
               <Send className="w-5 h-5 text-slate-300" />
             </div>
             <p className="text-sm font-medium text-slate-900">No tickets</p>
@@ -340,7 +340,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
               return (
               <div
                 key={ticket.id}
-                className={`border border-slate-100 rounded-xl transition-all ${isExpanded ? 'bg-slate-50/50' : 'bg-white hover:bg-slate-50/50'}`}
+                className={`border border-slate-100 rounded-xl transition-all ${isExpanded ? 'bg-[#faf8f3]' : 'bg-[#fefdfb] hover:bg-[#faf8f3]'}`}
               >
                 {/* Ticket Header Row */}
                 <div

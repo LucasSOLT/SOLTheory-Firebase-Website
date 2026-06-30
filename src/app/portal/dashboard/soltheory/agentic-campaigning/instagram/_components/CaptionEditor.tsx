@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useInstagramStore } from "@/stores/instagramStore";
 import { useAuth } from "@/firebase";
+import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -69,6 +70,7 @@ export default function CaptionEditor({ isDark }: CaptionEditorProps) {
 
   // Auth for API calls
   const auth = useAuth();
+  const { knowledgeBaseText, pactText } = useKnowledgeBase('soltheory');
   const getAuthHeaders = useCallback(async () => {
     const token = await auth.currentUser?.getIdToken();
     return {
@@ -119,6 +121,7 @@ export default function CaptionEditor({ isDark }: CaptionEditorProps) {
     onUpdate: ({ editor: e }) => {
       // Keep plainText in sync for counters
       setPlainText(e.getText());
+      updateDraft({ caption: e.getHTML() });
     },
   });
 
@@ -181,6 +184,8 @@ export default function CaptionEditor({ isDark }: CaptionEditorProps) {
               tone: "professional",
               userPrompt: `Clean up and polish this Instagram caption. Fix grammar, spelling, punctuation, and improve clarity while keeping the author's original voice and intent. Keep it natural and engaging. Preserve any existing hashtags. Return ONLY the cleaned-up caption text, nothing else.\n\nOriginal caption:\n${currentText}`,
             },
+            knowledgeBaseText,
+            pactText,
           }),
         });
         if (!res.ok) throw new Error(`AI request failed (${res.status})`);
@@ -223,6 +228,8 @@ export default function CaptionEditor({ isDark }: CaptionEditorProps) {
             campaignGoal: campaignDraft.campaignGoal || "Build Brand Awareness",
             tone: "Professional",
             additionalContext: editor.getText().trim() || undefined,
+            knowledgeBaseText,
+            pactText,
           }),
         });
         if (!res.ok) throw new Error(`AI request failed (${res.status})`);

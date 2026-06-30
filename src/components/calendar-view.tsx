@@ -26,12 +26,14 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { logActivity } from '@/lib/activity-logger';
+import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
 export function CalendarView() {
   const { user } = useUser();
+  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase('soltheory');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("Month");
   
@@ -110,7 +112,9 @@ export function CalendarView() {
           uid: user?.uid,
           refreshToken: rToken,
           contacts: [],
-          knowledgeBaseText: ""
+          knowledgeBaseText,
+          pactText,
+          orgBrainText
         }),
       });
 

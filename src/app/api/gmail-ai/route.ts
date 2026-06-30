@@ -35,6 +35,9 @@ interface RequestBody {
   tagSetup?: { name: string; color: string; description: string; rules: string }[];
   labelAssignments?: { emailId: string; labelName: string }[];
   dashboardId?: string;
+  knowledgeBaseText?: string;
+  pactText?: string;
+  orgBrainText?: string;
 }
 
 interface AIResponseShape {
@@ -122,7 +125,10 @@ function buildSystemPrompt(
   contacts?: { name: string; email: string; aliases?: string }[],
   emailMemory?: EmailMemoryEntry[],
   existingTags?: { name: string; color: string; description: string; rules: string; gmailLabelId: string }[],
-  dashboardId?: string
+  dashboardId?: string,
+  knowledgeBaseText?: string,
+  pactText?: string,
+  orgBrainText?: string
 ): string {
   let prompt = `You are a professional Gmail assistant AI. Your job is to help the user manage their email efficiently.
 
@@ -145,9 +151,9 @@ RULES:
   - Descriptions of email content should NOT be bold — keep them in regular text.
   - Use blank lines (\\n\\n) between each numbered email summary for readability.
   - Keep the formatting clean and scannable.
-  - NEVER include raw email IDs (like "19ed88fc8ba253e0") in the reply text. IDs go ONLY in the targetEmailIds array.
-- For search queries, construct proper Gmail search syntax (e.g., "from:john@example.com subject:invoice newer_than:7d").
-- For drafts, write professional, well-structured email content.
+  - NEVER include raw email IDs (like "19ed88fc8ba253e0") in the reply text.- For search queries, construct proper Gmail search syntax (e.g., "from:john@example.com subject:invoice newer_than:7d").
+- For drafts, write professional, well-structured email content. Keep the tone warm, direct, and conversational but highly professional. Incorporate the user's details, business identity, and services from <user_knowledge_base> and <user_facts> (at the bottom) naturally, so the email is written from their actual perspective. Never start with cliché opening phrases like "Hope this email finds you well" or "I am writing to...". Get straight to the point. Include space for the user's name/signature at the end.
+- USER PERSONA ALIGNMENT: Always review <user_knowledge_base> and <user_facts> (if provided) before writing reply text, answering questions, or drafting emails. Align your answers, voice, terminology, and recommendations to match the user's profession, identity, and organization.
 - For batch operations, identify which emails from the provided context match the user's request.
 - NEVER execute destructive actions (delete, archive) without asking the user to confirm first.
 - CRITICAL: You must ONLY reference and summarize emails that appear in the [CURRENT EMAIL CONTEXT] section below. NEVER invent, fabricate, or hallucinate emails. If there are no unread emails in the context, say so. If there are fewer than 5 unread emails, summarize only the ones that exist. Every sender name and subject you mention MUST come directly from the provided context.
@@ -161,7 +167,7 @@ RULES:
   C) If the user chose to add more tags, suggest additional ones following step A format.
   D) If the user chose to sweep/organize OR says "yes" to organizing, analyze every email in [CURRENT EMAIL CONTEXT] and match them to the existing tags using the tag rules. Return labelAssignments array with { emailId, labelName } for each match. In your reply, list how many emails were tagged per category. Set intent to "organize_tags" and actionType to "apply_label".
   E) If the user confirms the suggested tag setup from step A (says "yes", "create them", "looks good", etc.), return the SAME tagSetup array you proposed. Set intent to "organize_tags".
-- CLEAN UP INBOX RULE: When the user asks to "clean up inbox", "clean up more", "delete junk", or similar cleanup requests (NOT "organize inbox" which is handled by the ORGANIZE INBOX rule above), analyze the [CURRENT EMAIL CONTEXT] and identify up to 10 emails that should be cleaned up. Look for: (1) Duplicate or near-duplicate emails (same sender + very similar subject), (2) Promotional/marketing emails (from noreply addresses, containing "unsubscribe", "sale", "promo", "offer"), (3) Old automated notifications (deployment alerts, CI/CD, social media notifications, newsletters), (4) Read emails older than a few days that appear to be low-priority. In your reply, list the emails you recommend cleaning up in a numbered list with sender and subject bolded. Group them by reason (duplicates, promotional, notifications). Set the intent to "organize", set actionType to "delete" (moves to trash), and include all their IDs in targetEmailIds. End with: "**Press 'Confirm' to move these emails to trash, or let me know if you'd like to keep any of them.**\\n\\n**Would you like to continue cleaning up your inbox?**" NEVER auto-delete without asking first.
+- CLEAN UP INBOX RULE: When the user asks to "clean up inbox", "clean up more", "delete junk", or similar cleanup requests (NOT "organize inbox" which is handled by the ORGANIZE INBOX rule above), analyze the [CURRENT EMAIL CONTEXT] and identify up to 10 emails that should be cleaned up. Look for: (1) Duplicate or near-duplicate emails (same sender + very similar subject), (2) Promotional/marketing emails (from noreply addresses, containing "unsubscribe", "sale", "promo", "offer"), (3) Old automated notifications (deployment alerts, CI/CD, social media notifications, newsletters), (4) Read emails older than a few days that appear to be low-priority. In your reply, list the emails you recommend cleaning up in a numbered list with sender and subject bolded. Group them by reason (duplicates, promotional, notifications). Set the intent to "organize", set actionType to "delete" (moves to trash), and include all their IDs in targetEmailIds. End with: "**Press 'Confirm' to move these emails to trash, or let me know if you'd like to keep any of them.**\n\n**Would you like to continue cleaning up your inbox?**" NEVER auto-delete without asking first.
 - If you can't determine the intent, set intent to "general" and answer helpfully.
 - IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
@@ -200,6 +206,17 @@ RULES:
   // Inject client knowledge base for specific dashboards
   if (dashboardId === "nxtchapter") {
     prompt += "\n\n" + NXT_CHAPTER_KNOWLEDGE;
+  }
+
+  // Inject user-provided Knowledge Base, P.A.C.T., and Org Brain context
+  if (knowledgeBaseText) {
+    prompt += `\n\n<user_knowledge_base>\n${knowledgeBaseText.slice(0, 50000)}\n</user_knowledge_base>`;
+  }
+  if (pactText) {
+    prompt += `\n\n<user_facts>\n${pactText.slice(0, 10000)}\n</user_facts>`;
+  }
+  if (orgBrainText) {
+    prompt += `\n\n<organization_context>\n${orgBrainText.slice(0, 10000)}\n</organization_context>`;
   }
 
   return prompt;
@@ -762,6 +779,9 @@ export async function POST(req: Request) {
   try {
     const body: RequestBody = await req.json();
     const { messages, uid, refreshToken, userEmail, emailContext, action, actionPayload } = body;
+    const kbText = body.knowledgeBaseText || "";
+    const pactTextVal = body.pactText || "";
+    const orgBrainVal = body.orgBrainText || "";
 
     if (!uid || !refreshToken) {
       return NextResponse.json({ error: "Missing uid or refreshToken" }, { status: 400 });
@@ -813,7 +833,10 @@ Return ONLY a JSON array (no extra text, no code fences) where each object has:
 - "body": your professional reply text
 
 Emails to reply to:
-${emailList}`;
+${emailList}`
++ (kbText ? `\n\n<user_knowledge_base>\n${kbText.slice(0, 50000)}\n</user_knowledge_base>` : "")
++ (pactTextVal ? `\n\n<user_facts>\n${pactTextVal.slice(0, 10000)}\n</user_facts>` : "")
++ (orgBrainVal ? `\n\n<organization_context>\n${orgBrainVal.slice(0, 10000)}\n</organization_context>` : "");
 
       const completion = await groq.chat.completions.create({
         messages: [{ role: "system", content: batchPrompt }],
@@ -893,7 +916,7 @@ ${emailList}`;
     // Fetch email memory for contextual summaries
     const emailMemory = uid ? await getEmailMemory(uid) : [];
     const existingTags = uid ? await getExistingTags(uid) : [];
-    const systemPrompt = buildSystemPrompt(resolvedEmailContext, body.contacts, emailMemory, existingTags, body.dashboardId);
+    const systemPrompt = buildSystemPrompt(resolvedEmailContext, body.contacts, emailMemory, existingTags, body.dashboardId, kbText, pactTextVal, orgBrainVal);
 
     const completion = await groq.chat.completions.create({
       messages: [

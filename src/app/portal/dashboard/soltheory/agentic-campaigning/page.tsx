@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Mail, MessageSquare, Send, ChevronRight, ChevronLeft,
@@ -41,7 +41,9 @@ interface Platform {
   route?: string;
 }
 
-const PLATFORMS: Platform[] = [
+import { stripHtml } from "@/lib/utils";
+
+const getPlatforms = (orgPrefix: string): Platform[] => [
   {
     id: "gmail",
     name: "Gmail Campaign",
@@ -58,7 +60,7 @@ const PLATFORMS: Platform[] = [
     gradient: "from-pink-500 via-purple-500 to-orange-400",
     available: true,
     badge: "New",
-    route: "/portal/dashboard/soltheory/agentic-campaigning/instagram",
+    route: `/portal/dashboard/${orgPrefix}/agentic-campaigning/instagram`,
   },
   {
     id: "sms",
@@ -67,7 +69,7 @@ const PLATFORMS: Platform[] = [
     icon: <Phone className="w-6 h-6" />,
     gradient: "from-emerald-500 to-green-700",
     available: true,
-    route: "/portal/dashboard/soltheory/communications/imessage",
+    route: `/portal/dashboard/${orgPrefix}/communications/imessage`,
   },
   {
     id: "youtube",
@@ -76,7 +78,7 @@ const PLATFORMS: Platform[] = [
     icon: <Youtube className="w-6 h-6" />,
     gradient: "from-red-600 to-red-800",
     available: true,
-    route: "/portal/dashboard/soltheory/youtube",
+    route: `/portal/dashboard/${orgPrefix}/youtube`,
   },
 ];
 
@@ -366,7 +368,7 @@ function GmailView({ onBack, hideTopBar, uid, refreshToken, userEmail, userName,
     <div className="flex flex-col h-full" style={{ WebkitFontSmoothing: "antialiased" } as React.CSSProperties}>
       {/* Top Bar — hidden when parent provides tab bar */}
       {!hideTopBar && (
-        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-200/80 bg-white shrink-0">
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-200/80 bg-[#fefdfb] shrink-0">
           <button onClick={onBack} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-500 transition-colors cursor-pointer">
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -468,7 +470,7 @@ function GmailView({ onBack, hideTopBar, uid, refreshToken, userEmail, userName,
 
       {/* Slim search bar when top bar is hidden */}
       {hideTopBar && (
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-white shrink-0">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-[#fefdfb] shrink-0">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
@@ -552,7 +554,7 @@ function GmailView({ onBack, hideTopBar, uid, refreshToken, userEmail, userName,
       {/* Main */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
-        <div className="w-48 border-r border-slate-200/80 bg-slate-50/30 flex flex-col py-2.5 shrink-0">
+        <div className="w-48 border-r border-slate-200/80 bg-[#faf8f3]/30 flex flex-col py-2.5 shrink-0">
           <div className="space-y-0.5 px-2">
             {folders.map((f) => {
               const count = folderCounts[f.id] || 0;
@@ -579,7 +581,7 @@ function GmailView({ onBack, hideTopBar, uid, refreshToken, userEmail, userName,
         {/* Email content */}
         {selectedEmail ? (
           /* ─── Email Detail ─── */
-          <div className="flex-1 flex flex-col bg-white overflow-y-auto">
+          <div className="flex-1 flex flex-col bg-[#fefdfb] overflow-y-auto">
             <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 shrink-0">
               <button onClick={() => setSelectedEmail(null)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-400 cursor-pointer" title="Back to list">
                 <ArrowLeft className="w-4 h-4" />
@@ -656,7 +658,7 @@ function GmailView({ onBack, hideTopBar, uid, refreshToken, userEmail, userName,
           </div>
         ) : (
           /* ─── Email List ─── */
-          <div className="flex-1 flex flex-col bg-white">
+          <div className="flex-1 flex flex-col bg-[#fefdfb]">
             <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-1.5">
                 <button onClick={markAllAsRead} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-400 cursor-pointer" title="Mark all as read">
@@ -856,6 +858,9 @@ function igStatusLabel(status: CalendarIGPost['status']): string {
 
 export default function AgenticCampaigningPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const orgPrefix = pathname.includes('/nxtchapter/') ? 'nxtchapter' : 'soltheory';
+  const PLATFORMS = getPlatforms(orgPrefix);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [gmailTab, setGmailTab] = useState<"email" | "campaigns">("email");
   const [refreshTokenValue, setRefreshTokenValue] = useState<string | null>(null);
@@ -921,7 +926,7 @@ export default function AgenticCampaigningPage() {
         unsub = snap(
           q(
             col(firestore, 'scheduled_instagram_posts'),
-            where('clientId', '==', 'soltheory'),
+            where('clientId', '==', orgPrefix),
             where('scheduledTime', '>=', startOfMonth),
             where('scheduledTime', '<=', endOfMonth),
             orderBy('scheduledTime', 'asc')
@@ -959,6 +964,93 @@ export default function AgenticCampaigningPage() {
     });
   };
 
+  /* ── Active-Campaign Carousel Logic ──────────────────────────── */
+  const activeCampaigns = useMemo(() => campaigns.filter(c => c.status === 'active'), [campaigns]);
+  const totalActiveTiles = igPosts.length + activeCampaigns.length;
+  const shouldCarousel = totalActiveTiles >= 4;
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const carouselInnerRef = useRef<HTMLDivElement>(null);
+  const carouselAnimRef = useRef<number | null>(null);
+  const carouselDragRef = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
+  const carouselPausedRef = useRef(false);
+
+  // Auto-scroll effect: continuously scroll, reset position for seamless loop
+  useEffect(() => {
+    if (!shouldCarousel) return;
+    const el = carouselRef.current;
+    if (!el) return;
+
+    const speed = 0.5; // px per frame
+    let raf: number;
+
+    const step = () => {
+      if (!carouselPausedRef.current && el) {
+        el.scrollLeft += speed;
+        // When we've scrolled past the first set of tiles, jump back seamlessly
+        const half = el.scrollWidth / 2;
+        if (el.scrollLeft >= half) {
+          el.scrollLeft -= half;
+        }
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    carouselAnimRef.current = raf;
+
+    return () => cancelAnimationFrame(raf);
+  }, [shouldCarousel, totalActiveTiles]);
+
+  // Drag-to-scroll handlers
+  const onCarouselMouseDown = useCallback((e: React.MouseEvent) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    carouselPausedRef.current = true;
+    carouselDragRef.current = { isDragging: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+    el.style.cursor = 'grabbing';
+    el.style.userSelect = 'none';
+  }, []);
+
+  const onCarouselMouseMove = useCallback((e: React.MouseEvent) => {
+    const drag = carouselDragRef.current;
+    if (!drag.isDragging) return;
+    const el = carouselRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - drag.startX) * 1.5;
+    el.scrollLeft = drag.scrollLeft - walk;
+  }, []);
+
+  const onCarouselMouseUp = useCallback(() => {
+    carouselDragRef.current.isDragging = false;
+    carouselPausedRef.current = false;
+    const el = carouselRef.current;
+    if (el) { el.style.cursor = 'grab'; el.style.userSelect = ''; }
+  }, []);
+
+  const onCarouselTouchStart = useCallback((e: React.TouchEvent) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    carouselPausedRef.current = true;
+    carouselDragRef.current = { isDragging: true, startX: e.touches[0].pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+  }, []);
+
+  const onCarouselTouchMove = useCallback((e: React.TouchEvent) => {
+    const drag = carouselDragRef.current;
+    if (!drag.isDragging) return;
+    const el = carouselRef.current;
+    if (!el) return;
+    const x = e.touches[0].pageX - el.offsetLeft;
+    const walk = (x - drag.startX) * 1.5;
+    el.scrollLeft = drag.scrollLeft - walk;
+  }, []);
+
+  const onCarouselTouchEnd = useCallback(() => {
+    carouselDragRef.current.isDragging = false;
+    carouselPausedRef.current = false;
+  }, []);
+
   const { t, lang } = useTranslation();
 
   // Resolve Gmail OAuth token when user is available
@@ -993,19 +1085,19 @@ export default function AgenticCampaigningPage() {
 
   if (selectedPlatform === "gmail") {
     return (
-      <div className={`w-full h-full rounded-2xl overflow-hidden shadow-sm relative flex flex-col ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200/80'}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
+      <div className={`w-full h-full rounded-2xl overflow-hidden shadow-sm relative flex flex-col ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-[#fefdfb] border border-slate-200/80'}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
         <CampaignManager onBack={() => setSelectedPlatform(null)} />
       </div>
     );
   }
 
   return (
-    <div className={`w-full h-full overflow-y-auto pb-4 px-3 sm:px-4 md:px-8 animate-in fade-in duration-500 ${isDarkMode ? 'bg-slate-950' : ''}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
-      <div className="max-w-full px-4 md:px-10 mx-auto py-4 space-y-4">
+    <div className={`-mx-4 -mb-4 md:-mx-10 md:-mb-10 w-full h-full overflow-y-auto pb-4 px-3 sm:px-4 md:px-8 animate-in fade-in duration-500 ${isDarkMode ? 'bg-slate-950' : 'bg-[#f5f1e8]'}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
+      <div className="max-w-full px-6 md:px-14 mx-auto pt-6 pb-4 space-y-5">
         {/* Header */}
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
               <Send className="w-4.5 h-4.5 text-white" />
             </div>
             <div>
@@ -1029,7 +1121,7 @@ export default function AgenticCampaigningPage() {
             { label: lang === 'es' ? 'Tasa de Apertura' : 'Open Rate', value: '\u2014' },
             { label: lang === 'es' ? 'Tasa de Clics' : 'Click-Through Rate', value: '\u2014' },
           ].map((stat) => (
-            <div key={stat.label} className={`rounded-xl p-3 transition-shadow ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200/80 shadow-sm'}`}>
+            <div key={stat.label} className={`rounded-xl p-3 transition-shadow ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-[#fefdfb] border border-slate-200/80 shadow-sm'}`}>
               <p className={`text-[10px] font-semibold tracking-wider uppercase mb-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{stat.value}</p>
               <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
@@ -1068,7 +1160,7 @@ export default function AgenticCampaigningPage() {
                 disabled={!platform.available}
                 className={`group relative text-left border rounded-xl p-4 transition-colors duration-200 ${
                   platform.available
-                    ? `${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-lg' : 'bg-white border-slate-200/80 hover:border-indigo-200 hover:shadow-md'} cursor-pointer`
+                    ? `${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-lg' : 'bg-[#fefdfb] border-slate-200/80 hover:border-indigo-200 hover:shadow-md'} cursor-pointer`
                     : `${isDarkMode ? 'bg-slate-900/50 border-slate-800/50' : 'bg-white/60 border-slate-100'} cursor-not-allowed`
                 }`}
               >
@@ -1119,24 +1211,115 @@ export default function AgenticCampaigningPage() {
             </h2>
             <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-              {igPosts.length + campaigns.filter(c => c.status === 'active').length} total
+              {totalActiveTiles} total
             </span>
           </div>
 
-          {(igPosts.length === 0 && campaigns.filter(c => c.status === 'active').length === 0) ? (
-            <div className={`rounded-xl p-6 text-center ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200/80 shadow-sm'}`}>
+          {totalActiveTiles === 0 ? (
+            <div className={`rounded-xl p-6 text-center ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-[#fefdfb] border border-slate-200/80 shadow-sm'}`}>
               <CalendarDays className={`w-6 h-6 mx-auto mb-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
               <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>No active campaigns</p>
               <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Schedule posts from Gmail or Instagram to see them here.</p>
             </div>
+          ) : shouldCarousel ? (
+            /* ── Infinite auto-scrolling carousel ── */
+            <div
+              className="relative overflow-hidden"
+              onMouseEnter={() => { carouselPausedRef.current = true; }}
+              onMouseLeave={() => { if (!carouselDragRef.current.isDragging) carouselPausedRef.current = false; }}
+            >
+              {/* Fade edges */}
+              <div className={`pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 ${isDarkMode ? 'bg-gradient-to-r from-slate-950 to-transparent' : 'bg-gradient-to-r from-white to-transparent'}`} />
+              <div className={`pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10 ${isDarkMode ? 'bg-gradient-to-l from-slate-950 to-transparent' : 'bg-gradient-to-l from-white to-transparent'}`} />
+
+              <div
+                ref={carouselRef}
+                className="flex gap-3 overflow-x-hidden cursor-grab"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+                onMouseDown={onCarouselMouseDown}
+                onMouseMove={onCarouselMouseMove}
+                onMouseUp={onCarouselMouseUp}
+                onMouseLeave={onCarouselMouseUp}
+                onTouchStart={onCarouselTouchStart}
+                onTouchMove={onCarouselTouchMove}
+                onTouchEnd={onCarouselTouchEnd}
+              >
+                {/* Render tiles twice for seamless infinite loop */}
+                {[0, 1].map((setIdx) => (
+                  <div key={setIdx} ref={setIdx === 0 ? carouselInnerRef : undefined} className="flex gap-3 shrink-0">
+                    {/* Gmail Active Campaigns */}
+                    {activeCampaigns.map((c) => (
+                      <div
+                        key={`${setIdx}-gmail-${c.id}`}
+                        onClick={() => { if (!carouselDragRef.current.isDragging) setSelectedPlatform('gmail'); }}
+                        className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md shrink-0 w-[260px] ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-[#fefdfb] border-slate-200/80 hover:border-indigo-200'}`}
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shrink-0">
+                          <Mail className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{c.name}</p>
+                          <p className={`text-[10px] truncate ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{c.subject}</p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className={`text-[9px] font-semibold uppercase tracking-wider text-emerald-600`}>Active</span>
+                            <span className={`text-[9px] ml-auto ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                              {new Date(c.triggerAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Instagram Scheduled Posts */}
+                    {igPosts.map((post) => (
+                      <div
+                        key={`${setIdx}-ig-${post.id}`}
+                        onClick={() => { if (!carouselDragRef.current.isDragging) { setSelectedIGPost(post); setIgModalOpen(true); } }}
+                        className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md shrink-0 w-[260px] ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-[#fefdfb] border-slate-200/80 hover:border-pink-200'}`}
+                      >
+                        {post.mediaItemUrls[0] ? (
+                          <img src={post.mediaItemUrls[0]} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-pink-500 via-purple-500 to-orange-400 flex items-center justify-center shrink-0">
+                            <Instagram className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                            {stripHtml(post.caption).slice(0, 40) || 'Instagram Post'}
+                            {stripHtml(post.caption).length > 40 ? '…' : ''}
+                          </p>
+                          <p className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {post.scheduledTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} at {post.scheduledTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${igStatusColor(post.status)}`} />
+                            <span className={`text-[9px] font-semibold uppercase tracking-wider ${
+                              post.status === 'published' ? 'text-emerald-600' :
+                              post.status === 'failed' ? 'text-red-500' :
+                              isDarkMode ? 'text-amber-400' : 'text-amber-600'
+                            }`}>{igStatusLabel(post.status)}</span>
+                            <span className={`text-[9px] font-medium ml-auto px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-pink-500/10 text-pink-400' : 'bg-pink-50 text-pink-600'}`}>
+                              Instagram
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
+            /* ── Normal grid for < 4 tiles ── */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Gmail Active Campaigns */}
-              {campaigns.filter(c => c.status === 'active').map((c) => (
+              {activeCampaigns.map((c) => (
                 <div
                   key={c.id}
                   onClick={() => { setSelectedPlatform('gmail'); }}
-                  className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200/80 hover:border-indigo-200'}`}
+                  className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-[#fefdfb] border-slate-200/80 hover:border-indigo-200'}`}
                 >
                   <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shrink-0">
                     <Mail className="w-4 h-4 text-white" />
@@ -1160,7 +1343,7 @@ export default function AgenticCampaigningPage() {
                 <div
                   key={post.id}
                   onClick={() => { setSelectedIGPost(post); setIgModalOpen(true); }}
-                  className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200/80 hover:border-pink-200'}`}
+                  className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-[#fefdfb] border-slate-200/80 hover:border-pink-200'}`}
                 >
                   {post.mediaItemUrls[0] ? (
                     <img src={post.mediaItemUrls[0]} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
@@ -1171,8 +1354,8 @@ export default function AgenticCampaigningPage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                      {post.caption.slice(0, 40) || 'Instagram Post'}
-                      {post.caption.length > 40 ? '…' : ''}
+                      {stripHtml(post.caption).slice(0, 40) || 'Instagram Post'}
+                      {stripHtml(post.caption).length > 40 ? '…' : ''}
                     </p>
                     <p className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       {post.scheduledTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} at {post.scheduledTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
@@ -1196,8 +1379,8 @@ export default function AgenticCampaigningPage() {
         </div>
 
         {/* Campaign Calendar */}
-        <div className={`rounded-xl ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-slate-200 shadow-sm'}`}>
-          <div className={`flex items-center justify-between px-5 py-3.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+        <div className={`rounded-xl max-w-[1575px] mx-auto ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-[#fefdfb] border border-slate-200 shadow-sm'}`}>
+          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
             {/* Left: arrows + month name */}
             <div className="flex items-center gap-1">
               <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); setZoomMode('off'); setZoomStart(null); setZoomEnd(null); }}
@@ -1240,7 +1423,7 @@ export default function AgenticCampaigningPage() {
               )}
             </div>
           </div>
-          <div className="p-4">
+          <div className="p-2">
             {zoomMode === 'zoomed' && zoomStart !== null && zoomEnd !== null ? (
               /* ── Zoomed View ── */
               <>
@@ -1251,7 +1434,7 @@ export default function AgenticCampaigningPage() {
                     const today = new Date();
                     const isToday = today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear;
                     return (
-                      <div key={day} className={`min-h-[200px] p-3 border ${isDarkMode ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-white'} rounded-lg`}>
+                      <div key={day} className={`min-h-[200px] p-3 border ${isDarkMode ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-[#fefdfb]'} rounded-lg`}>
                         <div className="flex items-center gap-2 mb-3">
                           <span className={`text-[10px] font-semibold uppercase ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{dayName}</span>
                           <span className={`text-lg font-bold inline-flex items-center justify-center w-8 h-8 rounded-full ${
@@ -1274,7 +1457,7 @@ export default function AgenticCampaigningPage() {
                                     </span>
                                   )}
                                   <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${igStatusColor(post.status)}`} />
-                                  <span className="text-[8px] truncate" style={{ color: '#e74694' }}>{post.caption.slice(0, 20) || 'Instagram Post'}</span>
+                                  <span className="text-[8px] truncate" style={{ color: '#e74694' }}>{stripHtml(post.caption).slice(0, 20) || 'Instagram Post'}</span>
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent align="start" className={`w-64 p-0 overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : ''}`}>
@@ -1290,7 +1473,7 @@ export default function AgenticCampaigningPage() {
                                     </span>
                                   </div>
                                   <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                    {post.caption.slice(0, 80)}{post.caption.length > 80 ? '…' : ''}
+                                    {stripHtml(post.caption).slice(0, 80)}{stripHtml(post.caption).length > 80 ? '…' : ''}
                                   </p>
                                   <div className="flex gap-2 pt-1">
                                     <button onClick={() => { setSelectedIGPost(post); setIgModalOpen(true); }} className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Edit Post</button>
@@ -1311,7 +1494,7 @@ export default function AgenticCampaigningPage() {
               <>
                 <div className="grid grid-cols-7 mb-1">
                   {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
-                    <div key={d} className={`text-center text-[10px] font-semibold py-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{d}</div>
+                    <div key={d} className={`text-center text-[10px] font-semibold py-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{d}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7">
@@ -1329,7 +1512,7 @@ export default function AgenticCampaigningPage() {
                       return false;
                     };
                     const cells: React.ReactElement[] = [];
-                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[110px] border-r border-b border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
+                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[210px] border-r border-b border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
 
                     // Get campaign events for a given day
                     const getEventsForDay = (day: number): { campaign: Campaign; isMultiDay: boolean; isStart: boolean; isEnd: boolean; isMiddle: boolean }[] => {
@@ -1386,7 +1569,7 @@ export default function AgenticCampaigningPage() {
                           }}
                           onMouseEnter={() => { if (zoomMode === 'picking-end') setHoverDay(day); }}
                           onMouseLeave={() => { if (zoomMode === 'picking-end') setHoverDay(null); }}
-                          className={`h-[110px] p-1.5 border-r border-b ${(firstDay + day - 1) < 7 ? 'border-t' : ''} relative transition-colors ${
+                          className={`h-[210px] p-1 border-r border-b ${(firstDay + day - 1) < 7 ? 'border-t' : ''} relative transition-colors ${
                             isDarkMode ? 'border-slate-700' : 'border-slate-200'
                           } ${
                             clickable ? 'cursor-pointer ' + (isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-indigo-50') : ''
@@ -1399,7 +1582,7 @@ export default function AgenticCampaigningPage() {
                             isToday(day) ? 'bg-indigo-600 text-white' : isDarkMode ? 'text-slate-300' : 'text-slate-700'
                           }`}>{day}</span>
                           {/* Campaign events */}
-                          <div className="mt-0.5 space-y-px overflow-hidden" style={{ maxHeight: '72px' }}>
+                          <div className="mt-0.5 space-y-px overflow-hidden" style={{ maxHeight: '149px' }}>
                             {dayEvents.map((ev, ei) => {
                               const color = getCampaignColor(ev.campaign.id);
                               if (!ev.isMultiDay) {
@@ -1440,7 +1623,7 @@ export default function AgenticCampaigningPage() {
                                     )}
                                     <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${igStatusColor(post.status)}`} />
                                     <span className="text-[10px] truncate" style={{ color: '#e74694' }}>
-                                      {post.caption.slice(0, 14) || 'IG Post'}
+                                      {stripHtml(post.caption).slice(0, 14) || 'IG Post'}
                                     </span>
                                   </button>
                                 </PopoverTrigger>
@@ -1457,7 +1640,7 @@ export default function AgenticCampaigningPage() {
                                       </span>
                                     </div>
                                     <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                      {post.caption.slice(0, 80)}{post.caption.length > 80 ? '…' : ''}
+                                      {stripHtml(post.caption).slice(0, 80)}{stripHtml(post.caption).length > 80 ? '…' : ''}
                                     </p>
                                     <div className="flex gap-2 pt-1">
                                       <button onClick={() => { setSelectedIGPost(post); setIgModalOpen(true); }} className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Edit Post</button>

@@ -10,20 +10,21 @@ import {
   XCircle,
   ExternalLink,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { useInstagramStore } from "@/stores/instagramStore";
 import OnboardingView from "./_components/OnboardingView";
 import WorkspaceLayout from "./_components/WorkspaceLayout";
+import CampaignLanding from "./_components/CampaignLanding";
 import ErrorAlertHandler from "./_components/ErrorAlertHandler";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const ORG_ID = "soltheory";
+// ORG_ID is now derived dynamically in the component from the URL path
 
 // ---------------------------------------------------------------------------
 // Suspense wrapper — required by Next.js 15 for useSearchParams()
@@ -50,11 +51,16 @@ export default function InstagramPage() {
 function InstagramPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const orgPrefix = pathname.includes('/nxtchapter/') ? 'nxtchapter' : 'soltheory';
   const { user } = useUser();
   const firestore = useFirestore();
 
   // Connection state
   const [isLoading, setIsLoading] = useState(true);
+
+  // View state: landing shows campaign list, workspace shows the editor
+  const [view, setView] = useState<'landing' | 'workspace'>('landing');
   const [isConnected, setIsConnected] = useState(false);
 
   // Zustand store sync
@@ -85,7 +91,7 @@ function InstagramPageContent() {
       setIsLoading(true);
       try {
         const connDoc = await getDoc(
-          doc(firestore, "instagram_connections", ORG_ID)
+          doc(firestore, "instagram_connections", orgPrefix)
         );
 
         if (connDoc.exists()) {
@@ -134,7 +140,7 @@ function InstagramPageContent() {
           {/* Left: Back + Title */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/portal/dashboard/soltheory/agentic-campaigning")}
+              onClick={() => router.push(`/portal/dashboard/${orgPrefix}/agentic-campaigning`)}
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                 isDark
                   ? "hover:bg-slate-800 text-slate-400 hover:text-white"
@@ -270,16 +276,45 @@ function InstagramPageContent() {
             </p>
           </motion.div>
         ) : isConnected ? (
-          // Connected: show the workspace
-          <motion.div
-            key="workspace"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <ErrorAlertHandler clientId={ORG_ID} isDark={isDark} />
-            <WorkspaceLayout orgId={ORG_ID} />
-          </motion.div>
+          // Connected: show landing or workspace based on view state
+          view === 'landing' ? (
+            <motion.div
+              key="landing"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <CampaignLanding
+                clientId={orgPrefix}
+                onCreateNew={() => setView('workspace')}
+                onBack={() => router.push(`/portal/dashboard/${orgPrefix}/agentic-campaigning`)}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="workspace"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Back to campaigns button */}
+              <div className="mb-4">
+                <button
+                  onClick={() => setView('landing')}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    isDark
+                      ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Campaigns
+                </button>
+              </div>
+              <ErrorAlertHandler clientId={orgPrefix} isDark={isDark} />
+              <WorkspaceLayout orgId={orgPrefix} />
+            </motion.div>
+          )
         ) : (
           // Not connected: show onboarding
           <motion.div
@@ -288,7 +323,7 @@ function InstagramPageContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <OnboardingView orgId={ORG_ID} />
+            <OnboardingView orgId={orgPrefix} />
           </motion.div>
         )}
       </main>

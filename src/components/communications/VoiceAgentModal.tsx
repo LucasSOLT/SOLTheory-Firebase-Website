@@ -818,7 +818,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-[100] w-80 bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-slate-200">
+      <div className="fixed bottom-6 right-6 z-[100] w-80 bg-[#fefdfb] rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-slate-200">
         <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
         
         <div className="p-4 relative">
@@ -915,10 +915,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] bg-[#fefdfb] flex flex-col animate-in fade-in duration-300">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
-      <div className="flex flex-col items-center flex-1 justify-center relative bg-slate-50 p-6">
+      <div className="flex flex-col items-center flex-1 justify-center relative bg-[#faf8f3] p-6">
         
         <div className="absolute top-6 left-6 right-6 flex items-center justify-between pointer-events-none">
           {/* Top Left: Cost */}

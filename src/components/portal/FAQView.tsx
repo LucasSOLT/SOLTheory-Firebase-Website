@@ -69,7 +69,7 @@ export function FAQView() {
         </div>
       </div>
 
-      <div className="bg-[#fefcf6] rounded-3xl border border-slate-200 shadow-sm overflow-hidden mix-blend-multiply">
+      <div className="bg-[#faf8f3] rounded-3xl border border-slate-200 shadow-sm overflow-hidden mix-blend-multiply">
         <div className="p-6 border-b border-slate-100 bg-[#faf6ed]/50">
           <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500" /> Top 10 Common Issues
@@ -78,7 +78,7 @@ export function FAQView() {
         
         <div className="divide-y divide-slate-100">
           {FAQ_LIST.map((faq, index) => (
-            <div key={index} className="transition-colors hover:bg-[#faf6ed]">
+            <div key={index} className="transition-colors hover:bg-[#f2ece0]">
               <button 
                 onClick={() => toggleOpen(index)}
                 className="w-full flex items-center justify-between p-6 text-left focus:outline-none"

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useUser, useFirestore } from "@/firebase";
+import { useUser, useFirestore, useStorage } from "@/firebase";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 const DocumentEditor = dynamic(() => import("@/components/media-library/DocumentEditor"), { ssr: false });
 import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
@@ -33,6 +34,10 @@ import {
   Check,
   Users,
   Link2,
+  Play,
+  Eye,
+  Download,
+  Maximize2,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -69,6 +74,8 @@ interface FileItem {
   sharedWith: ShareEntry[];
   lastAccessed: Date;
   content: string;
+  downloadUrl?: string;
+  mimeType?: string;
 }
 
 interface RecentItem {
@@ -114,6 +121,33 @@ const INITIAL_FOLDERS: Record<string, FolderNode> = {
 };
 
 /* ═══════════════════════════════════════════════════════════════
+   MEDIA TYPE HELPERS
+   ═══════════════════════════════════════════════════════════════ */
+
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov"]);
+const ACCEPTED_MEDIA_TYPES = "image/png,image/jpeg,image/jpg,image/gif,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime";
+const ACCEPTED_EXTENSIONS = ".jpg,.jpeg,.png,.webp,.svg,.gif,.mp4,.webm,.mov";
+
+function isImageFile(ext: string): boolean {
+  return IMAGE_EXTENSIONS.has(ext.toLowerCase());
+}
+
+function isVideoFile(ext: string): boolean {
+  return VIDEO_EXTENSIONS.has(ext.toLowerCase());
+}
+
+function isMediaFile(ext: string): boolean {
+  return isImageFile(ext) || isVideoFile(ext);
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════════ */
 
@@ -124,8 +158,8 @@ function getFileIcon(ext: string, size: number, dark: boolean) {
     case "pdf": return <FileText className={`${cls} text-red-500`} />;
     case "docx": return <FileText className={`${cls} text-blue-500`} />;
     case "xlsx": case "csv": return <Table className={`${cls} text-emerald-500`} />;
-    case "png": case "jpg": case "jpeg": case "gif": case "webp": return <Image className={`${cls} text-purple-500`} />;
-    case "mp4": case "mov": case "avi": return <Video className={`${cls} text-orange-500`} />;
+    case "png": case "jpg": case "jpeg": case "gif": case "webp": case "svg": return <Image className={`${cls} text-purple-500`} />;
+    case "mp4": case "mov": case "webm": return <Video className={`${cls} text-orange-500`} />;
     case "mp3": case "wav": case "aac": return <Music className={`${cls} text-pink-500`} />;
     case "zip": case "rar": case "7z": return <Archive className={`${cls} text-amber-600`} />;
     case "txt": return <FileText className={`${cls} text-slate-500`} />;
@@ -139,8 +173,8 @@ function getTypeBadgeColor(ext: string): string {
     case "docx": return "bg-blue-50 text-blue-700 border-blue-200";
     case "xlsx": return "bg-emerald-50 text-emerald-700 border-emerald-200";
     case "csv": return "bg-teal-50 text-teal-700 border-teal-200";
-    case "png": case "jpg": return "bg-purple-50 text-purple-700 border-purple-200";
-    case "mp4": return "bg-orange-50 text-orange-700 border-orange-200";
+    case "png": case "jpg": case "jpeg": case "gif": case "webp": case "svg": return "bg-purple-50 text-purple-700 border-purple-200";
+    case "mp4": case "webm": case "mov": return "bg-orange-50 text-orange-700 border-orange-200";
     case "zip": return "bg-amber-50 text-amber-700 border-amber-200";
     case "txt": return "bg-slate-50 text-slate-700 border-slate-200";
     default: return "bg-slate-50 text-slate-700 border-slate-200";
@@ -558,6 +592,7 @@ function DocumentEditorWrapper({
 export default function MediaLibraryPage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
 
 
   // ─── Dark Mode ───
@@ -621,6 +656,11 @@ export default function MediaLibraryPage() {
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("modified");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // ─── Upload State ───
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [isDragOver, setIsDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // ─── Load files from Firestore on mount ───
@@ -643,6 +683,8 @@ export default function MediaLibraryPage() {
           sharedWith: data.sharedWith || [],
           lastAccessed: data.lastAccessed?.toDate?.() || new Date(data.lastAccessed || Date.now()),
           content: data.content || "<p></p>",
+          downloadUrl: data.downloadUrl || undefined,
+          mimeType: data.mimeType || undefined,
         };
       });
       setFiles(loaded);
@@ -655,7 +697,7 @@ export default function MediaLibraryPage() {
   const persistFile = useCallback(async (file: FileItem) => {
     if (!firestore || !user?.uid) return;
     try {
-      await setDoc(doc(firestore, `users/${user.uid}/media_library_files`, file.id), {
+      const docData: Record<string, any> = {
         name: file.name,
         type: file.type,
         extension: file.extension,
@@ -667,7 +709,10 @@ export default function MediaLibraryPage() {
         sharedWith: file.sharedWith,
         lastAccessed: file.lastAccessed,
         content: file.content,
-      });
+      };
+      if (file.downloadUrl) docData.downloadUrl = file.downloadUrl;
+      if (file.mimeType) docData.mimeType = file.mimeType;
+      await setDoc(doc(firestore, `users/${user.uid}/media_library_files`, file.id), docData);
     } catch (err) {
       console.error("Failed to persist file:", err);
     }
@@ -690,6 +735,9 @@ export default function MediaLibraryPage() {
 
   // ─── Editor State ───
   const [editingFile, setEditingFile] = useState<FileItem | null>(null);
+
+  // ─── Media Preview State ───
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   // ─── Toast State ───
   const [toast, setToast] = useState<string | null>(null);
@@ -796,7 +844,11 @@ export default function MediaLibraryPage() {
     if (!file) { setContextMenu(null); return; }
 
     if (action === "Open") {
-      setEditingFile(file);
+      if (isMediaFile(file.extension) && file.downloadUrl) {
+        setPreviewFile(file);
+      } else {
+        setEditingFile(file);
+      }
     } else if (action === "Rename") {
       setRenamingFileId(file.id);
       setRenameValue(file.name);
@@ -950,6 +1002,126 @@ export default function MediaLibraryPage() {
     trackAccess({ id, name: finalName, type: "file", extension: "txt" });
   };
 
+  // ─── File Upload Handler ───
+  const handleFileUpload = useCallback(async (fileList: FileList | File[]) => {
+    if (!storage || !firestore || !user?.uid) {
+      showToast("Storage not available");
+      return;
+    }
+    const filesArray = Array.from(fileList);
+    if (filesArray.length === 0) return;
+
+    const targetFolderId =
+      selectedFolder !== "shared" && selectedFolder !== "trash" ? selectedFolder : "my-files";
+
+    for (const file of filesArray) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      if (!isMediaFile(ext)) {
+        showToast(`Unsupported file type: .${ext}`);
+        continue;
+      }
+
+      // Max 100MB per file
+      if (file.size > 100 * 1024 * 1024) {
+        showToast(`File too large: ${file.name} (max 100MB)`);
+        continue;
+      }
+
+      const fileId = `file-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      const storagePath = `media_library/${user.uid}/${fileId}/${file.name}`;
+      const sRef = storageRef(storage, storagePath);
+
+      const now = new Date();
+      const typeLabel = isVideoFile(ext) ? ext.toUpperCase() : ext.toUpperCase();
+
+      // Create placeholder file entry immediately
+      const placeholderFile: FileItem = {
+        id: fileId,
+        name: file.name,
+        type: typeLabel,
+        extension: ext,
+        size: formatFileSize(file.size),
+        sizeBytes: file.size,
+        modified: formatDate(now),
+        modifiedDate: now,
+        folderId: targetFolderId,
+        sharedWith: [],
+        lastAccessed: now,
+        content: "",
+        mimeType: file.type,
+      };
+
+      setFiles((prev) => [placeholderFile, ...prev]);
+      setUploadProgress((prev) => ({ ...prev, [fileId]: 0 }));
+
+      // Upload with progress
+      const uploadTask = uploadBytesResumable(sRef, file);
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress((prev) => ({ ...prev, [fileId]: pct }));
+        },
+        (error) => {
+          console.error("Upload error:", error);
+          showToast(`Upload failed: ${file.name}`);
+          setFiles((prev) => prev.filter((f) => f.id !== fileId));
+          setUploadProgress((prev) => {
+            const next = { ...prev };
+            delete next[fileId];
+            return next;
+          });
+        },
+        async () => {
+          try {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            const completedFile: FileItem = {
+              ...placeholderFile,
+              downloadUrl,
+            };
+            setFiles((prev) =>
+              prev.map((f) => (f.id === fileId ? completedFile : f))
+            );
+            await persistFile(completedFile);
+            showToast(`Uploaded: ${file.name}`);
+            trackAccess({ id: fileId, name: file.name, type: "file", extension: ext });
+          } catch (err) {
+            console.error("Failed to get download URL:", err);
+            showToast(`Upload failed: ${file.name}`);
+          } finally {
+            setUploadProgress((prev) => {
+              const next = { ...prev };
+              delete next[fileId];
+              return next;
+            });
+          }
+        }
+      );
+    }
+  }, [storage, firestore, user?.uid, selectedFolder, showToast, persistFile, trackAccess]);
+
+  // ─── Drag and Drop Handlers ───
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files);
+    }
+  }, [handleFileUpload]);
+
   const handleRenameFolder = () => {
     if (!renamingFolderId || !renameValue.trim()) {
       setRenamingFolderId(null);
@@ -1036,7 +1208,7 @@ export default function MediaLibraryPage() {
   };
 
   // ─── Theme Classes ───
-  const bg = isDark ? "bg-slate-950" : "bg-[#fefcf6]";
+  const bg = isDark ? "bg-slate-950" : "bg-[#fefdfb]";
   const bgSidebar = isDark ? "bg-slate-900" : "bg-[#f8f6f0]";
   const borderColor = isDark ? "border-slate-700" : "border-[#ede8da]";
   const textPrimary = isDark ? "text-slate-200" : "text-slate-800";
@@ -1163,7 +1335,7 @@ export default function MediaLibraryPage() {
      ═══════════════════════════════════════════════════════════════ */
 
   return (
-    <div className={`flex h-full w-full ${bg} overflow-hidden rounded-xl border ${borderColor}`}>
+    <div className={`flex h-full w-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${bg} overflow-hidden rounded-xl border ${borderColor}`}>
       {/* ───── LEFT PANEL: FOLDER TREE ───── */}
       <aside className={`w-[240px] shrink-0 flex flex-col ${bgSidebar} border-r ${borderColor}`}>
         <div className={`h-14 flex items-center justify-between px-4 border-b ${borderColor}`}>
@@ -1271,17 +1443,64 @@ export default function MediaLibraryPage() {
             </button>
 
             <button
-              onClick={() => showToast("Upload functionality coming soon")}
+              onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 px-3 py-[7px] rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5" />
               Upload
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ACCEPTED_EXTENSIONS}
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) handleFileUpload(e.target.files);
+                e.target.value = "";
+              }}
+            />
           </div>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <div
+          className={`flex-1 overflow-y-auto px-6 py-5 space-y-6 transition-colors ${isDragOver ? (isDark ? 'bg-indigo-950/30 ring-2 ring-inset ring-indigo-500/50' : 'bg-indigo-50/50 ring-2 ring-inset ring-indigo-300') : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {/* ── DRAG OVERLAY ── */}
+          {isDragOver && (
+            <div className="flex flex-col items-center justify-center py-12 text-center pointer-events-none">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${isDark ? 'bg-indigo-500/20' : 'bg-indigo-100'}`}>
+                <Upload className={`w-8 h-8 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
+              </div>
+              <p className={`text-lg font-bold ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>Drop files to upload</p>
+              <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Images (JPG, PNG, WebP, SVG, GIF) and Videos (MP4, WebM, MOV)</p>
+            </div>
+          )}
+
+          {/* ── UPLOAD PROGRESS BARS ── */}
+          {Object.keys(uploadProgress).length > 0 && (
+            <div className="space-y-2">
+              {Object.entries(uploadProgress).map(([fileId, pct]) => {
+                const uploadingFile = files.find(f => f.id === fileId);
+                return (
+                  <div key={fileId} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${cardBorder} ${cardBg}`}>
+                    <Upload className={`w-4 h-4 shrink-0 ${isDark ? 'text-indigo-400' : 'text-indigo-600'} animate-pulse`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[12px] font-semibold truncate ${textPrimary}`}>{uploadingFile?.name || 'Uploading...'}</p>
+                      <div className={`h-1.5 mt-1 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                        <div className="h-full rounded-full bg-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                    <span className={`text-[11px] font-bold tabular-nums shrink-0 ${textMuted}`}>{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* ── RECENTLY ACCESSED ── */}
           {selectedFolder === "my-files" && recentItems.length > 0 && (
@@ -1304,7 +1523,13 @@ export default function MediaLibraryPage() {
                     onDoubleClick={() => {
                       if (item.type === "file") {
                         const file = files.find((f) => f.id === item.id);
-                        if (file) setEditingFile(file);
+                        if (file) {
+                          if (isMediaFile(file.extension) && file.downloadUrl) {
+                            setPreviewFile(file);
+                          } else {
+                            setEditingFile(file);
+                          }
+                        }
                       } else if (item.type === "folder" && folders[item.id]) {
                         setSelectedFolder(item.id);
                         setExpandedFolders((p) => new Set([...p, "my-files", item.id]));
@@ -1319,12 +1544,29 @@ export default function MediaLibraryPage() {
                     }}
                     className={`group rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer ${cardBg} ${cardBorder} hover:border-indigo-300`}
                   >
-                    <div className={`h-[84px] flex items-center justify-center ${thumbnailBg}`}>
+                    <div className={`h-[84px] flex items-center justify-center overflow-hidden ${thumbnailBg}`}>
                       {item.type === "folder" ? (
                         <Folder className="w-8 h-8 text-amber-500" />
-                      ) : (
-                        getFileIcon(item.extension || "", 8, isDark)
-                      )}
+                      ) : (() => {
+                        const matchedFile = files.find(f => f.id === item.id);
+                        const ext = (item.extension || "").toLowerCase();
+                        if (matchedFile?.downloadUrl && isImageFile(ext)) {
+                          return <img src={matchedFile.downloadUrl} alt={item.name} className="w-full h-full object-cover" />;
+                        }
+                        if (matchedFile?.downloadUrl && isVideoFile(ext)) {
+                          return (
+                            <div className="relative w-full h-full">
+                              <video src={matchedFile.downloadUrl} muted preload="metadata" className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <div className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
+                                  <Play className="w-3 h-3 text-white fill-white" />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return getFileIcon(ext, 8, isDark);
+                      })()}
                     </div>
                     <div className="px-2.5 py-2">
                       <p className={`text-[11px] font-semibold truncate leading-tight ${textPrimary}`}>{item.name}</p>
@@ -1441,12 +1683,31 @@ export default function MediaLibraryPage() {
                     onClick={() => {
                       trackAccess({ id: file.id, name: file.name, type: "file", extension: file.extension });
                     }}
-                    onDoubleClick={() => setEditingFile(file)}
+                    onDoubleClick={() => {
+                      if (isMediaFile(file.extension) && file.downloadUrl) {
+                        setPreviewFile(file);
+                      } else {
+                        setEditingFile(file);
+                      }
+                    }}
                     onContextMenu={(e) => handleContextMenu(e, "file", file.id)}
                     className={`grid grid-cols-[1fr_80px_90px_120px_100px_40px] text-[13px] border-t ${borderColor} ${rowHover} transition-colors cursor-pointer group`}
                   >
                     <div className="flex items-center gap-3 px-4 py-2.5">
-                      {getFileIcon(file.extension, 4, isDark)}
+                      {file.downloadUrl && isImageFile(file.extension) ? (
+                        <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg}`}>
+                          <img src={file.downloadUrl} alt={file.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : file.downloadUrl && isVideoFile(file.extension) ? (
+                        <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg} relative`}>
+                          <video src={file.downloadUrl} muted className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <div className="w-3 h-3 border-l-[5px] border-t-[3px] border-b-[3px] border-l-white border-t-transparent border-b-transparent" />
+                          </div>
+                        </div>
+                      ) : (
+                        getFileIcon(file.extension, 4, isDark)
+                      )}
                       {renamingFileId === file.id ? (
                         <input
                           ref={renameFileRef}
@@ -1536,8 +1797,8 @@ export default function MediaLibraryPage() {
               </h3>
               <p className={`text-sm max-w-sm mb-6 ${textTertiary}`}>
                 {selectedFolder === "my-files"
-                  ? "Get started by creating a folder or adding a document to organize your files."
-                  : "Add folders or documents to get started."}
+                  ? "Get started by uploading media, creating a folder, or adding a document."
+                  : "Upload files or create folders to get started."}
               </p>
               <div className="flex items-center gap-3">
                 <button
@@ -1551,10 +1812,19 @@ export default function MediaLibraryPage() {
                 </button>
                 <button
                   onClick={handleCreateDocument}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
+                    isDark ? "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
                 >
                   <FilePlus className="w-4 h-4" />
                   Add Document
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload Media
                 </button>
               </div>
             </div>
@@ -1668,6 +1938,79 @@ export default function MediaLibraryPage() {
               <Trash2 className="w-4 h-4" />
               Delete
             </button>
+          </div>
+        </>
+      )}
+
+      {/* ───── MEDIA PREVIEW MODAL ───── */}
+      {previewFile && previewFile.downloadUrl && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/80 z-[250] backdrop-blur-md cursor-pointer"
+            onClick={() => setPreviewFile(null)}
+          />
+
+          {/* Modal */}
+          <div className="fixed inset-0 z-[260] flex items-center justify-center p-8 pointer-events-none">
+            <div className={`relative max-w-[90vw] max-h-[90vh] w-full h-full flex flex-col items-center justify-center pointer-events-auto`}>
+              {/* Top Bar */}
+              <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`}>
+                    {isVideoFile(previewFile.extension)
+                      ? <Video className="w-4 h-4 text-white" />
+                      : <Image className="w-4 h-4 text-white" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-bold text-white truncate">{previewFile.name}</p>
+                    <p className="text-[11px] text-white/60">{previewFile.size} · {previewFile.extension.toUpperCase()}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {previewFile.downloadUrl && (
+                    <a
+                      href={previewFile.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={previewFile.name}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                      title="Download"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Download className="w-4 h-4 text-white" />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setPreviewFile(null)}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex items-center justify-center w-full h-full pt-16 pb-4">
+                {isVideoFile(previewFile.extension) ? (
+                  <video
+                    src={previewFile.downloadUrl}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-full rounded-xl shadow-2xl"
+                    style={{ maxHeight: 'calc(90vh - 80px)' }}
+                  />
+                ) : (
+                  <img
+                    src={previewFile.downloadUrl}
+                    alt={previewFile.name}
+                    className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+                    style={{ maxHeight: 'calc(90vh - 80px)' }}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}

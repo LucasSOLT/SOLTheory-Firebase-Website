@@ -57,7 +57,7 @@ function getCardBg(status: string, dark: boolean): string {
     case "denied":
       return "bg-red-50/40 border-red-100/70";
     default:
-      return "bg-[#fefcf6] border-slate-100";
+      return "bg-[#faf8f3] border-slate-100";
   }
 }
 
@@ -216,7 +216,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
           </button>
 
           {dropdownOpen && (
-            <div className={`absolute right-0 top-full mt-1 z-[60] border rounded-xl shadow-lg py-1 min-w-[120px] animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-[#fefcf6] border-slate-200'}`}>
+            <div className={`absolute right-0 top-full mt-1 z-[60] border rounded-xl shadow-lg py-1 min-w-[120px] animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-[#faf8f3] border-slate-200'}`}>
               {FILTER_KEYS.map((key) => (
                 <button
                   key={key}
@@ -227,7 +227,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                   className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-[9px] font-semibold transition-colors cursor-pointer ${
                     filter === key
                       ? isDarkMode ? "text-indigo-400 bg-indigo-950/40" : "text-indigo-600 bg-indigo-50/60"
-                      : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#faf6ed]"
+                      : isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-[#f2ece0]"
                   }`}
                 >
                   <span>{filterLabelMap[key]}</span>

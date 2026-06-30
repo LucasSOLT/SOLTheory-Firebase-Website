@@ -60,7 +60,7 @@ function ConfirmDialog({
       onClick={(e) => { e.stopPropagation(); onCancel(); }}
     >
       <div
-        className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-150 overflow-hidden"
+        className="bg-[#faf8f3] rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-150 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 pt-5 pb-3">
@@ -88,7 +88,7 @@ function ConfirmDialog({
         <div className="px-5 py-3.5 border-t border-slate-100 flex items-center justify-end gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onCancel(); }}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#f2ece0] transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -255,11 +255,11 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
         onClick={onClose}
       >
         <div
-          className="bg-[#fefcf6] rounded-2xl shadow-2xl w-full max-w-3xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+          className="bg-[#faf8f3] rounded-2xl shadow-2xl w-full max-w-3xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-[#fefcf6] rounded-t-2xl z-10">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-[#faf8f3] rounded-t-2xl z-10">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
                 <Bot className="w-4.5 h-4.5 text-white" />
@@ -301,8 +301,8 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
                     onClick={() => setConfiguringSlotIndex(index)}
                     className={`group relative rounded-2xl border-2 p-5 text-left transition-all cursor-pointer ${
                       isActive
-                        ? `border-transparent ring-2 ${colors.ring} bg-[#fefcf6] shadow-md hover:shadow-lg`
-                        : "border-dashed border-slate-200 bg-[#faf6ed]/50 hover:bg-[#fefcf6] hover:border-slate-300 hover:shadow-sm"
+                        ? `border-transparent ring-2 ${colors.ring} bg-[#faf8f3] shadow-md hover:shadow-lg`
+                        : "border-dashed border-slate-200 bg-[#faf6ed]/50 hover:bg-[#faf8f3] hover:border-slate-300 hover:shadow-sm"
                     }`}
                   >
                     {isActive ? (
@@ -387,7 +387,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#faf6ed] transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#f2ece0] transition-colors cursor-pointer"
             >
               Close
             </button>

@@ -1026,7 +1026,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       name: "Jarvis (Executive Agent)",
       greeting: "Hello. I am Jarvis. How can I assist you today?",
       theme: "border-blue-200 text-blue-600 bg-blue-50",
-      chatBg: "bg-[#fefcf6] border-slate-200 shadow-sm",
+      chatBg: "bg-[#faf8f3] border-slate-200 shadow-sm",
       accent: "text-blue-600"
     }
   };
@@ -2189,7 +2189,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     <div className={`flex w-full flex-1 min-h-0 overflow-hidden font-sans selection:bg-fuchsia-500/30 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#faf6ed] text-slate-800'}`} style={{ height: '100%', maxHeight: '100dvh' }}>
 
       {/* Sessions Sidebar */}
-      <div className={`hidden md:flex flex-col backdrop-blur-3xl border-r shrink-0 z-20 relative overflow-hidden ${isDarkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-[#fefcf6]/90 border-slate-200'}`} style={{ width: isChatSidebarCollapsed ? 0 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
+      <div className={`hidden md:flex flex-col backdrop-blur-3xl border-r shrink-0 z-20 relative overflow-hidden ${isDarkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-[#faf8f3]/90 border-slate-200'}`} style={{ width: isChatSidebarCollapsed ? 0 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
         {/* Sidebar header unchanged for brevity (Using standard implementation) */}
         <div className={`p-4 flex flex-col gap-3 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           {/* Model Selector */}
@@ -2207,7 +2207,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <svg className={`w-4 h-4 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
             {isModelDropdownOpen && (
-              <div className={`absolute top-full left-0 right-0 mt-1 border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'}`}>
+              <div className={`absolute top-full left-0 right-0 mt-1 border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
                 {[
                   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best all-around model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
                   { id: 'openai/gpt-oss-120b', name: 'GPT 120B', desc: 'Most powerful reasoning', tag: 'Pro', tagColor: 'bg-purple-50 text-purple-600' },
@@ -2217,7 +2217,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <button
                     key={model.id}
                     onClick={() => { setSelectedModel(model.id); setIsModelDropdownOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#faf6ed] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
+                    className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
@@ -2308,7 +2308,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       {isChatSidebarCollapsed && (
         <button
           onClick={() => setIsChatSidebarCollapsed(false)}
-          className={`hidden md:flex w-6 h-12 border shadow-sm rounded-r-lg items-center justify-center hover:text-indigo-500 transition-all z-30 cursor-pointer shrink-0 my-auto ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-[#fefcf6] border-slate-200 text-slate-400 hover:bg-indigo-50'}`}
+          className={`hidden md:flex w-6 h-12 border shadow-sm rounded-r-lg items-center justify-center hover:text-indigo-500 transition-all z-30 cursor-pointer shrink-0 my-auto ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-400 hover:bg-indigo-50'}`}
           title="Expand sidebar"
         >
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
@@ -2324,7 +2324,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             onClick={() => setIsMobileSidebarOpen(false)}
           />
           {/* Slide-in panel */}
-          <div className={`absolute inset-y-0 left-0 w-[280px] max-w-[85vw] shadow-2xl flex flex-col animate-in slide-in-from-left duration-300 ${isDarkMode ? 'bg-slate-900' : 'bg-[#fefcf6]'}`}>
+          <div className={`absolute inset-y-0 left-0 w-[280px] max-w-[85vw] shadow-2xl flex flex-col animate-in slide-in-from-left duration-300 ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf8f3]'}`}>
             <div className={`p-4 border-b flex items-center justify-between ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
               <span className={`text-sm font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Chat History</span>
               <button
@@ -2397,7 +2397,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           <div className="flex items-center gap-2">
             {/* Token Count Pill */}
             <div className="relative">
-              <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full border shadow-sm cursor-pointer transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-[#fefcf6] border-slate-200 hover:bg-[#faf6ed]'}`}>
+              <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full border shadow-sm cursor-pointer transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 hover:bg-[#f2ece0]'}`}>
                 <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
                 <span className={`text-[9px] sm:text-[10px] font-black tracking-wider uppercase truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                   <span className="hidden sm:inline">{totalGroqTokens.toLocaleString()} T <span className="opacity-30">|</span></span>
@@ -2406,7 +2406,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </span>
               </button>
               {showCostBreakdown && (
-                <div data-popup="cost" className={`absolute top-full right-0 mt-2 z-[200] w-[320px] sm:w-[340px] border rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefcf6] border-slate-200'}`}>
+                <div data-popup="cost" className={`absolute top-full right-0 mt-2 z-[200] w-[320px] sm:w-[340px] border rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-black text-slate-900 tracking-tight">Platform Usage â€” All Users</h3>
                     <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -2450,7 +2450,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             </div>
             <button
               onClick={() => setIsAgentEyeOpen(!isAgentEyeOpen)}
-              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/50' : 'bg-amber-50 text-amber-600 border-amber-300') : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/20' : 'bg-[#fefcf6] text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50')}`}
+              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/50' : 'bg-amber-50 text-amber-600 border-amber-300') : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/20' : 'bg-[#faf8f3] text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50')}`}
               title="Agent Eye"
             >
               <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -2459,7 +2459,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
             <button
               onClick={() => { setIsKnowledgeBaseOpen(!isKnowledgeBaseOpen); }}
-              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? (isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50' : 'bg-indigo-50 text-indigo-600 border-indigo-200') : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-indigo-500/20' : 'bg-[#fefcf6] text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50')}`}
+              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isKnowledgeBaseOpen ? (isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50' : 'bg-indigo-50 text-indigo-600 border-indigo-200') : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-indigo-500/20' : 'bg-[#faf8f3] text-slate-500 border-slate-200 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50')}`}
               title="Agent Studio"
             >
               <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -2994,8 +2994,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                Explore INSiGHT {exploreTab === "models" ? "Models" : "Agents"}
                              </h2>
                              <div className={`flex items-center gap-1 p-1 rounded-full border self-start md:self-auto ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200/60'}`}>
-                               <button onClick={() => setExploreTab("models")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'models' ? (isDarkMode ? 'bg-slate-700 text-white shadow-sm border border-slate-600' : 'bg-[#fefcf6] text-slate-800 shadow-sm border border-slate-200/50') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-transparent' : 'text-slate-500 hover:text-slate-700 border border-transparent')}`}>Models</button>
-                               <button onClick={() => setExploreTab("agents")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'agents' ? (isDarkMode ? 'bg-slate-700 text-white shadow-sm border border-slate-600' : 'bg-[#fefcf6] text-slate-800 shadow-sm border border-slate-200/50') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-transparent' : 'text-slate-500 hover:text-slate-700 border border-transparent')}`}>Agents</button>
+                               <button onClick={() => setExploreTab("models")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'models' ? (isDarkMode ? 'bg-slate-700 text-white shadow-sm border border-slate-600' : 'bg-[#faf8f3] text-slate-800 shadow-sm border border-slate-200/50') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-transparent' : 'text-slate-500 hover:text-slate-700 border border-transparent')}`}>Models</button>
+                               <button onClick={() => setExploreTab("agents")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'agents' ? (isDarkMode ? 'bg-slate-700 text-white shadow-sm border border-slate-600' : 'bg-[#faf8f3] text-slate-800 shadow-sm border border-slate-200/50') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-transparent' : 'text-slate-500 hover:text-slate-700 border border-transparent')}`}>Agents</button>
                              </div>
                           </div>
                           
@@ -3131,7 +3131,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <div className="max-w-4xl mx-auto">
                           <p className={`text-center text-[11px] sm:text-xs mb-2 sm:mb-3 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Ask Jarvis anything — he's a jack of all trades.</p>
                           <div className="flex items-center gap-2">
-                            <div className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-700 bg-slate-800/90' : 'border-[#ede8da] bg-[#fefcf6]/90'}`}>
+                            <div className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-700 bg-slate-800/90' : 'border-[#ede8da] bg-[#faf8f3]/90'}`}>
                               <div className="flex items-center w-full relative">
                                 <div className="flex items-center pl-2 sm:pl-4 gap-1 sm:gap-2 shrink-0">
                                   <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=nxtchapter`} className="hidden sm:flex p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
@@ -3168,7 +3168,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                   if (!inputValue.trim()) return;
                                   setSelectedExploreItem('Conversational AI');
                                   setTimeout(() => handleSendMessage(), 50);
-                                }} disabled={!inputValue.trim()} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#fefcf6] text-black hover:bg-slate-200'}`}>
+                                }} disabled={!inputValue.trim()} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
                                   <Send className="w-5 h-5 ml-0.5" />
                                 </Button>
                               </div>
@@ -3256,7 +3256,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
 
                     <div className="flex items-center gap-2">
-                    <div className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-700 bg-slate-800/90' : 'border-[#ede8da] bg-[#fefcf6]/90'}`}>
+                    <div className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-700 bg-slate-800/90' : 'border-[#ede8da] bg-[#faf8f3]/90'}`}>
                       {pendingAttachments.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-[#ede8da]/60 bg-[#faf6ed]/50">
                           {pendingAttachments.map((att, idx) => (
@@ -3303,7 +3303,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                         />
 
-                        <Button size="icon" onClick={handleSendMessage} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#fefcf6] text-black hover:bg-slate-200'}`}>
+                        <Button size="icon" onClick={handleSendMessage} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
                           {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
                         </Button>
                       </div>
@@ -3347,7 +3347,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       {/* System Instructions Popup */}
       {isSystemInstructionsOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsSystemInstructionsOpen(false)}>
-          <div className={`rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-slate-900' : 'bg-[#fefcf6]'}`} onClick={e => e.stopPropagation()}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf8f3]'}`} onClick={e => e.stopPropagation()}>
             <div className={`p-6 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
               <div className="flex items-center justify-between">
                 <div>
@@ -3606,7 +3606,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       {isAgentRequestModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className="bg-[#fefcf6] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200">
+          <div className="bg-[#faf8f3] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-[#faf6ed]/50">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-indigo-500" />
@@ -3637,7 +3637,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   placeholder="Describe the agent you'd like us to build..." 
                   value={agentRequestForm.message} 
                   onChange={e => setAgentRequestForm({...agentRequestForm, message: e.target.value})} 
-                  className="w-full mt-1 bg-[#fefcf6] border border-slate-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none text-slate-900 h-32" 
+                  className="w-full mt-1 bg-[#faf8f3] border border-slate-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none text-slate-900 h-32" 
                 />
               </div>
             </div>
@@ -3820,7 +3820,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             {agentEyeDropdownOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setAgentEyeDropdownOpen(false)} />
-                <div className="absolute top-full left-0 right-0 z-50 bg-[#fefcf6] border border-slate-200 rounded-b-xl shadow-xl overflow-hidden">
+                <div className="absolute top-full left-0 right-0 z-50 bg-[#faf8f3] border border-slate-200 rounded-b-xl shadow-xl overflow-hidden">
                 {[
                   { id: 'gmail' as const, label: 'Gmail View', icon: <Mail className="w-4 h-4 text-red-500" />, ready: true },
                   { id: 'outlook' as const, label: 'Outlook', icon: <Mail className="w-4 h-4 text-blue-500" />, ready: false },
@@ -3830,7 +3830,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <button
                     key={item.id}
                     onClick={() => { setAgentEyeTab(item.id); setAgentEyeDropdownOpen(false); }}
-                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-[#faf6ed] transition-colors ${
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-[#f2ece0] transition-colors ${
                       agentEyeTab === item.id ? 'bg-amber-50 font-semibold text-amber-700' : 'text-slate-600'
                     }`}
                   >
@@ -3866,7 +3866,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 ) : (
                   <div className="flex-1 flex flex-col h-full overflow-hidden">
                     {/* Compose Header */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#ede8da] bg-[#fefcf6] shrink-0">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#ede8da] bg-[#faf8f3] shrink-0">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drafted by Jarvis</span>
@@ -3958,7 +3958,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 ) : !smsActiveContact ? (
                   /* ── Conversation List ── */
                   <div className="flex-1 flex flex-col h-full">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-[#fefcf6] shrink-0">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-[#faf8f3] shrink-0">
                       <div className="flex items-center gap-2">
                         <Smartphone className="w-4 h-4 text-purple-500" />
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Messages</span>
@@ -3986,7 +3986,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             const timeStr = (() => { try { const d = new Date(conv.lastTime); const now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : d.toLocaleDateString([], {month:'short',day:'numeric'}); } catch { return ''; } })();
                             return (
                               <button key={conv.contact} onClick={() => setSmsActiveContact(conv.contact)}
-                                className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-[#faf6ed] transition-colors text-left">
+                                className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-[#f2ece0] transition-colors text-left">
                                 <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
                                   <span className="text-[11px] font-bold text-purple-600">{conv.contact.slice(-2)}</span>
                                 </div>
@@ -4013,7 +4013,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   /* ── Thread View ── */
                   <div className="flex-1 flex flex-col h-full">
                     {/* Thread Header */}
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-[#fefcf6] shrink-0">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-[#faf8f3] shrink-0">
                       <button onClick={() => { setSmsActiveContact(null); setSmsMessages([]); }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition-colors">
                         <ArrowLeft className="w-4 h-4 text-slate-400" />
                       </button>
@@ -4039,7 +4039,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         return (
                           <div key={msg.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[80%] px-3 py-1.5 rounded-2xl text-[12px] leading-relaxed shadow-sm ${
-                              isMe ? 'bg-purple-500 text-white rounded-br-md' : 'bg-[#fefcf6] text-slate-800 border border-slate-200 rounded-bl-md'
+                              isMe ? 'bg-purple-500 text-white rounded-br-md' : 'bg-[#faf8f3] text-slate-800 border border-slate-200 rounded-bl-md'
                             }`}>
                               {msg.body || 'ðŸ“Ž Media'}
                               <div className={`text-[8px] mt-0.5 ${isMe ? 'text-purple-200 text-right' : 'text-slate-400'}`}>
@@ -4052,7 +4052,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       <div ref={smsEndRef} className="h-1" />
                     </div>
                     {/* Send Bar */}
-                    <div className="border-t border-slate-200 p-2 bg-[#fefcf6] shrink-0">
+                    <div className="border-t border-slate-200 p-2 bg-[#faf8f3] shrink-0">
                       <form onSubmit={(e) => { e.preventDefault(); sendSms(); }} className="flex gap-1.5">
                         <input
                           value={smsNewMessage}

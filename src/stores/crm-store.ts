@@ -30,6 +30,8 @@ export interface Customer {
   location: string;
   lastContactedDate: string;
   createdAt?: any;
+  /** Dynamic custom field values keyed by field ID */
+  customFields?: Record<string, any>;
 }
 
 export interface Meeting {
@@ -114,6 +116,7 @@ function docToCustomer(data: Record<string, unknown>, id: string): Customer {
     location: (data.location as string) || "",
     lastContactedDate: (data.lastContactedDate as string) || "",
     createdAt: data.createdAt || null,
+    customFields: (data.customFields as Record<string, any>) || {},
   };
 }
 
@@ -335,7 +338,13 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
         aiNotes: customer.aiNotes,
         transactions: customer.transactions,
         outstandingBalance: customer.outstandingBalance,
+        company: customer.company || "",
+        location: customer.location || "",
+        lastContactedDate: customer.lastContactedDate || "",
         createdAt: (customer as any).createdAt || serverTimestamp(),
+        ...(customer.customFields && Object.keys(customer.customFields).length > 0
+          ? { customFields: customer.customFields }
+          : {}),
       });
       // onSnapshot will update local state automatically
       get().showToast(`✅ ${customer.firstName} ${customer.lastName} added successfully`);

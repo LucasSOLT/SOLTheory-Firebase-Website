@@ -61,7 +61,7 @@ export default function PurgeGrantsPage() {
 
   return (
     <div className="min-h-screen bg-[#faf6ed] flex items-center justify-center p-8">
-      <div className="max-w-md w-full bg-[#fefcf6] rounded-2xl border border-slate-200 shadow-lg p-8 text-center">
+      <div className="max-w-md w-full bg-[#faf8f3] rounded-2xl border border-slate-200 shadow-lg p-8 text-center">
         <div className="w-16 h-16 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center mx-auto mb-6">
           <Trash2 className="w-8 h-8 text-red-500" />
         </div>
