@@ -1302,11 +1302,11 @@ export default function CRMPage() {
                 <EmptyContacts onAdd={() => setShowAddModal(true)} />
               ) : (
                 <div className={`rounded-xl border shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E5E7EB]'}`}>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                     <table className="w-full text-[13px] border-collapse min-w-[1200px]">
-                      <thead>
+                      <thead className="sticky top-0 z-20">
                         <tr className={isDarkMode ? 'bg-slate-800/70' : 'bg-[#F8F9FB]'}>
-                          <th className={`sticky left-0 z-10 w-10 px-3 py-3 border-b ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
+                          <th className={`sticky left-0 top-0 z-30 w-10 px-3 py-3 border-b ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
                             <input type="checkbox" checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                           </th>
                           {getVisibleFieldDefs().map((field) => {
@@ -1322,7 +1322,7 @@ export default function CRMPage() {
                                 onClick={() => { if (isSortable) toggleSort(fieldSortKey); }}
                                 className={`${field.width || 'w-[130px]'} text-left text-[11px] font-semibold px-3 py-3 border-b select-none ${
                                   isSortable ? 'cursor-pointer hover:text-indigo-600' : ''
-                                } ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-[#E5E7EB]'}`}
+                                } ${isDarkMode ? 'text-slate-400 border-slate-700 bg-slate-800/95' : 'text-slate-500 border-[#E5E7EB] bg-[#F8F9FB]'}`}
                               >
                                 <span className="inline-flex items-center gap-0.5">
                                   {field.label}
