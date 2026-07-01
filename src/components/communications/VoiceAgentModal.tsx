@@ -520,8 +520,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
         // ── Whisper Fallback Detection ──
         // If SpeechRecognition is available but doesn't produce results
-        // (common in PWAs on Android), auto-switch to Whisper after 4s of
-        // detected audio activity with no transcription.
+        // (common in PWAs on Android, some Samsung browsers, Edge, Firefox),
+        // auto-switch to Whisper after a short delay.
         const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
         whisperCheckTimerRef.current = setTimeout(() => {
           // Check: waveform was active (mic works) but no recognition results
@@ -532,12 +532,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             useWhisperFallback.current = true;
             setUsingWhisper(true);
             stopRecognition(); // Stop the broken recognition
+            // Cancel the no-input timeout since we're switching modes, not actually lacking input
+            if (noInputTimeoutRef.current) { clearTimeout(noInputTimeoutRef.current); noInputTimeoutRef.current = null; }
             startWhisperRecording(); // Start recording audio for Whisper
-            setTranscriptLines(prev => [...prev, { text: isPWA 
-              ? '📱 Using voice recording mode (works in installed apps). Speak normally, then tap "Done Speaking" when finished.'
-              : '🎙️ Using voice recording mode. Speak normally, then tap "Done Speaking" when finished.', isUser: false }]);
+            setTranscriptLines(prev => [...prev, { text: '🎙️ Voice recording active. Speak naturally, then tap "Done Speaking" when finished.', isUser: false }]);
           }
-        }, isPWA ? 2500 : 5000); // Check sooner in PWA mode since we know it's likely broken
+        }, 3000); // 3s on all platforms — fast enough to not annoy, slow enough to let SpeechRecognition try
 
         // 10-second no-input timeout: if user hasn't spoken, prompt them
         noInputTimeoutRef.current = setTimeout(async () => {
@@ -951,7 +951,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-[100] w-80 bg-[#fefdfb] rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-slate-200">
+      <div className="fixed bottom-6 right-6 z-[200] w-80 bg-[#fefdfb] rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-slate-200">
         <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
         
         <div className="p-4 relative">
@@ -1060,12 +1060,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#fefdfb] flex flex-col animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[200] bg-[#fefdfb] flex flex-col animate-in fade-in duration-300">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
       <div className="flex flex-col items-center flex-1 justify-center relative bg-[#faf8f3] p-6">
         
-        <div className="absolute top-[max(1.5rem,env(safe-area-inset-top,0px)_+_0.75rem)] left-4 right-4 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="absolute top-4 left-3 right-3 sm:top-6 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none" style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
           {/* Top Left: Cost */}
           <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-10 rounded-full bg-white border border-slate-200 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors z-50">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
