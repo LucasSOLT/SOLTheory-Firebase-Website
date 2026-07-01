@@ -77,7 +77,7 @@ export const DEFAULT_CRM_FIELDS: ContactFieldDef[] = [
   { id: "yearsAtCompany",     label: "Years at Company",       type: "number",   category: "company",   locked: true,  width: "w-[110px]" },
 
   // ── General Info ──
-  { id: "location",           label: "Location",               type: "text",     category: "general",   locked: true,  width: "w-[130px]" },
+  { id: "location",           label: "Address",                type: "text",     category: "general",   locked: true,  width: "w-[160px]" },
   { id: "streetAddress",      label: "Street Address",         type: "text",     category: "general",   locked: true,  width: "w-[160px]" },
   { id: "city",               label: "City",                   type: "text",     category: "general",   locked: true,  width: "w-[110px]" },
   { id: "state",              label: "State / Province",       type: "text",     category: "general",   locked: true,  width: "w-[120px]" },
@@ -257,8 +257,8 @@ const FIELD_SYNONYMS: Record<string, string[]> = {
   email:              ["e-mail", "email address", "emailaddress", "email_address", "mail"],
   phone:              ["phone number", "phonenumber", "phone_number", "telephone", "tel", "mobile", "cell", "cellphone"],
   company:            ["business", "organization", "organisation", "org", "company name", "companyname", "business name", "organization name", "organisation name"],
-  streetAddress:      ["address", "street address", "street_address", "mailing address", "home address"],
-  location:           ["city", "region", "state", "area", "locale"],
+  location:           ["address", "city", "region", "state", "area", "locale", "mailing address", "home address"],
+  streetAddress:      ["street address", "street_address"],
   birthday:           ["birth date", "birthdate", "birth_date", "dob", "date of birth"],
   tags:               ["labels", "categories", "groups", "tag"],
   totalRevenue:       ["revenue", "total revenue", "total_revenue", "lifetime value", "ltv", "income"],
