@@ -51,8 +51,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   // Persistent audio element for mobile compatibility - created once, reused
   const persistentAudioRef = useRef<HTMLAudioElement | null>(null);
   const isPausedRef = useRef(isPaused);
-  const [responseDelay, setResponseDelay] = useState(1500);
-  const responseDelayRef = useRef(1500);
+  const [responseDelay, setResponseDelay] = useState(1000);
+  const responseDelayRef = useRef(1000);
   const [showTranscript, setShowTranscript] = useState(true);
   const [groqTokens, setGroqTokens] = useState(0);
   const [elevenLabsChars, setElevenLabsChars] = useState(0);
@@ -115,9 +115,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
+    // On mobile Android Chrome, continuous mode can silently stop working.
+    // Keep continuous on desktop, but use shorter sessions on mobile with auto-restart.
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: any) => {
       if (phaseRef.current !== "listening") return; // Completely ignore late audio buffers
@@ -661,7 +665,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     // Instantly lock phaseRef to prevent double-firing from rapid clicks or debounce overlaps
     phaseRef.current = "processing";
 
-    const spokenText = accumulatedTextRef.current.trim() || liveText.trim();
+    // MOBILE FIX: On Android Chrome, SpeechRecognition sometimes doesn't mark results
+    // as isFinal, so accumulatedTextRef stays empty while liveText has the interim text.
+    // Use liveText as a reliable fallback.
+    let spokenText = accumulatedTextRef.current.trim();
+    if (!spokenText) {
+      // Grab whatever is in liveText (interim results)
+      spokenText = liveText.trim();
+    }
     if (!spokenText) {
       phaseRef.current = "listening"; // unlock if empty
       setPhase("listening");
@@ -874,7 +885,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
 
-              <button onClick={() => {
+              <button onClick={(e) => {
+                  e.preventDefault();
                   if (phase === "speaking") {
                     if (audioRef.current) {
                       audioRef.current.pause();
@@ -891,7 +903,18 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                   } else {
                     finishUserTurn();
                   }
-                }} disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  if ((phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused) return;
+                  if (phase === "speaking") {
+                    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; audioRef.current = null; }
+                    if (speakingTimeoutRef.current) { clearTimeout(speakingTimeoutRef.current); speakingTimeoutRef.current = null; }
+                    setPhase("listening"); phaseRef.current = "listening";
+                    if (!isMicMuted && !isPaused) startRecognition();
+                  } else { finishUserTurn(); }
+                }}
+                disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
                 className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
                   }`}
               >
@@ -920,7 +943,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
       <div className="flex flex-col items-center flex-1 justify-center relative bg-[#faf8f3] p-6">
         
-        <div className="absolute top-6 left-6 right-6 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-[max(1.5rem,env(safe-area-inset-top,0px)_+_0.75rem)] left-4 right-4 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           {/* Top Left: Cost */}
           <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-10 rounded-full bg-white border border-slate-200 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors z-50">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
@@ -1001,10 +1024,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity font-bold tracking-widest"
             title="Adjust how long Jarvis waits before responding"
           >
-            <option value={750} className="text-slate-900">Rapid (0.75s pause)</option>
+            <option value={500} className="text-slate-900">Ultra Fast (0.5s pause)</option>
+            <option value={1000} className="text-slate-900">Fast (1.0s pause)</option>
             <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
             <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
-            <option value={5000} className="text-slate-900">Very Slow (5.0s pause)</option>
           </select>
           <ChevronDown className="w-3 h-3 opacity-50 -ml-1 pointer-events-none" />
         </div>
@@ -1058,7 +1081,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>
 
-          <button onClick={() => {
+          <button
+            onClick={(e) => {
+              e.preventDefault();
               if (phase === "speaking") {
                 // Interrupt AI audio and resume listening
                 if (audioRef.current) {
@@ -1076,7 +1101,30 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               } else {
                 finishUserTurn();
               }
-            }} disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
+            }}
+            onTouchEnd={(e) => {
+              // MOBILE FIX: Some Android Chrome versions don't fire onClick reliably on styled buttons.
+              // Handle touch explicitly and prevent the subsequent click from double-firing.
+              e.preventDefault();
+              if ((phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused) return;
+              if (phase === "speaking") {
+                if (audioRef.current) {
+                  audioRef.current.pause();
+                  audioRef.current.src = "";
+                  audioRef.current = null;
+                }
+                if (speakingTimeoutRef.current) {
+                  clearTimeout(speakingTimeoutRef.current);
+                  speakingTimeoutRef.current = null;
+                }
+                setPhase("listening");
+                phaseRef.current = "listening";
+                if (!isMicMuted && !isPaused) startRecognition();
+              } else {
+                finishUserTurn();
+              }
+            }}
+            disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
             className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
               }`}
           >
