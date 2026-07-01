@@ -90,3 +90,50 @@ export function stripHtml(html: string): string {
     .replace(/&quot;/g, '"')
     .trim();
 }
+
+/** 
+ * Parse a CSV string into a 2D array, correctly handling newlines and commas within quoted fields. 
+ */
+export function parseCSV(text: string): string[][] {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    
+    if (ch === '"') {
+      if (inQuotes && i + 1 < text.length && text[i + 1] === '"') {
+        current += '"';
+        i++; // skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      row.push(current.trim());
+      current = "";
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && i + 1 < text.length && text[i + 1] === '\n') {
+        i++;
+      }
+      row.push(current.trim());
+      if (row.length > 0 && row.some(val => val.length > 0)) {
+        result.push(row);
+      }
+      row = [];
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  
+  if (current || row.length > 0) {
+    row.push(current.trim());
+    if (row.some(val => val.length > 0)) {
+      result.push(row);
+    }
+  }
+  
+  return result;
+}

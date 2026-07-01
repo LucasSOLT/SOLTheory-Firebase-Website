@@ -22,7 +22,10 @@ import {
   needsMergeDialog,
   createCustomField,
   type CSVFieldMatch,
+  type FieldConfig,
+  type MatchResult
 } from "@/lib/contactFieldTypes";
+import { parseCSV } from "@/lib/utils";
 import {
   Search, Plus, Bell, LayoutDashboard, Users, GitBranch, BarChart3,
   UserPlus, Mail, ChevronDown, ChevronUp, Filter, Download, Brain,
@@ -646,100 +649,6 @@ export default function CRMPage() {
     resetForm(); setShowAddModal(false);
   };
 
-  const parseCSV = (text: string) => {
-    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    if (lines.length === 0) return [];
-    
-    // Required camelCase column names that exactly match our CRM schema
-    const VALID_COLUMNS = ['firstName', 'lastName', 'company', 'email', 'phoneNumber', 'pipelineStage', 'revenue', 'tags', 'location', 'lastContactedDate'];
-    
-    const parsed: { firstName: string; lastName: string; email: string; phone: string; leadStatus: Customer["leadStatus"]; tags: string; company: string; location: string; lastContactedDate: string; revenue: number }[] = [];
-    
-    // Parse a single CSV row (handles quoted fields)
-    const parseRow = (line: string): string[] => {
-      const values: string[] = [];
-      let current = "";
-      let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
-          else { inQuotes = !inQuotes; }
-        }
-        else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; }
-        else { current += ch; }
-      }
-      values.push(current.trim());
-      return values.map(v => {
-        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
-        return v.trim();
-      });
-    };
-
-    // First line MUST be a header row
-    const headers = parseRow(lines[0]);
-    
-    // Validate that all headers are recognized
-    const unrecognized = headers.filter(h => !VALID_COLUMNS.includes(h));
-    if (unrecognized.length > 0) {
-      showToast(`Unrecognized column(s): ${unrecognized.join(', ')}. Columns must exactly match: ${VALID_COLUMNS.join(', ')}`, 'error');
-      return [];
-    }
-    
-    // Require firstName and lastName
-    if (!headers.includes('firstName') || !headers.includes('lastName')) {
-      showToast('CSV must include "firstName" and "lastName" columns.', 'error');
-      return [];
-    }
-    
-    // Build column index map
-    const colIdx = (name: string) => headers.indexOf(name);
-    
-    const matchStatus = (str: string): Customer["leadStatus"] | null => {
-      const s = str.trim().toLowerCase();
-      if (s.includes("cold")) return "Cold Lead";
-      if (s.includes("warm")) return "Warm Lead";
-      if (s.includes("interest")) return "Interested";
-      if (s.includes("sale") || s.includes("complet")) return "Sale Completed";
-      return null;
-    };
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseRow(lines[i]);
-      
-      const get = (name: string) => {
-        const idx = colIdx(name);
-        return idx !== -1 && idx < values.length ? values[idx] : '';
-      };
-      
-      const firstName = get('firstName');
-      const lastName = get('lastName');
-      if (!firstName && !lastName) continue;
-      
-      let leadStatus: Customer["leadStatus"] = "Cold Lead";
-      const stageVal = get('pipelineStage');
-      if (stageVal) {
-        const matched = matchStatus(stageVal);
-        if (matched) leadStatus = matched;
-      }
-      
-      parsed.push({
-        firstName,
-        lastName,
-        email: get('email'),
-        phone: get('phoneNumber'),
-        leadStatus,
-        tags: get('tags'),
-        company: get('company'),
-        location: get('location'),
-        lastContactedDate: get('lastContactedDate'),
-        revenue: parseFloat(get('revenue')) || 0,
-      });
-    }
-
-    return parsed;
-  };
-
   const handleCSVSubmit = async () => {
     let textToParse = csvText;
     if (csvFile) {
@@ -756,41 +665,18 @@ export default function CRMPage() {
       return;
     }
 
-    // Parse headers from the first line
-    const lines = textToParse.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    if (lines.length < 2) {
+    const parsedData = parseCSV(textToParse);
+    if (parsedData.length < 2) {
       showToast("CSV must have a header row and at least one data row.", "error");
       return;
     }
 
-    const parseRow = (line: string): string[] => {
-      const values: string[] = [];
-      let current = "";
-      let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
-          else { inQuotes = !inQuotes; }
-        }
-        else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; }
-        else { current += ch; }
-      }
-      values.push(current.trim());
-      return values.map(v => {
-        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
-        return v.trim();
-      });
-    };
-
-    const csvHeaders = parseRow(lines[0]);
+    const csvHeaders = parsedData[0];
     const matches = matchAllCSVHeaders(csvHeaders, fieldConfig.allFields);
 
-    // If all exact matches → import directly
     if (!needsMergeDialog(matches)) {
       await executeCSVImport(textToParse, Object.fromEntries(matches.map(m => [m.csvHeader, m.matchedFieldId])));
     } else {
-      // Show merge dialog
       setPendingCSVData(textToParse);
       setCsvMergeHeaders(csvHeaders);
       setCsvMergeMatches(matches);
@@ -798,7 +684,6 @@ export default function CRMPage() {
     }
   };
 
-  /** Handle auto-merge from the merge dialog */
   const handleAutoMerge = async () => {
     const mappings: Record<string, string | null> = {};
     const newFieldsToCreate: ContactFieldDef[] = [];
@@ -807,17 +692,14 @@ export default function CRMPage() {
       if (match.matchResult === "exact" || match.matchResult === "fuzzy") {
         mappings[match.csvHeader] = match.matchedFieldId;
       } else {
-        // Create new custom field for unrecognized columns
         const newField = createCustomField(match.csvHeader, "text");
         newFieldsToCreate.push(newField);
         mappings[match.csvHeader] = newField.id;
       }
     }
 
-    // Add new fields to the field config (never delete existing)
     if (newFieldsToCreate.length > 0) {
       addFieldsFromCSV(newFieldsToCreate);
-      // Build the complete updated config to avoid stale-state race condition
       const existingIds = new Set(fieldConfig.allFields.map(f => f.id));
       const trulyNew = newFieldsToCreate.filter(f => !existingIds.has(f.id));
       const updatedConfig = {
@@ -831,11 +713,9 @@ export default function CRMPage() {
     await executeCSVImport(pendingCSVData, mappings);
   };
 
-  /** Handle manual merge from the merge dialog */
   const handleManualMerge = async (mappings: Record<string, string | null>) => {
     const newFieldsToCreate: ContactFieldDef[] = [];
 
-    // Find any mappings that point to "__create_new__" sentinel
     for (const [csvHeader, fieldId] of Object.entries(mappings)) {
       if (fieldId === null) {
         const newField = createCustomField(csvHeader, "text");
@@ -846,7 +726,6 @@ export default function CRMPage() {
 
     if (newFieldsToCreate.length > 0) {
       addFieldsFromCSV(newFieldsToCreate);
-      // Build the complete updated config to avoid stale-state race condition
       const existingIds = new Set(fieldConfig.allFields.map(f => f.id));
       const trulyNew = newFieldsToCreate.filter(f => !existingIds.has(f.id));
       const updatedConfig = {
@@ -860,34 +739,11 @@ export default function CRMPage() {
     await executeCSVImport(pendingCSVData, mappings);
   };
 
-  /** Execute the actual CSV import with resolved field mappings */
   const executeCSVImport = async (text: string, mappings: Record<string, string | null>) => {
-    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    if (lines.length < 2) return;
+    const parsedData = parseCSV(text);
+    if (parsedData.length < 2) return;
 
-    const parseRow = (line: string): string[] => {
-      const values: string[] = [];
-      let current = "";
-      let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
-          else { inQuotes = !inQuotes; }
-        }
-        else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; }
-        else { current += ch; }
-      }
-      values.push(current.trim());
-      return values.map(v => {
-        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
-        return v.trim();
-      });
-    };
-
-    const csvHeaders = parseRow(lines[0]);
-    
-    // Known Customer fields that map directly
+    const csvHeaders = parsedData[0];
     const knownFieldKeys = new Set(["firstName", "lastName", "email", "phone", "company", "location", "birthday", "lastContactedDate", "tags", "totalRevenue", "outstandingBalance", "leadStatus", "aiNotes"]);
     
     const matchStatus = (str: string): Customer["leadStatus"] | null => {
@@ -900,10 +756,8 @@ export default function CRMPage() {
     };
 
     let addedCount = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseRow(lines[i]);
-      
-      // Build a record of all values mapped to their field IDs
+    for (let i = 1; i < parsedData.length; i++) {
+      const values = parsedData[i];
       const rowData: Record<string, string> = {};
       csvHeaders.forEach((header, idx) => {
         const fieldId = mappings[header];
@@ -916,14 +770,12 @@ export default function CRMPage() {
       const lastName = rowData["lastName"] || "";
       if (!firstName && !lastName) continue;
 
-      // Determine lead status
       let leadStatus: Customer["leadStatus"] = "Cold Lead";
       if (rowData["leadStatus"]) {
         const matched = matchStatus(rowData["leadStatus"]);
         if (matched) leadStatus = matched;
       }
 
-      // Separate known fields from custom fields
       const customFieldValues: Record<string, any> = {};
       for (const [fieldId, value] of Object.entries(rowData)) {
         if (!knownFieldKeys.has(fieldId) && value) {
