@@ -730,7 +730,7 @@ function parseAIResponse(raw: string): AIResponseShape {
   } catch {
     // JSON.parse failed — try to extract fields with regex
     // This handles cases where special chars (emojis, unicode) break JSON.parse
-    const replyMatch = cleaned.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/s);
+    const replyMatch = cleaned.match(/"reply"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/);
     if (replyMatch) {
       let replyText: string;
       try {
@@ -739,10 +739,10 @@ function parseAIResponse(raw: string): AIResponseShape {
         replyText = replyMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"');
       }
 
-      const intentMatch = cleaned.match(/"intent"\s*:\s*"([^"]*)"/s);
-      const searchMatch = cleaned.match(/"searchQuery"\s*:\s*"([^"]*)"/s);
-      const actionMatch = cleaned.match(/"actionType"\s*:\s*"([^"]*)"/s);
-      const idsMatch = cleaned.match(/"targetEmailIds"\s*:\s*\[([\s\S]*?)\]/s);
+      const intentMatch = cleaned.match(/"intent"\s*:\s*"([^"]*)"/);
+      const searchMatch = cleaned.match(/"searchQuery"\s*:\s*"([^"]*)"/);
+      const actionMatch = cleaned.match(/"actionType"\s*:\s*"([^"]*)"/);
+      const idsMatch = cleaned.match(/"targetEmailIds"\s*:\s*\[([\s\S]*?)\]/);
       let targetIds: string[] = [];
       if (idsMatch) {
         const idMatches = idsMatch[1].match(/"([^"]+)"/g);
