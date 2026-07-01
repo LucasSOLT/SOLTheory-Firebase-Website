@@ -3068,7 +3068,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             </div>
                           ) : (
                             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                               <div onClick={() => setSelectedExploreItem("Email Agents")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div onClick={() => window.location.href = '/portal/dashboard/nxtchapter/agentic-campaigning'} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
                                  <div className="flex items-center gap-3 mb-2">
                                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center text-blue-500">
                                      <Mail className="w-4 h-4 md:w-5 md:h-5" />
@@ -3078,7 +3078,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Set up scheduled email campaigns!</p>
                                </div>
 
-                               <div onClick={() => setSelectedExploreItem("Social Media Agents")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div onClick={() => window.location.href = '/portal/dashboard/nxtchapter/agentic-campaigning/instagram'} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
                                  <div className="flex items-center gap-3 mb-2">
                                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-pink-50 group-hover:bg-pink-100 transition-colors flex items-center justify-center text-pink-500">
                                      <Users className="w-4 h-4 md:w-5 md:h-5" />
@@ -3088,7 +3088,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Set up scheduled social media posts.</p>
                                </div>
 
-                               <div onClick={() => setSelectedExploreItem("Message Agents")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div onClick={() => window.location.href = '/portal/dashboard/nxtchapter/communications/imessage'} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
                                  <div className="flex items-center gap-3 mb-2">
                                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex items-center justify-center text-emerald-500">
                                      <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
@@ -3098,19 +3098,20 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Create messaging app integrations with AI.</p>
                                </div>
 
-                               <div onClick={() => setSelectedExploreItem("Advertising Agents")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div onClick={() => window.location.href = '/portal/dashboard/nxtchapter/youtube'} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-50 group-hover:bg-amber-100 transition-colors flex items-center justify-center text-amber-500">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-red-50 group-hover:bg-red-100 transition-colors flex items-center justify-center text-red-500">
                                      <Presentation className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.advertisingAgents}</h3>
+                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>YouTube Agents</h3>
                                  </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Build cron jobs for advertising campagins - Coming Soon.</p>
+                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your YouTube channel and content.</p>
                                </div>
 
-                               <div onClick={() => setIsAgentRequestModalOpen(true)} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 opacity-50 pointer-events-none relative flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200/80 bg-white/50'}`}>
+                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 transition-colors flex items-center justify-center text-indigo-500">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
                                      <Plus className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
                                    <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.requestAnAgent}</h3>
@@ -3118,14 +3119,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Submit a new agent request to the team.</p>
                                </div>
 
-                               <div onClick={() => setSelectedExploreItem("Build your own Agent")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 opacity-50 pointer-events-none relative flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200/80 bg-white/50'}`}>
+                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-slate-100 group-hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
                                      <Settings className="w-4 h-4 md:w-5 md:h-5" />
                                    </div>
                                    <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.buildYourOwnAgent}</h3>
                                  </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Configure a custom agent with our drag & drop system - Coming Soon.</p>
+                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Configure a custom agent with our drag & drop system.</p>
                                </div>
                             </div>
                           )}
