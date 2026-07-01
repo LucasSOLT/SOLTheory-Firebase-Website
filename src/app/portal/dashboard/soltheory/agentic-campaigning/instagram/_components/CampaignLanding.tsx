@@ -181,9 +181,9 @@ export default function CampaignLanding({
 
   // ── Render ───────────────────────────────────────────────────────────
   return (
-    <div className="-mx-4 -mb-4 md:-mx-10 md:-mb-10 min-h-[calc(100vh-10rem)] bg-[#f5f1e8]">
+    <div className="-mx-4 -mt-6 -mb-4 md:-mx-6 md:-mb-6 min-h-[calc(100vh-3.5rem)] bg-[#faf8f3]">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-[#faf8f3]/95 backdrop-blur-xl border-b border-[#e8e2d4]">
+      <div className="sticky top-0 z-20 bg-[#faf8f3] border-b border-[#e8e2d4]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             {/* Left: Back + Title */}

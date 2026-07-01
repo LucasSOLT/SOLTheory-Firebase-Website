@@ -132,7 +132,8 @@ function InstagramPageContent() {
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className={`min-h-screen ${bgColor}`}>
-      {/* ── Top Header Bar ──────────────────────────────────────────────── */}
+      {/* ── Top Header Bar — hidden when CampaignLanding is showing (it has its own) ──── */}
+      {!(isConnected && view === 'landing' && !isLoading) && (
       <div
         className={`sticky top-0 z-30 border-b backdrop-blur-xl ${headerBg}`}
       >
@@ -215,6 +216,7 @@ function InstagramPageContent() {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── OAuth Callback Flash ────────────────────────────────────────── */}
       <AnimatePresence>
@@ -260,7 +262,7 @@ function InstagramPageContent() {
       </AnimatePresence>
 
       {/* ── Main Content ────────────────────────────────────────────────── */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
+      <main className={isConnected && view === 'landing' && !isLoading ? '' : 'max-w-[1600px] mx-auto px-4 sm:px-6 py-6'}>
         {isLoading ? (
           // Loading state
           <motion.div
@@ -278,18 +280,11 @@ function InstagramPageContent() {
         ) : isConnected ? (
           // Connected: show landing or workspace based on view state
           view === 'landing' ? (
-            <motion.div
-              key="landing"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <CampaignLanding
-                clientId={orgPrefix}
-                onCreateNew={() => setView('workspace')}
-                onBack={() => router.push(`/portal/dashboard/${orgPrefix}/agentic-campaigning`)}
-              />
-            </motion.div>
+            <CampaignLanding
+              clientId={orgPrefix}
+              onCreateNew={() => setView('workspace')}
+              onBack={() => router.push(`/portal/dashboard/${orgPrefix}/agentic-campaigning`)}
+            />
           ) : (
             <motion.div
               key="workspace"
