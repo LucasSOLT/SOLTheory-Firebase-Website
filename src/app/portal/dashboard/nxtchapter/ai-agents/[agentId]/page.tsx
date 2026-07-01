@@ -3001,9 +3001,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           
                                                                                                         {exploreTab === "models" ? (
                             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                               <div onClick={() => setSelectedExploreItem("Featured")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div className={`relative rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start border opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200/80 bg-white/50'}`}>
+                                  <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-50 group-hover:bg-amber-100 transition-colors flex items-center justify-center text-amber-500">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
                                      <Sparkles className="w-4 h-4" />
                                    </div>
                                    <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Featured</h3>
@@ -3021,9 +3022,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Converse with our voice agent, Jarvis.</p>
                                </div>
                                
-                               <div onClick={() => setSelectedExploreItem("Image Generation")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div className={`relative rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start border opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200/80 bg-white/50'}`}>
+                                  <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-purple-50 group-hover:bg-purple-100 transition-colors flex items-center justify-center text-purple-500">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500">
                                      <ImageIcon className="w-5 h-5" />
                                    </div>
                                    <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Image Generation</h3>
@@ -3031,9 +3033,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Create and edit cutting-edge AI images - Coming Soon.</p>
                                </div>
                                
-                               <div onClick={() => setSelectedExploreItem("Video Generation")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div className={`relative rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start border opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200/80 bg-white/50'}`}>
+                                  <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-green-50 group-hover:bg-green-100 transition-colors flex items-center justify-center text-green-600">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
                                      <Video className="w-5 h-5" />
                                    </div>
                                    <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Video Generation</h3>
@@ -3041,9 +3044,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Generate state of the art AI videos - Coming Soon.</p>
                                </div>
                                
-                               <div onClick={() => setSelectedExploreItem("Music Generation")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div className={`relative rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start border opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200/80 bg-white/50'}`}>
+                                  <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-rose-50 group-hover:bg-rose-100 transition-colors flex items-center justify-center text-rose-500">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
                                      <Music className="w-5 h-5" />
                                    </div>
                                    <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Music Generation</h3>
@@ -3051,9 +3055,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                  <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Explore our text to speech and music models - Coming Soon.</p>
                                </div>
                                
-                               <div onClick={() => setSelectedExploreItem("Code Generation")} className={`rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start border ${isDarkMode ? 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
+                               <div className={`relative rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start border opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200/80 bg-white/50'}`}>
+                                  <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
                                  <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-orange-50 group-hover:bg-orange-100 transition-colors flex items-center justify-center text-orange-500">
+                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
                                      <Code className="w-5 h-5" />
                                    </div>
                                    <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Code Generation</h3>

@@ -94,8 +94,13 @@ export interface Toast {
 
 /* ─────────────── HELPERS ─────────────── */
 
-/** Get the Firestore sub-collection path for a user */
-const crmPath = (uid: string, sub: string) => `users/${uid}/${sub}`;
+/** 
+ * Get the Firestore collection path for shared CRM data.
+ * All org members share the same contacts/meetings/conversations.
+ * For future: this will become `contactBooks/{bookId}/{sub}` when
+ * multiple contact book instances are supported.
+ */
+const crmPath = (_uid: string, sub: string) => `shared/crm/${sub}`;
 
 /** Convert Firestore doc data to typed object, handling Timestamps */
 function docToCustomer(data: Record<string, unknown>, id: string): Customer {
@@ -231,6 +236,33 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     console.log("[CRM Store] Initializing Firestore for UID:", uid);
 
     try {
+      // ── One-time migration: copy per-user contacts to shared path ──
+      // If the shared collection is empty but the user has old per-user contacts, migrate them.
+      const sharedContactsRef = collection(db, crmPath(uid, "contacts"));
+      const oldContactsRef = collection(db, `users/${uid}/contacts`);
+      const sharedSnap = await getDocs(query(sharedContactsRef));
+      if (sharedSnap.empty) {
+        const oldSnap = await getDocs(query(oldContactsRef));
+        if (!oldSnap.empty) {
+          console.log(`[CRM Store] Migrating ${oldSnap.size} contacts from user path to shared path...`);
+          const batch: Promise<void>[] = [];
+          oldSnap.docs.forEach(d => {
+            batch.push(setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data()));
+          });
+          await Promise.all(batch);
+          console.log(`[CRM Store] Migration complete: ${oldSnap.size} contacts moved to shared CRM.`);
+          // Also migrate meetings
+          const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
+          if (!oldMeetingsSnap.empty) {
+            const meetingBatch: Promise<void>[] = [];
+            oldMeetingsSnap.docs.forEach(d => {
+              meetingBatch.push(setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data()));
+            });
+            await Promise.all(meetingBatch);
+          }
+        }
+      }
+
       // Set up real-time listener for contacts
       const contactsRef = collection(db, crmPath(uid, "contacts"));
       const unsubContacts = onSnapshot(
