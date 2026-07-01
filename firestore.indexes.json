@@ -15,6 +15,22 @@
         { "fieldPath": "clientId", "order": "ASCENDING" },
         { "fieldPath": "scheduledTime", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "scheduled_instagram_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduledTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scheduled_instagram_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
