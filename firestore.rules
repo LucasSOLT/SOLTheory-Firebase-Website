@@ -534,6 +534,22 @@ service cloud.firestore {
     match /scheduled_instagram_posts/{postId} {
       allow read, create, update, delete: if isSignedIn();
     }
+
+    /**
+     * ════════════════════════════════════════════════════════════════
+     * SHARED CRM — Organization-wide Contact Book
+     * ════════════════════════════════════════════════════════════════
+     * @description Shared contact book accessible by all authenticated org members.
+     * All contacts, meetings, and conversations are stored under shared/crm/.
+     * Future: will be scoped to contactBooks/{bookId}/ with per-book permissions.
+     * @path /shared/crm/contacts/{contactId}
+     * @path /shared/crm/meetings/{meetingId}
+     * @path /shared/crm/conversations/{conversationId}
+     * @allow (read, write) Any signed-in user can manage shared CRM data.
+     */
+    match /shared/crm/{subcollection}/{docId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }
     

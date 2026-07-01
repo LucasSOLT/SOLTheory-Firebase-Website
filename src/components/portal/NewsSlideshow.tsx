@@ -4,18 +4,18 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useFirestore } from "@/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
-/* â”€â”€â”€ Default slide data (fallback) â”€â”€â”€ */
+/* --- Default slide data (fallback) --- */
 const DEFAULT_SLIDES = [
   {
-    headline: "NXT Chapter Ã— Advanced Pathways",
-    subtitle: "New Denver Shelter Partnership â€” Expanding capacity to 3 additional locations across the metro area.",
+    headline: "NXT Chapter x Advanced Pathways",
+    subtitle: "New Denver Shelter Partnership -- Expanding capacity to 3 additional locations across the metro area.",
     gradient: "from-indigo-600 via-violet-600 to-purple-700",
     badge: "PARTNERSHIP",
     date: "June 2025",
   },
   {
     headline: "AI Grant Discovery Launched",
-    subtitle: "SOL Theory's autonomous grant agents now scan Grants.gov 24/7 â€” surfacing federal funding opportunities in real time.",
+    subtitle: "SOL Theory's autonomous grant agents now scan Grants.gov 24/7 -- surfacing federal funding opportunities in real time.",
     gradient: "from-emerald-600 via-teal-600 to-cyan-700",
     badge: "PRODUCT",
     date: "May 2025",
@@ -28,14 +28,14 @@ const DEFAULT_SLIDES = [
     date: "April 2025",
   },
   {
-    headline: "Community Resource Fair â€” July 2025",
+    headline: "Community Resource Fair -- July 2025",
     subtitle: "Save the date: Denver Community Resource Fair bringing together 40+ service providers, employers, and housing partners.",
     gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
     badge: "EVENT",
     date: "Upcoming",
   },
   {
-    headline: "Dashboard v2.0 â€” Real-Time Analytics",
+    headline: "Dashboard v2.0 -- Real-Time Analytics",
     subtitle: "New grant status tracking, Action Board with email triggers, and AI-powered insights rolling out across all client dashboards.",
     gradient: "from-sky-500 via-blue-600 to-indigo-700",
     badge: "TECH UPDATE",
