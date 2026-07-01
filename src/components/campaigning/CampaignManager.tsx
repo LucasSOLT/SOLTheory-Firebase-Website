@@ -1220,55 +1220,67 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
       // Save campaign to Firestore
       await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), campaign);
 
-      // Send emails immediately when campaign is launched (status = active)
+      // Only send emails if the campaign is "active" AND its triggerAt time has passed
+      // If triggerAt is in the future, the email cron will pick it up at the right time
       if (campaign.status === 'active' && campaign.recipients.length > 0) {
-        const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
-        const refreshToken = await getRefreshToken(user.uid);
-        if (refreshToken) {
-          // Build effective settings by loading personalInfo presets
-          let effectiveSettings = { ...campaignSettings };
-          try {
-            const presetSnap = await getDoc(doc(firestore, `users/${user.uid}/settings/personalInfoPresets`));
-            if (presetSnap.exists()) {
-              const presets = presetSnap.data().presets || [];
-              if (presets.length > 0) {
-                const latest = presets[presets.length - 1];
-                if (latest.senderName) effectiveSettings.senderName = latest.senderName;
-                if (latest.orgName) effectiveSettings.orgName = latest.orgName;
-                if (latest.phoneNumber) effectiveSettings.phoneNumber = latest.phoneNumber;
+        const triggerDate = new Date(campaign.triggerAt);
+        const now = new Date();
+        const isDueNow = triggerDate.getTime() <= now.getTime() + 60_000; // within 1 minute
+
+        if (isDueNow) {
+          // Trigger time is now or past → send immediately
+          const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
+          const refreshToken = await getRefreshToken(user.uid);
+          if (refreshToken) {
+            // Build effective settings by loading personalInfo presets
+            let effectiveSettings = { ...campaignSettings };
+            try {
+              const presetSnap = await getDoc(doc(firestore, `users/${user.uid}/settings/personalInfoPresets`));
+              if (presetSnap.exists()) {
+                const presets = presetSnap.data().presets || [];
+                if (presets.length > 0) {
+                  const latest = presets[presets.length - 1];
+                  if (latest.senderName) effectiveSettings.senderName = latest.senderName;
+                  if (latest.orgName) effectiveSettings.orgName = latest.orgName;
+                  if (latest.phoneNumber) effectiveSettings.phoneNumber = latest.phoneNumber;
+                }
+              }
+            } catch (e) { console.warn('[Campaign] Could not load personal info presets:', e); }
+
+            let sentCount = 0;
+            for (const recipient of campaign.recipients) {
+              const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
+              let resolvedBody = resolveMergeFields(campaign.body, recipient, effectiveSettings);
+
+              // Append professional sign-off
+              const senderName = effectiveSettings.senderName || '';
+              const phone = effectiveSettings.phoneNumber || '';
+              const replyEmail = effectiveSettings.replyToEmail || '';
+              const website = effectiveSettings.website || '';
+              if (senderName || phone || replyEmail || website) {
+                resolvedBody += '\n\n---\n';
+                if (senderName) resolvedBody += senderName + '\n';
+                if (phone) resolvedBody += phone + '\n';
+                if (replyEmail) resolvedBody += replyEmail + '\n';
+                if (website) resolvedBody += website + '\n';
+              }
+
+              try {
+                await sendEmail(user.uid, refreshToken, recipient.email, resolvedSubject, resolvedBody);
+                sentCount++;
+                console.log(`[Campaign] Sent to ${recipient.email}`);
+              } catch (err) {
+                console.error(`[Campaign] Failed to send to ${recipient.email}:`, err);
               }
             }
-          } catch (e) { console.warn('[Campaign] Could not load personal info presets:', e); }
-
-          let sentCount = 0;
-          for (const recipient of campaign.recipients) {
-            const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
-            let resolvedBody = resolveMergeFields(campaign.body, recipient, effectiveSettings);
-
-            // Append professional sign-off
-            const senderName = effectiveSettings.senderName || '';
-            const phone = effectiveSettings.phoneNumber || '';
-            const replyEmail = effectiveSettings.replyToEmail || '';
-            const website = effectiveSettings.website || '';
-            if (senderName || phone || replyEmail || website) {
-              resolvedBody += '\n\n---\n';
-              if (senderName) resolvedBody += senderName + '\n';
-              if (phone) resolvedBody += phone + '\n';
-              if (replyEmail) resolvedBody += replyEmail + '\n';
-              if (website) resolvedBody += website + '\n';
-            }
-
-            try {
-              await sendEmail(user.uid, refreshToken, recipient.email, resolvedSubject, resolvedBody);
-              sentCount++;
-              console.log(`[Campaign] Sent to ${recipient.email}`);
-            } catch (err) {
-              console.error(`[Campaign] Failed to send to ${recipient.email}:`, err);
-            }
+            await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), { sent: sentCount, status: 'completed' }, { merge: true });
+          } else {
+            console.warn('[Campaign] No Gmail refresh token found - cannot send emails');
           }
-          await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), { sent: sentCount }, { merge: true });
         } else {
-          console.warn('[Campaign] No Gmail refresh token found - cannot send emails');
+          // Trigger time is in the future → do NOT send now
+          // The email cron job (/api/campaigning/email/cron) will send it at the right time
+          console.log(`[Campaign] Scheduled for ${triggerDate.toISOString()} — not sending yet.`);
         }
       }
     } catch (err) {

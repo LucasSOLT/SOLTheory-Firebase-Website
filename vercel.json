@@ -3,6 +3,10 @@
     {
       "path": "/api/campaigning/instagram/cron",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/campaigning/email/cron",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

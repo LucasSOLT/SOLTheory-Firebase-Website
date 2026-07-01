@@ -122,12 +122,12 @@ function InstagramPageContent() {
   }, [firestore, connectionParam, setConnectionStatus, router]);
 
   // ── Style tokens ──────────────────────────────────────────────────────
-  const bgColor = isDark ? "bg-slate-950" : "bg-slate-50";
+  const bgColor = isDark ? "bg-slate-950" : "bg-[#faf8f3]";
   const textPrimary = isDark ? "text-white" : "text-slate-900";
   const textSecondary = isDark ? "text-slate-400" : "text-slate-500";
   const headerBg = isDark
     ? "bg-slate-900/80 border-slate-800"
-    : "bg-white/80 border-slate-200";
+    : "bg-[#faf8f3]/90 border-[#ede8da]";
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
