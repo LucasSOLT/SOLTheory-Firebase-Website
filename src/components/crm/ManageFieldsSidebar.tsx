@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Search, X, GripVertical, Lock, ChevronRight, ChevronDown, Plus, Trash2,
+  Database,
 } from "lucide-react";
 import type { FieldConfig, ContactFieldDef, FieldCategory, FieldType } from "@/lib/contactFieldTypes";
 import { FIELD_CATEGORIES, AVAILABLE_FIELD_TYPES, createCustomField } from "@/lib/contactFieldTypes";
@@ -15,6 +16,8 @@ interface ManageFieldsSidebarProps {
   fieldConfig: FieldConfig;
   onApply: (visibleFields: string[], allFields: ContactFieldDef[]) => void;
   isDarkMode: boolean;
+  /** Customer records so we can show "has data" indicators */
+  customers?: Record<string, any>[];
 }
 
 /* ─────────────── COMPONENT ─────────────── */
@@ -25,6 +28,7 @@ export default function ManageFieldsSidebar({
   fieldConfig,
   onApply,
   isDarkMode,
+  customers = [],
 }: ManageFieldsSidebarProps) {
   /* ── Local staged state ── */
   const [visibleFieldIds, setVisibleFieldIds] = useState<string[]>([]);
@@ -72,6 +76,39 @@ export default function ManageFieldsSidebar({
     setCustomOptions("");
   }, []);
 
+  /* ── Compute which fields have data stored ── */
+  const fieldsWithData = useMemo(() => {
+    const result = new Set<string>();
+    if (!customers || customers.length === 0) return result;
+
+    // Known Customer-level keys
+    const knownKeys = new Set([
+      "firstName", "lastName", "email", "phone", "company", "location",
+      "birthday", "lastContactedDate", "tags", "totalRevenue",
+      "outstandingBalance", "leadStatus", "aiNotes",
+    ]);
+
+    for (const c of customers) {
+      // Check known keys
+      for (const key of knownKeys) {
+        const v = (c as any)[key];
+        if (v !== undefined && v !== "" && v !== 0 && !(Array.isArray(v) && v.length === 0)) {
+          result.add(key);
+        }
+      }
+      // Check customFields
+      const cf = (c as any).customFields;
+      if (cf && typeof cf === "object") {
+        for (const [key, val] of Object.entries(cf)) {
+          if (val !== undefined && val !== "" && val !== null) {
+            result.add(key);
+          }
+        }
+      }
+    }
+    return result;
+  }, [customers]);
+
   /* ── Derived data ── */
   const visibleFieldDefs = useMemo(() => {
     return visibleFieldIds
@@ -112,6 +149,32 @@ export default function ManageFieldsSidebar({
     }
     return map;
   }, [hiddenFields]);
+
+  /* ── Build a quick lookup: fieldId → category label ── */
+  const fieldCategoryLabel = useMemo(() => {
+    const catLabelMap: Record<string, string> = {};
+    for (const cat of FIELD_CATEGORIES) {
+      catLabelMap[cat.id] = cat.label;
+    }
+    const result: Record<string, string> = {};
+    for (const f of allFields) {
+      result[f.id] = catLabelMap[f.category] || f.category;
+    }
+    return result;
+  }, [allFields]);
+
+  /* ── When searching, auto-expand categories that have matching hidden fields ── */
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const toExpand = new Set<FieldCategory>();
+      for (const cat of FIELD_CATEGORIES) {
+        if (hiddenFieldsByCategory[cat.id].length > 0) {
+          toExpand.add(cat.id);
+        }
+      }
+      setExpandedCategories(toExpand);
+    }
+  }, [searchQuery, hiddenFieldsByCategory]);
 
   /* ── Handlers ── */
 
@@ -265,6 +328,28 @@ export default function ManageFieldsSidebar({
   const hoverBg = isDarkMode ? "hover:bg-slate-800" : "hover:bg-slate-50";
   const dragOverBg = isDarkMode ? "bg-indigo-950/30" : "bg-indigo-50/60";
 
+  /** Small "has data" indicator dot */
+  const DataDot = ({ fieldId }: { fieldId: string }) => {
+    if (!fieldsWithData.has(fieldId)) return null;
+    return (
+      <span title="This field has data stored" className="relative flex-shrink-0">
+        <Database className={`w-3 h-3 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
+      </span>
+    );
+  };
+
+  /** Category badge shown next to fields when searching */
+  const CategoryBadge = ({ category }: { category: string }) => {
+    if (!searchQuery.trim()) return null;
+    return (
+      <span className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0 ${
+        isDarkMode ? 'bg-slate-700/80 text-slate-400' : 'bg-slate-100 text-slate-500'
+      }`}>
+        {category}
+      </span>
+    );
+  };
+
   return (
     <>
       {/* ── Backdrop ── */}
@@ -376,8 +461,14 @@ export default function ManageFieldsSidebar({
                       </svg>
                     </button>
 
-                    {/* Field label */}
-                    <span className={`text-[14px] flex-1 truncate ${textPrimary}`}>{field.label}</span>
+                    {/* Field label + category badge when searching */}
+                    <span className={`text-[14px] flex-1 truncate ${textPrimary} flex items-center gap-1.5`}>
+                      {field.label}
+                      <CategoryBadge category={fieldCategoryLabel[field.id]} />
+                    </span>
+
+                    {/* Data indicator */}
+                    <DataDot fieldId={field.id} />
 
                     {/* Lock or remove */}
                     {field.required ? (
@@ -450,7 +541,15 @@ export default function ManageFieldsSidebar({
                             key={field.id}
                             className={`flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-colors group ${hoverBg}`}
                           >
-                            <span className={`text-[14px] flex-1 truncate ${textSecondary}`}>{field.label}</span>
+                            <span className={`text-[14px] flex-1 truncate ${textSecondary} flex items-center gap-1.5`}>
+                              {field.label}
+                              {searchQuery.trim() && (
+                                <CategoryBadge category={fieldCategoryLabel[field.id]} />
+                              )}
+                            </span>
+
+                            {/* Data indicator — important so user knows data exists */}
+                            <DataDot fieldId={field.id} />
 
                             {/* Delete custom field */}
                             {!field.locked && field.category === "custom" && (

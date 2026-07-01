@@ -35,7 +35,7 @@ import {
   CalendarCheck, Check, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
   Table2, MapPin, Building2, ChevronLeft, ChevronRight, AlertTriangle, Save, Contact,
-  Settings2,
+  Settings2, ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -268,6 +268,13 @@ export default function CRMPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  // Column-level sort (independent, takes priority over sortKey/sortDir)
+  const [columnSortField, setColumnSortField] = useState<string | null>(null);
+  const [columnSortDir, setColumnSortDir] = useState<'asc' | 'desc'>('asc');
+  // Column widths for manual/auto-fit resize
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const tableRef = useRef<HTMLTableElement>(null);
+  const resizingRef = useRef<{ fieldId: string; startX: number; startWidth: number } | null>(null);
   const [contactSearch, setContactSearch] = useState("");
   const [contactsViewMode, setContactsViewMode] = useState<"table" | "pipeline">("table");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -857,13 +864,107 @@ export default function CRMPage() {
         return true;
       });
     }
+    // Apply column-level sort (takes priority over default sortKey/sortDir)
+    if (columnSortField) {
+      list = [...list].sort((a, b) => {
+        const knownA: Record<string, any> = {
+          firstName: a.firstName, lastName: a.lastName, email: a.email,
+          phone: a.phone, company: a.company, location: a.location,
+          birthday: a.birthday, lastContactedDate: a.lastContactedDate,
+          tags: a.tags, totalRevenue: a.totalRevenue,
+          outstandingBalance: a.outstandingBalance, leadStatus: a.leadStatus,
+          aiNotes: a.aiNotes,
+        };
+        const knownB: Record<string, any> = {
+          firstName: b.firstName, lastName: b.lastName, email: b.email,
+          phone: b.phone, company: b.company, location: b.location,
+          birthday: b.birthday, lastContactedDate: b.lastContactedDate,
+          tags: b.tags, totalRevenue: b.totalRevenue,
+          outstandingBalance: b.outstandingBalance, leadStatus: b.leadStatus,
+          aiNotes: b.aiNotes,
+        };
+        let va: any = columnSortField in knownA ? knownA[columnSortField] : (a.customFields?.[columnSortField] ?? "");
+        let vb: any = columnSortField in knownB ? knownB[columnSortField] : (b.customFields?.[columnSortField] ?? "");
+        // Handle arrays (tags)
+        if (Array.isArray(va)) va = va.join(",");
+        if (Array.isArray(vb)) vb = vb.join(",");
+        // Handle numbers
+        if (typeof va === 'number' && typeof vb === 'number') {
+          return columnSortDir === 'asc' ? va - vb : vb - va;
+        }
+        const sa = String(va ?? "").toLowerCase();
+        const sb = String(vb ?? "").toLowerCase();
+        return columnSortDir === 'asc' ? sa.localeCompare(sb) : sb.localeCompare(sa);
+      });
+    }
     return list;
-  }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo]);
+  }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo, columnSortField, columnSortDir]);
 
   const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleSelectAll = () => { const visible = filteredSortedCustomers.map(c => c.id); const allSelected = visible.every(id => selectedIds.has(id)); if (allSelected) setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.delete(id)); return n; }); else setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.add(id)); return n; }); };
   const selectedCustomers = customers.filter(c => selectedIds.has(c.id));
   const SortIcon = ({k}:{k:SortKey}) => sortKey===k ? (sortDir==="asc" ? <ChevronUp className="w-3 h-3 inline ml-1"/> : <ChevronDown className="w-3 h-3 inline ml-1"/>) : null;
+
+  // Column sort toggle: null → asc → desc → null
+  const toggleColumnSort = (fieldId: string) => {
+    if (columnSortField !== fieldId) {
+      setColumnSortField(fieldId);
+      setColumnSortDir('asc');
+    } else if (columnSortDir === 'asc') {
+      setColumnSortDir('desc');
+    } else {
+      setColumnSortField(null);
+      setColumnSortDir('asc');
+    }
+  };
+
+  // Auto-fit column width on double-click
+  const autoFitColumn = (fieldId: string, colIndex: number) => {
+    if (!tableRef.current) return;
+    const rows = tableRef.current.querySelectorAll('tbody tr');
+    let maxWidth = 60; // minimum
+    // Also measure the header
+    const thCells = tableRef.current.querySelectorAll('thead th');
+    if (thCells[colIndex + 1]) { // +1 for checkbox column
+      const span = thCells[colIndex + 1].querySelector('span');
+      if (span) maxWidth = Math.max(maxWidth, span.scrollWidth + 32);
+    }
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      const cell = cells[colIndex + 1]; // +1 for checkbox column
+      if (cell) {
+        maxWidth = Math.max(maxWidth, cell.scrollWidth + 8);
+      }
+    });
+    setColumnWidths(prev => ({ ...prev, [fieldId]: maxWidth }));
+  };
+
+  // Column resize handlers
+  const handleResizeMouseDown = (e: React.MouseEvent, fieldId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = (e.target as HTMLElement).closest('th');
+    const startWidth = th ? th.getBoundingClientRect().width : 130;
+    resizingRef.current = { fieldId, startX: e.clientX, startWidth };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const diff = ev.clientX - resizingRef.current.startX;
+      const newWidth = Math.max(60, resizingRef.current.startWidth + diff);
+      setColumnWidths(prev => ({ ...prev, [resizingRef.current!.fieldId]: newWidth }));
+    };
+    const onMouseUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
   const getRowTint = (tags: string[]) => {
     for (const t of tags) {
       if (t === "VIP") return isDarkMode ? "bg-amber-950/10" : "bg-amber-50/20";
@@ -1303,33 +1404,39 @@ export default function CRMPage() {
               ) : (
                 <div className={`rounded-xl border shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E5E7EB]'}`}>
                   <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-                    <table className="w-full text-[13px] border-collapse min-w-[1200px]">
+                    <table ref={tableRef} className="w-full text-[13px] border-collapse min-w-[1200px]" style={{ tableLayout: Object.keys(columnWidths).length > 0 ? 'fixed' : undefined }}>
                       <thead className="sticky top-0 z-20">
                         <tr className={isDarkMode ? 'bg-slate-800/70' : 'bg-[#F8F9FB]'}>
-                          <th className={`sticky left-0 top-0 z-30 w-10 px-3 py-3 border-b ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
+                          <th className={`sticky left-0 top-0 z-30 w-10 px-3 py-3 border-b border-r ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
                             <input type="checkbox" checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                           </th>
-                          {getVisibleFieldDefs().map((field) => {
-                            const sortableMap: Record<string, SortKey> = {
-                              firstName: "name", lastName: "name", email: "email",
-                              phone: "phone", tags: "tags", leadStatus: "status",
-                            };
-                            const fieldSortKey = sortableMap[field.id];
-                            const isSortable = !!fieldSortKey;
+                          {getVisibleFieldDefs().map((field, fieldIdx) => {
+                            const isColSorted = columnSortField === field.id;
+                            const colWidth = columnWidths[field.id];
                             return (
                               <th
                                 key={field.id}
-                                onClick={() => { if (isSortable) toggleSort(fieldSortKey); }}
-                                className={`${field.width || 'w-[130px]'} text-left text-[11px] font-semibold px-3 py-3 border-b select-none ${
-                                  isSortable ? 'cursor-pointer hover:text-indigo-600' : ''
-                                } ${isDarkMode ? 'text-slate-400 border-slate-700 bg-slate-800/95' : 'text-slate-500 border-[#E5E7EB] bg-[#F8F9FB]'}`}
+                                onClick={() => toggleColumnSort(field.id)}
+                                style={colWidth ? { width: colWidth, minWidth: colWidth, maxWidth: colWidth } : undefined}
+                                className={`${!colWidth ? (field.width || 'w-[130px]') : ''} text-left text-[11px] font-semibold px-3 py-3 border-b border-r select-none relative cursor-pointer hover:text-indigo-600 ${isDarkMode ? 'text-slate-400 border-slate-700 bg-slate-800/95' : 'text-slate-500 border-[#E5E7EB] bg-[#F8F9FB]'}`}
                               >
-                                <span className="inline-flex items-center gap-0.5">
+                                <span className="inline-flex items-center gap-1">
                                   {field.label}
-                                  {isSortable && sortKey === fieldSortKey && (
-                                    sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                                  {isColSorted ? (
+                                    columnSortDir === 'asc'
+                                      ? <ArrowUp className="w-3 h-3 text-indigo-500" />
+                                      : <ArrowDown className="w-3 h-3 text-indigo-500" />
+                                  ) : (
+                                    <ArrowUpDown className={`w-3 h-3 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
                                   )}
                                 </span>
+                                {/* Resize handle */}
+                                <div
+                                  onMouseDown={(e) => handleResizeMouseDown(e, field.id)}
+                                  onDoubleClick={(e) => { e.stopPropagation(); autoFitColumn(field.id, fieldIdx); }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute top-0 right-0 w-[4px] h-full cursor-col-resize z-10 hover:bg-indigo-400/40 active:bg-indigo-500/60"
+                                />
                               </th>
                             );
                           })}
@@ -1346,7 +1453,7 @@ export default function CRMPage() {
                                 : `border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''} hover:bg-indigo-50/30`
                             } ${selectedIds.has(c.id) ? (isDarkMode ? 'bg-indigo-950/20' : 'bg-indigo-50/40') : ''} ${getRowTint(c.tags)}`}
                           >
-                            <td className={`sticky left-0 z-10 px-3 py-3 ${isDarkMode ? (idx % 2 === 1 ? 'bg-slate-800/20' : 'bg-slate-900') : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white')} group-hover:${isDarkMode ? 'bg-slate-800/50' : 'bg-indigo-50/30'}`} onClick={(e) => e.stopPropagation()}>
+                            <td className={`sticky left-0 z-10 px-3 py-3 border-r ${isDarkMode ? (idx % 2 === 1 ? 'bg-slate-800/20' : 'bg-slate-900') + ' border-slate-700' : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white') + ' border-slate-200'} group-hover:${isDarkMode ? 'bg-slate-800/50' : 'bg-indigo-50/30'}`} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                             </td>
                             {getVisibleFieldDefs().map((field) => {
@@ -1367,14 +1474,14 @@ export default function CRMPage() {
                                 case "currency":
                                   const numVal = typeof val === "number" ? val : parseFloat(val) || 0;
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 text-right font-semibold tabular-nums ${numVal > 0 ? 'text-emerald-600' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
+                                    <td key={field.id} className={`px-3 py-3 text-right font-semibold tabular-nums border-r ${numVal > 0 ? 'text-emerald-600' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : undefined}>
                                       ${numVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </td>
                                   );
                                 case "tags":
                                   const tagsArr = Array.isArray(val) ? val : [];
                                   return (
-                                    <td key={field.id} className="px-3 py-3">
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden' } : undefined}>
                                       {tagsArr.length > 0 ? (
                                         <div className="flex flex-wrap gap-1">
                                           {tagsArr.slice(0, 2).map((tag: string) => (
@@ -1388,7 +1495,7 @@ export default function CRMPage() {
                                 case "select":
                                   if (field.id === "leadStatus") {
                                     return (
-                                      <td key={field.id} className="px-3 py-3">
+                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden' } : undefined}>
                                         <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getStatusStyles(String(val), isDarkMode)}`}>
                                           {String(val)}
                                         </span>
@@ -1396,31 +1503,31 @@ export default function CRMPage() {
                                     );
                                   }
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
                                       {val ? String(val) : dash}
                                     </td>
                                   );
                                 case "date":
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
                                       {val ? new Date(String(val)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dash}
                                     </td>
                                   );
                                 case "boolean":
                                   return (
-                                    <td key={field.id} className="px-3 py-3">
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id] } : undefined}>
                                       {val ? <Check className="w-4 h-4 text-emerald-500" /> : dash}
                                     </td>
                                   );
                                 case "email":
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
                                       {val ? String(val) : dash}
                                     </td>
                                   );
                                 case "number":
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 tabular-nums ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <td key={field.id} className={`px-3 py-3 tabular-nums border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
                                       {val !== undefined && val !== "" ? String(val) : dash}
                                     </td>
                                   );
@@ -1431,7 +1538,7 @@ export default function CRMPage() {
                                   const isLocation = field.id === "location";
                                   if (isCompany) {
                                     return (
-                                      <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
                                         {val ? (
                                           <span className="inline-flex items-center gap-1">
                                             <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
@@ -1443,7 +1550,7 @@ export default function CRMPage() {
                                   }
                                   if (isLocation) {
                                     return (
-                                      <td key={field.id} className={`px-3 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
                                         {val ? (
                                           <span className="inline-flex items-center gap-1">
                                             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
@@ -1454,7 +1561,7 @@ export default function CRMPage() {
                                     );
                                   }
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 ${isName ? 'font-medium' : ''} ${isDarkMode ? (isName ? 'text-white' : 'text-slate-300') : (isName ? 'text-slate-800' : 'text-slate-600')}`}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isName ? 'font-medium' : ''} ${isDarkMode ? (isName ? 'text-white' : 'text-slate-300') + ' border-slate-700' : (isName ? 'text-slate-800' : 'text-slate-600') + ' border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
                                       {val ? String(val) : dash}
                                     </td>
                                   );
@@ -1798,6 +1905,7 @@ export default function CRMPage() {
           showToast("✅ Field configuration updated");
         }}
         isDarkMode={isDarkMode}
+        customers={customers}
       />
 
       {/* ━━━━━━ EXPORT MODAL ━━━━━━ */}
