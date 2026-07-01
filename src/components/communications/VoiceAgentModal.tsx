@@ -63,6 +63,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const speculativeRef = useRef<{ text: string; promise: Promise<{ reply: string; pactFacts: any[]; usage: number }> | null }>({ text: '', promise: null });
   const speculativeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Whisper Fallback (for PWAs/mobile where SpeechRecognition fails) ──
+  const useWhisperFallback = useRef(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const speechDetectedButNoResult = useRef(false);
+  const whisperCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [usingWhisper, setUsingWhisper] = useState(false);
+
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => {
     isPausedRef.current = isPaused;
@@ -202,6 +210,66 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       recognitionRef.current = recognition;
     } catch { }
   }, [stopRecognition]);
+
+  // ── Whisper Fallback: MediaRecorder-based recording ──
+  const startWhisperRecording = useCallback(() => {
+    if (!streamRef.current || cancelledRef.current) return;
+    try {
+      // Stop any existing recorder
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      audioChunksRef.current = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : MediaRecorder.isTypeSupported('audio/webm') 
+          ? 'audio/webm' 
+          : 'audio/mp4';
+      const recorder = new MediaRecorder(streamRef.current, { mimeType });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.start(250); // Collect chunks every 250ms
+      mediaRecorderRef.current = recorder;
+      setLiveText("🎙️ Recording... tap Done when finished");
+    } catch (err) {
+      console.error('MediaRecorder fallback failed:', err);
+    }
+  }, []);
+
+  const stopWhisperRecording = useCallback(async (): Promise<string> => {
+    return new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === 'inactive') {
+        resolve('');
+        return;
+      }
+      recorder.onstop = async () => {
+        const chunks = audioChunksRef.current;
+        if (chunks.length === 0) { resolve(''); return; }
+        const audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        audioChunksRef.current = [];
+        // Send to server for Whisper transcription
+        try {
+          const ext = (recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+          const formData = new FormData();
+          formData.append('audio', audioBlob, `recording.${ext}`);
+          const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+          if (res.ok) {
+            const data = await res.json();
+            resolve(data.text || '');
+          } else {
+            console.error('Transcribe API error:', res.status);
+            resolve('');
+          }
+        } catch (err) {
+          console.error('Whisper transcription error:', err);
+          resolve('');
+        }
+      };
+      recorder.stop();
+    });
+  }, []);
 
   // ── Mute: fully stop/start recognition + mic track ──
   useEffect(() => {
@@ -450,6 +518,27 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         // Start recognition immediately
         startRecognition();
 
+        // ── Whisper Fallback Detection ──
+        // If SpeechRecognition is available but doesn't produce results
+        // (common in PWAs on Android), auto-switch to Whisper after 4s of
+        // detected audio activity with no transcription.
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+        whisperCheckTimerRef.current = setTimeout(() => {
+          // Check: waveform was active (mic works) but no recognition results
+          if (!hasReceivedInputRef.current && !cancelledRef.current && phaseRef.current === 'listening') {
+            // The mic is working (we got here), but SpeechRecognition gave us nothing.
+            // Switch to Whisper fallback.
+            console.log('SpeechRecognition not producing results — switching to Whisper fallback');
+            useWhisperFallback.current = true;
+            setUsingWhisper(true);
+            stopRecognition(); // Stop the broken recognition
+            startWhisperRecording(); // Start recording audio for Whisper
+            setTranscriptLines(prev => [...prev, { text: isPWA 
+              ? '📱 Using voice recording mode (works in installed apps). Speak normally, then tap "Done Speaking" when finished.'
+              : '🎙️ Using voice recording mode. Speak normally, then tap "Done Speaking" when finished.', isUser: false }]);
+          }
+        }, isPWA ? 2500 : 5000); // Check sooner in PWA mode since we know it's likely broken
+
         // 10-second no-input timeout: if user hasn't spoken, prompt them
         noInputTimeoutRef.current = setTimeout(async () => {
           if (!hasReceivedInputRef.current && !cancelledRef.current && phaseRef.current === "listening") {
@@ -473,7 +562,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 audio.onended = () => {
                   setPhase("listening");
                   if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
-                  if (!isMicMuted && !isPaused) startRecognition();
+                  if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
                 };
                 audio.play().catch(() => {});
               } else {
@@ -519,8 +608,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     return () => {
       cancelledRef.current = true;
       if (noInputTimeoutRef.current) { clearTimeout(noInputTimeoutRef.current); noInputTimeoutRef.current = null; }
+      if (whisperCheckTimerRef.current) { clearTimeout(whisperCheckTimerRef.current); whisperCheckTimerRef.current = null; }
       cancelAnimationFrame(animFrameRef.current);
       stopRecognition();
+      // Stop MediaRecorder if active
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch {}
+      }
       window.removeEventListener("click", unlockOnGesture, { capture: true });
       window.removeEventListener("touchstart", unlockOnGesture, { capture: true });
       streamRef.current?.getTracks().forEach(t => t.stop());
@@ -575,6 +669,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       // Kill animation frame
       cancelAnimationFrame(animFrameRef.current);
 
+      // Kill MediaRecorder if active
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch {}
+        mediaRecorderRef.current = null;
+      }
+      audioChunksRef.current = [];
+
       // Kill any pending audio playback
       if (audioRef.current) {
         audioRef.current.pause();
@@ -603,6 +704,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       conversationRef.current = [];
       interruptFrameCount.current = 0;
       lastTimerTextRef.current = "";
+      useWhisperFallback.current = false;
+      setUsingWhisper(false);
+      if (whisperCheckTimerRef.current) { clearTimeout(whisperCheckTimerRef.current); whisperCheckTimerRef.current = null; }
     }
   }, [isOpen, stopRecognition]);
 
@@ -665,17 +769,29 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     // Instantly lock phaseRef to prevent double-firing from rapid clicks or debounce overlaps
     phaseRef.current = "processing";
 
-    // MOBILE FIX: On Android Chrome, SpeechRecognition sometimes doesn't mark results
-    // as isFinal, so accumulatedTextRef stays empty while liveText has the interim text.
-    // Use liveText as a reliable fallback.
-    let spokenText = accumulatedTextRef.current.trim();
-    if (!spokenText) {
-      // Grab whatever is in liveText (interim results)
-      spokenText = liveText.trim();
+    let spokenText = '';
+
+    if (useWhisperFallback.current) {
+      // ── Whisper Fallback Mode: Stop recording and transcribe via API ──
+      setLiveText("⏳ Transcribing...");
+      setPhase("processing");
+      spokenText = await stopWhisperRecording();
+      setLiveText('');
+    } else {
+      // ── Normal SpeechRecognition Mode ──
+      // MOBILE FIX: On Android Chrome, SpeechRecognition sometimes doesn't mark results
+      // as isFinal, so accumulatedTextRef stays empty while liveText has the interim text.
+      spokenText = accumulatedTextRef.current.trim();
+      if (!spokenText) {
+        spokenText = liveText.trim();
+      }
     }
+
     if (!spokenText) {
       phaseRef.current = "listening"; // unlock if empty
       setPhase("listening");
+      // Restart recording in Whisper mode
+      if (useWhisperFallback.current) startWhisperRecording();
       return;
     }
 
@@ -730,7 +846,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         // Clean up blob URL to prevent memory leak
         if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
         audioRef.current = null;
-        if (!isMicMuted && !isPaused) startRecognition();
+        if (!isMicMuted && !isPaused) {
+          if (useWhisperFallback.current) {
+            startWhisperRecording();
+          } else {
+            startRecognition();
+          }
+        }
       };
 
       // MOBILE FIX: Fetch TTS as blob for reliable mobile playback
@@ -781,7 +903,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       const delay = Math.max(1500, Math.min(cleanedReply.length * 35, 6000));
       speakingTimeoutRef.current = setTimeout(() => {
         setPhase("listening");
-        if (!isMicMuted && !isPaused) startRecognition();
+        if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
       }, delay);
     }
   };
@@ -899,7 +1021,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                     }
                     setPhase("listening");
                     phaseRef.current = "listening";
-                    if (!isMicMuted && !isPaused) startRecognition();
+                    if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
                   } else {
                     finishUserTurn();
                   }
@@ -911,7 +1033,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; audioRef.current = null; }
                     if (speakingTimeoutRef.current) { clearTimeout(speakingTimeoutRef.current); speakingTimeoutRef.current = null; }
                     setPhase("listening"); phaseRef.current = "listening";
-                    if (!isMicMuted && !isPaused) startRecognition();
+                    if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
                   } else { finishUserTurn(); }
                 }}
                 disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
@@ -1097,7 +1219,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 }
                 setPhase("listening");
                 phaseRef.current = "listening";
-                if (!isMicMuted && !isPaused) startRecognition();
+                if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
               } else {
                 finishUserTurn();
               }
@@ -1119,7 +1241,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 }
                 setPhase("listening");
                 phaseRef.current = "listening";
-                if (!isMicMuted && !isPaused) startRecognition();
+                if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
               } else {
                 finishUserTurn();
               }
