@@ -1065,7 +1065,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
       <div className="flex flex-col items-center flex-1 justify-center relative bg-[#faf8f3] p-6">
         
-        <div className="absolute top-4 left-3 right-3 sm:top-6 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none" style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="absolute top-20 left-3 right-3 sm:top-6 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none">
           {/* Top Left: Cost */}
           <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-10 rounded-full bg-white border border-slate-200 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors z-50">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
