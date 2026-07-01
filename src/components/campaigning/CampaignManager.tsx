@@ -1279,8 +1279,16 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
           }
         } else {
           // Trigger time is in the future → do NOT send now
-          // The email cron job (/api/campaigning/email/cron) will send it at the right time
-          console.log(`[Campaign] Scheduled for ${triggerDate.toISOString()} — not sending yet.`);
+          // Set a precision timer to trigger the cron at the exact scheduled time
+          // (Vercel Hobby plan only supports daily crons)
+          const delayMs = triggerDate.getTime() - now.getTime();
+          console.log(`[Campaign] Scheduled for ${triggerDate.toISOString()} — setting ${Math.round(delayMs / 60000)}min timer.`);
+          setTimeout(() => {
+            fetch("/api/campaigning/email/cron", {
+              method: "GET",
+              headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ""}` },
+            }).catch(() => {});
+          }, delayMs);
         }
       }
     } catch (err) {
