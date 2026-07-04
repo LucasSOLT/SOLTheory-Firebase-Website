@@ -786,13 +786,13 @@ export function GmailAIPanel({
 
   return (
     <div
-      className="h-full flex flex-col bg-white border-l border-slate-200 relative shrink-0"
+      className="fixed inset-0 z-50 flex flex-col bg-white border-l border-slate-200 md:relative md:inset-auto md:z-auto md:shrink-0 max-md:!w-auto dark:bg-slate-900 dark:border-slate-800"
       style={{ width: panelWidth }}
     >
-      {/* ─── Drag Handle (left edge) ─── */}
+      {/* ─── Drag Handle (left edge) — hidden on mobile ─── */}
       <div
         onMouseDown={handleDragStart}
-        className={`absolute left-0 top-0 bottom-0 w-[6px] z-10 cursor-col-resize group flex items-center justify-center hover:bg-slate-200/60 transition-colors ${
+        className={`absolute left-0 top-0 bottom-0 w-[6px] z-10 cursor-col-resize group hidden md:flex items-center justify-center hover:bg-slate-200/60 transition-colors ${
           isDragging ? "bg-slate-300/60" : ""
         }`}
       >

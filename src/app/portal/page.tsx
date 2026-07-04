@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { StarBackground } from "@/components/ui/star-background";
+import { useTranslation } from "@/lib/i18n";
 import {
   BarChart3,
   GraduationCap,
@@ -95,13 +96,9 @@ export default function PortalChooserPage() {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<PlatformId | null>(null);
 
-  // Force dark mode on this page
-  useEffect(() => {
-    document.documentElement.classList.add("dark");
-    return () => {
-      document.documentElement.classList.remove("dark");
-    };
-  }, []);
+  const { t } = useTranslation();
+
+  // Public pages always use dark backgrounds — ThemeProvider handles the class
 
   const toggleExpand = (id: PlatformId) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -125,7 +122,7 @@ export default function PortalChooserPage() {
               SOL Theory Network
             </div>
             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white mb-3">
-              Choose Your Platform
+              {t.pubSelectPortal}
             </h1>
             <p className="text-slate-400 text-base max-w-md mx-auto leading-relaxed">
               Select the workspace you&apos;d like to access.

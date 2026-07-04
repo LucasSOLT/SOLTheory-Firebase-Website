@@ -6,6 +6,7 @@ import { StarBackground } from '@/components/ui/star-background';
 import { Mail, Phone, Wrench, ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useTranslation } from '@/lib/i18n';
 
 const contactItems = [
   {
@@ -51,6 +52,7 @@ const fadeUp = {
 };
 
 export default function ContactPage() {
+  const { t, lang } = useTranslation();
   return (
     <div className="flex flex-col min-h-screen bg-[#0A0A0B] text-slate-200 selection:bg-fuchsia-500/30 overflow-x-hidden">
       <div className="absolute top-0 w-full z-50 fixed">
@@ -88,7 +90,7 @@ export default function ContactPage() {
                 className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-fuchsia-400 transition-colors font-medium group"
               >
                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                Back to Home
+                {lang === 'es' ? 'Volver al Inicio' : 'Back to Home'}
               </Link>
             </motion.div>
 
@@ -100,10 +102,10 @@ export default function ContactPage() {
               className="text-center mb-16 space-y-5"
             >
               <h1 className="font-nunito text-5xl md:text-7xl font-bold text-white tracking-tight drop-shadow-2xl">
-                Contact Us
+                {lang === 'es' ? 'Contáctanos' : 'Contact Us'}
               </h1>
               <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto font-light leading-relaxed">
-                Have a question, idea, or need technical help? We'd love to hear from you — pick the right channel below.
+                {lang === 'es' ? '¿Tienes una pregunta, idea o necesitas ayuda técnica? Nos encantaría saber de ti — elige el canal correcto a continuación.' : "Have a question, idea, or need technical help? We'd love to hear from you — pick the right channel below."}
               </p>
             </motion.div>
 

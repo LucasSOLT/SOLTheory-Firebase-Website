@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { doc, updateDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
 import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { useTheme } from "@/components/ThemeProvider";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
@@ -115,7 +116,7 @@ export default function SolTheoryDashboard() {
   const [agentSlots, setAgentSlots] = useState<AgentSlotData[]>([]);
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDarkMode } = useTheme();
   const [showConfetti, setShowConfetti] = useState(false);
   const { t, lang } = useTranslation();
   const [currentTime, setCurrentTime] = useState('');
@@ -178,16 +179,7 @@ export default function SolTheoryDashboard() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Dark mode preference from localStorage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('insight_theme');
-    if (savedTheme === 'dark') setIsDarkMode(true);
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'insight_theme') setIsDarkMode(e.newValue === 'dark');
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+
 
   // Admin Content Manager state (from shared store)
   const contentManagerActive = useContentManagerStore((s) => s.active);
@@ -288,7 +280,7 @@ export default function SolTheoryDashboard() {
           <h1 className={`text-xl sm:text-3xl font-light italic font-cormorant tracking-wide ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             {t.welcomeBack} <span className="not-italic font-semibold">{(user?.displayName || "Lucas").replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke')}</span>.
           </h1>
-          <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`text-xs sm:text-sm font-medium hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             {t.weekAtGlance}
           </p>
         </div>
@@ -305,7 +297,7 @@ export default function SolTheoryDashboard() {
           )}
           
           {/* Row 1: Top (Left: Focus tile, Right: News — balanced inline) */}
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full" style={{ height: '420px', minHeight: '420px' }}>
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full lg:h-[420px] lg:min-h-[420px] h-auto">
             {/* Card: Here's what to focus on today */}
             <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-[5] min-h-0">
             <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
@@ -328,13 +320,13 @@ export default function SolTheoryDashboard() {
           </div>
 
           {/* Row 2: Middle (Left Grant Analytics, Right Quick Overview) */}
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch" style={{ maxHeight: "420px" }}>
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch lg:max-h-[420px]">
             {/* Slot 3: Grant Analytics (merged Tiles 3+4+5) — wider */}
             <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[2.5] min-w-0 overflow-hidden">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
-              <div className="flex-1 flex gap-5 min-h-0 overflow-hidden">
+              <div className="flex-1 flex flex-col md:flex-row gap-5 min-h-0 overflow-hidden">
                 {/* Left Column: Charts */}
-                <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0 hidden md:flex">
                   {/* Header row with button */}
                   <div className="flex items-center justify-between mb-3 shrink-0">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.performance}</span>
@@ -355,7 +347,7 @@ export default function SolTheoryDashboard() {
                 </div>
 
                 {/* Divider */}
-                <div className={`w-px shrink-0 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
+                <div className={`w-px shrink-0 hidden md:block ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
 
                 {/* Right Column: Suggested Grants */}
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -389,7 +381,7 @@ export default function SolTheoryDashboard() {
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
           <div className="flex flex-col lg:flex-row gap-5 w-full">
             {/* Slot 5: Aspect 16:9 (Wide, Large) -> Two-column grid of AI Agent Operations and CRM Funnel */}
-            <div className="flex-[8] aspect-[16/9] grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+            <div className="flex-[8] aspect-auto lg:aspect-[16/9] hidden md:grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
               {/* Tile 9: AI Agent Operations */}
               <CmsTileWrapper tileId="tile-9" tileName="Tile 9" className="h-full">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
@@ -406,7 +398,7 @@ export default function SolTheoryDashboard() {
             </div>
 
             {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards (Blank White Cards) */}
-            <div className="flex-[3] aspect-[2/3] flex flex-col gap-5">
+            <div className="flex-[3] aspect-auto lg:aspect-[2/3] flex flex-col gap-5">
               {/* Card 6A: Upcoming Milestones (Deadlines Widget) */}
               <CmsTileWrapper tileId="tile-10" tileName="Tile 10" className="flex-1">
               <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
@@ -415,7 +407,7 @@ export default function SolTheoryDashboard() {
               </CmsTileWrapper>
 
               {/* Card 6B: Weekly Hours Worked (moved from Row 1) */}
-              <CmsTileWrapper tileId="tile-13" tileName="Weekly Hours Worked" className="flex-1">
+              <CmsTileWrapper tileId="tile-13" tileName="Weekly Hours Worked" className="flex-1 hidden md:block">
               <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-shadow p-3 sm:p-4 md:p-5 flex flex-col`}>
                 <div className="flex items-center justify-between mb-3 shrink-0">
                   <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.weeklyHoursWorked}</span>

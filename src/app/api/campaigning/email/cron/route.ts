@@ -220,16 +220,39 @@ export async function GET(req: Request) {
               // Resolve per-recipient merge fields
               const recipientData = campaign.recipients.find((r: { email: string }) => r.email === recipientEmail);
               let perSubject = campaign.subject || "";
-              let perBody = campaign.body || "";
-              if (recipientData) {
-                const firstName = recipientData.name?.split(" ")[0] || "";
-                perSubject = perSubject.replace(/\{\{first_name\}\}/gi, firstName);
-                perSubject = perSubject.replace(/\{\{org_name\}\}/gi, orgName);
-                perBody = perBody.replace(/\{\{first_name\}\}/gi, firstName);
-                perBody = perBody.replace(/\{\{org_name\}\}/gi, orgName);
-              }
+              let perHtml: string;
 
-              const perHtml = perBody.split('\n').map((line: string) => `<p style="margin:0 0 12px 0;">${line}</p>`).join('') + signoff;
+              if (campaign.htmlContent) {
+                // Smart Composer: send pre-assembled HTML with merge fields resolved
+                perHtml = campaign.htmlContent;
+                if (recipientData) {
+                  const firstName = recipientData.name?.split(" ")[0] || "";
+                  const lastName = recipientData.name?.split(" ").slice(1).join(" ") || "";
+                  perSubject = perSubject.replace(/\{\{first_name\}\}/gi, firstName);
+                  perSubject = perSubject.replace(/\{\{last_name\}\}/gi, lastName);
+                  perSubject = perSubject.replace(/\{\{org_name\}\}/gi, orgName);
+                  perSubject = perSubject.replace(/\{\{sender_name\}\}/gi, senderName);
+                  perSubject = perSubject.replace(/\{\{phone_number\}\}/gi, phoneNumber);
+                  perSubject = perSubject.replace(/\{\{email\}\}/gi, recipientData.email || "");
+                  perHtml = perHtml.replace(/\{\{first_name\}\}/gi, firstName);
+                  perHtml = perHtml.replace(/\{\{last_name\}\}/gi, lastName);
+                  perHtml = perHtml.replace(/\{\{org_name\}\}/gi, orgName);
+                  perHtml = perHtml.replace(/\{\{sender_name\}\}/gi, senderName);
+                  perHtml = perHtml.replace(/\{\{phone_number\}\}/gi, phoneNumber);
+                  perHtml = perHtml.replace(/\{\{email\}\}/gi, recipientData.email || "");
+                }
+              } else {
+                // Classic mode: wrap plain text in <p> tags + sign-off
+                let perBody = campaign.body || "";
+                if (recipientData) {
+                  const firstName = recipientData.name?.split(" ")[0] || "";
+                  perSubject = perSubject.replace(/\{\{first_name\}\}/gi, firstName);
+                  perSubject = perSubject.replace(/\{\{org_name\}\}/gi, orgName);
+                  perBody = perBody.replace(/\{\{first_name\}\}/gi, firstName);
+                  perBody = perBody.replace(/\{\{org_name\}\}/gi, orgName);
+                }
+                perHtml = perBody.split('\n').map((line: string) => `<p style="margin:0 0 12px 0;">${line}</p>`).join('') + signoff;
+              }
 
               const emailLines = [
                 `MIME-Version: 1.0`,

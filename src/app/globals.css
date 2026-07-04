@@ -53,15 +53,59 @@
   * {
     @apply border-border;
   }
+  html {
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
   body {
     @apply bg-background text-foreground;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
-  
+  ::selection {
+    background: hsl(var(--primary) / 0.3);
+    color: hsl(var(--foreground));
+  }
 
   html, body {
     background-color: hsl(var(--background));
   }
 }
+
+/* ── Dark mode sidebar overrides ──
+   These override the light-mode sidebar colors when .dark is on <html>.
+   Replaces the previously injected <style> block in dashboard layout. */
+.dark aside .bg-\[\#f0ede4\] { background-color: rgb(30 41 59) !important; }
+.dark aside .bg-\[\#f2efe8\] { background-color: rgb(30 41 59) !important; }
+.dark aside .bg-\[\#faf8f3\] { background-color: rgb(15 23 42) !important; }
+.dark aside .bg-slate-100 { background-color: rgb(51 65 85) !important; }
+.dark aside .hover\:bg-\[\#f2efe8\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+.dark aside .hover\:bg-\[\#faf6ed\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+.dark aside .hover\:bg-\[\#f0ede4\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+.dark aside .hover\:bg-slate-50:hover { background-color: rgb(30 41 59 / 0.6) !important; }
+.dark aside .text-stone-900 { color: rgb(226 232 240) !important; }
+.dark aside .text-slate-900 { color: rgb(226 232 240) !important; }
+.dark aside .text-slate-800 { color: rgb(203 213 225) !important; }
+.dark aside .text-slate-700 { color: rgb(148 163 184) !important; }
+.dark aside .text-slate-600 { color: rgb(148 163 184) !important; }
+.dark aside .text-slate-500 { color: rgb(148 163 184) !important; }
+.dark aside .text-slate-400 { color: rgb(148 163 184) !important; }
+.dark aside .text-slate-300 { color: rgb(148 163 184) !important; }
+.dark aside .hover\:text-stone-900:hover { color: rgb(226 232 240) !important; }
+.dark aside .hover\:text-slate-900:hover { color: rgb(203 213 225) !important; }
+.dark aside .hover\:text-slate-700:hover { color: rgb(203 213 225) !important; }
+.dark aside .border-\[\#e0ddd4\] { border-color: rgb(51 65 85) !important; }
+.dark aside .border-slate-200 { border-color: rgb(51 65 85) !important; }
+.dark aside .border-slate-200\/80 { border-color: rgb(51 65 85 / 0.8) !important; }
+.dark aside .border-slate-100 { border-color: rgb(51 65 85 / 0.5) !important; }
+.dark aside .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.15) !important; }
+.dark aside .group-hover\:text-slate-700:hover { color: rgb(203 213 225) !important; }
+.dark aside .bg-indigo-50 { background-color: rgb(51 65 85) !important; }
+.dark aside .text-indigo-900 { color: rgb(255 255 255) !important; }
+.dark aside .bg-fuchsia-50 { background-color: rgb(51 65 85) !important; }
+.dark aside .text-fuchsia-900 { color: rgb(255 255 255) !important; }
+.dark aside .bg-blue-50 { background-color: rgb(51 65 85) !important; }
+.dark aside .text-blue-900 { color: rgb(255 255 255) !important; }
+.dark aside .bg-amber-50 { background-color: rgb(51 65 85) !important; }
+.dark aside .text-amber-900 { color: rgb(255 255 255) !important; }
 
 /* iPhone-like message bubble send animation */
 @keyframes dm-bubble-rise {

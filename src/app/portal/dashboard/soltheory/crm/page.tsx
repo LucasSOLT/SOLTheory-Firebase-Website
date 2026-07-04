@@ -4,7 +4,8 @@ import CampaignCalendar from "@/components/crm/CampaignCalendar";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from '@/lib/i18n';
-import { useDarkMode } from "@/lib/useDarkMode";
+import { useTheme } from '@/components/ThemeProvider';
+
 import { useUser, useFirestore } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
@@ -83,32 +84,24 @@ const getStatusLabel = (status: string, isSpanish: boolean) => {
   }
 };
 
-const getTagStyles = (tag: string, isDarkMode: boolean) => {
-  if (isDarkMode) {
-    switch (tag) {
-      case "VIP": return "bg-amber-950/40 text-amber-400 border-amber-800";
-      case "Enterprise": return "bg-purple-950/40 text-purple-400 border-purple-800";
-      case "Inbound": return "bg-sky-950/40 text-sky-400 border-sky-800";
-      case "Referral": return "bg-emerald-950/40 text-emerald-400 border-emerald-800";
-      case "High-Value": return "bg-rose-950/40 text-rose-400 border-rose-800";
-      default: return "bg-slate-900 text-slate-300 border-slate-700";
-    }
-  } else {
-    return TAG_COLORS[tag] || (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-[#faf6ed] text-slate-600 border-slate-200');
+const getTagStyles = (tag: string) => {
+  switch (tag) {
+    case "VIP": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800";
+    case "Enterprise": return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800";
+    case "Inbound": return "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800";
+    case "Referral": return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800";
+    case "High-Value": return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800";
+    default: return "bg-[#faf6ed] text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700";
   }
 };
 
-const getStatusStyles = (status: string, isDarkMode: boolean) => {
-  if (isDarkMode) {
-    switch (status) {
-      case "Cold Lead": return "bg-blue-950/40 text-blue-400 border-blue-800";
-      case "Warm Lead": return "bg-orange-950/40 text-orange-400 border-orange-800";
-      case "Interested": return "bg-purple-950/40 text-purple-400 border-purple-800";
-      case "Sale Completed": return "bg-emerald-950/40 text-emerald-400 border-emerald-800";
-      default: return "bg-slate-900 text-slate-300 border-slate-700";
-    }
-  } else {
-    return STATUS_COLORS[status] || "bg-[#faf6ed] text-slate-600 border-slate-200";
+const getStatusStyles = (status: string) => {
+  switch (status) {
+    case "Cold Lead": return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800";
+    case "Warm Lead": return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800";
+    case "Interested": return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800";
+    case "Sale Completed": return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800";
+    default: return "bg-[#faf6ed] text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700";
   }
 };
 
@@ -116,15 +109,14 @@ const getStatusStyles = (status: string, isDarkMode: boolean) => {
 
 function EmptyContacts({ onAdd }: { onAdd: () => void }) {
   const { t, lang } = useTranslation();
-  const isDarkMode = useDarkMode();
 
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+      <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-400">
         <Users className="w-9 h-9" />
       </div>
-      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmNoContactsYet}</h3>
-      <p className={`text-sm text-center max-w-sm mb-6 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+      <h3 className="text-lg font-semibold mb-1.5 text-slate-800 dark:text-white">{t.crmNoContactsYet}</h3>
+      <p className="text-sm text-center max-w-sm mb-6 leading-relaxed text-slate-500 dark:text-slate-400">
         {t.crmNoContactsDesc}
       </p>
       <button
@@ -140,15 +132,14 @@ function EmptyContacts({ onAdd }: { onAdd: () => void }) {
 
 function EmptyPipeline() {
   const { t, lang } = useTranslation();
-  const isDarkMode = useDarkMode();
 
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+      <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-400">
         <GitBranch className="w-9 h-9" />
       </div>
-      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmPipelineEmpty}</h3>
-      <p className={`text-sm text-center max-w-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+      <h3 className="text-lg font-semibold mb-1.5 text-slate-800 dark:text-white">{t.crmPipelineEmpty}</h3>
+      <p className="text-sm text-center max-w-sm leading-relaxed text-slate-500 dark:text-slate-400">
         {t.crmPipelineEmptyDesc}
       </p>
     </div>
@@ -157,15 +148,14 @@ function EmptyPipeline() {
 
 function EmptyInbox() {
   const { t, lang } = useTranslation();
-  const isDarkMode = useDarkMode();
 
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+      <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-400">
         <Mail className="w-9 h-9" />
       </div>
-      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmInboxClear}</h3>
-      <p className={`text-sm text-center max-w-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+      <h3 className="text-lg font-semibold mb-1.5 text-slate-800 dark:text-white">{t.crmInboxClear}</h3>
+      <p className="text-sm text-center max-w-sm leading-relaxed text-slate-500 dark:text-slate-400">
         {t.crmInboxClearDesc}
       </p>
     </div>
@@ -174,15 +164,14 @@ function EmptyInbox() {
 
 function EmptyAnalytics() {
   const { t, lang } = useTranslation();
-  const isDarkMode = useDarkMode();
 
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6">
-      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-300'}`}>
+      <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-400">
         <BarChart3 className="w-9 h-9" />
       </div>
-      <h3 className={`text-lg font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.crmNoDataAnalyze}</h3>
-      <p className={`text-sm text-center max-w-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+      <h3 className="text-lg font-semibold mb-1.5 text-slate-800 dark:text-white">{t.crmNoDataAnalyze}</h3>
+      <p className="text-sm text-center max-w-sm leading-relaxed text-slate-500 dark:text-slate-400">
         {t.crmNoDataAnalyzeDesc}
       </p>
     </div>
@@ -197,17 +186,15 @@ function MetricCard({
   subtext,
   icon: Icon,
   trend,
-  isDarkMode,
 }: {
   label: string;
   value: string;
   subtext: string;
   icon: React.ComponentType<{ className?: string }>;
   trend?: string;
-  isDarkMode?: boolean;
 }) {
   return (
-    <div className={`p-5 flex flex-col gap-2.5 border-b border-r ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+    <div className="p-5 flex flex-col gap-2.5 border-b border-r bg-white border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-white">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
         <Icon className="w-4 h-4 text-slate-400" />
@@ -245,8 +232,7 @@ export default function CRMPage() {
   /* ─────────── LOCAL UI STATE ─────────── */
   const [activeView, setActiveView] = useState<CrmView>("dashboard");
   const { t, lang } = useTranslation();
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  useEffect(() => { const check = () => setIsDarkMode(localStorage.getItem('insight_theme') === 'dark'); check(); const interval = setInterval(check, 500); window.addEventListener('storage', check); return () => { clearInterval(interval); window.removeEventListener('storage', check); }; }, []);
+  const { isDarkMode } = useTheme();
   const getCrmNavLabel = (id: string) => {
     switch (id) {
       case "dashboard": return "Database";
@@ -967,9 +953,9 @@ export default function CRMPage() {
   };
   const getRowTint = (tags: string[]) => {
     for (const t of tags) {
-      if (t === "VIP") return isDarkMode ? "bg-amber-950/10" : "bg-amber-50/20";
-      if (t === "Enterprise") return isDarkMode ? "bg-purple-950/10" : "bg-purple-50/20";
-      if (t === "High-Value") return isDarkMode ? "bg-rose-950/10" : "bg-rose-50/20";
+      if (t === "VIP") return "bg-amber-50/20 dark:bg-amber-950/10";
+      if (t === "Enterprise") return "bg-purple-50/20 dark:bg-purple-950/10";
+      if (t === "High-Value") return "bg-rose-50/20 dark:bg-rose-950/10";
     }
     return "";
   };
@@ -1287,7 +1273,7 @@ export default function CRMPage() {
             }`}
           >
             <Contact className="w-[18px] h-[18px] text-sky-500" />
-            Contact
+            <span className="hidden sm:inline">Contact</span>
           </button>
           <button
             onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
@@ -1296,15 +1282,15 @@ export default function CRMPage() {
             }`}
           >
             <Trash2 className="w-[18px] h-[18px]" />
-            Delete
+            <span className="hidden sm:inline">Delete</span>
           </button>
         </div>
       </aside>
 
       {/* ──── Main Content Area ──── */}
-      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-[margin] duration-300 ease-in-out ${isJarvisOpen ? 'mr-[340px]' : ''}`}>
+      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-[margin] duration-300 ease-in-out ${isJarvisOpen ? 'lg:mr-[340px]' : ''}`}>
         {/* ──── Top Navigation Bar ──── */}
-        <header className={`h-14 border-b flex items-center justify-between px-5 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#f5f0e6] border-[#e8e0cc]'}`}>
+        <header className={`h-11 md:h-14 border-b flex items-center justify-between px-5 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] ${isDarkMode ? 'bg-slate-900 border-slate-850 text-white' : 'bg-[#f5f0e6] border-[#e8e0cc]'}`}>
           {/* Mobile nav toggle + breadcrumb */}
           <div className="flex items-center gap-3">
             {/* Hamburger menu (mobile) */}
@@ -1336,11 +1322,11 @@ export default function CRMPage() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h1 className={`text-xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Database</h1>
-                  <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <p className={`text-sm mt-0.5 hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                     {customers.length} record{customers.length !== 1 ? 's' : ''} &middot; Manage your client and prospect data
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {/* Search */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -1349,7 +1335,7 @@ export default function CRMPage() {
                       placeholder="Search records..."
                       value={contactSearch}
                       onChange={(e) => setContactSearch(e.target.value)}
-                      className={`w-56 h-9 pl-9 pr-4 text-sm rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-[#E5E7EB] text-slate-700'}`}
+                      className={`w-full sm:w-56 h-9 pl-9 pr-4 text-sm rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-[#E5E7EB] text-slate-700'}`}
                     />
                   </div>
                   <button
@@ -1357,14 +1343,14 @@ export default function CRMPage() {
                     className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}
                   >
                     <Download className="w-3.5 h-3.5" />
-                    Export
+                    <span className="hidden sm:inline">Export</span>
                   </button>
                   <button
                     onClick={() => setShowManageFields(true)}
                     className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}
                   >
                     <Settings2 className="w-3.5 h-3.5" />
-                    Manage Fields
+                    <span className="hidden sm:inline">Manage Fields</span>
                   </button>
                   <div className="relative">
                     <button
@@ -1372,8 +1358,8 @@ export default function CRMPage() {
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer shadow-sm shadow-indigo-600/10"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>Add Record</span>
-                      <ChevronDown className="w-3.5 h-3.5 opacity-80" />
+                      <span className="hidden sm:inline">Add Record</span>
+                      <ChevronDown className="w-3.5 h-3.5 opacity-80 hidden sm:block" />
                     </button>
                     {isDashAddDropdownOpen && (
                       <>
@@ -1485,7 +1471,7 @@ export default function CRMPage() {
                                       {tagsArr.length > 0 ? (
                                         <div className="flex flex-wrap gap-1">
                                           {tagsArr.slice(0, 2).map((tag: string) => (
-                                            <span key={tag} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(tag, isDarkMode)}`}>{tag}</span>
+                                            <span key={tag} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(tag)}`}>{tag}</span>
                                           ))}
                                           {tagsArr.length > 2 && <span className="text-[9px] font-medium text-slate-400">+{tagsArr.length - 2}</span>}
                                         </div>
@@ -1496,7 +1482,7 @@ export default function CRMPage() {
                                   if (field.id === "leadStatus") {
                                     return (
                                       <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden' } : undefined}>
-                                        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getStatusStyles(String(val), isDarkMode)}`}>
+                                        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getStatusStyles(String(val))}`}>
                                           {String(val)}
                                         </span>
                                       </td>
@@ -1607,7 +1593,7 @@ export default function CRMPage() {
                       <div>
                         <h2 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>{c.firstName} {c.lastName}</h2>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>{c.leadStatus}</span>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus)}`}>{c.leadStatus}</span>
                           <span className="text-[10px] text-slate-400">{c.id}</span>
                         </div>
                       </div>
@@ -1639,7 +1625,7 @@ export default function CRMPage() {
 
                     {/* Tags */}
                     {c.tags.length > 0 && (
-                      <div><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Tags</span><div className="flex flex-wrap gap-1.5">{c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getTagStyles(t, isDarkMode)}`}>{t}</span>)}</div></div>
+                      <div><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Tags</span><div className="flex flex-wrap gap-1.5">{c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getTagStyles(t)}`}>{t}</span>)}</div></div>
                     )}
 
                     {/* AI Notes + Deduce Button */}
@@ -1788,10 +1774,10 @@ export default function CRMPage() {
 
                 {/* Summary Metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <MetricCard isDarkMode={isDarkMode} label="Total Revenue" value={`$${totalRevenue.toFixed(0)}`} subtext={`${customers.length} contacts`} icon={DollarSign} />
-                  <MetricCard isDarkMode={isDarkMode} label="Outstanding" value={`$${totalOutstanding.toFixed(0)}`} subtext="pending balances" icon={Activity} />
-                  <MetricCard isDarkMode={isDarkMode} label="Avg. Revenue" value={`$${customers.length ? (totalRevenue / customers.length).toFixed(0) : "0"}`} subtext="per contact" icon={ArrowUpRight} />
-                  <MetricCard isDarkMode={isDarkMode} label="Completed Sales" value={String(customers.filter(c => c.leadStatus === "Sale Completed").length)} subtext="converted leads" icon={Users} />
+                  <MetricCard label="Total Revenue" value={`$${totalRevenue.toFixed(0)}`} subtext={`${customers.length} contacts`} icon={DollarSign} />
+                  <MetricCard label="Outstanding" value={`$${totalOutstanding.toFixed(0)}`} subtext="pending balances" icon={Activity} />
+                  <MetricCard label="Avg. Revenue" value={`$${customers.length ? (totalRevenue / customers.length).toFixed(0) : "0"}`} subtext="per contact" icon={ArrowUpRight} />
+                  <MetricCard label="Completed Sales" value={String(customers.filter(c => c.leadStatus === "Sale Completed").length)} subtext="converted leads" icon={Users} />
                 </div>
 
                 {/* Charts Row */}
@@ -1869,7 +1855,7 @@ export default function CRMPage() {
                                 </span>
                               </td>
                               <td className={`py-3 px-4 font-semibold ${isDarkMode ? "text-white" : "text-slate-800"}`}>{c.firstName} {c.lastName}</td>
-                              <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>{c.leadStatus}</span></td>
+                              <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus)}`}>{c.leadStatus}</span></td>
                               <td className="py-3 px-4 text-right font-semibold text-emerald-600">${c.totalRevenue.toFixed(2)}</td>
                               <td className={`py-3 pr-6 text-right ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>${c.outstandingBalance.toFixed(2)}</td>
                             </tr>
@@ -2205,8 +2191,8 @@ export default function CRMPage() {
 
       {/* ━━━━━━ JARVIS COPILOT SIDEBAR ━━━━━━ */}
       {/* ────── JARVIS COPILOT SIDEBAR ────── */}
-      <div className={`fixed top-0 right-0 h-full z-[80] transition-all duration-300 ease-in-out ${isJarvisOpen ? "w-[340px]" : "w-0"} overflow-hidden`}>
-        <div className={`w-[340px] h-full border-l flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#f0e8d0] border-[#E5E7EB]'}`}>
+      <div className={`fixed top-0 right-0 h-full z-[80] transition-all duration-300 ease-in-out ${isJarvisOpen ? "w-full lg:w-[340px]" : "w-0"} overflow-hidden`}>
+        <div className={`w-full lg:w-[340px] h-full border-l flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#f0e8d0] border-[#E5E7EB]'}`}>
           {/* Header */}
           <div className={`h-16 flex items-center justify-between px-5 border-b shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-[#E5E7EB]'}`}>
             <div className="flex items-center gap-2.5">
@@ -2634,8 +2620,8 @@ export default function CRMPage() {
                           ))}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus, isDarkMode)}`}>{c.leadStatus}</span>
-                          {c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(t, isDarkMode)}`}>{t}</span>)}
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus)}`}>{c.leadStatus}</span>
+                          {c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getTagStyles(t)}`}>{t}</span>)}
                         </div>
                       </div>
                     )}

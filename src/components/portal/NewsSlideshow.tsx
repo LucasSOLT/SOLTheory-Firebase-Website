@@ -214,17 +214,17 @@ export function NewsSlideshow() {
       {/* â•â•â• Hover Zones â•â•â• */}
       <div
         onClick={() => goTo("prev")}
-        className={`absolute top-0 left-0 h-full cursor-pointer z-10 transition-opacity duration-300 ${
+        style={{ background: "linear-gradient(to right, rgba(0,0,0,0.10), rgba(0,0,0,0.02))" }}
+        className={`absolute top-0 left-0 h-full cursor-pointer z-10 transition-opacity duration-300 w-12 md:w-[100px] ${
           hoverZoneVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
-        style={{ width: "100px", background: "linear-gradient(to right, rgba(0,0,0,0.10), rgba(0,0,0,0.02))" }}
       />
       <div
         onClick={() => goTo("next")}
-        className={`absolute top-0 right-0 h-full cursor-pointer z-10 transition-opacity duration-300 ${
+        style={{ background: "linear-gradient(to left, rgba(0,0,0,0.10), rgba(0,0,0,0.02))" }}
+        className={`absolute top-0 right-0 h-full cursor-pointer z-10 transition-opacity duration-300 w-12 md:w-[100px] ${
           hoverZoneVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
-        style={{ width: "100px", background: "linear-gradient(to left, rgba(0,0,0,0.10), rgba(0,0,0,0.02))" }}
       />
 
       {/* â•â•â• Arrow Buttons â•â•â• */}

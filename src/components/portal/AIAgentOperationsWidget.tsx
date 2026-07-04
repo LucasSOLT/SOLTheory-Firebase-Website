@@ -91,7 +91,7 @@ export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: strin
       </div>
 
       {/* ROI Stats Grid */}
-      <div className="grid grid-cols-3 gap-2 shrink-0 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0 mb-3">
         {/* Hours Saved */}
         <div className={`p-2 rounded-xl border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-slate-50 border-[#ede8da]/70'} flex flex-col justify-between`}>
           <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block">

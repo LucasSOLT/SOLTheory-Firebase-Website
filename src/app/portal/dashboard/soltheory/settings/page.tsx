@@ -1,6 +1,7 @@
 "use client";
 
 import { logActivity } from '@/lib/activity-logger';
+import { useTheme } from '@/components/ThemeProvider';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -457,17 +458,8 @@ function SettingsContent() {
 
   const dict = localDict[lang];
 
-  // Dark mode state for settings page
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  useEffect(() => {
-    const saved = localStorage.getItem('insight_theme');
-    if (saved === 'dark') setIsDarkMode(true);
-    const handler = (e: StorageEvent) => {
-      if (e.key === 'insight_theme') setIsDarkMode(e.newValue === 'dark');
-    };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, []);
+  // Dark mode from centralized ThemeProvider
+  const { isDarkMode, setTheme: setAppTheme } = useTheme();
 
   return (
     <div className={`flex flex-col h-full overflow-y-auto transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#faf6ed] text-slate-800'}`}>
@@ -534,9 +526,7 @@ function SettingsContent() {
                         <Switch 
                           checked={isDarkMode}
                           onCheckedChange={(checked) => {
-                            localStorage.setItem('insight_theme', checked ? 'dark' : 'light');
-                            window.dispatchEvent(new StorageEvent('storage', { key: 'insight_theme', newValue: checked ? 'dark' : 'light' }));
-                            setIsDarkMode(checked);
+                            setAppTheme(checked ? 'dark' : 'light');
                           }}
                         />
                       </div>

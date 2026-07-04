@@ -4,17 +4,12 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import { SolTheoryLogoText } from '../sol-theory-logo-text';
 import { Button } from '@/components/ui/button';
-import { Menu, HelpCircle, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, X, ArrowRight, ExternalLink, Mail, Sparkles, MessageSquare } from 'lucide-react';
+import { Menu, HelpCircle, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, X, ArrowRight, ExternalLink, Mail, Sparkles, MessageSquare, Globe } from 'lucide-react';
 import { useState } from 'react';
 import { FAQ_LIST } from '@/components/portal/FAQView';
 import { StarBackground } from '@/components/ui/star-background';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const navLinks = [
-  { href: '/', label: 'Home' },
-  { href: '#qualifies', label: 'About' },
-  { href: '/contact', label: 'Contact' },
-];
+import { useTranslation } from '@/lib/i18n';
 
 
 import { usePathname } from 'next/navigation';
@@ -22,10 +17,25 @@ import { usePathname } from 'next/navigation';
 export function Header() {
   const pathname = usePathname();
   const isNxtChapter = pathname?.startsWith('/portal/dashboard/nxtchapter');
+  const { t, lang } = useTranslation();
   
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const navLinks = [
+    { href: '/', label: t.pubHome },
+    { href: '#qualifies', label: t.pubAbout },
+    { href: '/contact', label: t.pubContact },
+  ];
+
+  const toggleLanguage = () => {
+    const next = lang === 'en' ? 'es' : 'en';
+    localStorage.setItem('agent_language', next);
+    window.dispatchEvent(new StorageEvent('storage', { key: 'agent_language', newValue: next }));
+    // Force same-window update
+    window.dispatchEvent(new Event('storage'));
+  };
 
   return (
     <>
@@ -56,11 +66,21 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+            {/* Language Toggle */}
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              title={lang === 'en' ? 'Cambiar a Español' : 'Switch to English'}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span className="uppercase">{lang === 'en' ? 'ES' : 'EN'}</span>
+            </button>
+
             {/* Client Portal Button */}
             <Button asChild variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 font-semibold tracking-wide text-xs md:text-sm rounded-lg px-3 md:px-5">
                 <Link href="/portal">
-                    <span className="hidden md:inline">Client Portal</span>
-                    <span className="md:hidden">Portal</span>
+                    <span className="hidden md:inline">{t.pubClientPortal}</span>
+                    <span className="md:hidden">{t.pubPortal}</span>
                 </Link>
             </Button>
 
@@ -102,7 +122,7 @@ export function Header() {
                     >
                       {/* Platforms */}
                       <div className="px-1.5 pt-2 pb-1">
-                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] px-2.5 mb-1">Platforms</p>
+                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] px-2.5 mb-1">{t.pubPlatforms}</p>
                         <Link
                           href="/portal/login/insight"
                           onClick={() => setMenuOpen(false)}
@@ -111,7 +131,7 @@ export function Header() {
                           <Sparkles className="w-3.5 h-3.5 text-fuchsia-400 shrink-0" />
                           <div>
                             <p className="text-[13px] font-medium text-white leading-none">INSiGHT</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Analytics & org tools</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">{t.pubAnalyticsOrgTools}</p>
                           </div>
                         </Link>
                         <Link
@@ -122,7 +142,7 @@ export function Header() {
                           <ArrowRight className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                           <div>
                             <p className="text-[13px] font-medium text-white leading-none">DRiVE</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Learning management</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">{t.pubLearningManagement}</p>
                           </div>
                         </Link>
                       </div>
@@ -131,7 +151,7 @@ export function Header() {
 
                       {/* Community */}
                       <div className="px-1.5 py-1">
-                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] px-2.5 mb-1">Community</p>
+                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] px-2.5 mb-1">{t.pubCommunity}</p>
 
                         <a
                           href="https://www.thrivecoaching.ai"
@@ -143,7 +163,7 @@ export function Header() {
                           <ExternalLink className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                           <div>
                             <p className="text-[13px] font-medium text-white leading-none">Thrive Coaching</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">AI-powered coaching</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">{t.pubAiPoweredCoaching}</p>
                           </div>
                         </a>
                       </div>
@@ -158,14 +178,14 @@ export function Header() {
                           className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <p className="text-[13px] font-medium text-white leading-none">SMS Opt-in</p>
+                          <p className="text-[13px] font-medium text-white leading-none">{t.pubSmsOptIn}</p>
                         </Link>
                         <button
                           onClick={() => { setMenuOpen(false); setShowHelpModal(true); }}
                           className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors text-left cursor-pointer"
                         >
                           <HelpCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <p className="text-[13px] font-medium text-white leading-none">Help & FAQ</p>
+                          <p className="text-[13px] font-medium text-white leading-none">{t.pubHelpFaq}</p>
                         </button>
                         <Link
                           href="/contact"
@@ -173,7 +193,7 @@ export function Header() {
                           className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
                           <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <p className="text-[13px] font-medium text-white leading-none">Contact</p>
+                          <p className="text-[13px] font-medium text-white leading-none">{t.pubContact}</p>
                         </Link>
                       </div>
 
@@ -184,7 +204,7 @@ export function Header() {
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white/[0.06] hover:bg-white/[0.10] text-white text-[13px] font-medium transition-colors"
                         >
-                          Client Portal
+                          {t.pubClientPortal}
                           <ArrowRight className="w-3.5 h-3.5" />
                         </Link>
                       </div>
@@ -208,10 +228,10 @@ export function Header() {
           <div className="flex flex-col md:flex-row md:items-center justify-between p-6 border-b border-white/10 shrink-0">
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                Help & <span className="text-fuchsia-400">FAQ</span>
+                {lang === 'es' ? 'Ayuda' : 'Help'} & <span className="text-fuchsia-400">FAQ</span>
               </h1>
               <p className="text-slate-400 text-sm font-medium mt-1">
-                Common troubleshooting solutions for the platform network.
+                {t.pubFaqSubtitle}
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -229,7 +249,7 @@ export function Header() {
             <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden backdrop-blur-sm">
               <div className="p-4 border-b border-white/5 bg-white/5">
                 <h2 className="text-sm font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-500" /> Top 10 Common Issues
+                  <AlertCircle className="w-4 h-4 text-amber-500" /> {t.pubTopCommonIssues}
                 </h2>
               </div>
               
@@ -264,7 +284,7 @@ export function Header() {
             </div>
 
             <div className="pt-8 pb-4 text-center">
-               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Need more help? Email lucas@soltheory.com</p>
+               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t.pubNeedMoreHelp}</p>
             </div>
           </div>
 

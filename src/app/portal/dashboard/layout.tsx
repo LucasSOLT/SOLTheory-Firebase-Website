@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useTheme } from "@/components/ThemeProvider";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
@@ -42,20 +43,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [notifications, setNotifications] = useState<any[]>([]);
   const router = useRouter();
 
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDarkMode, setTheme: setAppTheme } = useTheme();
   const [currentTime, setCurrentTime] = useState('');
   const [userTimezone, setUserTimezone] = useState('');
-
-  // Dashboard-wide dark mode from localStorage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('insight_theme');
-    if (savedTheme === 'dark') setIsDarkMode(true);
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'insight_theme') setIsDarkMode(e.newValue === 'dark');
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
 
   // Load user timezone from localStorage / Firestore
   useEffect(() => {
@@ -286,9 +276,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       // Sync local storage for language, theme, and timezone
       localStorage.setItem('agent_language', wtLanguage);
-      localStorage.setItem('insight_theme', wtTheme);
+      setAppTheme(wtTheme);
       localStorage.setItem('user_timezone', wtLocation);
-      window.dispatchEvent(new StorageEvent('storage', { key: 'insight_theme', newValue: wtTheme }));
 
       // Log activity
       const { logActivity } = await import("@/lib/activity-logger");
@@ -385,9 +374,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const guestInitials = guestDisplayName.split(' ').map((n: string) => n.charAt(0)).join('') || 'U';
   const guestAvatar = user?.photoURL || '';
 
-  React.useEffect(() => {
-    document.documentElement.classList.remove('dark');
-  }, []);
+  // ThemeProvider manages the dark class on <html> — no need to manipulate it here
 
   // Track window resize for mobile detection and initialize client states safely
   React.useEffect(() => {
@@ -856,7 +843,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className={`fixed top-0 left-0 right-0 h-14 border-b flex items-center justify-between px-4 z-[60] shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700/80' : 'bg-[#f0e8d0] border-slate-200/80'}`}>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`w-10 h-10 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
+            className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
           >
             {isMobileMenuOpen ? (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -877,7 +864,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className={`font-bold text-lg tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
             )}
           </Link>
-          <div className="w-10" /> {/* Spacer for centering */}
+          <button
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer relative ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
+          >
+            <Bell className="w-4.5 h-4.5" />
+            {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
+            )}
+          </button>
         </div>
       )}
 
@@ -954,79 +949,81 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </Link>
               )}
 
-              <div className="flex-grow overflow-y-auto px-4 space-y-4 pb-8">
-                {/* Reuse the same nav items â€” these render the same sidebar links */}
-                <div className="space-y-1">
-                  <Link href={`${dashboardHome}`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname === dashboardHome ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+              <div className="flex-grow overflow-y-auto px-4 space-y-3 pb-8">
+                {/* Core — always visible */}
+                <div className="space-y-0.5">
+                  <Link href={`${dashboardHome}`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname === dashboardHome ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Home className="w-5 h-5" />
                     <span>{t.homepage}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/ai-agents/jarvis`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-agents') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/ai-agents/jarvis`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/ai-agents') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Users className="w-5 h-5" />
                     <span>{t.agentManager}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/ai-knowledge-base`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/ai-knowledge-base') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/ai-knowledge-base`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/ai-knowledge-base') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Brain className="w-5 h-5" />
                     <span>{t.aiKnowledgeBase}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/walkthroughs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/walkthroughs') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/walkthroughs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/walkthroughs') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Lightbulb className="w-5 h-5" />
                     <span>{t.insightWalkthroughs}</span>
                   </Link>
                 </div>
 
-                {/* Flagship Tools */}
+                {/* Flagship Tools — collapsible */}
                 <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
-                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">{t.flagshipTools}</span>
-                  <div className="space-y-1 mt-2">
-                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/crm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                  <button onClick={() => toggleSection('mob_tools')} className="flex items-center justify-between w-full px-4 py-1">
+                    <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{t.flagshipTools}</span>
+                    {collapsedSections['mob_tools'] ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                  </button>
+                  {!collapsedSections['mob_tools'] && (
+                  <div className="space-y-0.5 mt-1">
+                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/crm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Users className="w-5 h-5 text-slate-500" />
                       <span>{t.crm}</span>
                     </Link>
-
-                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Mail className="w-5 h-5 text-slate-500" />
                       <span>{t.email}</span>
                     </Link>
-
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 cursor-not-allowed font-semibold text-base">
-                      <BarChart3 className="w-5 h-5" />
-                      <span>{t.businessIntelligence}</span>
-                    </div>
-                    <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/action-board') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/action-board') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <LayoutDashboard className="w-5 h-5 text-slate-500" />
                       <span>{t.actionBoard}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/timesheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/timesheets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/timesheets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/timesheets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <CalendarDays className="w-5 h-5 text-slate-500" />
                       <span>{t.timesheets}</span>
                     </Link>
-
-                    <Link href={`${dashboardHome}/media-library`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/media-library') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/media-library`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/media-library') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <HardDrive className="w-5 h-5 text-slate-500" />
                       <span>{t.mediaLibrary}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Send className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticCampaigning}</span>
                     </Link>
                   </div>
+                  )}
                 </div>
 
-                {/* Reports */}
+                {/* Reports — collapsible */}
                 <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
-                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">{t.reports}</span>
-                  <div className="space-y-1 mt-2">
-
-                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/support-tickets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                  <button onClick={() => toggleSection('mob_reports')} className="flex items-center justify-between w-full px-4 py-1">
+                    <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{t.reports}</span>
+                    {collapsedSections['mob_reports'] ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                  </button>
+                  {!collapsedSections['mob_reports'] && (
+                  <div className="space-y-0.5 mt-1">
+                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/support-tickets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Ticket className="w-5 h-5" />
                       <span>{t.supportTickets}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/surveys') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/surveys') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <ClipboardList className="w-5 h-5" />
                       <span>{t.surveys}</span>
                     </Link>
                   </div>
+                  )}
                 </div>
 
 
@@ -1038,18 +1035,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </div>
 
-                {/* User info at bottom */}
+                {/* Messages — was missing from mobile! */}
+                <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
+                  <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase px-4">{t.messages || 'Messages'}</span>
+                  <div className="space-y-1 mt-2">
+                    <Link href={`${dashboardHome}/communications/dm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/dm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <UserSquare className="w-5 h-5 text-slate-500" />
+                      <span>{t.directMessages || 'Direct Messages'}</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/communications/org-thread`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/org-thread') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Hash className="w-5 h-5 text-slate-500" />
+                      <span>{t.orgThread || 'Org Thread'}</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Help & Logout — was missing from mobile! */}
+                <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
+                  <Link href={`${dashboardHome}/faq`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700'}`}>
+                    <HelpCircle className="w-5 h-5 text-slate-500" />
+                    <span>Help & FAQ</span>
+                  </Link>
+                </div>
+
+                {/* User info + Logout at bottom */}
                 <div className={`pt-4 mt-4 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
                   <div className="flex items-center gap-3 px-4 py-3">
                     <Avatar className={`h-10 w-10 ring-2 ${isDarkMode ? 'ring-slate-700' : 'ring-slate-200'}`}>
                       <AvatarImage src={guestAvatar || undefined} />
                       <AvatarFallback className={`font-bold text-sm ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>{guestInitials?.[0] || '?'}</AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col flex-1">
                       <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{guestDisplayName}</span>
                       <span className={`text-xs truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{guestEmail}</span>
                     </div>
                   </div>
+                  <Link
+                    href="/"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 mx-4 mt-2 mb-2 px-4 py-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-colors font-semibold text-base"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span>{t.exitDashboard || 'Log Out'}</span>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -1114,44 +1142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 dark-sidebar shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-          {isDarkMode && (
-            <style>{`
-              .dark-sidebar .bg-\[\#f0ede4\] { background-color: rgb(30 41 59) !important; }
-              .dark-sidebar .bg-\[\#f2efe8\] { background-color: rgb(30 41 59) !important; }
-              .dark-sidebar .bg-\[\#faf8f3\] { background-color: rgb(15 23 42) !important; }
-              .dark-sidebar .bg-slate-100 { background-color: rgb(51 65 85) !important; }
-              .dark-sidebar .hover\:bg-\[\#f2efe8\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
-              .dark-sidebar .hover\:bg-\[\#faf6ed\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
-              .dark-sidebar .hover\:bg-\[\#f0ede4\]:hover { background-color: rgb(30 41 59 / 0.6) !important; }
-              .dark-sidebar .hover\:bg-slate-50:hover { background-color: rgb(30 41 59 / 0.6) !important; }
-              .dark-sidebar .text-stone-900 { color: rgb(226 232 240) !important; }
-              .dark-sidebar .text-slate-900 { color: rgb(226 232 240) !important; }
-              .dark-sidebar .text-slate-800 { color: rgb(203 213 225) !important; }
-              .dark-sidebar .text-slate-700 { color: rgb(148 163 184) !important; }
-              .dark-sidebar .text-slate-600 { color: rgb(148 163 184) !important; }
-              .dark-sidebar .text-slate-500 { color: rgb(148 163 184) !important; }
-              .dark-sidebar .text-slate-400 { color: rgb(148 163 184) !important; }
-              .dark-sidebar .text-slate-300 { color: rgb(148 163 184) !important; }
-              .dark-sidebar .hover\:text-stone-900:hover { color: rgb(226 232 240) !important; }
-              .dark-sidebar .hover\:text-slate-900:hover { color: rgb(226 232 240) !important; }
-              .dark-sidebar .hover\:text-slate-700:hover { color: rgb(203 213 225) !important; }
-              .dark-sidebar .border-\[\#e0ddd4\] { border-color: rgb(51 65 85) !important; }
-              .dark-sidebar .border-slate-200 { border-color: rgb(51 65 85) !important; }
-              .dark-sidebar .border-slate-200\/80 { border-color: rgb(51 65 85 / 0.8) !important; }
-              .dark-sidebar .border-slate-100 { border-color: rgb(51 65 85 / 0.5) !important; }
-              .dark-sidebar .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.15) !important; }
-              .dark-sidebar .group-hover\:text-slate-700:hover { color: rgb(203 213 225) !important; }
-              .dark-sidebar .bg-indigo-50 { background-color: rgb(51 65 85) !important; }
-              .dark-sidebar .text-indigo-900 { color: rgb(255 255 255) !important; }
-              .dark-sidebar .bg-fuchsia-50 { background-color: rgb(51 65 85) !important; }
-              .dark-sidebar .text-fuchsia-900 { color: rgb(255 255 255) !important; }
-              .dark-sidebar .bg-blue-50 { background-color: rgb(51 65 85) !important; }
-              .dark-sidebar .text-blue-900 { color: rgb(255 255 255) !important; }
-              .dark-sidebar .bg-amber-50 { background-color: rgb(51 65 85) !important; }
-              .dark-sidebar .text-amber-900 { color: rgb(255 255 255) !important; }
-            `}</style>
-          )}
+        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
           <div style={{ width: sidebarWidth, minWidth: 230 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
             {isDualOrgUser ? (
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
@@ -1494,7 +1485,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {isNotificationsOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
-                    <div className={`absolute right-0 top-full mt-2 w-[380px] rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
+                    <div className={`fixed md:absolute inset-x-0 bottom-0 md:inset-x-auto md:bottom-auto md:right-0 md:top-full md:mt-2 w-full md:w-[380px] max-w-full rounded-t-2xl md:rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 md:slide-in-from-top-2 duration-200 max-h-[70vh] md:max-h-[unset] ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
                       <div className={`flex items-center justify-between px-5 py-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                         <div className="flex items-center gap-2">
                           <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.notifications}</h3>
@@ -1554,7 +1545,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         }
                                       } catch {}
                                     }}
-                                    className="p-1 rounded-md opacity-0 group-hover/notif:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all"
+                                    className="p-1 rounded-md opacity-30 md:opacity-0 group-hover/notif:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all"
                                     title="Delete notification"
                                   >
                                     <X className="w-3 h-3" />
@@ -1652,7 +1643,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Welcome Walkthrough Modal */}
       {showWelcome && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-xl p-4 animate-in fade-in duration-300">
-          <div className="bg-[#faf8f3]/90 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row min-h-[520px] relative">
+          <div className="bg-[#faf8f3]/90 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row min-h-0 md:min-h-[520px] max-h-[95vh] overflow-y-auto relative">
             {/* Close / X button */}
             <button onClick={handleSkipWalkthrough} className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer" title="Skip for now">
               <X className="w-4 h-4" />

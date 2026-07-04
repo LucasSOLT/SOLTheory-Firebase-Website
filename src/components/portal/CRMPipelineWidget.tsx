@@ -226,7 +226,7 @@ export function CRMPipelineWidget() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 shrink-0 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0 mb-3">
         <div className={`p-2 rounded-xl border ${isDarkMode ? 'bg-emerald-950/20 border-emerald-900/30' : 'bg-emerald-50/60 border-emerald-100'} flex flex-col`}>
           <span className="text-[9px] font-semibold text-emerald-600 uppercase tracking-wider block">Revenue</span>
           <div className="mt-1 flex items-baseline gap-1">

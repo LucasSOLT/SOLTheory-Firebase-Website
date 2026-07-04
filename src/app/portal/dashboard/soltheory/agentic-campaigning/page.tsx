@@ -1512,7 +1512,7 @@ export default function AgenticCampaigningPage() {
                       return false;
                     };
                     const cells: React.ReactElement[] = [];
-                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[210px] border-r border-b border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
+                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[80px] md:h-[210px] border-r border-b border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
 
                     // Get campaign events for a given day
                     const getEventsForDay = (day: number): { campaign: Campaign; isMultiDay: boolean; isStart: boolean; isEnd: boolean; isMiddle: boolean }[] => {
@@ -1569,7 +1569,7 @@ export default function AgenticCampaigningPage() {
                           }}
                           onMouseEnter={() => { if (zoomMode === 'picking-end') setHoverDay(day); }}
                           onMouseLeave={() => { if (zoomMode === 'picking-end') setHoverDay(null); }}
-                          className={`h-[210px] p-1 border-r border-b ${(firstDay + day - 1) < 7 ? 'border-t' : ''} relative transition-colors ${
+                          className={`h-[80px] md:h-[210px] p-1 border-r border-b ${(firstDay + day - 1) < 7 ? 'border-t' : ''} relative transition-colors ${
                             isDarkMode ? 'border-slate-700' : 'border-slate-200'
                           } ${
                             clickable ? 'cursor-pointer ' + (isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-indigo-50') : ''
