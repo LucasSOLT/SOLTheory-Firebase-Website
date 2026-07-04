@@ -2,19 +2,31 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { initAdmin, getFirestore } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+import sgMail from "@sendgrid/mail";
 
-// Vercel serverless: allow up to 60 seconds for email sending
-export const maxDuration = 60;
+// Vercel Pro: allow up to 300 seconds for large batch sends
+export const maxDuration = 300;
 
 // ---------------------------------------------------------------------------
 // Email Campaign Cron
 // ---------------------------------------------------------------------------
 // Runs every 5 minutes (configured in vercel.json).
 // Scans ALL users' campaigns for those with status === "active" and
-// triggerAt <= now, then sends the emails via the Gmail API route.
+// triggerAt <= now, then sends the emails.
+//
+// Sending strategy:
+//   - < 50 recipients  → Gmail API (existing path, sequential)
+//   - >= 50 recipients → SendGrid batch with personalizations (up to 1000/call)
+//
+// Batch processing: chunks of 100, progress saved to Firestore after each chunk.
+// Deadlock recovery: campaigns stuck in "processing" for >10 min are reset.
 // ---------------------------------------------------------------------------
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
+const SENDGRID_BATCH_THRESHOLD = 50;
+const BATCH_CHUNK_SIZE = 100;
+const BATCH_DELAY_MS = 200;
+const PROCESSING_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 function verifyAuth(req: Request): boolean {
   const authHeader = req.headers.get("authorization");
@@ -31,6 +43,221 @@ function verifyAuth(req: Request): boolean {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Helper: resolve per-recipient merge fields in subject & HTML
+// ---------------------------------------------------------------------------
+interface RecipientData {
+  email: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+function resolveMergeFields(
+  template: string,
+  recipientData: RecipientData | undefined,
+  orgName: string,
+  senderName: string,
+  phoneNumber: string,
+): string {
+  let result = template;
+  if (recipientData) {
+    const firstName = recipientData.name?.split(" ")[0] || "";
+    const lastName = recipientData.name?.split(" ").slice(1).join(" ") || "";
+    result = result.replace(/\{\{first_name\}\}/gi, firstName);
+    result = result.replace(/\{\{last_name\}\}/gi, lastName);
+    result = result.replace(/\{\{org_name\}\}/gi, orgName);
+    result = result.replace(/\{\{sender_name\}\}/gi, senderName);
+    result = result.replace(/\{\{phone_number\}\}/gi, phoneNumber);
+    result = result.replace(/\{\{email\}\}/gi, recipientData.email || "");
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: build per-recipient HTML
+// ---------------------------------------------------------------------------
+function buildPerRecipientHtml(
+  campaign: Record<string, any>,
+  recipientData: RecipientData | undefined,
+  signoff: string,
+  orgName: string,
+  senderName: string,
+  phoneNumber: string,
+): { subject: string; html: string } {
+  let perSubject = campaign.subject || "";
+  let perHtml: string;
+
+  if (campaign.htmlContent) {
+    // Smart Composer: send pre-assembled HTML with merge fields resolved
+    perHtml = campaign.htmlContent;
+    perSubject = resolveMergeFields(perSubject, recipientData, orgName, senderName, phoneNumber);
+    perHtml = resolveMergeFields(perHtml, recipientData, orgName, senderName, phoneNumber);
+  } else {
+    // Classic mode: wrap plain text in <p> tags + sign-off
+    let perBody = campaign.body || "";
+    if (recipientData) {
+      const firstName = recipientData.name?.split(" ")[0] || "";
+      perSubject = perSubject.replace(/\{\{first_name\}\}/gi, firstName);
+      perSubject = perSubject.replace(/\{\{org_name\}\}/gi, orgName);
+      perBody = perBody.replace(/\{\{first_name\}\}/gi, firstName);
+      perBody = perBody.replace(/\{\{org_name\}\}/gi, orgName);
+    }
+    perHtml = perBody.split('\n').map((line: string) => `<p style="margin:0 0 12px 0;">${line}</p>`).join('') + signoff;
+  }
+
+  return { subject: perSubject, html: perHtml };
+}
+
+// ---------------------------------------------------------------------------
+// Helper: sleep utility
+// ---------------------------------------------------------------------------
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ---------------------------------------------------------------------------
+// SendGrid batch sender — chunks of 100, progress saved after each chunk
+// ---------------------------------------------------------------------------
+async function sendViaSendGrid(
+  campaign: Record<string, any>,
+  campRef: FirebaseFirestore.DocumentReference,
+  recipients: RecipientData[],
+  senderEmail: string,
+  senderName: string,
+  orgName: string,
+  phoneNumber: string,
+  signoff: string,
+  errors: string[],
+  campDocId: string,
+): Promise<number> {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+
+  // Start from where we left off (in case of a previous partial send)
+  const alreadySentThisRun = campaign._batchProgress || 0;
+  const remainingRecipients = recipients.slice(alreadySentThisRun);
+  let sentCount = alreadySentThisRun;
+
+  // Process in chunks of BATCH_CHUNK_SIZE
+  for (let i = 0; i < remainingRecipients.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = remainingRecipients.slice(i, i + BATCH_CHUNK_SIZE);
+
+    // Build personalizations for this chunk — each recipient gets their own
+    // resolved subject and HTML via substitutions, but SendGrid personalizations
+    // with individual HTML per-recipient requires separate messages.
+    // We send one message per recipient in a single sgMail.send() batch call.
+    const messages = chunk.map((recipientData) => {
+      const { subject, html } = buildPerRecipientHtml(
+        campaign,
+        recipientData,
+        signoff,
+        orgName,
+        senderName,
+        phoneNumber,
+      );
+
+      return {
+        to: recipientData.email,
+        from: {
+          email: senderEmail === "me" ? (campaign.ownerEmail || senderEmail) : senderEmail,
+          name: senderName || undefined,
+        },
+        subject,
+        html,
+      };
+    });
+
+    try {
+      // sgMail.send() with an array sends as a batch (single HTTP request to SendGrid)
+      await sgMail.send(messages);
+      sentCount += chunk.length;
+    } catch (batchErr: any) {
+      // If batch fails, try individually to maximize delivery
+      console.error(`[Email Cron] SendGrid batch failed for chunk, falling back to individual sends:`, batchErr?.message);
+      for (const msg of messages) {
+        try {
+          await sgMail.send(msg);
+          sentCount++;
+        } catch (indErr: any) {
+          console.error(`[Email Cron] SendGrid individual send failed for ${msg.to}:`, indErr?.message);
+          errors.push(`${campDocId}→${msg.to}: ${indErr?.message}`);
+        }
+      }
+    }
+
+    // Save progress to Firestore after each chunk
+    await campRef.update({
+      _batchProgress: sentCount,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    // Rate-limit delay between batches
+    if (i + BATCH_CHUNK_SIZE < remainingRecipients.length) {
+      await sleep(BATCH_DELAY_MS);
+    }
+  }
+
+  return sentCount;
+}
+
+// ---------------------------------------------------------------------------
+// Gmail API sender (original path — for small campaigns)
+// ---------------------------------------------------------------------------
+async function sendViaGmail(
+  campaign: Record<string, any>,
+  recipients: RecipientData[],
+  senderEmail: string,
+  gmail: any,
+  signoff: string,
+  orgName: string,
+  senderName: string,
+  phoneNumber: string,
+  errors: string[],
+  campDocId: string,
+): Promise<number> {
+  let sentCount = 0;
+  for (const recipientData of recipients) {
+    try {
+      const { subject, html } = buildPerRecipientHtml(
+        campaign,
+        recipientData,
+        signoff,
+        orgName,
+        senderName,
+        phoneNumber,
+      );
+
+      const emailLines = [
+        `MIME-Version: 1.0`,
+        `From: ${senderEmail}`,
+        `To: ${recipientData.email}`,
+        `Subject: ${subject}`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        html,
+      ];
+
+      const raw = Buffer.from(emailLines.join("\r\n"))
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+      await gmail.users.messages.send({
+        userId: "me",
+        requestBody: { raw },
+      });
+      sentCount++;
+    } catch (sendErr: any) {
+      console.error(`[Email Cron] Failed to send to ${recipientData.email}:`, sendErr?.message);
+      errors.push(`${campDocId}→${recipientData.email}: ${sendErr?.message}`);
+    }
+  }
+  return sentCount;
+}
+
+// ---------------------------------------------------------------------------
+// Main GET handler
+// ---------------------------------------------------------------------------
 export async function GET(req: Request) {
   // Vercel Cron sends the CRON_SECRET as a bearer token
   if (!verifyAuth(req)) {
@@ -55,6 +282,30 @@ export async function GET(req: Request) {
     for (const userDoc of usersSnap.docs) {
       const uid = userDoc.id;
       const campaignsRef = firestore.collection(`users/${uid}/campaigns`);
+
+      // ── Deadlock recovery: reset campaigns stuck in "processing" > 10 min ──
+      const stuckSnap = await campaignsRef
+        .where("status", "==", "processing")
+        .get();
+
+      for (const stuckDoc of stuckSnap.docs) {
+        const stuckData = stuckDoc.data();
+        const updatedAt = stuckData.updatedAt?.toDate?.() || stuckData.updatedAt;
+        if (updatedAt) {
+          const stuckDuration = now.getTime() - new Date(updatedAt).getTime();
+          if (stuckDuration > PROCESSING_TIMEOUT_MS) {
+            console.warn(`[Email Cron] Resetting stuck campaign ${stuckDoc.id} for user ${uid} (stuck ${Math.round(stuckDuration / 1000)}s)`);
+            await stuckDoc.ref.update({
+              status: "active",
+              _batchProgress: 0,
+              errorMessage: "Reset from stuck processing state",
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          }
+        }
+      }
+
+      // ── Find active campaigns due now ──
       const activeSnap = await campaignsRef
         .where("status", "==", "active")
         .get();
@@ -101,7 +352,11 @@ export async function GET(req: Request) {
         totalProcessed++;
 
         // Mark as processing to prevent duplicate sends
-        await campDoc.ref.update({ status: "processing", updatedAt: FieldValue.serverTimestamp() });
+        await campDoc.ref.update({
+          status: "processing",
+          _batchProgress: 0,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
 
         try {
           // Get user's Gmail refresh token
@@ -116,7 +371,7 @@ export async function GET(req: Request) {
 
           if (!refreshToken) {
             console.warn(`[Email Cron] No refresh token for user ${uid} — skipping`);
-            await campDoc.ref.update({ status: "active", errorMessage: "No Gmail token", updatedAt: FieldValue.serverTimestamp() });
+            await campDoc.ref.update({ status: "active", _batchProgress: 0, errorMessage: "No Gmail token", updatedAt: FieldValue.serverTimestamp() });
             continue;
           }
 
@@ -152,28 +407,16 @@ export async function GET(req: Request) {
             }
           } catch { /* ignore */ }
 
-          // Send via the existing send API route (internal fetch)
-          const recipients = (campaign.recipients || []).map((r: { email: string }) => r.email).filter(Boolean);
-          if (recipients.length === 0) {
-            await campDoc.ref.update({ status: "completed", updatedAt: FieldValue.serverTimestamp() });
+          // Build recipients list with full data
+          const recipientsList: RecipientData[] = (campaign.recipients || []).filter(
+            (r: RecipientData) => r.email,
+          );
+          if (recipientsList.length === 0) {
+            await campDoc.ref.update({ status: "completed", _batchProgress: 0, updatedAt: FieldValue.serverTimestamp() });
             continue;
           }
 
-          // Resolve merge fields in subject and body
-          let resolvedSubject = campaign.subject || "";
-          let resolvedBody = campaign.body || "";
-
-          // Simple merge field resolution for the cron context
-          const firstRecipient = campaign.recipients?.[0];
-          if (firstRecipient) {
-            resolvedSubject = resolvedSubject.replace(/\{\{first_name\}\}/gi, firstRecipient.name?.split(" ")[0] || "");
-            resolvedSubject = resolvedSubject.replace(/\{\{org_name\}\}/gi, orgName || "");
-          }
-
-          // Build HTML body
-          const htmlBody = resolvedBody.split('\n').map((line: string) => `<p style="margin:0 0 12px 0;">${line}</p>`).join('');
-          
-          // Append sign-off
+          // Build sign-off block
           let signoff = "";
           if (senderName || phoneNumber || replyToEmail || website) {
             signoff += '<hr style="margin:24px 0 12px;border:none;border-top:1px solid #e2e8f0;">';
@@ -183,14 +426,12 @@ export async function GET(req: Request) {
             if (website) signoff += `<p style="margin:0 0 4px;">${website}</p>`;
           }
 
-          const finalHtml = htmlBody + signoff;
-
-          // Use the Gmail API directly via googleapis
+          // Get sender email from Gmail profile (needed for both paths)
           const { google } = await import("googleapis");
           const oauth2Client = new google.auth.OAuth2(
             process.env.GOOGLE_CLIENT_ID,
             process.env.GOOGLE_CLIENT_SECRET,
-            process.env.GOOGLE_REDIRECT_URI
+            process.env.GOOGLE_REDIRECT_URI,
           );
           oauth2Client.setCredentials({ refresh_token: refreshToken });
 
@@ -200,6 +441,7 @@ export async function GET(req: Request) {
             console.error(`[Email Cron] Token refresh failed for user ${uid}:`, tokenErr);
             await campDoc.ref.update({
               status: "active",
+              _batchProgress: 0,
               errorMessage: "Gmail token expired — user needs to reconnect.",
               updatedAt: FieldValue.serverTimestamp(),
             });
@@ -214,71 +456,40 @@ export async function GET(req: Request) {
             senderEmail = profile.data.emailAddress || "me";
           } catch { /* fallback */ }
 
-          let sentCount = 0;
-          for (const recipientEmail of recipients) {
-            try {
-              // Resolve per-recipient merge fields
-              const recipientData = campaign.recipients.find((r: { email: string }) => r.email === recipientEmail);
-              let perSubject = campaign.subject || "";
-              let perHtml: string;
+          // ── Choose sending path ──────────────────────────────────────
+          let sentCount: number;
+          const useSendGrid =
+            recipientsList.length >= SENDGRID_BATCH_THRESHOLD &&
+            !!process.env.SENDGRID_API_KEY;
 
-              if (campaign.htmlContent) {
-                // Smart Composer: send pre-assembled HTML with merge fields resolved
-                perHtml = campaign.htmlContent;
-                if (recipientData) {
-                  const firstName = recipientData.name?.split(" ")[0] || "";
-                  const lastName = recipientData.name?.split(" ").slice(1).join(" ") || "";
-                  perSubject = perSubject.replace(/\{\{first_name\}\}/gi, firstName);
-                  perSubject = perSubject.replace(/\{\{last_name\}\}/gi, lastName);
-                  perSubject = perSubject.replace(/\{\{org_name\}\}/gi, orgName);
-                  perSubject = perSubject.replace(/\{\{sender_name\}\}/gi, senderName);
-                  perSubject = perSubject.replace(/\{\{phone_number\}\}/gi, phoneNumber);
-                  perSubject = perSubject.replace(/\{\{email\}\}/gi, recipientData.email || "");
-                  perHtml = perHtml.replace(/\{\{first_name\}\}/gi, firstName);
-                  perHtml = perHtml.replace(/\{\{last_name\}\}/gi, lastName);
-                  perHtml = perHtml.replace(/\{\{org_name\}\}/gi, orgName);
-                  perHtml = perHtml.replace(/\{\{sender_name\}\}/gi, senderName);
-                  perHtml = perHtml.replace(/\{\{phone_number\}\}/gi, phoneNumber);
-                  perHtml = perHtml.replace(/\{\{email\}\}/gi, recipientData.email || "");
-                }
-              } else {
-                // Classic mode: wrap plain text in <p> tags + sign-off
-                let perBody = campaign.body || "";
-                if (recipientData) {
-                  const firstName = recipientData.name?.split(" ")[0] || "";
-                  perSubject = perSubject.replace(/\{\{first_name\}\}/gi, firstName);
-                  perSubject = perSubject.replace(/\{\{org_name\}\}/gi, orgName);
-                  perBody = perBody.replace(/\{\{first_name\}\}/gi, firstName);
-                  perBody = perBody.replace(/\{\{org_name\}\}/gi, orgName);
-                }
-                perHtml = perBody.split('\n').map((line: string) => `<p style="margin:0 0 12px 0;">${line}</p>`).join('') + signoff;
-              }
-
-              const emailLines = [
-                `MIME-Version: 1.0`,
-                `From: ${senderEmail}`,
-                `To: ${recipientEmail}`,
-                `Subject: ${perSubject}`,
-                `Content-Type: text/html; charset=utf-8`,
-                ``,
-                perHtml,
-              ];
-
-              const raw = Buffer.from(emailLines.join("\r\n"))
-                .toString("base64")
-                .replace(/\+/g, "-")
-                .replace(/\//g, "_")
-                .replace(/=+$/, "");
-
-              await gmail.users.messages.send({
-                userId: "me",
-                requestBody: { raw },
-              });
-              sentCount++;
-            } catch (sendErr: any) {
-              console.error(`[Email Cron] Failed to send to ${recipientEmail}:`, sendErr?.message);
-              errors.push(`${campDoc.id}→${recipientEmail}: ${sendErr?.message}`);
-            }
+          if (useSendGrid) {
+            console.log(`[Email Cron] Using SendGrid batch for ${recipientsList.length} recipients`);
+            sentCount = await sendViaSendGrid(
+              campaign,
+              campDoc.ref,
+              recipientsList,
+              senderEmail,
+              senderName,
+              orgName,
+              phoneNumber,
+              signoff,
+              errors,
+              campDoc.id,
+            );
+          } else {
+            console.log(`[Email Cron] Using Gmail API for ${recipientsList.length} recipients`);
+            sentCount = await sendViaGmail(
+              campaign,
+              recipientsList,
+              senderEmail,
+              gmail,
+              signoff,
+              orgName,
+              senderName,
+              phoneNumber,
+              errors,
+              campDoc.id,
+            );
           }
 
           totalSent += sentCount;
@@ -287,6 +498,7 @@ export async function GET(req: Request) {
           const updateData: Record<string, unknown> = {
             sent: (campaign.sent || 0) + sentCount,
             lastSentAt: now.toISOString(),
+            _batchProgress: FieldValue.delete(),
             updatedAt: FieldValue.serverTimestamp(),
           };
 
@@ -297,12 +509,13 @@ export async function GET(req: Request) {
           }
 
           await campDoc.ref.update(updateData);
-          console.log(`[Email Cron] ✓ Campaign ${campDoc.id}: sent ${sentCount}/${recipients.length}`);
+          console.log(`[Email Cron] ✓ Campaign ${campDoc.id}: sent ${sentCount}/${recipientsList.length} via ${useSendGrid ? "SendGrid" : "Gmail"}`);
         } catch (campErr: any) {
           console.error(`[Email Cron] ✗ Campaign ${campDoc.id} error:`, campErr?.message);
           errors.push(`${campDoc.id}: ${campErr?.message}`);
           await campDoc.ref.update({
             status: "active",
+            _batchProgress: 0,
             errorMessage: campErr?.message || "Unknown error",
             updatedAt: FieldValue.serverTimestamp(),
           });

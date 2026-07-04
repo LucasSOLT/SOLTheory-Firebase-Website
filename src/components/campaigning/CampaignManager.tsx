@@ -495,6 +495,7 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate }
   const { timeLeft: countdown, phase: countdownPhase } = useCountdown(campaign.triggerAt, campaign.repeatDays, campaign.status);
   const [menuOpen, setMenuOpen] = useState(false);
   const [recipientHover, setRecipientHover] = useState(false);
+  const [recipientPopupOpen, setRecipientPopupOpen] = useState(false);
   const template = DEFAULT_TEMPLATES.find((t) => t.id === campaign.templateId);
   const gradient = template?.color || "from-slate-600 to-slate-800";
   const isPast = new Date(campaign.triggerAt).getTime() <= Date.now();
@@ -621,6 +622,13 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate }
                 {campaign.recipients.length > 4 && (
                   <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 border-2 border-white">+{campaign.recipients.length - 4}</div>
                 )}
+                <div
+                  className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center cursor-pointer ml-1 shadow-sm transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setRecipientPopupOpen(true); }}
+                  title="View all recipients"
+                >
+                  <ArrowUpRight className="w-3 h-3" />
+                </div>
               </div>
               {/* Hover popup */}
               {recipientHover && (
@@ -642,12 +650,79 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate }
                     ))}
                   </div>
                   {campaign.recipients.length > 10 && (
-                    <p className="text-[9px] text-slate-400 text-center pt-1.5 border-t border-slate-100 mt-1">
-                      +{campaign.recipients.length - 10} more
+                    <p
+                      className="text-[9px] text-blue-500 hover:text-blue-600 text-center pt-1.5 border-t border-slate-100 mt-1 cursor-pointer font-semibold"
+                      onClick={(e) => { e.stopPropagation(); setRecipientPopupOpen(true); setRecipientHover(false); }}
+                    >
+                      View all {campaign.recipients.length} →
                     </p>
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Full recipient list modal */}
+          {recipientPopupOpen && (
+            <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40" onClick={() => setRecipientPopupOpen(false)}>
+              <div
+                className={`rounded-2xl shadow-2xl max-w-3xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col ${
+                  typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                    ? 'bg-slate-800 text-white'
+                    : 'bg-white text-slate-800'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className={`flex items-center justify-between px-6 py-4 border-b ${
+                  typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                    ? 'border-slate-700'
+                    : 'border-slate-200'
+                }`}>
+                  <h3 className="text-[16px] font-bold">All Recipients ({campaign.recipients.length})</h3>
+                  <button
+                    onClick={() => setRecipientPopupOpen(false)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
+                      typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                        ? 'hover:bg-slate-700 text-slate-400'
+                        : 'hover:bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Body - 5 column grid */}
+                <div className="grid grid-cols-5 gap-2 p-4 overflow-y-auto">
+                  {campaign.recipients.map((r) => (
+                    <div
+                      key={r.id}
+                      className={`flex flex-col items-center text-center p-2 rounded-xl transition-colors ${
+                        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                          ? 'hover:bg-slate-700/50'
+                          : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-bold mb-1.5 ${
+                        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                          ? 'bg-slate-700 text-slate-300'
+                          : 'bg-slate-200 text-slate-500'
+                      }`}>
+                        {(r.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
+                      <p className={`text-[11px] font-semibold truncate w-full ${
+                        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                          ? 'text-slate-200'
+                          : 'text-slate-700'
+                      }`}>{r.name}</p>
+                      <p className={`text-[9px] truncate w-full ${
+                        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                          ? 'text-slate-400'
+                          : 'text-slate-400'
+                      }`}>{r.email}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
