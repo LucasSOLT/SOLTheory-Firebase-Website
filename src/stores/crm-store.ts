@@ -236,26 +236,31 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     console.log("[CRM Store] Initializing Firestore for UID:", uid);
 
     try {
-      // ── One-time migration: copy per-user contacts to shared path ──
+      // ── One-time migration: merge per-user contacts into shared path ──
+      // Always merge — even if shared already has contacts — so that
+      // contacts added under one user path end up visible to all orgs.
       const sharedContactsRef = collection(db, crmPath(uid, "contacts"));
       const oldContactsRef = collection(db, `users/${uid}/contacts`);
-      const sharedSnap = await getDocs(query(sharedContactsRef));
-      if (sharedSnap.empty) {
+      const migrationFlag = `crm_migrated_${uid}`;
+      const alreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(migrationFlag);
+      if (!alreadyMigrated) {
         const oldSnap = await getDocs(query(oldContactsRef));
         if (!oldSnap.empty) {
-          console.log(`[CRM Store] Migrating ${oldSnap.size} contacts from user path to shared path...`);
+          // Merge into shared — setDoc with merge:true to avoid overwriting existing data
+          console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to shared path...`);
           await Promise.all(oldSnap.docs.map(d =>
-            setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data())
+            setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
           ));
-          console.log(`[CRM Store] Migration complete.`);
-          // Also migrate meetings
+          console.log(`[CRM Store] Merge complete.`);
+          // Also merge meetings
           const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
           if (!oldMeetingsSnap.empty) {
             await Promise.all(oldMeetingsSnap.docs.map(d =>
-              setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data())
+              setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
             ));
           }
         }
+        if (typeof window !== 'undefined') localStorage.setItem(migrationFlag, 'true');
       }
 
       // Set up real-time listener for contacts
