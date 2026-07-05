@@ -768,8 +768,12 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
   // ── Smart Composer State ──
   const [composerMode, setComposerMode] = useState<"classic" | "smart" | "import">(editCampaign?.composerMode || "classic");
-  const [importTab, setImportTab] = useState<"paste" | "upload">("paste");
+  const [importTab, setImportTab] = useState<"paste" | "upload" | "ai">("paste");
   const htmlFileInputRef = useRef<HTMLInputElement>(null);
+  const [importAiMessages, setImportAiMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
+  const [importAiPrompt, setImportAiPrompt] = useState("");
+  const [importAiLoading, setImportAiLoading] = useState(false);
+  const importAiChatRef = useRef<HTMLDivElement>(null);
   const [assembledHtml, setAssembledHtml] = useState<string>(editCampaign?.htmlContent || "");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [aiMessages, setAiMessages] = useState<{ role: "user" | "ai"; text: string; renderedEmail?: boolean; quickReplies?: string[] }[]>([]);
@@ -885,6 +889,164 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
     setSelectedSkeletonId(null);
     setAssembledHtml("");
     setBody("");
+  };
+
+  // ── MIME email source extraction ──
+  // When user pastes raw email source or uploads a .eml file from Gmail,
+  // this extracts the HTML part and decodes quoted-printable / base64.
+  const extractHtmlFromPaste = (raw: string): { html: string; subject?: string } => {
+    // Quick check: if it starts with < or DOCTYPE, it's already HTML
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('<') || trimmed.startsWith('<!')) {
+      return { html: raw };
+    }
+
+    // Try to extract Subject from MIME headers
+    let mimeSubject: string | undefined;
+    const subjectMatch = raw.match(/^Subject:\s*(.+)$/mi);
+    if (subjectMatch) mimeSubject = subjectMatch[1].trim();
+
+    // Decode quoted-printable with proper UTF-8 multi-byte support
+    const decodeQP = (str: string): string => {
+      // Remove soft line breaks (= at end of line)
+      str = str.replace(/=\r?\n/g, '');
+      // Convert =XX sequences to bytes, then decode as UTF-8
+      const bytes: number[] = [];
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '=' && i + 2 < str.length) {
+          const hex = str.substring(i + 1, i + 3);
+          if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+            bytes.push(parseInt(hex, 16));
+            i += 2;
+            continue;
+          }
+        }
+        // Regular ASCII character
+        const code = str.charCodeAt(i);
+        if (code === 13) continue; // skip CR
+        bytes.push(code);
+      }
+      try {
+        return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      } catch {
+        return str; // fallback
+      }
+    };
+
+    // Find the boundary from Content-Type header
+    const boundaryMatch = raw.match(/boundary="?([^";\r\n]+)"?/i);
+    const boundary = boundaryMatch ? boundaryMatch[1].trim() : null;
+
+    // Try to find HTML part in multipart MIME
+    if (boundary) {
+      const parts = raw.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'));
+      for (const part of parts) {
+        // Look for text/html content type in this part
+        if (/Content-Type:\s*text\/html/i.test(part)) {
+          // Find the encoding
+          const encMatch = part.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+          const encoding = (encMatch?.[1] || '').toLowerCase();
+
+          // The actual content starts after the first blank line in this part
+          const blankLineIdx = part.search(/\r?\n\r?\n/);
+          if (blankLineIdx === -1) continue;
+          let htmlContent = part.substring(blankLineIdx).replace(/^\r?\n\r?\n/, '').trim();
+
+          // Remove trailing boundary marker if present
+          htmlContent = htmlContent.replace(/--$/, '').trim();
+
+          if (encoding === 'base64') {
+            try {
+              // Decode base64 to bytes, then to UTF-8 string
+              const binaryStr = atob(htmlContent.replace(/\s/g, ''));
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+              htmlContent = new TextDecoder('utf-8').decode(bytes);
+            } catch { /* not valid base64, use as-is */ }
+          } else if (encoding === 'quoted-printable') {
+            htmlContent = decodeQP(htmlContent);
+          }
+
+          if (htmlContent.includes('<') && htmlContent.includes('>')) {
+            return { html: htmlContent, subject: mimeSubject };
+          }
+        }
+      }
+    }
+
+    // Fallback: try the simple regex approach for non-multipart or weird formats
+    const htmlPartRegex = /Content-Type:\s*text\/html[^\n]*\n(?:Content-Transfer-Encoding:\s*(\S+)\n)?(?:\n)+([\s\S]*?)(?:\n--[^\n]+|$)/i;
+    const match = raw.match(htmlPartRegex);
+    if (match) {
+      const encoding = (match[1] || '').toLowerCase();
+      let htmlContent = match[2].trim();
+      if (encoding === 'quoted-printable') htmlContent = decodeQP(htmlContent);
+      else if (encoding === 'base64') {
+        try {
+          const binaryStr = atob(htmlContent.replace(/\s/g, ''));
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+          htmlContent = new TextDecoder('utf-8').decode(bytes);
+        } catch { /* fallback */ }
+      }
+      if (htmlContent.includes('<') && htmlContent.includes('>')) {
+        return { html: htmlContent, subject: mimeSubject };
+      }
+    }
+
+    // Pattern 3: Just find anything between <html> and </html>
+    const htmlTagMatch = raw.match(/<html[\s\S]*<\/html>/i) || raw.match(/<table[\s\S]*<\/table>/i);
+    if (htmlTagMatch) {
+      return { html: htmlTagMatch[0], subject: mimeSubject };
+    }
+
+    // Not MIME, return as-is
+    return { html: raw, subject: mimeSubject };
+  };
+
+  const handleImportPaste = (text: string) => {
+    const { html, subject: mimeSubject } = extractHtmlFromPaste(text);
+    setAssembledHtml(html);
+    if (mimeSubject && !subject) setSubject(mimeSubject);
+  };
+
+  // ── Import mode AI edit handler ──
+  const handleImportAiSend = async () => {
+    if (!importAiPrompt.trim() || importAiLoading || !assembledHtml) return;
+    const userMsg = importAiPrompt.trim();
+    setImportAiPrompt("");
+    setImportAiMessages(prev => [...prev, { role: "user", text: userMsg }]);
+    setImportAiLoading(true);
+    setTimeout(() => importAiChatRef.current?.scrollTo({ top: importAiChatRef.current.scrollHeight, behavior: 'smooth' }), 50);
+
+    try {
+      const resp = await fetch("/api/campaigning/email/assemble", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-uid": user?.uid || "" },
+        body: JSON.stringify({
+          action: "edit-html",
+          currentHtml: assembledHtml,
+          subject,
+          conversationHistory: [
+            ...importAiMessages.map(m => ({ role: m.role === "user" ? "user" as const : "assistant" as const, content: m.text })),
+            { role: "user" as const, content: userMsg },
+          ],
+        }),
+      });
+      const data = await resp.json();
+      if (data.intent === "edit" && data.html) {
+        setAssembledHtml(data.html);
+        if (data.subject) setSubject(data.subject);
+        setImportAiMessages(prev => [...prev, { role: "ai", text: data.message || "Done! I've updated the email." }]);
+      } else {
+        setImportAiMessages(prev => [...prev, { role: "ai", text: data.message || "I'm not sure how to help with that. Try describing a specific change." }]);
+      }
+    } catch (err: any) {
+      setImportAiMessages(prev => [...prev, { role: "ai", text: `⚠️ Error: ${err.message}` }]);
+    } finally {
+      setImportAiLoading(false);
+      setTimeout(() => importAiChatRef.current?.scrollTo({ top: importAiChatRef.current.scrollHeight, behavior: 'smooth' }), 50);
+    }
   };
 
   // ── Smart Composer Handlers ──
@@ -1553,7 +1715,16 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                   className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
                     importTab === "upload" ? "text-emerald-600 border-b-2 border-emerald-600" : "text-slate-400 hover:text-slate-600"
                   }`}>
-                  Upload .html File
+                  Upload File
+                </button>
+                <button onClick={() => setImportTab("ai")}
+                  className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+                    importTab === "ai" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400 hover:text-slate-600"
+                  }`}
+                  disabled={!assembledHtml}
+                  title={!assembledHtml ? "Import HTML first to enable AI editing" : ""}
+                >
+                  ✨ Edit with AI
                 </button>
               </div>
 
@@ -1567,7 +1738,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                         onClick={async () => {
                           try {
                             const text = await navigator.clipboard.readText();
-                            if (text) setAssembledHtml(text);
+                            if (text) handleImportPaste(text);
                           } catch { /* clipboard access denied */ }
                         }}
                         className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
@@ -1577,7 +1748,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                     </div>
                     <textarea
                       value={assembledHtml}
-                      onChange={(e) => setAssembledHtml(e.target.value)}
+                      onChange={(e) => handleImportPaste(e.target.value)}
                       placeholder={'Paste your email HTML here...\n\nFor example, from Canva:\n1. Open your Canva email design\n2. Click Share → More → Embed\n3. Copy the HTML code\n4. Paste it here'}
                       className="flex-1 w-full p-3 text-xs font-mono border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-slate-50 min-h-[200px]"
                       spellCheck={false}
@@ -1588,15 +1759,15 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                     <input
                       ref={htmlFileInputRef}
                       type="file"
-                      accept=".html,.htm"
+                      accept=".html,.htm,.eml"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const reader = new FileReader();
                         reader.onload = (ev) => {
-                          const html = ev.target?.result as string;
-                          if (html) setAssembledHtml(html);
+                          const content = ev.target?.result as string;
+                          if (content) handleImportPaste(content);
                         };
                         reader.readAsText(file);
                       }}
@@ -1606,8 +1777,8 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                       className="border-2 border-dashed border-slate-200 rounded-xl p-10 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors"
                     >
                       <Upload className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-sm font-semibold text-slate-600 mb-1">Click to upload an .html file</p>
-                      <p className="text-xs text-slate-400">Or drag and drop your exported email file here</p>
+                      <p className="text-sm font-semibold text-slate-600 mb-1">Click to upload a file</p>
+                      <p className="text-xs text-slate-400">Supports .html files and .eml files (from Gmail&apos;s &quot;Download message&quot;)</p>
                     </div>
                     {assembledHtml && (
                       <div className="flex items-center gap-2 text-xs text-emerald-600 font-semibold">
@@ -1618,6 +1789,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 )}
 
                 {/* Merge Fields Helper */}
+                {importTab !== "ai" && (
                 <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Available Merge Fields</p>
                   <p className="text-[11px] text-slate-400 mb-2">Add these to your HTML to personalize each email:</p>
@@ -1635,6 +1807,71 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                   </div>
                   <p className="text-[10px] text-slate-400 mt-2">Click any field to copy it, then paste into your HTML where you want it personalized.</p>
                 </div>
+                )}
+
+                {/* AI Edit Chat */}
+                {importTab === "ai" && (
+                  <div className="flex flex-col h-full -mx-5 -mb-5">
+                    {/* Chat messages */}
+                    <div ref={importAiChatRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ minHeight: 200 }}>
+                      {importAiMessages.length === 0 && (
+                        <div className="text-center py-8">
+                          <Sparkles className="w-8 h-8 text-indigo-300 mx-auto mb-2" />
+                          <p className="text-sm font-semibold text-slate-600 mb-1">Edit with Jarvis</p>
+                          <p className="text-xs text-slate-400 max-w-[250px] mx-auto">Describe what you want to change and I&apos;ll update the HTML for you. Try things like:</p>
+                          <div className="mt-3 space-y-1.5">
+                            {['"Add a personalized greeting with {{first_name}}"', '"Change the button color to blue"', '"Add a new section about our services"', '"Remove the footer"'].map((suggestion) => (
+                              <button key={suggestion} onClick={() => { setImportAiPrompt(suggestion.replace(/"/g, '')); }}
+                                className="block mx-auto text-[11px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-3 py-1 rounded-lg transition-colors cursor-pointer">
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {importAiMessages.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                            msg.role === 'user'
+                              ? 'bg-indigo-600 text-white rounded-br-sm'
+                              : 'bg-slate-100 text-slate-700 rounded-bl-sm'
+                          }`}>
+                            {msg.text}
+                          </div>
+                        </div>
+                      ))}
+                      {importAiLoading && (
+                        <div className="flex justify-start">
+                          <div className="bg-slate-100 text-slate-500 px-3 py-2 rounded-xl rounded-bl-sm text-xs flex items-center gap-2">
+                            <div className="flex gap-1">
+                              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
+                            Editing...
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Chat input */}
+                    <div className="border-t border-slate-200 px-4 py-3 bg-white shrink-0">
+                      <form onSubmit={(e) => { e.preventDefault(); handleImportAiSend(); }} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={importAiPrompt}
+                          onChange={(e) => setImportAiPrompt(e.target.value)}
+                          placeholder="Describe what to change..."
+                          className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+                          disabled={importAiLoading}
+                        />
+                        <button type="submit" disabled={importAiLoading || !importAiPrompt.trim()}
+                          className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2035,7 +2272,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 recipients={recipients}
                 settings={{ ...campaignSettings, senderName: personalInfo.senderName || campaignSettings.senderName, orgName: personalInfo.orgName || campaignSettings.orgName, phoneNumber: personalInfo.phoneNumber || campaignSettings.phoneNumber || '' }}
                 onClose={() => setShowPreview(false)}
-                htmlContent={composerMode === "smart" ? assembledHtml : undefined}
+                htmlContent={(composerMode === "smart" || composerMode === "import") ? assembledHtml : undefined}
                 uid={user?.uid}
                 refreshToken={gmailRefreshToken || undefined}
               />

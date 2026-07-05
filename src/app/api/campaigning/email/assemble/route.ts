@@ -21,7 +21,7 @@ interface ChatMessage {
 }
 
 interface AssembleRequest {
-  action: "generate" | "iterate" | "chat";
+  action: "generate" | "iterate" | "chat" | "edit-html";
   // For 'generate'
   skeletonId?: string;
   prompt: string;
@@ -318,8 +318,119 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as AssembleRequest;
     const { action } = body;
 
-    if (!action || !["generate", "iterate", "chat"].includes(action)) {
-      return NextResponse.json({ error: "Invalid action. Must be 'generate', 'iterate', or 'chat'." }, { status: 400 });
+    if (!action || !["generate", "iterate", "chat", "edit-html"].includes(action)) {
+      return NextResponse.json({ error: "Invalid action. Must be 'generate', 'iterate', 'chat', or 'edit-html'." }, { status: 400 });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Edit imported HTML directly (no skeleton system)
+    // ═══════════════════════════════════════════════════════════════
+    if (action === "edit-html") {
+      const currentHtml = body.currentHtml;
+      if (!currentHtml) {
+        return NextResponse.json({ error: "Missing 'currentHtml' for edit-html action." }, { status: 400 });
+      }
+
+      // Truncate HTML for context window (keep first 12k chars — most emails are 5-20KB)
+      const truncatedHtml = currentHtml.length > 12000 ? currentHtml.substring(0, 12000) + '\n<!-- ... truncated ... -->' : currentHtml;
+
+      const editSystemPrompt = `You are Jarvis, an expert email designer. The user has imported an HTML email and wants you to edit it.
+
+You MUST respond with ONLY a valid JSON object. No markdown fences, no extra text.
+
+## INTENT DETECTION
+Determine what the user wants:
+
+### intent: "chat"
+Use when the user is asking a question, brainstorming, or not clearly asking for an edit.
+
+### intent: "edit"
+Use when the user wants you to MODIFY the HTML — change text, add sections, remove elements, change colors, add images, etc.
+
+## RESPONSE FORMAT
+
+For "chat" intent:
+{
+  "intent": "chat",
+  "message": "Your conversational response."
+}
+
+For "edit" intent:
+{
+  "intent": "edit",
+  "message": "Brief description of what you changed.",
+  "html": "THE COMPLETE UPDATED HTML — not a diff, not a snippet, but the FULL email HTML with your changes applied."
+}
+
+## RULES
+- When editing, return the COMPLETE HTML document with changes applied. Do not return partial HTML.
+- Preserve all existing styles, images, and structure unless the user asks to change them.
+- You can add new HTML elements, modify text, change inline styles, add/remove sections.
+- Keep all image URLs exactly as they are unless the user asks to change them.
+- Maintain the email's overall design language and aesthetic.
+- Use merge fields like {{first_name}}, {{org_name}} where the user requests personalization.
+
+## CURRENT EMAIL HTML
+${truncatedHtml}
+
+## CURRENT SUBJECT LINE
+${body.subject || '(no subject set)'}`;
+
+      const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+        { role: "system", content: editSystemPrompt },
+      ];
+
+      const history = (body.conversationHistory || []).slice(-16);
+      for (const msg of history) {
+        messages.push({
+          role: msg.role === "user" ? "user" : "assistant",
+          content: msg.content,
+        });
+      }
+
+      const completion = await groq.chat.completions.create({
+        messages,
+        model: MODEL,
+        temperature: 0.6,
+        max_tokens: 8000,
+      });
+
+      const rawResponse = completion.choices[0]?.message?.content || "";
+
+      // Parse the response
+      try {
+        // Try to extract JSON from the response
+        let jsonStr = rawResponse.trim();
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/); 
+        if (jsonMatch) jsonStr = jsonMatch[0];
+        const parsed = JSON.parse(jsonStr);
+
+        if (parsed.intent === "edit" && parsed.html) {
+          // If the AI returned truncated HTML, merge it back
+          let finalHtml = parsed.html;
+          // If the html looks incomplete (doesn't close properly), use original
+          if (finalHtml.includes('<!-- ... truncated ... -->')) {
+            finalHtml = currentHtml; // fallback
+          }
+          return NextResponse.json({
+            intent: "edit",
+            message: parsed.message || "Done!",
+            html: finalHtml,
+            subject: parsed.subject || undefined,
+          });
+        }
+
+        return NextResponse.json({
+          intent: "chat",
+          message: parsed.message || rawResponse,
+        });
+      } catch {
+        // If JSON parsing fails, treat as chat
+        return NextResponse.json({
+          intent: "chat",
+          message: rawResponse.replace(/```json\n?|```\n?/g, '').trim() || "I had trouble processing that. Could you try rephrasing?",
+        });
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
