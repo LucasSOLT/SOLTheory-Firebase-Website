@@ -877,6 +877,7 @@ export default function AgenticCampaigningPage() {
   const [hoverDay, setHoverDay] = useState<number | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Campaign | null>(null);
+  const [focusCampaignId, setFocusCampaignId] = useState<string | null>(null);
 
   // Color palette for campaign events
   const EVENT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
@@ -1086,7 +1087,7 @@ export default function AgenticCampaigningPage() {
   if (selectedPlatform === "gmail") {
     return (
       <div className={`w-full h-full rounded-2xl overflow-hidden shadow-sm relative flex flex-col ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-[#fefdfb] border border-slate-200/80'}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
-        <CampaignManager onBack={() => setSelectedPlatform(null)} />
+        <CampaignManager onBack={() => setSelectedPlatform(null)} focusCampaignId={focusCampaignId} onFocusHandled={() => setFocusCampaignId(null)} />
       </div>
     );
   }
@@ -1251,7 +1252,7 @@ export default function AgenticCampaigningPage() {
                     {activeCampaigns.map((c) => (
                       <div
                         key={`${setIdx}-gmail-${c.id}`}
-                        onClick={() => { if (!carouselDragRef.current.isDragging) setSelectedPlatform('gmail'); }}
+                        onClick={() => { if (!carouselDragRef.current.isDragging) { setFocusCampaignId(c.id); setSelectedPlatform('gmail'); } }}
                         className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md shrink-0 w-[260px] ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-[#fefdfb] border-slate-200/80 hover:border-indigo-200'}`}
                       >
                         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shrink-0">
@@ -1318,7 +1319,7 @@ export default function AgenticCampaigningPage() {
               {activeCampaigns.map((c) => (
                 <div
                   key={c.id}
-                  onClick={() => { setSelectedPlatform('gmail'); }}
+                  onClick={() => { setFocusCampaignId(c.id); setSelectedPlatform('gmail'); }}
                   className={`group rounded-xl border p-3 flex items-start gap-3 cursor-pointer transition-all hover:shadow-md ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-[#fefdfb] border-slate-200/80 hover:border-indigo-200'}`}
                 >
                   <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shrink-0">
@@ -1661,7 +1662,7 @@ export default function AgenticCampaigningPage() {
                 {/* Campaign Event Detail Popup */}
                 {selectedEvent && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setSelectedEvent(null)}>
-                    <div onClick={(e) => e.stopPropagation()} className={`rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+                    <div onClick={(e) => e.stopPropagation()} className={`rounded-2xl shadow-2xl p-6 ${selectedEvent.htmlContent ? 'max-w-2xl' : 'max-w-md'} w-full mx-4 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{selectedEvent.name}</h3>
                         <button onClick={() => setSelectedEvent(null)} className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer ${isDarkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-400'}`}>
@@ -1681,6 +1682,24 @@ export default function AgenticCampaigningPage() {
                           <p><span className="font-semibold">Repeat:</span> {selectedEvent.repeatDays === 0 ? 'One-time' : selectedEvent.repeatDays === 1 ? 'Daily' : selectedEvent.repeatDays === 7 ? 'Weekly' : 'Monthly'}</p>
                           <p><span className="font-semibold">Sent:</span> {selectedEvent.sent || 0}</p>
                         </div>
+                        {selectedEvent.htmlContent ? (
+                          <div className="mt-3">
+                            <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Email Preview</p>
+                            <iframe
+                              srcDoc={selectedEvent.htmlContent}
+                              sandbox="allow-same-origin"
+                              className={`w-full h-[300px] rounded-lg border ${isDarkMode ? 'border-slate-600' : 'border-slate-300'}`}
+                              title="Email preview"
+                            />
+                          </div>
+                        ) : selectedEvent.body ? (
+                          <div className="mt-3">
+                            <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Email Body</p>
+                            <div className={`text-sm whitespace-pre-wrap rounded-lg p-3 border ${isDarkMode ? 'bg-slate-900 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                              {selectedEvent.body}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>

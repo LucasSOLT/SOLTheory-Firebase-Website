@@ -485,12 +485,13 @@ function EmailPreview({ subject, body, senderName, recipients, settings, onClose
    CAMPAIGN TILE
    ═══════════════════════════════════════════════════════════════ */
 
-function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate }: {
+function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, id }: {
   campaign: Campaign;
   onEdit: () => void;
   onTogglePause: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  id?: string;
 }) {
   const { timeLeft: countdown, phase: countdownPhase } = useCountdown(campaign.triggerAt, campaign.repeatDays, campaign.status);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -514,7 +515,7 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate }
   const st = statusConfig[campaign.status];
 
   return (
-    <div className="relative bg-white border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-200 group">
+    <div id={id} className="relative bg-white border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-200 group">
       {/* Gradient header strip */}
       <div className={`h-2 bg-gradient-to-r ${gradient}`} />
 
@@ -2405,7 +2406,7 @@ function CampaignSettingsPanel({ settings, onSave, onBack }: {
    MAIN CAMPAIGN MANAGER
    ═══════════════════════════════════════════════════════════════ */
 
-export default function CampaignManager({ onBack }: { onBack: () => void }) {
+export default function CampaignManager({ onBack, focusCampaignId, onFocusHandled }: { onBack: () => void; focusCampaignId?: string | null; onFocusHandled?: () => void }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [view, setView] = useState<"list" | "creator" | "settings">("list");
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
@@ -2413,6 +2414,36 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
   const [campaignSettings, setCampaignSettings] = useState<CampaignSettingsData>(DEFAULT_SETTINGS);
   const { user } = useUser();
   const firestore = useFirestore();
+
+  // Scroll-to and highlight a campaign tile when navigated from the home screen (desktop only)
+  useEffect(() => {
+    if (!focusCampaignId) return;
+    // Only scroll on desktop
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      onFocusHandled?.();
+      return;
+    }
+    // Wait for the DOM to render the tiles
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`campaign-tile-${focusCampaignId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Apply highlight flash
+        el.style.transition = 'background-color 0.3s ease';
+        el.style.backgroundColor = '#e2e8f0'; // slate-200
+        setTimeout(() => {
+          el.style.transition = 'background-color 2.5s ease';
+          el.style.backgroundColor = 'transparent';
+        }, 400);
+        setTimeout(() => {
+          el.style.backgroundColor = '';
+          el.style.transition = '';
+        }, 3000);
+      }
+      onFocusHandled?.();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [focusCampaignId, onFocusHandled]);
 
   // Load CRM contacts
   useEffect(() => {
@@ -2763,6 +2794,7 @@ export default function CampaignManager({ onBack }: { onBack: () => void }) {
             {campaigns.map((c) => (
               <CampaignTile
                 key={c.id}
+                id={`campaign-tile-${c.id}`}
                 campaign={c}
                 onEdit={() => { setEditingCampaign(c); setView("creator"); }}
                 onTogglePause={() => togglePause(c.id)}
