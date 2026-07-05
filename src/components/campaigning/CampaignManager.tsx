@@ -1755,7 +1755,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                       spellCheck={false}
                     />
                   </div>
-                ) : (
+                ) : importTab === "upload" ? (
                   <div className="space-y-4">
                     <input
                       ref={htmlFileInputRef}
@@ -1787,7 +1787,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Merge Fields Helper */}
                 {importTab !== "ai" && (
