@@ -36,7 +36,7 @@ export interface Campaign {
   htmlContent?: string;
   images?: string[];
   skeletonId?: string;
-  composerMode?: "classic" | "smart";
+  composerMode?: "classic" | "smart" | "import";
   slotData?: Record<string, any>;
   recipients: { id: string; name: string; email: string }[];
   triggerAt: string;
@@ -767,7 +767,9 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [showSaveForm, setShowSaveForm] = useState(false);
 
   // ── Smart Composer State ──
-  const [composerMode, setComposerMode] = useState<"classic" | "smart">(editCampaign?.composerMode || "classic");
+  const [composerMode, setComposerMode] = useState<"classic" | "smart" | "import">(editCampaign?.composerMode || "classic");
+  const [importTab, setImportTab] = useState<"paste" | "upload">("paste");
+  const htmlFileInputRef = useRef<HTMLInputElement>(null);
   const [assembledHtml, setAssembledHtml] = useState<string>(editCampaign?.htmlContent || "");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [aiMessages, setAiMessages] = useState<{ role: "user" | "ai"; text: string; renderedEmail?: boolean; quickReplies?: string[] }[]>([]);
@@ -874,6 +876,15 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
     setShowFromScratch(true);
     setComposerMode("smart");
     setSelectedSkeletonId(skeletonId);
+  };
+
+  const startImport = () => {
+    setSelectedTemplate(null);
+    setShowFromScratch(true);
+    setComposerMode("import");
+    setSelectedSkeletonId(null);
+    setAssembledHtml("");
+    setBody("");
   };
 
   // ── Smart Composer Handlers ──
@@ -1132,7 +1143,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const canProceed = [
     () => !!kind,                                              // step 0: kind selected
     () => selectedTemplate !== null || showFromScratch,         // step 1: template chosen
-    () => composerMode === "smart"                             // step 2: smart mode needs subject + html
+    () => composerMode === "smart" || composerMode === "import" // step 2: smart/import mode needs subject + html
       ? subject.trim().length > 0 && assembledHtml.length > 0
       : subject.trim().length > 0 && body.trim().length > 0,
     () => recipients.length > 0,                               // step 3: recipients
@@ -1153,7 +1164,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
         templateId: selectedTemplate,
         subject,
         body,
-        htmlContent: composerMode === "smart" && assembledHtml ? assembledHtml : undefined,
+        htmlContent: (composerMode === "smart" || composerMode === "import") && assembledHtml ? assembledHtml : undefined,
         images: composerMode === "smart" && uploadedImages.length > 0 ? uploadedImages.map((i) => i.url) : undefined,
         skeletonId: composerMode === "smart" && selectedSkeletonId ? selectedSkeletonId : undefined,
         composerMode: composerMode,
@@ -1307,7 +1318,33 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
               </div>
             </div>
 
-            {/* Divider */}
+            {/* Divider — Import */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1 border-t border-slate-200" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">or import your own</span>
+              <div className="flex-1 border-t border-slate-200" />
+            </div>
+
+            {/* Import Your Own Email */}
+            <div>
+              <button onClick={startImport}
+                className={`w-full text-left rounded-xl border p-5 transition-all cursor-pointer flex items-center gap-4 ${
+                  composerMode === "import" ? "border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600 shadow-sm" : "border-slate-200 hover:border-emerald-300 hover:shadow-sm"
+                }`}>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shrink-0">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold mb-0.5 ${composerMode === "import" ? "text-emerald-700" : "text-slate-700"}`}>Import Your Own Email</p>
+                  <p className="text-xs text-slate-400">Paste HTML from Canva, Mailchimp, or any design tool. We&apos;ll send it to your selected recipients.</p>
+                </div>
+                {composerMode === "import" && (
+                  <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold shrink-0"><Check className="w-4 h-4" /> Selected</div>
+                )}
+              </button>
+            </div>
+
+            {/* Divider — Text Templates */}
             <div className="flex items-center gap-4">
               <div className="flex-1 border-t border-slate-200" />
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">or use a text template</span>
@@ -1438,6 +1475,166 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                     {field}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Step 2: Import Mode ═══ */}
+        {step === 2 && composerMode === "import" && (
+          <div className="flex h-full">
+            {/* Left Pane: Live Preview */}
+            <div className="flex-[3] flex flex-col border-r border-slate-200 bg-slate-50/50">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-white shrink-0">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Live Preview</span>
+                <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                  <button onClick={() => setPreviewMode("desktop")}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
+                      previewMode === "desktop" ? "bg-white shadow-sm text-slate-700" : "text-slate-400 hover:text-slate-600"
+                    }`}>
+                    <Monitor className="w-3 h-3" /> Desktop
+                  </button>
+                  <button onClick={() => setPreviewMode("mobile")}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
+                      previewMode === "mobile" ? "bg-white shadow-sm text-slate-700" : "text-slate-400 hover:text-slate-600"
+                    }`}>
+                    <Smartphone className="w-3 h-3" /> Mobile
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 flex items-start justify-center overflow-auto p-6 bg-slate-100">
+                {assembledHtml ? (
+                  <div className={`bg-white shadow-lg rounded-xl overflow-hidden transition-all duration-300 ${
+                    previewMode === "mobile" ? "w-[375px]" : "w-full max-w-[680px]"
+                  }`}>
+                    <iframe
+                      srcDoc={assembledHtml}
+                      className="w-full border-0"
+                      style={{ minHeight: 500, height: "70vh" }}
+                      sandbox="allow-same-origin"
+                      title="Email Preview"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                    <Upload className="w-12 h-12 mb-3 opacity-30" />
+                    <p className="text-sm font-medium">Paste or upload your HTML to see a preview</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Pane: Import Panel */}
+            <div className="flex-[2] flex flex-col bg-white min-w-0">
+              <div className="px-5 py-4 border-b border-slate-200 shrink-0">
+                <h3 className="text-sm font-bold text-slate-700 mb-1">Import Your Email</h3>
+                <p className="text-[11px] text-slate-400">Paste HTML from Canva, Mailchimp, or upload a .html file</p>
+              </div>
+
+              {/* Subject Line */}
+              <div className="px-5 py-3 border-b border-slate-100">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Subject Line</label>
+                <input
+                  type="text" value={subject} onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Enter your email subject..."
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-slate-200 shrink-0">
+                <button onClick={() => setImportTab("paste")}
+                  className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+                    importTab === "paste" ? "text-emerald-600 border-b-2 border-emerald-600" : "text-slate-400 hover:text-slate-600"
+                  }`}>
+                  Paste HTML
+                </button>
+                <button onClick={() => setImportTab("upload")}
+                  className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+                    importTab === "upload" ? "text-emerald-600 border-b-2 border-emerald-600" : "text-slate-400 hover:text-slate-600"
+                  }`}>
+                  Upload .html File
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-auto p-5">
+                {importTab === "paste" ? (
+                  <div className="space-y-3 h-full flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">HTML Code</label>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const text = await navigator.clipboard.readText();
+                            if (text) setAssembledHtml(text);
+                          } catch { /* clipboard access denied */ }
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" /> Paste from Clipboard
+                      </button>
+                    </div>
+                    <textarea
+                      value={assembledHtml}
+                      onChange={(e) => setAssembledHtml(e.target.value)}
+                      placeholder={'Paste your email HTML here...\n\nFor example, from Canva:\n1. Open your Canva email design\n2. Click Share → More → Embed\n3. Copy the HTML code\n4. Paste it here'}
+                      className="flex-1 w-full p-3 text-xs font-mono border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-slate-50 min-h-[200px]"
+                      spellCheck={false}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <input
+                      ref={htmlFileInputRef}
+                      type="file"
+                      accept=".html,.htm"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const html = ev.target?.result as string;
+                          if (html) setAssembledHtml(html);
+                        };
+                        reader.readAsText(file);
+                      }}
+                    />
+                    <div
+                      onClick={() => htmlFileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-200 rounded-xl p-10 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors"
+                    >
+                      <Upload className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                      <p className="text-sm font-semibold text-slate-600 mb-1">Click to upload an .html file</p>
+                      <p className="text-xs text-slate-400">Or drag and drop your exported email file here</p>
+                    </div>
+                    {assembledHtml && (
+                      <div className="flex items-center gap-2 text-xs text-emerald-600 font-semibold">
+                        <CheckCircle2 className="w-4 h-4" /> HTML loaded successfully ({Math.round(assembledHtml.length / 1024)}KB)
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Merge Fields Helper */}
+                <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Available Merge Fields</p>
+                  <p className="text-[11px] text-slate-400 mb-2">Add these to your HTML to personalize each email:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['{{first_name}}', '{{last_name}}', '{{email}}', '{{org_name}}', '{{sender_name}}', '{{phone_number}}'].map((field) => (
+                      <button
+                        key={field}
+                        onClick={() => navigator.clipboard.writeText(field)}
+                        className="px-2 py-1 text-[10px] font-mono font-medium bg-white border border-slate-200 rounded-md hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-colors cursor-pointer text-slate-600"
+                        title={`Click to copy ${field}`}
+                      >
+                        {field}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-2">Click any field to copy it, then paste into your HTML where you want it personalized.</p>
+                </div>
               </div>
             </div>
           </div>
