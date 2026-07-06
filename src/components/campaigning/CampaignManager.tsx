@@ -9,7 +9,7 @@ import {
   Timer, Pen, Check, UserPlus, Search, Inbox, ArrowUpRight,
   GitBranch, EyeOff, Reply, Settings, Save, Building2,
   ChevronDown, Upload, Image as ImageIcon, Monitor, Smartphone,
-  MessageSquare, RotateCcw, Wand2,
+  MessageSquare, RotateCcw, Wand2, Paperclip,
 } from "lucide-react";
 import { useUser, useFirestore, useStorage } from "@/firebase/provider";
 import { collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
@@ -771,10 +771,12 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [composerMode, setComposerMode] = useState<"classic" | "smart" | "import">(editCampaign?.composerMode || "classic");
   const [importTab, setImportTab] = useState<"paste" | "upload" | "ai">("paste");
   const htmlFileInputRef = useRef<HTMLInputElement>(null);
-  const [importAiMessages, setImportAiMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
+  const [importAiMessages, setImportAiMessages] = useState<{ role: "user" | "ai"; text: string; images?: string[] }[]>([]);
   const [importAiPrompt, setImportAiPrompt] = useState("");
   const [importAiLoading, setImportAiLoading] = useState(false);
   const importAiChatRef = useRef<HTMLDivElement>(null);
+  const [importAiImages, setImportAiImages] = useState<string[]>([]);
+  const importAiFileRef = useRef<HTMLInputElement>(null);
   const [assembledHtml, setAssembledHtml] = useState<string>(editCampaign?.htmlContent || "");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [aiMessages, setAiMessages] = useState<{ role: "user" | "ai"; text: string; renderedEmail?: boolean; quickReplies?: string[] }[]>([]);
@@ -1012,13 +1014,28 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   };
 
   // ── Import mode AI edit handler ──
+  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
   const handleImportAiSend = async () => {
-    if (!importAiPrompt.trim() || importAiLoading || !assembledHtml) return;
-    const userMsg = importAiPrompt.trim();
+    if ((!importAiPrompt.trim() && importAiImages.length === 0) || importAiLoading || !assembledHtml) return;
+    const userMsg = importAiPrompt.trim() || (importAiImages.length > 0 ? "(attached image)" : "");
+    const images = [...importAiImages];
     setImportAiPrompt("");
-    setImportAiMessages(prev => [...prev, { role: "user", text: userMsg }]);
+    setImportAiImages([]);
+    setImportAiMessages(prev => [...prev, { role: "user", text: userMsg, images: images.length > 0 ? images : undefined }]);
     setImportAiLoading(true);
     setTimeout(() => importAiChatRef.current?.scrollTo({ top: importAiChatRef.current.scrollHeight, behavior: 'smooth' }), 50);
+
+    // Build message content with image markers
+    let msgContent = userMsg;
+    if (images.length > 0) {
+      msgContent = userMsg + images.map(img => `\n[IMAGE]${img}[/IMAGE]`).join('');
+    }
 
     try {
       const resp = await fetch("/api/campaigning/email/assemble", {
@@ -1028,9 +1045,14 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
           action: "edit-html",
           currentHtml: assembledHtml,
           subject,
+          imageUrls: images,
           conversationHistory: [
-            ...importAiMessages.map(m => ({ role: m.role === "user" ? "user" as const : "assistant" as const, content: m.text })),
-            { role: "user" as const, content: userMsg },
+            ...importAiMessages.map(m => {
+              let content = m.text;
+              if (m.images?.length) content += m.images.map(img => `\n[IMAGE]${img}[/IMAGE]`).join('');
+              return { role: m.role === "user" ? "user" as const : "assistant" as const, content };
+            }),
+            { role: "user" as const, content: msgContent },
           ],
         }),
       });
@@ -1837,6 +1859,13 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                               ? 'bg-indigo-600 text-white rounded-br-sm'
                               : 'bg-slate-100 text-slate-700 rounded-bl-sm'
                           }`}>
+                            {msg.images && msg.images.length > 0 && (
+                              <div className="flex gap-1.5 mb-1.5 flex-wrap">
+                                {msg.images.map((img, ii) => (
+                                  <img key={ii} src={img} alt="" className="w-16 h-16 rounded-lg object-cover border border-white/20" />
+                                ))}
+                              </div>
+                            )}
                             {msg.text}
                           </div>
                         </div>
@@ -1856,16 +1885,57 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                     </div>
                     {/* Chat input */}
                     <div className="border-t border-slate-200 px-4 py-3 bg-white shrink-0">
+                      {/* Pending image thumbnails */}
+                      {importAiImages.length > 0 && (
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                          {importAiImages.map((img, i) => (
+                            <div key={i} className="relative group">
+                              <img src={img} alt="" className="w-14 h-14 rounded-lg object-cover border border-slate-200" />
+                              <button onClick={() => setImportAiImages(prev => prev.filter((_, idx) => idx !== i))}
+                                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <input ref={importAiFileRef} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                        const files = e.target.files;
+                        if (!files) return;
+                        for (const file of Array.from(files)) {
+                          const b64 = await fileToBase64(file);
+                          setImportAiImages(prev => [...prev, b64]);
+                        }
+                        e.target.value = '';
+                      }} />
                       <form onSubmit={(e) => { e.preventDefault(); handleImportAiSend(); }} className="flex gap-2">
+                        <button type="button" onClick={() => importAiFileRef.current?.click()}
+                          className="px-2 py-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer" title="Attach image">
+                          <Paperclip className="w-3.5 h-3.5" />
+                        </button>
                         <input
                           type="text"
                           value={importAiPrompt}
                           onChange={(e) => setImportAiPrompt(e.target.value)}
-                          placeholder="Describe what to change..."
+                          onPaste={async (e) => {
+                            const items = e.clipboardData?.items;
+                            if (!items) return;
+                            for (const item of Array.from(items)) {
+                              if (item.type.startsWith('image/')) {
+                                e.preventDefault();
+                                const file = item.getAsFile();
+                                if (file) {
+                                  const b64 = await fileToBase64(file);
+                                  setImportAiImages(prev => [...prev, b64]);
+                                }
+                              }
+                            }
+                          }}
+                          placeholder={importAiImages.length > 0 ? "Add a message or send images..." : "Describe what to change..."}
                           className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                           disabled={importAiLoading}
                         />
-                        <button type="submit" disabled={importAiLoading || !importAiPrompt.trim()}
+                        <button type="submit" disabled={importAiLoading || (!importAiPrompt.trim() && importAiImages.length === 0)}
                           className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
                           <Send className="w-3.5 h-3.5" />
                         </button>

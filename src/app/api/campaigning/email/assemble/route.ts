@@ -331,6 +331,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing 'currentHtml' for edit-html action." }, { status: 400 });
       }
 
+      // Check if any images are attached to the latest message
+      const latestImages: string[] = (body as any).imageUrls || [];
+      const hasImages = latestImages.length > 0;
+      const visionModel = "llama-3.2-90b-vision-preview";
+
       // Truncate HTML for context window (keep first 12k chars — most emails are 5-20KB)
       const truncatedHtml = currentHtml.length > 12000 ? currentHtml.substring(0, 12000) + '\n<!-- ... truncated ... -->' : currentHtml;
 
@@ -346,6 +351,7 @@ Use when the user is asking a question, brainstorming, or not clearly asking for
 
 ### intent: "edit"
 Use when the user wants you to MODIFY the HTML — change text, add sections, remove elements, change colors, add images, etc.
+${hasImages ? '\nThe user has attached image(s). They may want you to:\n- Analyze the image and replicate a design element in the email HTML\n- Use the image as visual reference for color, layout, or style changes\n- Add the image to the email (if they provide a URL or ask you to insert it)\nAlways acknowledge what you see in the image.\n' : ''}
 
 ## RESPONSE FORMAT
 
@@ -376,21 +382,49 @@ ${truncatedHtml}
 ## CURRENT SUBJECT LINE
 ${body.subject || '(no subject set)'}`;
 
-      const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+      // Build messages - use multimodal content for vision
+      const messages: any[] = [
         { role: "system", content: editSystemPrompt },
       ];
 
       const history = (body.conversationHistory || []).slice(-16);
       for (const msg of history) {
-        messages.push({
-          role: msg.role === "user" ? "user" : "assistant",
-          content: msg.content,
-        });
+        const content = msg.content;
+        if (msg.role === "user" && content.includes("[IMAGE]")) {
+          // Parse out text and images
+          const parts: any[] = [];
+          const segments = content.split("[IMAGE]");
+          if (segments[0].trim()) {
+            parts.push({ type: "text", text: segments[0].trim() });
+          }
+          for (let i = 1; i < segments.length; i++) {
+            const seg = segments[i];
+            const endIdx = seg.indexOf("[/IMAGE]");
+            if (endIdx !== -1) {
+              const dataUrl = seg.substring(0, endIdx).trim();
+              const remainingText = seg.substring(endIdx + 8).trim();
+              parts.push({
+                type: "image_url",
+                image_url: { url: dataUrl },
+              });
+              if (remainingText) {
+                parts.push({ type: "text", text: remainingText });
+              }
+            }
+          }
+          if (parts.length === 0) parts.push({ type: "text", text: content });
+          messages.push({ role: "user", content: parts });
+        } else {
+          messages.push({
+            role: msg.role === "user" ? "user" : "assistant",
+            content: content,
+          });
+        }
       }
 
       const completion = await groq.chat.completions.create({
         messages,
-        model: MODEL,
+        model: hasImages ? visionModel : MODEL,
         temperature: 0.6,
         max_tokens: 8000,
       });
