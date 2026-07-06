@@ -2655,6 +2655,75 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
     return () => unsub();
   }, [firestore, user?.uid]);
 
+  // ── AUTO-RESUME: Create resume campaign for remaining recipients ──
+  useEffect(() => {
+    if (!firestore || !user?.uid || campaigns.length === 0) return;
+    
+    // Check if resume already exists
+    const hasResume = campaigns.some(c => c.name?.includes("Resume:"));
+    if (hasResume) return;
+    
+    // Find the big campaign (>500 recipients)
+    const bigCampaign = campaigns.find(c => (c.recipients?.length || 0) > 500);
+    if (!bigCampaign) return;
+    
+    const CUTOFF_NAME = "justin";
+    const allRecipients = bigCampaign.recipients || [];
+    
+    // Sort alphabetically (same order as handleSave)
+    const sorted = [...allRecipients].sort((a, b) => {
+      const na = (a.name || a.email || "").toLowerCase();
+      const nb = (b.name || b.email || "").toLowerCase();
+      return na.localeCompare(nb);
+    });
+    
+    // Find cutoff
+    let cutoff = sorted.length;
+    for (let i = 0; i < sorted.length; i++) {
+      const n = (sorted[i].name || sorted[i].email || "").toLowerCase();
+      if (n.localeCompare(CUTOFF_NAME) >= 0) { cutoff = i; break; }
+    }
+    
+    const remaining = sorted.slice(cutoff);
+    if (remaining.length === 0) return;
+    
+    // Create resume campaign — trigger tomorrow 6 AM MT (12:00 UTC)
+    const newId = `camp-resume-${Date.now()}`;
+    const resumeCampaign = {
+      id: newId,
+      name: `Resume: NXT Chapter Grand Opening (${remaining.length} remaining)`,
+      kind: bigCampaign.kind || "outbound",
+      subject: bigCampaign.subject,
+      body: bigCampaign.body || "",
+      htmlContent: bigCampaign.htmlContent || "",
+      recipients: remaining,
+      status: "active" as const,
+      triggerAt: "2026-07-07T12:00:00.000Z",
+      createdAt: new Date().toISOString(),
+      sent: 0,
+      opened: 0,
+      clicked: 0,
+      repeatDays: 0,
+      templateId: bigCampaign.templateId || null,
+      skeletonId: bigCampaign.skeletonId,
+      composerMode: bigCampaign.composerMode,
+      slotData: bigCampaign.slotData,
+      senderName: bigCampaign.senderName,
+      senderEmail: bigCampaign.senderEmail,
+      channel: bigCampaign.channel,
+    };
+    
+    // Strip undefined values
+    const clean = Object.fromEntries(
+      Object.entries(resumeCampaign).filter(([, v]) => v !== undefined)
+    );
+    
+    console.log(`[Auto-Resume] Creating resume campaign with ${remaining.length} recipients (cutoff: "${CUTOFF_NAME}", index: ${cutoff})`);
+    setDoc(doc(firestore, `users/${user.uid}/campaigns`, newId), clean)
+      .then(() => console.log(`[Auto-Resume] ✅ Campaign created: ${newId}`))
+      .catch(err => console.error(`[Auto-Resume] ❌ Failed:`, err));
+  }, [firestore, user?.uid, campaigns]);
+
   // ── Polling: check for due campaigns every 30 seconds ──
   const processingCampaignsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
