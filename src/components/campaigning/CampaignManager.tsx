@@ -173,7 +173,13 @@ function resolveMergeFields(
   for (const [key, value] of Object.entries(data)) {
     resolved = resolved.replaceAll(key, value);
   }
-  return resolved;
+  // Clean up artifacts from empty merge fields:
+  // "Hi , the" → "Hi, the"  |  "Hi  there" → "Hi there"
+  resolved = resolved.replace(/ {2,}/g, " ");   // collapse double spaces
+  resolved = resolved.replace(/ ,/g, ",");       // remove space before comma
+  resolved = resolved.replace(/ \./g, ".");      // remove space before period
+  resolved = resolved.replace(/ !/g, "!");       // remove space before exclamation
+  return resolved.trim();
 }
 
 let campaignIdCounter = 0;

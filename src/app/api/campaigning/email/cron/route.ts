@@ -70,6 +70,13 @@ function resolveMergeFields(
     result = result.replace(/\{\{phone_number\}\}/gi, phoneNumber);
     result = result.replace(/\{\{email\}\}/gi, recipientData.email || "");
   }
+  // Clean up artifacts from empty merge fields:
+  // "Hi , the" → "Hi, the"  |  "Hi  there" → "Hi there"
+  result = result.replace(/ {2,}/g, " ");    // collapse double spaces
+  result = result.replace(/ ,/g, ",");        // remove space before comma
+  result = result.replace(/ \./g, ".");       // remove space before period
+  result = result.replace(/ !/g, "!");        // remove space before exclamation
+  result = result.trim();
   return result;
 }
 
