@@ -30,6 +30,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [wtTheme, setWtTheme] = useState<"light" | "dark">("light");
   const [wtLocation, setWtLocation] = useState("");
   const [isSavingWt, setIsSavingWt] = useState(false);
+  // Step 3: Profile fields
+  const [wtOrganization, setWtOrganization] = useState("");
+  const [wtJobTitle, setWtJobTitle] = useState("");
+  const [wtDepartment, setWtDepartment] = useState("");
+  const [wtIndustry, setWtIndustry] = useState("");
+  const [wtExperience, setWtExperience] = useState("");
+  // Step 4: Tour
+  const [showGuidedTour, setShowGuidedTour] = useState(false);
+  // Per-step interaction tracking (for greyed-out Next buttons)
+  const [stepInteracted, setStepInteracted] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
 
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
@@ -153,6 +163,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       theme: "Interface Theme",
       light: "Light Mode",
       dark: "Dark Mode",
+      step3Title: "Set Up Your Profile",
+      step3Desc: "Help your team know who you are. All fields are optional.",
+      organization: "Organization / Company",
+      jobTitle: "Job Title",
+      department: "Department",
+      industry: "Industry",
+      experience: "Years of Experience",
+      step4Title: "Ready to Explore?",
+      step4Desc: "Take a quick guided tour of your dashboard, or jump right in.",
+      takeTour: "Take the Tour",
+      takeTourDesc: "A quick walkthrough of key features",
+      jumpIn: "Jump Right In",
+      jumpInDesc: "Start using the dashboard immediately",
+      skip: "Skip",
     },
     es: {
       welcomeTitle: "Bienvenido a INSiGHT",
@@ -180,6 +204,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       theme: "Tema de la Interfaz",
       light: "Modo Claro",
       dark: "Modo Oscuro",
+      step3Title: "Configura tu Perfil",
+      step3Desc: "Ayuda a tu equipo a conocerte. Todos los campos son opcionales.",
+      organization: "Organización / Empresa",
+      jobTitle: "Cargo",
+      department: "Departamento",
+      industry: "Industria",
+      experience: "Años de Experiencia",
+      step4Title: "¿Listo para Explorar?",
+      step4Desc: "Haz un recorrido rápido de tu panel, o comienza directamente.",
+      takeTour: "Hacer el Recorrido",
+      takeTourDesc: "Un recorrido rápido de las funciones clave",
+      jumpIn: "Comenzar Directamente",
+      jumpInDesc: "Empieza a usar el panel de inmediato",
+      skip: "Omitir",
     }
   };
 
@@ -271,6 +309,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         timezone: wtLocation,
         preferredLanguage: wtLanguage,
         preferredTheme: wtTheme,
+        organization: wtOrganization || '',
+        jobTitle: wtJobTitle || '',
+        department: wtDepartment || '',
+        industry: wtIndustry || '',
+        yearsOfExperience: wtExperience || '',
         updatedAt: new Date().toISOString(),
       }, { merge: true });
 
@@ -1666,12 +1709,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
               
               <div className="space-y-4">
+                {/* Progress bar */}
+                <div className="w-full h-1 bg-indigo-950 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-400 rounded-full transition-all duration-500" style={{ width: `${(walkthroughStep / 4) * 100}%` }} />
+                </div>
                 <div className="flex items-center gap-1.5">
-                  <span className={`h-1.5 rounded-full transition-all duration-300 ${walkthroughStep === 1 ? "w-6 bg-indigo-400" : "w-1.5 bg-indigo-950"}`} />
-                  <span className={`h-1.5 rounded-full transition-all duration-300 ${walkthroughStep === 2 ? "w-6 bg-indigo-400" : "w-1.5 bg-indigo-950"}`} />
+                  {[1, 2, 3, 4].map(s => (
+                    <span key={s} className={`h-1.5 rounded-full transition-all duration-300 ${walkthroughStep === s ? "w-6 bg-indigo-400" : walkthroughStep > s ? "w-3 bg-indigo-400/40" : "w-1.5 bg-indigo-950"}`} />
+                  ))}
                 </div>
                 <p className="text-[10px] text-indigo-300/60 font-semibold uppercase tracking-wider">
-                  {wtLanguage === "en" ? `Step ${walkthroughStep} of 2` : `Paso ${walkthroughStep} de 2`}
+                  {wtLanguage === "en" ? `Step ${walkthroughStep} of 4` : `Paso ${walkthroughStep} de 4`}
                 </p>
               </div>
             </div>
@@ -1680,7 +1728,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex-1 p-8 flex flex-col justify-between bg-white text-slate-800">
               {walkthroughStep === 1 ? (
                 /* Step 1: Welcome Overview */
-                <div className="space-y-6 my-auto">
+                <div className="space-y-6 my-auto" onMouseMove={() => setStepInteracted(p => ({...p, 1: true}))}>
                   <div className="space-y-2">
                     <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight flex items-center gap-2">
                       <Sparkles className="w-6 h-6 text-indigo-500 animate-pulse" />
@@ -1774,7 +1822,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <input
                         type="text"
                         value={wtDisplayName}
-                        onChange={e => setWtDisplayName(e.target.value)}
+                        onChange={e => { setWtDisplayName(e.target.value); setStepInteracted(p => ({...p, 2: true})); }}
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed]/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 font-semibold"
                       />
                     </div>
@@ -1869,61 +1917,146 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               )}
 
-              {/* Bottom Buttons */}
-              <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-4">
-                {walkthroughStep === 1 ? (
-                  <button type="button" onClick={handleSkipWalkthrough}
-                    className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
-                    {wtLanguage === "en" ? "Skip for now" : "Omitir por ahora"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setWalkthroughStep(1)}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-                    {wtLanguage === "en" ? WT_LANG.en.back : WT_LANG.es.back}
-                  </button>
-                )}
+              {/* Step 3: Profile Setup */}
+              {walkthroughStep === 3 && (
+                <div className="space-y-5 my-auto">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight">
+                      {wtLanguage === "en" ? WT_LANG.en.step3Title : WT_LANG.es.step3Title}
+                    </h2>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                      {wtLanguage === "en" ? WT_LANG.en.step3Desc : WT_LANG.es.step3Desc}
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-3">
-                  {walkthroughStep === 2 && (
-                    <button type="button" onClick={handleSkipWalkthrough}
-                      className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
-                      {wtLanguage === "en" ? "Skip for now" : "Omitir por ahora"}
-                    </button>
-                  )}
-                  {walkthroughStep === 1 ? (
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">{wtLanguage === "en" ? WT_LANG.en.organization : WT_LANG.es.organization}</label>
+                      <input type="text" value={wtOrganization} onChange={(e) => { setWtOrganization(e.target.value); setStepInteracted(p => ({...p, 3: true})); }}
+                        placeholder="e.g., NXT Chapter" className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 placeholder:text-slate-300 transition-all" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">{wtLanguage === "en" ? WT_LANG.en.jobTitle : WT_LANG.es.jobTitle}</label>
+                        <input type="text" value={wtJobTitle} onChange={(e) => { setWtJobTitle(e.target.value); setStepInteracted(p => ({...p, 3: true})); }}
+                          placeholder="e.g., Program Director" className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 placeholder:text-slate-300 transition-all" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">{wtLanguage === "en" ? WT_LANG.en.department : WT_LANG.es.department}</label>
+                        <input type="text" value={wtDepartment} onChange={(e) => { setWtDepartment(e.target.value); setStepInteracted(p => ({...p, 3: true})); }}
+                          placeholder="e.g., Operations" className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 placeholder:text-slate-300 transition-all" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">{wtLanguage === "en" ? WT_LANG.en.industry : WT_LANG.es.industry}</label>
+                        <select value={wtIndustry} onChange={(e) => { setWtIndustry(e.target.value); setStepInteracted(p => ({...p, 3: true})); }}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all bg-white">
+                          <option value="">Select...</option>
+                          <option value="nonprofit">Nonprofit</option>
+                          <option value="technology">Technology</option>
+                          <option value="healthcare">Healthcare</option>
+                          <option value="education">Education</option>
+                          <option value="finance">Finance</option>
+                          <option value="government">Government</option>
+                          <option value="consulting">Consulting</option>
+                          <option value="marketing">Marketing & Media</option>
+                          <option value="real-estate">Real Estate</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">{wtLanguage === "en" ? WT_LANG.en.experience : WT_LANG.es.experience}</label>
+                        <select value={wtExperience} onChange={(e) => { setWtExperience(e.target.value); setStepInteracted(p => ({...p, 3: true})); }}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all bg-white">
+                          <option value="">Select...</option>
+                          <option value="< 1 year">&lt; 1 year</option>
+                          <option value="1-3 years">1–3 years</option>
+                          <option value="3-5 years">3–5 years</option>
+                          <option value="5-10 years">5–10 years</option>
+                          <option value="10+ years">10+ years</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Tour Offer */}
+              {walkthroughStep === 4 && (
+                <div className="space-y-6 my-auto">
+                  <div className="space-y-2 text-center">
+                    <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight">
+                      {wtLanguage === "en" ? WT_LANG.en.step4Title : WT_LANG.es.step4Title}
+                    </h2>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                      {wtLanguage === "en" ? WT_LANG.en.step4Desc : WT_LANG.es.step4Desc}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button
                       type="button"
-                      onClick={() => setWalkthroughStep(2)}
-                      className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97]"
+                      onClick={async () => { await handleCompleteWalkthrough(); setShowGuidedTour(true); }}
+                      className="group p-6 rounded-2xl border-2 border-indigo-200 bg-indigo-50/50 hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">{wtLanguage === "en" ? WT_LANG.en.takeTour : WT_LANG.es.takeTour}</p>
+                      <p className="text-xs text-slate-500 mt-1">{wtLanguage === "en" ? WT_LANG.en.takeTourDesc : WT_LANG.es.takeTourDesc}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCompleteWalkthrough}
+                      className="group p-6 rounded-2xl border-2 border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50 transition-all text-left cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <ChevronRight className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">{wtLanguage === "en" ? WT_LANG.en.jumpIn : WT_LANG.es.jumpIn}</p>
+                      <p className="text-xs text-slate-500 mt-1">{wtLanguage === "en" ? WT_LANG.en.jumpInDesc : WT_LANG.es.jumpInDesc}</p>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Buttons (Steps 1-3 only, Step 4 has its own buttons) */}
+              {walkthroughStep < 4 && (
+                <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-4">
+                  {walkthroughStep === 1 ? (
+                    <div />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setWalkthroughStep(walkthroughStep - 1)}
+                      className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+                      {wtLanguage === "en" ? WT_LANG.en.back : WT_LANG.es.back}
+                    </button>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={handleSkipWalkthrough}
+                      className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                      {wtLanguage === "en" ? WT_LANG.en.skip : WT_LANG.es.skip}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setStepInteracted(p => ({...p, [walkthroughStep]: true})); setWalkthroughStep(walkthroughStep + 1); }}
+                      className={`flex items-center gap-1.5 px-5 py-2.5 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97] ${
+                        stepInteracted[walkthroughStep]
+                          ? "bg-slate-900 text-white hover:bg-slate-800"
+                          : "bg-slate-300 text-slate-500 hover:bg-slate-400 hover:text-white"
+                      }`}
                     >
                       {wtLanguage === "en" ? WT_LANG.en.next : WT_LANG.es.next}
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleCompleteWalkthrough}
-                      disabled={isSavingWt || !wtDisplayName.trim()}
-                      className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97] min-w-[120px] justify-center"
-                    >
-                      {isSavingWt ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                          {wtLanguage === "en" ? WT_LANG.en.saving : WT_LANG.es.saving}
-                        </>
-                      ) : (
-                        <>
-                          {wtLanguage === "en" ? WT_LANG.en.finish : WT_LANG.es.finish}
-                        </>
-                      )}
-                    </button>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
 
             </div>
 

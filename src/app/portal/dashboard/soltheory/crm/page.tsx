@@ -408,28 +408,65 @@ export default function CRMPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  // Known Customer property keys (everything else goes to customFields)
+  const KNOWN_CUSTOMER_KEYS = new Set([
+    "firstName", "lastName", "email", "phone", "company", "location",
+    "birthday", "leadStatus", "tags", "totalRevenue", "outstandingBalance",
+    "aiNotes", "lastContactedDate",
+  ]);
+
+  const buildEditFormFromCustomer = (c: Customer) => {
+    const form: Record<string, any> = {};
+    const visibleFields = getVisibleFieldDefs();
+    for (const field of visibleFields) {
+      if (KNOWN_CUSTOMER_KEYS.has(field.id)) {
+        const val = (c as any)[field.id];
+        // Tags: join as comma-separated for editing
+        if (field.id === "tags" && Array.isArray(val)) {
+          form[field.id] = val.join(", ");
+        } else {
+          form[field.id] = val ?? "";
+        }
+      } else {
+        form[field.id] = c.customFields?.[field.id] ?? "";
+      }
+    }
+    return form;
+  };
+
   const openEditModal = (ids: string[]) => {
     if (ids.length === 0) return;
     setEditModalIds(ids);
     setEditModalIndex(0);
     const c = customers.find(x => x.id === ids[0]);
-    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus, company: c.company || "", location: c.location || "" });
+    if (c) setEditForm(buildEditFormFromCustomer(c));
   };
 
   const saveEditForm = async (customerId: string) => {
     setIsSavingEdit(true);
-    await store.updateCustomer(customerId, {
-      firstName: editForm.firstName,
-      lastName: editForm.lastName,
-      email: editForm.email,
-      phone: editForm.phone,
-      birthday: editForm.birthday,
-      totalRevenue: parseFloat(editForm.totalRevenue) || 0,
-      outstandingBalance: parseFloat(editForm.outstandingBalance) || 0,
-      leadStatus: editForm.leadStatus,
-      company: editForm.company || "",
-      location: editForm.location || "",
-    });
+    const visibleFields = getVisibleFieldDefs();
+    const directUpdates: Partial<Customer> = {};
+    const customFieldUpdates: Record<string, any> = {};
+    for (const field of visibleFields) {
+      const val = editForm[field.id];
+      if (KNOWN_CUSTOMER_KEYS.has(field.id)) {
+        if (field.id === "tags") {
+          (directUpdates as any).tags = typeof val === "string"
+            ? val.split(",").map((t: string) => t.trim()).filter(Boolean)
+            : Array.isArray(val) ? val : [];
+        } else if (field.type === "number" || field.type === "currency") {
+          (directUpdates as any)[field.id] = parseFloat(val) || 0;
+        } else {
+          (directUpdates as any)[field.id] = val ?? "";
+        }
+      } else {
+        customFieldUpdates[field.id] = val ?? "";
+      }
+    }
+    // Merge customFields with existing ones (don't overwrite fields not visible)
+    const existingCustomer = customers.find(x => x.id === customerId);
+    const mergedCustomFields = { ...(existingCustomer?.customFields || {}), ...customFieldUpdates };
+    await store.updateCustomer(customerId, { ...directUpdates, customFields: mergedCustomFields } as Partial<Customer>);
     setIsSavingEdit(false);
     showToast("Contact updated successfully", "success");
   };
@@ -442,7 +479,7 @@ export default function CRMPage() {
     if (newIndex < 0 || newIndex >= editModalIds.length) return;
     setEditModalIndex(newIndex);
     const c = customers.find(x => x.id === editModalIds[newIndex]);
-    if (c) setEditForm({ firstName: c.firstName, lastName: c.lastName, email: c.email || "", phone: c.phone || "", birthday: c.birthday || "", totalRevenue: c.totalRevenue, outstandingBalance: c.outstandingBalance, leadStatus: c.leadStatus, company: c.company || "", location: c.location || "" });
+    if (c) setEditForm(buildEditFormFromCustomer(c));
   };
 
   const handleBulkDelete = () => {
@@ -2551,49 +2588,8 @@ export default function CRMPage() {
                 <button onClick={() => { setEditModalIds([]); setEditForm({}); }} className={`w-8 h-8 rounded-lg ${isDarkMode ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-400"} flex items-center justify-center cursor-pointer`}><X className="w-4 h-4" /></button>
               </div>
 
-              {/* Editable Form */}
+              {/* Dynamic Editable Form — renders fields based on visible columns */}
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {/* Name row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>First Name</label>
-                    <input value={editForm.firstName || ""} onChange={e => setEditForm(f => ({...f, firstName: e.target.value}))} className={inputClass} />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Last Name</label>
-                    <input value={editForm.lastName || ""} onChange={e => setEditForm(f => ({...f, lastName: e.target.value}))} className={inputClass} />
-                  </div>
-                </div>
-
-                {/* Contact row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Email</label>
-                    <input type="email" value={editForm.email || ""} onChange={e => setEditForm(f => ({...f, email: e.target.value}))} className={inputClass} placeholder="email@example.com" />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Phone</label>
-                    <input type="tel" value={editForm.phone || ""} onChange={e => setEditForm(f => ({...f, phone: e.target.value}))} className={inputClass} placeholder="+1 (555) 000-0000" />
-                  </div>
-                </div>
-
-                {/* Birthday + Status row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Birthday</label>
-                    <input type="date" value={editForm.birthday || ""} onChange={e => setEditForm(f => ({...f, birthday: e.target.value}))} className={inputClass} />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Lead Status</label>
-                    <select value={editForm.leadStatus || "Cold Lead"} onChange={e => setEditForm(f => ({...f, leadStatus: e.target.value}))} className={inputClass}>
-                      <option value="Cold Lead">Cold Lead</option>
-                      <option value="Warm Lead">Warm Lead</option>
-                      <option value="Interested">Interested</option>
-                      <option value="Sale Completed">Sale Completed</option>
-                    </select>
-                  </div>
-                </div>
-
                 {/* Created date (read-only display) */}
                 {currentCustomer?.createdAt && (
                   <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/40' : 'bg-slate-50 border-slate-200/60'}`}>
@@ -2607,22 +2603,90 @@ export default function CRMPage() {
                   </div>
                 )}
 
-                {/* Financials row */}
-                <div className={`border-t pt-4 ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <DollarSign className="w-4 h-4 text-emerald-500" />
-                    <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Financials</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelClass}>Total Revenue ($)</label>
-                      <input type="number" step="0.01" value={editForm.totalRevenue ?? 0} onChange={e => setEditForm(f => ({...f, totalRevenue: e.target.value}))} className={inputClass} />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Outstanding Balance ($)</label>
-                      <input type="number" step="0.01" value={editForm.outstandingBalance ?? 0} onChange={e => setEditForm(f => ({...f, outstandingBalance: e.target.value}))} className={inputClass} />
-                    </div>
-                  </div>
+                {/* Dynamic field grid — 2 columns */}
+                <div className="grid grid-cols-2 gap-3">
+                  {getVisibleFieldDefs().map((field) => {
+                    const fieldVal = editForm[field.id] ?? "";
+                    const onChange = (val: any) => setEditForm(f => ({ ...f, [field.id]: val }));
+
+                    switch (field.type) {
+                      case "select":
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <select value={fieldVal || (field.options?.[0] ?? "")} onChange={e => onChange(e.target.value)} className={inputClass}>
+                              {(field.options || (field.id === "leadStatus" ? ["Cold Lead", "Warm Lead", "Interested", "Sale Completed"] : [])).map(opt => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      case "date":
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <input type="date" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} />
+                          </div>
+                        );
+                      case "email":
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <input type="email" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} placeholder="email@example.com" />
+                          </div>
+                        );
+                      case "phone":
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <input type="tel" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} placeholder="+1 (555) 000-0000" />
+                          </div>
+                        );
+                      case "number":
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <input type="number" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} />
+                          </div>
+                        );
+                      case "currency":
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <input type="number" step="0.01" value={fieldVal ?? 0} onChange={e => onChange(e.target.value)} className={inputClass} />
+                          </div>
+                        );
+                      case "tags":
+                        return (
+                          <div key={field.id} className="col-span-2">
+                            <label className={labelClass}>{field.label} <span className="font-normal normal-case tracking-normal">(comma-separated)</span></label>
+                            <input type="text" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} placeholder="VIP, Enterprise, Inbound" />
+                          </div>
+                        );
+                      case "boolean":
+                        return (
+                          <div key={field.id} className="flex items-center gap-2 py-1">
+                            <input type="checkbox" checked={!!fieldVal} onChange={e => onChange(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <label className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{field.label}</label>
+                          </div>
+                        );
+                      case "url":
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <input type="url" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} placeholder="https://" />
+                          </div>
+                        );
+                      default:
+                        // text and any other type
+                        return (
+                          <div key={field.id}>
+                            <label className={labelClass}>{field.label}</label>
+                            <input type="text" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} />
+                          </div>
+                        );
+                    }
+                  })}
                 </div>
               </div>
 
