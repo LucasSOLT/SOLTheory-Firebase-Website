@@ -109,6 +109,17 @@ export default function ManageFieldsSidebar({
     return result;
   }, [customers]);
 
+  /* ── Compute which categories have at least one field with data ── */
+  const categoriesWithData = useMemo(() => {
+    const result = new Set<FieldCategory>();
+    for (const field of allFields) {
+      if (fieldsWithData.has(field.id)) {
+        result.add(field.category);
+      }
+    }
+    return result;
+  }, [allFields, fieldsWithData]);
+
   /* ── Derived data ── */
   const visibleFieldDefs = useMemo(() => {
     return visibleFieldIds
@@ -338,6 +349,16 @@ export default function ManageFieldsSidebar({
     );
   };
 
+  /** Small "has data" indicator for category headers */
+  const CategoryDataDot = ({ categoryId }: { categoryId: FieldCategory }) => {
+    if (!categoriesWithData.has(categoryId)) return null;
+    return (
+      <span title="Data exists in this category" className="relative flex-shrink-0">
+        <Database className={`w-3 h-3 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
+      </span>
+    );
+  };
+
   /** Category badge shown next to fields when searching */
   const CategoryBadge = ({ category }: { category: string }) => {
     if (!searchQuery.trim()) return null;
@@ -512,7 +533,10 @@ export default function ManageFieldsSidebar({
                     ) : (
                       <ChevronRight className={`w-4 h-4 flex-shrink-0 ${textMuted}`} />
                     )}
-                    <span className={`text-base font-semibold flex-1 ${textPrimary}`}>{cat.label}</span>
+                    <span className={`text-base font-semibold flex-1 ${textPrimary} flex items-center gap-1.5`}>
+                      {cat.label}
+                      <CategoryDataDot categoryId={cat.id} />
+                    </span>
                     <span
                       className={`text-xs font-medium tabular-nums px-2 py-0.5 rounded-full ${
                         isDarkMode

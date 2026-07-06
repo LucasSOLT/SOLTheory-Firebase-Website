@@ -266,11 +266,12 @@ export default function CRMPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<string>("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [fieldFilters, setFieldFilters] = useState<Record<string, boolean>>({});
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [dateFilterFrom, setDateFilterFrom] = useState("");
   const [dateFilterTo, setDateFilterTo] = useState("");
-  const hasActiveFilters = !!tagFilter || !!statusFilter || !!dateFilterFrom || !!dateFilterTo;
-  const clearAllFilters = () => { setTagFilter(""); setStatusFilter(""); setDateFilterFrom(""); setDateFilterTo(""); };
+  const hasActiveFilters = !!tagFilter || !!statusFilter || !!dateFilterFrom || !!dateFilterTo || Object.values(fieldFilters).some(Boolean);
+  const clearAllFilters = () => { setTagFilter(""); setStatusFilter(""); setDateFilterFrom(""); setDateFilterTo(""); setFieldFilters({}); };
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -850,6 +851,24 @@ export default function CRMPage() {
         return true;
       });
     }
+    // Field-level "has data" filters
+    const activeFieldFilters = Object.entries(fieldFilters).filter(([, v]) => v).map(([k]) => k);
+    if (activeFieldFilters.length > 0) {
+      const knownKeys = new Set(['firstName','lastName','email','phone','company','location','birthday','lastContactedDate','tags','totalRevenue','outstandingBalance','leadStatus','aiNotes']);
+      list = list.filter(c => {
+        return activeFieldFilters.every(fieldId => {
+          let val: any;
+          if (knownKeys.has(fieldId)) {
+            val = (c as any)[fieldId];
+          } else {
+            val = c.customFields?.[fieldId];
+          }
+          if (val == null || val === '' || val === 0) return false;
+          if (Array.isArray(val) && val.length === 0) return false;
+          return true;
+        });
+      });
+    }
     // Apply column-level sort (takes priority over default sortKey/sortDir)
     if (columnSortField) {
       list = [...list].sort((a, b) => {
@@ -884,7 +903,7 @@ export default function CRMPage() {
       });
     }
     return list;
-  }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo, columnSortField, columnSortDir]);
+  }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo, fieldFilters, columnSortField, columnSortDir]);
 
   const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleSelectAll = () => { const visible = filteredSortedCustomers.map(c => c.id); const allSelected = visible.every(id => selectedIds.has(id)); if (allSelected) setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.delete(id)); return n; }); else setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.add(id)); return n; }); };
@@ -935,9 +954,10 @@ export default function CRMPage() {
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!resizingRef.current) return;
-      const diff = ev.clientX - resizingRef.current.startX;
-      const newWidth = Math.max(60, resizingRef.current.startWidth + diff);
-      setColumnWidths(prev => ({ ...prev, [resizingRef.current!.fieldId]: newWidth }));
+      const { fieldId, startX, startWidth } = resizingRef.current;
+      const diff = ev.clientX - startX;
+      const newWidth = Math.max(60, startWidth + diff);
+      setColumnWidths(prev => ({ ...prev, [fieldId]: newWidth }));
     };
     const onMouseUp = () => {
       resizingRef.current = null;
@@ -1345,6 +1365,69 @@ export default function CRMPage() {
                     <Download className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Export</span>
                   </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowFilterPanel(!showFilterPanel)}
+                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'} ${showFilterPanel ? (isDarkMode ? 'ring-2 ring-indigo-500/30 border-indigo-500/50' : 'ring-2 ring-indigo-500/20 border-indigo-300') : ''}`}
+                    >
+                      <span className="relative">
+                        <Filter className="w-3.5 h-3.5" />
+                        {hasActiveFilters && (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full" />
+                        )}
+                      </span>
+                      <span className="hidden sm:inline">Filter</span>
+                      {hasActiveFilters && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isDarkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
+                          {Object.values(fieldFilters).filter(Boolean).length + (tagFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (dateFilterFrom || dateFilterTo ? 1 : 0)}
+                        </span>
+                      )}
+                    </button>
+                    {showFilterPanel && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowFilterPanel(false)} />
+                        <div className={`absolute left-0 mt-1 w-72 rounded-lg border shadow-lg z-50 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
+                          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                            <span className="text-xs font-semibold uppercase tracking-wide">Filter by field</span>
+                            {hasActiveFilters && (
+                              <button
+                                onClick={() => { clearAllFilters(); setShowFilterPanel(false); }}
+                                className="text-[11px] text-indigo-500 hover:text-indigo-600 font-medium cursor-pointer"
+                              >
+                                Clear all
+                              </button>
+                            )}
+                          </div>
+                          <div className="max-h-64 overflow-y-auto px-1 py-1">
+                            {getVisibleFieldDefs().map((field) => {
+                              const isActive = !!fieldFilters[field.id];
+                              return (
+                                <button
+                                  key={field.id}
+                                  onClick={() => setFieldFilters(prev => ({ ...prev, [field.id]: !prev[field.id] }))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                                    isActive
+                                      ? (isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-50 text-indigo-700')
+                                      : (isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600')
+                                  }`}
+                                >
+                                  <span className="truncate">{field.label}</span>
+                                  <span className={`flex items-center gap-1.5 text-[10px] shrink-0 ml-2 px-2 py-0.5 rounded-full font-semibold ${
+                                    isActive
+                                      ? (isDarkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600')
+                                      : (isDarkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
+                                  }`}>
+                                    {isActive ? <Check className="w-2.5 h-2.5" /> : null}
+                                    Has data
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   <button
                     onClick={() => setShowManageFields(true)}
                     className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}
