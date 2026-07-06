@@ -150,8 +150,8 @@ function buildMergeData(
   recipient: { name: string; email: string } | null,
   settings: CampaignSettingsData,
 ): Record<string, string> {
-  const firstName = recipient?.name?.split(" ")[0] || "First";
-  const lastName = recipient?.name?.split(" ").slice(1).join(" ") || "Last";
+  const firstName = recipient?.name?.split(" ")[0] || "";
+  const lastName = recipient?.name?.split(" ").slice(1).join(" ") || "";
   return {
     "{{first_name}}": firstName,
     "{{last_name}}": lastName,
