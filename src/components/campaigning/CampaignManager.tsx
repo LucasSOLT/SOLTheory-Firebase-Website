@@ -2737,33 +2737,46 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
           });
 
           const SENDGRID_THRESHOLD = 50;
+          const CLIENT_CHUNK_SIZE = 50; // Send 50 messages per API call to stay under Vercel body limit
 
           if (dedupedRecipients.length >= SENDGRID_THRESHOLD) {
-            // ── Large campaign: route through SendGrid ──
-            console.log(`[Campaign Poller] Large campaign (${dedupedRecipients.length} recipients) — using SendGrid`);
-            try {
-              const sgResp = await fetch('/api/campaigning/email/sendgrid-batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  messages: resolvedMessages,
-                  fromEmail: effectiveSettings.senderEmail || user?.email || '',
-                  fromName: effectiveSettings.senderName || '',
-                }),
-              });
-              const sgData = await sgResp.json();
-              if (sgResp.ok) {
-                sentCount = sgData.sent || 0;
-                console.log(`[Campaign Poller] SendGrid batch complete: ${sentCount}/${dedupedRecipients.length} sent`);
-                if (sgData.errors?.length) {
-                  console.warn(`[Campaign Poller] SendGrid errors:`, sgData.errors);
+            // ── Large campaign: route through SendGrid in chunks ──
+            console.log(`[Campaign Poller] Large campaign (${dedupedRecipients.length} recipients) — using SendGrid in chunks of ${CLIENT_CHUNK_SIZE}`);
+            for (let ci = 0; ci < resolvedMessages.length; ci += CLIENT_CHUNK_SIZE) {
+              const chunk = resolvedMessages.slice(ci, ci + CLIENT_CHUNK_SIZE);
+              const batchNum = Math.floor(ci / CLIENT_CHUNK_SIZE) + 1;
+              const totalBatches = Math.ceil(resolvedMessages.length / CLIENT_CHUNK_SIZE);
+              console.log(`[Campaign Poller] Sending batch ${batchNum}/${totalBatches} (${chunk.length} emails)`);
+              try {
+                const sgResp = await fetch('/api/campaigning/email/sendgrid-batch', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    messages: chunk,
+                    fromEmail: effectiveSettings.senderEmail || user?.email || '',
+                    fromName: effectiveSettings.senderName || '',
+                  }),
+                });
+                if (sgResp.ok) {
+                  const sgData = await sgResp.json();
+                  sentCount += sgData.sent || 0;
+                  console.log(`[Campaign Poller] Batch ${batchNum} complete: ${sgData.sent} sent`);
+                  if (sgData.errors?.length) {
+                    console.warn(`[Campaign Poller] Batch ${batchNum} errors:`, sgData.errors);
+                  }
+                } else {
+                  const errText = await sgResp.text();
+                  console.error(`[Campaign Poller] Batch ${batchNum} failed (${sgResp.status}):`, errText);
                 }
-              } else {
-                console.error(`[Campaign Poller] SendGrid batch failed:`, sgData.error);
+              } catch (sgErr) {
+                console.error(`[Campaign Poller] Batch ${batchNum} request failed:`, sgErr);
               }
-            } catch (sgErr) {
-              console.error(`[Campaign Poller] SendGrid request failed:`, sgErr);
+              // Small delay between API calls to avoid rate limiting
+              if (ci + CLIENT_CHUNK_SIZE < resolvedMessages.length) {
+                await new Promise(r => setTimeout(r, 500));
+              }
             }
+            console.log(`[Campaign Poller] SendGrid total: ${sentCount}/${dedupedRecipients.length} sent`);
           } else {
             // ── Small campaign: use Gmail API ──
             for (const msg of resolvedMessages) {
@@ -2777,13 +2790,16 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             }
           }
 
-          // Update Firestore
+          // Update Firestore — only mark completed if we actually sent something
           const updateData: Record<string, unknown> = {
             sent: (campaign.sent || 0) + sentCount,
             lastSentAt: new Date().toISOString(),
           };
-          if (!campaign.repeatDays || campaign.repeatDays === 0) {
+          if (sentCount > 0 && (!campaign.repeatDays || campaign.repeatDays === 0)) {
             updateData.status = 'completed';
+          } else if (sentCount === 0) {
+            // Don't mark completed if nothing was sent — allow retry
+            console.warn(`[Campaign Poller] 0 emails sent — keeping status active for retry`);
           }
           await setDoc(doc(firestore, `users/${user!.uid}/campaigns`, campaign.id), updateData, { merge: true });
           console.log(`[Campaign Poller] ✓ ${campaign.id}: sent ${sentCount}/${campaign.recipients.length}`);
