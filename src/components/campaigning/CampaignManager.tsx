@@ -758,6 +758,9 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [recipients, setRecipients] = useState<{ id: string; name: string; email: string }[]>(editCampaign?.recipients || []);
   const [triggerAt, setTriggerAt] = useState(toLocalDatetimeValue(editCampaign?.triggerAt || ""));
   const [repeatDays, setRepeatDays] = useState(editCampaign?.repeatDays ?? 0);
+  const [batchToast, setBatchToast] = useState(false);
+  const BATCH_THRESHOLD = 50;
+  const BATCH_CHUNK_SIZE = 100;
   const [endAt, setEndAt] = useState(editCampaign?.endAt ? toLocalDatetimeValue(editCampaign.endAt).split('T')[0] : '');
   const [contactSearch, setContactSearch] = useState("");
   const [showFromScratch, setShowFromScratch] = useState(!!(editCampaign && !editCampaign.templateId));
@@ -810,6 +813,17 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
       getRefreshToken(user.uid).then(setGmailRefreshToken).catch(() => {});
     });
   }, [user?.uid]);
+
+  // Show batch toast when recipient count crosses the threshold
+  useEffect(() => {
+    if (recipients.length >= BATCH_THRESHOLD) {
+      setBatchToast(true);
+      const timer = setTimeout(() => setBatchToast(false), 6000);
+      return () => clearTimeout(timer);
+    } else {
+      setBatchToast(false);
+    }
+  }, [recipients.length >= BATCH_THRESHOLD]);
 
   // Auto-scroll AI chat to bottom
   useEffect(() => {
@@ -1630,7 +1644,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 <div>
                   <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Organization Name</label>
                   <input type="text" value={personalInfo.orgName} onChange={(e) => setPersonalInfo(prev => ({ ...prev, orgName: e.target.value }))}
-                    placeholder="e.g., SOL Theory"
+                    placeholder="e.g., Your Company"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-200 placeholder:text-slate-300" />
                 </div>
                 <div>
@@ -2215,8 +2229,23 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
           <div className="w-full py-10 px-8 lg:px-16 space-y-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Select Recipients</p>
-              <span className="text-sm font-semibold text-slate-400">{recipients.length} selected</span>
+              <span className="text-sm font-semibold text-slate-400">
+                {recipients.length} selected
+                {recipients.length >= BATCH_THRESHOLD && (
+                  <span className="ml-2 text-xs text-amber-500 font-medium">
+                    ({Math.ceil(recipients.length / BATCH_CHUNK_SIZE)} batch{Math.ceil(recipients.length / BATCH_CHUNK_SIZE) !== 1 ? 'es' : ''})
+                  </span>
+                )}
+              </span>
             </div>
+            {/* Batch toast notification */}
+            {batchToast && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium animate-in fade-in slide-in-from-top-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>More than {BATCH_THRESHOLD} recipients selected — this campaign will be sent in short-duration batches ({Math.ceil(recipients.length / BATCH_CHUNK_SIZE)} batches of up to {BATCH_CHUNK_SIZE}).</span>
+                <button onClick={() => setBatchToast(false)} className="ml-auto text-amber-500 hover:text-amber-700 cursor-pointer">✕</button>
+              </div>
+            )}
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input type="text" value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
@@ -2286,7 +2315,17 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 <div><p className="text-xs text-slate-400 uppercase font-semibold">Name</p><p className="text-base font-semibold text-slate-700 mt-1">{name || "Untitled"}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase font-semibold">Type</p><p className="text-base font-semibold text-slate-700 mt-1">{CAMPAIGN_KINDS.find((k) => k.id === kind)?.name}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase font-semibold">Template</p><p className="text-base font-semibold text-slate-700 mt-1">{selectedTemplate ? DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplate)?.name : "Custom"}</p></div>
-                <div><p className="text-xs text-slate-400 uppercase font-semibold">Recipients</p><p className="text-base font-semibold text-slate-700 mt-1">{recipients.length} contact{recipients.length !== 1 ? "s" : ""}</p></div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase font-semibold">Recipients</p>
+                  <p className="text-base font-semibold text-slate-700 mt-1">
+                    {recipients.length} contact{recipients.length !== 1 ? "s" : ""}
+                    {recipients.length >= BATCH_THRESHOLD && (
+                      <span className="ml-1 text-xs text-amber-600 font-medium">
+                        · {Math.ceil(recipients.length / BATCH_CHUNK_SIZE)} batch{Math.ceil(recipients.length / BATCH_CHUNK_SIZE) !== 1 ? 'es' : ''} of ~{BATCH_CHUNK_SIZE}
+                      </span>
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -2428,11 +2467,11 @@ function CampaignSettingsPanel({ settings, onSave, onBack }: {
   };
 
   const fields: { key: keyof CampaignSettingsData; label: string; placeholder: string; desc: string }[] = [
-    { key: "orgName", label: "Organization Name", placeholder: "e.g., SOL Theory", desc: "Used for {{org_name}} merge field in email templates." },
-    { key: "senderName", label: "Default Sender Name", placeholder: "e.g., Lucas Huff", desc: "Used for {{sender_name}} and the \"From\" name in outbound emails." },
-    { key: "senderEmail", label: "Sender Email Address", placeholder: "e.g., hello@soltheory.com", desc: "Displayed as the \"From\" address in email previews." },
-    { key: "replyToEmail", label: "Reply-To Email", placeholder: "e.g., support@soltheory.com", desc: "Where replies to outbound campaigns will be directed." },
-    { key: "website", label: "Company Website", placeholder: "e.g., https://soltheory.com", desc: "Used in footer links and branding of outbound emails." },
+    { key: "orgName", label: "Organization Name", placeholder: "e.g., Your Company", desc: "Used for {{org_name}} merge field in email templates." },
+    { key: "senderName", label: "Default Sender Name", placeholder: "e.g., John Doe", desc: "Used for {{sender_name}} and the \"From\" name in outbound emails." },
+    { key: "senderEmail", label: "Sender Email Address", placeholder: "e.g., hello@example.com", desc: "Displayed as the \"From\" address in email previews." },
+    { key: "replyToEmail", label: "Reply-To Email", placeholder: "e.g., support@example.com", desc: "Where replies to outbound campaigns will be directed." },
+    { key: "website", label: "Company Website", placeholder: "e.g., https://example.com", desc: "Used in footer links and branding of outbound emails." },
   ];
 
   return (

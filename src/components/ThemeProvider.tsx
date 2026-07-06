@@ -12,8 +12,8 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "dark",
-  isDarkMode: true,
+  theme: "light",
+  isDarkMode: false,
   setTheme: () => {},
   toggleTheme: () => {},
 });
@@ -29,12 +29,12 @@ export function useTheme() {
  * Replaces the fragmented isDarkMode pattern across the app.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>("light");
 
   // Initialize from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem("insight_theme") as Theme | null;
-    const initial: Theme = stored === "light" ? "light" : "dark";
+    const initial: Theme = stored === "dark" ? "dark" : "light";
     setThemeState(initial);
     applyThemeToDOM(initial);
   }, []);
