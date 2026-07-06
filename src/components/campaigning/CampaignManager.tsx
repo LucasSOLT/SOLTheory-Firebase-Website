@@ -1313,7 +1313,14 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
       setRecipients((prev) => prev.filter((r) => !filtered.some((c) => c.id === r.id)));
     } else {
       const newR = [...recipients];
-      filtered.forEach((c) => { if (!newR.some((r) => r.id === c.id)) newR.push({ id: c.id, name: c.name, email: c.email }); });
+      const seenEmails = new Set(newR.map((r) => r.email.toLowerCase()));
+      filtered.forEach((c) => {
+        const emailLower = c.email.toLowerCase();
+        if (!newR.some((r) => r.id === c.id) && !seenEmails.has(emailLower)) {
+          newR.push({ id: c.id, name: c.name, email: c.email });
+          seenEmails.add(emailLower);
+        }
+      });
       setRecipients(newR);
     }
   };

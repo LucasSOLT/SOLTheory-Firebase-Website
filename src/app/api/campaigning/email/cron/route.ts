@@ -351,10 +351,20 @@ export async function GET(req: Request) {
         console.log(`[Email Cron] Processing campaign ${campDoc.id} for user ${uid}`);
         totalProcessed++;
 
+        // Atomically claim this campaign to prevent duplicate sends from overlapping cron runs.
+        // Re-read the document to ensure no other cron instance has already claimed it.
+        const freshSnap = await campDoc.ref.get();
+        const freshData = freshSnap.data();
+        if (!freshData || freshData.status !== "active") {
+          console.log(`[Email Cron] Campaign ${campDoc.id} already claimed by another run (status: ${freshData?.status}), skipping`);
+          continue;
+        }
+
         // Mark as processing to prevent duplicate sends
         await campDoc.ref.update({
           status: "processing",
           _batchProgress: 0,
+          _processingStartedAt: now.toISOString(),
           updatedAt: FieldValue.serverTimestamp(),
         });
 
@@ -407,10 +417,16 @@ export async function GET(req: Request) {
             }
           } catch { /* ignore */ }
 
-          // Build recipients list with full data
-          const recipientsList: RecipientData[] = (campaign.recipients || []).filter(
-            (r: RecipientData) => r.email,
-          );
+          // Build recipients list with full data — deduplicate by email
+          const seenEmails = new Set<string>();
+          const recipientsList: RecipientData[] = [];
+          for (const r of (campaign.recipients || [])) {
+            if (!r.email) continue;
+            const emailLower = r.email.toLowerCase().trim();
+            if (seenEmails.has(emailLower)) continue;
+            seenEmails.add(emailLower);
+            recipientsList.push(r);
+          }
           if (recipientsList.length === 0) {
             await campDoc.ref.update({ status: "completed", _batchProgress: 0, updatedAt: FieldValue.serverTimestamp() });
             continue;
