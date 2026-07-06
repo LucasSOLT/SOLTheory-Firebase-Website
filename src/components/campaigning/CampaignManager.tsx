@@ -2890,114 +2890,32 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
   const handleSave = useCallback(async (campaign: Campaign) => {
     if (!firestore || !user?.uid) return;
     try {
-      // If this campaign is due now, claim it BEFORE writing to Firestore
-      // so the poller's onSnapshot-triggered re-run won't double-send.
-      const triggerDate = new Date(campaign.triggerAt);
-      const now = new Date();
-      const isDueNow = campaign.status === 'active'
-        && campaign.recipients.length > 0
-        && triggerDate.getTime() <= now.getTime() + 60_000;
-
-      if (isDueNow) {
-        processingCampaignsRef.current.add(campaign.id);
-      }
-
       // Strip undefined values — Firestore rejects them
       const cleanCampaign = Object.fromEntries(
         Object.entries(campaign).filter(([, v]) => v !== undefined)
       );
       await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), cleanCampaign);
 
-      // Only send emails if the campaign is "active" AND its triggerAt time has passed
-      // If triggerAt is in the future, the email cron will pick it up at the right time
-      if (isDueNow) {
-          const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
-          const refreshToken = await getRefreshToken(user.uid);
-          if (refreshToken) {
-            // Build effective settings by loading personalInfo presets
-            let effectiveSettings = { ...campaignSettings };
-            try {
-              const presetSnap = await getDoc(doc(firestore, `users/${user.uid}/settings/personalInfoPresets`));
-              if (presetSnap.exists()) {
-                const presets = presetSnap.data().presets || [];
-                if (presets.length > 0) {
-                  const latest = presets[presets.length - 1];
-                  if (latest.senderName) effectiveSettings.senderName = latest.senderName;
-                  if (latest.orgName) effectiveSettings.orgName = latest.orgName;
-                  if (latest.phoneNumber) effectiveSettings.phoneNumber = latest.phoneNumber;
-                }
-              }
-            } catch (e) { console.warn('[Campaign] Could not load personal info presets:', e); }
-
-            let sentCount = 0;
-            // Deduplicate recipients by email
-            const seenEmails = new Set<string>();
-            const dedupedRecipients = campaign.recipients.filter((r: any) => {
-              if (!r.email) return false;
-              const key = r.email.toLowerCase().trim();
-              if (seenEmails.has(key)) return false;
-              seenEmails.add(key);
-              return true;
-            });
-            for (const recipient of dedupedRecipients) {
-              const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
-
-              let emailBody: string;
-              if (campaign.htmlContent) {
-                // Smart Composer: send the pre-assembled HTML as-is (with merge fields resolved)
-                emailBody = resolveMergeFields(campaign.htmlContent, recipient, effectiveSettings);
-              } else {
-                // Classic mode: plain text body with sign-off appended
-                let resolvedBody = resolveMergeFields(campaign.body, recipient, effectiveSettings);
-
-                // Append professional sign-off
-                const senderName = effectiveSettings.senderName || '';
-                const phone = effectiveSettings.phoneNumber || '';
-                const replyEmail = effectiveSettings.replyToEmail || '';
-                const website = effectiveSettings.website || '';
-                if (senderName || phone || replyEmail || website) {
-                  resolvedBody += '\n\n---\n';
-                  if (senderName) resolvedBody += senderName + '\n';
-                  if (phone) resolvedBody += phone + '\n';
-                  if (replyEmail) resolvedBody += replyEmail + '\n';
-                  if (website) resolvedBody += website + '\n';
-                }
-                emailBody = resolvedBody;
-              }
-
-              try {
-                await sendEmail(user.uid, refreshToken, recipient.email, resolvedSubject, emailBody);
-                sentCount++;
-                console.log(`[Campaign] Sent to ${recipient.email}`);
-              } catch (err) {
-                console.error(`[Campaign] Failed to send to ${recipient.email}:`, err);
-              }
-            }
-            // Handle repeating vs one-time campaigns
-            const updateData: Record<string, unknown> = {
-              sent: sentCount,
-              lastSentAt: new Date().toISOString(),
-            };
-            if (!campaign.repeatDays || campaign.repeatDays === 0) {
-              updateData.status = 'completed';
-            }
-            await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), updateData, { merge: true });
-          } else {
-            console.warn('[Campaign] No Gmail refresh token found - cannot send emails');
-          }
-          // Keep in processingRef for 2 min to prevent poller duplicate
-          setTimeout(() => processingCampaignsRef.current.delete(campaign.id), 120_000);
+      // NOTE: Email sending is handled EXCLUSIVELY by the poller (useEffect above).
+      // The poller runs every 30 seconds and routes campaigns correctly:
+      //   - Large campaigns (≥50 recipients) → SendGrid batch API
+      //   - Small campaigns (<50 recipients) → Gmail API
+      // Previously, handleSave had its own send loop that ALWAYS used Gmail,
+      // bypassing SendGrid routing and causing race conditions + rate limit hits.
+      if (campaign.status === 'active' && campaign.recipients.length > 0) {
+        const triggerDate = new Date(campaign.triggerAt);
+        if (triggerDate.getTime() <= Date.now() + 60_000) {
+          console.log(`[Campaign] Saved & due now — poller will pick up "${campaign.name}" within 30s.`);
         } else {
-          // Trigger time is in the future → do NOT send now
-          // The polling interval in useEffect will pick it up when it's due
-          console.log(`[Campaign] Scheduled for ${triggerDate.toISOString()} — polling will pick it up.`);
+          console.log(`[Campaign] Saved & scheduled for ${triggerDate.toISOString()} — poller will handle it.`);
         }
+      }
     } catch (err) {
       console.error('[Campaign] Save error:', err);
     }
     setView('list');
     setEditingCampaign(null);
-  }, [firestore, user?.uid, campaignSettings]);
+  }, [firestore, user?.uid]);
 
   const togglePause = useCallback(async (id: string) => {
     if (!firestore || !user?.uid) return;
