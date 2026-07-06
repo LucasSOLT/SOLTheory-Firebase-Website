@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * POST /api/sms/messages
@@ -7,6 +8,9 @@ import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
  * Body: { uid, contact?, limit?, direction? }
  */
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { uid, contact, limit = 50, direction } = await req.json();
     if (!uid) return NextResponse.json({ error: "Missing uid" }, { status: 400 });

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import sgMail from "@sendgrid/mail";
+import { verifyRequest } from "@/lib/api-auth";
 
 // ---------------------------------------------------------------------------
-// Client-side SendGrid Batch Sender
+// Client-side SendGrid Batch Sender (AUTHENTICATED)
 // ---------------------------------------------------------------------------
 // Called by the client-side campaign poller for large recipient lists.
+// Requires a valid Firebase ID token in the Authorization header.
 // Accepts pre-resolved messages (subject + html already merged per recipient).
 // Sends in chunks of 100 with 200ms delay between chunks.
 // ---------------------------------------------------------------------------
@@ -19,6 +21,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function POST(req: NextRequest) {
+  // ── Auth: verify Firebase ID token ──
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { messages, fromEmail, fromName } = await req.json();
 

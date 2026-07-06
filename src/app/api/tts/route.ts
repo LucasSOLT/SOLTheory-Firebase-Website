@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { logAIUsage, calculateElevenLabsCost } from "@/lib/log-ai-usage";
+import { verifyRequest } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const text = searchParams.get("text");

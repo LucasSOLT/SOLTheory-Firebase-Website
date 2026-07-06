@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBlueBubblesConfig } from "../utils";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * POST /api/imessage/messages
@@ -7,6 +8,9 @@ import { getBlueBubblesConfig } from "../utils";
  * Body: { uid, chatGuid, limit?, offset?, after? }
  */
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { uid, chatGuid, limit = 50, offset = 0, after } = await req.json();
     if (!uid) return NextResponse.json({ error: "Missing uid" }, { status: 400 });

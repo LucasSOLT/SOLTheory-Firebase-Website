@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 async function getAdminFirestore() {
   try {
@@ -24,7 +25,10 @@ async function getAdminFirestore() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const db = await getAdminFirestore();
     if (!db) {

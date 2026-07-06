@@ -2811,6 +2811,8 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
           if (dedupedRecipients.length >= SENDGRID_THRESHOLD) {
             // ── Large campaign: route through SendGrid in chunks ──
             console.log(`[Campaign Poller] Large campaign (${dedupedRecipients.length} recipients) — using SendGrid in chunks of ${CLIENT_CHUNK_SIZE}`);
+            const { getAuthHeaders } = await import('@/lib/api-auth-client');
+            const authHeaders = await getAuthHeaders();
             for (let ci = 0; ci < resolvedMessages.length; ci += CLIENT_CHUNK_SIZE) {
               const chunk = resolvedMessages.slice(ci, ci + CLIENT_CHUNK_SIZE);
               const batchNum = Math.floor(ci / CLIENT_CHUNK_SIZE) + 1;
@@ -2819,7 +2821,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
               try {
                 const sgResp = await fetch('/api/campaigning/email/sendgrid-batch', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: authHeaders,
                   body: JSON.stringify({
                     messages: chunk,
                     fromEmail: effectiveSettings.senderEmail || user?.email || '',

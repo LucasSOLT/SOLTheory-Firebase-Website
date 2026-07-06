@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * GET /api/imessage/ping
@@ -6,6 +7,9 @@ import { NextResponse } from "next/server";
  * Query params: serverUrl, password
  */
 export async function GET(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const serverUrl = searchParams.get("serverUrl");

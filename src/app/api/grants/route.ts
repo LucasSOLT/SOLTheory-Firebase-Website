@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 /* ─── Schema Reference ───
   Collection: grant_suggestions
@@ -66,6 +67,9 @@ async function getAdminFirestore() {
  *   ?status=unapplied|applied|approved|denied (optional filter)
  */
 export async function GET(request: Request) {
+  const auth = await verifyRequest(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const orgId = searchParams.get("orgId") || "soltheory";

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * GET /api/sms/env-check
  * Debug: check which Firebase admin env vars are available on production.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   return NextResponse.json({
     hasFirebaseServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
     hasGoogleAppCredentials: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,

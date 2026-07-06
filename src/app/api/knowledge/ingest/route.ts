@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 export const maxDuration = 60; // 60 seconds
 
@@ -18,6 +19,9 @@ async function extractTextFromPDF(buffer: Buffer): Promise<string> {
 }
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const formData = await req.formData();
     const title = formData.get("title") as string;
