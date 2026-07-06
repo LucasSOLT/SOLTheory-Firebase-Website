@@ -326,7 +326,7 @@ function EmailPreview({ subject, body, senderName, recipients, settings, onClose
   const mergeData = buildMergeData(currentRecipient, settings);
   const resolvedSubject = resolveMergeFields(subject, currentRecipient, settings);
   const resolvedBody = resolveMergeFields(body, currentRecipient, settings);
-  const fromEmail = settings.senderEmail || "you@yourcompany.com";
+  const fromEmail = settings.senderEmail || user?.email || "you@yourcompany.com";
 
   // Resolve merge fields in htmlContent too
   const resolvedHtml = htmlContent ? resolveMergeFields(htmlContent, currentRecipient, settings) : null;
