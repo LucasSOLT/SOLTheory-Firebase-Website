@@ -2445,21 +2445,54 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
     return () => clearTimeout(timer);
   }, [focusCampaignId, onFocusHandled]);
 
-  // Load CRM contacts
+  // Load CRM contacts (from both shared CRM and per-user collections)
   useEffect(() => {
     if (!firestore || !user?.uid) return;
-    const q = query(collection(firestore, `users/${user.uid}/contacts`));
-    const unsub = onSnapshot(q, (snap) => {
-      const contacts: CRMContact[] = [];
+
+    let sharedContacts: CRMContact[] = [];
+    let userContacts: CRMContact[] = [];
+
+    const mergeAndSet = () => {
+      // Merge both, deduplicate by email (prefer shared CRM)
+      const seen = new Map<string, CRMContact>();
+      for (const c of sharedContacts) {
+        if (c.email) seen.set(c.email.toLowerCase(), c);
+        else seen.set(c.id, c);
+      }
+      for (const c of userContacts) {
+        const key = c.email ? c.email.toLowerCase() : c.id;
+        if (!seen.has(key)) seen.set(key, c);
+      }
+      const merged = Array.from(seen.values());
+      merged.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setCrmContacts(merged);
+    };
+
+    // Listen to shared CRM contacts
+    const sharedQ = query(collection(firestore, "shared/crm/contacts"));
+    const unsubShared = onSnapshot(sharedQ, (snap) => {
+      sharedContacts = [];
       snap.forEach((d) => {
         const data = d.data();
         const fullName = [data.firstName || "", data.lastName || ""].filter(Boolean).join(" ");
-        contacts.push({ id: d.id, name: fullName, email: data.email || "", aliases: data.aliases, tags: data.tags || [] });
+        sharedContacts.push({ id: d.id, name: fullName, email: data.email || "", aliases: data.aliases, tags: data.tags || [] });
       });
-      contacts.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      setCrmContacts(contacts);
+      mergeAndSet();
     });
-    return () => unsub();
+
+    // Listen to per-user contacts
+    const userQ = query(collection(firestore, `users/${user.uid}/contacts`));
+    const unsubUser = onSnapshot(userQ, (snap) => {
+      userContacts = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        const fullName = [data.firstName || "", data.lastName || ""].filter(Boolean).join(" ");
+        userContacts.push({ id: d.id, name: fullName, email: data.email || "", aliases: data.aliases, tags: data.tags || [] });
+      });
+      mergeAndSet();
+    });
+
+    return () => { unsubShared(); unsubUser(); };
   }, [firestore, user?.uid]);
 
   // Load campaign settings from Firestore
