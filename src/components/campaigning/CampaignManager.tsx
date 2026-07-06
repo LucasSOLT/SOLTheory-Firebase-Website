@@ -326,7 +326,7 @@ function EmailPreview({ subject, body, senderName, recipients, settings, onClose
   const mergeData = buildMergeData(currentRecipient, settings);
   const resolvedSubject = resolveMergeFields(subject, currentRecipient, settings);
   const resolvedBody = resolveMergeFields(body, currentRecipient, settings);
-  const fromEmail = settings.senderEmail || user?.email || "you@yourcompany.com";
+  const fromEmail = settings.senderEmail || "you@yourcompany.com";
 
   // Resolve merge fields in htmlContent too
   const resolvedHtml = htmlContent ? resolveMergeFields(htmlContent, currentRecipient, settings) : null;
@@ -2711,32 +2711,69 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             seenEmails.add(key);
             return true;
           });
-          for (const recipient of dedupedRecipients) {
+
+          // Build resolved messages for all recipients
+          const resolvedMessages = dedupedRecipients.map((recipient: any) => {
             const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
             let emailBody: string;
             if (campaign.htmlContent) {
               emailBody = resolveMergeFields(campaign.htmlContent, recipient, effectiveSettings);
             } else {
               let resolvedBody = resolveMergeFields(campaign.body, recipient, effectiveSettings);
-              const senderName = effectiveSettings.senderName || '';
+              const sName = effectiveSettings.senderName || '';
               const phone = effectiveSettings.phoneNumber || '';
               const replyEmail = effectiveSettings.replyToEmail || '';
               const website = effectiveSettings.website || '';
-              if (senderName || phone || replyEmail || website) {
+              if (sName || phone || replyEmail || website) {
                 resolvedBody += '\n\n---\n';
-                if (senderName) resolvedBody += senderName + '\n';
+                if (sName) resolvedBody += sName + '\n';
                 if (phone) resolvedBody += phone + '\n';
                 if (replyEmail) resolvedBody += replyEmail + '\n';
                 if (website) resolvedBody += website + '\n';
               }
               emailBody = resolvedBody;
             }
+            return { to: recipient.email, subject: resolvedSubject, html: emailBody };
+          });
+
+          const SENDGRID_THRESHOLD = 50;
+
+          if (dedupedRecipients.length >= SENDGRID_THRESHOLD) {
+            // ── Large campaign: route through SendGrid ──
+            console.log(`[Campaign Poller] Large campaign (${dedupedRecipients.length} recipients) — using SendGrid`);
             try {
-              await sendEmail(user!.uid, refreshToken, recipient.email, resolvedSubject, emailBody);
-              sentCount++;
-              console.log(`[Campaign Poller] Sent to ${recipient.email}`);
-            } catch (err) {
-              console.error(`[Campaign Poller] Failed to send to ${recipient.email}:`, err);
+              const sgResp = await fetch('/api/campaigning/email/sendgrid-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  messages: resolvedMessages,
+                  fromEmail: effectiveSettings.senderEmail || user?.email || '',
+                  fromName: effectiveSettings.senderName || '',
+                }),
+              });
+              const sgData = await sgResp.json();
+              if (sgResp.ok) {
+                sentCount = sgData.sent || 0;
+                console.log(`[Campaign Poller] SendGrid batch complete: ${sentCount}/${dedupedRecipients.length} sent`);
+                if (sgData.errors?.length) {
+                  console.warn(`[Campaign Poller] SendGrid errors:`, sgData.errors);
+                }
+              } else {
+                console.error(`[Campaign Poller] SendGrid batch failed:`, sgData.error);
+              }
+            } catch (sgErr) {
+              console.error(`[Campaign Poller] SendGrid request failed:`, sgErr);
+            }
+          } else {
+            // ── Small campaign: use Gmail API ──
+            for (const msg of resolvedMessages) {
+              try {
+                await sendEmail(user!.uid, refreshToken, msg.to, msg.subject, msg.html);
+                sentCount++;
+                console.log(`[Campaign Poller] Sent to ${msg.to}`);
+              } catch (err) {
+                console.error(`[Campaign Poller] Failed to send to ${msg.to}:`, err);
+              }
             }
           }
 
