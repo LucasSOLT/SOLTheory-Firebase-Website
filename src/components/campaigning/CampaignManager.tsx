@@ -2630,7 +2630,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
         if ((campaign.sent || 0) > 0 && (!campaign.repeatDays || campaign.repeatDays === 0)) continue;
         
         processingCampaignsRef.current.add(campaign.id);
-        console.log(`[Campaign Poller] Campaign ${campaign.id} is due — sending now.`);
+        console.log(`[Campaign Poller] Campaign ${campaign.id} is due — sending now (${campaign.recipients?.length} recipients).`);
 
         try {
           const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
@@ -2657,7 +2657,16 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
           } catch (e) { console.warn('[Campaign Poller] Could not load presets:', e); }
 
           let sentCount = 0;
-          for (const recipient of campaign.recipients) {
+          // Deduplicate recipients by email
+          const seenEmails = new Set<string>();
+          const dedupedRecipients = (campaign.recipients || []).filter((r: any) => {
+            if (!r.email) return false;
+            const key = r.email.toLowerCase().trim();
+            if (seenEmails.has(key)) return false;
+            seenEmails.add(key);
+            return true;
+          });
+          for (const recipient of dedupedRecipients) {
             const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
             let emailBody: string;
             if (campaign.htmlContent) {
@@ -2714,6 +2723,18 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
   const handleSave = useCallback(async (campaign: Campaign) => {
     if (!firestore || !user?.uid) return;
     try {
+      // If this campaign is due now, claim it BEFORE writing to Firestore
+      // so the poller's onSnapshot-triggered re-run won't double-send.
+      const triggerDate = new Date(campaign.triggerAt);
+      const now = new Date();
+      const isDueNow = campaign.status === 'active'
+        && campaign.recipients.length > 0
+        && triggerDate.getTime() <= now.getTime() + 60_000;
+
+      if (isDueNow) {
+        processingCampaignsRef.current.add(campaign.id);
+      }
+
       // Strip undefined values — Firestore rejects them
       const cleanCampaign = Object.fromEntries(
         Object.entries(campaign).filter(([, v]) => v !== undefined)
@@ -2722,15 +2743,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
 
       // Only send emails if the campaign is "active" AND its triggerAt time has passed
       // If triggerAt is in the future, the email cron will pick it up at the right time
-      if (campaign.status === 'active' && campaign.recipients.length > 0) {
-        const triggerDate = new Date(campaign.triggerAt);
-        const now = new Date();
-        const isDueNow = triggerDate.getTime() <= now.getTime() + 60_000; // within 1 minute
-
-        if (isDueNow) {
-          // Trigger time is now or past → send immediately
-          // Mark in processingRef to prevent poller from double-sending
-          processingCampaignsRef.current.add(campaign.id);
+      if (isDueNow) {
           const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
           const refreshToken = await getRefreshToken(user.uid);
           if (refreshToken) {
@@ -2750,7 +2763,16 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             } catch (e) { console.warn('[Campaign] Could not load personal info presets:', e); }
 
             let sentCount = 0;
-            for (const recipient of campaign.recipients) {
+            // Deduplicate recipients by email
+            const seenEmails = new Set<string>();
+            const dedupedRecipients = campaign.recipients.filter((r: any) => {
+              if (!r.email) return false;
+              const key = r.email.toLowerCase().trim();
+              if (seenEmails.has(key)) return false;
+              seenEmails.add(key);
+              return true;
+            });
+            for (const recipient of dedupedRecipients) {
               const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
 
               let emailBody: string;
@@ -2803,7 +2825,6 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
           // The polling interval in useEffect will pick it up when it's due
           console.log(`[Campaign] Scheduled for ${triggerDate.toISOString()} — polling will pick it up.`);
         }
-      }
     } catch (err) {
       console.error('[Campaign] Save error:', err);
     }

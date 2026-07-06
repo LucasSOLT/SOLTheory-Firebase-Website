@@ -1352,7 +1352,7 @@ export default function CRMPage() {
                     <Settings2 className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Manage Fields</span>
                   </button>
-                  <div className="relative">
+                  <div className="relative z-50">
                     <button
                       onClick={() => setIsDashAddDropdownOpen(!isDashAddDropdownOpen)}
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer shadow-sm shadow-indigo-600/10"
@@ -1363,8 +1363,8 @@ export default function CRMPage() {
                     </button>
                     {isDashAddDropdownOpen && (
                       <>
-                        <div className="fixed inset-0 z-10" onClick={() => setIsDashAddDropdownOpen(false)} />
-                        <div className={`absolute right-0 mt-1 w-56 rounded-lg border shadow-lg z-20 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsDashAddDropdownOpen(false)} />
+                        <div className={`absolute right-0 mt-1 w-56 rounded-lg border shadow-lg z-50 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
                           <button
                             onClick={() => { setIsDashAddDropdownOpen(false); setShowAddModal(true); }}
                             className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-slate-50 text-slate-700'}`}

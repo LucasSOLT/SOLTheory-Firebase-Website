@@ -372,6 +372,7 @@ export async function GET(req: Request) {
           // Get user's Gmail refresh token
           const userData = userDoc.data();
           const refreshToken =
+            userData?.gmailOAuth_campaigning?.refreshToken ||
             userData?.gmailOAuth_jarvis?.refreshToken ||
             userData?.gmailOAuth_morpheus?.refreshToken ||
             userData?.gmailOAuth_email?.refreshToken ||
