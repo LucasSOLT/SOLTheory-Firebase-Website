@@ -2672,15 +2672,30 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
   // Helper: get the Firestore path for a campaign in this org context
   const campaignPath = (cOrgId?: string) => `orgs/${cOrgId || orgId}/campaigns`;
 
-  // Load campaigns from Firestore (org-scoped)
-  // SOL Theory users: subscribe to BOTH orgs
-  // NXT Chapter users: subscribe to nxtchapter only
+  // Load campaigns from Firestore (org-scoped + legacy fallback)
+  // SOL Theory users: subscribe to BOTH orgs + legacy user path
+  // NXT Chapter users: subscribe to nxtchapter + legacy user path
   useEffect(() => {
     if (!firestore || !user?.uid) return;
     const orgIds = isSolTheoryUser ? ['soltheory', 'nxtchapter'] : [orgId];
     const unsubscribers: (() => void)[] = [];
-    const orgCampaigns: Record<string, Campaign[]> = {};
+    const buckets: Record<string, Campaign[]> = {};
 
+    const mergeBuckets = () => {
+      const all = Object.values(buckets).flat();
+      // Deduplicate by ID (prefer org-scoped version over legacy)
+      const deduped = new Map<string, Campaign>();
+      for (const c of all) {
+        const existing = deduped.get(c.id);
+        if (!existing || c.orgId) deduped.set(c.id, c);
+      }
+      const sorted = Array.from(deduped.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setCampaigns(sorted);
+    };
+
+    // Subscribe to org-scoped campaigns
     for (const oid of orgIds) {
       const q = query(collection(firestore, `orgs/${oid}/campaigns`));
       const unsub = onSnapshot(q, (snap) => {
@@ -2688,45 +2703,58 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
         snap.forEach((d) => {
           loaded.push({ ...(d.data() as Campaign), id: d.id, orgId: oid as any });
         });
-        orgCampaigns[oid] = loaded;
-        // Merge all org campaigns and sort
-        const all = Object.values(orgCampaigns).flat();
-        all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setCampaigns(all);
+        buckets[`org_${oid}`] = loaded;
+        mergeBuckets();
+      }, (err) => {
+        console.warn(`[Campaign] Failed to read orgs/${oid}/campaigns:`, err.message);
       });
       unsubscribers.push(unsub);
     }
 
-    // Also auto-migrate legacy per-user campaigns to org-scoped path
-    const migrateOldCampaigns = async () => {
-      try {
-        const oldQ = query(collection(firestore, `users/${user!.uid}/campaigns`));
-        const oldSnap = await getDocs(oldQ);
-        if (oldSnap.empty) return;
-        console.log(`[Campaign Migration] Found ${oldSnap.size} legacy campaigns — migrating to orgs/${orgId}/campaigns`);
-        for (const d of oldSnap.docs) {
-          const data = d.data() as Campaign;
-          const migratedData = {
-            ...data,
-            orgId,
-            createdBy: {
-              uid: user!.uid,
-              displayName: user!.displayName || user!.email?.split('@')[0] || 'Unknown',
-              email: user!.email || '',
-              photoURL: user!.photoURL || undefined,
-            },
-          };
-          // Strip undefined values
-          const clean = Object.fromEntries(Object.entries(migratedData).filter(([, v]) => v !== undefined));
-          await setDoc(doc(firestore, `orgs/${orgId}/campaigns`, d.id), clean);
-          await deleteDoc(doc(firestore, `users/${user!.uid}/campaigns`, d.id));
-          console.log(`[Campaign Migration] ✅ Migrated: ${data.name || d.id}`);
-        }
-      } catch (err) {
-        console.error('[Campaign Migration] Error:', err);
+    // FALLBACK: Also subscribe to legacy users/{uid}/campaigns so nothing is lost
+    const legacyQ = query(collection(firestore, `users/${user.uid}/campaigns`));
+    const legacyUnsub = onSnapshot(legacyQ, (snap) => {
+      const loaded: Campaign[] = [];
+      snap.forEach((d) => {
+        loaded.push({ ...(d.data() as Campaign), id: d.id });
+      });
+      buckets['legacy'] = loaded;
+      mergeBuckets();
+
+      // Auto-migrate legacy campaigns to org-scoped path (non-destructive first pass)
+      if (loaded.length > 0) {
+        console.log(`[Campaign Migration] Found ${loaded.length} legacy campaigns — copying to orgs/${orgId}/campaigns`);
+        (async () => {
+          for (const campaign of loaded) {
+            try {
+              const migratedData = {
+                ...campaign,
+                orgId,
+                createdBy: campaign.createdBy || {
+                  uid: user!.uid,
+                  displayName: user!.displayName || user!.email?.split('@')[0] || 'Unknown',
+                  email: user!.email || '',
+                  photoURL: user!.photoURL || undefined,
+                },
+              };
+              const clean = Object.fromEntries(Object.entries(migratedData).filter(([, v]) => v !== undefined));
+              await setDoc(doc(firestore, `orgs/${orgId}/campaigns`, campaign.id), clean);
+              // Only delete legacy after confirmed write
+              const verifySnap = await getDoc(doc(firestore, `orgs/${orgId}/campaigns`, campaign.id));
+              if (verifySnap.exists()) {
+                await deleteDoc(doc(firestore, `users/${user!.uid}/campaigns`, campaign.id));
+                console.log(`[Campaign Migration] ✅ Migrated: ${campaign.name || campaign.id}`);
+              }
+            } catch (err) {
+              console.warn(`[Campaign Migration] ⚠️ Skipped ${campaign.name || campaign.id}:`, (err as any)?.message);
+            }
+          }
+        })();
       }
-    };
-    migrateOldCampaigns();
+    }, (err) => {
+      console.warn('[Campaign] Failed to read legacy campaigns:', err.message);
+    });
+    unsubscribers.push(legacyUnsub);
 
     return () => unsubscribers.forEach(u => u());
   }, [firestore, user?.uid, orgId, isSolTheoryUser]);
