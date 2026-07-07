@@ -124,10 +124,14 @@ const INITIAL_FOLDERS: Record<string, FolderNode> = {
    MEDIA TYPE HELPERS
    ═══════════════════════════════════════════════════════════════ */
 
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
-const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov"]);
-const ACCEPTED_MEDIA_TYPES = "image/png,image/jpeg,image/jpg,image/gif,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime";
-const ACCEPTED_EXTENSIONS = ".jpg,.jpeg,.png,.webp,.svg,.gif,.mp4,.webm,.mov";
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "tiff"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "avi", "mkv"]);
+const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "ogg", "m4a", "flac", "aac"]);
+const DOC_EXTENSIONS = new Set(["pdf", "doc", "docx", "txt", "rtf", "md", "odt"]);
+const SPREADSHEET_EXTENSIONS = new Set(["xls", "xlsx", "csv", "ods"]);
+const PRESENTATION_EXTENSIONS = new Set(["ppt", "pptx", "odp"]);
+const ARCHIVE_EXTENSIONS = new Set(["zip", "rar", "7z", "tar", "gz", "bz2"]);
+const CODE_EXTENSIONS = new Set(["js", "ts", "jsx", "tsx", "py", "html", "css", "json", "xml", "yaml", "yml", "sh", "sql"]);
 
 function isImageFile(ext: string): boolean {
   return IMAGE_EXTENSIONS.has(ext.toLowerCase());
@@ -137,8 +141,20 @@ function isVideoFile(ext: string): boolean {
   return VIDEO_EXTENSIONS.has(ext.toLowerCase());
 }
 
+function isAudioFile(ext: string): boolean {
+  return AUDIO_EXTENSIONS.has(ext.toLowerCase());
+}
+
+function isDocFile(ext: string): boolean {
+  return DOC_EXTENSIONS.has(ext.toLowerCase());
+}
+
 function isMediaFile(ext: string): boolean {
   return isImageFile(ext) || isVideoFile(ext);
+}
+
+function isPreviewable(ext: string): boolean {
+  return isImageFile(ext) || isVideoFile(ext) || isAudioFile(ext) || ext.toLowerCase() === 'pdf';
 }
 
 function formatFileSize(bytes: number): string {
@@ -693,6 +709,64 @@ export default function MediaLibraryPage() {
     return () => unsub();
   }, [firestore, user?.uid]);
 
+  // ─── Load folders from Firestore ───
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const foldersCol = collection(firestore, `users/${user.uid}/media_library_folders`);
+    const unsub = onSnapshot(foldersCol, (snap) => {
+      const loadedFolders: Record<string, FolderNode> = { ...INITIAL_FOLDERS };
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        loadedFolders[d.id] = {
+          id: d.id,
+          name: data.name || 'Untitled',
+          parentId: data.parentId || 'my-files',
+          children: data.children || [],
+          itemCount: data.itemCount || 0,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt || Date.now()),
+        };
+      });
+      // Rebuild children arrays from parentId relationships
+      Object.values(loadedFolders).forEach((f) => {
+        if (f.parentId && loadedFolders[f.parentId] && f.id !== 'my-files' && f.id !== 'shared' && f.id !== 'trash') {
+          if (!loadedFolders[f.parentId].children.includes(f.id)) {
+            loadedFolders[f.parentId] = {
+              ...loadedFolders[f.parentId],
+              children: [...loadedFolders[f.parentId].children, f.id],
+            };
+          }
+        }
+      });
+      setFolders(loadedFolders);
+    });
+    return () => unsub();
+  }, [firestore, user?.uid]);
+
+  // ─── Helper: persist a folder to Firestore ───
+  const persistFolder = useCallback(async (folder: FolderNode) => {
+    if (!firestore || !user?.uid) return;
+    try {
+      await setDoc(doc(firestore, `users/${user.uid}/media_library_folders`, folder.id), {
+        name: folder.name,
+        parentId: folder.parentId,
+        children: folder.children,
+        itemCount: folder.itemCount,
+        createdAt: folder.createdAt,
+      });
+    } catch (err) {
+      console.error('Failed to persist folder:', err);
+    }
+  }, [firestore, user?.uid]);
+
+  const deleteFolderFromFirestore = useCallback(async (folderId: string) => {
+    if (!firestore || !user?.uid) return;
+    try {
+      await deleteDoc(doc(firestore, `users/${user.uid}/media_library_folders`, folderId));
+    } catch (err) {
+      console.error('Failed to delete folder from Firestore:', err);
+    }
+  }, [firestore, user?.uid]);
+
   // ─── Helper: persist a file to Firestore ───
   const persistFile = useCallback(async (file: FileItem) => {
     if (!firestore || !user?.uid) return;
@@ -838,24 +912,43 @@ export default function MediaLibraryPage() {
     setContextMenu(null);
   };
 
+  // ─── Move File Modal State ───
+  const [moveFileId, setMoveFileId] = useState<string | null>(null);
+
+  const handleMoveFile = (fileId: string, targetFolderId: string) => {
+    const file = files.find(f => f.id === fileId);
+    if (!file) return;
+    const updated = { ...file, folderId: targetFolderId };
+    setFiles((prev) => prev.map((f) => f.id === fileId ? updated : f));
+    persistFile(updated);
+    showToast(`Moved to ${folders[targetFolderId]?.name || 'folder'}`);
+    setMoveFileId(null);
+  };
+
   const handleFileContextAction = (action: string) => {
     if (!contextMenu || contextMenu.targetType !== "file") return;
     const file = files.find((f) => f.id === contextMenu.targetId);
     if (!file) { setContextMenu(null); return; }
 
     if (action === "Open") {
-      if (isMediaFile(file.extension) && file.downloadUrl) {
+      if (isPreviewable(file.extension) && file.downloadUrl) {
         setPreviewFile(file);
-      } else {
+      } else if (file.extension === 'txt' || file.extension === 'md') {
         setEditingFile(file);
+      } else if (file.downloadUrl) {
+        window.open(file.downloadUrl, '_blank');
       }
     } else if (action === "Rename") {
       setRenamingFileId(file.id);
       setRenameValue(file.name);
     } else if (action === "Share") {
       setShareModalFile(file);
+    } else if (action === "Move to...") {
+      setMoveFileId(file.id);
     } else if (action === "Delete") {
       handleDeleteFile(file.id);
+    } else if (action === "Download" && file.downloadUrl) {
+      window.open(file.downloadUrl, '_blank');
     } else {
       showToast(`${action}: ${file.name}`);
     }
@@ -888,7 +981,10 @@ export default function MediaLibraryPage() {
   const handleDeleteFolder = (folderId: string) => {
     const folder = folders[folderId];
     if (!folder) return;
-    setFiles((prev) => prev.filter((f) => f.folderId !== folderId));
+    // Move files in this folder to my-files instead of deleting them
+    setFiles((prev) => prev.map((f) => f.folderId === folderId ? { ...f, folderId: 'my-files' } : f));
+    // Update files in Firestore
+    files.filter(f => f.folderId === folderId).forEach(f => persistFile({ ...f, folderId: 'my-files' }));
     setFolders((prev) => {
       const next = { ...prev };
       if (folder.parentId && next[folder.parentId]) {
@@ -901,6 +997,7 @@ export default function MediaLibraryPage() {
       delete next[folderId];
       return next;
     });
+    deleteFolderFromFirestore(folderId);
     if (selectedFolder === folderId) setSelectedFolder("my-files");
     showToast(`Deleted: ${folder.name}`);
   };
@@ -945,6 +1042,7 @@ export default function MediaLibraryPage() {
         itemCount: prev[parentId].itemCount + 1,
       },
     }));
+    persistFolder(newFolder);
     setNewFolderName("");
     setCreatingFolder(false);
     setCreatingFolderInContent(false);
@@ -1016,10 +1114,6 @@ export default function MediaLibraryPage() {
 
     for (const file of filesArray) {
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      if (!isMediaFile(ext)) {
-        showToast(`Unsupported file type: .${ext}`);
-        continue;
-      }
 
       // Max 100MB per file
       if (file.size > 100 * 1024 * 1024) {
@@ -1384,10 +1478,10 @@ export default function MediaLibraryPage() {
         <div className={`px-4 py-3 border-t ${borderColor}`}>
           <div className="flex items-center justify-between mb-1.5">
             <span className={`text-[10px] font-semibold uppercase tracking-wider ${textMuted}`}>Storage Used</span>
-            <span className={`text-[10px] font-bold ${textTertiary}`}>0 KB / 15 GB</span>
+            <span className={`text-[10px] font-bold ${textTertiary}`}>{formatFileSize(files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0))} / 5 GB</span>
           </div>
           <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-slate-200"}`}>
-            <div className="h-full rounded-full bg-indigo-500" style={{ width: "0%" }} />
+            <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(100, (files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0) / (5 * 1024 * 1024 * 1024)) * 100)}%` }} />
           </div>
         </div>
       </aside>
@@ -1397,9 +1491,29 @@ export default function MediaLibraryPage() {
         {/* Top Bar */}
         <div className={`h-14 flex items-center justify-between px-6 border-b ${borderColor} shrink-0`}>
           <div className="flex items-center gap-2">
-            <h2 className={`text-[15px] font-bold ${textPrimary}`}>
-              {folders[selectedFolder]?.name || "All Files"}
-            </h2>
+            <nav className="flex items-center gap-1 text-[13px]">
+              {(() => {
+                const crumbs: { id: string; name: string }[] = [];
+                let current = selectedFolder;
+                while (current && folders[current]) {
+                  crumbs.unshift({ id: current, name: folders[current].name });
+                  current = folders[current].parentId || '';
+                }
+                return crumbs.map((crumb, i) => (
+                  <span key={crumb.id} className="flex items-center gap-1">
+                    {i > 0 && <ChevronRight className={`w-3 h-3 ${textMuted}`} />}
+                    <button
+                      onClick={() => setSelectedFolder(crumb.id)}
+                      className={`font-semibold transition-colors cursor-pointer hover:underline ${
+                        i === crumbs.length - 1 ? textPrimary : textMuted + ' hover:' + textSecondary
+                      }`}
+                    >
+                      {crumb.name}
+                    </button>
+                  </span>
+                ));
+              })()}
+            </nav>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-slate-800 text-slate-400" : "bg-stone-200/80 text-slate-500"}`}>
               {filteredFiles.length + childFolders.length} items
             </span>
@@ -1453,7 +1567,7 @@ export default function MediaLibraryPage() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept={ACCEPTED_EXTENSIONS}
+              accept="*"
               className="hidden"
               onChange={(e) => {
                 if (e.target.files) handleFileUpload(e.target.files);
@@ -1524,7 +1638,7 @@ export default function MediaLibraryPage() {
                       if (item.type === "file") {
                         const file = files.find((f) => f.id === item.id);
                         if (file) {
-                          if (isMediaFile(file.extension) && file.downloadUrl) {
+                          if (isPreviewable(file.extension) && file.downloadUrl) {
                             setPreviewFile(file);
                           } else {
                             setEditingFile(file);
@@ -1684,7 +1798,7 @@ export default function MediaLibraryPage() {
                       trackAccess({ id: file.id, name: file.name, type: "file", extension: file.extension });
                     }}
                     onDoubleClick={() => {
-                      if (isMediaFile(file.extension) && file.downloadUrl) {
+                      if (isPreviewable(file.extension) && file.downloadUrl) {
                         setPreviewFile(file);
                       } else {
                         setEditingFile(file);
@@ -1919,6 +2033,8 @@ export default function MediaLibraryPage() {
               { label: "Open", icon: FileText, action: "Open" },
               { label: "Rename", icon: Edit3, action: "Rename" },
               { label: "Share", icon: Share2, action: "Share" },
+              { label: "Move to...", icon: FolderOpen, action: "Move to..." },
+              { label: "Download", icon: Download, action: "Download" },
               { label: "Properties", icon: Info, action: "Properties" },
             ].map(({ label, icon: Icon, action }) => (
               <button
@@ -2016,6 +2132,32 @@ export default function MediaLibraryPage() {
       )}
 
       {/* ───── SHARE MODAL ───── */}
+      {/* ── Move File Modal ── */}
+      {moveFileId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50" onClick={() => setMoveFileId(null)}>
+          <div className={`w-[340px] rounded-2xl shadow-2xl p-5 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`} onClick={(e) => e.stopPropagation()}>
+            <h3 className={`text-[15px] font-bold mb-4 ${textPrimary}`}>Move to Folder</h3>
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {Object.values(folders)
+                .filter((f) => f.id !== 'shared' && f.id !== 'trash' && f.id !== files.find(fi => fi.id === moveFileId)?.folderId)
+                .map((folder) => (
+                  <button
+                    key={folder.id}
+                    onClick={() => handleMoveFile(moveFileId, folder.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-100 text-slate-700'}`}
+                  >
+                    <Folder className="w-4 h-4 text-amber-500" />
+                    <span className="text-[13px] font-medium">{folder.name}</span>
+                  </button>
+                ))}
+            </div>
+            <button onClick={() => setMoveFileId(null)} className={`mt-3 w-full py-2 rounded-xl text-[12px] font-semibold transition-colors cursor-pointer ${isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {shareModalFile && (
         <ShareModal
           isDark={isDark}

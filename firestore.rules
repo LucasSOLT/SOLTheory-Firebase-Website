@@ -226,6 +226,14 @@ service cloud.firestore {
       }
 
       /**
+       * @description Media Library folder structure (persistent).
+       * @path /users/{userId}/media_library_folders/{folderId}
+       */
+      match /media_library_folders/{folderId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      /**
        * @description Campaign data for the Agentic Campaigning feature.
        * @path /users/{userId}/campaigns/{campaignId}
        * @allow (read, write) A user can fully manage their own campaigns.
