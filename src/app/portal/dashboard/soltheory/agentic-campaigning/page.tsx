@@ -1087,7 +1087,7 @@ export default function AgenticCampaigningPage() {
   if (selectedPlatform === "gmail") {
     return (
       <div className={`w-full h-full rounded-2xl overflow-hidden shadow-sm relative flex flex-col ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-[#fefdfb] border border-slate-200/80'}`} style={{ WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" } as React.CSSProperties}>
-        <CampaignManager onBack={() => setSelectedPlatform(null)} focusCampaignId={focusCampaignId} onFocusHandled={() => setFocusCampaignId(null)} />
+        <CampaignManager onBack={() => setSelectedPlatform(null)} focusCampaignId={focusCampaignId} onFocusHandled={() => setFocusCampaignId(null)} orgId={orgPrefix as 'soltheory' | 'nxtchapter'} />
       </div>
     );
   }

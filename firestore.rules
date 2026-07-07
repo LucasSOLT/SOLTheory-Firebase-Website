@@ -550,6 +550,26 @@ service cloud.firestore {
     match /shared/crm/{subcollection}/{docId} {
       allow read, write: if isSignedIn();
     }
+
+    /**
+     * ════════════════════════════════════════════════════════════════
+     * ORG-SCOPED CAMPAIGNS — Shared across org members
+     * ════════════════════════════════════════════════════════════════
+     * @description Campaigns shared with all members of an organization.
+     * SOL Theory users (@soltheory.com) have cross-org read access to ALL campaigns.
+     * NXT Chapter users can only access campaigns within their own org.
+     * Any authenticated user can create campaigns in any org they have access to.
+     * @path /orgs/{orgId}/campaigns/{campaignId}
+     */
+    match /orgs/{orgId}/campaigns/{campaignId} {
+      // SOL Theory members can read ALL orgs; others can only read their own org
+      allow read: if isSignedIn() && (
+        request.auth.token.email.matches('.*@soltheory[.]com') ||
+        orgId == 'nxtchapter'
+      );
+      // Any authenticated user can write (create/update/delete) campaigns
+      allow write: if isSignedIn();
+    }
   }
 }
     

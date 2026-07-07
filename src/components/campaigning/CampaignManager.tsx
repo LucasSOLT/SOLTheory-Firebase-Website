@@ -12,7 +12,7 @@ import {
   MessageSquare, RotateCcw, Wand2, Paperclip,
 } from "lucide-react";
 import { useUser, useFirestore, useStorage } from "@/firebase/provider";
-import { collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc } from "firebase/firestore";
 import { uploadCampaignImage, deleteCampaignImage } from "@/lib/campaign-image-upload";
 import type { UploadedImage } from "@/lib/campaign-image-upload";
 import { SKELETON_REGISTRY } from "@/lib/email-skeletons";
@@ -46,6 +46,15 @@ export interface Campaign {
   sent: number;
   opened: number;
   clicked: number;
+  /** Who created this campaign */
+  createdBy?: {
+    uid: string;
+    displayName: string;
+    email: string;
+    photoURL?: string;
+  };
+  /** Which org this campaign belongs to */
+  orgId?: 'soltheory' | 'nxtchapter';
 }
 
 interface CRMContact {
@@ -511,6 +520,11 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
   const formattedDate = isValidDate ? triggerDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—";
   const formattedTime = isValidDate ? triggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "—";
   const kindConfig = CAMPAIGN_KINDS.find((k) => k.id === campaign.kind);
+  const creator = campaign.createdBy;
+  const creatorInitials = creator?.displayName
+    ? creator.displayName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : creator?.email?.[0]?.toUpperCase() || "?";
+  const creatorGradient = campaign.orgId === 'nxtchapter' ? 'from-indigo-500 to-indigo-700' : 'from-fuchsia-500 to-fuchsia-700';
 
   const statusConfig: Record<CampaignStatus, { bg: string; text: string; icon: React.ReactNode; label: string }> = {
     draft: { bg: "bg-slate-100", text: "text-slate-500", icon: <Edit3 className="w-3 h-3" />, label: "Draft" },
@@ -592,6 +606,19 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
             <p className="text-[11px] font-semibold text-slate-500">{formattedTime}</p>
           </div>
         </div>
+
+        {/* Creator badge */}
+        {creator && (
+          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+            <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${creatorGradient} flex items-center justify-center text-white text-[8px] font-bold shrink-0 shadow-sm`}>
+              {creatorInitials}
+            </div>
+            <span className="text-[10px] text-slate-400 truncate">
+              {creator.displayName || creator.email}
+              {campaign.orgId && <span className="ml-1 text-[9px] font-medium text-slate-300">• {campaign.orgId === 'nxtchapter' ? 'NXT Chapter' : 'SOL Theory'}</span>}
+            </span>
+          </div>
+        )}
 
         {/* Bottom stats */}
         <div className="flex items-center gap-3 flex-wrap">
@@ -2528,7 +2555,9 @@ function CampaignSettingsPanel({ settings, onSave, onBack }: {
    MAIN CAMPAIGN MANAGER
    ═══════════════════════════════════════════════════════════════ */
 
-export default function CampaignManager({ onBack, focusCampaignId, onFocusHandled }: { onBack: () => void; focusCampaignId?: string | null; onFocusHandled?: () => void }) {
+export default function CampaignManager({ onBack, focusCampaignId, onFocusHandled, orgId = 'soltheory' }: { onBack: () => void; focusCampaignId?: string | null; onFocusHandled?: () => void; orgId?: 'soltheory' | 'nxtchapter' }) {
+  // SOL Theory users can see campaigns from ALL orgs; NXT Chapter users see only their org.
+  const isSolTheoryUser = typeof window !== 'undefined' && window.location.pathname.includes('/soltheory');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [view, setView] = useState<"list" | "creator" | "settings">("list");
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
@@ -2640,20 +2669,67 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
     }
   }, [firestore, user?.uid]);
 
-  // Load campaigns from Firestore
+  // Helper: get the Firestore path for a campaign in this org context
+  const campaignPath = (cOrgId?: string) => `orgs/${cOrgId || orgId}/campaigns`;
+
+  // Load campaigns from Firestore (org-scoped)
+  // SOL Theory users: subscribe to BOTH orgs
+  // NXT Chapter users: subscribe to nxtchapter only
   useEffect(() => {
     if (!firestore || !user?.uid) return;
-    const q = query(collection(firestore, `users/${user.uid}/campaigns`));
-    const unsub = onSnapshot(q, (snap) => {
-      const loaded: Campaign[] = [];
-      snap.forEach((d) => {
-        loaded.push({ ...(d.data() as Campaign), id: d.id });
+    const orgIds = isSolTheoryUser ? ['soltheory', 'nxtchapter'] : [orgId];
+    const unsubscribers: (() => void)[] = [];
+    const orgCampaigns: Record<string, Campaign[]> = {};
+
+    for (const oid of orgIds) {
+      const q = query(collection(firestore, `orgs/${oid}/campaigns`));
+      const unsub = onSnapshot(q, (snap) => {
+        const loaded: Campaign[] = [];
+        snap.forEach((d) => {
+          loaded.push({ ...(d.data() as Campaign), id: d.id, orgId: oid as any });
+        });
+        orgCampaigns[oid] = loaded;
+        // Merge all org campaigns and sort
+        const all = Object.values(orgCampaigns).flat();
+        all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setCampaigns(all);
       });
-      loaded.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setCampaigns(loaded);
-    });
-    return () => unsub();
-  }, [firestore, user?.uid]);
+      unsubscribers.push(unsub);
+    }
+
+    // Also auto-migrate legacy per-user campaigns to org-scoped path
+    const migrateOldCampaigns = async () => {
+      try {
+        const oldQ = query(collection(firestore, `users/${user!.uid}/campaigns`));
+        const oldSnap = await getDocs(oldQ);
+        if (oldSnap.empty) return;
+        console.log(`[Campaign Migration] Found ${oldSnap.size} legacy campaigns — migrating to orgs/${orgId}/campaigns`);
+        for (const d of oldSnap.docs) {
+          const data = d.data() as Campaign;
+          const migratedData = {
+            ...data,
+            orgId,
+            createdBy: {
+              uid: user!.uid,
+              displayName: user!.displayName || user!.email?.split('@')[0] || 'Unknown',
+              email: user!.email || '',
+              photoURL: user!.photoURL || undefined,
+            },
+          };
+          // Strip undefined values
+          const clean = Object.fromEntries(Object.entries(migratedData).filter(([, v]) => v !== undefined));
+          await setDoc(doc(firestore, `orgs/${orgId}/campaigns`, d.id), clean);
+          await deleteDoc(doc(firestore, `users/${user!.uid}/campaigns`, d.id));
+          console.log(`[Campaign Migration] ✅ Migrated: ${data.name || d.id}`);
+        }
+      } catch (err) {
+        console.error('[Campaign Migration] Error:', err);
+      }
+    };
+    migrateOldCampaigns();
+
+    return () => unsubscribers.forEach(u => u());
+  }, [firestore, user?.uid, orgId, isSolTheoryUser]);
 
   // ── AUTO-RESUME: Create resume campaign for remaining recipients ──
   useEffect(() => {
@@ -2719,7 +2795,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
     );
     
     console.log(`[Auto-Resume] Creating resume campaign with ${remaining.length} recipients (cutoff: "${CUTOFF_NAME}", index: ${cutoff})`);
-    setDoc(doc(firestore, `users/${user.uid}/campaigns`, newId), clean)
+    setDoc(doc(firestore, campaignPath(), newId), { ...clean, orgId, createdBy: { uid: user.uid, displayName: user.displayName || user.email?.split('@')[0] || 'Unknown', email: user.email || '' } })
       .then(() => console.log(`[Auto-Resume] ✅ Campaign created: ${newId}`))
       .catch(err => console.error(`[Auto-Resume] ❌ Failed:`, err));
   }, [firestore, user?.uid, campaigns]);
@@ -2872,7 +2948,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             // Don't mark completed if nothing was sent — allow retry
             console.warn(`[Campaign Poller] 0 emails sent — keeping status active for retry`);
           }
-          await setDoc(doc(firestore, `users/${user!.uid}/campaigns`, campaign.id), updateData, { merge: true });
+          await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), updateData, { merge: true });
           console.log(`[Campaign Poller] ✓ ${campaign.id}: sent ${sentCount}/${campaign.recipients.length}`);
         } catch (err) {
           console.error(`[Campaign Poller] Error processing ${campaign.id}:`, err);
@@ -2892,11 +2968,22 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
   const handleSave = useCallback(async (campaign: Campaign) => {
     if (!firestore || !user?.uid) return;
     try {
+      // Ensure createdBy and orgId are set
+      const enriched = {
+        ...campaign,
+        orgId: campaign.orgId || orgId,
+        createdBy: campaign.createdBy || {
+          uid: user.uid,
+          displayName: user.displayName || user.email?.split('@')[0] || 'Unknown',
+          email: user.email || '',
+          photoURL: user.photoURL || undefined,
+        },
+      };
       // Strip undefined values — Firestore rejects them
       const cleanCampaign = Object.fromEntries(
-        Object.entries(campaign).filter(([, v]) => v !== undefined)
+        Object.entries(enriched).filter(([, v]) => v !== undefined)
       );
-      await setDoc(doc(firestore, `users/${user.uid}/campaigns`, campaign.id), cleanCampaign);
+      await setDoc(doc(firestore, campaignPath(enriched.orgId), campaign.id), cleanCampaign);
 
       // NOTE: Email sending is handled EXCLUSIVELY by the poller (useEffect above).
       // The poller runs every 30 seconds and routes campaigns correctly:
@@ -2924,12 +3011,15 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
     const campaign = campaigns.find(c => c.id === id);
     if (!campaign) return;
     const newStatus = campaign.status === 'active' ? 'paused' as CampaignStatus : 'active' as CampaignStatus;
-    await setDoc(doc(firestore, `users/${user.uid}/campaigns`, id), { status: newStatus }, { merge: true });
+    const campOrgId = campaign.orgId || orgId;
+    await setDoc(doc(firestore, campaignPath(campOrgId), id), { status: newStatus }, { merge: true });
   }, [firestore, user?.uid, campaigns]);
 
   const deleteCampaign = useCallback(async (id: string) => {
     if (!firestore || !user?.uid) return;
-    await deleteDoc(doc(firestore, `users/${user.uid}/campaigns`, id));
+    const campaign = campaigns.find(c => c.id === id);
+    const campOrgId = campaign?.orgId || orgId;
+    await deleteDoc(doc(firestore, campaignPath(campOrgId), id));
   }, [firestore, user?.uid]);
 
   const duplicateCampaign = useCallback(async (id: string) => {
@@ -2937,9 +3027,22 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
     const orig = campaigns.find(c => c.id === id);
     if (!orig) return;
     const newId = nextCampaignId();
-    const copy = { ...orig, id: newId, name: `${orig.name} (Copy)`, status: 'draft' as CampaignStatus, sent: 0, opened: 0, clicked: 0 };
+    const copy = {
+      ...orig,
+      id: newId,
+      name: `${orig.name} (Copy)`,
+      status: 'draft' as CampaignStatus,
+      sent: 0, opened: 0, clicked: 0,
+      orgId: orig.orgId || orgId,
+      createdBy: {
+        uid: user.uid,
+        displayName: user.displayName || user.email?.split('@')[0] || 'Unknown',
+        email: user.email || '',
+        photoURL: user.photoURL || undefined,
+      },
+    };
     const cleanCopy = Object.fromEntries(Object.entries(copy).filter(([, v]) => v !== undefined));
-    await setDoc(doc(firestore, `users/${user.uid}/campaigns`, newId), cleanCopy);
+    await setDoc(doc(firestore, campaignPath(copy.orgId), newId), cleanCopy);
   }, [firestore, user?.uid, campaigns]);
 
   if (view === "settings") {
