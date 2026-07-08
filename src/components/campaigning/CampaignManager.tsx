@@ -9,7 +9,7 @@ import {
   Timer, Pen, Check, UserPlus, Search, Inbox, ArrowUpRight,
   GitBranch, EyeOff, Reply, Settings, Save, Building2,
   ChevronDown, Upload, Image as ImageIcon, Monitor, Smartphone,
-  MessageSquare, RotateCcw, Wand2, Paperclip,
+  MessageSquare, RotateCcw, Wand2, Paperclip, ShieldAlert,
 } from "lucide-react";
 import { useUser, useFirestore, useStorage } from "@/firebase/provider";
 import { collection, query, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc } from "firebase/firestore";
@@ -55,6 +55,9 @@ export interface Campaign {
   };
   /** Which org this campaign belongs to */
   orgId?: 'soltheory' | 'nxtchapter';
+  senderName?: string;
+  senderEmail?: string;
+  channel?: string;
 }
 
 interface CRMContact {
@@ -180,7 +183,7 @@ function resolveMergeFields(
   const data = buildMergeData(recipient || null, settings || DEFAULT_SETTINGS);
   let resolved = text;
   for (const [key, value] of Object.entries(data)) {
-    resolved = resolved.replaceAll(key, value);
+    resolved = resolved.split(key).join(value);
   }
   // Clean up artifacts from empty merge fields:
   // "Hi , the" → "Hi, the"  |  "Hi  there" → "Hi there"
@@ -262,9 +265,14 @@ function useCountdown(targetDate: string, repeatDays?: number, status?: string) 
           setPhase('next');
           return;
         }
-        // Non-repeating, past trigger, past 60s → completed
-        setTimeLeft("Completed");
-        setPhase('completed');
+        // Non-repeating, past trigger, past 60s
+        if (status === 'completed') {
+          setTimeLeft("Completed");
+          setPhase('completed');
+        } else {
+          setTimeLeft("Processing...");
+          setPhase('triggered');
+        }
         return;
       }
       const d = Math.floor(diff / 86400000);
@@ -500,12 +508,13 @@ function EmailPreview({ subject, body, senderName, recipients, settings, onClose
    CAMPAIGN TILE
    ═══════════════════════════════════════════════════════════════ */
 
-function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, id }: {
+function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, onEmergencyStop, id }: {
   campaign: Campaign;
   onEdit: () => void;
   onTogglePause: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onEmergencyStop: () => void;
   id?: string;
 }) {
   const { timeLeft: countdown, phase: countdownPhase } = useCountdown(campaign.triggerAt, campaign.repeatDays, campaign.status);
@@ -532,7 +541,12 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
     paused: { bg: "bg-amber-50", text: "text-amber-600", icon: <Pause className="w-3 h-3" />, label: "Paused" },
     completed: { bg: "bg-blue-50", text: "text-blue-600", icon: <CheckCircle2 className="w-3 h-3" />, label: "Completed" },
   };
-  const st = statusConfig[campaign.status];
+  const st = statusConfig[campaign.status] || { 
+    bg: "bg-slate-100", 
+    text: "text-slate-500", 
+    icon: <AlertCircle className="w-3 h-3" />, 
+    label: campaign.status || "Unknown" 
+  };
 
   return (
     <div id={id} className="relative bg-white border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-200 group">
@@ -614,7 +628,7 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
               {creatorInitials}
             </div>
             <span className="text-[10px] text-slate-400 truncate">
-              {creator.displayName || creator.email}
+              {creator?.displayName || creator?.email || 'Unknown'}
               {campaign.orgId && <span className="ml-1 text-[9px] font-medium text-slate-300">• {campaign.orgId === 'nxtchapter' ? 'NXT Chapter' : 'SOL Theory'}</span>}
             </span>
           </div>
@@ -624,8 +638,8 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
             <Users className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-semibold">{campaign.recipients.length}</span>
-            <span className="text-slate-400">recipient{campaign.recipients.length !== 1 ? "s" : ""}</span>
+            <span className="font-semibold">{campaign.recipients?.length || 0}</span>
+            <span className="text-slate-400">recipient{(campaign.recipients?.length || 0) !== 1 ? "s" : ""}</span>
           </div>
           <div className="w-px h-4 bg-slate-200" />
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -642,19 +656,19 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
               </div>
             </>
           )}
-          {campaign.recipients.length > 0 && (
+          {(campaign.recipients?.length || 0) > 0 && (
             <div className="ml-auto relative"
               onMouseEnter={() => setRecipientHover(true)}
               onMouseLeave={() => setRecipientHover(false)}
             >
               <div className="flex items-center -space-x-1.5 cursor-default">
-                {campaign.recipients.slice(0, 4).map((r) => (
+                {campaign.recipients?.slice(0, 4).map((r) => (
                   <div key={r.id} className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-500 border-2 border-white">
                     {(r.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
                 ))}
-                {campaign.recipients.length > 4 && (
-                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 border-2 border-white">+{campaign.recipients.length - 4}</div>
+                {(campaign.recipients?.length || 0) > 4 && (
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 border-2 border-white">+{(campaign.recipients?.length || 0) - 4}</div>
                 )}
                 <div
                   className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center cursor-pointer ml-1 shadow-sm transition-colors"
@@ -668,10 +682,10 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
               {recipientHover && (
                 <div className="absolute right-0 bottom-full mb-2 w-[220px] bg-white border border-slate-200 rounded-xl shadow-lg py-2 px-1 z-[200]">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2.5 pb-1.5 border-b border-slate-100 mb-1">
-                    Recipients ({campaign.recipients.length})
+                    Recipients ({(campaign.recipients?.length || 0)})
                   </p>
                   <div className="max-h-[200px] overflow-y-auto">
-                    {campaign.recipients.slice(0, 10).map((r) => (
+                    {campaign.recipients?.slice(0, 10).map((r) => (
                       <div key={r.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50">
                         <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[7px] font-bold text-slate-500 shrink-0">
                           {(r.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
@@ -683,12 +697,12 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
                       </div>
                     ))}
                   </div>
-                  {campaign.recipients.length > 10 && (
+                  {(campaign.recipients?.length || 0) > 10 && (
                     <p
                       className="text-[9px] text-blue-500 hover:text-blue-600 text-center pt-1.5 border-t border-slate-100 mt-1 cursor-pointer font-semibold"
                       onClick={(e) => { e.stopPropagation(); setRecipientPopupOpen(true); setRecipientHover(false); }}
                     >
-                      View all {campaign.recipients.length} →
+                      View all {(campaign.recipients?.length || 0)} →
                     </p>
                   )}
                 </div>
@@ -713,7 +727,7 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
                     ? 'border-slate-700'
                     : 'border-slate-200'
                 }`}>
-                  <h3 className="text-[16px] font-bold">All Recipients ({campaign.recipients.length})</h3>
+                  <h3 className="text-[16px] font-bold">All Recipients ({(campaign.recipients?.length || 0)})</h3>
                   <button
                     onClick={() => setRecipientPopupOpen(false)}
                     className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
@@ -727,7 +741,7 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
                 </div>
                 {/* Body - 5 column grid */}
                 <div className="grid grid-cols-5 gap-2 p-4 overflow-y-auto">
-                  {campaign.recipients.map((r) => (
+                  {campaign.recipients?.map((r) => (
                     <div
                       key={r.id}
                       className={`flex flex-col items-center text-center p-2 rounded-xl transition-colors ${
@@ -760,6 +774,17 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
             </div>
           )}
         </div>
+
+        {/* Emergency Stop Button — always visible on active/processing campaigns */}
+        {(campaign.status === 'active') && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEmergencyStop(); }}
+            className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-[12px] font-bold uppercase tracking-wider transition-all duration-150 shadow-sm hover:shadow-md cursor-pointer"
+          >
+            <ShieldAlert className="w-4 h-4" />
+            Emergency Stop
+          </button>
+        )}
       </div>
     </div>
   );
@@ -793,6 +818,8 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const [showFromScratch, setShowFromScratch] = useState(!!(editCampaign && !editCampaign.templateId));
   const [showPreview, setShowPreview] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [letterStart, setLetterStart] = useState<string>("");
+  const [letterEnd, setLetterEnd] = useState<string>("");
   const { user } = useUser();
   const creatorFirestore = useFirestore();
   const creatorStorage = useStorage();
@@ -1376,7 +1403,10 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const filteredContacts = crmContacts.filter((c) => {
     const matchSearch = !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()) || c.email.toLowerCase().includes(contactSearch.toLowerCase());
     const matchTag = !tagFilter || (c.tags || []).includes(tagFilter);
-    return matchSearch && matchTag;
+    const firstChar = (c.name || "").charAt(0).toUpperCase();
+    const matchLetterStart = !letterStart || firstChar >= letterStart.toUpperCase();
+    const matchLetterEnd = !letterEnd || firstChar <= letterEnd.toUpperCase();
+    return matchSearch && matchTag && matchLetterStart && matchLetterEnd;
   });
 
   const canProceed = [
@@ -2289,6 +2319,34 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
                 ))}
               </div>
             )}
+            {/* Letter Range Filter */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Name range:</span>
+              <select value={letterStart} onChange={(e) => setLetterStart(e.target.value)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 outline-none focus:ring-2 focus:ring-slate-200 cursor-pointer">
+                <option value="">From (A)</option>
+                {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+              <span className="text-xs text-slate-400">→</span>
+              <select value={letterEnd} onChange={(e) => setLetterEnd(e.target.value)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 outline-none focus:ring-2 focus:ring-slate-200 cursor-pointer">
+                <option value="">To (Z)</option>
+                {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+              {(letterStart || letterEnd) && (
+                <button onClick={() => { setLetterStart(""); setLetterEnd(""); }}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer transition-colors">✕ Clear</button>
+              )}
+              {(letterStart || letterEnd) && (
+                <span className="text-xs text-slate-400 ml-1">
+                  Showing names {letterStart || "A"} – {letterEnd || "Z"}
+                </span>
+              )}
+            </div>
             <button onClick={selectAll}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
               <div className={`w-5 h-5 rounded border flex items-center justify-center ${
@@ -2734,7 +2792,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
                   uid: user!.uid,
                   displayName: user!.displayName || user!.email?.split('@')[0] || 'Unknown',
                   email: user!.email || '',
-                  photoURL: user!.photoURL || undefined,
+                  photoURL: user!.photoURL || "",
                 },
               };
               const clean = Object.fromEntries(Object.entries(migratedData).filter(([, v]) => v !== undefined));
@@ -2828,9 +2886,11 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
       .catch(err => console.error(`[Auto-Resume] ❌ Failed:`, err));
   }, [firestore, user?.uid, campaigns]);
 
-  // ── Polling: check for due campaigns every 30 seconds ──
+  // ── Polling: DISABLED — campaign sending is turned off ──
   const processingCampaignsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
+    console.log('[Campaign Poller] DISABLED — poller is turned off');
+    return; // DISABLED
     if (!firestore || !user?.uid) return;
     const checkDueCampaigns = async () => {
       const now = Date.now();
@@ -2839,13 +2899,17 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
         if (processingCampaignsRef.current.has(c.id)) return false;
         const triggerTime = new Date(c.triggerAt).getTime();
         if (isNaN(triggerTime)) return false;
-        // Due if triggerAt is in the past (within a 10-minute window to avoid re-sending old ones)
-        return triggerTime <= now && (now - triggerTime) < 600_000;
+        
+        const hasNotFinishedYet = (c.sent || 0) < (c.recipients?.length || 0);
+        const withinWindow = (now - triggerTime) < 600_000;
+        
+        return hasNotFinishedYet || withinWindow;
       });
 
       for (const campaign of dueCampaigns) {
-        // Check if already sent (sent > 0 and not repeating)
-        if ((campaign.sent || 0) > 0 && (!campaign.repeatDays || campaign.repeatDays === 0)) continue;
+        // Check if already fully sent
+        const totalToSent = campaign.recipients?.length || 0;
+        if ((campaign.sent || 0) >= totalToSent && (!campaign.repeatDays || campaign.repeatDays === 0)) continue;
         
         processingCampaignsRef.current.add(campaign.id);
         console.log(`[Campaign Poller] Campaign ${campaign.id} is due — sending now (${campaign.recipients?.length} recipients).`);
@@ -2875,18 +2939,35 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
           } catch (e) { console.warn('[Campaign Poller] Could not load presets:', e); }
 
           let sentCount = 0;
-          // Deduplicate recipients by email
+          // Deduplicate and Sort recipients by email for stable resuming
           const seenEmails = new Set<string>();
-          const dedupedRecipients = (campaign.recipients || []).filter((r: any) => {
-            if (!r.email) return false;
-            const key = r.email.toLowerCase().trim();
-            if (seenEmails.has(key)) return false;
-            seenEmails.add(key);
-            return true;
-          });
+          const dedupedRecipients = (campaign.recipients || [])
+            .filter((r: any) => {
+              if (!r.email) return false;
+              const key = r.email.toLowerCase().trim();
+              if (seenEmails.has(key)) return false;
+              seenEmails.add(key);
+              return true;
+            })
+            .sort((a: any, b: any) => a.email.toLowerCase().localeCompare(b.email.toLowerCase()));
 
-          // Build resolved messages for all recipients
-          const resolvedMessages = dedupedRecipients.map((recipient: any) => {
+          // Slice to only include recipients we haven't sent to yet
+          const startIndex = campaign.sent || 0;
+          const remainingRecipients = dedupedRecipients.slice(startIndex);
+
+          if (remainingRecipients.length === 0) {
+            console.log(`[Campaign Poller] Campaign ${campaign.id} already fully sent.`);
+            if (!campaign.repeatDays || campaign.repeatDays === 0) {
+              await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), { status: 'completed' }, { merge: true });
+            }
+            processingCampaignsRef.current.delete(campaign.id);
+            continue;
+          }
+
+          console.log(`[Campaign Poller] Processing ${remainingRecipients.length} remaining out of ${dedupedRecipients.length}`);
+
+          // Build resolved messages for remaining recipients
+          const resolvedMessages = remainingRecipients.map((recipient: any) => {
             const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
             let emailBody: string;
             if (campaign.htmlContent) {
@@ -2909,7 +2990,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             return { to: recipient.email, subject: resolvedSubject, html: emailBody };
           });
 
-          const SENDGRID_THRESHOLD = 50;
+          const SENDGRID_THRESHOLD = 500;
           const CLIENT_CHUNK_SIZE = 50; // Send 50 messages per API call to stay under Vercel body limit
 
           if (dedupedRecipients.length >= SENDGRID_THRESHOLD) {
@@ -2934,8 +3015,16 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
                 });
                 if (sgResp.ok) {
                   const sgData = await sgResp.json();
-                  sentCount += sgData.sent || 0;
-                  console.log(`[Campaign Poller] Batch ${batchNum} complete: ${sgData.sent} sent`);
+                  const batchSentCount = sgData.sent || 0;
+                  sentCount += batchSentCount;
+                  
+                  // Update progress in Firestore after each batch
+                  await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), {
+                    sent: (campaign.sent || 0) + sentCount,
+                    lastSentAt: new Date().toISOString(),
+                  }, { merge: true });
+                  
+                  console.log(`[Campaign Poller] Batch ${batchNum} complete: ${batchSentCount} sent`);
                   if (sgData.errors?.length) {
                     console.warn(`[Campaign Poller] Batch ${batchNum} errors:`, sgData.errors);
                   }
@@ -2954,23 +3043,37 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             console.log(`[Campaign Poller] SendGrid total: ${sentCount}/${dedupedRecipients.length} sent`);
           } else {
             // ── Small campaign: use Gmail API ──
-            for (const msg of resolvedMessages) {
+            for (let i = 0; i < resolvedMessages.length; i++) {
+              const msg = resolvedMessages[i];
               try {
                 await sendEmail(user!.uid, refreshToken, msg.to, msg.subject, msg.html);
                 sentCount++;
-                console.log(`[Campaign Poller] Sent to ${msg.to}`);
+                console.log(`[Campaign Poller] Sent to ${msg.to} (${sentCount}/${resolvedMessages.length})`);
+                
+                // Update progress every 10 emails
+                if (sentCount % 10 === 0) {
+                  await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), {
+                    sent: (campaign.sent || 0) + sentCount,
+                    lastSentAt: new Date().toISOString(),
+                  }, { merge: true });
+                }
               } catch (err) {
                 console.error(`[Campaign Poller] Failed to send to ${msg.to}:`, err);
               }
             }
           }
 
-          // Update Firestore — only mark completed if we actually sent something
+          // Update Firestore progress
           const updateData: Record<string, unknown> = {
             sent: (campaign.sent || 0) + sentCount,
             lastSentAt: new Date().toISOString(),
           };
-          if (sentCount > 0 && (!campaign.repeatDays || campaign.repeatDays === 0)) {
+
+          // Only mark completed if the cumulative total sent equals or exceeds the recipient count
+          const totalSentTotal = (campaign.sent || 0) + sentCount;
+          const isFullyFinished = totalSentTotal >= dedupedRecipients.length;
+          
+          if (isFullyFinished && (!campaign.repeatDays || campaign.repeatDays === 0)) {
             updateData.status = 'completed';
           } else if (sentCount === 0) {
             // Don't mark completed if nothing was sent — allow retry
@@ -3004,7 +3107,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
           uid: user.uid,
           displayName: user.displayName || user.email?.split('@')[0] || 'Unknown',
           email: user.email || '',
-          photoURL: user.photoURL || undefined,
+          photoURL: user.photoURL || "",
         },
       };
       // Strip undefined values — Firestore rejects them
@@ -3066,7 +3169,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
         uid: user.uid,
         displayName: user.displayName || user.email?.split('@')[0] || 'Unknown',
         email: user.email || '',
-        photoURL: user.photoURL || undefined,
+        photoURL: user.photoURL || "",
       },
     };
     const cleanCopy = Object.fromEntries(Object.entries(copy).filter(([, v]) => v !== undefined));
@@ -3149,6 +3252,14 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
                 onTogglePause={() => togglePause(c.id)}
                 onDelete={() => deleteCampaign(c.id)}
                 onDuplicate={() => duplicateCampaign(c.id)}
+                onEmergencyStop={async () => {
+                  // Immediately pause + clear from processing queue
+                  const campOrgId = c.orgId || orgId;
+                  processingCampaignsRef.current.delete(c.id);
+                  await setDoc(doc(firestore, campaignPath(campOrgId), c.id), { status: 'paused' }, { merge: true });
+                  console.log(`[EMERGENCY STOP] Campaign ${c.id} has been force-stopped.`);
+                  alert('🛑 Campaign stopped. No more emails will be sent from this campaign.');
+                }}
               />
             ))}
           </div>
