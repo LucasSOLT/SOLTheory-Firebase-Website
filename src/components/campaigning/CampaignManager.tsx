@@ -2936,7 +2936,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             return { to: recipient.email, subject: resolvedSubject, html: emailBody };
           });
 
-          const SENDGRID_THRESHOLD = 500;
+          const SENDGRID_THRESHOLD = 1; // Route all campaigns through SendGrid (Gmail rate limited)
           const CLIENT_CHUNK_SIZE = 50;
           const newlySentEmails: string[] = [];
 
