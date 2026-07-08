@@ -2886,9 +2886,11 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
       .catch(err => console.error(`[Auto-Resume] ❌ Failed:`, err));
   }, [firestore, user?.uid, campaigns]);
 
-  // ── Polling: check for due campaigns and send emails ──
+  // ── Polling: DISABLED — campaign sending is turned off ──
   const processingCampaignsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
+    console.log('[Campaign Poller] DISABLED — poller is turned off');
+    return; // DISABLED
     if (!firestore || !user?.uid) return;
     const checkDueCampaigns = async () => {
       const now = Date.now();
