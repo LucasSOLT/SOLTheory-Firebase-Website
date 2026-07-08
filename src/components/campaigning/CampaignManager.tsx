@@ -22,7 +22,7 @@ import { useKnowledgeBase } from "@/hooks/useKnowledgeBase";
    TYPES
    ═══════════════════════════════════════════════════════════════ */
 
-export type CampaignStatus = "draft" | "active" | "paused" | "completed";
+export type CampaignStatus = "draft" | "active" | "paused" | "completed" | "processing";
 export type CampaignKind = "inbound" | "outbound" | "automated";
 
 export interface Campaign {
@@ -44,6 +44,7 @@ export interface Campaign {
   repeatDays: number;
   createdAt: string;
   sent: number;
+  sentEmails?: string[];
   opened: number;
   clicked: number;
   /** Who created this campaign */
@@ -2817,74 +2818,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
     return () => unsubscribers.forEach(u => u());
   }, [firestore, user?.uid, orgId, isSolTheoryUser]);
 
-  // ── AUTO-RESUME: Create resume campaign for remaining recipients ──
-  useEffect(() => {
-    if (!firestore || !user?.uid || campaigns.length === 0) return;
-    
-    // Check if resume already exists
-    const hasResume = campaigns.some(c => c.name?.includes("Resume:"));
-    if (hasResume) return;
-    
-    // Find the big campaign (>500 recipients)
-    const bigCampaign = campaigns.find(c => (c.recipients?.length || 0) > 500);
-    if (!bigCampaign) return;
-    
-    const CUTOFF_NAME = "justin";
-    const allRecipients = bigCampaign.recipients || [];
-    
-    // Sort alphabetically (same order as handleSave)
-    const sorted = [...allRecipients].sort((a, b) => {
-      const na = (a.name || a.email || "").toLowerCase();
-      const nb = (b.name || b.email || "").toLowerCase();
-      return na.localeCompare(nb);
-    });
-    
-    // Find cutoff
-    let cutoff = sorted.length;
-    for (let i = 0; i < sorted.length; i++) {
-      const n = (sorted[i].name || sorted[i].email || "").toLowerCase();
-      if (n.localeCompare(CUTOFF_NAME) >= 0) { cutoff = i; break; }
-    }
-    
-    const remaining = sorted.slice(cutoff);
-    if (remaining.length === 0) return;
-    
-    // Create resume campaign — trigger tomorrow 6 AM MT (12:00 UTC)
-    const newId = `camp-resume-${Date.now()}`;
-    const resumeCampaign = {
-      id: newId,
-      name: `Resume: NXT Chapter Grand Opening (${remaining.length} remaining)`,
-      kind: bigCampaign.kind || "outbound",
-      subject: bigCampaign.subject,
-      body: bigCampaign.body || "",
-      htmlContent: bigCampaign.htmlContent || "",
-      recipients: remaining,
-      status: "active" as const,
-      triggerAt: "2026-07-07T12:00:00.000Z",
-      createdAt: new Date().toISOString(),
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-      repeatDays: 0,
-      templateId: bigCampaign.templateId || null,
-      skeletonId: bigCampaign.skeletonId,
-      composerMode: bigCampaign.composerMode,
-      slotData: bigCampaign.slotData,
-      senderName: bigCampaign.senderName,
-      senderEmail: bigCampaign.senderEmail,
-      channel: bigCampaign.channel,
-    };
-    
-    // Strip undefined values
-    const clean = Object.fromEntries(
-      Object.entries(resumeCampaign).filter(([, v]) => v !== undefined)
-    );
-    
-    console.log(`[Auto-Resume] Creating resume campaign with ${remaining.length} recipients (cutoff: "${CUTOFF_NAME}", index: ${cutoff})`);
-    setDoc(doc(firestore, campaignPath(), newId), { ...clean, orgId, createdBy: { uid: user.uid, displayName: user.displayName || user.email?.split('@')[0] || 'Unknown', email: user.email || '' } })
-      .then(() => console.log(`[Auto-Resume] ✅ Campaign created: ${newId}`))
-      .catch(err => console.error(`[Auto-Resume] ❌ Failed:`, err));
-  }, [firestore, user?.uid, campaigns]);
+
 
   // ── Polling: DISABLED — campaign sending is turned off ──
   const processingCampaignsRef = useRef<Set<string>>(new Set());
@@ -2899,26 +2833,38 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
         if (processingCampaignsRef.current.has(c.id)) return false;
         const triggerTime = new Date(c.triggerAt).getTime();
         if (isNaN(triggerTime)) return false;
-        
-        const hasNotFinishedYet = (c.sent || 0) < (c.recipients?.length || 0);
-        const withinWindow = (now - triggerTime) < 600_000;
-        
-        return hasNotFinishedYet || withinWindow;
+        if (triggerTime > now) return false; // not due yet
+        const withinWindow = (now - triggerTime) < 600_000; // 10 min window
+        return withinWindow;
       });
 
       for (const campaign of dueCampaigns) {
-        // Check if already fully sent
-        const totalToSent = campaign.recipients?.length || 0;
-        if ((campaign.sent || 0) >= totalToSent && (!campaign.repeatDays || campaign.repeatDays === 0)) continue;
-        
         processingCampaignsRef.current.add(campaign.id);
-        console.log(`[Campaign Poller] Campaign ${campaign.id} is due — sending now (${campaign.recipients?.length} recipients).`);
 
         try {
+          // ── Firestore-level lock: re-read and claim ──
+          const campRef = doc(firestore, campaignPath(campaign.orgId), campaign.id);
+          const freshSnap = await getDoc(campRef);
+          if (!freshSnap.exists()) {
+            console.log(`[Campaign Poller] Campaign ${campaign.id} no longer exists — skipping`);
+            processingCampaignsRef.current.delete(campaign.id);
+            continue;
+          }
+          const freshData = freshSnap.data();
+          if (freshData.status !== 'active') {
+            console.log(`[Campaign Poller] Campaign ${campaign.id} is '${freshData.status}', not 'active' — skipping`);
+            processingCampaignsRef.current.delete(campaign.id);
+            continue;
+          }
+          // Claim it by setting status to 'processing'
+          await setDoc(campRef, { status: 'processing' }, { merge: true });
+          console.log(`[Campaign Poller] Claimed campaign ${campaign.id} — status set to 'processing'`);
+
           const { getRefreshToken, sendEmail } = await import('@/lib/gmail-api');
           const refreshToken = await getRefreshToken(user!.uid);
           if (!refreshToken) {
-            console.warn(`[Campaign Poller] No refresh token — skipping ${campaign.id}`);
+            console.warn(`[Campaign Poller] No refresh token — releasing ${campaign.id}`);
+            await setDoc(campRef, { status: 'active' }, { merge: true });
             processingCampaignsRef.current.delete(campaign.id);
             continue;
           }
@@ -2938,8 +2884,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             }
           } catch (e) { console.warn('[Campaign Poller] Could not load presets:', e); }
 
-          let sentCount = 0;
-          // Deduplicate and Sort recipients by email for stable resuming
+          // ── Deduplicate recipients ──
           const seenEmails = new Set<string>();
           const dedupedRecipients = (campaign.recipients || [])
             .filter((r: any) => {
@@ -2948,25 +2893,28 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
               if (seenEmails.has(key)) return false;
               seenEmails.add(key);
               return true;
-            })
-            .sort((a: any, b: any) => a.email.toLowerCase().localeCompare(b.email.toLowerCase()));
+            });
 
-          // Slice to only include recipients we haven't sent to yet
-          const startIndex = campaign.sent || 0;
-          const remainingRecipients = dedupedRecipients.slice(startIndex);
+          // ── Filter out already-sent recipients using sentEmails array ──
+          const alreadySent = new Set((freshData.sentEmails || []).map((e: string) => e.toLowerCase().trim()));
+          const remainingRecipients = dedupedRecipients.filter(
+            (r: any) => !alreadySent.has(r.email.toLowerCase().trim())
+          );
 
           if (remainingRecipients.length === 0) {
-            console.log(`[Campaign Poller] Campaign ${campaign.id} already fully sent.`);
+            console.log(`[Campaign Poller] Campaign ${campaign.id} already fully sent (${alreadySent.size}/${dedupedRecipients.length}).`);
             if (!campaign.repeatDays || campaign.repeatDays === 0) {
-              await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), { status: 'completed' }, { merge: true });
+              await setDoc(campRef, { status: 'completed' }, { merge: true });
+            } else {
+              await setDoc(campRef, { status: 'active' }, { merge: true });
             }
             processingCampaignsRef.current.delete(campaign.id);
             continue;
           }
 
-          console.log(`[Campaign Poller] Processing ${remainingRecipients.length} remaining out of ${dedupedRecipients.length}`);
+          console.log(`[Campaign Poller] Processing ${remainingRecipients.length} remaining (${alreadySent.size} already sent) for campaign ${campaign.id}`);
 
-          // Build resolved messages for remaining recipients
+          // ── Build resolved messages ONLY for remaining recipients ──
           const resolvedMessages = remainingRecipients.map((recipient: any) => {
             const resolvedSubject = resolveMergeFields(campaign.subject, recipient, effectiveSettings);
             let emailBody: string;
@@ -2991,7 +2939,8 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
           });
 
           const SENDGRID_THRESHOLD = 500;
-          const CLIENT_CHUNK_SIZE = 50; // Send 50 messages per API call to stay under Vercel body limit
+          const CLIENT_CHUNK_SIZE = 50;
+          const newlySentEmails: string[] = [];
 
           if (dedupedRecipients.length >= SENDGRID_THRESHOLD) {
             // ── Large campaign: route through SendGrid in chunks ──
@@ -3015,16 +2964,9 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
                 });
                 if (sgResp.ok) {
                   const sgData = await sgResp.json();
-                  const batchSentCount = sgData.sent || 0;
-                  sentCount += batchSentCount;
-                  
-                  // Update progress in Firestore after each batch
-                  await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), {
-                    sent: (campaign.sent || 0) + sentCount,
-                    lastSentAt: new Date().toISOString(),
-                  }, { merge: true });
-                  
-                  console.log(`[Campaign Poller] Batch ${batchNum} complete: ${batchSentCount} sent`);
+                  // Track each successfully sent email
+                  chunk.forEach((m: any) => newlySentEmails.push(m.to.toLowerCase().trim()));
+                  console.log(`[Campaign Poller] Batch ${batchNum} complete: ${sgData.sent || chunk.length} sent`);
                   if (sgData.errors?.length) {
                     console.warn(`[Campaign Poller] Batch ${batchNum} errors:`, sgData.errors);
                   }
@@ -3035,56 +2977,64 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
               } catch (sgErr) {
                 console.error(`[Campaign Poller] Batch ${batchNum} request failed:`, sgErr);
               }
-              // Small delay between API calls to avoid rate limiting
+              // Save progress after each batch
+              if (newlySentEmails.length > 0) {
+                await setDoc(campRef, {
+                  sentEmails: [...Array.from(alreadySent), ...newlySentEmails],
+                  sent: alreadySent.size + newlySentEmails.length,
+                  lastSentAt: new Date().toISOString(),
+                }, { merge: true });
+              }
               if (ci + CLIENT_CHUNK_SIZE < resolvedMessages.length) {
                 await new Promise(r => setTimeout(r, 500));
               }
             }
-            console.log(`[Campaign Poller] SendGrid total: ${sentCount}/${dedupedRecipients.length} sent`);
           } else {
             // ── Small campaign: use Gmail API ──
             for (let i = 0; i < resolvedMessages.length; i++) {
               const msg = resolvedMessages[i];
               try {
                 await sendEmail(user!.uid, refreshToken, msg.to, msg.subject, msg.html);
-                sentCount++;
-                console.log(`[Campaign Poller] Sent to ${msg.to} (${sentCount}/${resolvedMessages.length})`);
+                newlySentEmails.push(msg.to.toLowerCase().trim());
+                console.log(`[Campaign Poller] ✓ Sent to ${msg.to} (${newlySentEmails.length}/${resolvedMessages.length})`);
                 
-                // Update progress every 10 emails
-                if (sentCount % 10 === 0) {
-                  await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), {
-                    sent: (campaign.sent || 0) + sentCount,
+                // Save progress every 10 emails
+                if (newlySentEmails.length % 10 === 0) {
+                  await setDoc(campRef, {
+                    sentEmails: [...Array.from(alreadySent), ...newlySentEmails],
+                    sent: alreadySent.size + newlySentEmails.length,
                     lastSentAt: new Date().toISOString(),
                   }, { merge: true });
                 }
               } catch (err) {
-                console.error(`[Campaign Poller] Failed to send to ${msg.to}:`, err);
+                console.error(`[Campaign Poller] ✗ Failed to send to ${msg.to}:`, err);
               }
             }
           }
 
-          // Update Firestore progress
-          const updateData: Record<string, unknown> = {
-            sent: (campaign.sent || 0) + sentCount,
-            lastSentAt: new Date().toISOString(),
-          };
+          // ── Final Firestore update ──
+          const allSentEmails = [...Array.from(alreadySent), ...newlySentEmails];
+          const isFullyFinished = allSentEmails.length >= dedupedRecipients.length;
+          const finalStatus = isFullyFinished && (!campaign.repeatDays || campaign.repeatDays === 0)
+            ? 'completed'
+            : 'active';
 
-          // Only mark completed if the cumulative total sent equals or exceeds the recipient count
-          const totalSentTotal = (campaign.sent || 0) + sentCount;
-          const isFullyFinished = totalSentTotal >= dedupedRecipients.length;
-          
-          if (isFullyFinished && (!campaign.repeatDays || campaign.repeatDays === 0)) {
-            updateData.status = 'completed';
-          } else if (sentCount === 0) {
-            // Don't mark completed if nothing was sent — allow retry
-            console.warn(`[Campaign Poller] 0 emails sent — keeping status active for retry`);
-          }
-          await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), updateData, { merge: true });
-          console.log(`[Campaign Poller] ✓ ${campaign.id}: sent ${sentCount}/${campaign.recipients.length}`);
+          await setDoc(campRef, {
+            sentEmails: allSentEmails,
+            sent: allSentEmails.length,
+            lastSentAt: new Date().toISOString(),
+            status: finalStatus,
+          }, { merge: true });
+
+          console.log(`[Campaign Poller] ✓ ${campaign.id}: sent ${newlySentEmails.length} this run, ${allSentEmails.length}/${dedupedRecipients.length} total → status: ${finalStatus}`);
         } catch (err) {
           console.error(`[Campaign Poller] Error processing ${campaign.id}:`, err);
+          // Release the lock back to active so it can be retried
+          try {
+            await setDoc(doc(firestore, campaignPath(campaign.orgId), campaign.id), { status: 'active' }, { merge: true });
+          } catch { /* ignore */ }
         } finally {
-          // Remove from processing after a delay to prevent re-trigger
+          // Prevent re-trigger for 2 minutes even in-memory
           setTimeout(() => processingCampaignsRef.current.delete(campaign.id), 120_000);
         }
       }
