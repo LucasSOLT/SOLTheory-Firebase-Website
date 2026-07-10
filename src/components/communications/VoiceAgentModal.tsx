@@ -61,7 +61,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [isMinimized, setIsMinimized] = useState(false);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => { });
   // Speculative pre-fetch: start LLM call while user is still in silence countdown
-  const speculativeRef = useRef<{ text: string; promise: Promise<{ reply: string; pactFacts: any[]; usage: number }> | null }>({ text: '', promise: null });
+  const speculativeRef = useRef<{ text: string; promise: Promise<{ reply: string; pactFacts: any[]; usage: number; audioBase64?: string | null }> | null }>({ text: '', promise: null });
   const speculativeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ── Whisper Fallback (for PWAs/mobile where SpeechRecognition fails) ──
@@ -176,7 +176,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
         // Speculative pre-fetch: start LLM call early (400ms into silence)
         // so the response is already being computed while the silence timer counts down
-        const specDelay = Math.min(400, Math.floor(responseDelayRef.current * 0.25));
+        const specDelay = Math.min(150, Math.floor(responseDelayRef.current * 0.15));
         if (newText.length > 3) {
           speculativeTimerRef.current = setTimeout(() => {
             if (phaseRef.current === "listening" && !isPausedRef.current) {
@@ -713,29 +713,44 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   }, [isOpen, stopRecognition]);
 
   // ── Pure API call (no conversation side-effects) — used for speculative pre-fetch ──
-  const fetchAIReply = useCallback(async (userText: string): Promise<{ reply: string; pactFacts: any[]; usage: number }> => {
+  // Now calls the COMBINED LLM+TTS endpoint so audio comes back in the same response
+  const fetchAIReply = useCallback(async (userText: string): Promise<{ reply: string; pactFacts: any[]; usage: number; audioBase64?: string | null }> => {
     const messagesForCall = [...conversationRef.current, { role: "user", content: userText }];
     try {
       if (onCallAI) {
+        // When using parent-provided callback (e.g. from the main chat page), no combined endpoint
         const payload: any = await onCallAI(messagesForCall);
-        return { reply: payload.response || "I couldn't process that.", usage: payload.usage || 0, pactFacts: payload.pactFacts || [] };
+        return { reply: payload.response || "I couldn't process that.", usage: payload.usage || 0, pactFacts: payload.pactFacts || [], audioBase64: null };
       } else {
-        const res = await fetch("/api/voice-chat", {
+        // Use combined LLM+TTS endpoint — one round-trip for text + audio
+        const res = await fetch("/api/voice-chat-tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: messagesForCall, agentId: `${orgPrefix}_${agentId}`, systemInstructions, knowledgeBaseText, pactText }),
+          body: JSON.stringify({
+            messages: messagesForCall,
+            agentId: `${orgPrefix}_${agentId}`,
+            systemInstructions,
+            knowledgeBaseText,
+            pactText,
+            voiceId: voiceId || undefined,
+          }),
         });
         const data = await res.json();
-        return { reply: data.response || "I couldn't process that.", usage: data.usage || 0, pactFacts: data.pactFacts || [] };
+        return {
+          reply: data.response || "I couldn't process that.",
+          usage: data.usage || 0,
+          pactFacts: data.pactFacts || [],
+          audioBase64: data.audioBase64 || null,
+        };
       }
     } catch (err: any) {
       console.error("Voice AI Call Error:", err?.message || err);
       const msg = err?.message?.includes("fetch") || err?.message?.includes("network") || err?.message?.includes("Failed")
         ? "Network connection issue. Check your internet and try again."
         : "Connection issue. Try again.";
-      return { reply: msg, pactFacts: [], usage: 0 };
+      return { reply: msg, pactFacts: [], usage: 0, audioBase64: null };
     }
-  }, [onCallAI, orgPrefix, agentId, systemInstructions, knowledgeBaseText, pactText]);
+  }, [onCallAI, orgPrefix, agentId, systemInstructions, knowledgeBaseText, pactText, voiceId]);
 
   const fetchAIReplyRef = useRef(fetchAIReply);
   useEffect(() => { fetchAIReplyRef.current = fetchAIReply; }, [fetchAIReply]);
@@ -743,7 +758,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   // ── Call voice endpoint (with conversation management) ──
   const callVoiceAI = async (userText: string) => {
     // Check for speculative pre-fetch match first
-    let result: { reply: string; pactFacts: any[]; usage: number };
+    let result: { reply: string; pactFacts: any[]; usage: number; audioBase64?: string | null };
     if (speculativeRef.current.promise && speculativeRef.current.text === userText) {
       // Speculative call matches — reuse it (saves 0.5-2s!)
       result = await speculativeRef.current.promise;
@@ -762,7 +777,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     setElevenLabsChars(p => p + result.reply.length);
     if (onUsageUpdate) onUsageUpdate(result.usage, result.reply.length);
 
-    return { reply: result.reply, pactFacts: result.pactFacts };
+    return { reply: result.reply, pactFacts: result.pactFacts, audioBase64: result.audioBase64 };
   };
 
   // ── "I'm Done" handler ──
@@ -811,22 +826,16 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     accumulatedTextRef.current = "";
     setPhase("processing");
 
-    // Actually call AI
-    const { reply: aiReplyText, pactFacts } = await callVoiceAI(spokenText);
+    // Actually call AI — combined endpoint returns text + audio in one round-trip
+    const { reply: aiReplyText, pactFacts, audioBase64 } = await callVoiceAI(spokenText);
     const cleanedReply = (aiReplyText || "").replace(/<[^>]*>/g, ""); // Strip any XML/HTML if leaked
 
     if (cancelledRef.current) return;
-
-    // SPEED OPTIMIZATION: Start preloading TTS audio IMMEDIATELY, before updating UI
-    const audioUrl = `/api/tts?text=${encodeURIComponent(cleanedReply)}${voiceId ? `&voice=${encodeURIComponent(voiceId)}` : ''}`;
 
     // MOBILE FIX: Reuse the persistent unlocked audio element instead of new Audio()
     const audio = persistentAudioRef.current || document.createElement('audio');
     audio.setAttribute('playsinline', 'true');
     audio.setAttribute('webkit-playsinline', 'true');
-    audio.preload = "auto";
-    audio.src = audioUrl;
-    audio.load(); // Force reload on mobile
 
     // Kill any existing audio to prevent overlap
     if (audioRef.current && audioRef.current !== audio) {
@@ -835,7 +844,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     }
     audioRef.current = audio;
 
-    // Update parent component and transcript in parallel with audio loading
+    // Update parent component and transcript
     if (onTranscriptUpdate) {
       onTranscriptUpdate(spokenText, cleanedReply, pactFacts);
     }
@@ -845,25 +854,30 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     try {
       audio.onended = () => {
         setPhase("listening");
-        // Clean up blob URL to prevent memory leak
         if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
         audioRef.current = null;
         if (!isMicMuted && !isPaused) {
-          if (useWhisperFallback.current) {
-            startWhisperRecording();
-          } else {
-            startRecognition();
-          }
+          if (useWhisperFallback.current) { startWhisperRecording(); }
+          else { startRecognition(); }
         }
       };
 
-      // MOBILE FIX: Fetch TTS as blob for reliable mobile playback
-      // Direct URL streaming often silently fails on iOS Safari and Chrome Android
-      const ttsHeaders = await getAuthHeaders().catch(() => ({}));
-      const ttsResponse = await fetch(audioUrl, { headers: ttsHeaders });
-      if (!ttsResponse.ok) throw new Error(`TTS fetch failed: ${ttsResponse.status}`);
-      const audioBlob = await ttsResponse.blob();
-      const blobUrl = URL.createObjectURL(audioBlob);
+      let blobUrl: string;
+
+      if (audioBase64) {
+        // FAST PATH: Audio came from the combined endpoint — no extra network call needed!
+        const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+        const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+        blobUrl = URL.createObjectURL(audioBlob);
+      } else {
+        // FALLBACK: Audio not in response (onCallAI mode) — fetch TTS separately
+        const audioUrl = `/api/tts?text=${encodeURIComponent(cleanedReply)}${voiceId ? `&voice=${encodeURIComponent(voiceId)}` : ''}`;
+        const ttsHeaders = await getAuthHeaders().catch(() => ({}));
+        const ttsResponse = await fetch(audioUrl, { headers: ttsHeaders });
+        if (!ttsResponse.ok) throw new Error(`TTS fetch failed: ${ttsResponse.status}`);
+        const audioBlob = await ttsResponse.blob();
+        blobUrl = URL.createObjectURL(audioBlob);
+      }
 
       if (cancelledRef.current) { URL.revokeObjectURL(blobUrl); return; }
 
@@ -884,7 +898,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           played = true;
           audio.play().then(resolve).catch((e) => {
             console.warn('Audio play blocked, retrying:', e.message);
-            // Mobile fallback: retry with user gesture unlock attempt
             setTimeout(() => {
               if (audioCtxRef.current?.state === 'suspended') {
                 audioCtxRef.current.resume().catch(() => {});
@@ -897,12 +910,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         audio.oncanplaythrough = () => tryPlay();
         audio.onerror = () => reject(new Error("Audio load failed"));
         if (audio.readyState >= 3) tryPlay();
-        // Faster fallback: blob is fully loaded so try after 500ms
-        setTimeout(() => { if (!played) tryPlay(); }, 500);
+        setTimeout(() => { if (!played) tryPlay(); }, 300);
       });
     } catch (err) {
       console.error(err);
-      // Fallback: text-based delay
       const delay = Math.max(1500, Math.min(cleanedReply.length * 35, 6000));
       speakingTimeoutRef.current = setTimeout(() => {
         setPhase("listening");
