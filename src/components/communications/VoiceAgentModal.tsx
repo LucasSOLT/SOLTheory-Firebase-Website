@@ -255,12 +255,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           const ext = (recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
           const formData = new FormData();
           formData.append('audio', audioBlob, `recording.${ext}`);
-          const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+          // Include auth headers — without these, /api/transcribe returns 401
+          const authHeaders = await getAuthHeaders().catch(() => ({}));
+          const res = await fetch('/api/transcribe', { method: 'POST', body: formData, headers: authHeaders });
           if (res.ok) {
             const data = await res.json();
             resolve(data.text || '');
           } else {
-            console.error('Transcribe API error:', res.status);
+            console.error('Transcribe API error:', res.status, await res.text().catch(() => ''));
             resolve('');
           }
         } catch (err) {
