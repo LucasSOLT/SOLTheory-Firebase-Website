@@ -3030,14 +3030,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             body: JSON.stringify({
               messages: apiMessages,
               agentId: `soltheory_${params.agentId}`,
-              soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email. IMPORTANT: You are in a VOICE CONVERSATION. Keep responses to 1-3 sentences. Be direct. Never use markdown, bullet points, or code blocks.`,
+              soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email. IMPORTANT: You are in a VOICE CONVERSATION. Keep spoken responses to 1-3 sentences. Be direct. Never use markdown, bullet points, or code blocks. HOWEVER, you MUST still use tools when the user requests actions like sending emails, checking calendar, spawning grant agents, etc. Always execute the tool first, then confirm verbally.`,
               brain: agentConfig.brain,
               uid: user?.uid,
               refreshToken: rToken,
               contacts: agentContacts,
               knowledgeBaseText: kbText,
+              orgBrainText: orgBrain,
               pactText,
-              userName: user?.displayName || undefined
+              userName: user?.displayName || undefined,
+              model: selectedModel
             }),
           });
           const data = await res.json();

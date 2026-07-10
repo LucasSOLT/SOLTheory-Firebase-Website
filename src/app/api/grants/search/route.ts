@@ -106,14 +106,18 @@ async function searchGrantsGov(
 
   for (const keyword of searchKeywords) {
     try {
+      // Vary sort order each request to get different results across scans
+      const sortOptions = ["openDate|desc", "closeDate|asc", "openDate|asc"];
+      const sortBy = sortOptions[Math.floor(Math.random() * sortOptions.length)];
+      
       const response = await fetch("https://api.grants.gov/v1/api/search2", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           keyword,
           oppStatuses: "posted",  // Only currently-open opportunities
-          rows: Math.min(rows, 15),
-          sortBy: "openDate|desc",
+          rows: Math.min(rows, 25),
+          sortBy,
         }),
       });
 

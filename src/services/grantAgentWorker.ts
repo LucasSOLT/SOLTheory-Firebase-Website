@@ -17,7 +17,7 @@ import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal
       reads `lastScanTime` from Firestore. If the
       interval hasn't elapsed, skips. This prevents
       duplicate scans across tabs and HMR reloads.
-   4. Exactly ONE grant per scan, period.
+    4. Up to 3 grants per scan for faster results.
    ═══════════════════════════════════════════════════════ */
 
 /* ─── Global type for window storage ─── */
@@ -108,7 +108,7 @@ async function canScanNow(
     return canScan;
   } catch (err) {
     console.error(`[GrantAgent:${agentId}] Error checking scan time:`, err);
-    return false; // fail closed — don't scan if we can't verify
+    return true; // fail OPEN — allow scan if we can't verify (network blips shouldn't block scanning)
   }
 }
 
@@ -248,10 +248,7 @@ async function executeAgentScan(
       window.__lastGrantScanMessage = "Scanning the web for grants...";
     }
 
-    // 4. Record scan time FIRST (claim the slot before doing work)
-    await recordScanTime(firestore, agentId);
-
-    // 5. Search the web
+    // 4. Search the web FIRST, record scan time after success
     const results = await searchWebForGrants(config);
 
     // Safety guard: ONLY allow grants.gov URLs
@@ -274,6 +271,7 @@ async function executeAgentScan(
         window.__lastGrantScanStatus = "no_new";
         window.__lastGrantScanMessage = "No new grants found — continuing the search";
       }
+      await recordScanTime(firestore, agentId); // Record even on empty to avoid rapid retry
       return null;
     }
 
@@ -306,52 +304,55 @@ async function executeAgentScan(
         window.__lastGrantScanStatus = "no_new";
         window.__lastGrantScanMessage = "No new grants — all results already suggested";
       }
+      await recordScanTime(firestore, agentId);
       return null;
     }
 
-    // 7. AI Eligibility Validation — check top candidates
-    //    Try up to 5 results to find one that passes validation
-    const candidateCount = Math.min(newResults.length, 5);
-    let selected: typeof newResults[0] | null = null;
-    let validationResult: { eligible: boolean; confidence: number; eligibilityText: string; reasoning: string } | null = null;
+    // 7. AI Eligibility Validation — check candidates, accept up to 3
+    const candidateCount = Math.min(newResults.length, 8);
+    const acceptedGrants: Array<{ grant: typeof newResults[0]; validation: { eligible: boolean; confidence: number; eligibilityText: string; reasoning: string } }> = [];
+    const MAX_GRANTS_PER_SCAN = 3;
 
     if (typeof window !== "undefined") {
       window.__lastGrantScanMessage = "Validating grant eligibility with AI...";
     }
 
-    for (let i = 0; i < candidateCount; i++) {
+    for (let i = 0; i < candidateCount && acceptedGrants.length < MAX_GRANTS_PER_SCAN; i++) {
       const candidate = newResults[i];
       console.log(`[GrantAgent:${agentId}] Validating candidate ${i + 1}/${candidateCount}: "${candidate.title.substring(0, 60)}"`);
 
       const validation = await validateGrantEligibility(candidate, config);
       console.log(`[GrantAgent:${agentId}] Validation: eligible=${validation.eligible} confidence=${validation.confidence} — ${validation.reasoning.substring(0, 100)}`);
 
-      if (validation.eligible && validation.confidence >= 40) {
-        selected = candidate;
-        validationResult = validation;
-        break;
+      if (validation.eligible && validation.confidence >= 25) {
+        acceptedGrants.push({ grant: candidate, validation });
+        console.log(`[GrantAgent:${agentId}] ✓ Accepted candidate ${i + 1} (${acceptedGrants.length}/${MAX_GRANTS_PER_SCAN})`);
+        continue;
       }
 
-      // If validation service is down (confidence=0), still accept the first result
-      // but mark it as unverified
-      if (validation.confidence === 0 && i === 0) {
-        selected = candidate;
-        validationResult = validation;
-        console.log(`[GrantAgent:${agentId}] Validation unavailable — accepting first result as unverified`);
-        break;
+      // If validation service is down (confidence=0), still accept
+      if (validation.confidence === 0) {
+        acceptedGrants.push({ grant: candidate, validation });
+        console.log(`[GrantAgent:${agentId}] Validation unavailable — accepting as unverified`);
+        continue;
       }
 
       console.log(`[GrantAgent:${agentId}] Candidate ${i + 1} rejected: ${validation.reasoning.substring(0, 80)}`);
     }
 
-    if (!selected || !validationResult) {
+    if (acceptedGrants.length === 0) {
       console.log(`[GrantAgent:${agentId}] No candidates passed eligibility validation`);
       if (typeof window !== "undefined") {
         window.__lastGrantScanStatus = "no_new";
         window.__lastGrantScanMessage = "Found grants but none matched your eligibility — refining search";
       }
+      await recordScanTime(firestore, agentId);
       return null;
     }
+
+    // Use the first accepted grant as the primary selected
+    const selected = acceptedGrants[0].grant;
+    const validationResult = acceptedGrants[0].validation;
 
     // 8. Re-check version before Firestore write
     const stillCurrent = workers.get(agentId);
@@ -417,20 +418,63 @@ async function executeAgentScan(
       opportunityNumber: selected.opportunityNumber || "",
     };
 
-    // 10. Write exactly ONE grant
+    // 10. Write the primary grant
     const docRef = await addDoc(grantsRef, grantDoc);
-
     handle.suggestedUrls.add(selected.url);
     handle.suggestedTitles.add(selected.title.toLowerCase().trim());
+    console.log(`[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selected.url}`);
+
+    // 10b. Write additional accepted grants (up to MAX_GRANTS_PER_SCAN total)
+    for (let g = 1; g < acceptedGrants.length; g++) {
+      const extra = acceptedGrants[g];
+      try {
+        let extraAmount: number;
+        if (extra.grant.awardCeiling) {
+          extraAmount = extra.grant.awardCeiling;
+        } else {
+          const minAmt = config.budgetMin ?? 10000;
+          const maxAmt = config.budgetMax ?? 500000;
+          extraAmount = Math.round((minAmt + Math.random() * (maxAmt - minAmt)) / 1000) * 1000;
+        }
+        let extraCloseDate: Date;
+        if (extra.grant.closeDate) {
+          extraCloseDate = new Date(extra.grant.closeDate);
+          if (isNaN(extraCloseDate.getTime())) extraCloseDate = new Date(Date.now() + 60 * 86400000);
+        } else {
+          extraCloseDate = new Date(Date.now() + (30 + Math.floor(Math.random() * 90)) * 86400000);
+        }
+        const extraDoc = {
+          ...grantDoc,
+          title: extra.grant.title,
+          description: buildNextSteps(extra.grant.source, extra.grant.url, extra.grant.description),
+          agency: extra.grant.agency || extra.grant.source,
+          amount: extraAmount,
+          url: extra.grant.url,
+          sourceUrl: extra.grant.url,
+          eligibility: extra.validation.eligibilityText,
+          eligibilityVerified: extra.validation.confidence > 0,
+          eligibilityConfidence: extra.validation.confidence,
+          eligibilityReason: extra.validation.reasoning,
+          opportunityNumber: extra.grant.opportunityNumber || "",
+          closeDate: Timestamp.fromDate(extraCloseDate),
+        };
+        await addDoc(grantsRef, extraDoc);
+        handle.suggestedUrls.add(extra.grant.url);
+        handle.suggestedTitles.add(extra.grant.title.toLowerCase().trim());
+        console.log(`[GrantAgent:${agentId}] ✓ Extra grant ${g + 1}: "${extra.grant.title.substring(0, 50)}"`);
+      } catch (extraErr) {
+        console.error(`[GrantAgent:${agentId}] Failed to write extra grant:`, extraErr);
+      }
+    }
+
+    // Record scan time AFTER successful writes
+    await recordScanTime(firestore, agentId);
 
     if (typeof window !== "undefined") {
       window.__lastGrantScanStatus = "found";
-      window.__lastGrantScanMessage = `Found: ${selected.title}`;
+      window.__lastGrantScanMessage = `Found ${acceptedGrants.length} grant(s): ${selected.title}`;
     }
 
-    console.log(
-      `[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selected.url} (eligibility: ${validationResult.eligibilityText})`
-    );
     return docRef.id;
   } catch (err) {
     console.error(`[GrantAgent:${agentId}] Scan failed:`, err);
