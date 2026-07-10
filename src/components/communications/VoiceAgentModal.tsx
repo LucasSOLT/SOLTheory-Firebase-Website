@@ -255,9 +255,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           const ext = (recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
           const formData = new FormData();
           formData.append('audio', audioBlob, `recording.${ext}`);
-          // Include auth headers — without these, /api/transcribe returns 401
-          const authHeaders = await getAuthHeaders().catch(() => ({}));
-          const res = await fetch('/api/transcribe', { method: 'POST', body: formData, headers: authHeaders });
+          // Only send Authorization header — do NOT set Content-Type for FormData
+          // (browser must auto-set multipart/form-data with boundary)
+          const auth = await getAuthHeaders().catch(() => ({} as Record<string, string>));
+          const transcribeHeaders: Record<string, string> = {};
+          if (auth['Authorization']) transcribeHeaders['Authorization'] = auth['Authorization'];
+          const res = await fetch('/api/transcribe', { method: 'POST', body: formData, headers: transcribeHeaders });
           if (res.ok) {
             const data = await res.json();
             resolve(data.text || '');
