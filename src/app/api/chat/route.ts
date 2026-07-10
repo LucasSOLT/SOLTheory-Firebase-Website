@@ -637,7 +637,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     // For substantive questions, inject a hidden thinking prompt to improve quality
     const lastUserMsg = messages[messages.length - 1];
     const lastUserText = (lastUserMsg?.content || '').toLowerCase().trim();
-    const isSubstantiveQuestion = lastUserText.length > 15 &&
+    const isSubstantiveQuestion = lastUserText.length > 40 &&
       !lastUserText.startsWith('draft') && !lastUserText.startsWith('send') &&
       !lastUserText.startsWith('delete') && !lastUserText.startsWith('create') &&
       !lastUserText.startsWith('schedule') && !lastUserText.startsWith('book') &&
@@ -661,7 +661,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
         const searchQuery = (lastUserMsg?.content || '').substring(0, 200);
         console.log(`[ENRICHMENT] Non-blocking search for: "${searchQuery.substring(0, 60)}..."`);
 
-        const ENRICHMENT_TIMEOUT_MS = 500;
+        const ENRICHMENT_TIMEOUT_MS = 300;
         const tavilyPromise = fetch("https://api.tavily.com/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1717,9 +1717,9 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             { role: "system", content: "You are Jarvis, a helpful and intelligent AI assistant. Answer the user's question thoroughly in natural conversational text. Be warm and engaging. Never output JSON or code." },
             { role: "user", content: userQuestion }
           ],
-          model: selectedModel,
+          model: "llama-3.1-8b-instant",
           temperature: 0.7,
-          max_tokens: 4096,
+          max_tokens: 2048,
         });
         finalResponseText = safeguardCompletion.choices[0]?.message?.content || "I'm here and ready to help! Could you try asking me that again?";
       } catch (safeguardErr) {
@@ -1803,7 +1803,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               { role: "system", content: "You are a helpful, knowledgeable AI assistant. Answer the user's question thoroughly in natural conversational text. Never output JSON or code." },
               { role: "user", content: userQuestion }
             ],
-            model: selectedModel,
+            model: "llama-3.1-8b-instant",
           });
           finalResponseText = fallbackCompletion.choices[0]?.message?.content || "I wasn't able to process that. Could you try rephrasing?";
         } catch { /* use sanitized original */ }
@@ -1827,9 +1827,9 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             { role: "system", content: "You are an expert AI assistant. The user has asked a substantive question. Provide a thorough, detailed, and insightful answer in at least 3-4 paragraphs. Include context, examples, and interesting details. Never output JSON or code. Be conversational and engaging." },
             { role: "user", content: lastMsg?.content || "" }
           ],
-          model: selectedModel,
+          model: "llama-3.1-8b-instant",
           temperature: 0.75,
-          max_tokens: 4096,
+          max_tokens: 2048,
         });
         const qualityResponse = qualityCompletion.choices[0]?.message?.content;
         if (qualityResponse && qualityResponse.length > finalResponse.length) {

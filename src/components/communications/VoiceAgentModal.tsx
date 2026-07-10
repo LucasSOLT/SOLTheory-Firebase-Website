@@ -910,7 +910,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         audio.oncanplaythrough = () => tryPlay();
         audio.onerror = () => reject(new Error("Audio load failed"));
         if (audio.readyState >= 3) tryPlay();
-        setTimeout(() => { if (!played) tryPlay(); }, 300);
+        setTimeout(() => { if (!played) tryPlay(); }, 100);
       });
     } catch (err) {
       console.error(err);
