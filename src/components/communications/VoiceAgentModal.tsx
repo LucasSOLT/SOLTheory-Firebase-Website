@@ -1080,27 +1080,27 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#fefdfb] flex flex-col animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[200] bg-slate-50 flex flex-col animate-in fade-in duration-300">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
-      <div className="flex flex-col flex-1 relative bg-[#faf8f3] overflow-hidden">
+      <div className="flex flex-col flex-1 relative bg-gradient-to-b from-slate-50 to-white overflow-hidden">
         
-        <div className="absolute top-20 left-3 right-3 sm:top-6 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none z-[100]">
+        <div className="absolute top-6 left-4 right-4 sm:left-8 sm:right-8 flex items-center justify-between pointer-events-none z-[100]">
           {/* Top Left: Cost */}
-          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-10 rounded-full bg-white border border-slate-200 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors z-50">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
-            <span className="text-[11px] font-black tracking-wider text-slate-600 whitespace-nowrap">
+          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200/80 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-white transition-colors z-50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
+            <span className="text-[11px] font-semibold tracking-wider text-slate-500 whitespace-nowrap">
               ${((groqTokens * 0.00000006) + (elevenLabsChars * 0.000167)).toFixed(4)}
             </span>
           </button>
           
           {/* Top Right: Minimize & Close */}
           <div className="flex items-center gap-2 pointer-events-auto z-[101]">
-            <button onClick={() => setIsMinimized(true)} className="w-10 h-10 rounded-full bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="Minimize">
-              <Minimize2 className="w-5 h-5" />
+            <button onClick={() => setIsMinimized(true)} className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200/80 hover:bg-white text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="Minimize">
+              <Minimize2 className="w-4 h-4" />
             </button>
-            <button onClick={onClose} className="w-10 h-10 rounded-full bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="End Call">
-              <X className="w-5 h-5" />
+            <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200/80 hover:bg-white text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="End Call">
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -1255,19 +1255,33 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         </div>
 
         {/* ── Divider ── */}
-        <div className="mx-auto w-full max-w-2xl px-6">
-          <div className="h-px bg-slate-200/60" />
+        <div className="mx-auto w-full max-w-2xl px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-200/70" />
+            <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest">Transcript</span>
+            <div className="flex-1 h-px bg-slate-200/70" />
+          </div>
         </div>
 
         {/* ── Lower Section: Chat Bubble Transcript ── */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
           <div className="max-w-2xl mx-auto space-y-3">
+
+            {/* Welcome hint — always shown as the first bubble */}
+            {transcriptLines.length === 0 && !liveText && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-slate-200 text-slate-500 text-[14px] leading-relaxed shadow-sm">
+                  Start speaking, and you&apos;ll see your words transcribed here in real time. When {agentName} responds, the reply will appear below.
+                </div>
+              </div>
+            )}
+
             {transcriptLines.map((line, idx) => (
               <div key={idx} className={`flex ${line.isUser ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
                   line.isUser
-                    ? 'bg-indigo-600 text-white rounded-br-md'
-                    : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md shadow-sm'
+                    ? 'bg-slate-800 text-white rounded-br-md'
+                    : 'bg-white border border-slate-200 text-slate-700 rounded-bl-md shadow-sm'
                 }`}>
                   {line.text}
                 </div>
@@ -1277,9 +1291,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {/* Live transcription bubble — shows user's words appearing in real time */}
             {liveText && phase === "listening" && (
               <div className="flex justify-end">
-                <div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-br-md bg-indigo-500/80 text-white/90 text-[14px] leading-relaxed">
+                <div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-br-md bg-slate-700 text-white/90 text-[14px] leading-relaxed">
                   {liveText}
-                  <span className="inline-block w-0.5 h-4 bg-white/60 ml-0.5 animate-pulse align-text-bottom" />
+                  <span className="inline-block w-0.5 h-4 bg-white/50 ml-0.5 animate-pulse align-text-bottom" />
                 </div>
               </div>
             )}
@@ -1287,10 +1301,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {/* AI thinking indicator — animated dots */}
             {phase === "processing" && (
               <div className="flex justify-start">
-                <div className="px-5 py-3 rounded-2xl rounded-bl-md bg-white border border-slate-200 shadow-sm flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
-                  <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
-                  <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
+                <div className="px-5 py-3 rounded-2xl rounded-bl-md bg-white border border-slate-200 shadow-sm flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
                 </div>
               </div>
             )}
