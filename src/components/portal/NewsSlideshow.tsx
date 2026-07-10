@@ -49,8 +49,8 @@ export interface NewsSlideData {
   gradient: string;
   badge: string;
   date: string;
-  backgroundImage?: string;
-  linkUrl?: string;
+  backgroundImage?: string | null;
+  linkUrl?: string | null;
 }
 
 export function NewsSlideshow() {
@@ -158,41 +158,52 @@ export function NewsSlideshow() {
         className="flex h-full transition-transform duration-500 ease-in-out"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {slides.map((slide, i) => (
+        {slides.map((slide, i) => {
+          const hasBgImage = !!(slide.backgroundImage && slide.backgroundImage.trim());
+          return (
           <div
             key={i}
-            className={`w-full h-full flex-shrink-0 ${slide.backgroundImage ? '' : `bg-gradient-to-br ${slide.gradient}`} flex flex-col justify-end p-6 sm:p-8 relative`}
-            style={slide.backgroundImage ? {
-              backgroundImage: `url(${slide.backgroundImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            } : undefined}
+            className={`w-full h-full flex-shrink-0 bg-gradient-to-br ${slide.gradient} flex flex-col justify-end p-6 sm:p-8 relative`}
             onClick={() => {
               if (slide.linkUrl) {
                 window.open(slide.linkUrl, '_blank', 'noopener,noreferrer');
               }
             }}
           >
-            {/* Dark overlay for background images */}
-            {slide.backgroundImage && (
-              <div className="absolute inset-0 bg-black/40" />
+            {/* Background image — actual img tag for reliable rendering */}
+            {hasBgImage && (
+              <img
+                src={slide.backgroundImage!}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover z-0"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  // Hide broken images gracefully — gradient shows through
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            )}
+
+            {/* Dark overlay for readability */}
+            {hasBgImage && (
+              <div className="absolute inset-0 bg-black/40 z-[1]" />
             )}
 
             {/* Decorative grid overlay */}
-            <div className="absolute inset-0 opacity-[0.04]" style={{
+            <div className="absolute inset-0 opacity-[0.04] z-[2]" style={{
               backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
               backgroundSize: '24px 24px',
             }} />
 
             {/* Badge */}
-            <div className="absolute top-4 left-4 sm:top-5 sm:left-6">
+            <div className="absolute top-4 left-4 sm:top-5 sm:left-6 z-[3]">
               <span className="px-2.5 py-1 rounded-md bg-white/15 backdrop-blur-sm text-[10px] font-extrabold text-white/90 tracking-widest uppercase border border-white/10">
                 {slide.badge}
               </span>
             </div>
 
             {/* Date */}
-            <div className="absolute top-4 right-4 sm:top-5 sm:right-6">
+            <div className="absolute top-4 right-4 sm:top-5 sm:right-6 z-[3]">
               <span className="text-[11px] font-bold text-white/50 tracking-wide">
                 {slide.date}
               </span>
@@ -208,7 +219,8 @@ export function NewsSlideshow() {
               </p>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* â•â•â• Hover Zones â•â•â• */}

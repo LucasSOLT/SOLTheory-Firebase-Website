@@ -16,11 +16,12 @@ import remarkGfm from "remark-gfm";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from "@/lib/i18n";
+import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
-type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; };
+type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number; attachmentId?: string }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
@@ -187,6 +188,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isTyping, setIsTyping] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<{ file: File; preview: string }[]>([]);
   const [loadingPhraseIndex, setLoadingPhraseIndex] = useState(0);
+  const [pendingCitations, setPendingCitations] = useState<{ text: string; source: string; type: string }[]>([]);
 
   // Rotate loading phrases while Jarvis is typing
   useEffect(() => {
@@ -1465,6 +1467,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const newMessages = [...realMessages, userMsg, ...extraUserMessages];
     setMessages(newMessages); setIsTyping(true); setInputValue("");
 
+    // Pre-compute citations client-side (instant — pure string matching) for thinking bubble
+    try {
+      const previewCitations = retrieveRelevantSnippets(inputValue, {
+        pactText: pactText || "",
+        knowledgeBaseText: "", // Don't send full KB text client-side for perf, server will do full search
+        orgBrainText: orgBrain || "",
+      });
+      if (previewCitations.length > 0) setPendingCitations(previewCitations);
+    } catch { /* non-critical */ }
+
     // ── IMMEDIATE Jarvis View animation ──
     // Trigger proactively for most questions BEFORE API returns
     const lowerInput = inputValue.toLowerCase().trim();
@@ -1576,7 +1588,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
 
       // Show response (animation is already running in parallel)
-      setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
+      const botCitations = data.citations && Array.isArray(data.citations) ? data.citations : [];
+      setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false, citations: botCitations.length > 0 ? botCitations : undefined }]);
+      setPendingCitations([]);
       logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent AI chat message to ' + (agent?.name || params.agentId), { messagePreview: inputValue.substring(0, 200) });
 
       // Generate AI title for new sessions after first exchange
@@ -1619,6 +1633,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       // Trigger background PACT extraction securely on the server
       if (user?.uid && pactEnabled) {
+        // Build recent history (last 3 exchanges = up to 6 messages) for multi-turn context
+        const recentMsgs = newMessages.slice(-6).map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
         fetch("/api/pact/extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1627,7 +1643,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             aiResponse: data.response,
             userName: user?.displayName || undefined,
             uid: user.uid,
-            orgId: "soltheory"
+            orgId: "soltheory",
+            recentHistory: recentMsgs.length > 2 ? recentMsgs.slice(0, -2) : undefined
           })
         }).then(res => res.json()).then(async (extractData) => {
           if (extractData.facts && extractData.facts.length > 0 && firestore && user?.uid) {
@@ -1764,7 +1781,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false }]);
+      const botCitations2 = data.citations && Array.isArray(data.citations) ? data.citations : [];
+      setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false, citations: botCitations2.length > 0 ? botCitations2 : undefined }]);
+      setPendingCitations([]);
 
       const usage = data.usage || 0;
       if (usage > 0 && user?.uid && firestore) {
@@ -3215,6 +3234,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
                         {messages.map(msg => (
                       <div key={msg.id} className={`flex gap-2 sm:gap-4 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
+                        {/* Citation bubbles — to the left of bot messages */}
+                        {!msg.isSelf && msg.citations && msg.citations.length > 0 && (
+                          <div className="hidden sm:flex flex-col gap-1.5 items-end justify-end max-w-[180px] shrink-0 animate-in fade-in slide-in-from-left-2 duration-500">
+                            {msg.citations.map((cite, ci) => (
+                              <div key={ci} className={`border border-dashed rounded-lg px-2.5 py-1.5 text-[10px] leading-tight backdrop-blur-sm max-w-full ${isDarkMode ? 'border-slate-600 text-slate-400 bg-slate-800/60' : 'border-slate-300 text-slate-500 bg-white/60'}`}>
+                                <div className={`font-bold text-[9px] uppercase tracking-wider mb-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{cite.source}</div>
+                                <div className="line-clamp-2">{cite.text}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? (isDarkMode ? 'bg-indigo-900/30 border-indigo-700' : 'bg-indigo-600 border-indigo-500') : (isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className={`w-4 h-4 sm:w-5 sm:h-5 ${isDarkMode ? 'text-indigo-300' : 'text-slate-900'}`} /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
                         <div className={`flex-1 space-y-1 pt-1 min-w-0 ${msg.isSelf ? 'text-right' : ''}`}>
                           <div className={`inline-block p-3 sm:p-4 rounded-2xl shadow-xl text-left backdrop-blur-md text-sm sm:text-base max-w-full break-words ${isDarkMode ? (msg.isSelf ? 'bg-indigo-600/30 text-white rounded-tr-sm' : 'bg-slate-800 text-slate-100 rounded-tl-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>strong]:font-bold border border-slate-700') : (msg.isSelf ? 'bg-slate-300/50 text-slate-800 rounded-tr-sm' : `text-slate-800 ${agent.chatBg} rounded-tl-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>strong]:font-bold border`)}`}>
@@ -3246,11 +3276,33 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               )
                             )}
                           </div>
+                          {/* Mobile citation bubbles — below bot message on small screens */}
+                          {!msg.isSelf && msg.citations && msg.citations.length > 0 && (
+                            <div className="sm:hidden flex flex-wrap gap-1 mt-1 animate-in fade-in duration-500">
+                              {msg.citations.map((cite, ci) => (
+                                <div key={ci} className={`border border-dashed rounded-lg px-2 py-1 text-[10px] leading-tight backdrop-blur-sm max-w-[200px] ${isDarkMode ? 'border-slate-600 text-slate-400 bg-slate-800/60' : 'border-slate-300 text-slate-500 bg-white/60'}`}>
+                                  <span className={`font-bold text-[9px] uppercase tracking-wider mr-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{cite.source}:</span>
+                                  <span className="line-clamp-1">{cite.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
                     {isTyping && (
-                      <div className="flex gap-4">
+                      <div className="flex gap-2 sm:gap-4">
+                        {/* Pending citation bubbles — to the left of thinking bubble */}
+                        {pendingCitations.length > 0 && (
+                          <div className="hidden sm:flex flex-col gap-1.5 items-end justify-end max-w-[180px] shrink-0 animate-in fade-in slide-in-from-left-2 duration-700">
+                            {pendingCitations.map((cite, ci) => (
+                              <div key={ci} className={`border border-dashed rounded-lg px-2.5 py-1.5 text-[10px] leading-tight backdrop-blur-sm max-w-full animate-in fade-in slide-in-from-left-1 duration-500 ${isDarkMode ? 'border-slate-600/80 text-slate-500 bg-slate-800/40' : 'border-slate-300/80 text-slate-400 bg-white/40'}`} style={{ animationDelay: `${ci * 150}ms` }}>
+                                <div className={`font-bold text-[9px] uppercase tracking-wider mb-0.5 ${isDarkMode ? 'text-slate-500/70' : 'text-slate-400/70'}`}>{cite.source}</div>
+                                <div className="line-clamp-2">{cite.text}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${isDarkMode ? 'border-slate-600 bg-slate-700/50' : 'border-slate-300 bg-slate-200/50'}`}><Bot className={`w-5 h-5 ${agent.accent}`} /></div>
                         <div className={`inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md flex items-center gap-3 ${isDarkMode ? 'bg-slate-800 border-slate-700' : agent.chatBg}`}>
                           <Loader2 className={`w-4 h-4 animate-spin ${agent.accent}`} />
@@ -3468,7 +3520,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           });
 
           // Trigger background PACT extraction securely on the server
-          if (user?.uid && pactEnabled && userText.trim().length > 15) {
+          if (user?.uid && pactEnabled && userText.trim().length > 5) {
+            // Build recent history from current messages for multi-turn context
+            const voiceRecentMsgs = messages.slice(-6).map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
             fetch("/api/pact/extract", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -3477,7 +3531,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 aiResponse: aiReply,
                 userName: user?.displayName || undefined,
                 uid: user.uid,
-                orgId: "soltheory"
+                orgId: "soltheory",
+                recentHistory: voiceRecentMsgs.length > 0 ? voiceRecentMsgs : undefined
               })
             }).then(res => res.json()).then(async (extractData) => {
               if (extractData.facts && extractData.facts.length > 0 && firestore && user?.uid) {

@@ -78,8 +78,19 @@ export default function NxtChapterDashboard() {
   const handleSaveNewsSlideshow = useCallback(async (slides: SlideData[], settings: SlideshowSettings) => {
     if (!firestore) throw new Error('Firestore not available');
     const docRef = doc(firestore, "cms_config", "news_slideshow");
-    console.log('[CMS] Saving slideshow to Firestore...', { slides: slides.length, interval: settings.shuffleInterval });
-    await setDoc(docRef, { slides, shuffleInterval: settings.shuffleInterval, updatedAt: new Date().toISOString() });
+    // Sanitize slides: Firestore rejects `undefined` values inside arrays/objects.
+    // Convert undefined optional fields to null so they persist correctly.
+    const sanitizedSlides = slides.map((s) => ({
+      headline: s.headline,
+      subtitle: s.subtitle,
+      gradient: s.gradient,
+      badge: s.badge,
+      date: s.date,
+      backgroundImage: s.backgroundImage ?? null,
+      linkUrl: s.linkUrl ?? null,
+    }));
+    console.log('[CMS] Saving slideshow to Firestore...', { slides: sanitizedSlides.length, interval: settings.shuffleInterval });
+    await setDoc(docRef, { slides: sanitizedSlides, shuffleInterval: settings.shuffleInterval, updatedAt: new Date().toISOString() });
     console.log('[CMS] Slideshow saved successfully!');
   }, [firestore]);
 

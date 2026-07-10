@@ -21,7 +21,7 @@ interface VoiceAgentModalProps {
 }
 
 type Phase = "listening" | "processing" | "speaking";
-type TranscriptLine = { text: string; isUser: boolean };
+type TranscriptLine = { text: string; isUser: boolean; citations?: { text: string; source: string; type: string }[] };
 
 export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate, systemInstructions, knowledgeBaseText, pactText, voiceId }: VoiceAgentModalProps) {
   const [isMicMuted, setIsMicMuted] = useState(false);
@@ -714,7 +714,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   // ── Pure API call (no conversation side-effects) — used for speculative pre-fetch ──
   // Now calls the COMBINED LLM+TTS endpoint so audio comes back in the same response
-  const fetchAIReply = useCallback(async (userText: string): Promise<{ reply: string; pactFacts: any[]; usage: number; audioBase64?: string | null }> => {
+  const fetchAIReply = useCallback(async (userText: string): Promise<{ reply: string; pactFacts: any[]; usage: number; audioBase64?: string | null; citations?: { text: string; source: string; type: string }[] }> => {
     const messagesForCall = [...conversationRef.current, { role: "user", content: userText }];
     try {
       if (onCallAI) {
@@ -741,6 +741,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           usage: data.usage || 0,
           pactFacts: data.pactFacts || [],
           audioBase64: data.audioBase64 || null,
+          citations: data.citations || [],
         };
       }
     } catch (err: any) {
@@ -758,7 +759,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   // ── Call voice endpoint (with conversation management) ──
   const callVoiceAI = async (userText: string) => {
     // Check for speculative pre-fetch match first
-    let result: { reply: string; pactFacts: any[]; usage: number; audioBase64?: string | null };
+    let result: { reply: string; pactFacts: any[]; usage: number; audioBase64?: string | null; citations?: { text: string; source: string; type: string }[] };
     if (speculativeRef.current.promise && speculativeRef.current.text === userText) {
       // Speculative call matches — reuse it (saves 0.5-2s!)
       result = await speculativeRef.current.promise;
@@ -777,7 +778,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     setElevenLabsChars(p => p + result.reply.length);
     if (onUsageUpdate) onUsageUpdate(result.usage, result.reply.length);
 
-    return { reply: result.reply, pactFacts: result.pactFacts, audioBase64: result.audioBase64 };
+    return { reply: result.reply, pactFacts: result.pactFacts, audioBase64: result.audioBase64, citations: result.citations };
   };
 
   // ── "I'm Done" handler ──
@@ -827,7 +828,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     setPhase("processing");
 
     // Actually call AI — combined endpoint returns text + audio in one round-trip
-    const { reply: aiReplyText, pactFacts, audioBase64 } = await callVoiceAI(spokenText);
+    const { reply: aiReplyText, pactFacts, audioBase64, citations } = await callVoiceAI(spokenText);
     const cleanedReply = (aiReplyText || "").replace(/<[^>]*>/g, ""); // Strip any XML/HTML if leaked
 
     if (cancelledRef.current) return;
@@ -848,7 +849,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     if (onTranscriptUpdate) {
       onTranscriptUpdate(spokenText, cleanedReply, pactFacts);
     }
-    setTranscriptLines(prev => [...prev, { text: cleanedReply, isUser: false }]);
+    setTranscriptLines(prev => [...prev, { text: cleanedReply, isUser: false, citations: citations && citations.length > 0 ? citations : undefined }]);
     setPhase("speaking");
 
     try {
@@ -1278,6 +1279,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
             {transcriptLines.map((line, idx) => (
               <div key={idx} className={`flex ${line.isUser ? 'justify-end' : 'justify-start'}`}>
+                {/* Citation bubbles — to the left of AI messages */}
+                {!line.isUser && line.citations && line.citations.length > 0 && (
+                  <div className="flex flex-col gap-1 items-end justify-end max-w-[140px] shrink-0 mr-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
+                    {line.citations.slice(0, 3).map((cite, ci) => (
+                      <div key={ci} className="border border-dashed border-slate-200 rounded-lg px-2 py-1 text-[9px] leading-tight text-slate-400 bg-white/50 backdrop-blur-sm max-w-full">
+                        <div className="font-bold text-[8px] uppercase tracking-wider text-slate-300 mb-0.5">{cite.source}</div>
+                        <div className="line-clamp-2">{cite.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
                   line.isUser
                     ? 'bg-slate-800 text-white rounded-br-md'

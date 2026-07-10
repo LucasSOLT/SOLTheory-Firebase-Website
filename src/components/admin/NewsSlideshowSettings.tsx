@@ -16,8 +16,8 @@ export interface SlideData {
   gradient: string;
   badge: string;
   date: string;
-  backgroundImage?: string;
-  linkUrl?: string;
+  backgroundImage?: string | null;
+  linkUrl?: string | null;
 }
 
 export interface SlideshowSettings {
@@ -235,7 +235,7 @@ export function NewsSlideshowSettings({
                     <div
                       className={`mx-2 my-1.5 rounded-md bg-gradient-to-r ${slide.gradient} h-[60px] flex items-end px-2 pb-1.5 relative overflow-hidden`}
                     >
-                      {slide.backgroundImage && (
+                      {!!(slide.backgroundImage && slide.backgroundImage) && (
                         <img
                           src={slide.backgroundImage}
                           alt=""
@@ -282,7 +282,7 @@ export function NewsSlideshowSettings({
             <div
               className={`w-full h-[120px] rounded-xl bg-gradient-to-r ${current.gradient} relative overflow-hidden flex flex-col justify-end p-4`}
             >
-              {current.backgroundImage && (
+              {!!(current.backgroundImage && current.backgroundImage) && (
                 <img
                   src={current.backgroundImage}
                   alt=""
@@ -354,7 +354,7 @@ export function NewsSlideshowSettings({
             <div>
               <label className={labelClass}>Background Image</label>
 
-              {current.backgroundImage ? (
+              {(current.backgroundImage && current.backgroundImage) ? (
                 <div className="flex items-center gap-3">
                   <img
                     src={current.backgroundImage}
@@ -362,7 +362,7 @@ export function NewsSlideshowSettings({
                     className="w-20 h-12 object-cover rounded-lg border border-slate-200"
                   />
                   <button
-                    onClick={() => updateSlideField('backgroundImage', undefined)}
+                    onClick={() => updateSlideField('backgroundImage', null)}
                     className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors cursor-pointer"
                   >
                     Remove
@@ -398,7 +398,7 @@ export function NewsSlideshowSettings({
               )}
 
               {/* Allow re-upload even when an image exists */}
-              {current.backgroundImage && (
+              {!!(current.backgroundImage && current.backgroundImage) && (
                 <div className="mt-2">
                   <input
                     ref={fileInputRef}

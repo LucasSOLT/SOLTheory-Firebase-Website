@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { logAIUsage, calculateGroqCost, calculateElevenLabsCost } from "@/lib/log-ai-usage";
 import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
+import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 
 /**
  * Combined Voice Chat + TTS endpoint.
@@ -92,6 +93,15 @@ export async function POST(req: Request) {
       }
     );
 
+    // Retrieve citations from the knowledge base for the user's latest message
+    const lastUserMsg = messages.filter((m: any) => m.role === "user").pop();
+    const citations = lastUserMsg
+      ? retrieveRelevantSnippets(lastUserMsg.content || "", {
+          pactText: pactText || "",
+          knowledgeBaseText: knowledgeBaseText || "",
+        })
+      : [];
+
     if (!ttsResponse.ok) {
       // TTS failed — return text-only response so the client can still display it
       console.error("[voice-chat-tts] TTS failed:", ttsResponse.status);
@@ -100,6 +110,7 @@ export async function POST(req: Request) {
         audioBase64: null,
         usage: totalTokens,
         pactFacts: [],
+        citations: citations.length > 0 ? citations : undefined,
       });
     }
 
@@ -124,6 +135,7 @@ export async function POST(req: Request) {
       audioBase64,
       usage: totalTokens,
       pactFacts: [],
+      citations: citations.length > 0 ? citations : undefined,
     });
   } catch (error: any) {
     console.error("[voice-chat-tts Error]", error?.message);

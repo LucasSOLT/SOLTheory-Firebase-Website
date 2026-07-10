@@ -1736,10 +1736,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* Right Side: Setup Wizard Content */}
-            <div className="flex-1 p-8 flex flex-col justify-between bg-white text-slate-800">
-              {walkthroughStep === 1 ? (
+            <div className="flex-1 p-8 md:p-10 flex flex-col justify-between bg-white text-slate-800">
+              {walkthroughStep === 1 && (
                 /* Step 1: Welcome Overview */
-                <div className="space-y-6 my-auto" onMouseMove={() => setStepInteracted(p => ({...p, 1: true}))}>
+                <div className="space-y-8 my-auto" onMouseMove={() => setStepInteracted(p => ({...p, 1: true}))}>
                   <div className="space-y-2">
                     <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight flex items-center gap-2">
                       <Sparkles className="w-6 h-6 text-indigo-500 animate-pulse" />
@@ -1750,7 +1750,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
                     {/* Item 1 */}
                     <div className="flex gap-3 p-3.5 rounded-2xl bg-[#faf6ed]/40 border border-slate-100 hover:border-slate-200/80 transition-colors">
                       <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
@@ -1812,9 +1812,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                   </div>
                 </div>
-              ) : (
+              )}
+              {walkthroughStep === 2 && (
                 /* Step 2: Preferences Gathering */
-                <div className="space-y-5 my-auto">
+                <div className="space-y-6 my-auto" onMouseMove={() => setStepInteracted(p => ({...p, 2: true}))}>
                   <div className="space-y-1">
                     <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
                       {wtLanguage === "en" ? WT_LANG.en.step2Title : WT_LANG.es.step2Title}
@@ -1824,7 +1825,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </p>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     {/* Display Name Input */}
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1930,7 +1931,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {/* Step 3: Profile Setup */}
               {walkthroughStep === 3 && (
-                <div className="space-y-5 my-auto">
+                <div className="space-y-6 my-auto" onMouseMove={() => setStepInteracted(p => ({...p, 3: true}))}>
                   <div className="space-y-2">
                     <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight">
                       {wtLanguage === "en" ? WT_LANG.en.step3Title : WT_LANG.es.step3Title}
@@ -1940,7 +1941,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </p>
                   </div>
 
-                  <div className="space-y-3.5">
+                  <div className="space-y-5">
                     <div>
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">{wtLanguage === "en" ? WT_LANG.en.organization : WT_LANG.es.organization}</label>
                       <input type="text" value={wtOrganization} onChange={(e) => { setWtOrganization(e.target.value); setStepInteracted(p => ({...p, 3: true})); }}
@@ -2034,7 +2035,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {/* Bottom Buttons (Steps 1-3 only, Step 4 has its own buttons) */}
               {walkthroughStep < 4 && (
-                <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-4">
+                <div className="flex items-center justify-between pt-8 border-t border-slate-100 mt-4">
                   {walkthroughStep === 1 ? (
                     <div />
                   ) : (
@@ -2058,7 +2059,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       onClick={() => { setStepInteracted(p => ({...p, [walkthroughStep]: true})); setWalkthroughStep(walkthroughStep + 1); }}
                       className={`flex items-center gap-1.5 px-5 py-2.5 font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.97] ${
                         stepInteracted[walkthroughStep]
-                          ? "bg-slate-900 text-white hover:bg-slate-800"
+                          ? "bg-indigo-600 text-white hover:bg-indigo-700"
                           : "bg-slate-300 text-slate-500 hover:bg-slate-400 hover:text-white"
                       }`}
                     >

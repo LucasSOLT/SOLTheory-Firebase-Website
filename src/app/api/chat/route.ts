@@ -7,6 +7,7 @@ import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
+import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 const tools: any = [
   {
     type: "function",
@@ -1843,12 +1844,23 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     // Self-refinement pass removed for speed — the primary LLM call with
     // enriched context already produces high-quality output.
 
+    // Retrieve knowledge base citations for the user's latest message
+    const lastUserMessage = messages.filter((m: any) => m.role === "user").pop();
+    const citations = lastUserMessage
+      ? retrieveRelevantSnippets(lastUserMessage.content || "", {
+          pactText: pactText || "",
+          knowledgeBaseText: knowledgeBaseText || "",
+          orgBrainText: orgBrainText || "",
+        })
+      : [];
+
     // Default Raw Response
     return NextResponse.json({
       response: finalResponse || "I'm here and ready to help! Could you try asking me that again?",
       usage: totalTokens,
       executedTools: executedTools.length > 0 ? executedTools : undefined,
       enrichmentUrls: enrichmentUrls.length > 0 ? enrichmentUrls : undefined,
+      citations: citations.length > 0 ? citations : undefined,
     });
   } catch (error: any) {
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));

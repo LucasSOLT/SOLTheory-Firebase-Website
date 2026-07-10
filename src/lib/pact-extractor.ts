@@ -5,20 +5,37 @@ import { Groq } from "groq-sdk";
  * 
  * Extracts personal facts from user↔AI exchanges as Q&A pairs.
  * Uses a cheap, fast model (llama-3.1-8b-instant) to avoid latency.
+ *
+ * Enhanced: supports multi-turn context, richer extraction prompt,
+ * relaxed thresholds to capture more details.
  */
 
-const EXTRACTION_PROMPT = `You are a fact extractor. Given a conversation exchange between a user and an AI assistant, extract any personal facts, preferences, relationships, context, or details the user revealed about themselves.
+const EXTRACTION_PROMPT = `You are an expert fact extractor. Given a conversation exchange between a user and an AI assistant, extract any personal facts, preferences, relationships, context, or details the user revealed about themselves.
 
 Return a JSON array of objects with "question" and "answer" fields. The question should be phrased as if asking about the user. The answer should be a concise factual statement.
 
 Rules:
 - Extract any fact, preference, detail, habit, or context about the user that could be useful later
-- Be liberal — capture anything that feels like a real detail about this person
+- Be THOROUGH — capture anything that feels like a real detail about this person
 - The system will automatically clean up low-quality entries, so err on the side of capturing more
-- Examples of things to store: name, location, job, family, preferences, goals, interests, relationships, contact info, past events, opinions, habits, hobbies
-- CRITICAL: Do NOT extract information if the user is asking a question (e.g. "How old am I?"). These are not facts.
+- Pay attention to MULTI-TURN context: if an earlier message mentions something relevant, connect it to later messages
+
+Categories to capture (non-exhaustive):
+- Identity: name, age, gender, pronouns, aliases, nicknames
+- Location: city, state, country, neighborhood, timezone, "I'm near downtown"
+- Work: job title, company, industry, work schedule, colleagues
+- Family & relationships: spouse, children, parents, siblings, friends, pets (with names)
+- Preferences: favorite color, food, music, hobbies, communication style ("email me, don't call")
+- Goals & projects: what they're working on, deadlines, aspirations
+- Opinions & feelings: likes, dislikes, frustrations, excitement about topics
+- Routines & habits: "I usually wake up at 6am", "I exercise on Mondays"
+- History & events: "I moved here last year", "I graduated from UCLA"
+- Contact info: email, phone, social media handles
+- Temporal context: "I'm traveling next week", "my birthday is in March"
+
+CRITICAL rules:
+- Do NOT extract information if the user is ONLY asking a question (e.g. "How old am I?"). These are not facts.
 - Do NOT extract information about the AI or system — only about the HUMAN user
-- Do NOT extract task requests (like "send an email" or "schedule a meeting")
 - If no personal facts were shared, return an empty array []
 - Keep questions and answers concise (1 sentence max each)
 - Use the user's name if known
@@ -40,16 +57,18 @@ export interface PACTFact {
 export async function extractPACTFacts(
   userMessage: string,
   aiResponse: string,
-  userName?: string
+  userName?: string,
+  recentHistory?: { role: string; content: string }[]
 ): Promise<PACTFact[]> {
-  // Skip very short or empty messages
-  if (!userMessage || userMessage.trim().length < 10) return [];
+  // Skip very short or empty messages (lowered from 10 to 5)
+  if (!userMessage || userMessage.trim().length < 5) return [];
 
-  // Skip pure task commands that are unlikely to contain personal facts
+  // Relaxed task-only filtering: only skip pure short task commands (< 20 chars)
+  // Longer task commands may contain personal info (e.g., "send an email to my brother Mike")
   const taskOnlyPatterns = [
     /^(send|draft|delete|schedule|create|list|search|check|show|open|close)/i,
   ];
-  const isTaskOnly = taskOnlyPatterns.some(p => p.test(userMessage.trim())) && userMessage.trim().length < 40;
+  const isTaskOnly = taskOnlyPatterns.some(p => p.test(userMessage.trim())) && userMessage.trim().length < 20;
   if (isTaskOnly) return [];
 
   try {
@@ -57,17 +76,29 @@ export async function extractPACTFacts(
 
     const userLabel = userName ? `User (${userName})` : "User";
 
+    // Build conversation context — include recent history for multi-turn extraction
+    let conversationContext = "";
+    if (recentHistory && recentHistory.length > 0) {
+      conversationContext += "[RECENT CONVERSATION CONTEXT — extract facts from ALL messages, not just the latest]\n";
+      for (const msg of recentHistory) {
+        const label = msg.role === "user" ? userLabel : "AI";
+        conversationContext += `${label}: "${msg.content}"\n`;
+      }
+      conversationContext += "\n[LATEST EXCHANGE]\n";
+    }
+    conversationContext += `${userLabel}: "${userMessage}"\nAI: "${aiResponse}"`;
+
     const completion = await groq.chat.completions.create({
       messages: [
         { role: "system", content: EXTRACTION_PROMPT },
         {
           role: "user",
-          content: `${userLabel}: "${userMessage}"\nAI: "${aiResponse}"`,
+          content: conversationContext,
         },
       ],
       model: "llama-3.1-8b-instant",
       temperature: 0.1,
-      max_tokens: 500,
+      max_tokens: 800, // Increased from 500 to capture more facts
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() || "[]";

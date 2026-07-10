@@ -8,18 +8,18 @@ export async function POST(req: Request) {
   if (!auth.ok) return auth.response;
 
   try {
-    const { userMessage, aiResponse, userName, uid, orgId } = await req.json();
+    const { userMessage, aiResponse, userName, uid, orgId, recentHistory } = await req.json();
 
     if (!userMessage || !uid || !orgId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (userMessage.trim().length <= 15) {
+    if (userMessage.trim().length <= 5) {
       return NextResponse.json({ success: true, message: "Message too short for PACT" });
     }
 
     // 1. Extract facts using Groq
-    const pactFacts = await extractPACTFacts(userMessage, aiResponse || "", userName);
+    const pactFacts = await extractPACTFacts(userMessage, aiResponse || "", userName, recentHistory);
 
     if (pactFacts.length === 0) {
       return NextResponse.json({ success: true, message: "No facts extracted" });
