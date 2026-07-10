@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 
 interface VoiceAgentModalProps {
   isOpen: boolean;
@@ -551,7 +552,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               const audio = persistentAudioRef.current || document.createElement('audio');
               audio.setAttribute('playsinline', 'true');
               audio.setAttribute('webkit-playsinline', 'true');
-              const ttsRes = await fetch(audioUrl);
+              const ttsHeaders = await getAuthHeaders().catch(() => ({}));
+              const ttsRes = await fetch(audioUrl, { headers: ttsHeaders });
               if (ttsRes.ok) {
                 const blob = await ttsRes.blob();
                 const blobUrl = URL.createObjectURL(blob);
@@ -857,7 +859,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
       // MOBILE FIX: Fetch TTS as blob for reliable mobile playback
       // Direct URL streaming often silently fails on iOS Safari and Chrome Android
-      const ttsResponse = await fetch(audioUrl);
+      const ttsHeaders = await getAuthHeaders().catch(() => ({}));
+      const ttsResponse = await fetch(audioUrl, { headers: ttsHeaders });
       if (!ttsResponse.ok) throw new Error(`TTS fetch failed: ${ttsResponse.status}`);
       const audioBlob = await ttsResponse.blob();
       const blobUrl = URL.createObjectURL(audioBlob);
