@@ -1062,13 +1062,19 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     );
   }
 
+  const speedOptions = [
+    { value: 500, label: 'Fast' },
+    { value: 1000, label: 'Normal' },
+    { value: 3000, label: 'Relaxed' },
+  ];
+
   return (
     <div className="fixed inset-0 z-[200] bg-[#fefdfb] flex flex-col animate-in fade-in duration-300">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
-      <div className="flex flex-col items-center flex-1 justify-center relative bg-[#faf8f3] p-6">
+      <div className="flex flex-col flex-1 relative bg-[#faf8f3] overflow-hidden">
         
-        <div className="absolute top-20 left-3 right-3 sm:top-6 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-20 left-3 right-3 sm:top-6 sm:left-6 sm:right-6 flex items-center justify-between pointer-events-none z-[100]">
           {/* Top Left: Cost */}
           <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-10 rounded-full bg-white border border-slate-200 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors z-50">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
@@ -1096,7 +1102,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             </div>
 
             <div className="space-y-4">
-              {/* Groq Section */}
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-[8px]">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2 h-2 rounded-full bg-indigo-500" />
@@ -1111,7 +1116,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 </div>
               </div>
 
-              {/* ElevenLabs Section */}
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-[8px]">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -1126,7 +1130,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 </div>
               </div>
 
-              {/* Total */}
               <div className="p-3 bg-slate-900 rounded-[8px]">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Session Cost</span>
@@ -1137,134 +1140,152 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
         )}
 
-        <div className={`inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 border ${g.badge[ac]} relative`}>
-          <span className="relative flex h-1.5 w-1.5">
-            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${g.dot[ac]}`} />
-            <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${g.dotS[ac]}`} />
-          </span>
-          {isPaused && <span className="pr-0.5 text-amber-500">⏸</span>}
-          <select
-            value={responseDelay}
-            onChange={(e) => setResponseDelay(Number(e.target.value))}
-            className="appearance-none bg-transparent outline-none cursor-pointer hover:opacity-80 transition-opacity font-bold tracking-widest"
-            title="Adjust how long Jarvis waits before responding"
-          >
-            <option value={500} className="text-slate-900">Ultra Fast (0.5s pause)</option>
-            <option value={1000} className="text-slate-900">Fast (1.0s pause)</option>
-            <option value={1500} className="text-slate-900">Normal (1.5s pause)</option>
-            <option value={3000} className="text-slate-900">Relaxed (3.0s pause)</option>
-          </select>
-          <ChevronDown className="w-3 h-3 opacity-50 -ml-1 pointer-events-none" />
-        </div>
-        
-        <h2 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-2">{agentName}</h2>
-        <p className="text-slate-400 text-sm font-medium">{formatTime(elapsed)}</p>
+        {/* ── Upper Section: Agent identity, waveform, controls ── */}
+        <div className="flex flex-col items-center pt-20 sm:pt-16 pb-4 shrink-0">
 
-        {/* Waveform — positioned 1/3 between title and status */}
-        <div className="w-full max-w-[280px] sm:max-w-2xl mt-8 sm:mt-14 mb-8 relative">
-          <div className="relative h-28 sm:h-40 flex items-center justify-center">
-            {/* Ambient Background Glow */}
-            <div className={`absolute inset-0 rounded-full blur-[80px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-60 scale-125" : "opacity-30 scale-100"} ${g.glow[ac]}`} />
+          {/* Speed Selector — fixed neutral design, never changes with phase */}
+          <div className="inline-flex items-center bg-white border border-slate-200 rounded-full p-0.5 shadow-sm mb-5">
+            {speedOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setResponseDelay(opt.value)}
+                className={`px-4 py-1.5 rounded-full text-[11px] font-semibold tracking-wide transition-all duration-200 ${
+                  responseDelay === opt.value
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
-            <div className="relative flex items-center justify-center h-full w-full" style={{ gap: 'clamp(1px, 0.4vw, 6px)' }}>
-              {bars.map((val, i) => {
-                const displacement = isMicMuted || isPaused ? 0 : val;
-                const absHeight = Math.abs(displacement);
-                // Minimum bar height for the resting flat line look
-                const barHeight = Math.max(1.5, absHeight);
-                // Transform: negative displacement = translate up, positive = translate down
-                // At rest (displacement=0), no transform — bars sit centered via flex align-items:center
-                const translateY = displacement * -0.5;
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight mb-1">{agentName}</h2>
+          <p className="text-slate-400 text-xs font-medium tabular-nums">{formatTime(elapsed)}</p>
 
-                return (
-                  <div
-                    key={i}
-                    className={`rounded-full bg-gradient-to-t ${g.bar[ac]}`}
-                    style={{
-                      width: 'clamp(3px, 0.6vw, 8px)',
-                      height: `${barHeight}%`,
-                      transform: `translateY(${translateY}%)`,
-                      opacity: isMicMuted || isPaused ? 0.3 : 0.6 + (absHeight / 100) * 0.4,
-                      transition: 'height 80ms ease-out, transform 80ms ease-out, opacity 200ms ease',
-                    }}
-                  />
-                );
-              })}
+          {/* Waveform */}
+          <div className="w-full max-w-[240px] sm:max-w-xl mt-5 mb-4 relative">
+            <div className="relative h-20 sm:h-24 flex items-center justify-center">
+              <div className={`absolute inset-0 rounded-full blur-[60px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-50 scale-110" : "opacity-20 scale-100"} ${g.glow[ac]}`} />
+              <div className="relative flex items-center justify-center h-full w-full" style={{ gap: 'clamp(1px, 0.4vw, 5px)' }}>
+                {bars.map((val, i) => {
+                  const displacement = isMicMuted || isPaused ? 0 : val;
+                  const absHeight = Math.abs(displacement);
+                  const barHeight = Math.max(1.5, absHeight);
+                  const translateY = displacement * -0.5;
+                  return (
+                    <div
+                      key={i}
+                      className={`rounded-full bg-gradient-to-t ${g.bar[ac]}`}
+                      style={{
+                        width: 'clamp(2px, 0.5vw, 6px)',
+                        height: `${barHeight}%`,
+                        transform: `translateY(${translateY}%)`,
+                        opacity: isMicMuted || isPaused ? 0.3 : 0.6 + (absHeight / 100) * 0.4,
+                        transition: 'height 80ms ease-out, transform 80ms ease-out, opacity 200ms ease',
+                      }}
+                    />
+                  );
+                })}
+              </div>
             </div>
+          </div>
+
+          <span className={`text-xs font-bold uppercase tracking-[0.2em] ${g.text[ac]} transition-colors duration-500 mb-4`}>{statusLabel}</span>
+
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-3 sm:gap-4 px-4">
+            <button onClick={() => setIsMicMuted(!isMicMuted)}
+              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+            >
+              {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                if (phase === "speaking") {
+                  if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; audioRef.current = null; }
+                  if (speakingTimeoutRef.current) { clearTimeout(speakingTimeoutRef.current); speakingTimeoutRef.current = null; }
+                  setPhase("listening"); phaseRef.current = "listening";
+                  if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
+                } else { finishUserTurn(); }
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                if ((phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused) return;
+                if (phase === "speaking") {
+                  if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; audioRef.current = null; }
+                  if (speakingTimeoutRef.current) { clearTimeout(speakingTimeoutRef.current); speakingTimeoutRef.current = null; }
+                  setPhase("listening"); phaseRef.current = "listening";
+                  if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
+                } else { finishUserTurn(); }
+              }}
+              disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
+                phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white" :
+                phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white" :
+                "bg-slate-200 text-slate-400"
+              }`}
+            >
+              {phase === "processing" ? <><Loader2 className="w-4 h-4 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Play className="w-4 h-4" /> Resume</> : <><Hand className="w-4 h-4" /> Done Speaking</>}
+            </button>
+
+            <button onClick={() => setIsPaused(!isPaused)}
+              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isPaused ? "bg-amber-100 text-amber-600 ring-2 ring-amber-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+            >
+              {isPaused ? <Play className="w-5 h-5 ml-0.5" /> : <Pause className="w-5 h-5" />}
+            </button>
+
+            <button onClick={onClose} className="w-11 h-11 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-200">
+              <Phone className="w-5 h-5 rotate-[135deg]" />
+            </button>
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-2 mb-6">
-          <span className={`text-sm font-black uppercase tracking-[0.25em] ${g.text[ac]} transition-colors duration-500`}>{statusLabel}</span>
+        {/* ── Divider ── */}
+        <div className="mx-auto w-full max-w-2xl px-6">
+          <div className="h-px bg-slate-200/60" />
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 px-4">
-          <button onClick={() => setIsMicMuted(!isMicMuted)}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isMicMuted ? "bg-rose-100 text-rose-600 ring-4 ring-rose-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"}`}
-          >
-            {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-          </button>
+        {/* ── Lower Section: Chat Bubble Transcript ── */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+          <div className="max-w-2xl mx-auto space-y-3">
+            {transcriptLines.map((line, idx) => (
+              <div key={idx} className={`flex ${line.isUser ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
+                  line.isUser
+                    ? 'bg-indigo-600 text-white rounded-br-md'
+                    : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md shadow-sm'
+                }`}>
+                  {line.text}
+                </div>
+              </div>
+            ))}
 
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              if (phase === "speaking") {
-                // Interrupt AI audio and resume listening
-                if (audioRef.current) {
-                  audioRef.current.pause();
-                  audioRef.current.src = "";
-                  audioRef.current = null;
-                }
-                if (speakingTimeoutRef.current) {
-                  clearTimeout(speakingTimeoutRef.current);
-                  speakingTimeoutRef.current = null;
-                }
-                setPhase("listening");
-                phaseRef.current = "listening";
-                if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
-              } else {
-                finishUserTurn();
-              }
-            }}
-            onTouchEnd={(e) => {
-              // MOBILE FIX: Some Android Chrome versions don't fire onClick reliably on styled buttons.
-              // Handle touch explicitly and prevent the subsequent click from double-firing.
-              e.preventDefault();
-              if ((phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused) return;
-              if (phase === "speaking") {
-                if (audioRef.current) {
-                  audioRef.current.pause();
-                  audioRef.current.src = "";
-                  audioRef.current = null;
-                }
-                if (speakingTimeoutRef.current) {
-                  clearTimeout(speakingTimeoutRef.current);
-                  speakingTimeoutRef.current = null;
-                }
-                setPhase("listening");
-                phaseRef.current = "listening";
-                if (!isMicMuted && !isPaused) { useWhisperFallback.current ? startWhisperRecording() : startRecognition(); }
-              } else {
-                finishUserTurn();
-              }
-            }}
-            disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
-            className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
-              }`}
-          >
-            {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Play className="w-5 h-5" /> <span>Resume Speaking</span></> : <><Hand className="w-5 h-5" /> <span>I&apos;m Done Speaking</span></>}
-          </button>
+            {/* Live transcription bubble — shows user's words appearing in real time */}
+            {liveText && phase === "listening" && (
+              <div className="flex justify-end">
+                <div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-br-md bg-indigo-500/80 text-white/90 text-[14px] leading-relaxed">
+                  {liveText}
+                  <span className="inline-block w-0.5 h-4 bg-white/60 ml-0.5 animate-pulse align-text-bottom" />
+                </div>
+              </div>
+            )}
 
-          <button onClick={() => setIsPaused(!isPaused)}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isPaused ? "bg-amber-100 text-amber-600 ring-4 ring-amber-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"}`}
-          >
-            {isPaused ? <Play className="w-6 h-6 ml-1" /> : <Pause className="w-6 h-6" />}
-          </button>
+            {/* AI thinking indicator — animated dots */}
+            {phase === "processing" && (
+              <div className="flex justify-start">
+                <div className="px-5 py-3 rounded-2xl rounded-bl-md bg-white border border-slate-200 shadow-sm flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
+                  <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
+                  <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
+                </div>
+              </div>
+            )}
 
-          <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-200 shadow-sm">
-            <Phone className="w-6 h-6 rotate-[135deg]" />
-          </button>
+            <div ref={transcriptEndRef} />
+          </div>
         </div>
       </div>
     </div>
