@@ -678,11 +678,22 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       }
       audioChunksRef.current = [];
 
-      // Kill any pending audio playback
+      // Kill any pending audio playback — both audioRef AND persistentAudioRef
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
         audioRef.current = null;
+      }
+      if (persistentAudioRef.current) {
+        persistentAudioRef.current.pause();
+        persistentAudioRef.current.src = "";
+        persistentAudioRef.current.currentTime = 0;
+      }
+      // Also kill the global window.jarvisAudio if it exists
+      if (typeof window !== 'undefined' && (window as any).jarvisAudio) {
+        (window as any).jarvisAudio.pause();
+        (window as any).jarvisAudio.src = "";
+        (window as any).jarvisAudio.currentTime = 0;
       }
 
       // Clear all timers
@@ -720,7 +731,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
       if (onCallAI) {
         // When using parent-provided callback (e.g. from the main chat page), no combined endpoint
         const payload: any = await onCallAI(messagesForCall);
-        return { reply: payload.response || "I couldn't process that.", usage: payload.usage || 0, pactFacts: payload.pactFacts || [], audioBase64: null };
+        return { reply: payload.response || "I couldn't process that.", usage: payload.usage || 0, pactFacts: payload.pactFacts || [], audioBase64: null, citations: payload.citations || [] };
       } else {
         // Use combined LLM+TTS endpoint — one round-trip for text + audio
         const res = await fetch("/api/voice-chat-tts", {
@@ -983,7 +994,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               <span className="pr-0.5">{statusLabel.split('—')[0]}</span>
             </div>
             
-            <h2 className="text-base font-black text-slate-900 tracking-tight">{agentName}</h2>
+            <h2 className="text-base font-light text-slate-500 tracking-[0.06em]" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
             <p className="text-slate-400 text-[10px] font-medium mt-0.5">{formatTime(elapsed)}</p>
 
             {/* Waveform */}
@@ -1172,7 +1183,38 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             ))}
           </div>
 
-          <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight mb-1">{agentName}</h2>
+          {/* Agent Name + Brain Diagram */}
+          <div className="relative w-full max-w-2xl">
+            {/* Decorative brain/tools diagram — dotted lines from JARVIS to its inputs */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 120" preserveAspectRatio="xMidYMid meet" overflow="visible">
+              {/* Left side lines — angled 45° then plateau */}
+              {/* Line 1: Qwen 3 (LLM) — top left */}
+              <line x1="400" y1="40" x2="340" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <line x1="340" y1="0" x2="80" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <rect x="20" y="-12" width="60" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+              <text x="50" y="4" textAnchor="middle" fontSize="8" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">Qwen 3</text>
+              {/* Line 2: Knowledge Base — bottom left */}
+              <line x1="400" y1="55" x2="340" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <line x1="340" y1="95" x2="60" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <rect x="0" y="83" width="60" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+              <text x="30" y="99" textAnchor="middle" fontSize="7" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">Knowledge</text>
+              {/* Right side lines */}
+              {/* Line 3: ElevenLabs (Voice) — top right */}
+              <line x1="400" y1="40" x2="460" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <line x1="460" y1="0" x2="720" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <rect x="720" y="-12" width="60" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+              <text x="750" y="4" textAnchor="middle" fontSize="7" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">ElevenLabs</text>
+              {/* Line 4: Internet — bottom right */}
+              <line x1="400" y1="55" x2="460" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <line x1="460" y1="95" x2="740" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+              <rect x="740" y="83" width="50" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+              <text x="765" y="99" textAnchor="middle" fontSize="8" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">Internet</text>
+              {/* Center dots at connection points */}
+              <circle cx="400" cy="40" r="2.5" fill="#94a3b8" />
+              <circle cx="400" cy="55" r="2.5" fill="#94a3b8" />
+            </svg>
+            <h2 className="text-4xl sm:text-5xl font-light text-slate-500 tracking-[0.08em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
+          </div>
           <p className="text-slate-400 text-sm font-medium tabular-nums">{formatTime(elapsed)}</p>
 
           {/* Waveform */}
