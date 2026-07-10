@@ -443,7 +443,7 @@ export default function SolTheorySurveysPage() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 h-full overflow-y-auto pb-10 pr-4 -mx-4 -mb-4 md:-mx-10 md:-mb-10 bg-[#f5f1e8]">
+    <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 h-full overflow-y-auto pb-10 px-6 bg-[#f5f1e8]">
       {isCreatorOpen && (
         <AISurveyCreator
           onClose={() => setIsCreatorOpen(false)}

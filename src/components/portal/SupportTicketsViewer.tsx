@@ -199,7 +199,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
   };
 
   return (
-    <div className="-mx-4 -mb-4 md:-mx-10 md:-mb-10 w-full max-w-4xl mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-4 bg-[#fefdfb]">
+    <div className="w-full max-w-4xl mx-auto animate-in fade-in duration-700 h-full overflow-y-auto pb-10 px-6 bg-[#fefdfb]">
       {/* Success Dialog */}
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
         <DialogContent className="sm:max-w-[380px] border-slate-200 shadow-xl rounded-xl bg-white text-center flex flex-col items-center justify-center p-10 [&>button]:hidden">

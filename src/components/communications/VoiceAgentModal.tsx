@@ -1152,15 +1152,15 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         )}
 
         {/* ── Upper Section: Agent identity, waveform, controls ── */}
-        <div className="flex flex-col items-center pt-20 sm:pt-16 pb-4 shrink-0">
+        <div className="flex flex-col items-center pt-28 sm:pt-24 pb-6 shrink-0">
 
           {/* Speed Selector — fixed neutral design, never changes with phase */}
-          <div className="inline-flex items-center bg-white border border-slate-200 rounded-full p-0.5 shadow-sm mb-5">
+          <div className="inline-flex items-center bg-white border border-slate-200 rounded-full p-1 shadow-sm mb-6">
             {speedOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setResponseDelay(opt.value)}
-                className={`px-4 py-1.5 rounded-full text-[11px] font-semibold tracking-wide transition-all duration-200 ${
+                className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-200 ${
                   responseDelay === opt.value
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-600'
@@ -1171,14 +1171,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             ))}
           </div>
 
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight mb-1">{agentName}</h2>
-          <p className="text-slate-400 text-xs font-medium tabular-nums">{formatTime(elapsed)}</p>
+          <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight mb-1">{agentName}</h2>
+          <p className="text-slate-400 text-sm font-medium tabular-nums">{formatTime(elapsed)}</p>
 
           {/* Waveform */}
-          <div className="w-full max-w-[240px] sm:max-w-xl mt-5 mb-4 relative">
-            <div className="relative h-20 sm:h-24 flex items-center justify-center">
+          <div className="w-full max-w-[300px] sm:max-w-2xl mt-8 mb-6 relative">
+            <div className="relative h-28 sm:h-36 flex items-center justify-center">
               <div className={`absolute inset-0 rounded-full blur-[60px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-50 scale-110" : "opacity-20 scale-100"} ${g.glow[ac]}`} />
-              <div className="relative flex items-center justify-center h-full w-full" style={{ gap: 'clamp(1px, 0.4vw, 5px)' }}>
+              <div className="relative flex items-center justify-center h-full w-full" style={{ gap: 'clamp(2px, 0.5vw, 6px)' }}>
                 {bars.map((val, i) => {
                   const displacement = isMicMuted || isPaused ? 0 : val;
                   const absHeight = Math.abs(displacement);
@@ -1189,7 +1189,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                       key={i}
                       className={`rounded-full bg-gradient-to-t ${g.bar[ac]}`}
                       style={{
-                        width: 'clamp(2px, 0.5vw, 6px)',
+                        width: 'clamp(3px, 0.6vw, 8px)',
                         height: `${barHeight}%`,
                         transform: `translateY(${translateY}%)`,
                         opacity: isMicMuted || isPaused ? 0.3 : 0.6 + (absHeight / 100) * 0.4,
@@ -1202,14 +1202,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             </div>
           </div>
 
-          <span className={`text-xs font-bold uppercase tracking-[0.2em] ${g.text[ac]} transition-colors duration-500 mb-4`}>{statusLabel}</span>
+          <span className={`text-sm font-bold uppercase tracking-[0.2em] ${g.text[ac]} transition-colors duration-500 mb-6`}>{statusLabel}</span>
 
           {/* Controls */}
-          <div className="flex items-center justify-center gap-3 sm:gap-4 px-4">
+          <div className="flex items-center justify-center gap-4 sm:gap-5 px-4">
             <button onClick={() => setIsMicMuted(!isMicMuted)}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
             >
-              {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
             </button>
 
             <button
@@ -1233,23 +1233,23 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 } else { finishUserTurn(); }
               }}
               disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
-                phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white" :
-                phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white" :
+              className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${
+                phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200/50" :
+                phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200/50" :
                 "bg-slate-200 text-slate-400"
               }`}
             >
-              {phase === "processing" ? <><Loader2 className="w-4 h-4 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Play className="w-4 h-4" /> Resume</> : <><Hand className="w-4 h-4" /> Done Speaking</>}
+              {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Play className="w-5 h-5" /> Resume</> : <><Hand className="w-5 h-5" /> Done Speaking</>}
             </button>
 
             <button onClick={() => setIsPaused(!isPaused)}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isPaused ? "bg-amber-100 text-amber-600 ring-2 ring-amber-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isPaused ? "bg-amber-100 text-amber-600 ring-2 ring-amber-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
             >
-              {isPaused ? <Play className="w-5 h-5 ml-0.5" /> : <Pause className="w-5 h-5" />}
+              {isPaused ? <Play className="w-6 h-6 ml-0.5" /> : <Pause className="w-6 h-6" />}
             </button>
 
-            <button onClick={onClose} className="w-11 h-11 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-200">
-              <Phone className="w-5 h-5 rotate-[135deg]" />
+            <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-200 shadow-sm">
+              <Phone className="w-6 h-6 rotate-[135deg]" />
             </button>
           </div>
         </div>
