@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { extractPACTFacts } from "@/lib/pact-extractor";
-import { verifyRequest } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
-  const auth = await verifyRequest(req);
-  if (!auth.ok) return auth.response;
 
   try {
     const { userMessage, aiResponse, userName, uid, orgId, recentHistory } = await req.json();

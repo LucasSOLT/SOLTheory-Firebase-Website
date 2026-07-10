@@ -1281,10 +1281,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     if (sessions.length > 0 && !isTyping && activeSessionId && sessionsLoaded && firestore && user?.uid) {
       const activeSession = sessions.find(s => s.id === activeSessionId);
       if (activeSession && activeSession.messages.filter(m => m.isSelf).length > 0) {
+        // Strip undefined values from messages — Firestore rejects undefined field values
+        const cleanMessages = activeSession.messages.map(m => {
+          const clean: Record<string, any> = { id: m.id, text: m.text, isSelf: m.isSelf };
+          if (m.hiddenContext !== undefined) clean.hiddenContext = m.hiddenContext;
+          if (m.imageUrl !== undefined) clean.imageUrl = m.imageUrl;
+          if (m.citations !== undefined) clean.citations = m.citations;
+          return clean;
+        });
         const sessionData = {
-          title: activeSession.title,
-          updatedAt: activeSession.updatedAt,
-          messages: activeSession.messages,
+          title: activeSession.title || "",
+          updatedAt: activeSession.updatedAt || Date.now(),
+          messages: cleanMessages,
           lastMessagePreview: activeSession.messages.length > 0
             ? activeSession.messages[activeSession.messages.length - 1].text.substring(0, 100)
             : "",
