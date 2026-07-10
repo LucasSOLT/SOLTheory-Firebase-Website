@@ -1164,10 +1164,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         )}
 
         {/* ── Upper Section: Agent identity, waveform, controls ── */}
-        <div className="flex flex-col items-center pt-28 sm:pt-24 pb-6 shrink-0">
+        <div className="flex flex-col items-center pt-32 sm:pt-28 pb-6 shrink-0">
 
           {/* Speed Selector — fixed neutral design, never changes with phase */}
-          <div className="inline-flex items-center bg-white border border-slate-200 rounded-full p-1 shadow-sm mb-6">
+          <div className="inline-flex items-center bg-white border border-slate-200 rounded-full p-1 shadow-sm mb-8">
             {speedOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -1184,38 +1184,43 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
 
           {/* Agent Name + Brain Diagram */}
-          <div className="relative w-full max-w-2xl">
+          <div className="relative w-full max-w-3xl px-4" style={{ minHeight: '80px' }}>
             {/* Decorative brain/tools diagram — dotted lines from JARVIS to its inputs */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 120" preserveAspectRatio="xMidYMid meet" overflow="visible">
-              {/* Left side lines — angled 45° then plateau */}
-              {/* Line 1: Qwen 3 (LLM) — top left */}
-              <line x1="400" y1="40" x2="340" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <line x1="340" y1="0" x2="80" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <rect x="20" y="-12" width="60" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
-              <text x="50" y="4" textAnchor="middle" fontSize="8" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">Qwen 3</text>
-              {/* Line 2: Knowledge Base — bottom left */}
-              <line x1="400" y1="55" x2="340" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <line x1="340" y1="95" x2="60" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <rect x="0" y="83" width="60" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
-              <text x="30" y="99" textAnchor="middle" fontSize="7" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">Knowledge</text>
-              {/* Right side lines */}
-              {/* Line 3: ElevenLabs (Voice) — top right */}
-              <line x1="400" y1="40" x2="460" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <line x1="460" y1="0" x2="720" y2="0" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <rect x="720" y="-12" width="60" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
-              <text x="750" y="4" textAnchor="middle" fontSize="7" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">ElevenLabs</text>
-              {/* Line 4: Internet — bottom right */}
-              <line x1="400" y1="55" x2="460" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <line x1="460" y1="95" x2="740" y2="95" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-              <rect x="740" y="83" width="50" height="24" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
-              <text x="765" y="99" textAnchor="middle" fontSize="8" fontWeight="600" fill="#94a3b8" fontFamily="system-ui">Internet</text>
-              {/* Center dots at connection points */}
-              <circle cx="400" cy="40" r="2.5" fill="#94a3b8" />
-              <circle cx="400" cy="55" r="2.5" fill="#94a3b8" />
+            {/* Lines slope at 45° from center then level out horizontally */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 900 80" preserveAspectRatio="xMidYMid meet" overflow="visible">
+              {/* ═══ LEFT SIDE ═══ */}
+              {/* Line 1: Qwen 3 (LLM) — top left: 45° up from center, then horizontal left */}
+              <path d="M 450,28 L 390,0 L 120,0" fill="none" stroke="#cbd5e1" strokeWidth="1.2" strokeDasharray="5 4" />
+              <rect x="30" y="-14" width="90" height="28" rx="8" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.2" />
+              <text x="75" y="5" textAnchor="middle" fontSize="11" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Qwen 3</text>
+              <circle cx="120" cy="0" r="3" fill="#cbd5e1" />
+
+              {/* Line 2: Knowledge Base — bottom left: 45° down from center, then horizontal left */}
+              <path d="M 450,52 L 390,80 L 130,80" fill="none" stroke="#cbd5e1" strokeWidth="1.2" strokeDasharray="5 4" />
+              <rect x="20" y="66" width="110" height="28" rx="8" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.2" />
+              <text x="75" y="85" textAnchor="middle" fontSize="11" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Knowledge</text>
+              <circle cx="130" cy="80" r="3" fill="#cbd5e1" />
+
+              {/* ═══ RIGHT SIDE ═══ */}
+              {/* Line 3: ElevenLabs (Voice) — top right: 45° up from center, then horizontal right */}
+              <path d="M 450,28 L 510,0 L 770,0" fill="none" stroke="#cbd5e1" strokeWidth="1.2" strokeDasharray="5 4" />
+              <rect x="770" y="-14" width="110" height="28" rx="8" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.2" />
+              <text x="825" y="5" textAnchor="middle" fontSize="11" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">ElevenLabs</text>
+              <circle cx="770" cy="0" r="3" fill="#cbd5e1" />
+
+              {/* Line 4: Internet — bottom right: 45° down from center, then horizontal right */}
+              <path d="M 450,52 L 510,80 L 780,80" fill="none" stroke="#cbd5e1" strokeWidth="1.2" strokeDasharray="5 4" />
+              <rect x="780" y="66" width="90" height="28" rx="8" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.2" />
+              <text x="825" y="85" textAnchor="middle" fontSize="11" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Internet</text>
+              <circle cx="780" cy="80" r="3" fill="#cbd5e1" />
+
+              {/* Center connection dots where 45° lines originate */}
+              <circle cx="450" cy="28" r="3" fill="#94a3b8" opacity="0.6" />
+              <circle cx="450" cy="52" r="3" fill="#94a3b8" opacity="0.6" />
             </svg>
-            <h2 className="text-4xl sm:text-5xl font-light text-slate-500 tracking-[0.08em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
+            <h2 className="text-5xl sm:text-6xl font-light text-slate-500 tracking-[0.1em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
           </div>
-          <p className="text-slate-400 text-sm font-medium tabular-nums">{formatTime(elapsed)}</p>
+          <p className="text-slate-400 text-sm font-medium tabular-nums mt-1">{formatTime(elapsed)}</p>
 
           {/* Waveform */}
           <div className="w-full max-w-[300px] sm:max-w-2xl mt-8 mb-6 relative">
