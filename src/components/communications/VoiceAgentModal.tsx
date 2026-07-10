@@ -1184,7 +1184,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
 
           {/* Agent Name + Brain Diagram */}
-          <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '140px' }}>
+          <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '220px', paddingTop: '50px', paddingBottom: '50px' }}>
             {/* Faint animated cloud behind JARVIS text for mystique */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
               <div className="absolute w-[340px] h-[160px] rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(ellipse, #c7d2fe 0%, transparent 70%)', animation: 'jarvisCloud1 12s ease-in-out infinite' }} />
@@ -1197,41 +1197,41 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               @keyframes jarvisCloud3 { 0%, 100% { transform: translate(5px, 10px) scale(1.05); } 40% { transform: translate(-12px, -6px) scale(0.9); } 70% { transform: translate(15px, 3px) scale(1.1); } }
             `}</style>
             {/* Decorative brain/tools diagram — dotted lines from JARVIS to its inputs */}
-            {/* Lines slope at 45° from center then level out horizontally */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 100" preserveAspectRatio="xMidYMid meet" overflow="visible">
+            {/* viewBox height=220: top boxes at y=10, text center ~y=110, bottom boxes at y=200 */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid meet" overflow="visible">
               {/* ═══ LEFT SIDE ═══ */}
               {/* Line 1: Qwen 3 (LLM) — top left: 45° up from center, then horizontal left */}
-              <path d="M 500,30 L 425,0 L 115,0" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="10" y="-16" width="105" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="62" y="6" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Qwen 3</text>
-              <circle cx="115" cy="0" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,85 L 410,10 L 130,10" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="15" y="-6" width="115" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
+              <text x="72" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Qwen 3</text>
+              <circle cx="130" cy="10" r="3.5" fill="#cbd5e1" />
 
               {/* Line 2: Knowledge Base — bottom left: 45° down from center, then horizontal left */}
-              <path d="M 500,70 L 425,100 L 130,100" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="10" y="84" width="120" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="70" y="106" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Knowledge</text>
-              <circle cx="130" cy="100" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,135 L 410,210 L 140,210" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="15" y="194" width="125" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
+              <text x="77" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Knowledge</text>
+              <circle cx="140" cy="210" r="3.5" fill="#cbd5e1" />
 
               {/* ═══ RIGHT SIDE ═══ */}
               {/* Line 3: ElevenLabs (Voice) — top right: 45° up from center, then horizontal right */}
-              <path d="M 500,30 L 575,0 L 865,0" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="865" y="-16" width="125" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="927" y="6" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">ElevenLabs</text>
-              <circle cx="865" cy="0" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,85 L 590,10 L 855,10" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="855" y="-6" width="130" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
+              <text x="920" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">ElevenLabs</text>
+              <circle cx="855" cy="10" r="3.5" fill="#cbd5e1" />
 
               {/* Line 4: Internet — bottom right: 45° down from center, then horizontal right */}
-              <path d="M 500,70 L 575,100 L 875,100" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="875" y="84" width="105" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="927" y="106" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Internet</text>
-              <circle cx="875" cy="100" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,135 L 590,210 L 865,210" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="865" y="194" width="115" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
+              <text x="922" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Internet</text>
+              <circle cx="865" cy="210" r="3.5" fill="#cbd5e1" />
 
               {/* Center connection dots where 45° lines originate */}
-              <circle cx="500" cy="30" r="3.5" fill="#94a3b8" opacity="0.5" />
-              <circle cx="500" cy="70" r="3.5" fill="#94a3b8" opacity="0.5" />
+              <circle cx="500" cy="85" r="3.5" fill="#94a3b8" opacity="0.5" />
+              <circle cx="500" cy="135" r="3.5" fill="#94a3b8" opacity="0.5" />
             </svg>
             <h2 className="text-5xl sm:text-6xl font-light text-slate-500 tracking-[0.12em] text-center relative z-10" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
           </div>
-          <p className="text-slate-400 text-sm font-medium tabular-nums mt-3">{formatTime(elapsed)}</p>
+          <p className="text-slate-400 text-sm font-medium tabular-nums mt-2">{formatTime(elapsed)}</p>
 
           {/* Waveform */}
           <div className="w-full max-w-[300px] sm:max-w-2xl mt-10 mb-8 relative">
