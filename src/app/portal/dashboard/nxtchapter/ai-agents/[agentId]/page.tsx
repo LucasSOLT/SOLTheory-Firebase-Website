@@ -3316,7 +3316,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
                 </div>
 
-                {(selectedExploreItem || activeSessionId || messages.length > 0) && (
+
+                {/* Chat input — ALWAYS visible at bottom */}
                 <div className="shrink-0 px-3 sm:px-4 pb-3 sm:pb-6 pt-1 sm:pt-2 z-20">
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
@@ -3401,7 +3402,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </div>
                 </div>
                 </div>
-                )}
               </div>
             )}
           </div>
