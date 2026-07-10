@@ -81,7 +81,7 @@ export default function FederalGrantScoutDashboard() {
   /* ── load grants ── */
   useEffect(() => {
     if (!firestore) return;
-    const q = query(collection(firestore, "discovered_grants"), where("organizationId", "==", "soltheory"));
+    const q = query(collection(firestore, "grant_suggestions"), where("orgId", "==", "soltheory"));
     const unsub = onSnapshot(q, s => { setGrants(s.docs.map(d => ({ id: d.id, ...d.data() } as GrantRecord))); setGrantsLoading(false); }, () => setGrantsLoading(false));
     return unsub;
   }, [firestore]);

@@ -2739,10 +2739,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           <div className="text-lg sm:text-2xl md:text-3xl font-black opacity-10 tracking-[0.15em] sm:tracking-[0.3em] uppercase text-center max-w-full truncate px-2 sm:px-4">{selectedExploreItem ? `${exploreItemsMeta[selectedExploreItem]?.name || ''} - ${selectedExploreItem}` : agent.name}</div>
                         </div>
                         {messages.map(msg => (
-                      <div key={msg.id} className={`flex gap-2 sm:gap-4 ${msg.isSelf ? 'flex-row-reverse' : ''}`}>
+                      <div key={msg.id} className={`flex gap-2 sm:gap-4 ${msg.isSelf ? 'justify-end' : 'justify-start'}`}>
                         {/* Citation bubbles — to the left of bot messages */}
                         {!msg.isSelf && msg.citations && msg.citations.length > 0 && (
-                          <div className="hidden sm:flex flex-col gap-1.5 items-end justify-end max-w-[180px] shrink-0 animate-in fade-in slide-in-from-left-2 duration-500">
+                          <div className="hidden sm:flex flex-col gap-1.5 items-end justify-end max-w-[160px] shrink-0 animate-in fade-in slide-in-from-left-2 duration-500">
                             {msg.citations.map((cite, ci) => (
                               <div key={ci} className="border border-dashed border-slate-300 rounded-lg px-2.5 py-1.5 text-[10px] leading-tight text-slate-500 bg-white/60 backdrop-blur-sm max-w-full">
                                 <div className="font-bold text-[9px] uppercase tracking-wider text-slate-400 mb-0.5">{cite.source}</div>
@@ -2751,8 +2751,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             ))}
                           </div>
                         )}
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-slate-300 ${msg.isSelf ? 'bg-indigo-600 border-indigo-500' : 'bg-slate-200/50'}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900" /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
-                        <div className={`flex-1 space-y-1 pt-1 min-w-0 ${msg.isSelf ? 'text-right' : ''}`}>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-slate-300 ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : 'bg-slate-200/50'}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900" /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
+                        <div className={`space-y-1 pt-1 min-w-0 max-w-[85%] sm:max-w-[80%] ${msg.isSelf ? 'text-right' : ''}`}>
                           <div className={`text-slate-800 inline-block p-3 sm:p-4 rounded-2xl shadow-xl text-left backdrop-blur-md text-sm sm:text-base max-w-full break-words ${msg.isSelf ? 'bg-slate-300/50 rounded-tr-sm' : `${agent.chatBg} rounded-tl-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>strong]:font-bold border`}`}>
                             {msg.imageUrl ? (
                               <div className="flex flex-col mb-2">

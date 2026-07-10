@@ -374,6 +374,50 @@ const tools: any = [
         required: ["query"]
       }
     }
+  },
+  // ── Grant Agent Management Tools ──
+  {
+    type: "function",
+    function: {
+      name: "spawn_grant_agent",
+      description: "Spawn a grant prospecting subagent that continuously searches for grants. The agent runs in the background scanning Grants.gov at the specified interval. If the user doesn't specify filters, ASK them what filters to apply and what trigger interval to use. Available filter options for welfareKeywords: 501(c)(3) grants, CoC grants, HOME-ARP, ESG, SSBG, SAMHSA, social services, substance abuse, behavioral health, block grants, homeless shelters, food kitchens. Available grantTypes: housing_shelter, health_human_services, education_training, community_development, substance_abuse, youth_services, reentry_justice. There are 4 agent slots available. If all are full, tell the user they must delete one first.",
+      parameters: {
+        type: "object",
+        properties: {
+          welfareKeywords: { type: "array", items: { type: "string" }, description: "Filter keywords for grant search (e.g. '501(c)(3) grants', 'CoC grants', 'HOME-ARP')" },
+          grantTypes: { type: "array", items: { type: "string" }, description: "Grant category types (e.g. 'housing_shelter', 'health_human_services')" },
+          locationState: { type: "string", description: "US state to filter by (e.g. 'Colorado')" },
+          locationCity: { type: "string", description: "City to filter by (e.g. 'Denver')" },
+          intervalValue: { type: "number", description: "How often the agent should scan (numeric value)" },
+          intervalUnit: { type: "string", enum: ["minutes", "hours", "days", "weeks"], description: "Unit for the scan interval" },
+          agentName: { type: "string", description: "Optional custom name for the agent" },
+          companyDescription: { type: "string", description: "Description of the organization to match grants against" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_grant_agents",
+      description: "List all grant prospecting subagent slots and their current status (active/inactive, configuration). Use this to check what agents are running before spawning or deleting.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_grant_agent",
+      description: "Delete/deactivate a grant prospecting subagent by slot number (1-4). This stops the agent from scanning.",
+      parameters: {
+        type: "object",
+        properties: {
+          slotNumber: { type: "number", description: "The agent slot number to delete (1, 2, 3, or 4)" }
+        },
+        required: ["slotNumber"]
+      }
+    }
   }
 ];
 
@@ -1636,6 +1680,158 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               });
             } catch (searchErr: any) {
               functionResult = JSON.stringify({ error: "Web search failed: " + searchErr.message });
+            }
+          } else if (functionName === "spawn_grant_agent") {
+            try {
+              await initAdmin();
+              const adminDb = getAdminFirestore();
+              const configRef = adminDb.collection("grant_agent_config").doc("soltheory");
+              const configSnap = await configRef.get();
+              const configData = configSnap.exists ? configSnap.data() : {};
+              const agents = configData?.agents || {};
+
+              // Find first available slot
+              const slotIds = ["agent_1", "agent_2", "agent_3", "agent_4"];
+              const slotNames = ["Grant Scout Alpha", "Grant Scout Beta", "Grant Scout Gamma", "Grant Scout Delta"];
+              let targetSlot: string | null = null;
+              let targetIdx = -1;
+              for (let i = 0; i < slotIds.length; i++) {
+                const slot = agents[slotIds[i]];
+                if (!slot || !slot.active || !slot.config) {
+                  targetSlot = slotIds[i];
+                  targetIdx = i;
+                  break;
+                }
+              }
+
+              if (!targetSlot) {
+                functionResult = JSON.stringify({
+                  error: "All 4 subagent slots are currently full and active. The user must delete an existing agent before spawning a new one. Tell the user which agents are running and ask which one to replace.",
+                  activeAgents: slotIds.map((id, i) => ({
+                    slot: i + 1,
+                    name: agents[id]?.name || slotNames[i],
+                    active: agents[id]?.active ?? false,
+                    keywords: agents[id]?.config?.welfareKeywords || [],
+                  }))
+                });
+              } else {
+                const newConfig = {
+                  grantTypes: args.grantTypes || ["housing_shelter", "health_human_services"],
+                  locationState: args.locationState || "Colorado",
+                  locationCity: args.locationCity || "Denver",
+                  budgetMin: null,
+                  budgetMax: null,
+                  openDate: "",
+                  closeDate: "",
+                  intervalValue: args.intervalValue || 5,
+                  intervalUnit: args.intervalUnit || "minutes",
+                  companyDescription: args.companyDescription || "Nonprofit organization providing social services, housing support, workforce development, and community engagement programs.",
+                  welfareKeywords: args.welfareKeywords || ["501(c)(3) grants"],
+                };
+
+                const agentName = args.agentName || slotNames[targetIdx];
+
+                // Write to Firestore — AgentWorkerController picks this up via onSnapshot
+                const updatedAgents = { ...agents };
+                updatedAgents[targetSlot] = {
+                  name: agentName,
+                  config: newConfig,
+                  active: true,
+                };
+
+                await configRef.set({
+                  agents: updatedAgents,
+                  updatedAt: new Date(),
+                  updatedBy: uid || "jarvis-chat",
+                  // Reset scan timing so the agent starts scanning immediately
+                  [`lastScanTimes.${targetSlot}`]: null,
+                }, { merge: true });
+
+                functionResult = JSON.stringify({
+                  result: `Successfully spawned grant prospecting subagent in slot ${targetIdx + 1}.`,
+                  agentName,
+                  slotNumber: targetIdx + 1,
+                  slotId: targetSlot,
+                  config: {
+                    keywords: newConfig.welfareKeywords,
+                    grantTypes: newConfig.grantTypes,
+                    location: `${newConfig.locationCity}, ${newConfig.locationState}`,
+                    scanInterval: `${newConfig.intervalValue} ${newConfig.intervalUnit}`,
+                  }
+                });
+              }
+            } catch (spawnErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to spawn grant agent: " + spawnErr.message });
+            }
+          } else if (functionName === "list_grant_agents") {
+            try {
+              await initAdmin();
+              const adminDb = getAdminFirestore();
+              const configSnap = await adminDb.collection("grant_agent_config").doc("soltheory").get();
+              const configData = configSnap.exists ? configSnap.data() : {};
+              const agents = configData?.agents || {};
+              const slotIds = ["agent_1", "agent_2", "agent_3", "agent_4"];
+              const slotNames = ["Grant Scout Alpha", "Grant Scout Beta", "Grant Scout Gamma", "Grant Scout Delta"];
+
+              const slots = slotIds.map((id, i) => {
+                const slot = agents[id];
+                return {
+                  slotNumber: i + 1,
+                  slotId: id,
+                  name: slot?.name || slotNames[i],
+                  active: slot?.active ?? false,
+                  hasConfig: !!slot?.config,
+                  keywords: slot?.config?.welfareKeywords || [],
+                  grantTypes: slot?.config?.grantTypes || [],
+                  location: slot?.config ? `${slot.config.locationCity || "Any"}, ${slot.config.locationState || "Any"}` : "Not configured",
+                  scanInterval: slot?.config ? `${slot.config.intervalValue || "?"} ${slot.config.intervalUnit || "?"}` : "Not configured",
+                };
+              });
+
+              const activeCount = slots.filter(s => s.active).length;
+              functionResult = JSON.stringify({
+                result: `${activeCount} of 4 agent slots are active.`,
+                slots,
+                availableSlots: 4 - activeCount,
+              });
+            } catch (listErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to list grant agents: " + listErr.message });
+            }
+          } else if (functionName === "delete_grant_agent") {
+            try {
+              const slotNum = args.slotNumber;
+              if (!slotNum || slotNum < 1 || slotNum > 4) {
+                functionResult = JSON.stringify({ error: "Invalid slot number. Must be 1, 2, 3, or 4." });
+              } else {
+                await initAdmin();
+                const adminDb = getAdminFirestore();
+                const configRef = adminDb.collection("grant_agent_config").doc("soltheory");
+                const configSnap = await configRef.get();
+                const configData = configSnap.exists ? configSnap.data() : {};
+                const agents = configData?.agents || {};
+                const slotId = `agent_${slotNum}`;
+                const slotName = agents[slotId]?.name || `Agent ${slotNum}`;
+
+                // Deactivate the slot
+                const updatedAgents = { ...agents };
+                updatedAgents[slotId] = {
+                  ...updatedAgents[slotId],
+                  active: false,
+                  config: null,
+                };
+
+                await configRef.set({
+                  agents: updatedAgents,
+                  updatedAt: new Date(),
+                  updatedBy: uid || "jarvis-chat",
+                }, { merge: true });
+
+                functionResult = JSON.stringify({
+                  result: `Successfully deactivated and cleared agent in slot ${slotNum} ("${slotName}"). The slot is now available for a new agent.`,
+                });
+              }
+            } catch (delErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to delete grant agent: " + delErr.message });
             }
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
