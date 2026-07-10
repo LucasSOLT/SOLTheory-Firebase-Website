@@ -652,30 +652,36 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       });
     }
 
-    // --- PROACTIVE CONTEXT ENRICHMENT ---
-    // For factual/knowledge questions, silently fetch web data to give the model real facts
-    // Also collect real URLs to send to the client for Jarvis View
+    // --- PROACTIVE CONTEXT ENRICHMENT (NON-BLOCKING) ---
+    // Fire Tavily search in parallel but only wait up to 500ms.
+    // If it doesn't return in time, skip it — the model has web_search as a tool.
     let enrichmentUrls: { url: string; title: string }[] = [];
     if (isSubstantiveQuestion && process.env.TAVILY_API_KEY) {
       try {
         const searchQuery = (lastUserMsg?.content || '').substring(0, 200);
-        console.log(`[ENRICHMENT] Proactively searching for: "${searchQuery.substring(0, 60)}..."`);
-        const enrichRes = await fetch("https://api.tavily.com/search", {
+        console.log(`[ENRICHMENT] Non-blocking search for: "${searchQuery.substring(0, 60)}..."`);
+
+        const ENRICHMENT_TIMEOUT_MS = 500;
+        const tavilyPromise = fetch("https://api.tavily.com/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             api_key: process.env.TAVILY_API_KEY,
             query: searchQuery,
-            search_depth: "advanced",
+            search_depth: "basic",
             include_answer: true,
-            max_results: 5,
+            max_results: 3,
           }),
+        }).then(async (res) => {
+          if (!res.ok) return null;
+          return res.json();
         });
-        if (enrichRes.ok) {
-          const enrichData = await enrichRes.json();
-          const results = enrichData.results || [];
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), ENRICHMENT_TIMEOUT_MS));
 
-          // Collect real URLs for Jarvis View animation
+        const enrichData = await Promise.race([tavilyPromise, timeoutPromise]);
+
+        if (enrichData) {
+          const results = enrichData.results || [];
           enrichmentUrls = results
             .filter((r: any) => r.url && r.title)
             .slice(0, 3)
@@ -694,6 +700,8 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
             });
             console.log(`[ENRICHMENT] Injected ${enrichContext.length} chars of web context from ${results.length} sources`);
           }
+        } else {
+          console.log(`[ENRICHMENT] Skipped — Tavily did not respond within ${ENRICHMENT_TIMEOUT_MS}ms`);
         }
       } catch (enrichErr) {
         console.warn("[ENRICHMENT] Proactive search failed (non-fatal):", (enrichErr as any)?.message);
@@ -1809,7 +1817,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     const lastMsg = messages[messages.length - 1];
     const lastText = (lastMsg?.content || '').toLowerCase().trim();
     const isRealQuestion = lastText.length > 15 && (lastText.includes('?') || lastText.startsWith('why') || lastText.startsWith('how') || lastText.startsWith('what') || lastText.startsWith('explain') || lastText.startsWith('tell me'));
-    const isTooShort = finalResponse.length < 120 && isRealQuestion && executedTools.length === 0;
+    const isTooShort = finalResponse.length < 40 && isRealQuestion && executedTools.length === 0;
 
     if (isTooShort) {
       console.log(`[QUALITY] Response too short (${finalResponse.length} chars) for substantive question. Re-generating...`);
@@ -1832,29 +1840,8 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
       }
     }
 
-    // --- SELF-REFINEMENT PASS ---
-    // For substantive questions with decent-length answers, do a quick polish pass
-    if (isRealQuestion && finalResponse.length > 200 && finalResponse.length < 3000 && executedTools.length === 0) {
-      try {
-        console.log(`[REFINE] Running self-refinement on ${finalResponse.length}-char response`);
-        const refineCompletion = await groq.chat.completions.create({
-          messages: [
-            { role: "system", content: "You are an expert editor. You will receive an AI-generated answer to a user's question. Your job is to IMPROVE it while keeping the same general content. Specifically:\n- Add any missing important details or nuance\n- Improve the structure and flow\n- Make it more engaging and conversational\n- Ensure bold formatting on key terms\n- Add a surprising or lesser-known fact if appropriate\n- Keep the same overall length (don't make it drastically longer or shorter)\n- Output ONLY the improved response, nothing else. No preamble like 'Here is the improved version'.\n- NEVER output JSON, code, or metadata." },
-            { role: "user", content: `Original question: ${lastMsg?.content || ""}\n\nCurrent answer to improve:\n${finalResponse}` }
-          ],
-          model: selectedModel,
-          temperature: 0.6,
-          max_tokens: 4096,
-        });
-        const refined = refineCompletion.choices[0]?.message?.content;
-        if (refined && refined.length > 100 && !refined.startsWith('{') && !refined.startsWith('[')) {
-          finalResponse = sanitizeResponse(refined);
-          console.log(`[REFINE] Improved response: ${finalResponse.length} chars`);
-        }
-      } catch (refineErr) {
-        console.warn("[REFINE] Self-refinement failed (non-fatal):", (refineErr as any)?.message);
-      }
-    }
+    // Self-refinement pass removed for speed — the primary LLM call with
+    // enriched context already produces high-quality output.
 
     // Default Raw Response
     return NextResponse.json({

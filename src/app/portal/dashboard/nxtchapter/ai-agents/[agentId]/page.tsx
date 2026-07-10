@@ -1038,6 +1038,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   // Initialize — Load sessions from Firestore (with localStorage fallback migration)
   const sessionsLoadedRef = useRef(false);
+  const kbCacheRef = useRef<string | null>(null);
   useEffect(() => {
     // Guard: don't wipe an active conversation if sessions were already loaded
     if (sessionsLoadedRef.current) return;
@@ -1333,6 +1334,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   // Fetch all knowledge base text from client-side Firestore
   const getKnowledgeBaseText = async (): Promise<string> => {
+    // Return cached KB text if available (KB doesn't change during a session)
+    if (kbCacheRef.current !== null) return kbCacheRef.current;
     if (!user?.uid || !firestore) return "";
     try {
       const { collection, getDocs } = await import("firebase/firestore");
@@ -1368,8 +1371,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }
       }
 
-      // Send all chunks - server will cap by character count
-      return texts.join("\n\n");
+      // Cache the result and return
+      const result = texts.join("\n\n");
+      kbCacheRef.current = result;
+      return result;
     } catch (err) {
       console.error("KB fetch error:", err);
       return "";
@@ -1501,19 +1506,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
 
     try {
-      let rToken = null;
-      if (user?.uid && firestore && isGmailConnected) {
+      // Fetch refresh token and knowledge base in parallel for speed
+      const getRefreshTokenAsync = async () => {
+        if (!user?.uid || !firestore || !isGmailConnected) return null;
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
-        rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
-        if (!rToken) rToken = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken);
-        if (!rToken) rToken = docData?.gmailOAuth_email?.refreshToken;
-        if (!rToken) rToken = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
-        if (!rToken) rToken = docData?.gmailOAuth?.refreshToken;
-      }
+        let t = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
+        if (!t) t = (docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken);
+        if (!t) t = docData?.gmailOAuth_email?.refreshToken;
+        if (!t) t = docData?.["gmailOAuth_inbound-email"]?.refreshToken;
+        if (!t) t = docData?.gmailOAuth?.refreshToken;
+        return t || null;
+      };
 
-      // Fetch knowledge base text from client-side Firestore
-      const kbText = await getKnowledgeBaseText();
+      const [rToken, kbText] = await Promise.all([
+        getRefreshTokenAsync(),
+        getKnowledgeBaseText(),
+      ]);
 
       const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text }));
       const res = await fetch("/api/chat", {

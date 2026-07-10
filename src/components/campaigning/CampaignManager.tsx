@@ -541,6 +541,7 @@ function CampaignTile({ campaign, onEdit, onTogglePause, onDelete, onDuplicate, 
     active: { bg: "bg-emerald-50", text: "text-emerald-600", icon: <Play className="w-3 h-3" />, label: "Active" },
     paused: { bg: "bg-amber-50", text: "text-amber-600", icon: <Pause className="w-3 h-3" />, label: "Paused" },
     completed: { bg: "bg-blue-50", text: "text-blue-600", icon: <CheckCircle2 className="w-3 h-3" />, label: "Completed" },
+    processing: { bg: "bg-indigo-50", text: "text-indigo-600", icon: <Timer className="w-3 h-3 animate-spin" />, label: "Processing" },
   };
   const st = statusConfig[campaign.status] || { 
     bg: "bg-slate-100", 
@@ -2936,77 +2937,27 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
             return { to: recipient.email, subject: resolvedSubject, html: emailBody };
           });
 
-          const SENDGRID_THRESHOLD = 1; // Route all campaigns through SendGrid (Gmail rate limited)
-          const CLIENT_CHUNK_SIZE = 50;
           const newlySentEmails: string[] = [];
 
-          if (dedupedRecipients.length >= SENDGRID_THRESHOLD) {
-            // ── Large campaign: route through SendGrid in chunks ──
-            console.log(`[Campaign Poller] Large campaign (${dedupedRecipients.length} recipients) — using SendGrid in chunks of ${CLIENT_CHUNK_SIZE}`);
-            const { getAuthHeaders } = await import('@/lib/api-auth-client');
-            const authHeaders = await getAuthHeaders();
-            for (let ci = 0; ci < resolvedMessages.length; ci += CLIENT_CHUNK_SIZE) {
-              const chunk = resolvedMessages.slice(ci, ci + CLIENT_CHUNK_SIZE);
-              const batchNum = Math.floor(ci / CLIENT_CHUNK_SIZE) + 1;
-              const totalBatches = Math.ceil(resolvedMessages.length / CLIENT_CHUNK_SIZE);
-              console.log(`[Campaign Poller] Sending batch ${batchNum}/${totalBatches} (${chunk.length} emails)`);
-              try {
-                const sgResp = await fetch('/api/campaigning/email/sendgrid-batch', {
-                  method: 'POST',
-                  headers: authHeaders,
-                  body: JSON.stringify({
-                    messages: chunk,
-                    fromEmail: effectiveSettings.senderEmail || user?.email || '',
-                    fromName: effectiveSettings.senderName || '',
-                  }),
-                });
-                if (sgResp.ok) {
-                  const sgData = await sgResp.json();
-                  // Track each successfully sent email
-                  chunk.forEach((m: any) => newlySentEmails.push(m.to.toLowerCase().trim()));
-                  console.log(`[Campaign Poller] Batch ${batchNum} complete: ${sgData.sent || chunk.length} sent`);
-                  if (sgData.errors?.length) {
-                    console.warn(`[Campaign Poller] Batch ${batchNum} errors:`, sgData.errors);
-                  }
-                } else {
-                  const errText = await sgResp.text();
-                  console.error(`[Campaign Poller] Batch ${batchNum} failed (${sgResp.status}):`, errText);
-                }
-              } catch (sgErr) {
-                console.error(`[Campaign Poller] Batch ${batchNum} request failed:`, sgErr);
-              }
-              // Save progress after each batch
-              if (newlySentEmails.length > 0) {
+          // ── Send all emails via Gmail API (logged-in user's account) ──
+          console.log(`[Campaign Poller] Sending ${resolvedMessages.length} emails via Gmail API`);
+          for (let i = 0; i < resolvedMessages.length; i++) {
+            const msg = resolvedMessages[i];
+            try {
+              await sendEmail(user!.uid, refreshToken, msg.to, msg.subject, msg.html);
+              newlySentEmails.push(msg.to.toLowerCase().trim());
+              console.log(`[Campaign Poller] ✓ Sent to ${msg.to} (${newlySentEmails.length}/${resolvedMessages.length})`);
+              
+              // Save progress every 10 emails
+              if (newlySentEmails.length % 10 === 0) {
                 await setDoc(campRef, {
                   sentEmails: [...Array.from(alreadySent), ...newlySentEmails],
                   sent: alreadySent.size + newlySentEmails.length,
                   lastSentAt: new Date().toISOString(),
                 }, { merge: true });
               }
-              if (ci + CLIENT_CHUNK_SIZE < resolvedMessages.length) {
-                await new Promise(r => setTimeout(r, 500));
-              }
-            }
-          } else {
-            // ── Small campaign: use Gmail API ──
-            for (let i = 0; i < resolvedMessages.length; i++) {
-              const msg = resolvedMessages[i];
-              try {
-                await sendEmail(user!.uid, refreshToken, msg.to, msg.subject, msg.html);
-                newlySentEmails.push(msg.to.toLowerCase().trim());
-                console.log(`[Campaign Poller] ✓ Sent to ${msg.to} (${newlySentEmails.length}/${resolvedMessages.length})`);
-                
-                // Save progress every 10 emails
-                if (newlySentEmails.length % 10 === 0) {
-                  await setDoc(campRef, {
-                    sentEmails: [...Array.from(alreadySent), ...newlySentEmails],
-                    sent: alreadySent.size + newlySentEmails.length,
-                    lastSentAt: new Date().toISOString(),
-                  }, { merge: true });
-                }
-              } catch (err) {
-                console.error(`[Campaign Poller] ✗ Failed to send to ${msg.to}:`, err);
-              }
+            } catch (err) {
+              console.error(`[Campaign Poller] ✗ Failed to send to ${msg.to}:`, err);
             }
           }
 

@@ -24,12 +24,13 @@ export function initAdmin() {
     
     // Local dev: read Firebase CLI's access token directly
     // This avoids RAPT (Re-Authentication Policy) issues with Google Workspace
-    if (typeof process !== "undefined" && process.env.APPDATA !== undefined || (typeof process !== "undefined" && process.env.HOME)) {
-      const configPath = path.join(
-        process.env.APPDATA || path.join(process.env.HOME || "", ".config"),
-        "configstore",
-        "firebase-tools.json"
-      );
+    if (typeof process !== "undefined" && (process.env.APPDATA !== undefined || process.env.HOME)) {
+      // Check multiple possible locations for firebase-tools.json
+      const candidates = [
+        path.join(process.env.HOME || "", ".config", "configstore", "firebase-tools.json"),
+        path.join(process.env.APPDATA || "", "configstore", "firebase-tools.json"),
+      ];
+      const configPath = candidates.find(p => fs.existsSync(p)) || candidates[0];
 
       try {
         if (fs.existsSync(configPath)) {

@@ -7,7 +7,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -1045,6 +1045,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Send className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticCampaigning}</span>
                     </Link>
+                    <Link href={`${dashboardHome}/agentic-prospecting`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/agentic-prospecting') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Compass className="w-5 h-5 text-slate-500" />
+                      <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
+                    </Link>
                   </div>
                   )}
                 </div>
@@ -1391,6 +1395,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Send className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">{t.agenticCampaigning}</span>
+                </Link>
+
+                <Link href={`${dashboardHome}/agentic-prospecting`} className={getSidebarLinkClass(pathname.includes('/agentic-prospecting'))}>
+                  <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'))}>
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">{t.agenticProspecting || 'Agentic Prospecting'}</span>
                 </Link>
               </div>
             )}
