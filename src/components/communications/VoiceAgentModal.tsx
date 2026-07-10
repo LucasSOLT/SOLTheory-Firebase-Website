@@ -1184,12 +1184,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           </div>
 
           {/* Agent Name + Brain Diagram */}
-          <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '100px' }}>
+          <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '140px' }}>
             {/* Faint animated cloud behind JARVIS text for mystique */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-              <div className="absolute w-[280px] h-[120px] rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(ellipse, #c7d2fe 0%, transparent 70%)', animation: 'jarvisCloud1 12s ease-in-out infinite' }} />
-              <div className="absolute w-[200px] h-[90px] rounded-full opacity-[0.05]" style={{ background: 'radial-gradient(ellipse, #e0e7ff 0%, transparent 70%)', animation: 'jarvisCloud2 16s ease-in-out infinite', animationDelay: '-4s' }} />
-              <div className="absolute w-[320px] h-[100px] rounded-full opacity-[0.03]" style={{ background: 'radial-gradient(ellipse, #ddd6fe 0%, transparent 70%)', animation: 'jarvisCloud3 20s ease-in-out infinite', animationDelay: '-8s' }} />
+              <div className="absolute w-[340px] h-[160px] rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(ellipse, #c7d2fe 0%, transparent 70%)', animation: 'jarvisCloud1 12s ease-in-out infinite' }} />
+              <div className="absolute w-[260px] h-[120px] rounded-full opacity-[0.10]" style={{ background: 'radial-gradient(ellipse, #e0e7ff 0%, transparent 70%)', animation: 'jarvisCloud2 16s ease-in-out infinite', animationDelay: '-4s' }} />
+              <div className="absolute w-[400px] h-[140px] rounded-full opacity-[0.06]" style={{ background: 'radial-gradient(ellipse, #ddd6fe 0%, transparent 70%)', animation: 'jarvisCloud3 20s ease-in-out infinite', animationDelay: '-8s' }} />
             </div>
             <style>{`
               @keyframes jarvisCloud1 { 0%, 100% { transform: translate(-15px, -5px) scale(1); } 33% { transform: translate(20px, 8px) scale(1.1); } 66% { transform: translate(-8px, -12px) scale(0.95); } }
@@ -1231,10 +1231,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             </svg>
             <h2 className="text-5xl sm:text-6xl font-light text-slate-500 tracking-[0.12em] text-center relative z-10" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
           </div>
-          <p className="text-slate-400 text-sm font-medium tabular-nums mt-1">{formatTime(elapsed)}</p>
+          <p className="text-slate-400 text-sm font-medium tabular-nums mt-3">{formatTime(elapsed)}</p>
 
           {/* Waveform */}
-          <div className="w-full max-w-[300px] sm:max-w-2xl mt-8 mb-6 relative">
+          <div className="w-full max-w-[300px] sm:max-w-2xl mt-10 mb-8 relative">
             <div className="relative h-28 sm:h-36 flex items-center justify-center">
               <div className={`absolute inset-0 rounded-full blur-[60px] transition-all duration-700 ease-in-out ${phase === "speaking" ? "opacity-50 scale-110" : "opacity-20 scale-100"} ${g.glow[ac]}`} />
               <div className="relative flex items-center justify-center h-full w-full" style={{ gap: 'clamp(2px, 0.5vw, 6px)' }}>

@@ -3161,69 +3161,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           )}
                         </div>
                       
-                      {/* Input bar — matches the in-chat style, pinned to bottom */}
+                      {/* Tagline — input is now always at the bottom */}
                       <div className="shrink-0 px-3 sm:px-4 pb-3 sm:pb-6 pt-1 sm:pt-2 z-20 mt-auto">
                         <div className="max-w-4xl mx-auto">
-                          <p className={`text-center text-[11px] sm:text-xs mb-2 sm:mb-3 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Ask Jarvis anything — he's a jack of all trades.</p>
-                          <div className="flex items-center gap-2">
-                            <div className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-700 bg-slate-800/90' : 'border-[#ede8da] bg-[#faf8f3]/90'}`}>
-                              <div className="flex items-center w-full relative">
-                                <div className="flex items-center pl-2 sm:pl-4 gap-1 sm:gap-2 shrink-0">
-                                  <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=nxtchapter`} className="hidden sm:flex p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer" title="Connect Google Drive">
-                                    <Cloud className="w-5 h-5" />
-                                  </button>
-                                  <label className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer" title="Upload File">
-                                    <Paperclip className="w-5 h-5" />
-                                    <input type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={(e) => {
-                                      if (e.target.files?.length) {
-                                        const file = e.target.files[0];
-                                        const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
-                                        setPendingAttachments(prev => [...prev, { file, preview: previewUrl }]);
-                                        e.target.value = "";
-                                      }
-                                    }} />
-                                  </label>
-                                </div>
-
-                                <Input
-                                  placeholder="What's on your mind?"
-                                  className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-1 sm:pl-2 pr-12 sm:pr-14 min-h-[44px] sm:min-h-[64px] bg-transparent placeholder:text-slate-500 text-sm sm:text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
-                                  value={inputValue}
-                                  onChange={e => setInputValue(e.target.value)}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter' && !e.shiftKey && inputValue.trim()) {
-                                      e.preventDefault();
-                                      setSelectedExploreItem('Conversational AI');
-                                      setTimeout(() => handleSendMessage(), 50);
-                                    }
-                                  }}
-                                />
-
-                                <Button size="icon" onClick={() => {
-                                  if (!inputValue.trim()) return;
-                                  setSelectedExploreItem('Conversational AI');
-                                  setTimeout(() => handleSendMessage(), 50);
-                                }} disabled={!inputValue.trim()} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
-                                  <Send className="w-5 h-5 ml-0.5" />
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Voice-to-Voice button */}
-                            <button
-                              onClick={() => {
-                                setSelectedExploreItem('Conversational AI');
-                                openVoiceSession();
-                              }}
-                              className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-slate-900/20 shrink-0 cursor-pointer"
-                              title="Talk to Jarvis"
-                            >
-                              <div className="relative flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5">
-                                <AudioLines className="w-4 h-4 sm:w-5 sm:h-5" />
-                                <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-slate-400" />
-                              </div>
-                            </button>
-                          </div>
+                          <p className={`text-center text-[11px] sm:text-xs mb-2 sm:mb-3 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Ask Jarvis anything — he&apos;s a jack of all trades.</p>
                         </div>
                       </div>
                       </div>
