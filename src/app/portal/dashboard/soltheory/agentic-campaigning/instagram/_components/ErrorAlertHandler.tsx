@@ -75,7 +75,7 @@ function buildReAuthUrl(userId: string, orgId: string): string {
   return (
     `https://www.facebook.com/v20.0/dialog/oauth?` +
     new URLSearchParams({
-      client_id: process.env.NEXT_PUBLIC_META_APP_ID || "",
+      client_id: process.env.NEXT_PUBLIC_META_APP_ID || "1037738182104775",
       redirect_uri: redirectUri,
       state,
       config_id: "1000741799470765",
