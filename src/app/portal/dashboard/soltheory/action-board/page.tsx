@@ -410,6 +410,11 @@ function ActionBoardContent() {
   // —— Derived ——
   const isAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
 
+  // Default admins to "all_users" view so they see everything
+  useEffect(() => {
+    if (isAdmin) setViewFilter("all_users");
+  }, [isAdmin]);
+
   // Ref for deadline monitor to avoid re-running effect on every task change
   const tasksRef = useRef<ActionBoardTask[]>([]);
   tasksRef.current = tasks;
@@ -515,6 +520,13 @@ function ActionBoardContent() {
 
         allTasks.push(task);
       });
+
+      // ── Diagnostic: log breakdown of all tasks from Firestore ──
+      const archived = allTasks.filter(t => t.isArchived);
+      const denied = allTasks.filter(t => t.assignmentStatus === "denied");
+      const pending = allTasks.filter(t => t.assignmentStatus === "pending_approval");
+      const active = allTasks.filter(t => !t.isArchived && ["direct", "accepted"].includes(t.assignmentStatus));
+      console.log(`[ActionBoard] Firestore snapshot: ${snap.docs.length} docs total → ${allTasks.length} tasks loaded | ${active.length} active | ${archived.length} archived | ${denied.length} denied | ${pending.length} pending`);
 
       setTasks(allTasks);
       setIsLoading(false);
