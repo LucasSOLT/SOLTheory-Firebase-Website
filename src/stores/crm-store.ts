@@ -45,6 +45,44 @@ export interface Meeting {
   createdBy: "user" | "jarvis";
 }
 
+export interface CrmTask {
+  id: string;
+  customerId: string;
+  contactName?: string;
+  title: string;
+  description?: string;
+  dueDate: string; // ISO string
+  completed: boolean;
+  status?: 'todo' | 'in_progress' | 'done';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  assignedTo?: string;
+  createdAt: any;
+}
+
+export interface CrmActivity {
+  id: string;
+  customerId: string;
+  type: "note" | "email" | "meeting" | "status_change" | "call" | "insight" | "task" | "field_update" | "tag_change" | "deal_update" | "file_upload";
+  content: string;
+  timestamp: any;
+  createdBy: "user" | "jarvis" | "system";
+}
+
+/* ─────────────── PIPELINE TYPES ─────────────── */
+
+export interface PipelineStage {
+  id: string;
+  name: string;
+  color: string;
+  probability: number;
+}
+
+export interface PipelineConfig {
+  id: string;
+  name: string;
+  stages: PipelineStage[];
+}
+
 export interface CrmNotification {
   id: string;
   message: string;
@@ -149,18 +187,23 @@ interface CrmStore {
   /* ── Data ── */
   customers: Customer[];
   meetings: Meeting[];
+  tasks: CrmTask[];
+  activities: CrmActivity[];
   notifications: CrmNotification[];
   conversations: Conversation[];
   chatMessages: ChatMessage[];
   customTags: CrmTag[];
   integrations: { googleCalendar: string; mailProvider: string; whatsapp: string };
   toasts: Toast[];
+  pipelineConfig: PipelineConfig | null;
 
   /* ── Firebase refs ── */
   _db: Firestore | null;
   _uid: string | null;
   _unsubContacts: Unsubscribe | null;
   _unsubMeetings: Unsubscribe | null;
+  _unsubTasks: Unsubscribe | null;
+  _unsubActivities: Unsubscribe | null;
   _unsubConversations: Unsubscribe | null;
 
   /* ── Loading flags ── */
@@ -182,6 +225,11 @@ interface CrmStore {
   bulkDelete: (ids: string[]) => Promise<void>;
 
   addMeeting: (meeting: Omit<Meeting, "id">) => Promise<Meeting>;
+  addTask: (task: Omit<CrmTask, "id" | "createdAt">) => Promise<CrmTask>;
+  updateTask: (id: string, updates: Partial<CrmTask>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  
+  addActivity: (activity: Omit<CrmActivity, "id" | "timestamp">) => Promise<CrmActivity>;
   addNotification: (message: string, type?: CrmNotification["type"]) => void;
   markNotificationsRead: () => void;
 
@@ -194,6 +242,11 @@ interface CrmStore {
 
   setCustomTags: (tags: CrmTag[] | ((prev: CrmTag[]) => CrmTag[])) => void;
   setIntegrations: (integrations: { googleCalendar: string; mailProvider: string; whatsapp: string }) => void;
+
+  /* Pipeline config */
+  setPipelineConfig: (config: PipelineConfig | null) => void;
+  savePipelineConfig: (config: PipelineConfig) => Promise<void>;
+  loadPipelineConfig: () => Promise<void>;
 
   /* Direct setters (for Jarvis command compat) */
   setCustomers: (fn: (prev: Customer[]) => Customer[]) => void;
@@ -209,17 +262,22 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   /* ── Initial State ── */
   customers: [],
   meetings: [],
+  tasks: [],
+  activities: [],
   notifications: [],
   conversations: INITIAL_CONVERSATIONS,
   chatMessages: [JARVIS_WELCOME],
   customTags: INITIAL_TAGS,
   integrations: { googleCalendar: "", mailProvider: "", whatsapp: "" },
   toasts: [],
+  pipelineConfig: null,
 
   _db: null,
   _uid: null,
   _unsubContacts: null,
   _unsubMeetings: null,
+  _unsubTasks: null,
+  _unsubActivities: null,
   _unsubConversations: null,
 
   isLoading: true,
@@ -302,6 +360,49 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
           console.error("CRM meetings snapshot error:", error);
         }
       );
+
+      // Set up real-time listener for tasks
+      const tasksRef = collection(db, crmPath(uid, "tasks"));
+      const unsubTasks = onSnapshot(
+        query(tasksRef),
+        (snapshot) => {
+          const tasks = snapshot.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              customerId: data.customerId || "",
+              title: data.title || "",
+              dueDate: data.dueDate || "",
+              completed: data.completed || false,
+              createdAt: data.createdAt || null,
+            } as CrmTask;
+          });
+          set({ tasks });
+        },
+        (error) => console.error("CRM tasks snapshot error:", error)
+      );
+
+      // Set up real-time listener for activities
+      const activitiesRef = collection(db, crmPath(uid, "activities"));
+      const unsubActivities = onSnapshot(
+        query(activitiesRef, orderBy("timestamp", "desc")),
+        (snapshot) => {
+          const activities = snapshot.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              customerId: data.customerId || "",
+              type: data.type || "note",
+              content: data.content || "",
+              timestamp: data.timestamp || null,
+              createdBy: data.createdBy || "user",
+            } as CrmActivity;
+          });
+          set({ activities });
+        },
+        (error) => console.error("CRM activities snapshot error:", error)
+      );
+
       // Set up real-time listener for conversations
       const conversationsRef = collection(db, crmPath(uid, "conversations"));
       const unsubConversations = onSnapshot(
@@ -332,20 +433,40 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
         }
       );
 
-      set({ _unsubContacts: unsubContacts, _unsubMeetings: unsubMeetings, _unsubConversations: unsubConversations });
-    } catch (error) {
-      console.error("CRM initializeStore error:", error);
+      set({ 
+        _unsubContacts: unsubContacts, 
+        _unsubMeetings: unsubMeetings,
+        _unsubTasks: unsubTasks,
+        _unsubActivities: unsubActivities,
+        _unsubConversations: unsubConversations 
+      });
+    } catch (e) {
+      console.error("[CRM Store] Initialization error:", e);
       set({ isLoading: false });
-      get().showToast("⚠️ Failed to connect to database", "error");
     }
   },
 
   teardown: () => {
-    const { _unsubContacts, _unsubMeetings, _unsubConversations } = get();
+    const { _unsubContacts, _unsubMeetings, _unsubTasks, _unsubActivities, _unsubConversations } = get();
     if (_unsubContacts) _unsubContacts();
     if (_unsubMeetings) _unsubMeetings();
+    if (_unsubTasks) _unsubTasks();
+    if (_unsubActivities) _unsubActivities();
     if (_unsubConversations) _unsubConversations();
-    set({ _unsubContacts: null, _unsubMeetings: null, _unsubConversations: null });
+    set({
+      _db: null,
+      _uid: null,
+      _unsubContacts: null,
+      _unsubMeetings: null,
+      _unsubTasks: null,
+      _unsubActivities: null,
+      _unsubConversations: null,
+      customers: [],
+      meetings: [],
+      tasks: [],
+      activities: [],
+      conversations: INITIAL_CONVERSATIONS,
+    });
   },
 
   /* ── Contact CRUD (Firestore) ── */
@@ -476,6 +597,56 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     );
     get().showToast(`📅 Meeting scheduled with ${meeting.customerName}`);
     return meeting;
+  },
+
+  /* ── Tasks (Firestore) ── */
+  addTask: async (taskData) => {
+    const { _db, _uid } = get();
+    const task: CrmTask = { ...taskData, id: `TSK-${Date.now()}`, createdAt: serverTimestamp() };
+    if (_db && _uid) {
+      try {
+        const { id, ...data } = task;
+        await setDoc(doc(_db, crmPath(_uid, "tasks"), id), data);
+      } catch (error) {
+        console.error("addTask error:", error);
+      }
+    }
+    return task;
+  },
+
+  updateTask: async (id, updates) => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+    try {
+      await updateDoc(doc(_db, crmPath(_uid, "tasks"), id), updates);
+    } catch (error) {
+      console.error("updateTask error:", error);
+    }
+  },
+
+  deleteTask: async (id) => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+    try {
+      await deleteDoc(doc(_db, crmPath(_uid, "tasks"), id));
+    } catch (error) {
+      console.error("deleteTask error:", error);
+    }
+  },
+
+  /* ── Activities (Firestore) ── */
+  addActivity: async (activityData) => {
+    const { _db, _uid } = get();
+    const activity: CrmActivity = { ...activityData, id: `ACT-${Date.now()}`, timestamp: serverTimestamp() };
+    if (_db && _uid) {
+      try {
+        const { id, ...data } = activity;
+        await setDoc(doc(_db, crmPath(_uid, "activities"), id), data);
+      } catch (error) {
+        console.error("addActivity error:", error);
+      }
+    }
+    return activity;
   },
 
   /* ── Notifications (local — will persist when we add Firestore collection later) ── */
@@ -611,6 +782,48 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     }
   },
   setIntegrations: (integrations) => set({ integrations }),
+
+  /* ── Pipeline Config ── */
+  setPipelineConfig: (config) => set({ pipelineConfig: config }),
+
+  savePipelineConfig: async (config) => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+    try {
+      await setDoc(doc(_db, crmPath(_uid, "settings"), "pipelineConfig"), {
+        id: config.id,
+        name: config.name,
+        stages: config.stages,
+        updatedAt: serverTimestamp(),
+      });
+      set({ pipelineConfig: config });
+      get().showToast(`✅ Pipeline "${config.name}" saved`);
+    } catch (error) {
+      console.error("savePipelineConfig error:", error);
+      get().showToast("⚠️ Failed to save pipeline config", "error");
+    }
+  },
+
+  loadPipelineConfig: async () => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+    try {
+      const snap = await getDocs(query(collection(_db, crmPath(_uid, "settings"))));
+      const configDoc = snap.docs.find(d => d.id === "pipelineConfig");
+      if (configDoc) {
+        const data = configDoc.data();
+        set({
+          pipelineConfig: {
+            id: data.id || 'custom',
+            name: data.name || 'Custom Pipeline',
+            stages: data.stages || [],
+          }
+        });
+      }
+    } catch (error) {
+      console.error("loadPipelineConfig error:", error);
+    }
+  },
 
   /* ── Toasts ── */
   showToast: (message, type = "success") => {

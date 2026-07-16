@@ -317,6 +317,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         updatedAt: new Date().toISOString(),
       }, { merge: true });
 
+      // Bridge org data to the unified org profile
+      if (wtOrganization) {
+        const orgId = pathname.includes("/nxtchapter/") ? "nxtchapter" : "soltheory";
+        const orgRef = doc(firestore, "org_profiles", orgId);
+        await setDoc(orgRef, {
+          orgName: wtOrganization,
+          updatedAt: new Date().toISOString(),
+          updatedBy: user.uid,
+        }, { merge: true });
+      }
+
       // Sync local storage for language, theme, and timezone
       localStorage.setItem('agent_language', wtLanguage);
       setAppTheme(wtTheme);

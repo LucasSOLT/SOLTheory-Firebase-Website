@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useFirestore } from "@/firebase";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
 import { startAgentWorker, stopAgentWorker, stopAllAgentWorkers } from "@/services/grantAgentWorker";
 
@@ -21,12 +21,15 @@ const DEFAULT_NAMES = [
 ];
 
 /**
- * Agent Worker Controller.
- * 
- * Listens to Firestore config changes. When the config hash changes
- * (e.g. interval updated from 1 hour → 1 minute), the worker is
- * stopped and restarted with the new settings immediately.
- * 
+ * Agent Worker Controller — SESSION-AWARE.
+ *
+ * Listens to ALL `grant_sessions` documents for the org.
+ * For each session with active agents, starts workers keyed as
+ * `{sessionId}_agent_{n}` to prevent collisions between sessions.
+ *
+ * Also still listens to the legacy `grant_agent_config/soltheory`
+ * for backwards compatibility during migration.
+ *
  * Protected by:
  * - setTimeout chains (stale callbacks die, no ghost intervals)
  * - window-stored handles (survive HMR)
@@ -38,6 +41,7 @@ export function AgentWorkerController({
   onSlotsChange?: (slots: AgentSlotData[]) => void;
 }) {
   const firestore = useFirestore();
+  // Maps workerKey → configHash so we only restart when config actually changes
   const startedRef = useRef<Map<string, string>>(new Map());
   const callbackRef = useRef(onSlotsChange);
 
@@ -45,6 +49,7 @@ export function AgentWorkerController({
     callbackRef.current = onSlotsChange;
   }, [onSlotsChange]);
 
+  // ─── Session-aware worker orchestration ───
   useEffect(() => {
     if (!firestore) return;
 
@@ -52,59 +57,111 @@ export function AgentWorkerController({
     stopAllAgentWorkers();
     startedRef.current.clear();
 
-    const docRef = doc(firestore, "grant_agent_config", "soltheory");
+    const sessionsQuery = query(
+      collection(firestore, "grant_sessions"),
+      where("orgId", "==", "soltheory")
+    );
 
     const unsub = onSnapshot(
-      docRef,
+      sessionsQuery,
       (snap) => {
-        const data = snap.exists() ? snap.data() : undefined;
-        const agents = data?.agents as Record<string, { name: string; config: GrantAgentConfig; active: boolean }> | undefined;
+        // Collect all workerKeys that should currently be active
+        const activeWorkerKeys = new Set<string>();
 
-        const slots: AgentSlotData[] = DEFAULT_NAMES.map((name, i) => {
-          const id = `agent_${i + 1}`;
-          const saved = agents?.[id];
-          return {
-            id,
-            name: saved?.name || name,
-            config: saved?.config || null,
-            active: saved?.active ?? false,
-          };
-        });
+        // Collect first session's slots for the dashboard callback
+        let firstSessionSlots: AgentSlotData[] | null = null;
 
-        slots.forEach((slot) => {
-          // Hash ONLY the config fields that affect the worker
-          // (not lastScanTimes or other metadata that would cause loops)
-          const configHash = slot.config ? JSON.stringify(slot.config) : "";
+        snap.forEach((docSnap) => {
+          const sessionId = docSnap.id;
+          const data = docSnap.data();
+          const agents = data?.agents as Record<string, {
+            name: string;
+            active: boolean;
+            config: GrantAgentConfig | null;
+          }> | undefined;
+          const sessionSearchMode = (data?.searchMode as 'federal' | 'philanthropic') || 'federal';
 
-          if (slot.active && slot.config) {
-            const prevHash = startedRef.current.get(slot.id);
-            if (prevHash !== configHash) {
-              // Config changed — reset timing gate so new interval takes effect immediately
-              console.log(`[Controller] Config changed for ${slot.id} — resetting timer & restarting worker`);
-              const configRef = doc(firestore, "grant_agent_config", "soltheory");
-              setDoc(configRef, { lastScanTimes: { [slot.id]: null } }, { merge: true }).catch(() => {});
-              startAgentWorker(firestore, slot.id, slot.config);
-              startedRef.current.set(slot.id, configHash);
+          if (!agents) return;
+
+          // Build slots for each agent in this session
+          DEFAULT_NAMES.forEach((defaultName, i) => {
+            const agentId = `agent_${i + 1}`;
+            const saved = agents[agentId];
+            const workerKey = `${sessionId}_${agentId}`;
+
+            if (saved?.active && saved?.config) {
+              activeWorkerKeys.add(workerKey);
+
+              // Hash only the config to detect changes
+              const configHash = JSON.stringify(saved.config);
+              const prevHash = startedRef.current.get(workerKey);
+
+              if (prevHash !== configHash) {
+                console.log(`[Controller] Starting worker ${workerKey} (mode: ${sessionSearchMode})`);
+
+                // Reset timing gate for this agent in the session document
+                setDoc(
+                  doc(firestore, "grant_sessions", sessionId),
+                  { lastScanTimes: { [agentId]: null } },
+                  { merge: true }
+                ).catch(() => {});
+
+                // Start the worker with sessionId and searchMode
+                startAgentWorker(firestore, workerKey, saved.config, undefined, sessionId, sessionSearchMode);
+                startedRef.current.set(workerKey, configHash);
+              }
             }
-          } else {
-            if (startedRef.current.has(slot.id)) {
-              stopAgentWorker(slot.id);
-              startedRef.current.delete(slot.id);
-            }
+          });
+
+          // Use first session's slots for the dashboard callback
+          if (!firstSessionSlots) {
+            firstSessionSlots = DEFAULT_NAMES.map((name, i) => {
+              const agentId = `agent_${i + 1}`;
+              const saved = agents[agentId];
+              return {
+                id: agentId,
+                name: saved?.name || name,
+                config: saved?.config || null,
+                active: saved?.active ?? false,
+              };
+            });
           }
         });
 
-        callbackRef.current?.(slots);
+        // Stop any workers that are no longer in any active session
+        for (const [workerKey] of startedRef.current) {
+          if (!activeWorkerKeys.has(workerKey)) {
+            console.log(`[Controller] Stopping orphaned worker ${workerKey}`);
+            stopAgentWorker(workerKey);
+            startedRef.current.delete(workerKey);
+          }
+        }
+
+        // Notify dashboard with first session's slots
+        if (firstSessionSlots) {
+          callbackRef.current?.(firstSessionSlots);
+        } else {
+          // No sessions — send default empty slots
+          callbackRef.current?.(
+            DEFAULT_NAMES.map((name, i) => ({
+              id: `agent_${i + 1}`,
+              name,
+              config: null,
+              active: false,
+            }))
+          );
+        }
       },
       (err) => {
         console.error("AgentWorkerController snapshot error:", err);
-        const defaultSlots: AgentSlotData[] = DEFAULT_NAMES.map((name, i) => ({
-          id: `agent_${i + 1}`,
-          name,
-          config: null,
-          active: false,
-        }));
-        callbackRef.current?.(defaultSlots);
+        callbackRef.current?.(
+          DEFAULT_NAMES.map((name, i) => ({
+            id: `agent_${i + 1}`,
+            name,
+            config: null,
+            active: false,
+          }))
+        );
       }
     );
 

@@ -1,37 +1,25 @@
 import { NextResponse } from "next/server";
-
-async function getAdminFirestore() {
-  try {
-    const { getApps, initializeApp, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-
-    if (!getApps().length) {
-      const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-
-      if (projectId && clientEmail && privateKey) {
-        initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
-      } else if (projectId) {
-        initializeApp({ projectId });
-      } else {
-        return null;
-      }
-    }
-    return getFirestore();
-  } catch {
-    return null;
-  }
-}
+import { initAdmin, getFirestore } from "@/firebase/admin";
+import { verifyRequest } from "@/lib/api-auth";
+import { getAuth } from "firebase-admin/auth";
 
 /**
  * DELETE /api/grants/cleanup/[agentId]
+ *
  * Deletes all grant_suggestions documents created by a specific agent.
+ * Requires authentication with an authorized admin user.
  */
+
+const AUTHORIZED_EMAIL = "lucas@soltheory.com";
+
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
+  // 1. Verify Firebase Auth token
+  const auth = await verifyRequest(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const { agentId } = await params;
 
@@ -39,35 +27,54 @@ export async function DELETE(
       return NextResponse.json({ error: "agentId is required" }, { status: 400 });
     }
 
-    const db = await getAdminFirestore();
-    if (!db) {
-      return NextResponse.json({ deleted: 0, message: "No admin DB available (need FIREBASE_PRIVATE_KEY in env)" });
+    // 2. Verify the user is an authorized admin
+    initAdmin();
+    const userRecord = await getAuth().getUser(auth.uid);
+    if (userRecord.email !== AUTHORIZED_EMAIL) {
+      console.warn(
+        `[Cleanup:${agentId}] Unauthorized cleanup attempt by ${userRecord.email} (uid: ${auth.uid})`
+      );
+      return NextResponse.json(
+        { error: "You are not authorized to perform this action" },
+        { status: 403 }
+      );
     }
 
-    // Query only grants from this specific agent
+    // 3. Use Admin SDK Firestore
+    const db = getFirestore();
     const snapshot = await db
       .collection("grant_suggestions")
       .where("agentId", "==", agentId)
       .get();
 
     if (snapshot.empty) {
-      return NextResponse.json({ deleted: 0, message: `No grants found for agent ${agentId}` });
+      return NextResponse.json({
+        deleted: 0,
+        message: `No grants found for agent ${agentId}`,
+      });
     }
 
-    // Batch delete (Firestore batches max 500 — safe for our use case)
+    // Batch delete (Firestore batches max 500 ops)
     const batch = db.batch();
     let count = 0;
 
-    snapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
+    for (const document of snapshot.docs) {
+      batch.delete(document.ref);
       count++;
-    });
+    }
 
     await batch.commit();
 
-    return NextResponse.json({ deleted: count, message: `Deleted ${count} grant suggestions from ${agentId}` });
-  } catch (err: any) {
-    console.error("Agent cleanup error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.log(
+      `[Cleanup:${agentId}] Admin ${userRecord.email} deleted ${count} grant suggestions`
+    );
+    return NextResponse.json({
+      deleted: count,
+      message: `Deleted ${count} grant suggestions from ${agentId}`,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Cleanup:agentId] Error:", err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

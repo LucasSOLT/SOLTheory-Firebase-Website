@@ -55,9 +55,11 @@ const SCAN_ANIMATION_DURATION_MS = 7_200; // sum of all phase durations
 export function GrantAgentBrowserSim({
   config,
   colorTheme,
+  lastScanTime,
 }: {
   config: GrantAgentConfig;
   colorTheme: { dot: string; label: string };
+  lastScanTime?: Date | null;
 }) {
   const [phase, setPhase] = useState<Phase>("waiting");
   const [typedChars, setTypedChars] = useState(0);
@@ -89,20 +91,30 @@ export function GrantAgentBrowserSim({
 
     switch (phase) {
       case "waiting": {
-        // Use a SHARED target time so both preview and full-display stay in sync
-        const win = typeof window !== "undefined" ? window as any : null;
-        let targetTime = win?.__grantNextScanTime as number | undefined;
+        // PERSISTENT timer: compute from lastScanTime (Firestore) + interval
+        let targetTime: number;
 
-        if (!targetTime || targetTime <= Date.now()) {
-          // No shared time exists or it expired â€” set a new one
-          targetTime = Date.now() + configIntervalMs;
-          if (win) win.__grantNextScanTime = targetTime;
+        if (lastScanTime) {
+          // We know when the last scan happened — next scan = lastScanTime + interval
+          targetTime = lastScanTime.getTime() + configIntervalMs;
+          // If that's in the past, the scan should happen soon
+          if (targetTime <= Date.now()) {
+            targetTime = Date.now() + 3_000; // scanning imminent
+          }
+        } else {
+          // No last scan recorded — agent hasn't run yet, show waiting state
+          // The worker will fire its first scan shortly after starting
+          setCountdown("Awaiting scan...");
+          scanEndTimeRef.current = Date.now() + 10_000; // placeholder
+          targetTime = Date.now() + 10_000;
         }
 
         scanEndTimeRef.current = targetTime;
 
         // Immediately show initial countdown
-        setCountdown(formatCountdown(targetTime - Date.now()));
+        if (lastScanTime) {
+          setCountdown(formatCountdown(targetTime - Date.now()));
+        }
 
         // Tick every second
         countdownRef.current = setInterval(() => {

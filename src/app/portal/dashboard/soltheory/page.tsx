@@ -11,7 +11,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
-import { GrantStatusPieChart } from "@/components/portal/GrantStatusPieChart";
+import { GrantPipelineMini } from "@/components/portal/GrantPipelineMini";
 import { SuggestedGrantsList } from "@/components/portal/SuggestedGrantsList";
 import { GrantAgentHub } from "@/components/portal/GrantAgentHub";
 import { useGrantsData } from "@/hooks/useGrantsData";
@@ -353,7 +353,7 @@ export default function SolTheoryDashboard() {
                     <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
                   </div>
                   <div className="flex-1 min-h-0">
-                    <GrantStatusPieChart grants={grantsData} loading={grantsLoading} />
+                    <GrantPipelineMini grants={grantsData} loading={grantsLoading} />
                   </div>
                 </div>
 

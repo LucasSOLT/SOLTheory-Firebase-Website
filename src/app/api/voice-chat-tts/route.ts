@@ -2,8 +2,10 @@ import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { logAIUsage, calculateGroqCost, calculateElevenLabsCost } from "@/lib/log-ai-usage";
 import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
+import { buildOrgContext } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
+import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 
 /**
  * Combined Voice Chat + TTS endpoint.
@@ -28,6 +30,21 @@ export async function POST(req: Request) {
 
     if (isNxt) systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + nxtChapterKnowledge;
     if (isSol) systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
+
+    // Inject dynamic org profile context
+    try {
+      await initAdmin();
+      const adminDb = getAdminFirestore();
+      const orgId = isNxt ? "nxtchapter" : "soltheory";
+      const orgSnap = await adminDb.collection("org_profiles").doc(orgId).get();
+      if (orgSnap.exists) {
+        const orgContext = buildOrgContext(orgSnap.data() as any, orgId);
+        if (orgContext) systemPrompt += "\n\n[DYNAMIC ORG PROFILE]\n" + orgContext;
+      }
+    } catch (e) {
+      console.warn("[voice-chat-tts] Could not load org profile:", e);
+    }
+
     if (systemInstructions) systemPrompt += "\n\n[SESSION INSTRUCTIONS]\n" + systemInstructions;
 
     if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {

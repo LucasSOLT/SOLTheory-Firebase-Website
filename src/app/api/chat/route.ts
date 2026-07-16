@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
-import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
+import { nxtChapterKnowledge, buildOrgContext } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
@@ -438,6 +438,18 @@ export async function POST(req: Request) {
 
     const isNxtChapter = (rawAgentId || "").includes("nxtchapter");
     const isSolTheory = (rawAgentId || "").includes("soltheory");
+    const orgId = isNxtChapter ? "nxtchapter" : "soltheory";
+
+    // Read org profile from Firestore for dynamic context
+    let orgProfileData: any = null;
+    try {
+      await initAdmin();
+      const adminDb = getAdminFirestore();
+      const orgProfileDoc = await adminDb.collection('org_profiles').doc(orgId).get();
+      if (orgProfileDoc.exists) orgProfileData = orgProfileDoc.data();
+    } catch (e) {
+      console.warn('[chat] Could not load org profile:', e);
+    }
 
     let agentRole = "";
     switch (agentId) {
@@ -601,8 +613,10 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       combinedKnowledge += knowledgeBaseText + "\n\n";
     }
 
-    if (rawAgentId && rawAgentId.includes("nxtchapter")) {
-      combinedKnowledge += "\n\n[HARDCODED ORGANIZATIONAL KNOWLEDGE BASE]\n" + nxtChapterKnowledge;
+    // Build dynamic org context from Firestore profile + static knowledge fallback
+    const orgContext = buildOrgContext(orgProfileData, orgId);
+    if (orgContext) {
+      combinedKnowledge += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + orgContext;
     }
 
     if (rawAgentId && rawAgentId.includes("soltheory")) {
@@ -1717,15 +1731,15 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               } else {
                 const newConfig = {
                   grantTypes: args.grantTypes || ["housing_shelter", "health_human_services"],
-                  locationState: args.locationState || "Colorado",
-                  locationCity: args.locationCity || "Denver",
+                  locationState: args.locationState || orgProfileData?.locationState || "Colorado",
+                  locationCity: args.locationCity || orgProfileData?.locationCity || "Denver",
                   budgetMin: null,
                   budgetMax: null,
                   openDate: "",
                   closeDate: "",
                   intervalValue: args.intervalValue || 5,
                   intervalUnit: args.intervalUnit || "minutes",
-                  companyDescription: args.companyDescription || "Nonprofit organization providing social services, housing support, workforce development, and community engagement programs.",
+                  companyDescription: args.companyDescription || orgProfileData?.companyDescription || "Nonprofit organization providing social services, housing support, workforce development, and community engagement programs.",
                   welfareKeywords: args.welfareKeywords || ["501(c)(3) grants"],
                 };
 

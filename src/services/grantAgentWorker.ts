@@ -32,6 +32,8 @@ declare global {
 
 interface WorkerHandle {
   agentId: string;
+  sessionId?: string;
+  searchMode?: 'federal' | 'philanthropic';
   timeoutId: ReturnType<typeof setTimeout> | null;
   config: GrantAgentConfig;
   version: number;
@@ -72,10 +74,24 @@ function intervalToMs(value: number, unit: string): number {
   const ms = value * (multipliers[unit] || 60_000);
   return Math.max(ms, 60_000); // minimum 1 minute
 }
+/**
+ * Parse a worker key into sessionId + bare agentId.
+ * Worker keys are either "sessionId_agent_N" (session-scoped) or just "agent_N" (legacy).
+ */
+function parseWorkerKey(workerKey: string): { sessionId: string | null; bareAgentId: string } {
+  // Session-scoped: "abc123_agent_1" → sessionId="abc123", bareAgentId="agent_1"
+  const match = workerKey.match(/^(.+?)_(agent_\d+)$/);
+  if (match) {
+    return { sessionId: match[1], bareAgentId: match[2] };
+  }
+  // Legacy: "agent_1" → sessionId=null, bareAgentId="agent_1"
+  return { sessionId: null, bareAgentId: workerKey };
+}
 
 /**
  * Check Firestore for the last scan timestamp.
  * Returns true if enough time has passed to scan again.
+ * Reads from grant_sessions/{sessionId} if session-scoped, else grant_agent_config.
  */
 async function canScanNow(
   firestore: Firestore,
@@ -83,12 +99,18 @@ async function canScanNow(
   intervalMs: number
 ): Promise<boolean> {
   try {
-    const configRef = doc(firestore, "grant_agent_config", "soltheory");
-    const snap = await getDoc(configRef);
+    const { sessionId, bareAgentId } = parseWorkerKey(agentId);
+
+    // Read from session doc or legacy config
+    const docPath = sessionId
+      ? doc(firestore, "grant_sessions", sessionId)
+      : doc(firestore, "grant_agent_config", "soltheory");
+
+    const snap = await getDoc(docPath);
     if (!snap.exists()) return true;
 
     const data = snap.data();
-    const lastScanTime = data?.lastScanTimes?.[agentId];
+    const lastScanTime = data?.lastScanTimes?.[bareAgentId];
 
     if (!lastScanTime) return true;
 
@@ -108,19 +130,24 @@ async function canScanNow(
     return canScan;
   } catch (err) {
     console.error(`[GrantAgent:${agentId}] Error checking scan time:`, err);
-    return true; // fail OPEN — allow scan if we can't verify (network blips shouldn't block scanning)
+    return true; // fail OPEN — allow scan if we can't verify
   }
 }
 
 /**
  * Record the current time as the last scan time in Firestore.
- * This is the single source of truth across all tabs/reloads.
+ * Writes to grant_sessions/{sessionId} if session-scoped, else grant_agent_config.
  */
 async function recordScanTime(firestore: Firestore, agentId: string): Promise<void> {
   try {
-    const configRef = doc(firestore, "grant_agent_config", "soltheory");
-    await setDoc(configRef, {
-      lastScanTimes: { [agentId]: Timestamp.now() },
+    const { sessionId, bareAgentId } = parseWorkerKey(agentId);
+
+    const docPath = sessionId
+      ? doc(firestore, "grant_sessions", sessionId)
+      : doc(firestore, "grant_agent_config", "soltheory");
+
+    await setDoc(docPath, {
+      lastScanTimes: { [bareAgentId]: Timestamp.now() },
     }, { merge: true });
   } catch (err) {
     console.error(`[GrantAgent:${agentId}] Failed to record scan time:`, err);
@@ -128,16 +155,20 @@ async function recordScanTime(firestore: Firestore, agentId: string): Promise<vo
 }
 
 /**
- * Call the /api/grants/search endpoint (Grants.gov + Tavily fallback).
+ * Call the appropriate grant search endpoint based on searchMode.
  */
-async function searchWebForGrants(config: GrantAgentConfig): Promise<
-  { title: string; url: string; description: string; source: string; agency?: string; closeDate?: string; awardCeiling?: number; opportunityNumber?: string }[]
+async function searchWebForGrants(config: GrantAgentConfig, searchMode?: 'federal' | 'philanthropic'): Promise<
+  { title: string; url: string; description: string; source: string; agency?: string; closeDate?: string; awardAmountMax?: number; awardAmountMin?: number; opportunityNumber?: string; sources?: string[]; grantScope?: string; relevanceScore?: number; relevanceExplanation?: string; categoryCodes?: string[]; sourceUrl?: string; id?: string }[]
 > {
   try {
-    const res = await fetch("/api/grants/search", {
+    const endpoint = searchMode === 'philanthropic'
+      ? '/api/grants/search-philanthropic'
+      : '/api/grants/search';
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        // Legacy fields
         grantTypes: config.grantTypes,
         locationState: config.locationState,
         locationCity: config.locationCity,
@@ -145,6 +176,21 @@ async function searchWebForGrants(config: GrantAgentConfig): Promise<
         budgetMax: config.budgetMax,
         companyDescription: config.companyDescription,
         welfareKeywords: config.welfareKeywords,
+        openDate: config.openDate || null,
+        closeDate: config.closeDate || null,
+        // Organization identity
+        eligibilityType: config.eligibilityTypes?.[0] || "nonprofit_501c3",
+        eligibilityTypes: config.eligibilityTypes || [],
+        orgBudget: config.orgBudget ?? null,
+        orgStaffSize: config.orgStaffSize ?? null,
+        orgSamUei: config.orgSamUei || "",
+        // Search refinement
+        serviceAreas: config.serviceAreas || [],
+        populationsServed: config.populationsServed || [],
+        fundingInstruments: config.fundingInstruments || [],
+        fundingSources: config.fundingSources || [],
+        geoScope: config.geoScope || "state",
+        deadlineWindow: config.deadlineWindow || "any",
       }),
     });
 
@@ -192,6 +238,14 @@ async function validateGrantEligibility(
         companyDescription: config.companyDescription || "",
         welfareKeywords: config.welfareKeywords || [],
         grantTypes: config.grantTypes || [],
+        // New fields for richer validation context
+        serviceAreas: config.serviceAreas || [],
+        populationsServed: config.populationsServed || [],
+        eligibilityTypes: config.eligibilityTypes || [],
+        orgBudget: config.orgBudget ?? null,
+        geoScope: config.geoScope || "state",
+        locationState: config.locationState || "",
+        locationCity: config.locationCity || "",
       }),
     });
 
@@ -249,21 +303,15 @@ async function executeAgentScan(
     }
 
     // 4. Search the web FIRST, record scan time after success
-    const results = await searchWebForGrants(config);
+    const results = await searchWebForGrants(config, handle.searchMode);
 
-    // Safety guard: ONLY allow grants.gov URLs
+    // Filter out results without valid URLs
     const safeResults = results.filter(r => {
       try {
-        const hostname = new URL(r.url).hostname;
-        return hostname === 'www.grants.gov' || hostname === 'grants.gov';
+        new URL(r.url || r.sourceUrl || "");
+        return true;
       } catch { return false; }
     });
-
-    if (safeResults.length < results.length) {
-      console.warn(
-        `[GrantAgent:${agentId}] Filtered out ${results.length - safeResults.length} non-grants.gov URLs`
-      );
-    }
 
     if (safeResults.length === 0) {
       console.log(`[GrantAgent:${agentId}] No results from web search`);
@@ -361,35 +409,25 @@ async function executeAgentScan(
       return null;
     }
 
-    // 9. Build document with REAL data from Grants.gov + AI validation
-    let amount: number;
-    if (selected.awardCeiling) {
-      amount = selected.awardCeiling;
-    } else {
-      const minAmt = config.budgetMin ?? 10000;
-      const maxAmt = config.budgetMax ?? 500000;
-      amount = Math.round((minAmt + Math.random() * (maxAmt - minAmt)) / 1000) * 1000;
-    }
+    // 9. Build document with REAL data from search results + AI validation
+    const amount = selected.awardAmountMax || selected.awardAmountMin || null;
 
     const now = new Date();
-    const openDate = new Date(now);
-    openDate.setDate(openDate.getDate() - Math.floor(Math.random() * 14));
 
-    let closeDateObj: Date;
+    // Use real close date if available, otherwise null
+    let closeDateObj: Date | null = null;
     if (selected.closeDate) {
-      closeDateObj = new Date(selected.closeDate);
-      if (isNaN(closeDateObj.getTime())) {
-        closeDateObj = new Date(now);
-        closeDateObj.setDate(closeDateObj.getDate() + 60);
+      const parsed = new Date(selected.closeDate);
+      if (!isNaN(parsed.getTime())) {
+        closeDateObj = parsed;
       }
-    } else {
-      closeDateObj = new Date(openDate);
-      closeDateObj.setDate(closeDateObj.getDate() + 30 + Math.floor(Math.random() * 90));
     }
 
     const nextSteps = buildNextSteps(selected.source, selected.url, selected.description);
 
-    const grantDoc = {
+    const selectedUrl = selected.url || selected.sourceUrl || "";
+
+    const grantDoc: Record<string, unknown> = {
       title: selected.title,
       description: nextSteps,
       agency: selected.agency || selected.source,
@@ -397,69 +435,73 @@ async function executeAgentScan(
       status: "unapplied",
       orgId: "soltheory",
       agentId,
+      ...(handle.sessionId ? { sessionId: handle.sessionId } : {}),
+      searchMode: handle.searchMode || 'federal',
       dateSuggested: Timestamp.now(),
       createdAt: Timestamp.now(),
-      location_state: config.locationState || "Colorado",
-      location_city: config.locationCity || "Denver",
-      url: selected.url,
+      location_state: config.locationState || "",
+      location_city: config.locationCity || "",
+      url: selectedUrl,
       eligibility: validationResult.eligibilityText,
       eligibilityVerified: validationResult.confidence > 0,
       eligibilityConfidence: validationResult.confidence,
       eligibilityReason: validationResult.reasoning,
+      relevanceScore: selected.relevanceScore ?? null,
+      relevanceExplanation: selected.relevanceExplanation || null,
       fundingInstrument: "Grant",
-      activityCategories: config.grantTypes,
+      activityCategories: selected.categoryCodes || config.grantTypes,
       grantStructures: ["Grant"],
-      agencyLevels: [selected.source === "grants.gov" ? "Federal" : "State/Local"],
+      grantScope: selected.grantScope || null,
+      sources: selected.sources || [selected.source],
+      agencyLevels: handle.searchMode === 'philanthropic'
+        ? ["Foundation"]
+        : [selected.source === "grants.gov" ? "Federal" : "State/Local"],
       classification: config.grantTypes[0] || "housing_shelter",
-      openDate: Timestamp.fromDate(openDate),
-      closeDate: Timestamp.fromDate(closeDateObj),
+      ...(closeDateObj ? { closeDate: Timestamp.fromDate(closeDateObj) } : {}),
       sourceWebsite: selected.source,
-      sourceUrl: selected.url,
+      sourceUrl: selectedUrl,
       opportunityNumber: selected.opportunityNumber || "",
     };
 
     // 10. Write the primary grant
     const docRef = await addDoc(grantsRef, grantDoc);
-    handle.suggestedUrls.add(selected.url);
+    handle.suggestedUrls.add(selectedUrl);
     handle.suggestedTitles.add(selected.title.toLowerCase().trim());
-    console.log(`[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selected.url}`);
+    console.log(`[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selectedUrl}`);
 
     // 10b. Write additional accepted grants (up to MAX_GRANTS_PER_SCAN total)
     for (let g = 1; g < acceptedGrants.length; g++) {
       const extra = acceptedGrants[g];
       try {
-        let extraAmount: number;
-        if (extra.grant.awardCeiling) {
-          extraAmount = extra.grant.awardCeiling;
-        } else {
-          const minAmt = config.budgetMin ?? 10000;
-          const maxAmt = config.budgetMax ?? 500000;
-          extraAmount = Math.round((minAmt + Math.random() * (maxAmt - minAmt)) / 1000) * 1000;
-        }
-        let extraCloseDate: Date;
+        const extraAmount = extra.grant.awardAmountMax || extra.grant.awardAmountMin || null;
+        let extraCloseDate: Date | null = null;
         if (extra.grant.closeDate) {
-          extraCloseDate = new Date(extra.grant.closeDate);
-          if (isNaN(extraCloseDate.getTime())) extraCloseDate = new Date(Date.now() + 60 * 86400000);
-        } else {
-          extraCloseDate = new Date(Date.now() + (30 + Math.floor(Math.random() * 90)) * 86400000);
+          const parsed = new Date(extra.grant.closeDate);
+          if (!isNaN(parsed.getTime())) extraCloseDate = parsed;
         }
-        const extraDoc = {
+        const extraUrl = extra.grant.url || extra.grant.sourceUrl || "";
+        const extraDoc: Record<string, unknown> = {
           ...grantDoc,
           title: extra.grant.title,
-          description: buildNextSteps(extra.grant.source, extra.grant.url, extra.grant.description),
+          description: buildNextSteps(extra.grant.source, extraUrl, extra.grant.description),
           agency: extra.grant.agency || extra.grant.source,
           amount: extraAmount,
-          url: extra.grant.url,
-          sourceUrl: extra.grant.url,
+          url: extraUrl,
+          sourceUrl: extraUrl,
+          sources: extra.grant.sources || [extra.grant.source],
+          grantScope: extra.grant.grantScope || null,
+          relevanceScore: extra.grant.relevanceScore ?? null,
+          relevanceExplanation: extra.grant.relevanceExplanation || null,
+          activityCategories: extra.grant.categoryCodes || config.grantTypes,
           eligibility: extra.validation.eligibilityText,
           eligibilityVerified: extra.validation.confidence > 0,
           eligibilityConfidence: extra.validation.confidence,
           eligibilityReason: extra.validation.reasoning,
           opportunityNumber: extra.grant.opportunityNumber || "",
-          closeDate: Timestamp.fromDate(extraCloseDate),
+          ...(extraCloseDate ? { closeDate: Timestamp.fromDate(extraCloseDate) } : {}),
         };
         await addDoc(grantsRef, extraDoc);
-        handle.suggestedUrls.add(extra.grant.url);
+        handle.suggestedUrls.add(extraUrl);
         handle.suggestedTitles.add(extra.grant.title.toLowerCase().trim());
         console.log(`[GrantAgent:${agentId}] ✓ Extra grant ${g + 1}: "${extra.grant.title.substring(0, 50)}"`);
       } catch (extraErr) {
@@ -532,7 +574,9 @@ export function startAgentWorker(
   firestore: Firestore,
   agentId: string,
   config: GrantAgentConfig,
-  onGrantFound?: (grantId: string) => void
+  onGrantFound?: (grantId: string) => void,
+  sessionId?: string,
+  searchMode?: 'federal' | 'philanthropic'
 ) {
   // 1. Kill any existing worker (including from previous HMR)
   stopAgentWorker(agentId);
@@ -542,6 +586,8 @@ export function startAgentWorker(
 
   const handle: WorkerHandle = {
     agentId,
+    sessionId,
+    searchMode,
     timeoutId: null,
     config,
     version,

@@ -1,8 +1,9 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
-import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
+import { nxtChapterKnowledge, buildOrgContext } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
+import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 
 export async function POST(req: Request) {
   try {
@@ -28,6 +29,20 @@ export async function POST(req: Request) {
 
     if (systemInstructions) {
       systemPrompt += "\n\n[SESSION INSTRUCTIONS]\n" + systemInstructions;
+    }
+
+    // Inject dynamic org profile context
+    try {
+      await initAdmin();
+      const adminDb = getAdminFirestore();
+      const orgId = isNxt ? "nxtchapter" : "soltheory";
+      const orgSnap = await adminDb.collection("org_profiles").doc(orgId).get();
+      if (orgSnap.exists) {
+        const orgContext = buildOrgContext(orgSnap.data() as any, orgId);
+        if (orgContext) systemPrompt += "\n\n[DYNAMIC ORG PROFILE]\n" + orgContext;
+      }
+    } catch (e) {
+      console.warn("[voice-chat] Could not load org profile:", e);
     }
 
     if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {

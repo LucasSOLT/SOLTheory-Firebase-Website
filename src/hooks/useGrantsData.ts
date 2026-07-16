@@ -25,6 +25,17 @@ export interface GrantRecord {
   completedAt: string | null;
   deniedAt: string | null;
   createdAt: string | null;
+  // Multi-source pipeline fields (Round 1)
+  sources: string[];
+  sourceWebsite: string;
+  relevanceScore: number | null;
+  relevanceExplanation: string;
+  grantScope: string;
+  opportunityNumber: string;
+  closeDate: string | null;
+  // Multi-session fields
+  sessionId: string | null;
+  agentId: string | null;
 }
 
 interface UseGrantsDataResult {
@@ -41,7 +52,7 @@ interface UseGrantsDataResult {
  * are immediately visible). All three Tile 5 widgets consume this so
  * we make exactly ONE listener instead of three.
  */
-export function useGrantsData(orgId: string = "soltheory"): UseGrantsDataResult {
+export function useGrantsData(orgId: string = "soltheory", sessionId?: string | null): UseGrantsDataResult {
   const { user } = useUser();
   const firestore = useFirestore();
 
@@ -62,6 +73,8 @@ export function useGrantsData(orgId: string = "soltheory"): UseGrantsDataResult 
     let unsub: (() => void) | undefined;
     try {
       const grantsRef = collection(firestore, "grant_suggestions");
+      // Query by orgId only — sessionId filtering is done client-side
+      // to avoid requiring a composite Firestore index
       const q = query(grantsRef, where("orgId", "==", orgId));
 
       unsub = onSnapshot(
@@ -101,6 +114,16 @@ export function useGrantsData(orgId: string = "soltheory"): UseGrantsDataResult 
               completedAt: toISO(data.completedAt),
               deniedAt: toISO(data.deniedAt),
               createdAt: toISO(data.createdAt),
+              // Multi-source pipeline fields
+              sources: data.sources || (data.sourceWebsite ? [data.sourceWebsite] : []),
+              sourceWebsite: data.sourceWebsite || "",
+              relevanceScore: data.relevanceScore ?? null,
+              relevanceExplanation: data.relevanceExplanation || data.relevanceExplantion || "",
+              grantScope: data.grantScope || "",
+              opportunityNumber: data.opportunityNumber || "",
+              closeDate: toISO(data.closeDate),
+              sessionId: data.sessionId || null,
+              agentId: data.agentId || null,
             };
           });
 
@@ -111,7 +134,12 @@ export function useGrantsData(orgId: string = "soltheory"): UseGrantsDataResult 
             return bMs - aMs;
           });
 
-          setGrants(fetched);
+          // Client-side sessionId filtering (avoids composite index)
+          const filtered = sessionId
+            ? fetched.filter((g) => g.sessionId === sessionId)
+            : fetched;
+
+          setGrants(filtered);
           setError(null);
           setLoading(false);
         },
@@ -130,7 +158,7 @@ export function useGrantsData(orgId: string = "soltheory"): UseGrantsDataResult 
     }
 
     return () => unsub?.();
-  }, [firestore, user?.uid, orgId]);
+  }, [firestore, user?.uid, orgId, sessionId]);
 
   const refetch = useCallback(() => {
     // onSnapshot is real-time, so this is a no-op

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { X, Bot, Sparkles, Loader2, Plus, Trash2, RotateCcw } from "lucide-react";
+import { X, Bot, Sparkles, Loader2, Plus, Trash2, RotateCcw, Globe } from "lucide-react";
 import { GrantAgentConfigModal, type GrantAgentConfig } from "./GrantAgentConfigModal";
 import { GrantAgentBrowserSim } from "./GrantAgentBrowserSim";
 import { logActivity } from '@/lib/activity-logger';
+import { useOrgProfile } from '@/hooks/useOrgProfile';
+import { useGrantSessions } from '@/hooks/useGrantSessions';
 
 /* â”€â”€â”€ Types â”€â”€â”€ */
 export interface AgentSlot {
@@ -104,103 +105,71 @@ function ConfirmDialog({
   );
 }
 
-/* â”€â”€â”€ Hub Component â”€â”€â”€ */
+/* ─── Hub Component ─── */
 export function GrantAgentHub({ onClose }: { onClose: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { orgProfile, saveOrgProfile } = useOrgProfile("soltheory");
 
-  const [loading, setLoading] = useState(true);
-  const [slots, setSlots] = useState<AgentSlot[]>(
-    DEFAULT_AGENT_NAMES.map((name, i) => ({
-      id: `agent_${i + 1}`,
-      name,
-      config: null,
-      active: false,
-    }))
-  );
+  // ── Session-aware state ──
+  const {
+    activeSession,
+    activeSessionId,
+    updateSessionAgents,
+    loading: sessionsLoading,
+  } = useGrantSessions("soltheory");
+
   const [configuringSlotIndex, setConfiguringSlotIndex] = useState<number | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "delete" | "reset";
     index: number;
   } | null>(null);
 
-  // Load saved agent configs from Firestore
-  useEffect(() => {
-    async function load() {
-      if (!firestore) return;
-      try {
-        const docRef = doc(firestore, "grant_agent_config", "soltheory");
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          const agents = data.agents as Record<string, { name: string; config: GrantAgentConfig; active: boolean }> | undefined;
-          if (agents) {
-            setSlots((prev) =>
-              prev.map((slot) => {
-                const saved = agents[slot.id];
-                if (saved) {
-                  return {
-                    ...slot,
-                    name: saved.name || slot.name,
-                    config: saved.config || null,
-                    active: saved.active ?? false,
-                  };
-                }
-                return slot;
-              })
-            );
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load agent hub config:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [firestore]);
+  const loading = sessionsLoading;
 
-  // Save a single agent's config after the modal closes
-  async function handleSaveAgent(index: number, config: GrantAgentConfig) {
-    const updatedSlots = [...slots];
-    updatedSlots[index] = {
-      ...updatedSlots[index],
-      config,
-      active: true,
+  // ── Derive slots from active session ──
+  const slots: AgentSlot[] = DEFAULT_AGENT_NAMES.map((name, i) => {
+    const id = `agent_${i + 1}`;
+    const saved = activeSession?.agents?.[id];
+    return {
+      id,
+      name: saved?.name || name,
+      config: saved?.config || null,
+      active: saved?.active ?? false,
     };
-    setSlots(updatedSlots);
-    setConfiguringSlotIndex(null);
+  });
 
-    // Persist to Firestore â€” the AgentWorkerController will detect the
-    // change via onSnapshot and start/stop workers automatically
-    if (!firestore) return;
-    try {
-      const docRef = doc(firestore, "grant_agent_config", "soltheory");
-      const agentsMap: Record<string, any> = {};
-      updatedSlots.forEach((slot) => {
-        agentsMap[slot.id] = {
-          name: slot.name,
-          config: slot.config,
-          active: slot.active,
-        };
-      });
-      await setDoc(docRef, { agents: agentsMap, updatedAt: new Date(), updatedBy: user?.uid || null }, { merge: true });
-      logActivity(firestore, 'grant_agent_created', { email: user?.email || '', displayName: user?.displayName }, `Created agent: ${slots[index]?.name || 'unnamed'}`);
-    } catch (err) {
-      console.error("Failed to save agent config:", err);
+  // ── Derive lastScanTimes from active session ──
+  const lastScanTimes: Record<string, Date | null> = {};
+  if (activeSession?.lastScanTimes) {
+    for (const [agentId, ts] of Object.entries(activeSession.lastScanTimes)) {
+      if (ts && typeof (ts as any).toDate === "function") {
+        lastScanTimes[agentId] = (ts as any).toDate();
+      } else if (ts) {
+        lastScanTimes[agentId] = new Date(ts as any);
+      } else {
+        lastScanTimes[agentId] = null;
+      }
     }
   }
 
-  // Clear an agent slot in Firestore (shared by delete & reset)
+  // Save a single agent's config — writes to session document
+  async function handleSaveAgent(index: number, config: GrantAgentConfig) {
+    if (!activeSessionId) return;
+    const agentId = `agent_${index + 1}`;
+    const nextAgents = { ...(activeSession?.agents || {}) };
+    nextAgents[agentId] = { name: slots[index].name, config, active: true };
+    await updateSessionAgents(activeSessionId, nextAgents);
+    setConfiguringSlotIndex(null);
+    if (firestore) {
+      logActivity(firestore, 'grant_agent_created', { email: user?.email || '', displayName: user?.displayName }, `Created agent: ${slots[index]?.name || 'unnamed'}`);
+    }
+  }
+
+  // Clear an agent slot — writes to session document
   async function clearAgentSlot(index: number, purgeGrants: boolean) {
+    if (!activeSessionId) return;
     const agentId = slots[index].id;
-    const updatedSlots = [...slots];
-    updatedSlots[index] = {
-      ...updatedSlots[index],
-      config: null,
-      active: false,
-    };
-    setSlots(updatedSlots);
 
     // Purge the agent's discovered grants if requested
     if (purgeGrants) {
@@ -211,26 +180,15 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
       }
     }
 
-    // Persist cleared config to Firestore
-    if (!firestore) return;
-    try {
-      const docRef = doc(firestore, "grant_agent_config", "soltheory");
-      const agentsMap: Record<string, any> = {};
-      updatedSlots.forEach((slot) => {
-        agentsMap[slot.id] = {
-          name: slot.name,
-          config: slot.config,
-          active: slot.active,
-        };
-      });
-      await setDoc(docRef, { agents: agentsMap, updatedAt: new Date(), updatedBy: user?.uid || null }, { merge: true });
+    const nextAgents = { ...(activeSession?.agents || {}) };
+    nextAgents[agentId] = { name: slots[index].name, config: null, active: false };
+    await updateSessionAgents(activeSessionId, nextAgents);
+    if (firestore) {
       logActivity(firestore, 'grant_agent_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted agent: ${slots[index]?.name || 'unnamed'}`);
-    } catch (err) {
-      console.error("Failed to clear agent config:", err);
     }
   }
 
-  // Delete agent â€” remove without reopening config
+  // Delete agent — remove without reopening config
   async function handleDeleteAgent(purgeGrants: boolean) {
     if (confirmDialog === null) return;
     const index = confirmDialog.index;
@@ -280,7 +238,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
               Configure your autonomous grant search agent. All opportunities are sourced exclusively from Grants.gov â€” the official U.S. government grants database.
             </p>
             <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <Globe className="w-3 h-3 text-emerald-600" />
               <span className="text-[10px] font-semibold text-emerald-700 tracking-wide">Powered by Grants.gov</span>
             </div>
           </div>
@@ -323,13 +281,13 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className={`w-1.5 h-1.5 rounded-full ${colors.dot} animate-pulse`} />
-                            <span className={`text-[8px] font-bold uppercase tracking-wider ${colors.label}`}>Live</span>
+                            <div className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
+                            <span className={`text-[8px] font-bold uppercase tracking-wider ${colors.label}`}>Running</span>
                           </div>
                         </div>
                         {/* Browser Simulation Viewport */}
                         <div className="flex-1 min-h-[120px] relative">
-                          <GrantAgentBrowserSim config={slot.config!} colorTheme={{ dot: colors.dot, label: colors.label }} />
+                          <GrantAgentBrowserSim config={slot.config!} colorTheme={{ dot: colors.dot, label: colors.label }} lastScanTime={lastScanTimes[slot.id] || null} />
                         </div>
                         {/* Action buttons â€” Reset & Delete */}
                         <div className="absolute top-2 right-2 z-30 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
@@ -401,6 +359,8 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
           initialConfig={slots[configuringSlotIndex].config ?? undefined}
           onClose={() => setConfiguringSlotIndex(null)}
           onSave={(config) => handleSaveAgent(configuringSlotIndex, config)}
+          orgProfile={orgProfile}
+          onSaveOrgProfile={saveOrgProfile}
         />
       )}
 

@@ -62,12 +62,24 @@ function getCardBg(status: string, dark: boolean): string {
 }
 
 function formatCurrency(amount: number | null): string {
-  if (amount == null) return "â€”";
+  if (amount == null) return "Not specified";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function getDaysUntilClose(closeDate: string | null): number | null {
+  if (!closeDate) return null;
+  try {
+    const close = new Date(closeDate);
+    if (isNaN(close.getTime())) return null;
+    const now = new Date();
+    return Math.ceil((close.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
 }
 
 function formatDate(ts: string | null): string {
@@ -277,7 +289,7 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                   isDeleting ? "opacity-50 pointer-events-none" : ""
                 }`}
               >
-                {/* Left: Title + date */}
+              {/* Left: Title + date + enhancements */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
                     <p className={`text-[10px] font-bold truncate leading-tight ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
@@ -296,14 +308,48 @@ export function SuggestedGrantsList({ grants = [], loading }: Props) {
                       </a>
                     )}
                   </div>
-                  <p className={`text-[8px] font-medium truncate mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-                    {formatDate(grant.dateSuggested)}
+                  {/* Meta row: date, amount, deadline, source */}
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span className={`text-[8px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+                      {formatDate(grant.dateSuggested)}
+                    </span>
                     {grant.amount != null && (
-                      <span className={`ml-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>
+                      <span className={`text-[8px] font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>
                         {formatCurrency(grant.amount)}
                       </span>
                     )}
-                  </p>
+                    {(() => {
+                      const days = getDaysUntilClose(grant.closeDate);
+                      if (days == null || days < 0) return null;
+                      const color = days < 3 ? (isDarkMode ? 'text-red-400' : 'text-red-500') : days < 7 ? (isDarkMode ? 'text-amber-400' : 'text-amber-600') : (isDarkMode ? 'text-slate-400' : 'text-slate-400');
+                      return (
+                        <span className={`text-[7px] font-bold ${color}`}>
+                          {days === 0 ? 'Closes today!' : days === 1 ? 'Closes tomorrow' : `${days}d left`}
+                        </span>
+                      );
+                    })()}
+                    {grant.sources && grant.sources.length > 0 && grant.sources.slice(0, 2).map((src) => (
+                      <span key={src} className={`text-[6px] font-bold uppercase tracking-wider px-1 py-0 rounded-full border ${isDarkMode ? 'bg-indigo-950/50 border-indigo-800 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-500'}`}>
+                        {src}
+                      </span>
+                    ))}
+                  </div>
+                  {/* Relevance mini-bar */}
+                  {grant.relevanceScore != null && grant.relevanceScore > 0 && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className={`flex-1 h-1 rounded-full overflow-hidden max-w-[80px] ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            grant.relevanceScore >= 75 ? 'bg-emerald-500' : grant.relevanceScore >= 50 ? 'bg-amber-500' : 'bg-slate-400'
+                          }`}
+                          style={{ width: `${grant.relevanceScore}%` }}
+                        />
+                      </div>
+                      <span className={`text-[7px] font-bold tabular-nums ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+                        {grant.relevanceScore}%
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Center: Agency */}

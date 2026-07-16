@@ -404,6 +404,24 @@ service cloud.firestore {
     }
 
     /**
+     * @description Centralized organization profile for auto-filling agent configs.
+     * @path /org_profiles/{orgId}
+     * @allow (read, write) Any signed-in user can manage org profiles.
+     */
+    match /org_profiles/{orgId} {
+      allow read, write: if isSignedIn();
+    }
+
+    /**
+     * @description Multi-session grant search sessions.
+     * @path /grant_sessions/{sessionId}
+     * @allow (read, write) Any signed-in user can manage grant sessions.
+     */
+    match /grant_sessions/{sessionId} {
+      allow read, write: if isSignedIn();
+    }
+
+    /**
      * @description Suggested grants discovered by search agents.
      * @path /grant_suggestions/{grantId}
      * @allow (read, create) Any signed-in user can read and create grant suggestions.

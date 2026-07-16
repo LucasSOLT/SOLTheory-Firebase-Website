@@ -1,18 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  ArrowLeft, Bot, Loader2, Plus, Trash2,
-  ArrowUpRight, FileText, ChevronRight, ExternalLink
+  ArrowLeft, Loader2,
+  ArrowUpRight, FileText, ChevronRight,
+  MapPin, DollarSign, Calendar, Users,
+  Building2, MonitorSmartphone
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
-import { useUser, useFirestore } from "@/firebase";
-import { type AgentSlot } from "@/components/portal/GrantAgentHub";
+import { useFirestore } from "@/firebase";
 import { GrantAgentConfigModal, type GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
-import { GrantAgentBrowserSim } from "@/components/portal/GrantAgentBrowserSim";
-import { doc, getDoc, setDoc, collection, onSnapshot, query, where } from "firebase/firestore";
-import { logActivity } from "@/lib/activity-logger";
+import { SessionSwitcher } from "@/components/portal/SessionSwitcher";
+import { useGrantSessions } from "@/hooks/useGrantSessions";
+import { useOrgProfile } from "@/hooks/useOrgProfile";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+
+import { SERVICE_AREA_GROUPS } from "@/data/service-areas";
+import { POPULATION_CATEGORIES } from "@/data/populations";
 
 /* ── Types ── */
 interface GrantRecord {
@@ -32,14 +37,7 @@ function fmtCurrency(v: number | null): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 }
 
-const SLOT_ACCENT = [
-  { gradient: "from-indigo-500 to-violet-600", ring: "ring-indigo-400/25", dot: "bg-indigo-500", muted: "text-indigo-600 dark:text-indigo-400" },
-  { gradient: "from-emerald-500 to-teal-600", ring: "ring-emerald-400/25", dot: "bg-emerald-500", muted: "text-emerald-600 dark:text-emerald-400" },
-  { gradient: "from-amber-500 to-orange-500", ring: "ring-amber-400/25", dot: "bg-amber-500", muted: "text-amber-600 dark:text-amber-400" },
-  { gradient: "from-rose-500 to-pink-600", ring: "ring-rose-400/25", dot: "bg-rose-500", muted: "text-rose-600 dark:text-rose-400" },
-];
 
-const DEFAULT_NAMES = ["Global Grant Scout", "Health & Human Services", "Community Development", "Custom Agent"];
 
 /* ═══════════════════════════════════════════════════════
    PAGE
@@ -49,7 +47,6 @@ export default function FederalGrantScoutDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const { isDarkMode } = useTheme();
-  const { user } = useUser();
   const firestore = useFirestore();
 
   const orgPrefix = pathname.includes("/nxtchapter/") ? "nxtchapter" : "soltheory";
@@ -58,51 +55,47 @@ export default function FederalGrantScoutDashboard() {
   const dk = isDarkMode;
 
   /* ── state ── */
-  const [loading, setLoading] = useState(true);
-  const [slots, setSlots] = useState<AgentSlot[]>(DEFAULT_NAMES.map((n, i) => ({ id: `agent_${i + 1}`, name: n, config: null, active: false })));
-  const [cfgIdx, setCfgIdx] = useState<number | null>(null);
+
   const [grants, setGrants] = useState<GrantRecord[]>([]);
   const [grantsLoading, setGrantsLoading] = useState(true);
+  const [showNewSessionWizard, setShowNewSessionWizard] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
 
-  /* ── load agent config ── */
-  useEffect(() => {
-    if (!firestore) return;
-    (async () => {
-      try {
-        const snap = await getDoc(doc(firestore, "grant_agent_config", "soltheory"));
-        if (snap.exists()) {
-          const agents = snap.data().agents as Record<string, any> | undefined;
-          if (agents) setSlots(p => p.map(s => { const sv = agents[s.id]; return sv ? { ...s, name: sv.name || s.name, config: sv.config || null, active: sv.active ?? false } : s; }));
-        }
-      } catch {} finally { setLoading(false); }
-    })();
-  }, [firestore]);
+  /* ── sessions hook ── */
+  const {
+    sessions, activeSession, activeSessionId, setActiveSessionId,
+    createSession, updateSession, deleteSession, renameSession, canCreateMore,
+    loading: sessionsLoading,
+  } = useGrantSessions("soltheory");
+  const { orgProfile, saveOrgProfile } = useOrgProfile("soltheory");
 
-  /* ── load grants ── */
+  /* ── filter sessions to federal only ── */
+  const federalSessions = useMemo(
+    () => sessions.filter((s: any) => s.searchMode === 'federal' || !s.searchMode),
+    [sessions]
+  );
+
+  const loading = sessionsLoading;
+
+  /* ── load grants (filtered by active session — client-side) ── */
   useEffect(() => {
     if (!firestore) return;
     const q = query(collection(firestore, "grant_suggestions"), where("orgId", "==", "soltheory"));
-    const unsub = onSnapshot(q, s => { setGrants(s.docs.map(d => ({ id: d.id, ...d.data() } as GrantRecord))); setGrantsLoading(false); }, () => setGrantsLoading(false));
+    const unsub = onSnapshot(q, s => {
+      const all = s.docs.map(d => ({ id: d.id, ...d.data() } as GrantRecord));
+      // If a session is selected, show only that session's grants
+      // Otherwise, show only grants that belong to federal sessions
+      const federalSessionIds = new Set(federalSessions.map(fs => fs.id));
+      const filtered = activeSessionId
+        ? all.filter((g: any) => g.sessionId === activeSessionId)
+        : all.filter((g: any) => g.searchMode === 'federal' || (!g.searchMode && federalSessionIds.has(g.sessionId)));
+      setGrants(filtered);
+      setGrantsLoading(false);
+    }, () => setGrantsLoading(false));
     return unsub;
-  }, [firestore]);
-
-  /* ── save / clear ── */
-  async function save(index: number, config: GrantAgentConfig) {
-    const next = [...slots]; next[index] = { ...next[index], config, active: true }; setSlots(next); setCfgIdx(null);
-    if (!firestore) return;
-    const m: Record<string, any> = {}; next.forEach(s => { m[s.id] = { name: s.name, config: s.config, active: s.active }; });
-    await setDoc(doc(firestore, "grant_agent_config", "soltheory"), { agents: m, updatedAt: new Date(), updatedBy: user?.uid || null }, { merge: true }).catch(() => {});
-    logActivity(firestore, "grant_agent_created", { email: user?.email || "", displayName: user?.displayName }, `Created: ${slots[index]?.name}`);
-  }
-  async function clear(index: number) {
-    const next = [...slots]; next[index] = { ...next[index], config: null, active: false }; setSlots(next);
-    if (!firestore) return;
-    const m: Record<string, any> = {}; next.forEach(s => { m[s.id] = { name: s.name, config: s.config, active: s.active }; });
-    await setDoc(doc(firestore, "grant_agent_config", "soltheory"), { agents: m, updatedAt: new Date(), updatedBy: user?.uid || null }, { merge: true }).catch(() => {});
-  }
+  }, [firestore, activeSessionId, federalSessions]);
 
   /* ── derived stats ── */
-  const active = slots.filter(s => s.active).length;
   const total = grants.length;
   const applied = grants.filter(g => g.status === "applied").length;
   const approved = grants.filter(g => g.status === "approved").length;
@@ -120,6 +113,13 @@ export default function FederalGrantScoutDashboard() {
     <div className={`min-h-screen ${surface2} ${txt} overflow-y-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-10 py-8">
 
+        {/* ── Federal scout accent bar ── */}
+        <div className="flex items-center gap-2.5 mb-6 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 shadow-sm">
+          <Building2 className="w-4 h-4 text-white/90 drop-shadow-sm" />
+          <span className="text-[11px] font-bold text-white tracking-wide uppercase">Federal Grant Scout</span>
+          <span className="text-[10px] text-white/70 font-medium ml-auto">Grants.gov · SAM.gov · USASpending</span>
+        </div>
+
         {/* ── breadcrumb ── */}
         <button
           onClick={() => router.push(`${dash}/agentic-prospecting`)}
@@ -134,10 +134,7 @@ export default function FederalGrantScoutDashboard() {
           <div>
             <div className="flex items-center gap-2.5 mb-1">
               <h1 className={`text-2xl font-semibold tracking-tight ${txt}`}>Federal Grant Scout</h1>
-              <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md ${dk ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-700"}`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Active
-              </span>
+
             </div>
             <p className={`text-[13px] leading-relaxed max-w-xl ${txt2}`}>
               Autonomous agents scanning Grants.gov daily, matching opportunities to your organizational eligibility profile.
@@ -155,7 +152,7 @@ export default function FederalGrantScoutDashboard() {
         {/* ── stats ── */}
         <div className={`grid grid-cols-2 md:grid-cols-4 border rounded-xl overflow-hidden mb-8 ${surface} ${divide}`}>
           {[
-            { label: "Agents deployed", value: `${active}/${slots.length}` },
+            { label: "Sessions active", value: String(federalSessions.length) },
             { label: "Grants discovered", value: grantsLoading ? "–" : String(total) },
             { label: "Applications filed", value: grantsLoading ? "–" : String(applied) },
             { label: "Approved funding", value: grantsLoading ? "–" : fmtCurrency(funding || null) },
@@ -167,85 +164,117 @@ export default function FederalGrantScoutDashboard() {
           ))}
         </div>
 
-        {/* ── agent slots heading ── */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className={`text-[15px] font-semibold ${txt}`}>Search Agents</h2>
-          <p className={`text-[12px] ${txt3}`}>{active} of {slots.length} active</p>
+        {/* ── Session Switcher ── */}
+        <div className={`rounded-xl border p-4 mb-6 ${surface}`}>
+          <SessionSwitcher
+            sessions={federalSessions}
+            activeSessionId={activeSessionId}
+            onSelectSession={setActiveSessionId}
+            onCreateSession={() => setShowNewSessionWizard(true)}
+            onDeleteSession={(id) => deleteSession(id, true)}
+            onRenameSession={renameSession}
+            onEditSession={(id) => setEditingSessionId(id)}
+            onDuplicateSession={async (id) => {
+              const src = sessions.find(s => s.id === id);
+              if (!src) return;
+              await createSession(src.name + " (Copy)", src.config, undefined, src.searchMode === 'federal' ? undefined : src.searchMode as any);
+            }}
+            canCreateMore={canCreateMore}
+            loading={sessionsLoading}
+          />
         </div>
 
-        {/* ── agent slots grid ── */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16"><Loader2 className={`w-5 h-5 animate-spin ${txt3}`} /></div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-            {slots.map((slot, i) => {
-              const c = SLOT_ACCENT[i];
-              const on = slot.active && slot.config;
-              return (
-                <div
-                  key={slot.id}
-                  onClick={() => setCfgIdx(i)}
-                  className={`group relative rounded-xl border p-4 transition-all cursor-pointer ${
-                    on
-                      ? `${surface} ring-1 ${c.ring}`
-                      : dk
-                        ? "border-dashed border-[#1e2028] bg-[#0c0d0f] hover:bg-[#111214] hover:border-[#2a2d38]"
-                        : "border-dashed border-slate-200 bg-[#f7f7f5] hover:bg-white hover:border-slate-300"
+        {/* ── Client-side scanning notice ── */}
+        <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 mb-6 ${dk ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-200"}`}>
+          <MonitorSmartphone className={`w-4 h-4 mt-0.5 shrink-0 ${dk ? "text-amber-400" : "text-amber-600"}`} />
+          <div>
+            <p className={`text-[11px] font-bold mb-0.5 ${dk ? "text-amber-300" : "text-amber-800"}`}>Scans run in your browser</p>
+            <p className={`text-[10px] leading-relaxed ${dk ? "text-amber-400/70" : "text-amber-700/80"}`}>
+              Grant scouts search while this tab is open and active. If you close the tab, navigate away, or your computer sleeps, scanning pauses automatically and resumes when you return. Keep this page open for continuous, uninterrupted discovery.
+            </p>
+          </div>
+        </div>
+
+        {/* ── Active filter summary strip ── */}
+        {activeSession && (() => {
+          const cfg = activeSession.config;
+          if (!cfg) return null;
+          const tags: { icon: React.ReactNode; text: string }[] = [];
+
+          // Location
+          if (cfg.locationCity && cfg.locationState) {
+            tags.push({ icon: <MapPin className="w-3 h-3" />, text: `${cfg.locationCity}, ${cfg.locationState}` });
+          } else if (cfg.locationState) {
+            tags.push({ icon: <MapPin className="w-3 h-3" />, text: cfg.locationState });
+          } else if (cfg.geoScope === "nationwide") {
+            tags.push({ icon: <MapPin className="w-3 h-3" />, text: "Nationwide" });
+          }
+
+          // Service areas (show up to 3)
+          if (cfg.serviceAreas?.length > 0) {
+            const labels = cfg.serviceAreas.slice(0, 3).map(id => {
+              for (const g of SERVICE_AREA_GROUPS) {
+                const sub = g.subcategories.find(s => s.id === id);
+                if (sub) return sub.label.split(" & ")[0]; // shorten
+              }
+              return id;
+            });
+            const extra = cfg.serviceAreas.length > 3 ? ` +${cfg.serviceAreas.length - 3}` : "";
+            tags.push({ icon: <FileText className="w-3 h-3" />, text: labels.join(", ") + extra });
+          }
+
+          // Budget
+          if (cfg.budgetMin || cfg.budgetMax) {
+            const fmt = (n: number) => n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : `$${n}`;
+            if (cfg.budgetMin && cfg.budgetMax) {
+              tags.push({ icon: <DollarSign className="w-3 h-3" />, text: `${fmt(cfg.budgetMin)}–${fmt(cfg.budgetMax)}` });
+            } else if (cfg.budgetMin) {
+              tags.push({ icon: <DollarSign className="w-3 h-3" />, text: `${fmt(cfg.budgetMin)}+` });
+            } else if (cfg.budgetMax) {
+              tags.push({ icon: <DollarSign className="w-3 h-3" />, text: `Up to ${fmt(cfg.budgetMax)}` });
+            }
+          }
+
+          // Deadline
+          if (cfg.deadlineWindow && cfg.deadlineWindow !== "any") {
+            const dl: Record<string, string> = { "30": "30 days", "60": "60 days", "90": "90 days", "180": "6 months", "custom": "Custom" };
+            tags.push({ icon: <Calendar className="w-3 h-3" />, text: dl[cfg.deadlineWindow] || cfg.deadlineWindow });
+          }
+
+          // Populations (show up to 2)
+          if (cfg.populationsServed?.length > 0) {
+            const popLabels = cfg.populationsServed.slice(0, 2).map(id => {
+              const cat = POPULATION_CATEGORIES?.find?.((p: any) => p.id === id);
+              return cat?.label?.split(" (")[0] || id;
+            });
+            const extra = cfg.populationsServed.length > 2 ? ` +${cfg.populationsServed.length - 2}` : "";
+            tags.push({ icon: <Users className="w-3 h-3" />, text: popLabels.join(", ") + extra });
+          }
+
+          if (tags.length === 0) return null;
+
+          return (
+            <div className={`flex flex-wrap items-center gap-2 mb-4 px-1`}>
+              {tags.map((tag, i) => (
+                <span
+                  key={i}
+                  className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors ${
+                    dk ? "bg-[#1a1b1f] text-slate-400 border border-[#252730]" : "bg-slate-100 text-slate-600 border border-slate-200"
                   }`}
                 >
-                  {on ? (
-                    <>
-                      <div className="flex items-center justify-between mb-2.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${c.gradient} flex items-center justify-center shrink-0`}>
-                            <Bot className="w-3 h-3 text-white" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className={`text-[13px] font-medium truncate ${txt}`}>{slot.name}</p>
-                            <p className={`text-[11px] ${txt3} truncate`}>
-                              {slot.config!.locationCity && slot.config!.locationState
-                                ? `${slot.config!.locationCity}, ${slot.config!.locationState}`
-                                : "Scanning"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className={`w-1.5 h-1.5 rounded-full ${c.dot} animate-pulse`} />
-                          <span className={`text-[10px] font-medium ${c.muted}`}>Live</span>
-                        </div>
-                      </div>
-                      <div className="min-h-[90px] relative"><GrantAgentBrowserSim config={slot.config!} colorTheme={{ dot: c.dot, label: c.muted }} /></div>
-                      {/* delete btn */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); clear(i); }}
-                        className={`absolute top-2.5 right-2.5 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer ${dk ? "bg-[#1e2028] text-slate-400 hover:text-red-400" : "bg-white border border-slate-200 text-slate-400 hover:text-red-500"}`}
-                        title="Remove agent"
-                      ><Trash2 className="w-3 h-3" /></button>
-                      {/* edit overlay */}
-                      <div className="absolute inset-0 rounded-xl flex items-center justify-center pointer-events-none">
-                        <span className={`text-[10px] font-medium px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${dk ? "bg-[#1e2028] text-slate-300" : "bg-white border border-slate-200 text-slate-500 shadow-sm"}`}>
-                          Edit configuration
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-5 text-center min-h-[140px]">
-                      <div className={`w-10 h-10 rounded-lg border border-dashed flex items-center justify-center mb-2.5 ${dk ? "border-[#2a2d38]" : "border-slate-300"}`}>
-                        <Plus className={`w-4 h-4 ${txt3} group-hover:${txt2} transition-colors`} />
-                      </div>
-                      <p className={`text-[13px] font-medium mb-0.5 ${dk ? "text-slate-500" : "text-slate-400"}`}>{slot.name}</p>
-                      <p className={`text-[11px] ${dk ? "text-slate-600" : "text-slate-300"}`}>Click to deploy</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  {tag.icon}
+                  {tag.text}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
+
+
 
         {/* ── recent discoveries heading ── */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className={`text-[15px] font-semibold ${txt}`}>Recent Discoveries</h2>
+          <h2 className={`text-[15px] font-semibold ${txt}`}>{activeSession ? `${activeSession.name} — Discoveries` : "Recent Discoveries"}</h2>
           {grants.length > 0 && (
             <button
               onClick={() => router.push(`${dash}/grant-statuses`)}
@@ -318,14 +347,61 @@ export default function FederalGrantScoutDashboard() {
         </div>
       </div>
 
-      {/* ── config modal ── */}
-      {cfgIdx !== null && (
+
+      {/* ── new session wizard ── */}
+      {showNewSessionWizard && (
         <GrantAgentConfigModal
-          initialConfig={slots[cfgIdx].config ?? undefined}
-          onClose={() => setCfgIdx(null)}
-          onSave={(config) => save(cfgIdx, config)}
+          onClose={() => setShowNewSessionWizard(false)}
+          onSave={async (config) => {
+            const sessionName = config.companyDescription
+              ? config.companyDescription.substring(0, 30) + "..."
+              : `Session ${federalSessions.length + 1}`;
+            await createSession(sessionName, config);
+            setShowNewSessionWizard(false);
+          }}
+          orgProfile={orgProfile}
+          onSaveOrgProfile={saveOrgProfile}
         />
       )}
+
+      {/* ── edit session wizard ── */}
+      {editingSessionId && (() => {
+        const editSession = sessions.find(s => s.id === editingSessionId);
+        if (!editSession) return null;
+        // Find most recent scan timestamp across all agents
+        const scanTimes = editSession.lastScanTimes || {};
+        let latestScanTs: any = null;
+        for (const ts of Object.values(scanTimes)) {
+          if (!ts) continue;
+          const ms = typeof (ts as any).toMillis === "function" ? (ts as any).toMillis() : new Date(ts as any).getTime();
+          if (!latestScanTs) { latestScanTs = ts; continue; }
+          const prevMs = typeof (latestScanTs as any).toMillis === "function" ? (latestScanTs as any).toMillis() : new Date(latestScanTs as any).getTime();
+          if (ms > prevMs) latestScanTs = ts;
+        }
+        return (
+          <GrantAgentConfigModal
+            onClose={() => setEditingSessionId(null)}
+            initialConfig={editSession.config}
+            isEditMode
+            lastScanTimestamp={latestScanTs}
+            onSave={async (config, options) => {
+              const updates: any = { config };
+              if (options?.resetTimer) {
+                // Clear all scan times so agents re-scan immediately
+                const cleared: Record<string, null> = {};
+                for (const agentId of Object.keys(editSession.agents)) {
+                  cleared[agentId] = null;
+                }
+                updates.lastScanTimes = cleared;
+              }
+              await updateSession(editingSessionId, updates);
+              setEditingSessionId(null);
+            }}
+            orgProfile={orgProfile}
+            onSaveOrgProfile={saveOrgProfile}
+          />
+        );
+      })()}
     </div>
   );
 }

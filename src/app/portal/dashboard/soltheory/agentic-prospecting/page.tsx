@@ -26,7 +26,6 @@ interface AgentScout {
   actionLabel: string;
   imageUrl?: string;
   route?: string;
-  badge?: string;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -82,11 +81,23 @@ export default function AgenticProspectingPage() {
       orgCategory: "Health and Human Services",
       icon: <ClipboardList className="w-5 h-5" />,
       status: "active",
-      badge: "Active",
       details: ["Region: XT Chapter Area", "Frequency: Daily", "Source: Grants.gov"],
       actionLabel: "Open Dashboard",
       imageUrl: "/federal_grant_scout_demo.png",
       route: `${dash}/agentic-prospecting/federal-grant-scout`,
+    },
+    {
+      id: "philanthropic-grants",
+      name: "Philanthropic Grant Scout",
+      tagline: "Foundation & Private Funding Discovery",
+      description: "Discovers private foundations, corporate giving programs, and philanthropic organizations aligned with your mission using IRS 990 data and foundation databases.",
+      orgCategory: "Health and Human Services",
+      icon: <ClipboardList className="w-5 h-5" />,
+      status: "active",
+      details: ["Source: ProPublica, IRS 990-PF", "Focus: Foundations & Philanthropists", "Frequency: Configurable"],
+      actionLabel: "Open Dashboard",
+      imageUrl: "/philanthropic_grant_scout_demo.png",
+      route: `${dash}/agentic-prospecting/philanthropic-grant-scout`,
     },
   ];
 
@@ -220,10 +231,7 @@ export default function AgenticProspectingPage() {
                   </div>
                 )}
                 <div className={`absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t ${dk ? "from-[#111214]" : "from-white"} to-transparent`} />
-                {/* badges */}
-                <span className={`absolute top-3 right-3 text-[10px] font-medium px-2 py-0.5 rounded-md ${
-                  agent.status === "active" ? (dk ? "bg-emerald-500/15 text-emerald-400" : "bg-emerald-50 text-emerald-700") : (dk ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500")
-                }`}>{agent.badge}</span>
+
                 <span className={`absolute bottom-3 left-4 text-[10px] font-medium px-2 py-0.5 rounded-md ${dk ? "bg-[#111214]/80 text-slate-400 backdrop-blur-sm" : "bg-white/80 text-slate-500 backdrop-blur-sm"}`}>
                   {agent.orgCategory}
                 </span>

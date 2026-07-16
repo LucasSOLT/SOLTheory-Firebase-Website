@@ -1,3 +1,49 @@
+import type { OrgProfileData } from '@/hooks/useOrgProfile';
+
+/**
+ * Build dynamic org context from the org profile, overlaying on top of
+ * the static knowledge base. Falls back to hardcoded knowledge if no
+ * profile is available.
+ */
+export function buildOrgContext(orgProfile: OrgProfileData | null, orgId: string): string {
+  // If no profile, fall back to static knowledge
+  if (!orgProfile) {
+    return orgId === 'nxtchapter' ? nxtChapterKnowledge : '';
+  }
+
+  const parts: string[] = [];
+
+  if (orgProfile.orgName) parts.push(`Organization: ${orgProfile.orgName}`);
+  if (orgProfile.companyDescription) parts.push(`About: ${orgProfile.companyDescription}`);
+  if (orgProfile.missionStatement) parts.push(`Mission: ${orgProfile.missionStatement}`);
+  if (orgProfile.locationCity && orgProfile.locationState) {
+    parts.push(`Location: ${orgProfile.locationCity}, ${orgProfile.locationState}`);
+  }
+  if (orgProfile.orgYearFounded) parts.push(`Founded: ${orgProfile.orgYearFounded}`);
+  if (orgProfile.orgStaffSize) parts.push(`Staff Size: ${orgProfile.orgStaffSize}`);
+  if (orgProfile.orgBudget) parts.push(`Annual Budget: $${orgProfile.orgBudget.toLocaleString()}`);
+  if (orgProfile.orgEin) parts.push(`EIN: ${orgProfile.orgEin}`);
+  if (orgProfile.orgSamUei) parts.push(`SAM UEI: ${orgProfile.orgSamUei}`);
+  if (orgProfile.eligibilityTypes?.length) {
+    const types = orgProfile.eligibilityTypes.map(t => t.replace(/_/g, ' ')).join(', ');
+    parts.push(`Eligibility: ${types}`);
+  }
+  if (orgProfile.serviceAreas?.length) {
+    parts.push(`Service Areas: ${orgProfile.serviceAreas.join(', ')}`);
+  }
+  if (orgProfile.populationsServed?.length) {
+    parts.push(`Populations Served: ${orgProfile.populationsServed.join(', ')}`);
+  }
+  if (orgProfile.website) parts.push(`Website: ${orgProfile.website}`);
+  if (orgProfile.phoneNumber) parts.push(`Phone: ${orgProfile.phoneNumber}`);
+
+  // If we have profile data, also append any static knowledge we have
+  const staticKnowledge = orgId === 'nxtchapter' ? nxtChapterKnowledge : '';
+  const dynamicSection = parts.length > 0 ? `--- ORGANIZATION PROFILE ---\n${parts.join('\n')}` : '';
+
+  return [dynamicSection, staticKnowledge].filter(Boolean).join('\n\n');
+}
+
 export const nxtChapterKnowledge = `NXT Chapter Brain
 
 CRITICAL PHONETIC AND TEXT MAPPING (HIGHEST PRIORITY):

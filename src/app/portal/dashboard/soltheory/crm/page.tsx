@@ -6,6 +6,18 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from '@/lib/i18n';
 import { useTheme } from '@/components/ThemeProvider';
 
+import KPIHeaderStrip from "@/components/crm/KPIHeaderStrip";
+import CRMCommandPalette from "@/components/crm/CRMCommandPalette";
+import BulkActionsBar from "@/components/crm/BulkActionsBar";
+import PipelineSetup from "@/components/crm/PipelineSetup";
+import type { PipelineConfig } from "@/components/crm/PipelineSetup";
+import CRMFollowUps from "@/components/crm/views/CRMFollowUps";
+import FilterBuilder from "@/components/crm/FilterBuilder";
+import type { SavedSegment } from "@/components/crm/FilterBuilder";
+import DuplicateDetector, { getDuplicateCount } from "@/components/crm/DuplicateDetector";
+import AIInsightsPanel from "@/components/crm/AIInsightsPanel";
+import CRMSettingsView from "@/components/crm/views/CRMSettingsView";
+
 import { useUser, useFirestore } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
@@ -13,6 +25,8 @@ import { useCRMStore } from "@/stores/crm-store";
 import type { Customer, Meeting, CrmNotification, Conversation, InboxMessage, InboxChannel, TicketStatus, ChatMessage } from "@/stores/crm-store";
 import { ToastContainer } from "@/components/crm/Toast";
 import { DashboardSkeleton, AnalyticsSkeleton } from "@/components/crm/Skeletons";
+import PipelineBoard from "@/components/crm/views/PipelineBoard";
+import ContactProfilePanel from "@/components/crm/contact-profile/ContactProfilePanel";
 import ManageFieldsSidebar from "@/components/crm/ManageFieldsSidebar";
 import CSVFieldMergeDialog from "@/components/crm/CSVFieldMergeDialog";
 import ExportModal from "@/components/crm/ExportModal";
@@ -36,7 +50,7 @@ import {
   CalendarCheck, Check, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
   Table2, MapPin, Building2, ChevronLeft, ChevronRight, AlertTriangle, Save, Contact,
-  Settings2, ArrowUpDown, ArrowUp, ArrowDown,
+  Settings2, ArrowUpDown, ArrowUp, ArrowDown, Copy,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -66,12 +80,50 @@ const STATUS_COLORS: Record<string, string> = {
 
 const crmNavItems = [
   { id: "dashboard", label: "Database", icon: Table2 },
+  { id: "board", label: "Pipeline", icon: LayoutDashboard },
+  { id: "follow_ups", label: "Follow-Ups", icon: CalendarCheck },
+  { id: "insights", label: "Insights", icon: Sparkles },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
+  { id: "settings", label: "Settings", icon: Settings2 },
 ] as const;
 
-type CrmView = "dashboard" | "campaigns" | "analytics";
+type CrmView = "dashboard" | "board" | "campaigns" | "analytics" | "follow_ups" | "insights" | "settings";
+
+/* ─── AVATAR COLOR HELPER ─── */
+
+const AVATAR_PALETTE = [
+  { bg: "bg-slate-200 dark:bg-slate-700", text: "text-slate-600 dark:text-slate-300" },
+  { bg: "bg-stone-200 dark:bg-stone-700", text: "text-stone-600 dark:text-stone-300" },
+  { bg: "bg-zinc-200 dark:bg-zinc-700", text: "text-zinc-600 dark:text-zinc-300" },
+  { bg: "bg-neutral-200 dark:bg-neutral-700", text: "text-neutral-600 dark:text-neutral-300" },
+  { bg: "bg-gray-200 dark:bg-gray-700", text: "text-gray-600 dark:text-gray-300" },
+  { bg: "bg-slate-300 dark:bg-slate-600", text: "text-slate-700 dark:text-slate-200" },
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
 
 /* ─── STATUS & TAG HELPERS ─── */
+
+/* ─── RELATIVE TIME HELPER ─── */
+function getRelativeTime(date: Date | string | null): string {
+  if (!date) return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 2592000) return `${Math.floor(diff / 604800)}w ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 const getStatusLabel = (status: string, isSpanish: boolean) => {
   if (!isSpanish) return status;
@@ -236,11 +288,24 @@ export default function CRMPage() {
   const getCrmNavLabel = (id: string) => {
     switch (id) {
       case "dashboard": return "Database";
+      case "board": return "Pipeline";
+      case "follow_ups": return "Follow-Ups";
+      case "insights": return "Insights";
+      case "settings": return "Settings";
       case "campaigns": return t.crmCampaignManager;
       case "analytics": return t.crmAnalytics;
       default: return "";
     }
   };
+  // Command palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  // Pipeline setup state
+  const [showPipelineSetup, setShowPipelineSetup] = useState(false);
+  // Smart Filters state
+  const [segmentFilterFn, setSegmentFilterFn] = useState<((c: Customer) => boolean) | null>(null);
+  const [savedSegments, setSavedSegments] = useState<SavedSegment[]>([]);
+  // Duplicate detector state
+  const [showDuplicateDetector, setShowDuplicateDetector] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [newTagName, setNewTagName] = useState("");
@@ -399,6 +464,7 @@ export default function CRMPage() {
   };
   const [showNotifications, setShowNotifications] = useState(false);
   const [viewingCustomer, setViewingCustomer] = useState<string | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   // ── Multi-user edit, contact view, delete confirm state ──
   const [editModalIds, setEditModalIds] = useState<string[]>([]);
   const [editModalIndex, setEditModalIndex] = useState(0);
@@ -567,6 +633,57 @@ export default function CRMPage() {
     }
     return () => { teardown(); };
   }, [user?.uid, db, initializeStore, teardown]);
+
+  // Load pipeline config on mount
+  useEffect(() => {
+    if (user?.uid && db) {
+      store.loadPipelineConfig();
+    }
+  }, [user?.uid, db]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable;
+
+      // ⌘K / Ctrl+K: Command palette
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+        return;
+      }
+
+      // Don't trigger shortcuts when typing in inputs
+      if (isInput) return;
+
+      // N: New contact
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setShowAddModal(true);
+        return;
+      }
+
+      // /: Focus search
+      if (e.key === '/') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Search..."]') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+        return;
+      }
+
+      // Esc: Close panels/modals
+      if (e.key === 'Escape') {
+        if (isCommandPaletteOpen) { setIsCommandPaletteOpen(false); return; }
+        if (showPipelineSetup) { setShowPipelineSetup(false); return; }
+        if (showDuplicateDetector) { setShowDuplicateDetector(false); return; }
+        if (showFilterPanel) { setShowFilterPanel(false); return; }
+        if (selectedContactId) { setSelectedContactId(null); return; }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCommandPaletteOpen, showPipelineSetup, showDuplicateDetector, showFilterPanel, selectedContactId]);
 
 
   const scheduleMeeting = useCallback(async (customerId: string, customerName: string, title: string, date: string, time: string, syncGoogle: boolean, createdBy: "user" | "jarvis" = "user") => {
@@ -906,6 +1023,10 @@ export default function CRMPage() {
         });
       });
     }
+    // Apply smart segment filter (from FilterBuilder)
+    if (segmentFilterFn) {
+      list = list.filter(segmentFilterFn);
+    }
     // Apply column-level sort (takes priority over default sortKey/sortDir)
     if (columnSortField) {
       list = [...list].sort((a, b) => {
@@ -940,7 +1061,7 @@ export default function CRMPage() {
       });
     }
     return list;
-  }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo, fieldFilters, columnSortField, columnSortDir]);
+  }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo, fieldFilters, segmentFilterFn, columnSortField, columnSortDir]);
 
   const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleSelectAll = () => { const visible = filteredSortedCustomers.map(c => c.id); const allSelected = visible.every(id => selectedIds.has(id)); if (allSelected) setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.delete(id)); return n; }); else setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.add(id)); return n; }); };
@@ -1374,108 +1495,127 @@ export default function CRMPage() {
           <>
           {/* ── ── ── ── ── ── ── DATABASE VIEW ── ── ── ── ── ── ── */}
           {activeView === "dashboard" && (
-            <div className="w-full space-y-4">
-              {/* Page Header */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className={`text-xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Database</h1>
-                  <p className={`text-sm mt-0.5 hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {customers.length} record{customers.length !== 1 ? 's' : ''} &middot; Manage your client and prospect data
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-full space-y-3">
+              {/* Smart Filters & Segments */}
+              <FilterBuilder
+                customers={customers}
+                onFilterChange={setSegmentFilterFn}
+                savedSegments={savedSegments}
+                onSaveSegment={(seg) => setSavedSegments(prev => [...prev, seg])}
+                onDeleteSegment={(id) => setSavedSegments(prev => prev.filter(s => s.id !== id))}
+              />
+              {/* Page Header — Clean */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <h1 className={`text-lg font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                  Database
+                  <span className={`ml-2 text-sm font-normal ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {filteredSortedCustomers.length}{filteredSortedCustomers.length !== customers.length ? ` of ${customers.length}` : ''} records
+                  </span>
+                </h1>
+                <div className="flex items-center gap-2">
                   {/* Search */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Search records..."
+                      placeholder="Search..."
                       value={contactSearch}
                       onChange={(e) => setContactSearch(e.target.value)}
-                      className={`w-full sm:w-56 h-9 pl-9 pr-4 text-sm rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-[#E5E7EB] text-slate-700'}`}
+                      className={`w-40 sm:w-52 h-8 pl-9 pr-3 text-xs rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-700'}`}
                     />
                   </div>
+                  {/* ⌘K hint */}
                   <button
-                    onClick={() => setShowExportModal(true)}
-                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}
+                    onClick={() => setIsCommandPaletteOpen(true)}
+                    className={`hidden sm:flex items-center h-8 px-2 rounded-lg border text-[10px] font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 text-slate-500 hover:text-white hover:border-slate-600' : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300'}`}
+                    title="Command palette"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Export</span>
+                    ⌘K
                   </button>
+                  {/* Actions Dropdown */}
                   <div className="relative">
                     <button
                       onClick={() => setShowFilterPanel(!showFilterPanel)}
-                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'} ${showFilterPanel ? (isDarkMode ? 'ring-2 ring-indigo-500/30 border-indigo-500/50' : 'ring-2 ring-indigo-500/20 border-indigo-300') : ''}`}
+                      className={`relative inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-600' : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
                     >
-                      <span className="relative">
-                        <Filter className="w-3.5 h-3.5" />
-                        {hasActiveFilters && (
-                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full" />
-                        )}
-                      </span>
-                      <span className="hidden sm:inline">Filter</span>
-                      {hasActiveFilters && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isDarkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
-                          {Object.values(fieldFilters).filter(Boolean).length + (tagFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (dateFilterFrom || dateFilterTo ? 1 : 0)}
-                        </span>
+                      <MoreHorizontal className="w-4 h-4" />
+                      <span className="hidden sm:inline">Actions</span>
+                      {(hasActiveFilters || getDuplicateCount(customers) > 0) && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full" />
                       )}
                     </button>
                     {showFilterPanel && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setShowFilterPanel(false)} />
-                        <div className={`absolute left-0 mt-1 w-72 rounded-lg border shadow-lg z-50 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
-                          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
-                            <span className="text-xs font-semibold uppercase tracking-wide">Filter by field</span>
-                            {hasActiveFilters && (
-                              <button
-                                onClick={() => { clearAllFilters(); setShowFilterPanel(false); }}
-                                className="text-[11px] text-indigo-500 hover:text-indigo-600 font-medium cursor-pointer"
-                              >
-                                Clear all
-                              </button>
-                            )}
+                        <div className={`absolute right-0 mt-1 w-60 rounded-xl border shadow-xl z-50 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
+                          {/* Filter Section */}
+                          <div className={`px-3 py-2 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Filter by field</span>
                           </div>
-                          <div className="max-h-64 overflow-y-auto px-1 py-1">
+                          <div className="max-h-36 overflow-y-auto px-1 py-1">
                             {getVisibleFieldDefs().map((field) => {
                               const isActive = !!fieldFilters[field.id];
                               return (
                                 <button
                                   key={field.id}
                                   onClick={() => setFieldFilters(prev => ({ ...prev, [field.id]: !prev[field.id] }))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                                     isActive
-                                      ? (isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-50 text-indigo-700')
-                                      : (isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600')
+                                      ? (isDarkMode ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-800')
+                                      : (isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-50 text-slate-500')
                                   }`}
                                 >
                                   <span className="truncate">{field.label}</span>
-                                  <span className={`flex items-center gap-1.5 text-[10px] shrink-0 ml-2 px-2 py-0.5 rounded-full font-semibold ${
-                                    isActive
-                                      ? (isDarkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600')
-                                      : (isDarkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
-                                  }`}>
-                                    {isActive ? <Check className="w-2.5 h-2.5" /> : null}
-                                    Has data
-                                  </span>
+                                  {isActive && <Check className="w-3 h-3 text-indigo-500 shrink-0" />}
                                 </button>
                               );
                             })}
+                          </div>
+                          {hasActiveFilters && (
+                            <div className={`px-3 py-1.5 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                              <button
+                                onClick={() => { clearAllFilters(); setShowFilterPanel(false); }}
+                                className="text-[11px] text-indigo-500 hover:text-indigo-600 font-medium cursor-pointer"
+                              >
+                                Clear all filters
+                              </button>
+                            </div>
+                          )}
+                          {/* Action Items */}
+                          <div className={`border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                            <button
+                              onClick={() => { setShowFilterPanel(false); setShowExportModal(true); }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600'}`}
+                            >
+                              <Download className="w-3.5 h-3.5 text-slate-400" />
+                              Export CSV
+                            </button>
+                            <button
+                              onClick={() => { setShowFilterPanel(false); setShowDuplicateDetector(true); }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600'}`}
+                            >
+                              <Copy className="w-3.5 h-3.5 text-slate-400" />
+                              Find Duplicates
+                              {getDuplicateCount(customers) > 0 && (
+                                <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">{getDuplicateCount(customers)}</span>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => { setShowFilterPanel(false); setShowManageFields(true); }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600'}`}
+                            >
+                              <Settings2 className="w-3.5 h-3.5 text-slate-400" />
+                              Manage Fields
+                            </button>
                           </div>
                         </div>
                       </>
                     )}
                   </div>
-                  <button
-                    onClick={() => setShowManageFields(true)}
-                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750' : 'border-[#E5E7EB] bg-white text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    <Settings2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Manage Fields</span>
-                  </button>
                   <div className="relative z-50">
                     <button
                       onClick={() => setIsDashAddDropdownOpen(!isDashAddDropdownOpen)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer shadow-sm shadow-indigo-600/10"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 dark:bg-white text-xs font-semibold text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
                       <span className="hidden sm:inline">Add Record</span>
@@ -1552,7 +1692,7 @@ export default function CRMPage() {
                         {filteredSortedCustomers.map((c, idx) => (
                           <tr
                             key={c.id}
-                            onClick={() => openEditModal([c.id])}
+                            onClick={() => setSelectedContactId(c.id)}
                             className={`group border-b transition-colors cursor-pointer ${
                               isDarkMode
                                 ? `border-slate-800 ${idx % 2 === 1 ? 'bg-slate-800/20' : ''} hover:bg-slate-800/50`
@@ -1697,162 +1837,55 @@ export default function CRMPage() {
 
 
           {/* ——————————— CUSTOMER PROFILE VIEW ——————————— */}
-          {viewingCustomer && (() => {
-            const c = customers.find(x => x.id === viewingCustomer);
-            if (!c) return null;
-            const customerMeetings = meetings.filter(m => m.customerId === c.id);
-            return (
-              <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setViewingCustomer(null)}>
-                <div className={`rounded-2xl border shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} onClick={e => e.stopPropagation()}>
-                  {/* Profile Header */}
-                  <div className={`px-6 py-5 border-b flex items-center justify-between ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border ${
-                        isDarkMode ? "bg-indigo-950/40 text-indigo-400 border-indigo-900" : "bg-indigo-50 text-indigo-600 border-indigo-100"
-                      }`}>{c.firstName[0]}{c.lastName[0]}</div>
-                      <div>
-                        <h2 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>{c.firstName} {c.lastName}</h2>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStatusStyles(c.leadStatus)}`}>{c.leadStatus}</span>
-                          <span className="text-[10px] text-slate-400">{c.id}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={() => setViewingCustomer(null)} className={`w-8 h-8 rounded-lg ${isDarkMode ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-400"} flex items-center justify-center cursor-pointer`}><X className="w-4 h-4" /></button>
-                  </div>
-
-                  {/* Profile Body */}
-                  <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-                    {/* Contact Info */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Email</span>
-                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.email || "—"}</span>
-                      </div>
-                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Phone</span>
-                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.phone || "—"}</span>
-                      </div>
-                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Birthday</span>
-                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{c.birthday || "—"}</span>
-                      </div>
-                      <div className={`p-3 rounded-lg border ${isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"}`}>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Revenue</span>
-                        <span className={`text-sm ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>${c.totalRevenue.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    {/* Tags */}
-                    {c.tags.length > 0 && (
-                      <div><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Tags</span><div className="flex flex-wrap gap-1.5">{c.tags.map(t => <span key={t} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getTagStyles(t)}`}>{t}</span>)}</div></div>
-                    )}
-
-                    {/* AI Notes + Deduce Button */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">AI Notes</span>
-                        <button
-                          onClick={() => runDeduction(c.id)}
-                          disabled={isDeducing}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-[10px] font-semibold text-white hover:from-indigo-600 hover:to-purple-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer"
-                        >
-                          {isDeducing ? (
-                            <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Analyzing...</>
-                          ) : (
-                            <><Zap className="w-3 h-3" /> Ask Jarvis to Deduce</>
-                          )}
-                        </button>
-                      </div>
-                      {c.aiNotes ? (
-                        <div className={`p-3 rounded-lg border text-xs whitespace-pre-wrap leading-relaxed ${
-                          isDarkMode ? "bg-purple-950/20 border-purple-900 text-slate-200" : "bg-purple-50/50 border-purple-100 text-slate-700"
-                        }`}><Brain className="w-3.5 h-3.5 text-purple-500 inline mr-1.5" />{c.aiNotes}</div>
-                      ) : (
-                        <div className={`text-center py-6 border border-dashed rounded-lg ${
-                          isDarkMode ? "border-purple-900 bg-purple-950/10" : "border-purple-200 bg-purple-50/20"
-                        }`}>
-                          <Brain className="w-6 h-6 text-purple-200 mx-auto mb-1.5" />
-                          <p className="text-xs text-slate-400">No AI notes yet. Click &quot;Ask Jarvis to Deduce&quot; to generate insights.</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ── Financials Card ── */}
-                    <div className={`border-t pt-5 ${isDarkMode ? "border-slate-800" : "border-[#E5E7EB]"}`}>
-                      <div className="flex items-center gap-2 mb-4">
-                        <DollarSign className="w-4 h-4 text-emerald-600" />
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Financials</h3>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className={`p-3.5 rounded-lg border ${
-                          isDarkMode ? "bg-emerald-950/20 border-emerald-900/50" : "bg-emerald-50/50 border-emerald-100"
-                        }`}>
-                          <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider block mb-1">Total Revenue</span>
-                          <span className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>${c.totalRevenue.toFixed(2)}</span>
-                        </div>
-                        <div className={`p-3.5 rounded-lg border ${
-                          isDarkMode ? "bg-orange-950/20 border-orange-900/50" : "bg-orange-50/50 border-orange-100"
-                        }`}>
-                          <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider block mb-1">Outstanding</span>
-                          <span className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>${c.outstandingBalance.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Transaction History</span>
-                        {c.transactions.length === 0 ? (
-                          <div className={`text-center py-6 border border-dashed rounded-lg ${isDarkMode ? "border-slate-800" : "border-slate-200"}`}>
-                            <DollarSign className="w-6 h-6 text-slate-200 mx-auto mb-1.5" />
-                            <p className="text-xs text-slate-400">No transactions recorded yet</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {c.transactions.map(tx => (
-                              <div key={tx.id} className={`flex items-center justify-between p-2.5 rounded-lg border ${
-                                isDarkMode ? "bg-slate-800/60 border-slate-750" : "bg-[#F9FAFB] border-[#E5E7EB]"
-                              }`}>
-                                <div>
-                                  <p className={`text-xs font-medium ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{tx.description}</p>
-                                  <p className="text-[10px] text-slate-400">{tx.date}</p>
-                                </div>
-                                <span className={`text-xs font-bold ${tx.amount >= 0 ? "text-emerald-600" : "text-red-500"}`}>{tx.amount >= 0 ? "+" : ""}${tx.amount.toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+          {/* Note: Profile moved to ContactProfilePanel */}
 
 
+          {/* ━━━━━━━━━━━ BOARD VIEW ━━━━━━━━━━━ */}
+          {activeView === "board" && (
+            <>
+              <PipelineBoard
+                customers={customers}
+                onUpdateStatus={(id, status) => updateStatus(id, status as any)}
+                onOpenContact={(c) => setSelectedContactId(c.id)}
+                pipelineConfig={store.pipelineConfig}
+                onConfigureClick={() => setShowPipelineSetup(true)}
+              />
+              <PipelineSetup
+                isOpen={showPipelineSetup}
+                onClose={() => setShowPipelineSetup(false)}
+                currentConfig={store.pipelineConfig}
+                onApply={(config: PipelineConfig) => {
+                  store.savePipelineConfig(config);
+                  setShowPipelineSetup(false);
+                }}
+              />
+            </>
+          )}
 
-                    {/* Upcoming Meetings */}
-                    {customerMeetings.length > 0 && (
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Upcoming Meetings</span>
-                        <div className="space-y-2">
-                          {customerMeetings.map(m => (
-                            <div key={m.id} className={`flex items-center justify-between p-3 rounded-lg border ${
-                              isDarkMode ? "bg-emerald-950/20 border-emerald-900/50" : "bg-emerald-50/50 border-emerald-100"
-                            }`}>
-                              <div className="flex items-center gap-2.5">
-                                <CalendarCheck className="w-4 h-4 text-emerald-600" />
-                                <div>
-                                  <p className={`text-xs font-semibold ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>{m.title}</p>
-                                  <p className="text-[10px] text-slate-400">{m.date} at {m.time} {m.syncToGoogle && "· Google Calendar"}</p>
-                                </div>
-                              </div>
-                              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{m.createdBy === "jarvis" ? "Via Jarvis" : "Manual"}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {/* ━━━━━━━━━━━ FOLLOW-UPS VIEW ━━━━━━━━━━━ */}
+          {activeView === "follow_ups" && (
+            <CRMFollowUps customers={customers} />
+          )}
 
+          {/* ━━━━━━━━━━━ AI INSIGHTS VIEW ━━━━━━━━━━━ */}
+          {activeView === "insights" && (
+            <AIInsightsPanel
+              customers={customers}
+              tasks={store.tasks}
+              meetings={meetings}
+              onNavigateToContact={(id) => setSelectedContactId(id)}
+            />
+          )}
+
+          {/* ━━━━━━━━━━━ SETTINGS VIEW ━━━━━━━━━━━ */}
+          {activeView === "settings" && (
+            <CRMSettingsView
+              customers={customers}
+              onConfigurePipeline={() => setShowPipelineSetup(true)}
+              onExportAll={() => setShowExportModal(true)}
+              onFindDuplicates={() => setShowDuplicateDetector(true)}
+            />
+          )}
 
           {/* ━━━━━━━━━━━ ANALYTICS VIEW ━━━━━━━━━━━ */}
           {activeView === "analytics" && (() => {
@@ -1999,7 +2032,22 @@ export default function CRMPage() {
         </main>
       </div>
 
-      {/* ━━━━━━ MANAGE FIELDS SIDEBAR ━━━━━━ */}
+      {/* ━━━━━━━━━━ Contact Profile Slide-over ━━━━━━━━━━ */}
+      <ContactProfilePanel
+        customer={selectedContactId ? (customers.find(c => c.id === selectedContactId) || null) : null}
+        onClose={() => setSelectedContactId(null)}
+        onEdit={() => {
+          const customer = customers.find(c => c.id === selectedContactId);
+          if (customer) {
+            const idx = customers.findIndex(c => c.id === selectedContactId);
+            setEditModalIds(customers.map(c => c.id));
+            setEditModalIndex(idx);
+            setEditForm(buildEditFormFromCustomer(customer));
+            openEditModal([customer.id]);
+          }
+        }}
+      />
+
       <ManageFieldsSidebar
         isOpen={showManageFields}
         onClose={() => setShowManageFields(false)}
@@ -2813,6 +2861,56 @@ export default function CRMPage() {
           </div>
         </div>
       )}
+
+      {/* ━━━━━━ COMMAND PALETTE ━━━━━━ */}
+      <CRMCommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectContact={(c) => { setSelectedContactId(c.id); setIsCommandPaletteOpen(false); }}
+        onNavigate={(view) => { setActiveView(view as CrmView); setIsCommandPaletteOpen(false); }}
+        onAddContact={() => { setShowAddModal(true); setIsCommandPaletteOpen(false); }}
+      />
+
+      {/* ━━━━━━ BULK ACTIONS BAR ━━━━━━ */}
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        onChangeStatus={(status) => {
+          selectedIds.forEach(id => updateStatus(id, status as any));
+          showToast(`Updated ${selectedIds.size} contacts to ${status}`);
+          setSelectedIds(new Set());
+        }}
+        onAddTag={(tag) => {
+          selectedIds.forEach(id => {
+            const customer = customers.find(c => c.id === id);
+            if (customer && !customer.tags.includes(tag)) {
+              store.updateCustomer(id, { tags: [...customer.tags, tag] });
+            }
+          });
+          showToast(`Added "${tag}" to ${selectedIds.size} contacts`);
+        }}
+        onRemoveTag={(tag) => {
+          selectedIds.forEach(id => {
+            const customer = customers.find(c => c.id === id);
+            if (customer) {
+              store.updateCustomer(id, { tags: customer.tags.filter(t => t !== tag) });
+            }
+          });
+          showToast(`Removed "${tag}" from ${selectedIds.size} contacts`);
+        }}
+        onSendEmail={() => setShowEmailModal(true)}
+        onExport={() => setShowExportModal(true)}
+        onDelete={() => setShowDeleteConfirm(true)}
+        onClearSelection={() => setSelectedIds(new Set())}
+        availableTags={customTags.map(t => t.name)}
+        availableStatuses={["Cold Lead", "Warm Lead", "Interested", "Sale Completed"]}
+      />
+
+      {/* ━━━━━━ DUPLICATE DETECTOR ━━━━━━ */}
+      <DuplicateDetector
+        isOpen={showDuplicateDetector}
+        onClose={() => setShowDuplicateDetector(false)}
+        customers={customers}
+      />
     </div>
   );
 }
