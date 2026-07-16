@@ -389,6 +389,7 @@ export function GrantAgentConfigModal({
   const [customKeywordInput, setCustomKeywordInput] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [keywordsExpanded, setKeywordsExpanded] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const totalSteps = 4;
 
   // Track completed steps
@@ -1460,6 +1461,49 @@ export function GrantAgentConfigModal({
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* How It Works */}
+        <div className="px-6 pt-3 pb-0 shrink-0">
+          <button
+            onClick={() => setShowHowItWorks(!showHowItWorks)}
+            className="flex items-center gap-2 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
+          >
+            {showHowItWorks ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            How does this work?
+          </button>
+          {showHowItWorks && (
+            <div className="mt-3 mb-1 p-4 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-indigo-800 flex items-center gap-1.5"><Globe className="w-3 h-3" /> Data Sources</p>
+                  <p className="text-[10px] text-indigo-700/80 leading-relaxed">Grants.gov (federal opportunities), SAM.gov (registration & awards), and USASpending.gov (award data). Philanthropic scouts also search ProPublica and Candid foundation databases.</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-indigo-800 flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> AI Scoring</p>
+                  <p className="text-[10px] text-indigo-700/80 leading-relaxed">Each grant is scored 0–100 by AI based on geographic overlap, program alignment, populations served, funding capacity, and eligibility match. Only grants scoring above the threshold appear in your pipeline.</p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold text-indigo-800">Search Flow</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { num: "1", text: "Builds keywords from your service areas & populations" },
+                    { num: "2", text: "Queries multiple grant databases simultaneously" },
+                    { num: "3", text: "Deduplicates results across sources" },
+                    { num: "4", text: "AI scores each result for relevance" },
+                    { num: "5", text: "Filters below threshold (30/100) & saves matches" },
+                  ].map((s) => (
+                    <span key={s.num} className="inline-flex items-center gap-1.5 text-[10px] text-indigo-700/80 px-2 py-1 rounded-lg bg-white/70 border border-indigo-100">
+                      <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">{s.num}</span>
+                      {s.text}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[10px] text-indigo-600/60 font-medium">Scans run in your browser while the tab is open. The agent repeats this cycle at the interval you configure below.</p>
+            </div>
+          )}
         </div>
 
         {/* Step Indicator */}

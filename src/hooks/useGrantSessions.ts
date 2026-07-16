@@ -131,14 +131,24 @@ export function useGrantSessions(orgId: string = "soltheory") {
   }, [firestore, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Migration: check if we need to migrate from old grant_agent_config
+  // Uses localStorage to prevent re-triggering after user intentionally deletes all sessions
   useEffect(() => {
     if (!firestore || loading || migrated) return;
+
+    // If sessions exist, migration is clearly done
     if (sessions.length > 0) {
       setMigrated(true);
       return;
     }
 
-    // No sessions found — attempt migration from old format
+    // Check localStorage — if migration already ran for this org, don't re-create sessions
+    const migrationKey = `grant_sessions_migrated_${orgId}`;
+    if (typeof window !== "undefined" && localStorage.getItem(migrationKey) === "true") {
+      setMigrated(true);
+      return;
+    }
+
+    // No sessions found and no migration flag — attempt migration from old format
     async function migrate() {
       try {
         const oldDocRef = doc(firestore!, "grant_agent_config", orgId);
@@ -210,7 +220,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
           }
         }
 
-        // If no old config either, auto-create a default session
+        // If no old config either, auto-create a default session (first time only)
         if (!oldSnap.exists() || !oldSnap.data()?.agents) {
           const sessionId = `session_${Date.now()}`;
           const sessionRef = doc(firestore!, "grant_sessions", sessionId);
@@ -230,6 +240,10 @@ export function useGrantSessions(orgId: string = "soltheory") {
           console.log("[useGrantSessions] Created default session:", sessionId);
         }
 
+        // Mark migration as done so it never re-triggers
+        if (typeof window !== "undefined") {
+          localStorage.setItem(migrationKey, "true");
+        }
         setMigrated(true);
       } catch (err) {
         console.error("[useGrantSessions] Migration failed:", err);

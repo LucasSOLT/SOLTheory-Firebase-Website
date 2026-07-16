@@ -6,7 +6,7 @@ import {
   ArrowLeft, Loader2,
   ArrowUpRight, FileText, ChevronRight,
   MapPin, DollarSign, Calendar, Users,
-  Building2, MonitorSmartphone
+  Building2, MonitorSmartphone, Sparkles, Search, Brain, CheckCircle2, XCircle
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { useFirestore } from "@/firebase";
@@ -14,6 +14,8 @@ import { GrantAgentConfigModal, type GrantAgentConfig } from "@/components/porta
 import { SessionSwitcher } from "@/components/portal/SessionSwitcher";
 import { useGrantSessions } from "@/hooks/useGrantSessions";
 import { useOrgProfile } from "@/hooks/useOrgProfile";
+import { useGrantScanStatus } from "@/hooks/useGrantScanStatus";
+import { AgentWorkerController } from "@/components/portal/AgentWorkerController";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 
 import { SERVICE_AREA_GROUPS } from "@/data/service-areas";
@@ -68,6 +70,7 @@ export default function FederalGrantScoutDashboard() {
     loading: sessionsLoading,
   } = useGrantSessions("soltheory");
   const { orgProfile, saveOrgProfile } = useOrgProfile("soltheory");
+  const { status: scanStatus, message: scanMessage, isScanning } = useGrantScanStatus();
 
   /* ── filter sessions to federal only ── */
   const federalSessions = useMemo(
@@ -111,6 +114,8 @@ export default function FederalGrantScoutDashboard() {
 
   return (
     <div className={`min-h-screen ${surface2} ${txt} overflow-y-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+      {/* Mount the worker controller so scanning runs on this page too */}
+      <AgentWorkerController />
       <div className="max-w-[1280px] mx-auto px-6 md:px-10 py-8">
 
         {/* ── Federal scout accent bar ── */}
@@ -271,6 +276,62 @@ export default function FederalGrantScoutDashboard() {
         })()}
 
 
+
+        {/* ── Live Scan Progress Tile ── */}
+        {scanMessage && (
+          <div className={`rounded-xl border p-4 mb-4 transition-all duration-300 ${
+            scanStatus === "searching" 
+              ? (dk ? "bg-indigo-500/5 border-indigo-500/20" : "bg-indigo-50/80 border-indigo-200")
+              : scanStatus === "found"
+              ? (dk ? "bg-emerald-500/5 border-emerald-500/20" : "bg-emerald-50/80 border-emerald-200")
+              : (dk ? "bg-[#111214] border-[#1e2028]" : "bg-white border-slate-200")
+          }`}>
+            <div className="flex items-center gap-3">
+              {/* Icon */}
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                scanStatus === "searching"
+                  ? (dk ? "bg-indigo-500/10" : "bg-indigo-100")
+                  : scanStatus === "found"
+                  ? (dk ? "bg-emerald-500/10" : "bg-emerald-100")
+                  : (dk ? "bg-slate-800" : "bg-slate-100")
+              }`}>
+                {scanStatus === "searching" ? (
+                  <Loader2 className={`w-4 h-4 animate-spin ${dk ? "text-indigo-400" : "text-indigo-600"}`} />
+                ) : scanStatus === "found" ? (
+                  <CheckCircle2 className={`w-4 h-4 ${dk ? "text-emerald-400" : "text-emerald-600"}`} />
+                ) : (
+                  <Search className={`w-4 h-4 ${dk ? "text-slate-500" : "text-slate-400"}`} />
+                )}
+              </div>
+
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <p className={`text-[11px] font-bold uppercase tracking-wide mb-0.5 ${
+                  scanStatus === "searching" ? (dk ? "text-indigo-400" : "text-indigo-700")
+                  : scanStatus === "found" ? (dk ? "text-emerald-400" : "text-emerald-700")
+                  : (dk ? "text-slate-500" : "text-slate-400")
+                }`}>
+                  {scanStatus === "searching" ? "Agent Active" : scanStatus === "found" ? "Discovery" : "Agent Status"}
+                </p>
+                <p className={`text-[12px] font-medium truncate ${
+                  scanStatus === "searching" ? (dk ? "text-indigo-300" : "text-indigo-800")
+                  : scanStatus === "found" ? (dk ? "text-emerald-300" : "text-emerald-800")
+                  : (dk ? "text-slate-400" : "text-slate-500")
+                }`}>
+                  {scanMessage}
+                </p>
+              </div>
+
+              {/* Scanning pulse dot */}
+              {isScanning && (
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${dk ? "bg-indigo-400" : "bg-indigo-500"}`} />
+                  <span className={`text-[10px] font-semibold ${dk ? "text-indigo-400" : "text-indigo-600"}`}>Live</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── recent discoveries heading ── */}
         <div className="flex items-center justify-between mb-4">
