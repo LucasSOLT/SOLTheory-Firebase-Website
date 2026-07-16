@@ -2080,6 +2080,8 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     return NextResponse.json({
       response: errMsg.includes("rate_limit") || errMsg.includes("429")
         ? "I'm receiving a lot of requests right now. Please wait a moment and try again."
+        : errMsg.includes("spend alert") || errMsg.includes("blocked API access") || errMsg.includes("billing")
+        ? "⚠️ The AI service (Groq) has been paused due to a billing/spend limit. Please check your Groq dashboard at console.groq.com to resolve this, then try again."
         : errMsg.includes("context_length") || errMsg.includes("too many tokens") || errMsg.includes("maximum context")
         ? "Your conversation is getting quite long! Try starting a new chat session, or I can summarize what we've discussed so far."
         : errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls")
