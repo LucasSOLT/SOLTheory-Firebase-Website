@@ -79,7 +79,9 @@ export async function GET(req: Request) {
   // ── Environment variables ───────────────────────────────────────────────
   const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // Derive the app URL from the incoming request so it always matches
+  // what the client used when initiating the OAuth flow (window.location.origin)
+  const appUrl = `${url.protocol}//${url.host}`;
   const redirectUri = `${appUrl}/api/auth/instagram/callback`;
 
   // ── Decode state ────────────────────────────────────────────────────────
@@ -119,6 +121,7 @@ export async function GET(req: Request) {
   }
 
   try {
+    console.log(`[Instagram OAuth] Using redirectUri: ${redirectUri}`);
     // ── Step 1: Exchange code for Short-Lived User Access Token ──────────
     const shortLivedRes = await fetch(
       `${GRAPH_BASE}/oauth/access_token?` +
@@ -133,7 +136,10 @@ export async function GET(req: Request) {
     if (!shortLivedRes.ok) {
       const errBody = await shortLivedRes.text();
       console.error("[Instagram OAuth] Short-lived token exchange failed:", shortLivedRes.status, errBody);
-      throw new Error(`Token exchange failed (${shortLivedRes.status})`);
+      // Parse Meta's error message if possible
+      let metaMsg = `Token exchange failed (${shortLivedRes.status})`;
+      try { const parsed = JSON.parse(errBody); metaMsg = parsed?.error?.message || metaMsg; } catch {}
+      throw new Error(metaMsg);
     }
 
     const shortLivedData: ShortLivedTokenResponse = await shortLivedRes.json();
