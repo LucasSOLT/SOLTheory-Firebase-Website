@@ -297,21 +297,44 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     }
   }, [isMicMuted, isOpen, isPaused, startRecognition, stopRecognition]);
 
-  // ── Pause: fully stop/start recognition + pause audio ──
+  // ── Pause: fully stop/start recognition + stop audio ──
   useEffect(() => {
     if (!isOpen) return;
     if (isPaused) {
       stopRecognition();
       setLiveText("");
       accumulatedTextRef.current = "";
+      // Stop JARVIS speaking immediately when paused
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current = null;
+      }
+      if (persistentAudioRef.current) {
+        persistentAudioRef.current.pause();
+      }
+      // Clear any speaking fallback timeout
+      if (speakingTimeoutRef.current) {
+        clearTimeout(speakingTimeoutRef.current);
+        speakingTimeoutRef.current = null;
+      }
+      // If we were speaking, transition to listening on unpause
+      if (phaseRef.current === "speaking") {
+        phaseRef.current = "listening";
+        setPhase("listening");
       }
     } else {
-      if (phaseRef.current === "listening" && !isMicMuted) {
-        startRecognition();
-      } else if (phaseRef.current === "speaking" && audioRef.current && audioRef.current.paused) {
-        audioRef.current.play().catch(console.error);
+      // Unpause — always go back to listening
+      if (!isMicMuted) {
+        if (useWhisperFallback.current) {
+          startWhisperRecording();
+        } else {
+          startRecognition();
+        }
+      }
+      if (phaseRef.current !== "listening") {
+        phaseRef.current = "listening";
+        setPhase("listening");
       }
     }
   }, [isPaused, isOpen, isMicMuted, startRecognition, stopRecognition]);
@@ -1071,7 +1094,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
                   }`}
               >
-                {phase === "processing" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> ...</> : phase === "speaking" ? <><Play className="w-3.5 h-3.5" /> Resume</> : <><Hand className="w-3.5 h-3.5" /> Done</>}
+                {phase === "processing" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> ...</> : phase === "speaking" ? <><Mic className="w-3.5 h-3.5" /> Interrupt</> : <><Hand className="w-3.5 h-3.5" /> Send</>}
               </button>
 
               <button onClick={() => setIsPaused(!isPaused)}
@@ -1303,7 +1326,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 "bg-slate-200 text-slate-400"
               }`}
             >
-              {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Play className="w-5 h-5" /> Resume</> : <><Hand className="w-5 h-5" /> Done Speaking</>}
+              {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Mic className="w-5 h-5" /> Interrupt</> : <><Hand className="w-5 h-5" /> Send</>}
             </button>
 
             <button onClick={() => setIsPaused(!isPaused)}
