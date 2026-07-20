@@ -583,6 +583,7 @@ export default function CRMPage() {
   const [csvMergeMatches, setCsvMergeMatches] = useState<CSVFieldMatch[]>([]);
   const [csvMergeHeaders, setCsvMergeHeaders] = useState<string[]>([]);
   const [pendingCSVData, setPendingCSVData] = useState<string>("");
+  const [isImporting, setIsImporting] = useState(false);
 
   // ── Export Modal state ──
   const [showExportModal, setShowExportModal] = useState(false);
@@ -1087,37 +1088,45 @@ export default function CRMPage() {
   };
 
   const handleCSVSubmit = async () => {
-    let textToParse = csvText;
-    if (csvFile) {
-      try {
-        textToParse = await csvFile.text();
-      } catch (err) {
-        showToast("Failed to read CSV file.", "error");
+    try {
+      let textToParse = csvText;
+      if (csvFile) {
+        try {
+          textToParse = await csvFile.text();
+        } catch (err) {
+          console.error("[CSV] Failed to read file:", err);
+          showToast("Failed to read CSV file.", "error");
+          return;
+        }
+      }
+      
+      if (!textToParse.trim()) {
+        showToast("Please paste CSV text or upload a CSV file.", "error");
         return;
       }
-    }
-    
-    if (!textToParse.trim()) {
-      showToast("Please paste CSV text or upload a CSV file.", "error");
-      return;
-    }
 
-    const parsedData = parseCSV(textToParse);
-    if (parsedData.length < 2) {
-      showToast("CSV must have a header row and at least one data row.", "error");
-      return;
-    }
+      const parsedData = parseCSV(textToParse);
+      console.log("[CSV] Parsed rows:", parsedData.length, "headers:", parsedData[0]);
+      if (parsedData.length < 2) {
+        showToast("CSV must have a header row and at least one data row.", "error");
+        return;
+      }
 
-    const csvHeaders = parsedData[0];
-    const matches = matchAllCSVHeaders(csvHeaders, fieldConfig.allFields);
+      const csvHeaders = parsedData[0];
+      const matches = matchAllCSVHeaders(csvHeaders, fieldConfig.allFields);
+      console.log("[CSV] Field matches:", matches.map(m => `${m.csvHeader} → ${m.matchedFieldId} (${m.matchResult})`));
 
-    if (!needsMergeDialog(matches)) {
-      await executeCSVImport(textToParse, Object.fromEntries(matches.map(m => [m.csvHeader, m.matchedFieldId])));
-    } else {
-      setPendingCSVData(textToParse);
-      setCsvMergeHeaders(csvHeaders);
-      setCsvMergeMatches(matches);
-      setShowMergeDialog(true);
+      if (!needsMergeDialog(matches)) {
+        await executeCSVImport(textToParse, Object.fromEntries(matches.map(m => [m.csvHeader, m.matchedFieldId])));
+      } else {
+        setPendingCSVData(textToParse);
+        setCsvMergeHeaders(csvHeaders);
+        setCsvMergeMatches(matches);
+        setShowMergeDialog(true);
+      }
+    } catch (err) {
+      console.error("[CSV] handleCSVSubmit error:", err);
+      showToast("⚠️ CSV import failed. Check console for details.", "error");
     }
   };
 
@@ -1178,7 +1187,9 @@ export default function CRMPage() {
 
   const executeCSVImport = async (text: string, mappings: Record<string, string | null>) => {
     const parsedData = parseCSV(text);
-    if (parsedData.length < 2) return;
+    if (parsedData.length < 2) { setIsImporting(false); return; }
+    setIsImporting(true);
+    showToast(`⏳ Processing ${parsedData.length - 1} contacts...`);
 
     const csvHeaders = parsedData[0];
     const knownFieldKeys = new Set(["firstName", "lastName", "email", "phone", "company", "location", "birthday", "lastContactedDate", "tags", "totalRevenue", "outstandingBalance", "leadStatus", "aiNotes"]);
@@ -1285,6 +1296,7 @@ export default function CRMPage() {
     setPendingCSVData("");
     setCsvMergeHeaders([]);
     setCsvMergeMatches([]);
+    setIsImporting(false);
   };
 
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortDir(d => d==="asc"?"desc":"asc"); else { setSortKey(key); setSortDir("asc"); } };
@@ -3287,10 +3299,17 @@ export default function CRMPage() {
               </button>
               <button
                 onClick={handleCSVSubmit}
-                disabled={(!csvText.trim() && !csvFile)}
-                className="px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer"
+                disabled={(!csvText.trim() && !csvFile) || isImporting}
+                className="px-5 py-2 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer inline-flex items-center gap-2"
               >
-                {lang === 'es' ? 'Importar' : 'Import'}
+                {isImporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {lang === 'es' ? 'Importando...' : 'Importing...'}
+                  </>
+                ) : (
+                  lang === 'es' ? 'Importar' : 'Import'
+                )}
               </button>
             </div>
           </div>
