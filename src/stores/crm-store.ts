@@ -396,10 +396,12 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
             }
             console.log(`[CRM Store] Shared → org-scoped migration complete.`);
           }
+          // Only mark as done AFTER successful migration (not in catch block)
+          if (typeof window !== 'undefined') localStorage.setItem(sharedMigrationFlag, 'true');
         } catch (migErr) {
           console.warn("[CRM Store] Shared migration skipped (may not have access):", migErr);
+          // Do NOT set the flag here — allow retry on next page load
         }
-        if (typeof window !== 'undefined') localStorage.setItem(sharedMigrationFlag, 'true');
       }
 
       // Set up real-time listener for contacts

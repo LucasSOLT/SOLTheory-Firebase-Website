@@ -487,10 +487,12 @@ function MemberRow({
   onRoleChange,
   dropdownRef,
 }: MemberRowProps) {
-  const canModify = canModifyMember(currentUserRole, member.role);
+  // Normalize legacy roles (Oracle, Admin-Level, etc.) to valid OrgRole for display
+  const safeRole: OrgRole = (member.role in ROLE_COLORS) ? member.role : "user";
+  const canModify = canModifyMember(currentUserRole, safeRole);
   const initial = (member.displayName || member.email || "?").charAt(0).toUpperCase();
-  const colors = ROLE_COLORS[member.role];
-  const isOwner = member.role === "owner";
+  const colors = ROLE_COLORS[safeRole];
+  const isOwner = safeRole === "owner";
 
   return (
     <div
@@ -562,7 +564,7 @@ function MemberRow({
               }
             `}
           >
-            {ROLE_LABELS[member.role]}
+            {ROLE_LABELS[safeRole]}
             <ChevronDown
               className={`w-3 h-3 transition-transform ${
                 isOpen ? "rotate-180" : ""
@@ -579,7 +581,7 @@ function MemberRow({
               }
             `}
           >
-            {ROLE_LABELS[member.role]}
+            {ROLE_LABELS[safeRole]}
           </span>
         )}
 
