@@ -1480,13 +1480,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0 ${isMobile ? 'pt-14' : ''}`}>
         {/* Top Navbar — hidden on mobile */}
         <header className={`h-[72px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex ${isDarkMode ? 'bg-slate-900' : 'bg-[#f0e8d0]'}`}>
-          <div className="flex-grow max-w-[480px] relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input 
-              placeholder={t.searchPlaceholder}
-              className={`pl-12 border shadow-sm focus-visible:ring-1 rounded-full h-10 w-full text-sm font-medium ${isDarkMode ? 'bg-slate-800 border-slate-700 focus-visible:ring-slate-600 text-white placeholder:text-slate-400' : 'bg-[#faf8f3] border-slate-100 focus-visible:ring-slate-200 text-slate-700 placeholder:text-slate-400'}`}
-            />
-          </div>
+          <div className="flex-grow max-w-[480px]"></div>
           <div className="flex items-center gap-3">
               {/* Live Clock */}
               {currentTime && (
