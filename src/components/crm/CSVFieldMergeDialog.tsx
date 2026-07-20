@@ -200,7 +200,7 @@ export default function CSVFieldMergeDialog({
                     Your CSV has fields not in your dashboard
                   </h2>
                   <p className={`text-sm ${textMuted} mt-0.5`}>
-                    Choose how to handle CSV columns that don&apos;t match existing contact fields
+                    Some CSV columns don&apos;t match your current fields. Choose how to handle them below.
                   </p>
                 </div>
               </div>
@@ -296,10 +296,10 @@ export default function CSVFieldMergeDialog({
                   <Zap className="w-5 h-5" />
                 </div>
                 <div className="flex-1 text-left">
-                  <div className="font-semibold text-sm">Add Missing Fields Automatically</div>
+                  <div className="font-semibold text-sm">Auto-Map Everything</div>
                   <div className="text-xs text-indigo-200 mt-0.5 leading-relaxed">
-                    Adds any unrecognized CSV columns as new fields in your dashboard so nothing is lost.
-                    Existing fields are never deleted or modified.
+                    Matched columns fill existing fields. Unrecognized columns become new fields automatically.
+                    Contacts with matching emails are updated — no duplicates created.
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 opacity-60 group-hover:translate-x-0.5 transition-transform" />
@@ -314,9 +314,9 @@ export default function CSVFieldMergeDialog({
                   <Settings2 className={`w-5 h-5 ${textMuted}`} />
                 </div>
                 <div className="flex-1 text-left">
-                  <div className={`font-semibold text-sm ${textPrimary}`}>Choose Field Mappings Manually</div>
+                  <div className={`font-semibold text-sm ${textPrimary}`}>Review Each Column Manually</div>
                   <div className={`text-xs ${textMuted} mt-0.5 leading-relaxed`}>
-                    Review each CSV column and decide which dashboard field it maps to, or skip columns you don&apos;t need.
+                    For each CSV column, pick an existing field to merge into, create a new field, or skip it entirely.
                   </div>
                 </div>
                 <ArrowRight className={`w-4 h-4 ${textMuted} opacity-60 group-hover:translate-x-0.5 transition-transform`} />
@@ -407,8 +407,8 @@ export default function CSVFieldMergeDialog({
                               } focus:outline-none focus:ring-2 focus:ring-indigo-500/20`}
                           >
                             {/* Sentinel options */}
-                            <option value={CREATE_NEW}>✦ Create as new field</option>
-                            <option value={SKIP}>⏭ Skip this column</option>
+                            <option value={CREATE_NEW}>✦ Create new column for this data</option>
+                            <option value={SKIP}>⏭ Don&apos;t import this column</option>
 
                             {/* Separator */}
                             <option disabled>────────────</option>
@@ -443,14 +443,14 @@ export default function CSVFieldMergeDialog({
                           <div className="flex items-center gap-1 mt-1.5">
                             <Plus className="w-3 h-3 text-blue-500" />
                             <span className="text-[11px] text-blue-600 dark:text-blue-400">
-                              Will create &ldquo;{match.csvHeader}&rdquo;
+                              A new &ldquo;{match.csvHeader}&rdquo; column will be added to your CRM
                             </span>
                           </div>
                         )}
                         {currentValue === SKIP && (
                           <div className="flex items-center gap-1 mt-1.5">
                             <SkipForward className="w-3 h-3 text-slate-400" />
-                            <span className={`text-[11px] ${textMuted}`}>Column will be ignored</span>
+                            <span className={`text-[11px] ${textMuted}`}>This column&apos;s data will NOT be imported</span>
                           </div>
                         )}
                         {currentValue !== CREATE_NEW && currentValue !== SKIP && (
@@ -472,7 +472,7 @@ export default function CSVFieldMergeDialog({
             <div className={`mx-6 mb-4 flex items-start gap-2 p-3 rounded-lg ${bgSecondary} border ${borderColor}`}>
               <HelpCircle className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${textMuted}`} />
               <p className={`text-xs leading-relaxed ${textMuted}`}>
-                New fields will be created as Text type. You can change the type later in Manage Fields.
+                <strong>How it works:</strong> Contacts with matching emails are merged (empty fields get filled in, existing data is kept). New emails create new contacts. New fields are added as Text type.
               </p>
             </div>
 

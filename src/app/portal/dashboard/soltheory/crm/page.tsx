@@ -1193,8 +1193,13 @@ export default function CRMPage() {
     };
 
     let addedCount = 0;
+    let updatedCount = 0;
     let skippedCount = 0;
-    const existingEmails = new Set(customers.map(c => c.email?.toLowerCase()).filter(Boolean));
+    const existingByEmail = new Map<string, Customer>();
+    for (const c of customers) {
+      const e = c.email?.toLowerCase().trim();
+      if (e) existingByEmail.set(e, c);
+    }
 
     for (let i = 1; i < parsedData.length; i++) {
       const values = parsedData[i];
@@ -1208,67 +1213,71 @@ export default function CRMPage() {
 
       const firstName = rowData["firstName"] || "";
       const lastName = rowData["lastName"] || "";
-      if (!firstName && !lastName) continue;
-
-      // Skip duplicate emails
       const rowEmail = (rowData["email"] || "").trim().toLowerCase();
-      if (rowEmail && existingEmails.has(rowEmail)) {
-        skippedCount++;
-        continue;
-      }
+      const existingContact = rowEmail ? existingByEmail.get(rowEmail) : undefined;
 
-      let leadStatus: Customer["leadStatus"] = "Cold Lead";
-      if (rowData["leadStatus"]) {
-        const matched = matchStatus(rowData["leadStatus"]);
-        if (matched) leadStatus = matched;
-      }
+      if (existingContact) {
+        // MERGE: fill in empty fields on the existing contact
+        const updates: Record<string, any> = {};
+        if (!existingContact.company && rowData["company"]) updates.company = rowData["company"];
+        if (!existingContact.phone && rowData["phone"]) updates.phone = rowData["phone"];
+        if (!existingContact.location && rowData["location"]) updates.location = rowData["location"];
+        if (!existingContact.birthday && rowData["birthday"]) updates.birthday = rowData["birthday"];
+        if (!existingContact.lastContactedDate && rowData["lastContactedDate"]) updates.lastContactedDate = rowData["lastContactedDate"];
 
-      const customFieldValues: Record<string, any> = {};
-      for (const [fieldId, value] of Object.entries(rowData)) {
-        if (!knownFieldKeys.has(fieldId) && value) {
-          customFieldValues[fieldId] = value;
+        const customFieldUpdates: Record<string, any> = { ...(existingContact.customFields || {}) };
+        let hasCustomUpdates = false;
+        for (const [fieldId, value] of Object.entries(rowData)) {
+          if (!knownFieldKeys.has(fieldId) && value && !customFieldUpdates[fieldId]) {
+            customFieldUpdates[fieldId] = value;
+            hasCustomUpdates = true;
+          }
         }
+        if (hasCustomUpdates) updates.customFields = customFieldUpdates;
+
+        if (rowData["tags"]) {
+          const newTags = rowData["tags"].split(",").map(t => t.trim()).filter(Boolean);
+          const existingTagsLower = existingContact.tags.map(t => t.toLowerCase());
+          const trulyNewTags = newTags.filter(t => !existingTagsLower.includes(t.toLowerCase()));
+          if (trulyNewTags.length > 0) updates.tags = [...existingContact.tags, ...trulyNewTags];
+        }
+
+        if (Object.keys(updates).length > 0) {
+          try { await updateCustomer(existingContact.id, updates); updatedCount++; } catch (err) { console.error(`[CSV] Update failed for ${rowEmail}:`, err); }
+        } else {
+          skippedCount++;
+        }
+      } else {
+        if (!firstName && !lastName) { skippedCount++; continue; }
+        let leadStatus: Customer["leadStatus"] = "Cold Lead";
+        if (rowData["leadStatus"]) { const matched = matchStatus(rowData["leadStatus"]); if (matched) leadStatus = matched; }
+
+        const customFieldValues: Record<string, any> = {};
+        for (const [fieldId, value] of Object.entries(rowData)) {
+          if (!knownFieldKeys.has(fieldId) && value) customFieldValues[fieldId] = value;
+        }
+
+        const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const parsedTags = (rowData["tags"] || "").split(",").map(t => t.trim()).filter(Boolean);
+        const c: Customer = { id, firstName, lastName, phone: rowData["phone"] || "", email: rowData["email"] || "", birthday: rowData["birthday"] || "", leadStatus, tags: parsedTags, totalRevenue: parseFloat(rowData["totalRevenue"] || "0") || 0, aiNotes: rowData["aiNotes"] || "", transactions: [], outstandingBalance: parseFloat(rowData["outstandingBalance"] || "0") || 0, company: rowData["company"] || "", location: rowData["location"] || "", lastContactedDate: rowData["lastContactedDate"] || "", ...(Object.keys(customFieldValues).length > 0 ? { customFields: customFieldValues } : {}) };
+
+        const existingTagNames = customTags.map(t => t.name.toLowerCase());
+        const newTags = parsedTags.filter(t => !existingTagNames.includes(t.toLowerCase()));
+        if (newTags.length > 0) {
+          const tagColors = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#ef4444"];
+          setCustomTags((prev: any) => [...prev, ...newTags.map((name, i) => ({ name, color: tagColors[(prev.length + i) % tagColors.length] }))]);
+        }
+
+        try { await addContact(c); if (rowEmail) existingByEmail.set(rowEmail, c); addedCount++; } catch (err) { console.error(`[CSV] Add failed for ${firstName} ${lastName}:`, err); }
       }
-
-      const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const parsedTags = (rowData["tags"] || "").split(",").map(t => t.trim()).filter(Boolean);
-
-      const c: Customer = {
-        id,
-        firstName,
-        lastName,
-        phone: rowData["phone"] || "",
-        email: rowData["email"] || "",
-        birthday: rowData["birthday"] || "",
-        leadStatus,
-        tags: parsedTags,
-        totalRevenue: parseFloat(rowData["totalRevenue"] || "0") || 0,
-        aiNotes: rowData["aiNotes"] || "",
-        transactions: [],
-        outstandingBalance: parseFloat(rowData["outstandingBalance"] || "0") || 0,
-        company: rowData["company"] || "",
-        location: rowData["location"] || "",
-        lastContactedDate: rowData["lastContactedDate"] || "",
-        ...(Object.keys(customFieldValues).length > 0 ? { customFields: customFieldValues } : {}),
-      };
-
-      // Auto-sync new tags
-      const existingTagNames = customTags.map(t => t.name.toLowerCase());
-      const newTags = parsedTags.filter(t => !existingTagNames.includes(t.toLowerCase()));
-      if (newTags.length > 0) {
-        const tagColors = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#ef4444"];
-        setCustomTags((prev: any) => [...prev, ...newTags.map((name, i) => ({ name, color: tagColors[(prev.length + i) % tagColors.length] }))]);
-      }
-
-      await addContact(c);
-      // Track the newly added email so subsequent CSV rows don't duplicate it
-      if (rowEmail) existingEmails.add(rowEmail);
-      addedCount++;
     }
 
-    const skippedMsg = skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount === 1 ? '' : 's'} skipped)` : '';
-    logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Imported ${addedCount} contacts via CSV`);
-    showToast(`Imported ${addedCount} contact(s)${skippedMsg}`, "success");
+    const parts: string[] = [];
+    if (addedCount > 0) parts.push(`${addedCount} added`);
+    if (updatedCount > 0) parts.push(`${updatedCount} updated`);
+    if (skippedCount > 0) parts.push(`${skippedCount} unchanged`);
+    logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `CSV import: ${parts.join(', ') || 'No changes'}`);
+    showToast(`✅ CSV Import: ${parts.join(', ') || 'No changes'}`, "success");
 
     setCsvText("");
     setCsvFile(null);
