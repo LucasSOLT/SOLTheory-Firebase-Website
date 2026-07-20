@@ -52,7 +52,7 @@ import {
   CalendarCheck, Check, Eye, MessageSquare, Smartphone, Hash, Zap, SearchX,
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
   Table2, MapPin, Building2, ChevronLeft, ChevronRight, AlertTriangle, Save, Contact,
-  Settings2, ArrowUpDown, ArrowUp, ArrowDown, Copy,
+  Settings2, ArrowUpDown, ArrowUp, ArrowDown, Copy, Maximize2, Minimize2,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 
@@ -540,6 +540,8 @@ export default function CRMPage() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSendingCampaign, setIsSendingCampaign] = useState(false);
+  const [emailSendMode, setEmailSendMode] = useState<"individual" | "cc">("individual");
+  const [isEmailMaximized, setIsEmailMaximized] = useState(false);
   // Email Campaign v2 state
   const [emailTab, setEmailTab] = useState<"compose" | "preview">("compose");
   const [emailSignature, setEmailSignature] = useState<{
@@ -816,8 +818,13 @@ export default function CRMPage() {
       showToast("No selected contacts have email addresses.", "error");
       return;
     }
+    if (recipientsWithEmails.length > 100) {
+      showToast("Maximum 100 recipients per batch. Please select fewer contacts.", "error");
+      return;
+    }
     
-    const isConfirmed = window.confirm(`Are you sure you want to permanently send this email campaign to ${recipientsWithEmails.length} recipient${recipientsWithEmails.length === 1 ? '' : 's'}?`);
+    const modeLabel = emailSendMode === "cc" ? "CC'd together in one email" : "sent individually";
+    const isConfirmed = window.confirm(`Send this email to ${recipientsWithEmails.length} recipient${recipientsWithEmails.length === 1 ? '' : 's'}? (${modeLabel})`);
     if (!isConfirmed) return;
 
     setIsSendingCampaign(true);
@@ -851,7 +858,8 @@ export default function CRMPage() {
           refreshToken: rToken,
           subject: emailSubject,
           htmlBody: formattedBody,
-          recipients: recipientsWithEmails.map(c => c.email)
+          recipients: recipientsWithEmails.map(c => c.email),
+          sendMode: emailSendMode,
         })
       });
       
@@ -1801,6 +1809,24 @@ export default function CRMPage() {
             <span className="hidden sm:inline">Delete</span>
           </button>
           )}
+          <button
+            onClick={() => {
+              if (selectedIds.size > 0) {
+                if (selectedIds.size > 100) {
+                  showToast("You can only email up to 100 contacts at a time.", "error");
+                  return;
+                }
+                setEmailSendMode(selectedIds.size > 1 ? "individual" : "individual");
+                setShowEmailModal(true);
+              }
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+              isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-purple-50'
+            } ${selectedIds.size === 0 ? 'opacity-40 pointer-events-none' : ''}`}
+          >
+            <MailPlus className="w-[18px] h-[18px] text-purple-500" />
+            Draft Email
+          </button>
         </div>
         )}
         {/* ── Collapsed sidebar: icon-only actions ── */}
@@ -1845,6 +1871,26 @@ export default function CRMPage() {
               <Trash2 className="w-[18px] h-[18px]" />
             </button>
             )}
+            <button
+              onClick={() => {
+                if (selectedIds.size > 0) {
+                  if (selectedIds.size > 100) {
+                    showToast("You can only email up to 100 contacts at a time.", "error");
+                    return;
+                  }
+                  setEmailSendMode(selectedIds.size > 1 ? "individual" : "individual");
+                  setShowEmailModal(true);
+                }
+              }}
+              title="Draft Email"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                selectedIds.size > 0
+                  ? (isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-purple-50')
+                  : 'opacity-40 pointer-events-none text-slate-400'
+              }`}
+            >
+              <MailPlus className="w-[18px] h-[18px] text-purple-500" />
+            </button>
           </div>
         )}
       </aside>
@@ -2528,8 +2574,8 @@ export default function CRMPage() {
 
       {/* ━━━━━━ EMAIL CAMPAIGN MODAL ━━━━━━ */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setShowSignatureEditor(false); setShowDrafts(false); }}>
-          <div className={`rounded-2xl border shadow-2xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} style={{ maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setShowSignatureEditor(false); setShowDrafts(false); setIsEmailMaximized(false); }}>
+          <div className={`border shadow-2xl mx-4 overflow-hidden flex flex-col transition-all duration-300 ${isEmailMaximized ? 'w-full h-full max-w-none rounded-none' : 'w-full max-w-4xl rounded-2xl'} ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/60' : 'bg-[#faf8f3] border-[#E5E7EB]'}`} style={isEmailMaximized ? { maxHeight: "100vh" } : { maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 bg-gradient-to-r ${isDarkMode ? 'border-slate-800 from-slate-900 to-slate-900/45 text-white' : 'border-[#E5E7EB] from-indigo-50/50 to-white'}`}>
               <div className="flex items-center gap-3">
@@ -2551,16 +2597,18 @@ export default function CRMPage() {
                   <button onClick={() => setEmailTab("compose")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "compose" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#faf8f3] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Compose</button>
                   <button onClick={() => setEmailTab("preview")} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${emailTab === "preview" ? (isDarkMode ? "bg-slate-800 text-white shadow-sm" : "bg-[#faf8f3] text-slate-800 shadow-sm") : (isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700")}`}>Preview</button>
                 </div>
-                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); }} className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}><X className="w-4 h-4" /></button>
+                <button onClick={() => setIsEmailMaximized(!isEmailMaximized)} className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`} title={isEmailMaximized ? "Minimize" : "Maximize"}>
+                  {isEmailMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button onClick={() => { setShowEmailModal(false); setEmailSubject(""); setEmailBody(""); setEmailTab("compose"); setIsEmailMaximized(false); }} className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}><X className="w-4 h-4" /></button>
               </div>
             </div>
 
             {/* Recipients Bar */}
-            {/* Recipients Bar */}
             <div className={`px-6 py-3 border-b shrink-0 ${isDarkMode ? 'border-slate-800 bg-slate-950/20' : 'border-[#E5E7EB] bg-[#faf6ed]/50'}`}>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To:</span>
-                {selectedCustomers.slice(0, 8).map(c => (
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{emailSendMode === "cc" ? "CC:" : "To:"}</span>
+                {selectedCustomers.filter(c => c.email).slice(0, 8).map(c => (
                   <span key={c.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium shadow-sm ${
                     isDarkMode ? "bg-slate-850 border-slate-700 text-slate-300" : "bg-[#faf8f3] border-slate-200 text-slate-600"
                   }`}>
@@ -2568,8 +2616,33 @@ export default function CRMPage() {
                     {c.firstName} {c.lastName}
                   </span>
                 ))}
-                {selectedCustomers.length > 8 && <span className="text-[11px] text-slate-400 font-medium">+{selectedCustomers.length - 8} more</span>}
+                {selectedCustomers.filter(c => c.email).length > 8 && <span className="text-[11px] text-slate-400 font-medium">+{selectedCustomers.filter(c => c.email).length - 8} more</span>}
               </div>
+              {/* Send Mode Toggle + Gmail Rate Notice */}
+              {selectedCustomers.filter(c => c.email).length > 1 && (
+                <div className={`flex items-center justify-between mt-2.5 pt-2.5 border-t border-dashed ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/80'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Send mode:</span>
+                    <button
+                      onClick={() => setEmailSendMode(emailSendMode === "individual" ? "cc" : "individual")}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-all cursor-pointer ${
+                        emailSendMode === "individual"
+                          ? (isDarkMode ? 'bg-indigo-950/40 border-indigo-500/30 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-700')
+                          : (isDarkMode ? 'bg-amber-950/30 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700')
+                      }`}
+                    >
+                      {emailSendMode === "individual" ? (
+                        <><Mail className="w-3 h-3" /> Individual Send</>
+                      ) : (
+                        <><Users className="w-3 h-3" /> CC All Recipients</>
+                      )}
+                    </button>
+                  </div>
+                  <span className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    ⚡ Gmail limit: ~500 emails/day
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Body */}
