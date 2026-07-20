@@ -364,21 +364,26 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       const migrationFlag = `crm_migrated_${uid}`;
       const alreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(migrationFlag);
       if (!alreadyMigrated) {
-        const oldSnap = await getDocs(query(oldContactsRef));
-        if (!oldSnap.empty) {
-          console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to org-scoped path...`);
-          await Promise.all(oldSnap.docs.map(d =>
-            setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
-          ));
-          console.log(`[CRM Store] Merge complete.`);
-          const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
-          if (!oldMeetingsSnap.empty) {
-            await Promise.all(oldMeetingsSnap.docs.map(d =>
-              setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
+        try {
+          const oldSnap = await getDocs(query(oldContactsRef));
+          if (!oldSnap.empty) {
+            console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to org-scoped path...`);
+            await Promise.all(oldSnap.docs.map(d =>
+              setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
             ));
+            console.log(`[CRM Store] Merge complete.`);
+            const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
+            if (!oldMeetingsSnap.empty) {
+              await Promise.all(oldMeetingsSnap.docs.map(d =>
+                setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
+              ));
+            }
           }
+          if (typeof window !== 'undefined') localStorage.setItem(migrationFlag, 'true');
+        } catch (mig1Err) {
+          console.warn("[CRM Store] User→org migration skipped (permissions or missing data):", mig1Err);
+          // Continue to set up listeners even if migration fails
         }
-        if (typeof window !== 'undefined') localStorage.setItem(migrationFlag, 'true');
       }
 
       // ── Migration Step 2: migrate shared/crm → org-scoped path ──
