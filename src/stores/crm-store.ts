@@ -358,65 +358,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     console.log("[CRM Store] Initializing Firestore for UID:", uid);
 
     try {
-      // ── Migration Step 1: merge per-user contacts into org-scoped path ──
-      const orgContactsRef = collection(db, crmPath(uid, "contacts"));
-      const oldContactsRef = collection(db, `users/${uid}/contacts`);
-      const migrationFlag = `crm_migrated_${uid}`;
-      const alreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(migrationFlag);
-      if (!alreadyMigrated) {
-        try {
-          const oldSnap = await getDocs(query(oldContactsRef));
-          if (!oldSnap.empty) {
-            console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to org-scoped path...`);
-            await Promise.all(oldSnap.docs.map(d =>
-              setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
-            ));
-            console.log(`[CRM Store] Merge complete.`);
-            const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
-            if (!oldMeetingsSnap.empty) {
-              await Promise.all(oldMeetingsSnap.docs.map(d =>
-                setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
-              ));
-            }
-          }
-          if (typeof window !== 'undefined') localStorage.setItem(migrationFlag, 'true');
-        } catch (mig1Err) {
-          console.warn("[CRM Store] User→org migration skipped (permissions or missing data):", mig1Err);
-          // Continue to set up listeners even if migration fails
-        }
-      }
-
-      // ── Migration Step 2: migrate shared/crm → org-scoped path ──
-      const sharedMigrationFlag = `crm_shared_migrated_v2`;
-      const sharedAlreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(sharedMigrationFlag);
-      if (!sharedAlreadyMigrated) {
-        try {
-          const sharedContactsRef = collection(db, "shared/crm/contacts");
-          const sharedSnap = await getDocs(query(sharedContactsRef));
-          if (!sharedSnap.empty) {
-            console.log(`[CRM Store] Migrating ${sharedSnap.size} contacts from shared/crm to org-scoped path...`);
-            await Promise.all(sharedSnap.docs.map(d =>
-              setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
-            ));
-            // Also migrate shared meetings
-            const sharedMeetingsRef = collection(db, "shared/crm/meetings");
-            const sharedMeetingsSnap = await getDocs(query(sharedMeetingsRef));
-            if (!sharedMeetingsSnap.empty) {
-              await Promise.all(sharedMeetingsSnap.docs.map(d =>
-                setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
-              ));
-            }
-            console.log(`[CRM Store] Shared → org-scoped migration complete.`);
-          }
-          // Only mark as done AFTER successful migration (not in catch block)
-          if (typeof window !== 'undefined') localStorage.setItem(sharedMigrationFlag, 'true');
-        } catch (migErr) {
-          console.warn("[CRM Store] Shared migration skipped (may not have access):", migErr);
-          // Do NOT set the flag here — allow retry on next page load
-        }
-      }
-
-      // Set up real-time listener for contacts
+      // ── Set up real-time listeners FIRST (so contacts load immediately) ──
       const contactsRef = collection(db, crmPath(uid, "contacts"));
       const unsubContacts = onSnapshot(
         query(contactsRef),
@@ -430,6 +372,63 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
           get().showToast("⚠️ Error loading contacts", "error");
         }
       );
+
+      // ── Run migrations in the background (non-blocking) ──
+      // These won't delay the contact list from appearing.
+      (async () => {
+        // Migration Step 1: merge per-user contacts into org-scoped path
+        const migrationFlag = `crm_migrated_${uid}`;
+        const alreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(migrationFlag);
+        if (!alreadyMigrated) {
+          try {
+            const oldContactsRef = collection(db, `users/${uid}/contacts`);
+            const oldSnap = await getDocs(query(oldContactsRef));
+            if (!oldSnap.empty) {
+              console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to org-scoped path...`);
+              await Promise.all(oldSnap.docs.map(d =>
+                setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
+              ));
+              console.log(`[CRM Store] Merge complete.`);
+              const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
+              if (!oldMeetingsSnap.empty) {
+                await Promise.all(oldMeetingsSnap.docs.map(d =>
+                  setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
+                ));
+              }
+            }
+            if (typeof window !== 'undefined') localStorage.setItem(migrationFlag, 'true');
+          } catch (mig1Err) {
+            console.warn("[CRM Store] User→org migration skipped (permissions or missing data):", mig1Err);
+          }
+        }
+
+        // Migration Step 2: migrate shared/crm → org-scoped path
+        const sharedMigrationFlag = `crm_shared_migrated_v2`;
+        const sharedAlreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(sharedMigrationFlag);
+        if (!sharedAlreadyMigrated) {
+          try {
+            const sharedContactsRef = collection(db, "shared/crm/contacts");
+            const sharedSnap = await getDocs(query(sharedContactsRef));
+            if (!sharedSnap.empty) {
+              console.log(`[CRM Store] Migrating ${sharedSnap.size} contacts from shared/crm to org-scoped path...`);
+              await Promise.all(sharedSnap.docs.map(d =>
+                setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
+              ));
+              const sharedMeetingsRef = collection(db, "shared/crm/meetings");
+              const sharedMeetingsSnap = await getDocs(query(sharedMeetingsRef));
+              if (!sharedMeetingsSnap.empty) {
+                await Promise.all(sharedMeetingsSnap.docs.map(d =>
+                  setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
+                ));
+              }
+              console.log(`[CRM Store] Shared → org-scoped migration complete.`);
+            }
+            if (typeof window !== 'undefined') localStorage.setItem(sharedMigrationFlag, 'true');
+          } catch (migErr) {
+            console.warn("[CRM Store] Shared migration skipped (may not have access):", migErr);
+          }
+        }
+      })();
 
       // Set up real-time listener for meetings
       const meetingsRef = collection(db, crmPath(uid, "meetings"));
