@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
   try {
     await initAdmin();
     const db = getFirestore();
+    const BATCH_SIZE = 400;
 
     // 1. Migrate Contacts
     const sharedContactsRef = db.collection("shared/crm/contacts");
@@ -48,13 +49,17 @@ export async function GET(req: NextRequest) {
 
     if (!sharedContactsSnap.empty) {
       console.log(`[CRM Server Migration] Found ${sharedContactsSnap.size} legacy contacts to migrate.`);
-      const batch = db.batch();
-      sharedContactsSnap.docs.forEach((doc) => {
-        const destRef = db.collection(`orgs/${orgId}/crm-instances/default/contacts`).doc(doc.id);
-        batch.set(destRef, doc.data(), { merge: true });
-        contactsMigrated++;
-      });
-      await batch.commit();
+      const docs = sharedContactsSnap.docs;
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const chunk = docs.slice(i, i + BATCH_SIZE);
+        const batch = db.batch();
+        chunk.forEach((doc) => {
+          const destRef = db.collection(`orgs/${orgId}/crm-instances/default/contacts`).doc(doc.id);
+          batch.set(destRef, doc.data(), { merge: true });
+          contactsMigrated++;
+        });
+        await batch.commit();
+      }
       console.log(`[CRM Server Migration] Successfully migrated ${contactsMigrated} contacts.`);
     } else {
       console.log("[CRM Server Migration] No legacy contacts found in shared/crm/contacts.");
@@ -67,13 +72,17 @@ export async function GET(req: NextRequest) {
 
     if (!sharedMeetingsSnap.empty) {
       console.log(`[CRM Server Migration] Found ${sharedMeetingsSnap.size} legacy meetings to migrate.`);
-      const batch = db.batch();
-      sharedMeetingsSnap.docs.forEach((doc) => {
-        const destRef = db.collection(`orgs/${orgId}/crm-instances/default/meetings`).doc(doc.id);
-        batch.set(destRef, doc.data(), { merge: true });
-        meetingsMigrated++;
-      });
-      await batch.commit();
+      const docs = sharedMeetingsSnap.docs;
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const chunk = docs.slice(i, i + BATCH_SIZE);
+        const batch = db.batch();
+        chunk.forEach((doc) => {
+          const destRef = db.collection(`orgs/${orgId}/crm-instances/default/meetings`).doc(doc.id);
+          batch.set(destRef, doc.data(), { merge: true });
+          meetingsMigrated++;
+        });
+        await batch.commit();
+      }
       console.log(`[CRM Server Migration] Successfully migrated ${meetingsMigrated} meetings.`);
     }
 
@@ -84,13 +93,17 @@ export async function GET(req: NextRequest) {
 
     if (!sharedTasksSnap.empty) {
       console.log(`[CRM Server Migration] Found ${sharedTasksSnap.size} legacy tasks to migrate.`);
-      const batch = db.batch();
-      sharedTasksSnap.docs.forEach((doc) => {
-        const destRef = db.collection(`orgs/${orgId}/crm-instances/default/tasks`).doc(doc.id);
-        batch.set(destRef, doc.data(), { merge: true });
-        tasksMigrated++;
-      });
-      await batch.commit();
+      const docs = sharedTasksSnap.docs;
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const chunk = docs.slice(i, i + BATCH_SIZE);
+        const batch = db.batch();
+        chunk.forEach((doc) => {
+          const destRef = db.collection(`orgs/${orgId}/crm-instances/default/tasks`).doc(doc.id);
+          batch.set(destRef, doc.data(), { merge: true });
+          tasksMigrated++;
+        });
+        await batch.commit();
+      }
       console.log(`[CRM Server Migration] Successfully migrated ${tasksMigrated} tasks.`);
     }
 
