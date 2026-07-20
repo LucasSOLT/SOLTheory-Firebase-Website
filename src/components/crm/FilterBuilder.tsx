@@ -143,79 +143,100 @@ export const PREBUILT_SEGMENTS: SavedSegment[] = [
 /* ─────────────── FILTER EVALUATION ─────────────── */
 
 export function evaluateRule(customer: Customer, rule: FilterRule, fieldDefs?: FilterFieldDef[]): boolean {
-  const fields = fieldDefs || DEFAULT_FILTER_FIELDS;
-  const field = fields.find(f => f.id === rule.field);
-  if (!field) return true;
+  try {
+    const fields = fieldDefs || DEFAULT_FILTER_FIELDS;
+    const field = fields.find(f => f.id === rule.field);
+    if (!field) return true;
 
-  const rawValue = (customer as any)[rule.field];
+    // Support both top-level and customFields
+    let rawValue = (customer as any)[rule.field];
+    if (rawValue === undefined && (customer as any).customFields) {
+      rawValue = (customer as any).customFields[rule.field];
+    }
 
-  switch (field.type) {
-    case "text": {
-      const val = (rawValue || "").toString().toLowerCase();
-      const target = (rule.value || "").toLowerCase();
-      switch (rule.operator) {
-        case "is": return val === target;
-        case "is_not": return val !== target;
-        case "contains": return val.includes(target);
-        case "not_contains": return !val.includes(target);
-        case "is_empty": return !val;
-        case "is_not_empty": return !!val;
-        case "starts_with": return val.startsWith(target);
-        default: return true;
-      }
-    }
-    case "number": {
-      const num = typeof rawValue === "number" ? rawValue : parseFloat(rawValue || "0");
-      const target = parseFloat(rule.value || "0");
-      switch (rule.operator) {
-        case "eq": return num === target;
-        case "neq": return num !== target;
-        case "gt": return num > target;
-        case "gte": return num >= target;
-        case "lt": return num < target;
-        case "lte": return num <= target;
-        default: return true;
-      }
-    }
-    case "select": {
-      const val = (rawValue || "").toString();
-      switch (rule.operator) {
-        case "is": return val === rule.value;
-        case "is_not": return val !== rule.value;
-        default: return true;
-      }
-    }
-    case "array": {
-      const arr = Array.isArray(rawValue) ? rawValue : [];
-      switch (rule.operator) {
-        case "contains": return arr.some(v => v.toLowerCase().includes((rule.value || "").toLowerCase()));
-        case "not_contains": return !arr.some(v => v.toLowerCase().includes((rule.value || "").toLowerCase()));
-        case "is_empty": return arr.length === 0;
-        case "is_not_empty": return arr.length > 0;
-        default: return true;
-      }
-    }
-    case "date": {
-      const dateVal = rawValue?.toDate ? rawValue.toDate() : rawValue ? new Date(rawValue) : null;
-      if (!dateVal) return rule.operator === "is_empty";
-      const now = new Date();
-      switch (rule.operator) {
-        case "before": return dateVal < new Date(rule.value);
-        case "after": return dateVal > new Date(rule.value);
-        case "last_n_days": {
-          const daysAgo = new Date();
-          daysAgo.setDate(now.getDate() - parseInt(rule.value || "0"));
-          return dateVal >= daysAgo;
+    switch (field.type) {
+      case "text": {
+        const val = (rawValue ?? "").toString().toLowerCase();
+        const target = (rule.value || "").toLowerCase();
+        switch (rule.operator) {
+          case "is": return val === target;
+          case "is_not": return val !== target;
+          case "contains": return val.includes(target);
+          case "not_contains": return !val.includes(target);
+          case "is_empty": return !val;
+          case "is_not_empty": return !!val;
+          case "starts_with": return val.startsWith(target);
+          default: return true;
         }
-        case "more_than_n_days": {
-          const daysAgo = new Date();
-          daysAgo.setDate(now.getDate() - parseInt(rule.value || "0"));
-          return dateVal < daysAgo;
-        }
-        default: return true;
       }
+      case "number": {
+        const num = typeof rawValue === "number" ? rawValue : parseFloat(rawValue ?? "0");
+        const target = parseFloat(rule.value || "0");
+        if (isNaN(num)) return true; // Can't evaluate, show the contact
+        switch (rule.operator) {
+          case "eq": return num === target;
+          case "neq": return num !== target;
+          case "gt": return num > target;
+          case "gte": return num >= target;
+          case "lt": return num < target;
+          case "lte": return num <= target;
+          default: return true;
+        }
+      }
+      case "select": {
+        const val = (rawValue ?? "").toString();
+        switch (rule.operator) {
+          case "is": return val === rule.value;
+          case "is_not": return val !== rule.value;
+          default: return true;
+        }
+      }
+      case "array": {
+        const arr = Array.isArray(rawValue) ? rawValue : [];
+        switch (rule.operator) {
+          case "contains": return arr.some(v => String(v).toLowerCase().includes((rule.value || "").toLowerCase()));
+          case "not_contains": return !arr.some(v => String(v).toLowerCase().includes((rule.value || "").toLowerCase()));
+          case "is_empty": return arr.length === 0;
+          case "is_not_empty": return arr.length > 0;
+          default: return true;
+        }
+      }
+      case "date": {
+        // Robustly handle Firestore Timestamps, Date objects, ISO strings, and epoch seconds
+        let dateVal: Date | null = null;
+        if (rawValue?.toDate && typeof rawValue.toDate === "function") {
+          dateVal = rawValue.toDate();
+        } else if (rawValue?.seconds && typeof rawValue.seconds === "number") {
+          dateVal = new Date(rawValue.seconds * 1000);
+        } else if (rawValue instanceof Date) {
+          dateVal = rawValue;
+        } else if (rawValue) {
+          dateVal = new Date(rawValue);
+        }
+        if (!dateVal || isNaN(dateVal.getTime())) return rule.operator === "is_empty";
+        const now = new Date();
+        switch (rule.operator) {
+          case "before": return dateVal < new Date(rule.value);
+          case "after": return dateVal > new Date(rule.value);
+          case "last_n_days": {
+            const daysAgo = new Date();
+            daysAgo.setDate(now.getDate() - parseInt(rule.value || "0"));
+            return dateVal >= daysAgo;
+          }
+          case "more_than_n_days": {
+            const daysAgo = new Date();
+            daysAgo.setDate(now.getDate() - parseInt(rule.value || "0"));
+            return dateVal < daysAgo;
+          }
+          default: return true;
+        }
+      }
+      default: return true;
     }
-    default: return true;
+  } catch (err) {
+    // Never crash the UI — just show the contact if evaluation fails
+    console.warn("[FilterBuilder] evaluateRule error:", err);
+    return true;
   }
 }
 

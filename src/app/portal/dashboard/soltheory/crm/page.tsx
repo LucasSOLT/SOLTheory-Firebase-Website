@@ -439,7 +439,23 @@ export default function CRMPage() {
     setCustomTags, setIntegrations, showToast } = store;
 
   /* ─────────── LOCAL UI STATE ─────────── */
-  const [activeView, setActiveView] = useState<CrmView>("dashboard");
+  const crmSettings = useCRMStore((s) => s.crmSettings);
+  const [activeView, setActiveViewRaw] = useState<CrmView>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('crm_active_view') as CrmView | null;
+      if (saved && ["dashboard", "board", "campaigns", "analytics", "follow_ups", "insights", "settings"].includes(saved)) {
+        return saved;
+      }
+    }
+    return "dashboard";
+  });
+  // Wrap setActiveView to also persist to localStorage
+  const setActiveView = useCallback((view: CrmView) => {
+    setActiveViewRaw(view);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('crm_active_view', view);
+    }
+  }, []);
   const { t, lang } = useTranslation();
   const { isDarkMode } = useTheme();
 
@@ -861,10 +877,20 @@ export default function CRMPage() {
     return () => { teardown(); };
   }, [user?.uid, db, initializeStore, teardown]);
 
-  // Load pipeline config on mount
+  // Load pipeline config + CRM settings on mount
   useEffect(() => {
     if (user?.uid && db) {
       store.loadPipelineConfig();
+      store.loadCrmSettings().then(() => {
+        // If no localStorage override exists, use the Firestore defaultView as initial landing page
+        const saved = localStorage.getItem('crm_active_view');
+        if (!saved) {
+          const dv = store.crmSettings.defaultView;
+          if (dv && dv !== "dashboard") {
+            setActiveView(dv);
+          }
+        }
+      });
     }
   }, [user?.uid, db]);
 
@@ -1626,7 +1652,7 @@ export default function CRMPage() {
                 <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
                   <Users className="w-4 h-4 text-white" />
                 </div>
-                <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Contacts</span>
+                <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{crmSettings.crmLabel}</span>
               </div>
               <div className="flex items-center gap-1">
                 <button

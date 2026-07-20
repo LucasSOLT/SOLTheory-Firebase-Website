@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot,
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot,
   query, orderBy, Unsubscribe, Firestore, serverTimestamp,
 } from "firebase/firestore";
 
@@ -253,6 +253,7 @@ interface CrmStore {
   integrations: { googleCalendar: string; mailProvider: string; whatsapp: string };
   toasts: Toast[];
   pipelineConfig: PipelineConfig | null;
+  crmSettings: { crmLabel: string; defaultView: "dashboard" | "board" | "follow_ups" };
 
   /* ── Firebase refs ── */
   _db: Firestore | null;
@@ -305,6 +306,11 @@ interface CrmStore {
   savePipelineConfig: (config: PipelineConfig) => Promise<void>;
   loadPipelineConfig: () => Promise<void>;
 
+  /* CRM settings (label + default view) */
+  setCrmSettings: (settings: Partial<{ crmLabel: string; defaultView: "dashboard" | "board" | "follow_ups" }>) => void;
+  saveCrmSettings: (settings: { crmLabel: string; defaultView: "dashboard" | "board" | "follow_ups" }) => Promise<void>;
+  loadCrmSettings: () => Promise<void>;
+
   /* Direct setters (for Jarvis command compat) */
   setCustomers: (fn: (prev: Customer[]) => Customer[]) => void;
 
@@ -328,6 +334,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   integrations: { googleCalendar: "", mailProvider: "", whatsapp: "" },
   toasts: [],
   pipelineConfig: null,
+  crmSettings: { crmLabel: "Contacts", defaultView: "dashboard" },
 
   _db: null,
   _uid: null,
@@ -909,6 +916,46 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       }
     } catch (error) {
       console.error("loadPipelineConfig error:", error);
+    }
+  },
+
+  /* ── CRM Settings (label + default view) ── */
+  setCrmSettings: (updates) =>
+    set((state) => ({ crmSettings: { ...state.crmSettings, ...updates } })),
+
+  saveCrmSettings: async (settings) => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+    try {
+      await setDoc(doc(_db, crmPath(_uid, "settings"), "general"), {
+        crmLabel: settings.crmLabel,
+        defaultView: settings.defaultView,
+        updatedAt: serverTimestamp(),
+      });
+      set({ crmSettings: settings });
+      get().showToast("✅ CRM settings saved");
+    } catch (error) {
+      console.error("saveCrmSettings error:", error);
+      get().showToast("⚠️ Failed to save CRM settings", "error");
+    }
+  },
+
+  loadCrmSettings: async () => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+    try {
+      const snap = await getDoc(doc(_db, crmPath(_uid, "settings"), "general"));
+      if (snap.exists()) {
+        const data = snap.data();
+        set({
+          crmSettings: {
+            crmLabel: data.crmLabel || "Contacts",
+            defaultView: data.defaultView || "dashboard",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("loadCrmSettings error:", error);
     }
   },
 

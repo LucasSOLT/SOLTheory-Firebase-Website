@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useCRMStore } from "@/stores/crm-store";
 import type { Customer } from "@/stores/crm-store";
 import { useTheme } from "@/components/ThemeProvider";
 import {
   Settings, GitBranch, Tag, Database, Keyboard,
   ChevronRight, Pencil, Trash2, Plus, X, Check,
-  Download, Copy, BarChart3, Users,
+  Download, Copy, BarChart3, Users, Save,
 } from "lucide-react";
 
 /* ─────────────── TYPES ─────────────── */
@@ -44,6 +44,13 @@ const SHORTCUTS = [
   { keys: "Esc", description: "Close panels" },
 ];
 
+/* View mapping: settings UI label → CrmView value */
+const VIEW_OPTIONS: { label: string; value: "dashboard" | "board" | "follow_ups" }[] = [
+  { label: "Database",   value: "dashboard" },
+  { label: "Pipeline",   value: "board" },
+  { label: "Follow-ups", value: "follow_ups" },
+];
+
 /* ─────────────── COMPONENT ─────────────── */
 
 export default function CRMSettingsView({
@@ -56,12 +63,35 @@ export default function CRMSettingsView({
   const customTags = useCRMStore((s) => s.customTags);
   const setCustomTags = useCRMStore((s) => s.setCustomTags);
   const pipelineConfig = useCRMStore((s) => s.pipelineConfig);
+  const crmSettings = useCRMStore((s) => s.crmSettings);
+  const saveCrmSettings = useCRMStore((s) => s.saveCrmSettings);
 
   const [activeSection, setActiveSection] = useState<SettingsSection>("general");
 
-  /* ── General section state ── */
-  const [crmLabel, setCrmLabel] = useState("My CRM");
-  const [defaultView, setDefaultView] = useState<"table" | "pipeline" | "follow-ups">("table");
+  /* ── General section state — initialize from store ── */
+  const [crmLabel, setCrmLabel] = useState(crmSettings.crmLabel);
+  const [defaultView, setDefaultView] = useState(crmSettings.defaultView);
+
+  // Sync from store if it loads after mount (e.g., Firestore fetch completes)
+  useEffect(() => {
+    setCrmLabel(crmSettings.crmLabel);
+    setDefaultView(crmSettings.defaultView);
+  }, [crmSettings.crmLabel, crmSettings.defaultView]);
+
+  // Track if the CRM label has been changed from the saved value
+  const labelChanged = crmLabel !== crmSettings.crmLabel;
+
+  /* ── Save CRM label ── */
+  const handleSaveLabel = () => {
+    if (!crmLabel.trim()) return;
+    saveCrmSettings({ crmLabel: crmLabel.trim(), defaultView });
+  };
+
+  /* ── Save default view ── */
+  const handleSetDefaultView = (v: "dashboard" | "board" | "follow_ups") => {
+    setDefaultView(v);
+    saveCrmSettings({ crmLabel: crmLabel.trim() || crmSettings.crmLabel, defaultView: v });
+  };
 
   /* ── Tag editing state ── */
   const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
@@ -139,7 +169,7 @@ export default function CRMSettingsView({
           General Settings
         </h2>
         <p className={`text-xs mt-1 ${mutedText}`}>
-          Configure your CRM display name and default view preferences.
+          Configure your CRM display name and landing page preferences.
         </p>
       </div>
 
@@ -148,33 +178,55 @@ export default function CRMSettingsView({
         <label className={`block text-xs font-medium mb-1.5 ${labelText}`}>
           CRM Name / Label
         </label>
-        <input
-          type="text"
-          value={crmLabel}
-          onChange={(e) => setCrmLabel(e.target.value)}
-          className={`w-full max-w-sm h-8 px-3 text-sm rounded-md border outline-none transition-colors focus:ring-1 focus:ring-slate-400 ${inputBg}`}
-          placeholder="e.g. SOLTheory CRM"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={crmLabel}
+            onChange={(e) => setCrmLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSaveLabel();
+              }
+            }}
+            className={`w-full max-w-sm h-8 px-3 text-sm rounded-md border outline-none transition-colors focus:ring-1 focus:ring-slate-400 ${inputBg}`}
+            placeholder="e.g. SOLTheory CRM"
+          />
+          {labelChanged && (
+            <button
+              onClick={handleSaveLabel}
+              disabled={!crmLabel.trim()}
+              className={`h-8 px-3 text-xs rounded-md border transition-all flex items-center gap-1.5 animate-in fade-in duration-200 ${
+                isDarkMode
+                  ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 disabled:opacity-40"
+                  : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 disabled:opacity-40"
+              }`}
+            >
+              <Save size={13} />
+              Save
+            </button>
+          )}
+        </div>
         <p className={`text-[11px] mt-1.5 ${mutedText}`}>
-          This label appears in the sidebar and page header.
+          This label appears in the sidebar and page header. Press Enter or click Save to apply.
         </p>
       </div>
 
-      {/* Default View */}
+      {/* Landing Page (Default View) */}
       <div className={`rounded-lg border p-4 ${cardBg} ${cardBorder}`}>
         <label className={`block text-xs font-medium mb-1.5 ${labelText}`}>
-          Default View
+          Landing Page
         </label>
         <p className={`text-[11px] mb-3 ${mutedText}`}>
-          Choose which view opens when you navigate to the CRM.
+          Choose which view opens when you first navigate to the CRM.
         </p>
         <div className="flex gap-2">
-          {(["table", "pipeline", "follow-ups"] as const).map((v) => (
+          {VIEW_OPTIONS.map((opt) => (
             <button
-              key={v}
-              onClick={() => setDefaultView(v)}
+              key={opt.value}
+              onClick={() => handleSetDefaultView(opt.value)}
               className={`h-8 px-3 text-xs rounded-md border transition-colors ${
-                defaultView === v
+                defaultView === opt.value
                   ? isDarkMode
                     ? "bg-white text-slate-900 border-white"
                     : "bg-slate-900 text-white border-slate-900"
@@ -183,7 +235,7 @@ export default function CRMSettingsView({
                     : `bg-white text-slate-600 border-[#ede8da] ${hoverBg}`
               }`}
             >
-              {v === "table" ? "Table" : v === "pipeline" ? "Pipeline" : "Follow-ups"}
+              {opt.label}
             </button>
           ))}
         </div>
