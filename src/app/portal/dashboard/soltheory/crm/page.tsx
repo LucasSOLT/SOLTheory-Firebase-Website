@@ -440,6 +440,11 @@ export default function CRMPage() {
 
   /* ─────────── LOCAL UI STATE ─────────── */
   const crmSettings = useCRMStore((s) => s.crmSettings);
+  const saveCrmSettings = useCRMStore((s) => s.saveCrmSettings);
+  /* Inline CRM label editing */
+  const [isEditingCrmLabel, setIsEditingCrmLabel] = useState(false);
+  const [editingLabelValue, setEditingLabelValue] = useState("");
+  const crmLabelInputRef = useRef<HTMLInputElement>(null);
   const [activeView, setActiveViewRaw] = useState<CrmView>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('crm_active_view') as CrmView | null;
@@ -1652,7 +1657,49 @@ export default function CRMPage() {
                 <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
                   <Users className="w-4 h-4 text-white" />
                 </div>
-                <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{crmSettings.crmLabel}</span>
+                {isEditingCrmLabel ? (
+                  <input
+                    ref={crmLabelInputRef}
+                    type="text"
+                    value={editingLabelValue}
+                    onChange={(e) => setEditingLabelValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const val = editingLabelValue.trim();
+                        if (val) {
+                          saveCrmSettings({ crmLabel: val, defaultView: crmSettings.defaultView });
+                        }
+                        setIsEditingCrmLabel(false);
+                      }
+                      if (e.key === "Escape") {
+                        setIsEditingCrmLabel(false);
+                      }
+                    }}
+                    onBlur={() => {
+                      const val = editingLabelValue.trim();
+                      if (val && val !== crmSettings.crmLabel) {
+                        saveCrmSettings({ crmLabel: val, defaultView: crmSettings.defaultView });
+                      }
+                      setIsEditingCrmLabel(false);
+                    }}
+                    className={`text-[15px] font-bold tracking-tight w-[120px] bg-transparent border-b-2 outline-none px-0.5 ${
+                      isDarkMode ? 'text-white border-indigo-500' : 'text-slate-800 border-indigo-500'
+                    }`}
+                    autoFocus
+                  />
+                ) : (
+                  <span
+                    className={`text-[15px] font-bold tracking-tight cursor-pointer select-none hover:opacity-70 transition-opacity ${isDarkMode ? 'text-white' : 'text-slate-800'}`}
+                    onDoubleClick={() => {
+                      setEditingLabelValue(crmSettings.crmLabel);
+                      setIsEditingCrmLabel(true);
+                    }}
+                    title="Double-click to rename"
+                  >
+                    {crmSettings.crmLabel}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <button

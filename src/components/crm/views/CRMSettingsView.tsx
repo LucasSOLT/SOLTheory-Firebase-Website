@@ -7,7 +7,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import {
   Settings, GitBranch, Tag, Database, Keyboard,
   ChevronRight, Pencil, Trash2, Plus, X, Check,
-  Download, Copy, BarChart3, Users, Save,
+  Download, Copy, BarChart3, Users,
 } from "lucide-react";
 
 /* ─────────────── TYPES ─────────────── */
@@ -69,28 +69,17 @@ export default function CRMSettingsView({
   const [activeSection, setActiveSection] = useState<SettingsSection>("general");
 
   /* ── General section state — initialize from store ── */
-  const [crmLabel, setCrmLabel] = useState(crmSettings.crmLabel);
   const [defaultView, setDefaultView] = useState(crmSettings.defaultView);
 
   // Sync from store if it loads after mount (e.g., Firestore fetch completes)
   useEffect(() => {
-    setCrmLabel(crmSettings.crmLabel);
     setDefaultView(crmSettings.defaultView);
-  }, [crmSettings.crmLabel, crmSettings.defaultView]);
-
-  // Track if the CRM label has been changed from the saved value
-  const labelChanged = crmLabel !== crmSettings.crmLabel;
-
-  /* ── Save CRM label ── */
-  const handleSaveLabel = () => {
-    if (!crmLabel.trim()) return;
-    saveCrmSettings({ crmLabel: crmLabel.trim(), defaultView });
-  };
+  }, [crmSettings.defaultView]);
 
   /* ── Save default view ── */
   const handleSetDefaultView = (v: "dashboard" | "board" | "follow_ups") => {
     setDefaultView(v);
-    saveCrmSettings({ crmLabel: crmLabel.trim() || crmSettings.crmLabel, defaultView: v });
+    saveCrmSettings({ crmLabel: crmSettings.crmLabel, defaultView: v });
   };
 
   /* ── Tag editing state ── */
@@ -169,46 +158,7 @@ export default function CRMSettingsView({
           General Settings
         </h2>
         <p className={`text-xs mt-1 ${mutedText}`}>
-          Configure your CRM display name and landing page preferences.
-        </p>
-      </div>
-
-      {/* CRM Label */}
-      <div className={`rounded-lg border p-4 ${cardBg} ${cardBorder}`}>
-        <label className={`block text-xs font-medium mb-1.5 ${labelText}`}>
-          CRM Name / Label
-        </label>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={crmLabel}
-            onChange={(e) => setCrmLabel(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSaveLabel();
-              }
-            }}
-            className={`w-full max-w-sm h-8 px-3 text-sm rounded-md border outline-none transition-colors focus:ring-1 focus:ring-slate-400 ${inputBg}`}
-            placeholder="e.g. SOLTheory CRM"
-          />
-          {labelChanged && (
-            <button
-              onClick={handleSaveLabel}
-              disabled={!crmLabel.trim()}
-              className={`h-8 px-3 text-xs rounded-md border transition-all flex items-center gap-1.5 animate-in fade-in duration-200 ${
-                isDarkMode
-                  ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 disabled:opacity-40"
-                  : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 disabled:opacity-40"
-              }`}
-            >
-              <Save size={13} />
-              Save
-            </button>
-          )}
-        </div>
-        <p className={`text-[11px] mt-1.5 ${mutedText}`}>
-          This label appears in the sidebar and page header. Press Enter or click Save to apply.
+          Configure your CRM landing page. To rename your CRM, double-click its name in the sidebar.
         </p>
       </div>
 
