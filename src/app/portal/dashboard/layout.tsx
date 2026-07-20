@@ -2097,21 +2097,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
       {/* Leave Cube Transition Overlay */}
       {showLeaveCube && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: isDarkMode ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)' : 'linear-gradient(135deg, #f8f6f0 0%, #e8e4d8 50%, #f8f6f0 100%)', animation: 'leaveFadeIn 0.3s ease-out' }}>
-          <p style={{ fontSize: 13, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 28, color: isDarkMode ? 'rgba(165,180,252,0.8)' : 'rgba(79,70,229,0.7)', animation: 'leavePulse 2s ease-in-out infinite' }}>Leaving Insight</p>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#ffffff', animation: 'leaveFadeIn 0.3s ease-out' }}>
+          <p style={{ fontSize: 13, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase' as const, marginBottom: 28, color: 'rgba(79,70,229,0.6)', animation: 'leavePulse 2s ease-in-out infinite' }}>Loading</p>
           <div style={{ width: 64, height: 64, perspective: 400 }}>
-            <div style={{ width: '100%', height: '100%', position: 'relative', transformStyle: 'preserve-3d', animation: 'leaveCubeRotate 6s ease-in-out infinite' }}>
+            <div style={{ width: '100%', height: '100%', position: 'relative', transformStyle: 'preserve-3d' as const, animation: 'leaveCubeRotate 6s ease-in-out infinite' }}>
               {['translateZ(32px)', 'rotateY(180deg) translateZ(32px)', 'rotateY(90deg) translateZ(32px)', 'rotateY(-90deg) translateZ(32px)', 'rotateX(90deg) translateZ(32px)', 'rotateX(-90deg) translateZ(32px)'].map((t, i) => (
-                <div key={i} style={{ position: 'absolute', width: 64, height: 64, borderRadius: 10, border: '1.5px solid rgba(129,140,248,0.25)', background: 'linear-gradient(135deg, rgba(99,102,241,0.35) 0%, rgba(129,140,248,0.2) 50%, rgba(167,139,250,0.35) 100%)', backdropFilter: 'blur(4px)', transform: t }} />
+                <div key={i} style={{ position: 'absolute', width: 64, height: 64, borderRadius: 10, border: '1.5px solid rgba(129,140,248,0.3)', background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(129,140,248,0.1) 50%, rgba(167,139,250,0.15) 100%)', boxShadow: 'inset 0 0 20px rgba(99,102,241,0.06), 0 0 15px rgba(99,102,241,0.05)', transform: t }} />
               ))}
             </div>
           </div>
-          <div style={{ marginTop: 32, width: 200, height: 3, borderRadius: 2, overflow: 'hidden', background: isDarkMode ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.12)' }}>
+          <div style={{ marginTop: 32, width: 200, height: 3, borderRadius: 2, overflow: 'hidden', background: 'rgba(99,102,241,0.1)' }}>
             <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #6366f1, #818cf8, #a78bfa)', animation: 'leaveProgress 2s linear forwards', width: 0 }} />
           </div>
           <style>{`
             @keyframes leaveFadeIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes leavePulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+            @keyframes leavePulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
             @keyframes leaveProgress { 0% { width: 0%; } 100% { width: 100%; } }
             @keyframes leaveCubeRotate {
               0%, 10%   { transform: rotateX(-25deg) rotateY(0deg); }

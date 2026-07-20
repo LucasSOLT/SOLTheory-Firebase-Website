@@ -138,7 +138,7 @@ export default function InsightLoginPage() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)",
+            background: "#ffffff",
           }}
         >
           <p
@@ -148,7 +148,7 @@ export default function InsightLoginPage() {
               letterSpacing: "0.15em",
               textTransform: "uppercase" as const,
               marginBottom: "28px",
-              color: "rgba(165, 180, 252, 0.8)",
+              color: "rgba(79, 70, 229, 0.6)",
               animation: "loginTextPulse 2s ease-in-out infinite",
             }}
           >
@@ -171,7 +171,7 @@ export default function InsightLoginPage() {
               height: "3px",
               borderRadius: "2px",
               overflow: "hidden",
-              background: "rgba(99, 102, 241, 0.15)",
+              background: "rgba(99, 102, 241, 0.1)",
             }}
           >
             <div
@@ -185,7 +185,7 @@ export default function InsightLoginPage() {
             />
           </div>
           <style>{`
-            @keyframes loginTextPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+            @keyframes loginTextPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
             @keyframes loginProgressFill { 0% { width: 0%; } 100% { width: 100%; } }
             .login-cube-scene { width: 64px; height: 64px; perspective: 400px; }
             .login-cube {
@@ -195,10 +195,9 @@ export default function InsightLoginPage() {
             }
             .login-cube-face {
               position: absolute; width: 64px; height: 64px; border-radius: 10px;
-              border: 1.5px solid rgba(129, 140, 248, 0.25);
-              background: linear-gradient(135deg, rgba(99,102,241,0.35) 0%, rgba(129,140,248,0.2) 50%, rgba(167,139,250,0.35) 100%);
-              backdrop-filter: blur(4px);
-              box-shadow: inset 0 0 20px rgba(99,102,241,0.1), 0 0 15px rgba(99,102,241,0.08);
+              border: 1.5px solid rgba(129, 140, 248, 0.3);
+              background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(129,140,248,0.1) 50%, rgba(167,139,250,0.15) 100%);
+              box-shadow: inset 0 0 20px rgba(99,102,241,0.06), 0 0 15px rgba(99,102,241,0.05);
             }
             .login-cf-front  { transform: translateZ(32px); }
             .login-cf-back   { transform: rotateY(180deg) translateZ(32px); }
