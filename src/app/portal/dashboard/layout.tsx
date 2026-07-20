@@ -898,7 +898,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <LoadingGate isLoading={isUserLoading} isDarkMode={isDarkMode} minDuration={3500}>
+    <LoadingGate isLoading={isUserLoading} isDarkMode={isDarkMode} minDuration={5000}>
     <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>
 
       {/* ========== MOBILE TOP BAR ========== */}
