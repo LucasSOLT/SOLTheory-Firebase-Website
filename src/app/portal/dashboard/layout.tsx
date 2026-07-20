@@ -16,6 +16,7 @@ import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
+import LoadingGate from "@/components/portal/LoadingGate";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useTranslation();
@@ -896,18 +897,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }`;
   };
 
-  if (isUserLoading) {
-    return (
-      <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB]'}`}>
-        <div className="text-center space-y-4">
-          <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-slate-500 font-medium">Loading Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
+    <LoadingGate isLoading={isUserLoading} isDarkMode={isDarkMode} minDuration={3500}>
     <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>
 
       {/* ========== MOBILE TOP BAR ========== */}
@@ -2105,5 +2096,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
     </div>
+    </LoadingGate>
   );
 }
