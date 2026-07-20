@@ -520,11 +520,18 @@ export default function CRMPage() {
   // Column-level sort (independent, takes priority over sortKey/sortDir)
   const [columnSortField, setColumnSortField] = useState<string | null>(null);
   const [columnSortDir, setColumnSortDir] = useState<'asc' | 'desc'>('asc');
-  // Column widths for manual/auto-fit resize
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  // Column widths for manual/auto-fit resize — persisted to localStorage
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('crm_column_widths');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return {};
+  });
   const tableRef = useRef<HTMLTableElement>(null);
   const resizingRef = useRef<{ fieldId: string; startX: number; startWidth: number } | null>(null);
-  const [contactSearch, setContactSearch] = useState("");
   const [contactsViewMode, setContactsViewMode] = useState<"table" | "pipeline">("table");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<string>("");
@@ -1051,6 +1058,10 @@ export default function CRMPage() {
 
   const handleAddContact = async () => {
     if (!form.firstName.trim() || !form.lastName.trim()) return;
+    if (!db || !user?.uid) {
+      showToast("⚠️ Database not connected. Please refresh the page and try again.", "error");
+      return;
+    }
     const id = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const parsedTags = form.tags.split(",").map(t=>t.trim()).filter(Boolean);
     const c: Customer = { id, firstName: form.firstName.trim(), lastName: form.lastName.trim(), phone: form.phone.trim(), email: form.email.trim(), birthday: form.birthday, leadStatus: form.leadStatus, tags: parsedTags, totalRevenue: 0, aiNotes: "", transactions: [], outstandingBalance: 0, company: form.company.trim(), location: form.location.trim(), lastContactedDate: "" };
@@ -1062,9 +1073,14 @@ export default function CRMPage() {
       const tagColors = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#ef4444"];
       setCustomTags((prev: any) => [...prev, ...newTags.map((name, i) => ({ name, color: tagColors[(prev.length + i) % tagColors.length] }))]);
     }
-    await addContact(c);
-    logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Added contact: ${c.firstName} ${c.lastName}`);
-    resetForm(); setShowAddModal(false);
+    try {
+      await addContact(c);
+      logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Added contact: ${c.firstName} ${c.lastName}`);
+      resetForm(); setShowAddModal(false);
+    } catch (err) {
+      console.error("[CRM] Failed to add contact:", err);
+      showToast("⚠️ Failed to add contact. Check console for details.", "error");
+    }
   };
 
   const handleCSVSubmit = async () => {
@@ -1262,10 +1278,9 @@ export default function CRMPage() {
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortDir(d => d==="asc"?"desc":"asc"); else { setSortKey(key); setSortDir("asc"); } };
   const sortedCustomers = useMemo(() => {
     let list = [...customers];
-    if (contactSearch) { const q = contactSearch.toLowerCase(); list = list.filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.tags.some(t=>t.toLowerCase().includes(q))); }
     list.sort((a,b) => { let va="", vb=""; if (sortKey==="name") { va=`${a.firstName} ${a.lastName}`; vb=`${b.firstName} ${b.lastName}`; } else if (sortKey==="email") { va=a.email; vb=b.email; } else if (sortKey==="phone") { va=a.phone; vb=b.phone; } else if (sortKey==="tags") { va=a.tags.join(","); vb=b.tags.join(","); } else { va=a.leadStatus; vb=b.leadStatus; } return sortDir==="asc" ? va.localeCompare(vb) : vb.localeCompare(va); });
     return list;
-  }, [customers, sortKey, sortDir, contactSearch]);
+  }, [customers, sortKey, sortDir]);
 
   const allTags = useMemo(() => {
     const s = new Set<string>();
@@ -1382,7 +1397,11 @@ export default function CRMPage() {
         maxWidth = Math.max(maxWidth, cell.scrollWidth + 8);
       }
     });
-    setColumnWidths(prev => ({ ...prev, [fieldId]: maxWidth }));
+    setColumnWidths(prev => {
+      const next = { ...prev, [fieldId]: maxWidth };
+      localStorage.setItem('crm_column_widths', JSON.stringify(next));
+      return next;
+    });
   };
 
   // Column resize handlers
@@ -1398,7 +1417,11 @@ export default function CRMPage() {
       const { fieldId, startX, startWidth } = resizingRef.current;
       const diff = ev.clientX - startX;
       const newWidth = Math.max(60, startWidth + diff);
-      setColumnWidths(prev => ({ ...prev, [fieldId]: newWidth }));
+      setColumnWidths(prev => {
+        const next = { ...prev, [fieldId]: newWidth };
+        localStorage.setItem('crm_column_widths', JSON.stringify(next));
+        return next;
+      });
     };
     const onMouseUp = () => {
       resizingRef.current = null;
@@ -1947,30 +1970,11 @@ export default function CRMPage() {
                   </span>
                 </h1>
                 <div className="flex items-center gap-2">
-                  {/* Search */}
+                  {/* Command Palette shortcut */}
                   <div className="relative flex items-center">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search contacts, tags, or status..."
-                      value={contactSearch}
-                      onChange={(e) => setContactSearch(e.target.value)}
-                      className={`w-80 sm:w-96 lg:w-[28rem] h-10 pl-10 pr-14 text-sm rounded-xl border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${
-                        isDarkMode 
-                          ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' 
-                          : 'bg-white border-slate-200 text-slate-700'
-                      }`}
-                    />
-                    {/* Result count indicator */}
-                    {contactSearch && (
-                      <span className={`absolute right-20 text-[10px] font-medium tabular-nums ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                        {filteredSortedCustomers.length} of {customers.length}
-                      </span>
-                    )}
-                    {/* Integrated ⌘K badge */}
                     <button
                       onClick={() => setIsCommandPaletteOpen(true)}
-                      className={`absolute right-2 px-2 py-1 rounded-md border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 ${
+                      className={`px-2 py-1 rounded-md border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 ${
                         isDarkMode 
                           ? 'border-slate-700 bg-slate-800 text-slate-400 hover:text-white' 
                           : 'border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-700'
@@ -2042,7 +2046,7 @@ export default function CRMPage() {
                     {showFilterPanel && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setShowFilterPanel(false)} />
-                        <div className={`absolute right-0 mt-1 w-60 rounded-xl border shadow-xl z-50 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
+                        <div className={`absolute right-0 top-full mt-1 w-60 rounded-xl border shadow-xl z-[999] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-white border-slate-200 text-slate-700'}`}>
                           {/* Filter Section */}
                           <div className={`px-3 py-2 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                             <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Filter by field</span>

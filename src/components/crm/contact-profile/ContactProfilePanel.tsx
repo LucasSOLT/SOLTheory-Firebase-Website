@@ -6,6 +6,7 @@ import { useCRMStore } from "@/stores/crm-store";
 import { X, Mail, Phone, MapPin, Building2, Tag, Brain, Loader2, Video, ChevronDown, ChevronUp, Search, Clock, ExternalLink, AlertTriangle, RotateCw, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import ActivityTimeline from "./ActivityTimeline";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 
 interface ContactProfilePanelProps {
   customer: Customer | null;
@@ -153,9 +154,10 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
     lastEnrichTime.current = now;
 
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/crm/enrich", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           firstName: customer.firstName,
           lastName: customer.lastName,
