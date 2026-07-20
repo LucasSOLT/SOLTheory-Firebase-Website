@@ -16,7 +16,7 @@ import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
-import LoadingGate from "@/components/portal/LoadingGate";
+
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useTranslation();
@@ -133,6 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
+  const [showLeaveCube, setShowLeaveCube] = useState(false);
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
   const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
 
@@ -898,7 +899,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <LoadingGate isLoading={isUserLoading} isDarkMode={isDarkMode} minDuration={5000}>
     <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>
 
       {/* ========== MOBILE TOP BAR ========== */}
@@ -1698,9 +1698,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              <div className={`h-8 w-px mx-2 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
              <div className="flex items-center gap-3 select-none">
                 <span className={`text-2xl font-black leading-none tracking-[0.15em] ${isDarkMode ? 'text-white' : 'text-slate-800'}`} style={{ fontFamily: "'Sofia Soft Pro', 'Sofia Pro', sans-serif" }}>INSiGHT</span>
-                <Link href="/" className="flex items-center justify-center w-9 h-9 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition-colors shadow-sm" title={t.exitDashboard}>
+                <button onClick={() => { setShowLeaveCube(true); setTimeout(() => { window.location.href = '/'; }, 2000); }} className="flex items-center justify-center w-9 h-9 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition-colors shadow-sm cursor-pointer" title={t.exitDashboard}>
                   <LogOut className="h-4 w-4" />
-                </Link>
+                </button>
              </div>
           </div>
         </header>
@@ -2095,7 +2095,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       )}
+      {/* Leave Cube Transition Overlay */}
+      {showLeaveCube && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: isDarkMode ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)' : 'linear-gradient(135deg, #f8f6f0 0%, #e8e4d8 50%, #f8f6f0 100%)', animation: 'leaveFadeIn 0.3s ease-out' }}>
+          <p style={{ fontSize: 13, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 28, color: isDarkMode ? 'rgba(165,180,252,0.8)' : 'rgba(79,70,229,0.7)', animation: 'leavePulse 2s ease-in-out infinite' }}>Leaving Insight</p>
+          <div style={{ width: 64, height: 64, perspective: 400 }}>
+            <div style={{ width: '100%', height: '100%', position: 'relative', transformStyle: 'preserve-3d', animation: 'leaveCubeRotate 6s ease-in-out infinite' }}>
+              {['translateZ(32px)', 'rotateY(180deg) translateZ(32px)', 'rotateY(90deg) translateZ(32px)', 'rotateY(-90deg) translateZ(32px)', 'rotateX(90deg) translateZ(32px)', 'rotateX(-90deg) translateZ(32px)'].map((t, i) => (
+                <div key={i} style={{ position: 'absolute', width: 64, height: 64, borderRadius: 10, border: '1.5px solid rgba(129,140,248,0.25)', background: 'linear-gradient(135deg, rgba(99,102,241,0.35) 0%, rgba(129,140,248,0.2) 50%, rgba(167,139,250,0.35) 100%)', backdropFilter: 'blur(4px)', transform: t }} />
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop: 32, width: 200, height: 3, borderRadius: 2, overflow: 'hidden', background: isDarkMode ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.12)' }}>
+            <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #6366f1, #818cf8, #a78bfa)', animation: 'leaveProgress 2s linear forwards', width: 0 }} />
+          </div>
+          <style>{`
+            @keyframes leaveFadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes leavePulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+            @keyframes leaveProgress { 0% { width: 0%; } 100% { width: 100%; } }
+            @keyframes leaveCubeRotate {
+              0%, 10%   { transform: rotateX(-25deg) rotateY(0deg); }
+              15%, 25%  { transform: rotateX(-25deg) rotateY(90deg); }
+              30%, 40%  { transform: rotateX(-25deg) rotateY(180deg); }
+              45%, 55%  { transform: rotateX(-25deg) rotateY(270deg); }
+              60%, 70%  { transform: rotateX(-25deg) rotateY(360deg) rotateZ(5deg); }
+              75%, 85%  { transform: rotateX(-25deg) rotateY(450deg) rotateZ(0deg); }
+              90%, 100% { transform: rotateX(-25deg) rotateY(540deg); }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
-    </LoadingGate>
   );
 }

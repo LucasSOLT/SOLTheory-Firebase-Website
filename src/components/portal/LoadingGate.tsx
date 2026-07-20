@@ -216,15 +216,15 @@ export default function LoadingGate({
         .cube-top    { transform: rotateX(90deg) translateZ(32px); }
         .cube-bottom { transform: rotateX(-90deg) translateZ(32px); }
 
-        /* Stepped rotation: rotate → pause → rotate → pause */
+        /* Stepped rotation: diagonal spin so viewer sees 4 sides in 3D */
         @keyframes cubeRotate {
-          0%, 10%   { transform: rotateX(0deg) rotateY(0deg); }
-          15%, 25%  { transform: rotateX(0deg) rotateY(90deg); }
-          30%, 40%  { transform: rotateX(0deg) rotateY(180deg); }
-          45%, 55%  { transform: rotateX(0deg) rotateY(270deg); }
-          60%, 70%  { transform: rotateX(90deg) rotateY(0deg); }
-          75%, 85%  { transform: rotateX(-90deg) rotateY(0deg); }
-          90%, 100% { transform: rotateX(0deg) rotateY(360deg); }
+          0%, 10%   { transform: rotateX(-25deg) rotateY(0deg); }
+          15%, 25%  { transform: rotateX(-25deg) rotateY(90deg); }
+          30%, 40%  { transform: rotateX(-25deg) rotateY(180deg); }
+          45%, 55%  { transform: rotateX(-25deg) rotateY(270deg); }
+          60%, 70%  { transform: rotateX(-25deg) rotateY(360deg) rotateZ(5deg); }
+          75%, 85%  { transform: rotateX(-25deg) rotateY(450deg) rotateZ(0deg); }
+          90%, 100% { transform: rotateX(-25deg) rotateY(540deg); }
         }
       `}</style>
     </>

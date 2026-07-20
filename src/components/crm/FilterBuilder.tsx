@@ -302,9 +302,9 @@ function FilterBuilder({ customers, onFilterChange, savedSegments, onSaveSegment
   // Apply filter when group changes
   useEffect(() => {
     if (filterGroup.rules.length === 0) {
-      onFilterChange(null);
+      onFilterChange(() => null);
     } else {
-      onFilterChange((c: Customer) => evaluateGroup(c, filterGroup, FILTER_FIELDS));
+      onFilterChange(() => (c: Customer) => evaluateGroup(c, filterGroup, FILTER_FIELDS));
     }
   }, [filterGroup, FILTER_FIELDS]);
 
