@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 import twilio from "twilio";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
@@ -57,6 +58,9 @@ async function hasOptIn(phone: string): Promise<boolean> {
  * Body: { from, to, message }
  */
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { from, to, message } = await req.json();
     if (!to) return NextResponse.json({ error: "Missing 'to' phone number" }, { status: 400 });

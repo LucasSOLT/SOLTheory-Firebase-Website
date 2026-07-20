@@ -66,7 +66,7 @@ const STATUS_COLORS: Record<string, string> = {
   "Sale Completed": "bg-emerald-400",
 };
 
-export default function BulkActionsBar({
+function BulkActionsBar({
   selectedCount,
   onChangeStatus,
   onAddTag,
@@ -166,3 +166,5 @@ export default function BulkActionsBar({
     </div>
   );
 }
+
+export default React.memo(BulkActionsBar);

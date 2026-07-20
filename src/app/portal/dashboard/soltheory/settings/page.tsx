@@ -10,12 +10,17 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { TIMEZONE_OPTIONS, useTranslation } from "@/lib/i18n";
-import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield } from "lucide-react";
+import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield, Users as UsersIcon, Code, Clock } from "lucide-react";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile, sendPasswordResetEmail } from "firebase/auth";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { useCrmPermissions } from "@/hooks/useCrmPermissions";
+import OrgRBACPanel from "@/components/settings/OrgRBACPanel";
+import DevSettingsPanel from "@/components/settings/DevSettingsPanel";
+import AuditLogPanel from "@/components/settings/AuditLogPanel";
+import TwoFactorSetup from "@/components/settings/TwoFactorSetup";
 
 // Translation Dictionary
 const localDict = {
@@ -111,7 +116,7 @@ const localDict = {
 
 type Lang = 'en' | 'es';
 type Tab = 'general' | 'profile';
-type SubPage = null | 'personal-info' | 'sign-in-security' | 'integrations';
+type SubPage = null | 'personal-info' | 'sign-in-security' | 'integrations' | 'org-rbac' | 'dev-settings' | 'audit-log';
 
 export default function SettingsPage() {
   return (
@@ -158,6 +163,9 @@ function SettingsContent() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmailInput, setResetEmailInput] = useState('');
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
 
   // QuickBooks states
   const [qbConnected, setQbConnected] = useState(false);
@@ -184,6 +192,17 @@ function SettingsContent() {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
+
+  // Read 2FA status from Firestore user doc
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const userRef = doc(firestore, "users", user.uid);
+    getDoc(userRef).then(docSnap => {
+      if (docSnap.exists() && docSnap.data().twoFactorEnabled) {
+        setIs2FAEnabled(true);
+      }
+    }).catch(err => console.error("[Settings] 2FA status check error:", err));
+  }, [firestore, user?.uid]);
 
   const changeLang = (l: Lang) => {
     setLang(l);
@@ -662,10 +681,37 @@ function SettingsContent() {
                                       <Mail className="w-6 h-6" />
                                     </div>
                                     <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.resetPassword}</h3>
-                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? <>Enviaremos un enlace de restablecimiento de contraseña a tu correo electrónico <span className="font-semibold">{user?.email}</span>. Haz clic en el enlace para establecer una nueva contraseña.</> : <>We&apos;ll send a password reset link to your email address <span className="font-semibold">{user?.email}</span>. Click the link to set a new password.</>}</p>
+                                    <p className={`text-xs text-center mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                      {lang === 'es' ? 'Confirma tu correo electrónico para recibir el enlace de restablecimiento.' : 'Confirm your email address to receive the reset link.'}
+                                    </p>
+                                    <div className="mb-4">
+                                      <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        {lang === 'es' ? 'Tu correo electrónico' : 'Your email address'}
+                                      </label>
+                                      <input
+                                        type="email"
+                                        value={resetEmailInput}
+                                        onChange={e => setResetEmailInput(e.target.value)}
+                                        placeholder={user?.email || 'your@email.com'}
+                                        autoFocus
+                                        className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-700 placeholder:text-slate-400'}`}
+                                      />
+                                      {resetEmailInput && resetEmailInput.toLowerCase() !== (user?.email || '').toLowerCase() && (
+                                        <p className="text-xs text-red-500 mt-1.5 font-medium">
+                                          {lang === 'es' ? 'El correo no coincide con tu cuenta.' : "Email doesn't match your account."}
+                                        </p>
+                                      )}
+                                      {resetEmailInput && resetEmailInput.toLowerCase() === (user?.email || '').toLowerCase() && (
+                                        <p className="text-xs text-emerald-500 mt-1.5 font-medium">✓ {lang === 'es' ? 'Coincide' : 'Email matches'}</p>
+                                      )}
+                                    </div>
                                     <div className="flex gap-2 justify-end">
-                                      <Button variant="ghost" onClick={() => setShowResetModal(false)} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
-                                      <Button onClick={async () => { if (auth && user?.email) { try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/soltheory/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'settings_changed', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e) { console.error(e); }}}} className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm">{t.sendResetEmail}</Button>
+                                      <Button variant="ghost" onClick={() => { setShowResetModal(false); setResetEmailInput(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
+                                      <Button
+                                        disabled={!resetEmailInput || resetEmailInput.toLowerCase() !== (user?.email || '').toLowerCase()}
+                                        onClick={async () => { if (auth && user?.email && resetEmailInput.toLowerCase() === user.email.toLowerCase()) { try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/soltheory/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'settings_changed', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e) { console.error(e); }}}}
+                                        className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >{t.sendResetEmail}</Button>
                                     </div>
                                   </>
                                 ) : (
@@ -698,14 +744,88 @@ function SettingsContent() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
-                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>{t.notEnabled}</span>
-                                <Button variant="outline" className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{lang === 'es' ? "Activar 2FA" : "Enable 2FA"}</Button>
+                                {is2FAEnabled ? (
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>✅ {lang === 'es' ? 'Activa' : 'Enabled'}</span>
+                                ) : (
+                                  <>
+                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>{t.notEnabled}</span>
+                                    <Button variant="outline" onClick={() => setShow2FASetup(true)} className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{lang === 'es' ? "Activar 2FA" : "Enable 2FA"}</Button>
+                                  </>
+                                )}
                               </div>
+                            </div>
+                          </div>
+
+                          {/* Organizational RBAC */}
+                          <div className={`p-5 rounded-xl ${isDarkMode ? 'bg-slate-800/50 border-slate-700/40' : 'bg-slate-50 border-slate-100'} border`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                                  <UsersIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{lang === 'es' ? 'Control de Acceso Organizacional' : 'Organizational RBAC'}</h3>
+                                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{lang === 'es' ? 'Gestiona roles y permisos de los miembros de tu organización.' : 'Manage roles and permissions for your organization members.'}</p>
+                                </div>
+                              </div>
+                              <Button variant="outline" onClick={() => setSubPage('org-rbac')} className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                {lang === 'es' ? 'Gestionar' : 'Manage'}
+                                <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Audit Log */}
+                          <div className={`p-5 rounded-xl ${isDarkMode ? 'bg-slate-800/50 border-slate-700/40' : 'bg-slate-50 border-slate-100'} border`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                                  <Clock className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{lang === 'es' ? 'Registro de Auditoría' : 'Audit Log'}</h3>
+                                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{lang === 'es' ? 'Ver eventos de seguridad y actividad de usuarios.' : 'View security events and user activity.'}</p>
+                                </div>
+                              </div>
+                              <Button variant="outline" onClick={() => setSubPage('audit-log')} className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                {lang === 'es' ? 'Ver' : 'View'}
+                                <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                              </Button>
                             </div>
                           </div>
 
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Organizational RBAC ====== */}
+                  {subPage === 'org-rbac' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage('sign-in-security')} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver a Seguridad' : 'Back to Security'}
+                      </button>
+                      <OrgRBACPanel orgId="soltheory" />
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Audit Log ====== */}
+                  {subPage === 'audit-log' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage('sign-in-security')} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver a Seguridad' : 'Back to Security'}
+                      </button>
+                      <AuditLogPanel />
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Developer Settings ====== */}
+                  {subPage === 'dev-settings' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver al Perfil' : 'Back to Profile'}
+                      </button>
+                      <DevSettingsPanel />
                     </div>
                   )}
 
@@ -927,6 +1047,24 @@ function SettingsContent() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Account Menu - Section 3: Developer Settings (lucas@soltheory.com only) */}
+                  {(user?.email?.toLowerCase() === 'lucas@soltheory.com' || user?.email?.toLowerCase() === 'lucas.huff@soltheory.com') && (
+                    <div className={`${isDarkMode ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-indigo-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
+                      <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
+                        <button onClick={() => setSubPage('dev-settings')} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-indigo-50/50'}`}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                            <Code className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-medium ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>Developer Settings</div>
+                            <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Platform admin tools — cross-org management</div>
+                          </div>
+                          <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-indigo-500' : 'text-indigo-300'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                     </>
                   )}
                 </div>
@@ -935,6 +1073,14 @@ function SettingsContent() {
           </div>
         </div>
       </main>
+
+      {/* 2FA Setup Modal */}
+      {show2FASetup && (
+        <TwoFactorSetup
+          onClose={() => setShow2FASetup(false)}
+          onEnabled={() => setIs2FAEnabled(true)}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * CRM Contact Enrichment API — Production-Grade
@@ -38,33 +39,30 @@ const ENRICHMENT_SYSTEM_PROMPT = `You are Jarvis, a CRM intelligence assistant. 
 CRITICAL RULES:
 1. Only include information that is RELEVANT TO BUSINESS — professional background, company info, industry, job role, business activity.
 2. NEVER include sensitive personal information: legal cases, criminal records, health issues, political affiliations, religious beliefs, family drama, or personal controversies.
-3. If web results reference multiple different people with the same name, clearly state this and only include information you can confidently attribute to the correct person. Use email, company, phone, or location to disambiguate.
+3. If web results reference multiple different people with the same name, clearly state this and only include information you can confidently attribute to the correct person. Use email, company, phone, location, job title, industry, or website to disambiguate and filter out wrong matches.
 4. NEVER fabricate or guess social media URLs. Only include URLs that were explicitly found in the web research results. If no LinkedIn/social was found, say "Not found in web search" — do NOT construct a URL.
 5. If the contact uses a free email domain (gmail.com, yahoo.com, etc.), do NOT list that domain as a company website. State "Personal email — no company domain" instead.
 6. Be honest about confidence levels. If you're unsure whether a web result is about the right person, say so.
+7. KEEP IT CONCISE: Each section must be extremely short. Limit the entire response to less than 150 words total. Use brief, punchy sentences and bullet points. Avoid filler text.
 
 FORMAT your response with these exact bold section headers:
 
 **Professional Summary**
-A 2-3 sentence overview of who this person is professionally. What do they do? What industry? What company? Base this ONLY on information you're confident is about the correct person. If there's not enough info, say "Limited professional information available — consider asking the contact directly or adding their company name for better results."
+A very concise 1-2 sentence overview of who this person is professionally (what they do, what industry, what company). Base this ONLY on information you're confident is about the correct person. If there's not enough info, say "Limited professional information available — consider asking the contact directly or adding their company name/job title for better results."
 
 **Verified Web Presence**
 List ONLY URLs/profiles that were explicitly found in the web research and are confirmed to be the right person. Format:
 - [Platform]: [URL]
-If nothing was confidently found, state: "No verified profiles found. Consider asking the contact for their LinkedIn or company website."
+If nothing was confidently found, state: "No verified profiles found."
 
 **Business Context**
-Any business-relevant context: their company's industry, size, recent news, funding, products. Only include if a company was identified. Skip this section entirely if no company info is available.
+Any business-relevant context (their company's industry, size, recent news, or products). Only include if a company was identified. Skip this section entirely if no company info is available. Keep it extremely brief.
 
 **Engagement Recommendations**
-2-3 specific, actionable outreach recommendations based on what was actually found. Do NOT use generic advice like "look for mutual connections." If insufficient data was found, recommend what additional information the user should gather (e.g., "Ask for their company name during your next call").
+1-2 short, specific, actionable outreach recommendations based on what was actually found. Do NOT use generic advice.
 
 **Data Quality Notes**
-Flag any issues with the contact record:
-- Missing fields that would improve future enrichment (company, location, etc.)
-- Whether the email is a personal vs. business domain
-- Confidence level of the web research match (High/Medium/Low)
-- If multiple people with this name were found, note the disambiguation issue`;
+Flag 1-2 key issues with the contact record (e.g., missing fields like company, location, job title that would improve future matches, confidence level of web research match, or if multiple people with this name were found).`;
 
 /* ─── Build the user prompt ─── */
 function buildUserPrompt(contact: Record<string, any>, webResearch: string | null, previousInsight: string | null): string {
@@ -81,6 +79,13 @@ function buildUserPrompt(contact: Record<string, any>, webResearch: string | nul
     contact.leadStatus ? `Current Lead Status: ${contact.leadStatus}` : null,
     contact.totalRevenue ? `Total Revenue: $${contact.totalRevenue}` : null,
     contact.outstandingBalance ? `Outstanding Balance: $${contact.outstandingBalance}` : null,
+    // Add additional CRM fields to help the LLM filter results and disambiguate
+    contact.jobTitle ? `Job Title/Position: ${contact.jobTitle}` : null,
+    contact.role ? `Role: ${contact.role}` : null,
+    contact.department ? `Department: ${contact.department}` : null,
+    contact.industry ? `Industry: ${contact.industry}` : null,
+    contact.website ? `Website: ${contact.website}` : null,
+    contact.linkedinUrl ? `LinkedIn URL: ${contact.linkedinUrl}` : null,
   ].filter(Boolean).join("\n");
 
   let prompt = `Please enrich the following CRM contact profile:\n\n${contactInfo}`;
@@ -124,22 +129,47 @@ async function searchWithTavily(contact: Record<string, any>): Promise<{ answer:
   const emailDomain = contact.email?.includes("@") ? contact.email.split("@")[1] : null;
   const isPersonalDomain = emailDomain && FREE_EMAIL_DOMAINS.has(emailDomain);
 
-  // Build a targeted search query — prioritize company + name for better results
-  const queryParts = [
-    contact.company,
-    !isPersonalDomain && emailDomain ? emailDomain : null,
-    contact.firstName && contact.lastName ? `"${contact.firstName} ${contact.lastName}"` : null,
-    // Add location for disambiguation if available
-    contact.location || null,
-    contact.userContext || null,
-  ].filter(Boolean);
+  // Build a highly targeted search query using available fields for filtering
+  const queryParts: string[] = [];
 
-  if (queryParts.length === 0) return null;
+  // 1. Precise Name (in quotes)
+  if (contact.firstName && contact.lastName) {
+    queryParts.push(`"${contact.firstName} ${contact.lastName}"`);
+  }
 
-  // If we only have a name (no company, no business email), add "professional" to help focus results
-  const hasOnlyName = !contact.company && isPersonalDomain && contact.firstName && contact.lastName;
+  // 2. Company name
+  if (contact.company) {
+    queryParts.push(`"${contact.company}"`);
+  } else if (!isPersonalDomain && emailDomain) {
+    queryParts.push(`"${emailDomain}"`);
+  }
+
+  // 3. Job Title or Role
+  if (contact.jobTitle) {
+    queryParts.push(`"${contact.jobTitle}"`);
+  } else if (contact.role) {
+    queryParts.push(`"${contact.role}"`);
+  }
+
+  // 4. Location for filtering regional results
+  if (contact.location) {
+    queryParts.push(contact.location);
+  }
+
+  // 5. Industry
+  if (contact.industry) {
+    queryParts.push(contact.industry);
+  }
+
+  // 6. Custom search context supplied by user
+  if (contact.userContext) {
+    queryParts.push(contact.userContext);
+  }
+
+  // If the query is too sparse (only name), add keywords to direct search toward professional match
+  const hasOnlyName = queryParts.length === 1 && contact.firstName && contact.lastName;
   if (hasOnlyName) {
-    queryParts.push("professional LinkedIn");
+    queryParts.push("professional profile LinkedIn");
   }
 
   const searchQuery = queryParts.join(" ");
@@ -355,8 +385,33 @@ function validateEnrichment(text: string): boolean {
   return matchCount >= 2;
 }
 
+/* ─── In-Memory Rate Limiter (per-user, per-minute) ─── */
+const rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 10; // max 10 enrichments per user per minute
+
+function checkRateLimit(uid: string): boolean {
+  const now = Date.now();
+  const timestamps = (rateLimitMap.get(uid) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  if (timestamps.length >= RATE_LIMIT_MAX) return false;
+  timestamps.push(now);
+  rateLimitMap.set(uid, timestamps);
+  return true;
+}
+
 /* ─── Main Handler ─── */
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
+  // Rate limiting
+  if (!checkRateLimit(auth.uid)) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded — max 10 enrichments per minute. Please wait." },
+      { status: 429 }
+    );
+  }
+
   try {
     const contact = await req.json();
 

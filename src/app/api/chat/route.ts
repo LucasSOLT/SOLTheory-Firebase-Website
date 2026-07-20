@@ -1,6 +1,7 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+import { verifyRequest } from "@/lib/api-auth";
 
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { nxtChapterKnowledge, buildOrgContext } from "@/lib/jarvis-knowledge";
@@ -422,6 +423,8 @@ const tools: any = [
 ];
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
   try {
     const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText } = await req.json();
 

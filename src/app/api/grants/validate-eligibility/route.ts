@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * POST /api/grants/validate-eligibility
@@ -29,6 +30,9 @@ interface ValidationResult {
 }
 
 export async function POST(request: Request) {
+  const auth = await verifyRequest(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body: ValidateRequest = await request.json();
 

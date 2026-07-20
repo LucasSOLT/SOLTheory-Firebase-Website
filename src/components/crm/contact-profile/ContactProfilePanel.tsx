@@ -41,7 +41,7 @@ function renderMarkdown(text: string) {
     if (lastIdx < line.length) segments.push(line.slice(lastIdx));
 
     const isBullet = line.trim().startsWith("•") || line.trim().startsWith("-");
-    return <p key={i} className={`text-sm leading-relaxed ${isBullet ? "pl-2" : ""}`}>{segments.length > 0 ? segments : line}</p>;
+    return <p key={i} className={`text-[13px] leading-relaxed ${isBullet ? "pl-2" : ""}`}>{segments.length > 0 ? segments : line}</p>;
   });
 }
 
@@ -84,7 +84,7 @@ function InsightSkeleton() {
   );
 }
 
-export default function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelProps) {
+function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelProps) {
   const { updateCustomer, addActivity, showToast, activities } = useCRMStore();
   const [isEnriching, setIsEnriching] = useState(false);
   const [insightExpanded, setInsightExpanded] = useState(false);
@@ -169,6 +169,13 @@ export default function ContactProfilePanel({ customer, onClose, onEdit }: Conta
           outstandingBalance: customer.outstandingBalance,
           userContext: searchContext.trim() || undefined,
           previousInsight: activeInsightContent || undefined,
+          // Custom fields for precise filtering/disambiguation
+          jobTitle: customer.customFields?.jobTitle || undefined,
+          role: customer.customFields?.role || undefined,
+          department: customer.customFields?.department || undefined,
+          industry: customer.customFields?.industry || undefined,
+          website: customer.customFields?.website || undefined,
+          linkedinUrl: customer.customFields?.linkedinUrl || undefined,
         }),
       });
 
@@ -464,3 +471,5 @@ export default function ContactProfilePanel({ customer, onClose, onEdit }: Conta
     </div>
   );
 }
+
+export default React.memo(ContactProfilePanel);

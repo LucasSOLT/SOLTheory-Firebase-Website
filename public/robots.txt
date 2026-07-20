@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /portal/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+
+Sitemap: https://soltheory.com/sitemap.xml

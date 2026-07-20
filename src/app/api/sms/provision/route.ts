@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
+import { verifyRequest } from "@/lib/api-auth";
 
 const getTwilioClient = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -17,6 +18,8 @@ const getTwilioClient = () => {
  * Body: { areaCode? }
  */
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
   try {
     const { areaCode } = await req.json();
 

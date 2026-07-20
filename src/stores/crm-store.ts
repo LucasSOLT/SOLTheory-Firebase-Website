@@ -133,12 +133,14 @@ export interface Toast {
 /* ─────────────── HELPERS ─────────────── */
 
 /** 
- * Get the Firestore collection path for shared CRM data.
+ * Get the Firestore collection path for org-scoped CRM data.
  * All org members share the same contacts/meetings/conversations.
- * For future: this will become `contactBooks/{bookId}/{sub}` when
- * multiple contact book instances are supported.
+ * Each org has its own isolated CRM data — enrichments don't cross orgs.
+ * @param _uid - User ID (unused, kept for backward compat)
+ * @param sub - Sub-collection name (contacts, meetings, etc.)
+ * @param orgId - Organization ID (defaults to 'soltheory')
  */
-const crmPath = (_uid: string, sub: string) => `shared/crm/${sub}`;
+const crmPath = (_uid: string, sub: string, orgId: string = "soltheory") => `orgs/${orgId}/crm-instances/default/${sub}`;
 
 /** Convert Firestore doc data to typed object, handling Timestamps */
 function docToCustomer(data: Record<string, unknown>, id: string): Customer {
@@ -167,12 +169,67 @@ function docToCustomer(data: Record<string, unknown>, id: string): Customer {
 
 const INITIAL_CONVERSATIONS: Conversation[] = [];
 
-const INITIAL_TAGS: CrmTag[] = [
+export const INITIAL_TAGS: CrmTag[] = [
+  // Existing Presets
   { name: "VIP", color: "#f59e0b" },
   { name: "Enterprise", color: "#8b5cf6" },
   { name: "Inbound", color: "#0ea5e9" },
   { name: "Referral", color: "#10b981" },
   { name: "High-Value", color: "#f43f5e" },
+  
+  // Standard Roles
+  { name: "Client", color: "#3b82f6" },
+  { name: "User", color: "#6366f1" },
+  { name: "Employee", color: "#ec4899" },
+  { name: "Manager", color: "#14b8a6" },
+  { name: "General Manager", color: "#06b6d4" },
+  { name: "CEO", color: "#8b5cf6" },
+  { name: "COO", color: "#d946ef" },
+  { name: "CFO", color: "#f59e0b" },
+  { name: "CTO", color: "#10b981" },
+  { name: "Director", color: "#0ea5e9" },
+  { name: "VP", color: "#6366f1" },
+  { name: "President", color: "#f43f5e" },
+  { name: "Founder", color: "#3b82f6" },
+  { name: "Co-Founder", color: "#8b5cf6" },
+  { name: "Partner", color: "#14b8a6" },
+  { name: "Associate", color: "#ec4899" },
+  
+  // Departments & Categories
+  { name: "Sales", color: "#f59e0b" },
+  { name: "Marketing", color: "#ec4899" },
+  { name: "Engineering", color: "#3b82f6" },
+  { name: "Design", color: "#d946ef" },
+  { name: "Product", color: "#8b5cf6" },
+  { name: "HR", color: "#14b8a6" },
+  { name: "Finance", color: "#10b981" },
+  { name: "Operations", color: "#6366f1" },
+  { name: "Support", color: "#0ea5e9" },
+  { name: "Legal", color: "#f43f5e" },
+  
+  // Relationship Status
+  { name: "Prospect", color: "#06b6d4" },
+  { name: "Lead", color: "#3b82f6" },
+  { name: "Active Customer", color: "#10b981" },
+  { name: "Past Customer", color: "#f59e0b" },
+  { name: "Churned", color: "#f43f5e" },
+  { name: "Investor", color: "#8b5cf6" },
+  { name: "Vendor", color: "#ec4899" },
+  { name: "Supplier", color: "#14b8a6" },
+  { name: "Partner Org", color: "#6366f1" },
+  { name: "Affiliate", color: "#0ea5e9" },
+  
+  // Demographics/Segments
+  { name: "Local", color: "#10b981" },
+  { name: "National", color: "#3b82f6" },
+  { name: "International", color: "#8b5cf6" },
+  { name: "B2B", color: "#14b8a6" },
+  { name: "B2C", color: "#ec4899" },
+  { name: "SMB", color: "#0ea5e9" },
+  { name: "Mid-Market", color: "#6366f1" },
+  { name: "Startup", color: "#f59e0b" },
+  { name: "Non-Profit", color: "#d946ef" },
+  { name: "Government", color: "#f43f5e" },
 ];
 
 const JARVIS_WELCOME: ChatMessage = {
@@ -294,23 +351,19 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     console.log("[CRM Store] Initializing Firestore for UID:", uid);
 
     try {
-      // ── One-time migration: merge per-user contacts into shared path ──
-      // Always merge — even if shared already has contacts — so that
-      // contacts added under one user path end up visible to all orgs.
-      const sharedContactsRef = collection(db, crmPath(uid, "contacts"));
+      // ── Migration Step 1: merge per-user contacts into org-scoped path ──
+      const orgContactsRef = collection(db, crmPath(uid, "contacts"));
       const oldContactsRef = collection(db, `users/${uid}/contacts`);
       const migrationFlag = `crm_migrated_${uid}`;
       const alreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(migrationFlag);
       if (!alreadyMigrated) {
         const oldSnap = await getDocs(query(oldContactsRef));
         if (!oldSnap.empty) {
-          // Merge into shared — setDoc with merge:true to avoid overwriting existing data
-          console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to shared path...`);
+          console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to org-scoped path...`);
           await Promise.all(oldSnap.docs.map(d =>
             setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
           ));
           console.log(`[CRM Store] Merge complete.`);
-          // Also merge meetings
           const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
           if (!oldMeetingsSnap.empty) {
             await Promise.all(oldMeetingsSnap.docs.map(d =>
@@ -319,6 +372,34 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
           }
         }
         if (typeof window !== 'undefined') localStorage.setItem(migrationFlag, 'true');
+      }
+
+      // ── Migration Step 2: migrate shared/crm → org-scoped path ──
+      const sharedMigrationFlag = `crm_shared_migrated_v2`;
+      const sharedAlreadyMigrated = typeof window !== 'undefined' && localStorage.getItem(sharedMigrationFlag);
+      if (!sharedAlreadyMigrated) {
+        try {
+          const sharedContactsRef = collection(db, "shared/crm/contacts");
+          const sharedSnap = await getDocs(query(sharedContactsRef));
+          if (!sharedSnap.empty) {
+            console.log(`[CRM Store] Migrating ${sharedSnap.size} contacts from shared/crm to org-scoped path...`);
+            await Promise.all(sharedSnap.docs.map(d =>
+              setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
+            ));
+            // Also migrate shared meetings
+            const sharedMeetingsRef = collection(db, "shared/crm/meetings");
+            const sharedMeetingsSnap = await getDocs(query(sharedMeetingsRef));
+            if (!sharedMeetingsSnap.empty) {
+              await Promise.all(sharedMeetingsSnap.docs.map(d =>
+                setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
+              ));
+            }
+            console.log(`[CRM Store] Shared → org-scoped migration complete.`);
+          }
+        } catch (migErr) {
+          console.warn("[CRM Store] Shared migration skipped (may not have access):", migErr);
+        }
+        if (typeof window !== 'undefined') localStorage.setItem(sharedMigrationFlag, 'true');
       }
 
       // Set up real-time listener for contacts
@@ -547,14 +628,18 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   bulkDelete: async (ids) => {
-    const { _db, _uid } = get();
+    const { _db, _uid, showToast } = get();
     if (!_db || !_uid) return;
+    const BATCH_SIZE = 450;
     try {
-      await Promise.all(ids.map(id => deleteDoc(doc(_db, crmPath(_uid, "contacts"), id))));
-      get().showToast(`🗑️ ${ids.length} contact(s) deleted`);
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const chunk = ids.slice(i, i + BATCH_SIZE);
+        await Promise.all(chunk.map(id => deleteDoc(doc(_db, crmPath(_uid, "contacts"), id))));
+      }
+      showToast(`🗑️ ${ids.length} contact(s) deleted`);
     } catch (error) {
-      console.error("bulkDelete error:", error);
-      get().showToast("⚠️ Failed to delete contacts", "error");
+      console.error('[CRM Store] Bulk delete error:', error);
+      showToast('Some contacts failed to delete. Please try again.', 'error');
     }
   },
 

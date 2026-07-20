@@ -4,10 +4,13 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { initAdmin, getFirestore } from "@/firebase/admin";
+import { verifyRequest } from "@/lib/api-auth";
 
 const CUTOFF_NAME = "justin";
 
 export async function GET(req: NextRequest) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
   const dryRun = req.nextUrl.searchParams.get("dryRun") !== "false";
   
   try {

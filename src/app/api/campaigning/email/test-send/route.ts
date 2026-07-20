@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+import { verifyRequest } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
   try {
     const { refreshToken, html, subject, senderEmail, testRecipientEmail } = await req.json();
 

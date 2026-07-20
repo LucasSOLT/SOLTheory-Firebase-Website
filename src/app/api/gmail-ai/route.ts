@@ -4,6 +4,7 @@ import { google } from "googleapis";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { initAdmin, getFirestore } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { verifyRequest } from "@/lib/api-auth";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -776,6 +777,8 @@ function parseAIResponse(raw: string): AIResponseShape {
 }
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
   try {
     const body: RequestBody = await req.json();
     const { messages, uid, refreshToken, userEmail, emailContext, action, actionPayload } = body;

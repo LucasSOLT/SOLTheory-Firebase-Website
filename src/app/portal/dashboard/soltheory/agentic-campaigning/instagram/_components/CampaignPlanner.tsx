@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarDays,
@@ -246,22 +247,20 @@ export default function CampaignPlanner({
 
       // ── Precision timer: trigger the cron at the exact scheduled time ──
       // Vercel Hobby plan only supports daily crons, so we fire a client-side
-      // fetch to the cron endpoint when each post's scheduled time arrives.
+      // fetch to the authenticated cron proxy when each post's scheduled time arrives.
       for (const entry of previewEntries) {
         const delayMs = entry.scheduledDate.getTime() - Date.now();
         if (delayMs <= 0) {
           // Already due — fire immediately
-          fetch("/api/campaigning/instagram/cron", {
-            method: "GET",
-            headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ""}` },
-          }).catch(() => {});
+          getAuthHeaders().then(headers =>
+            fetch("/api/campaigning/instagram/trigger-cron", { method: "POST", headers })
+          ).catch(() => {});
         } else {
           // Schedule a future trigger
           setTimeout(() => {
-            fetch("/api/campaigning/instagram/cron", {
-              method: "GET",
-              headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ""}` },
-            }).catch(() => {});
+            getAuthHeaders().then(headers =>
+              fetch("/api/campaigning/instagram/trigger-cron", { method: "POST", headers })
+            ).catch(() => {});
           }, delayMs);
         }
       }

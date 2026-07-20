@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * POST /api/sms/update-webhook
  * Update the SMS webhook URL on a Twilio phone number.
  * Body: { phoneNumber, webhookUrl? }
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { phoneNumber, webhookUrl } = await req.json();
     const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);

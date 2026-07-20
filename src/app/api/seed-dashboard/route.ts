@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getFirestore } from "@/firebase/admin";
+import { verifyAdmin } from "@/lib/api-auth";
 
-export async function POST() {
+export async function POST(req: Request) {
+  const auth = await verifyAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const adminDb = getFirestore();
     const adminAuth = {} as any; // Mocking adminAuth temporarily as it's missing from admin.ts

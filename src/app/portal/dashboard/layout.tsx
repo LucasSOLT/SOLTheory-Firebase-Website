@@ -19,8 +19,15 @@ import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useTranslation();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push("/portal/login");
+    }
+  }, [user, isUserLoading, router]);
 
   // Welcome Walkthrough States
   const [showWelcome, setShowWelcome] = useState(false);
@@ -51,7 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const firestore = useFirestore();
   const [notifications, setNotifications] = useState<any[]>([]);
-  const router = useRouter();
+
 
   const { isDarkMode, setTheme: setAppTheme } = useTheme();
   const [currentTime, setCurrentTime] = useState('');
@@ -888,6 +895,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         : (isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-[#f2efe8] text-slate-600 hover:text-slate-900')
     }`;
   };
+
+  if (isUserLoading) {
+    return (
+      <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#F9FAFB]'}`}>
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-slate-500 font-medium">Loading Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>

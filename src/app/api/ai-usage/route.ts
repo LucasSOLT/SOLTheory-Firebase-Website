@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
+import { verifyRequest } from "@/lib/api-auth";
 
 const HEAD_ADMIN_EMAIL = "lucas@soltheory.com";
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { uid, email, orgId, filter } = await req.json();
     // filter: "user" | "org" | "all"

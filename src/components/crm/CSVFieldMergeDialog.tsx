@@ -28,6 +28,8 @@ interface CSVFieldMergeDialogProps {
   onAutoMerge: () => void;
   onManualMerge: (mappings: Record<string, string | null>) => void;
   isDarkMode: boolean;
+  /** Called when the user toggles case-sensitivity to re-run field matching */
+  onRematch?: (caseSensitive: boolean) => void;
 }
 
 type ViewState = "prompt" | "manual";
@@ -71,7 +73,9 @@ export default function CSVFieldMergeDialog({
   onAutoMerge,
   onManualMerge,
   isDarkMode,
+  onRematch,
 }: CSVFieldMergeDialogProps) {
+  const [caseSensitive, setCaseSensitive] = useState(false);
   const [view, setView] = useState<ViewState>("prompt");
 
   // Manual mapping state: csvHeader -> selected value (fieldId | CREATE_NEW | SKIP)
@@ -205,6 +209,42 @@ export default function CSVFieldMergeDialog({
                 className={`p-2 rounded-lg ${hoverBg} ${textMuted} transition-colors`}
               >
                 <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Case Sensitivity Toggle */}
+            <div className={`mx-6 mb-4 rounded-xl border p-4 flex items-center justify-between ${
+              isDarkMode 
+                ? "bg-slate-800/60 border-slate-700" 
+                : "bg-slate-50 border-slate-200"
+            }`}>
+              <div className="flex items-center gap-3">
+                <Settings2 className={`w-4 h-4 ${textMuted}`} />
+                <div>
+                  <div className={`text-sm font-medium ${textPrimary}`}>Smart Matching</div>
+                  <div className={`text-xs ${textMuted}`}>
+                    {caseSensitive
+                      ? '"email" won\'t match "Email" — exact casing required'
+                      : '"email" will match "Email" — case-insensitive (recommended)'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const next = !caseSensitive;
+                  setCaseSensitive(next);
+                  onRematch?.(next);
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  !caseSensitive
+                    ? 'bg-indigo-500'
+                    : isDarkMode ? 'bg-slate-600' : 'bg-slate-300'
+                }`}
+                title={caseSensitive ? 'Enable smart matching' : 'Disable smart matching (strict mode)'}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  !caseSensitive ? 'translate-x-6' : 'translate-x-1'
+                }`} />
               </button>
             </div>
 

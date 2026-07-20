@@ -164,7 +164,7 @@ export const DEFAULT_CRM_FIELDS: ContactFieldDef[] = [
 /** Default visible fields for CRM (matches current hardcoded columns minus 'id') */
 export const DEFAULT_CRM_VISIBLE_FIELDS: string[] = [
   "firstName", "lastName", "company", "email", "phone",
-  "leadStatus", "totalRevenue", "tags", "location", "lastContactedDate",
+  "leadStatus", "totalRevenue", "location", "lastContactedDate",
 ];
 
 /* ─────────────── DEFAULT CONTACTS BOOK FIELD CATALOG ─────────────── */
@@ -323,70 +323,53 @@ function levenshtein(a: string, b: string): number {
 
 /**
  * Match a CSV header to the best field in the catalog.
- * Returns exact match, fuzzy match via synonyms, or "new".
+ * @param caseSensitive When false (default), tries case-insensitive matching
+ *   as a fallback if no exact match is found.
  */
 export function matchCSVHeader(
   csvHeader: string,
-  fields: ContactFieldDef[]
+  fields: ContactFieldDef[],
+  caseSensitive: boolean = false
 ): CSVFieldMatch {
-  const headerNorm = normalize(csvHeader);
-
-  // 1. Exact match by field ID
-  const exactById = fields.find(f => normalize(f.id) === headerNorm);
+  // 1. Exact match by field ID (always case-sensitive first)
+  const exactById = fields.find(f => f.id === csvHeader);
   if (exactById) {
     return { csvHeader, matchResult: "exact", matchedFieldId: exactById.id, matchedFieldLabel: exactById.label, confidence: 1 };
   }
 
-  // 2. Exact match by label
-  const exactByLabel = fields.find(f => normalize(f.label) === headerNorm);
+  // 2. Exact match by label (always case-sensitive first)
+  const exactByLabel = fields.find(f => f.label === csvHeader);
   if (exactByLabel) {
     return { csvHeader, matchResult: "exact", matchedFieldId: exactByLabel.id, matchedFieldLabel: exactByLabel.label, confidence: 1 };
   }
 
-  // 3. Synonym match
-  for (const [fieldId, synonyms] of Object.entries(FIELD_SYNONYMS)) {
-    for (const syn of synonyms) {
-      if (normalize(syn) === headerNorm) {
-        const field = fields.find(f => f.id === fieldId);
-        if (field) {
-          return { csvHeader, matchResult: "fuzzy", matchedFieldId: field.id, matchedFieldLabel: field.label, confidence: 0.9 };
-        }
-      }
+  // 3. Case-insensitive fallback (when not strict)
+  if (!caseSensitive) {
+    const headerLower = csvHeader.toLowerCase().trim();
+    const fuzzyById = fields.find(f => f.id.toLowerCase() === headerLower);
+    if (fuzzyById) {
+      return { csvHeader, matchResult: "fuzzy", matchedFieldId: fuzzyById.id, matchedFieldLabel: fuzzyById.label, confidence: 0.9 };
+    }
+    const fuzzyByLabel = fields.find(f => f.label.toLowerCase() === headerLower);
+    if (fuzzyByLabel) {
+      return { csvHeader, matchResult: "fuzzy", matchedFieldId: fuzzyByLabel.id, matchedFieldLabel: fuzzyByLabel.label, confidence: 0.9 };
     }
   }
 
-  // 4. Levenshtein distance match (threshold: <= 2 edits for short names, <= 3 for longer)
-  let bestMatch: ContactFieldDef | null = null;
-  let bestDist = Infinity;
-  for (const field of fields) {
-    const dist = Math.min(
-      levenshtein(headerNorm, normalize(field.id)),
-      levenshtein(headerNorm, normalize(field.label))
-    );
-    const threshold = headerNorm.length <= 6 ? 2 : 3;
-    if (dist <= threshold && dist < bestDist) {
-      bestDist = dist;
-      bestMatch = field;
-    }
-  }
-  if (bestMatch) {
-    const confidence = Math.max(0.5, 1 - bestDist / Math.max(headerNorm.length, 1));
-    return { csvHeader, matchResult: "fuzzy", matchedFieldId: bestMatch.id, matchedFieldLabel: bestMatch.label, confidence };
-  }
-
-  // 5. No match — this is a new field
+  // 4. No match — new custom field
   return { csvHeader, matchResult: "new", matchedFieldId: null, matchedFieldLabel: null, confidence: 0 };
 }
 
 /**
  * Match all CSV headers against the field catalog.
- * Returns an array of match results.
+ * @param caseSensitive When false (default), tries case-insensitive matching.
  */
 export function matchAllCSVHeaders(
   csvHeaders: string[],
-  fields: ContactFieldDef[]
+  fields: ContactFieldDef[],
+  caseSensitive: boolean = false
 ): CSVFieldMatch[] {
-  return csvHeaders.map(h => matchCSVHeader(h, fields));
+  return csvHeaders.map(h => matchCSVHeader(h, fields, caseSensitive));
 }
 
 /** Check if any CSV headers need merge attention (not all exact matches) */

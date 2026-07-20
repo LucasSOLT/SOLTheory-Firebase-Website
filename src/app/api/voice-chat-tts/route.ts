@@ -6,6 +6,7 @@ import { buildOrgContext } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * Combined Voice Chat + TTS endpoint.
@@ -14,6 +15,8 @@ import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
  * Returns: { response: string, audioBase64: string, usage: number, pactFacts: any[] }
  */
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
   try {
     const { messages, agentId, uid, systemInstructions, knowledgeBaseText, pactText, voiceId } = await req.json();
 
@@ -89,7 +92,7 @@ export async function POST(req: Request) {
 
     // ── Step 2: TTS Call (ElevenLabs) — immediately, no extra round-trip ──
     const ttsVoiceId = voiceId || "mZ8K1MPRiT5wDQaasg3i";
-    const ttsApiKey = "sk_c75325e8b9cfb1e4f2b73ad59419653c2ca59013f889267c";
+    const ttsApiKey = process.env.ELEVENLABS_API_KEY || "";
 
     const cleanText = responseText.replace(/<[^>]*>/g, ""); // Strip XML/HTML
 

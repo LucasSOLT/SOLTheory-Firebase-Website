@@ -1,8 +1,12 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
+import { verifyRequest } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { description, uid, orgId } = body;

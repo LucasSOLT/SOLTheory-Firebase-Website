@@ -61,7 +61,51 @@ export async function verifyRequest(req: Request | NextRequest): Promise<AuthRes
  * Helper to get a Firebase ID token on the client side.
  * Use this in components to add auth to fetch calls:
  * 
- *   import { getClientAuthHeaders } from "@/lib/api-auth-client";
- *   const headers = await getClientAuthHeaders();
+ *   import { getAuthHeaders } from "@/lib/api-auth-client";
+ *   const headers = await getAuthHeaders();
  *   fetch("/api/some-route", { headers, ... });
  */
+
+/** Admin email whitelist */
+const ADMIN_EMAILS = [
+  "lucas@soltheory.com",
+  "steve@soltheory.com",
+  "gerard@soltheory.com",
+];
+
+/**
+ * Verify that the request contains a valid Firebase ID token
+ * AND that the user is an admin (email in whitelist).
+ * Use for privileged endpoints like user provisioning, seeding, etc.
+ */
+export async function verifyAdmin(req: Request | NextRequest): Promise<AuthResult> {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth;
+
+  try {
+    initAdmin();
+    const userRecord = await getAuth().getUser(auth.uid);
+    const email = userRecord.email || "";
+
+    if (!ADMIN_EMAILS.includes(email)) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Forbidden — admin access required" },
+          { status: 403 }
+        ),
+      };
+    }
+
+    return { ok: true, uid: auth.uid };
+  } catch (err: any) {
+    console.error("[API Auth] Admin verification failed:", err.message);
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Admin verification failed" },
+        { status: 403 }
+      ),
+    };
+  }
+}

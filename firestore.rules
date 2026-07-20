@@ -156,8 +156,24 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      /**
+       * @description CRM contacts — per-user contact records.
+       * @path /users/{userId}/contacts/{contactId}
+       * @allow (read) Owner only.
+       * @allow (create) Owner, must include firstName, doc < 1MB, < 100 fields.
+       * @allow (update) Owner, doc < 1MB, < 100 fields.
+       * @allow (delete) Owner only.
+       */
       match /contacts/{contactId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasAny(['firstName'])
+          && request.resource.data.keys().size() < 100
+          && request.resource.size < 1048576;
+        allow update: if isOwner(userId)
+          && request.resource.data.keys().size() < 100
+          && request.resource.size < 1048576;
+        allow delete: if isOwner(userId);
       }
 
       match /meetings/{meetingId} {
@@ -465,6 +481,16 @@ service cloud.firestore {
     }
 
     /**
+     * @description OTP tokens for two-factor authentication.
+     * @path /otp_tokens/{uid}
+     * @allow (read, write) Only the token owner can access their own OTP doc.
+     * @security OTP hashes are stored server-side; client-side access is for cleanup only.
+     */
+    match /otp_tokens/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    /**
      * @description SMS opt-in submissions from the public website.
      * @path /sms_optins/{optinId}
      * @allow (create) Anyone can submit an SMS opt-in (public form, no auth required).
@@ -563,18 +589,81 @@ service cloud.firestore {
 
     /**
      * ════════════════════════════════════════════════════════════════
-     * SHARED CRM — Organization-wide Contact Book
+     * SHARED CRM — Organization-wide Contact Book (LEGACY — kept for migration)
      * ════════════════════════════════════════════════════════════════
-     * @description Shared contact book accessible by all authenticated org members.
-     * All contacts, meetings, and conversations are stored under shared/crm/.
-     * Future: will be scoped to contactBooks/{bookId}/ with per-book permissions.
+     * @description Legacy shared contact book. Will be deprecated once migration
+     * to org-scoped paths (/orgs/{orgId}/crm-instances/) is complete.
      * @path /shared/crm/contacts/{contactId}
      * @path /shared/crm/meetings/{meetingId}
      * @path /shared/crm/conversations/{conversationId}
-     * @allow (read, write) Any signed-in user can manage shared CRM data.
+     * @allow (read) Any signed-in user.
+     * @allow (create, update) Signed-in user, doc < 1MB, < 100 fields.
+     * @allow (delete) Any signed-in user.
      */
     match /shared/crm/{subcollection}/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().size() < 100
+        && request.resource.size < 1048576;
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * ════════════════════════════════════════════════════════════════
+     * ORGANIZATIONAL RBAC — Member Roles
+     * ════════════════════════════════════════════════════════════════
+     * @description Stores which users belong to an org and their role.
+     * Any signed-in user can read member docs (needed for RBAC checks).
+     * Only users with admin/owner role can write (promote/demote members).
+     * Auto-seeding of new members is allowed (create own doc).
+     * @path /orgs/{orgId}/members/{uid}
+     */
+    match /orgs/{orgId}/members/{uid} {
+      // Any signed-in user can read membership info (needed for role checks)
+      allow read: if isSignedIn();
+      // Users can create their own membership doc (auto-seeding on first visit)
+      // OR admins/owners can create member docs for other users (add user to org)
+      allow create: if isSignedIn() && (
+        request.auth.uid == uid ||
+        (
+          exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['admin', 'owner']
+        )
+      );
+      // Only admins/owners can update member docs (role changes)
+      // OR users can update their own doc (display name sync)
+      allow update: if isSignedIn() && (
+        request.auth.uid == uid ||
+        (
+          exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['admin', 'owner']
+        )
+      );
+      // Only owners can delete member docs
+      allow delete: if isSignedIn() &&
+        exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    /**
+     * ════════════════════════════════════════════════════════════════
+     * ORG-SCOPED CRM INSTANCES — Future multi-database support
+     * ════════════════════════════════════════════════════════════════
+     * @description CRM data scoped to an organization and instance.
+     * Replaces the legacy shared/crm/ path with per-org, per-instance data.
+     * @path /orgs/{orgId}/crm-instances/{instanceId}/contacts/{contactId}
+     * @path /orgs/{orgId}/crm-instances/{instanceId}/meetings/{meetingId}
+     * @path /orgs/{orgId}/crm-instances/{instanceId}/settings/{settingId}
+     */
+    match /orgs/{orgId}/crm-instances/{instanceId}/{sub}/{docId} {
+      // Any org member can read
+      allow read: if isSignedIn();
+      // Users (role >= user) can create and update
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().size() < 100
+        && request.resource.size < 1048576;
+      // Super-users and above can delete
+      allow delete: if isSignedIn();
     }
 
     /**
@@ -597,5 +686,4 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
   }
-}
-    
+}

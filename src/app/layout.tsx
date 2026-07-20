@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import RouteProgressBar from '@/components/RouteProgressBar';
 
 import { Playfair_Display, PT_Sans, Nunito, Sora, Cormorant_Garamond } from 'next/font/google';
 import { cn } from '@/lib/utils';
@@ -97,6 +98,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           <ThemeProvider>
+            <RouteProgressBar />
             {children}
             <Toaster />
           </ThemeProvider>

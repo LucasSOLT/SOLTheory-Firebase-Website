@@ -1,7 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { verifyRequest } from "@/lib/api-auth";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { youtubeId, type, refreshToken } = await req.json();
 

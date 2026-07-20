@@ -29,14 +29,22 @@ export function useTheme() {
  * Replaces the fragmented isDarkMode pattern across the app.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  // Initialize from the DOM class set by the inline script in layout.tsx
+  // This ensures the first React render matches the pre-hydration state (no flash)
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark") ? "dark" : "light";
+    }
+    return "light";
+  });
 
-  // Initialize from localStorage on mount
+  // Sync with localStorage on mount (handles edge cases where DOM class and storage diverge)
   useEffect(() => {
     const stored = localStorage.getItem("insight_theme") as Theme | null;
-    const initial: Theme = stored === "dark" ? "dark" : "light";
-    setThemeState(initial);
-    applyThemeToDOM(initial);
+    if (stored && stored !== theme) {
+      setThemeState(stored);
+      applyThemeToDOM(stored);
+    }
   }, []);
 
   const applyThemeToDOM = (t: Theme) => {

@@ -1,5 +1,6 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -61,6 +62,9 @@ Guidelines:
 };
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json()) as AIRequest & { knowledgeBaseText?: string; pactText?: string };
     const { action, context } = body;

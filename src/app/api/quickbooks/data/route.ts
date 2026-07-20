@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 
 /**
  * POST /api/quickbooks/data
@@ -67,6 +68,9 @@ async function qboGet(realmId: string, path: string, accessToken: string) {
 }
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { realmId, accessToken, refreshToken, endpoint } = body;

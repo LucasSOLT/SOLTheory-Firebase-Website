@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyRequest } from "@/lib/api-auth";
 import { Groq } from "groq-sdk";
 import { searchAllSources } from "@/services/grant-sources/orchestrator";
 import type { GrantSearchParams, NormalizedGrant } from "@/types/grants";
@@ -413,6 +414,9 @@ Respond with ONLY a valid JSON array, no markdown, no explanation:
    ═══════════════════════════════════════════════════════ */
 
 export async function POST(request: Request) {
+  const auth = await verifyRequest(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
 

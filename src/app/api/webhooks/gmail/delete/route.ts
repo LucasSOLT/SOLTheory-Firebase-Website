@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyRequest } from "@/lib/api-auth";
 import { google } from 'googleapis';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { messageId, refreshToken } = await req.json();
 

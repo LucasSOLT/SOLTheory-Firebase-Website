@@ -17,11 +17,13 @@ import type { SavedSegment } from "@/components/crm/FilterBuilder";
 import DuplicateDetector, { getDuplicateCount } from "@/components/crm/DuplicateDetector";
 import AIInsightsPanel from "@/components/crm/AIInsightsPanel";
 import CRMSettingsView from "@/components/crm/views/CRMSettingsView";
+import InlineEditCell from "@/components/crm/InlineEditCell";
+import { useCrmPermissions } from "@/hooks/useCrmPermissions";
 
 import { useUser, useFirestore } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
-import { useCRMStore } from "@/stores/crm-store";
+import { useCRMStore, INITIAL_TAGS } from "@/stores/crm-store";
 import type { Customer, Meeting, CrmNotification, Conversation, InboxMessage, InboxChannel, TicketStatus, ChatMessage } from "@/stores/crm-store";
 import { ToastContainer } from "@/components/crm/Toast";
 import { DashboardSkeleton, AnalyticsSkeleton } from "@/components/crm/Skeletons";
@@ -75,6 +77,161 @@ const STATUS_COLORS: Record<string, string> = {
   "Interested": "bg-purple-50 text-purple-700 border-purple-200",
   "Sale Completed": "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
+
+const STANDARD_TAGS = [
+  // C-Suite / Executive
+  "CEO", "COO", "CFO", "CTO", "CMO", "CIO", "CHRO", "CRO", "President", "Founder", "Co-Founder", "VP of Engineering", "VP of Sales", "VP of Marketing", "Director", "Executive Board", "Board Member",
+  // Management
+  "General Manager", "Manager", "Team Lead", "Supervisor", "Project Manager", "Product Owner", "Operations Lead", "Branch Manager",
+  // Roles / Jobs
+  "Employee", "Contractor", "Consultant", "Freelancer", "Intern", "Advisor", "Specialist", "Analyst", "Engineer", "Developer", "Designer", "UX Writer", "Content Strategist", "Marketer", "Copywriter", "Sales Executive", "Account Executive", "Business Analyst", "System Administrator", "HR Manager", "Recruiter", "Legal Counsel", "Accountant", "Executive Assistant",
+  // Customer Types / Segments
+  "Client", "User", "Customer", "Lead", "Warm Lead", "Cold Lead", "Hot Lead", "Prospect", "Active Client", "Inactive Client", "Churned Client", "Enterprise Client", "SMB Client", "SME Client", "VIP Client", "High-Value Client", "Low-Value Client", "Key Account", "Target Account",
+  // Lead Sources / Lifecycle
+  "MQL", "SQL", "Inbound Lead", "Outbound Lead", "Referral", "Partner", "Affiliate", "Reseller", "Distributor", "Supplier", "Vendor", "Subcontractor", "Stakeholder", "Investor", "Angel Investor", "Venture Capitalist",
+  // Status / Engagement
+  "Subscriber", "Newsletter Subscriber", "Subscribed", "Unsubscribed", "Opt-In", "Opt-Out", "Do Not Contact", "Blacklisted", "Advocate", "Influencer", "Brand Ambassador", "Beta Tester", "Early Adopter", "Event Attendee", "Webinar Registrant", "Community Member", "Alumni", "Media/Press"
+];
+
+interface TagSelectorProps {
+  value: string;
+  onChange: (val: string) => void;
+  isDarkMode: boolean;
+}
+
+function TagSelector({ value, onChange, isDarkMode }: TagSelectorProps) {
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedTags = useMemo(() => {
+    return value
+      ? value.split(",").map(t => t.trim()).filter(Boolean)
+      : [];
+  }, [value]);
+
+  const filteredTags = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    if (!query) {
+      return STANDARD_TAGS.filter(tag => !selectedTags.includes(tag)).slice(0, 15);
+    }
+    return STANDARD_TAGS.filter(tag => 
+      tag.toLowerCase().includes(query) && !selectedTags.includes(tag)
+    );
+  }, [search, selectedTags]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    if (!selectedTags.includes(trimmed)) {
+      const updated = [...selectedTags, trimmed];
+      onChange(updated.join(", "));
+    }
+    setSearch("");
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    const updated = selectedTags.filter(t => t !== tagToRemove);
+    onChange(updated.join(", "));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (search.trim()) {
+        addTag(search);
+      }
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {selectedTags.map(tag => (
+          <span
+            key={tag}
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all ${
+              isDarkMode
+                ? "bg-indigo-950/40 text-indigo-300 border-indigo-900/60 hover:bg-indigo-900/40"
+                : "bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100"
+            }`}
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(tag)}
+              className="hover:text-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors focus:outline-none cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={e => {
+            setSearch(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder="Search standard tags or type custom..."
+          className={`w-full h-9 px-3 pr-8 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${
+            isDarkMode ? "border-slate-700 bg-slate-800 text-white placeholder:text-slate-500" : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-700 placeholder:text-slate-400"
+          }`}
+        />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+          <Search className="w-3.5 h-3.5 text-slate-400" />
+        </div>
+      </div>
+
+      {isOpen && (filteredTags.length > 0 || search.trim()) && (
+        <div
+          className={`absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-lg border shadow-xl z-[150] py-1 ${
+            isDarkMode ? "bg-slate-800 border-slate-700 text-white shadow-black/40" : "bg-white border-slate-200 text-slate-700 shadow-slate-200/50"
+          }`}
+        >
+          {filteredTags.map(tag => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => addTag(tag)}
+              className={`w-full text-left px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                isDarkMode ? "hover:bg-slate-700 text-indigo-400" : "hover:bg-slate-50 text-indigo-600"
+              }`}
+            >
+              + {tag}
+            </button>
+          ))}
+          {search.trim() && !STANDARD_TAGS.includes(search.trim()) && !selectedTags.includes(search.trim()) && (
+            <button
+              type="button"
+              onClick={() => addTag(search)}
+              className={`w-full text-left px-3 py-1.5 text-xs font-bold border-t transition-colors cursor-pointer ${
+                isDarkMode ? "border-slate-700 hover:bg-slate-700 text-amber-400" : "border-slate-100 hover:bg-slate-50 text-amber-600"
+              }`}
+            >
+              + Add Custom: &quot;{search.trim()}&quot;
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─────────────────────────── NAV CONFIG ─────────────────────────── */
 
@@ -285,6 +442,25 @@ export default function CRMPage() {
   const [activeView, setActiveView] = useState<CrmView>("dashboard");
   const { t, lang } = useTranslation();
   const { isDarkMode } = useTheme();
+
+  /* ─────────── RBAC ─────────── */
+  const { canEdit: rbacCanEdit, canDelete: rbacCanDelete, canExport: rbacCanExport, canImport: rbacCanImport, canManageFields: rbacCanManageFields, canManageRoles: rbacCanManageRoles } = useCrmPermissions();
+
+  /* ─────────── INLINE EDIT HANDLER ─────────── */
+  const handleInlineSave = useCallback((contactId: string, fieldId: string, newValue: any) => {
+    const knownKeys = ['firstName', 'lastName', 'email', 'phone', 'company', 'leadStatus', 'location',
+      'totalRevenue', 'outstandingBalance', 'tags', 'notes', 'aiNotes', 'jobTitle', 'department',
+      'industry', 'birthday', 'website', 'linkedinUrl', 'twitterHandle', 'facebookUrl', 'instagramHandle',
+      'mobilePhone', 'workPhone', 'secondaryEmail', 'lastContactedDate', 'dateCreated', 'dateModified'];
+    
+    if (knownKeys.includes(fieldId)) {
+      store.updateCustomer(contactId, { [fieldId]: newValue });
+    } else {
+      const customer = customers.find(c => c.id === contactId);
+      const existingCustom = (customer as any)?.customFields || {};
+      store.updateCustomer(contactId, { customFields: { ...existingCustom, [fieldId]: newValue } } as any);
+    }
+  }, [store, customers]);
   const getCrmNavLabel = (id: string) => {
     switch (id) {
       case "dashboard": return "Database";
@@ -331,6 +507,8 @@ export default function CRMPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<string>("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [isSimplifiedView, setIsSimplifiedView] = useState(false);
+  const [mruPresetTag, setMruPresetTag] = useState<string | null>(null);
   const [fieldFilters, setFieldFilters] = useState<Record<string, boolean>>({});
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [dateFilterFrom, setDateFilterFrom] = useState("");
@@ -372,6 +550,33 @@ export default function CRMPage() {
 
   // ── Export Modal state ──
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // ── Sidebar collapse state ──
+  const presetTagNames = useMemo(() => INITIAL_TAGS.map(t => t.name), []);
+  const sortedAvailableTags = useMemo(() => {
+    const allNames = customTags.map(t => t.name);
+    const customNames = allNames.filter(name => !presetTagNames.includes(name));
+    const presetNames = presetTagNames.filter(name => allNames.includes(name));
+    
+    if (mruPresetTag && presetNames.includes(mruPresetTag)) {
+      const idx = presetNames.indexOf(mruPresetTag);
+      presetNames.splice(idx, 1);
+      presetNames.unshift(mruPresetTag);
+    }
+    
+    return [...customNames, ...presetNames];
+  }, [customTags, presetTagNames, mruPresetTag]);
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('crm_sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('crm_sidebar_collapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
 
   // Load signature from Firestore
@@ -511,30 +716,52 @@ export default function CRMPage() {
   const saveEditForm = async (customerId: string) => {
     setIsSavingEdit(true);
     const visibleFields = getVisibleFieldDefs();
+    const existingCustomer = customers.find(x => x.id === customerId);
     const directUpdates: Partial<Customer> = {};
     const customFieldUpdates: Record<string, any> = {};
+    let hasChanges = false;
     for (const field of visibleFields) {
       const val = editForm[field.id];
       if (KNOWN_CUSTOMER_KEYS.has(field.id)) {
+        let newVal: any;
         if (field.id === "tags") {
-          (directUpdates as any).tags = typeof val === "string"
+          newVal = typeof val === "string"
             ? val.split(",").map((t: string) => t.trim()).filter(Boolean)
             : Array.isArray(val) ? val : [];
+          const oldVal = (existingCustomer as any)?.tags ?? [];
+          if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+            (directUpdates as any).tags = newVal;
+            hasChanges = true;
+          }
         } else if (field.type === "number" || field.type === "currency") {
-          (directUpdates as any)[field.id] = parseFloat(val) || 0;
+          newVal = parseFloat(val) || 0;
+          if (newVal !== ((existingCustomer as any)?.[field.id] ?? 0)) {
+            (directUpdates as any)[field.id] = newVal;
+            hasChanges = true;
+          }
         } else {
-          (directUpdates as any)[field.id] = val ?? "";
+          newVal = val ?? "";
+          if (newVal !== ((existingCustomer as any)?.[field.id] ?? "")) {
+            (directUpdates as any)[field.id] = newVal;
+            hasChanges = true;
+          }
         }
       } else {
-        customFieldUpdates[field.id] = val ?? "";
+        const newVal = val ?? "";
+        const oldVal = existingCustomer?.customFields?.[field.id] ?? "";
+        if (newVal !== oldVal) {
+          customFieldUpdates[field.id] = newVal;
+          hasChanges = true;
+        }
       }
     }
-    // Merge customFields with existing ones (don't overwrite fields not visible)
-    const existingCustomer = customers.find(x => x.id === customerId);
-    const mergedCustomFields = { ...(existingCustomer?.customFields || {}), ...customFieldUpdates };
-    await store.updateCustomer(customerId, { ...directUpdates, customFields: mergedCustomFields } as Partial<Customer>);
+    if (hasChanges) {
+      // Merge customFields with existing ones (don't overwrite fields not visible)
+      const mergedCustomFields = { ...(existingCustomer?.customFields || {}), ...customFieldUpdates };
+      await store.updateCustomer(customerId, { ...directUpdates, ...(Object.keys(customFieldUpdates).length > 0 ? { customFields: mergedCustomFields } : {}) } as Partial<Customer>);
+      showToast("Contact updated successfully", "success");
+    }
     setIsSavingEdit(false);
-    showToast("Contact updated successfully", "success");
   };
 
   const navigateEdit = async (direction: "prev" | "next") => {
@@ -904,6 +1131,9 @@ export default function CRMPage() {
     };
 
     let addedCount = 0;
+    let skippedCount = 0;
+    const existingEmails = new Set(customers.map(c => c.email?.toLowerCase()).filter(Boolean));
+
     for (let i = 1; i < parsedData.length; i++) {
       const values = parsedData[i];
       const rowData: Record<string, string> = {};
@@ -917,6 +1147,13 @@ export default function CRMPage() {
       const firstName = rowData["firstName"] || "";
       const lastName = rowData["lastName"] || "";
       if (!firstName && !lastName) continue;
+
+      // Skip duplicate emails
+      const rowEmail = (rowData["email"] || "").trim().toLowerCase();
+      if (rowEmail && existingEmails.has(rowEmail)) {
+        skippedCount++;
+        continue;
+      }
 
       let leadStatus: Customer["leadStatus"] = "Cold Lead";
       if (rowData["leadStatus"]) {
@@ -962,11 +1199,14 @@ export default function CRMPage() {
       }
 
       await addContact(c);
+      // Track the newly added email so subsequent CSV rows don't duplicate it
+      if (rowEmail) existingEmails.add(rowEmail);
       addedCount++;
     }
 
+    const skippedMsg = skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount === 1 ? '' : 's'} skipped)` : '';
     logActivity(db, 'crm_entry_created', { email: user?.email || '', displayName: user?.displayName }, `Imported ${addedCount} contacts via CSV`);
-    showToast(`Successfully imported ${addedCount} contact(s).`, "success");
+    showToast(`Imported ${addedCount} contact(s)${skippedMsg}`, "success");
 
     setCsvText("");
     setCsvFile(null);
@@ -1367,24 +1607,45 @@ export default function CRMPage() {
       )}
 
       {/* ──── CRM Sidebar ──── */}
-      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col w-[220px] ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#f5f0e6] border-[#e8e0cc]'} border-r shrink-0 transition-transform duration-200 ease-in-out ${
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col ${isSidebarCollapsed ? 'w-[60px]' : 'w-[220px]'} ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#f5f0e6] border-[#e8e0cc]'} border-r shrink-0 transition-all duration-300 ease-in-out ${
         isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}>
         {/* Sidebar Header */}
-        <div className={`h-16 flex items-center justify-between px-5 border-b ${isDarkMode ? 'border-slate-850' : 'border-[#E5E7EB]'}`}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <Users className="w-4 h-4 text-white" />
-            </div>
-            <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Contacts</span>
-          </div>
-          <button onClick={() => setIsMobileSidebarOpen(false)} className={`lg:hidden w-7 h-7 rounded-md ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} flex items-center justify-center text-slate-400 cursor-pointer`}>
-            <X className="w-4 h-4" />
-          </button>
+        <div className={`h-16 flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-5'} border-b ${isDarkMode ? 'border-slate-850' : 'border-[#E5E7EB]'}`}>
+          {isSidebarCollapsed ? (
+            <button
+              onClick={() => setIsSidebarCollapsed(false)}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-[#f2ece0] text-slate-500 hover:text-slate-700'}`}
+              title="Expand sidebar"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+                  <Users className="w-4 h-4 text-white" />
+                </div>
+                <span className={`text-[15px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Contacts</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setIsSidebarCollapsed(true)}
+                  className={`hidden lg:flex w-7 h-7 rounded-md items-center justify-center transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
+                  title="Collapse sidebar"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={() => setIsMobileSidebarOpen(false)} className={`lg:hidden w-7 h-7 rounded-md ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} flex items-center justify-center text-slate-400 cursor-pointer`}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className={`flex-1 ${isSidebarCollapsed ? 'px-1.5' : 'px-3'} py-4 space-y-0.5`}>
           {crmNavItems.map((item) => {
             const isActive = activeView === item.id;
             const isSpecial = "special" in item && item.special;
@@ -1394,7 +1655,8 @@ export default function CRMPage() {
                 <button
                   key={item.id}
                   onClick={() => { setActiveView(item.id); setIsMobileSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 my-1.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer border ${
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'} my-1.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer border ${
                     isActive
                       ? "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 border-amber-300 shadow-sm shadow-amber-500/10"
                       : "bg-gradient-to-r from-amber-50/60 to-orange-50/40 text-amber-700 border-amber-200/80 hover:from-amber-50 hover:to-orange-50 hover:border-amber-300 hover:shadow-sm"
@@ -1407,7 +1669,7 @@ export default function CRMPage() {
                   }`}>
                     <item.icon className="w-3.5 h-3.5 text-white" />
                   </div>
-                  {item.label}
+                  {!isSidebarCollapsed && item.label}
                 </button>
               );
             }
@@ -1416,20 +1678,22 @@ export default function CRMPage() {
               <button
                 key={item.id}
                 onClick={() => { setActiveView(item.id); setIsMobileSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+                title={isSidebarCollapsed ? item.label : undefined}
+                className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'} rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
                   isActive
                     ? (isDarkMode ? "bg-indigo-950/40 text-indigo-400 font-semibold" : "bg-indigo-50 text-indigo-700 font-semibold")
                     : (isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-700 hover:bg-[#f2ece0]")
                 }`}
               >
                 <item.icon className={`w-[18px] h-[18px] ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
-                {item.label}
+                {!isSidebarCollapsed && item.label}
               </button>
             );
           })}
         </nav>
 
         {/* ── Sidebar Actions (visible when contacts selected) ── */}
+        {!isSidebarCollapsed && (
         <div className={`px-3 pb-4 space-y-1 shrink-0 ${selectedIds.size > 0 ? '' : 'opacity-40 pointer-events-none'}`}>
           <div className={`h-px mx-2 mb-2 ${isDarkMode ? 'bg-slate-800' : 'bg-[#E5E7EB]'}`} />
           <span className={`block px-3 text-[9px] font-bold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -1453,6 +1717,7 @@ export default function CRMPage() {
             <Contact className="w-[18px] h-[18px] text-sky-500" />
             <span className="hidden sm:inline">Contact</span>
           </button>
+          {rbacCanDelete && (
           <button
             onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
@@ -1462,7 +1727,53 @@ export default function CRMPage() {
             <Trash2 className="w-[18px] h-[18px]" />
             <span className="hidden sm:inline">Delete</span>
           </button>
+          )}
         </div>
+        )}
+        {/* ── Collapsed sidebar: icon-only actions ── */}
+        {isSidebarCollapsed && (
+          <div className="px-1.5 pb-4 space-y-1 shrink-0 flex flex-col items-center">
+            <div className={`h-px w-full mx-2 mb-2 ${isDarkMode ? 'bg-slate-800' : 'bg-[#E5E7EB]'}`} />
+            {selectedIds.size > 0 && (
+              <span className="text-[9px] font-bold text-indigo-500 mb-1">{selectedIds.size}</span>
+            )}
+            <button
+              onClick={() => { if (selectedIds.size > 0) openEditModal(Array.from(selectedIds)); }}
+              title="Edit"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                selectedIds.size > 0
+                  ? (isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-indigo-50')
+                  : 'opacity-40 pointer-events-none text-slate-400'
+              }`}
+            >
+              <Edit3 className="w-[18px] h-[18px] text-indigo-500" />
+            </button>
+            <button
+              onClick={() => { if (selectedIds.size > 0) setShowContactView(true); }}
+              title="Contact"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                selectedIds.size > 0
+                  ? (isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-sky-50')
+                  : 'opacity-40 pointer-events-none text-slate-400'
+              }`}
+            >
+              <Contact className="w-[18px] h-[18px] text-sky-500" />
+            </button>
+            {rbacCanDelete && (
+            <button
+              onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
+              title="Delete"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                selectedIds.size > 0
+                  ? (isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30' : 'text-red-500 hover:text-red-700 hover:bg-red-50')
+                  : 'opacity-40 pointer-events-none text-slate-400'
+              }`}
+            >
+              <Trash2 className="w-[18px] h-[18px]" />
+            </button>
+            )}
+          </div>
+        )}
       </aside>
 
       {/* ──── Main Content Area ──── */}
@@ -1514,26 +1825,53 @@ export default function CRMPage() {
                 </h1>
                 <div className="flex items-center gap-2">
                   {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <div className="relative flex items-center">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Search..."
+                      placeholder="Search contacts, tags, or status..."
                       value={contactSearch}
                       onChange={(e) => setContactSearch(e.target.value)}
-                      className={`w-40 sm:w-52 h-8 pl-9 pr-3 text-xs rounded-lg border placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300 transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-700'}`}
+                      className={`w-80 sm:w-96 lg:w-[28rem] h-10 pl-10 pr-14 text-sm rounded-xl border placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all ${
+                        isDarkMode 
+                          ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' 
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
                     />
+                    {/* Result count indicator */}
+                    {contactSearch && (
+                      <span className={`absolute right-20 text-[10px] font-medium tabular-nums ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {filteredSortedCustomers.length} of {customers.length}
+                      </span>
+                    )}
+                    {/* Integrated ⌘K badge */}
+                    <button
+                      onClick={() => setIsCommandPaletteOpen(true)}
+                      className={`absolute right-2 px-2 py-1 rounded-md border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 ${
+                        isDarkMode 
+                          ? 'border-slate-700 bg-slate-800 text-slate-400 hover:text-white' 
+                          : 'border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-700'
+                      }`}
+                      title="Open command palette (⌘K)"
+                    >
+                      <span className="text-[9px]">⌘</span>K
+                    </button>
                   </div>
-                  {/* ⌘K hint */}
-                  <button
-                    onClick={() => setIsCommandPaletteOpen(true)}
-                    className={`hidden sm:flex items-center h-8 px-2 rounded-lg border text-[10px] font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 text-slate-500 hover:text-white hover:border-slate-600' : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300'}`}
-                    title="Command palette"
-                  >
-                    ⌘K
-                  </button>
                   {/* Actions Dropdown */}
-                  <div className="relative">
+                  <div className="relative flex items-center gap-2">
+                    <button
+                      onClick={() => setIsSimplifiedView(!isSimplifiedView)}
+                      className={`inline-flex items-center h-8 px-3 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                        isSimplifiedView
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-600'
+                          : isDarkMode
+                            ? 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-600'
+                            : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                      }`}
+                      title="Toggle simplified view (only shows key fields)"
+                    >
+                      Simplified View
+                    </button>
                     <button
                       onClick={() => setShowFilterPanel(!showFilterPanel)}
                       className={`relative inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-600' : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
@@ -1583,6 +1921,7 @@ export default function CRMPage() {
                           )}
                           {/* Action Items */}
                           <div className={`border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                            {rbacCanExport && (
                             <button
                               onClick={() => { setShowFilterPanel(false); setShowExportModal(true); }}
                               className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -1590,6 +1929,7 @@ export default function CRMPage() {
                               <Download className="w-3.5 h-3.5 text-slate-400" />
                               Export CSV
                             </button>
+                            )}
                             <button
                               onClick={() => { setShowFilterPanel(false); setShowDuplicateDetector(true); }}
                               className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -1612,6 +1952,7 @@ export default function CRMPage() {
                       </>
                     )}
                   </div>
+                  {rbacCanEdit && (
                   <div className="relative z-50">
                     <button
                       onClick={() => setIsDashAddDropdownOpen(!isDashAddDropdownOpen)}
@@ -1641,6 +1982,7 @@ export default function CRMPage() {
                       </>
                     )}
                   </div>
+                  )}
                 </div>
               </div>
 
@@ -1656,7 +1998,7 @@ export default function CRMPage() {
                           <th className={`sticky left-0 top-0 z-30 w-10 px-3 py-3 border-b border-r ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
                             <input type="checkbox" checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                           </th>
-                          {getVisibleFieldDefs().map((field, fieldIdx) => {
+                          {(isSimplifiedView ? getVisibleFieldDefs().filter(f => ['firstName', 'lastName', 'email', 'phone', 'company', 'leadStatus'].includes(f.id)) : getVisibleFieldDefs()).map((field, fieldIdx) => {
                             const isColSorted = columnSortField === field.id;
                             const colWidth = columnWidths[field.id];
                             return (
@@ -1692,7 +2034,7 @@ export default function CRMPage() {
                         {filteredSortedCustomers.map((c, idx) => (
                           <tr
                             key={c.id}
-                            onClick={() => setSelectedContactId(c.id)}
+                            onClick={() => setSelectedContactId(selectedContactId === c.id ? null : c.id)}
                             className={`group border-b transition-colors cursor-pointer ${
                               isDarkMode
                                 ? `border-slate-800 ${idx % 2 === 1 ? 'bg-slate-800/20' : ''} hover:bg-slate-800/50`
@@ -1702,7 +2044,7 @@ export default function CRMPage() {
                             <td className={`sticky left-0 z-10 px-3 py-3 border-r ${isDarkMode ? (idx % 2 === 1 ? 'bg-slate-800/20' : 'bg-slate-900') + ' border-slate-700' : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white') + ' border-slate-200'} group-hover:${isDarkMode ? 'bg-slate-800/50' : 'bg-indigo-50/30'}`} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                             </td>
-                            {getVisibleFieldDefs().map((field) => {
+                            {(isSimplifiedView ? getVisibleFieldDefs().filter(f => ['firstName', 'lastName', 'email', 'phone', 'company', 'leadStatus'].includes(f.id)) : getVisibleFieldDefs()).map((field) => {
                               // Get the value — check known Customer properties first, then customFields
                               const knownKeys: Record<string, any> = {
                                 firstName: c.firstName, lastName: c.lastName, email: c.email,
@@ -1720,14 +2062,14 @@ export default function CRMPage() {
                                 case "currency":
                                   const numVal = typeof val === "number" ? val : parseFloat(val) || 0;
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 text-right font-semibold tabular-nums border-r ${numVal > 0 ? 'text-emerald-600' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : undefined}>
+                                    <td key={field.id} className={`px-3 py-3 text-right font-semibold tabular-nums border-r ${numVal > 0 ? 'text-emerald-600' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : { maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                       ${numVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </td>
                                   );
                                 case "tags":
                                   const tagsArr = Array.isArray(val) ? val : [];
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden' } : undefined}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden' } : { maxWidth: '250px', overflow: 'hidden' }}>
                                       {tagsArr.length > 0 ? (
                                         <div className="flex flex-wrap gap-1">
                                           {tagsArr.slice(0, 2).map((tag: string) => (
@@ -1741,7 +2083,7 @@ export default function CRMPage() {
                                 case "select":
                                   if (field.id === "leadStatus") {
                                     return (
-                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden' } : undefined}>
+                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden' } : { maxWidth: '250px', overflow: 'hidden' }}>
                                         <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getStatusStyles(String(val))}`}>
                                           {String(val)}
                                         </span>
@@ -1749,42 +2091,60 @@ export default function CRMPage() {
                                     );
                                   }
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : { maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                                       {val ? String(val) : dash}
                                     </td>
                                   );
                                 case "date":
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : { maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                                       {val ? new Date(String(val)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dash}
                                     </td>
                                   );
                                 case "boolean":
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id] } : undefined}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id] } : { maxWidth: '250px', overflow: 'hidden' }}>
                                       {val ? <Check className="w-4 h-4 text-emerald-500" /> : dash}
                                     </td>
                                   );
                                 case "email":
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
+                                    <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : { maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                                       {val ? String(val) : dash}
                                     </td>
                                   );
                                 case "number":
                                   return (
-                                    <td key={field.id} className={`px-3 py-3 tabular-nums border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
+                                    <td key={field.id} className={`px-3 py-3 tabular-nums border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : { maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                                       {val !== undefined && val !== "" ? String(val) : dash}
                                     </td>
                                   );
                                 default: {
-                                  // text, phone, url — with special rendering for known fields
                                   const isName = field.id === "firstName" || field.id === "lastName";
                                   const isCompany = field.id === "company";
                                   const isLocation = field.id === "location";
+                                  if (field.id === "firstName") {
+                                    return (
+                                      <td key={field.id} className={`px-3 py-3 border-r font-medium ${isDarkMode ? 'text-white border-slate-700' : 'text-slate-800 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id] } : { maxWidth: '250px', overflow: 'hidden' }}>
+                                        <div className="flex flex-col gap-1 items-start">
+                                          <span>{val ? String(val) : dash}</span>
+                                          {c.tags && c.tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 max-w-full">
+                                              {c.tags.slice(0, 3).map((tag: string) => (
+                                                <span key={tag} className={`text-[8px] font-bold px-1.5 py-0.5 rounded border leading-none scale-95 origin-left ${getTagStyles(tag)}`}>{tag}</span>
+                                              ))}
+                                              {c.tags.length > 3 && (
+                                                <span className="text-[8px] font-medium text-slate-400">+{c.tags.length - 3}</span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                    );
+                                  }
                                   if (isCompany) {
                                     return (
-                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
+                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : { maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                                         {val ? (
                                           <span className="inline-flex items-center gap-1">
                                             <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
@@ -1796,7 +2156,7 @@ export default function CRMPage() {
                                   }
                                   if (isLocation) {
                                     return (
-                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : undefined}>
+                                      <td key={field.id} className={`px-3 py-3 border-r ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-200'}`} style={columnWidths[field.id] ? { width: columnWidths[field.id], minWidth: columnWidths[field.id], maxWidth: columnWidths[field.id], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : { maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                                         {val ? (
                                           <span className="inline-flex items-center gap-1">
                                             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
@@ -2082,6 +2442,10 @@ export default function CRMPage() {
         onAutoMerge={handleAutoMerge}
         onManualMerge={handleManualMerge}
         isDarkMode={isDarkMode}
+        onRematch={(caseSensitive) => {
+          const rematched = matchAllCSVHeaders(csvMergeHeaders, fieldConfig.allFields, caseSensitive);
+          setCsvMergeMatches(rematched);
+        }}
       />
 
 
@@ -2512,14 +2876,35 @@ export default function CRMPage() {
 
               {/* Monospace CSV Text area */}
               <div className="space-y-1.5">
-                <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
-                  {lang === 'es' ? 'Pegar Datos CSV' : 'Paste CSV Data'}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
+                    {lang === 'es' ? 'Pegar Datos CSV' : 'Paste CSV Data'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('csv-paste-area') as HTMLTextAreaElement | null;
+                      if (el) {
+                        if (el.style.height === '60vh') {
+                          el.style.height = '';
+                          el.rows = 5;
+                        } else {
+                          el.style.height = '60vh';
+                        }
+                      }
+                    }}
+                    className={`text-[10px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    ⤢ {lang === 'es' ? 'Expandir' : 'Expand'}
+                  </button>
+                </div>
                 <textarea
+                  id="csv-paste-area"
                   value={csvText}
                   onChange={e => setCsvText(e.target.value)}
                   rows={5}
                   disabled={!!csvFile}
+                  style={{ resize: 'vertical', minHeight: '100px', maxHeight: '70vh' }}
                   className={`w-full p-3 text-xs rounded-lg border font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-[#E5E7EB] bg-[#F9FAFB] text-slate-700'} disabled:opacity-55`}
                   placeholder={"firstName, lastName, company, email, phoneNumber, pipelineStage, revenue, tags, location, lastContactedDate\nJohn, Doe, Acme Corp, john@test.com, 555-1234, Warm Lead, 0, VIP, New York, 2025-06-01"}
                 />
@@ -2707,8 +3092,8 @@ export default function CRMPage() {
                       case "tags":
                         return (
                           <div key={field.id} className="col-span-2">
-                            <label className={labelClass}>{field.label} <span className="font-normal normal-case tracking-normal">(comma-separated)</span></label>
-                            <input type="text" value={fieldVal} onChange={e => onChange(e.target.value)} className={inputClass} placeholder="VIP, Enterprise, Inbound" />
+                            <label className={labelClass}>{field.label}</label>
+                            <TagSelector value={fieldVal} onChange={onChange} isDarkMode={isDarkMode} />
                           </div>
                         );
                       case "boolean":
@@ -2867,7 +3252,14 @@ export default function CRMPage() {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onSelectContact={(c) => { setSelectedContactId(c.id); setIsCommandPaletteOpen(false); }}
-        onNavigate={(view) => { setActiveView(view as CrmView); setIsCommandPaletteOpen(false); }}
+        onNavigate={(view) => {
+          if (view === "import") {
+            setShowCSVModal(true);
+          } else {
+            setActiveView(view as CrmView);
+          }
+          setIsCommandPaletteOpen(false);
+        }}
         onAddContact={() => { setShowAddModal(true); setIsCommandPaletteOpen(false); }}
       />
 
@@ -2880,6 +3272,9 @@ export default function CRMPage() {
           setSelectedIds(new Set());
         }}
         onAddTag={(tag) => {
+          if (presetTagNames.includes(tag)) {
+            setMruPresetTag(tag);
+          }
           selectedIds.forEach(id => {
             const customer = customers.find(c => c.id === id);
             if (customer && !customer.tags.includes(tag)) {
@@ -2901,7 +3296,7 @@ export default function CRMPage() {
         onExport={() => setShowExportModal(true)}
         onDelete={() => setShowDeleteConfirm(true)}
         onClearSelection={() => setSelectedIds(new Set())}
-        availableTags={customTags.map(t => t.name)}
+        availableTags={sortedAvailableTags}
         availableStatuses={["Cold Lead", "Warm Lead", "Interested", "Sale Completed"]}
       />
 

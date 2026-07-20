@@ -16,7 +16,7 @@ interface PipelineBoardProps {
   onConfigureClick: () => void;
 }
 
-export default function PipelineBoard({ customers, onUpdateStatus, onOpenContact, pipelineConfig, onConfigureClick }: PipelineBoardProps) {
+function PipelineBoard({ customers, onUpdateStatus, onOpenContact, pipelineConfig, onConfigureClick }: PipelineBoardProps) {
   const { lang } = useTranslation();
   const { isDarkMode } = useTheme();
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -199,3 +199,5 @@ export default function PipelineBoard({ customers, onUpdateStatus, onOpenContact
     </div>
   );
 }
+
+export default React.memo(PipelineBoard);

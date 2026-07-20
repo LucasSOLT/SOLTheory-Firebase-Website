@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { verifyRequest } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -11,6 +12,8 @@ export const maxDuration = 30;
  * the Web Speech API doesn't work (PWAs, some mobile browsers).
  */
 export async function POST(req: NextRequest) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
 
   try {
     const formData = await req.formData();

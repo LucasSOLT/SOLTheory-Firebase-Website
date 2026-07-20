@@ -16,6 +16,8 @@ import {
   ArrowUp,
   ArrowDown,
   CornerDownLeft,
+  Download,
+  Settings2,
 } from "lucide-react";
 import { useCRMStore } from "@/stores/crm-store";
 import type { Customer, Meeting, CrmTask } from "@/stores/crm-store";
@@ -133,7 +135,7 @@ function avatarColor(name: string): string {
 
 /* ─────────────── Component ─────────────── */
 
-export default function CRMCommandPalette({
+function CRMCommandPalette({
   isOpen,
   onClose,
   onSelectContact,
@@ -217,6 +219,50 @@ export default function CRMCommandPalette({
         secondary: "Book a meeting with a contact",
         action: () => {
           onNavigate("meetings");
+          onClose();
+        },
+      },
+      {
+        id: "action-import-csv",
+        category: "actions" as ResultCategory,
+        icon: <Download className="w-4 h-4" />,
+        primary: "Import Contacts",
+        secondary: "Upload contacts from a CSV file",
+        action: () => {
+          onNavigate("import");
+          onClose();
+        },
+      },
+      {
+        id: "action-follow-ups",
+        category: "actions" as ResultCategory,
+        icon: <Clock className="w-4 h-4" />,
+        primary: "View Follow-ups",
+        secondary: "See upcoming follow-ups and reminders",
+        action: () => {
+          onNavigate("follow-ups");
+          onClose();
+        },
+      },
+      {
+        id: "action-analytics",
+        category: "actions" as ResultCategory,
+        icon: <Zap className="w-4 h-4" />,
+        primary: "View Analytics",
+        secondary: "Open CRM analytics & reports",
+        action: () => {
+          onNavigate("analytics");
+          onClose();
+        },
+      },
+      {
+        id: "action-settings",
+        category: "actions" as ResultCategory,
+        icon: <Settings2 className="w-4 h-4" />,
+        primary: "CRM Settings",
+        secondary: "Manage fields, pipeline, and preferences",
+        action: () => {
+          onNavigate("settings");
           onClose();
         },
       },
@@ -751,3 +797,5 @@ export default function CRMCommandPalette({
     </div>
   );
 }
+
+export default React.memo(CRMCommandPalette);

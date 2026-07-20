@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initializeApp, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, query, where, limit } from "firebase/firestore";
 import { firebaseConfig } from "@/firebase/config";
+import { verifyRequest } from "@/lib/api-auth";
 
 const APP_NAME = "sms-webhook-test";
 
@@ -11,6 +12,8 @@ function getTestApp() {
 }
 
 export async function POST(req: Request) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
   const steps: string[] = [];
   try {
     const { from, to } = await req.json();

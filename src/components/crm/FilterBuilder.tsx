@@ -31,9 +31,9 @@ export interface SavedSegment {
   isPinned?: boolean;
 }
 
-/* ─────────────── FIELD DEFINITIONS ─────────────── */
+/* ─────────────── FIELD DEFINITIONS (FALLBACK) ─────────────── */
 
-const FILTER_FIELDS = [
+const DEFAULT_FILTER_FIELDS = [
   { id: "firstName", label: "First Name", type: "text" },
   { id: "lastName", label: "Last Name", type: "text" },
   { id: "email", label: "Email", type: "text" },
@@ -46,6 +46,26 @@ const FILTER_FIELDS = [
   { id: "location", label: "Location/Notes", type: "text" },
   { id: "createdAt", label: "Created Date", type: "date" },
 ];
+
+type FilterFieldDef = { id: string; label: string; type: string; options?: string[] };
+
+/** Map a ContactFieldDef.type to a FilterBuilder-compatible type */
+function mapFieldType(type: string): string {
+  switch (type) {
+    case "email":
+    case "phone":
+    case "url":
+      return "text";
+    case "currency":
+      return "number";
+    case "tags":
+      return "array";
+    case "boolean":
+      return "select";
+    default:
+      return type; // text, number, date, select — pass through
+  }
+}
 
 const OPERATORS: Record<string, { id: string; label: string }[]> = {
   text: [
@@ -122,8 +142,9 @@ export const PREBUILT_SEGMENTS: SavedSegment[] = [
 
 /* ─────────────── FILTER EVALUATION ─────────────── */
 
-export function evaluateRule(customer: Customer, rule: FilterRule): boolean {
-  const field = FILTER_FIELDS.find(f => f.id === rule.field);
+export function evaluateRule(customer: Customer, rule: FilterRule, fieldDefs?: FilterFieldDef[]): boolean {
+  const fields = fieldDefs || DEFAULT_FILTER_FIELDS;
+  const field = fields.find(f => f.id === rule.field);
   if (!field) return true;
 
   const rawValue = (customer as any)[rule.field];
@@ -198,10 +219,10 @@ export function evaluateRule(customer: Customer, rule: FilterRule): boolean {
   }
 }
 
-export function evaluateGroup(customer: Customer, group: FilterGroup): boolean {
+export function evaluateGroup(customer: Customer, group: FilterGroup, fieldDefs?: FilterFieldDef[]): boolean {
   if (group.rules.length === 0) return true;
-  if (group.logic === "AND") return group.rules.every(r => evaluateRule(customer, r));
-  return group.rules.some(r => evaluateRule(customer, r));
+  if (group.logic === "AND") return group.rules.every(r => evaluateRule(customer, r, fieldDefs));
+  return group.rules.some(r => evaluateRule(customer, r, fieldDefs));
 }
 
 /* ─────────────── COMPONENT ─────────────── */
@@ -212,15 +233,29 @@ interface FilterBuilderProps {
   savedSegments: SavedSegment[];
   onSaveSegment: (segment: SavedSegment) => void;
   onDeleteSegment: (id: string) => void;
+  /** Dynamic fields from useContactFields. Falls back to DEFAULT_FILTER_FIELDS if omitted. */
+  availableFields?: { id: string; label: string; type: string; options?: string[] }[];
 }
 
-export default function FilterBuilder({ customers, onFilterChange, savedSegments, onSaveSegment, onDeleteSegment }: FilterBuilderProps) {
+function FilterBuilder({ customers, onFilterChange, savedSegments, onSaveSegment, onDeleteSegment, availableFields }: FilterBuilderProps) {
   const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
   const [filterGroup, setFilterGroup] = useState<FilterGroup>({ id: "main", logic: "AND", rules: [] });
   const [saveName, setSaveName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [fieldSearch, setFieldSearch] = useState("");
+
+  // Resolve filter fields: map dynamic fields to filter-compatible types, or use defaults
+  const FILTER_FIELDS: FilterFieldDef[] = useMemo(() => {
+    if (!availableFields || availableFields.length === 0) return [...DEFAULT_FILTER_FIELDS];
+    return availableFields.map(f => ({
+      id: f.id,
+      label: f.label,
+      type: mapFieldType(f.type),
+      options: f.type === "boolean" ? ["true", "false"] : (f.options || (f.id === "leadStatus" ? ["Cold Lead", "Warm Lead", "Interested", "Sale Completed"] : undefined)),
+    }));
+  }, [availableFields]);
 
   const allSegments = useMemo(() => {
     const existing = new Set(savedSegments.map(s => s.id));
@@ -232,7 +267,7 @@ export default function FilterBuilder({ customers, onFilterChange, savedSegments
   const segmentCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const seg of allSegments) {
-      counts[seg.id] = customers.filter(c => evaluateGroup(c, seg.group)).length;
+      counts[seg.id] = customers.filter(c => evaluateGroup(c, seg.group, FILTER_FIELDS)).length;
     }
     return counts;
   }, [allSegments, customers]);
@@ -240,17 +275,17 @@ export default function FilterBuilder({ customers, onFilterChange, savedSegments
   // Count matches for current filter
   const currentMatchCount = useMemo(() => {
     if (filterGroup.rules.length === 0) return customers.length;
-    return customers.filter(c => evaluateGroup(c, filterGroup)).length;
-  }, [filterGroup, customers]);
+    return customers.filter(c => evaluateGroup(c, filterGroup, FILTER_FIELDS)).length;
+  }, [filterGroup, customers, FILTER_FIELDS]);
 
   // Apply filter when group changes
   useEffect(() => {
     if (filterGroup.rules.length === 0) {
       onFilterChange(null);
     } else {
-      onFilterChange((c: Customer) => evaluateGroup(c, filterGroup));
+      onFilterChange((c: Customer) => evaluateGroup(c, filterGroup, FILTER_FIELDS));
     }
-  }, [filterGroup]);
+  }, [filterGroup, FILTER_FIELDS]);
 
   const addRule = () => {
     setFilterGroup(prev => ({
@@ -397,7 +432,7 @@ export default function FilterBuilder({ customers, onFilterChange, savedSegments
                     }}
                     className={`text-xs rounded-lg border px-2 py-1.5 font-semibold ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'}`}
                   >
-                    {FILTER_FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                  {FILTER_FIELDS.filter(f => !fieldSearch || f.label.toLowerCase().includes(fieldSearch.toLowerCase())).map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
                   </select>
                   <select
                     value={rule.operator}
@@ -466,3 +501,5 @@ export default function FilterBuilder({ customers, onFilterChange, savedSegments
     </div>
   );
 }
+
+export default React.memo(FilterBuilder);

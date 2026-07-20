@@ -1,6 +1,7 @@
 import { Groq } from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { SKELETON_REGISTRY, renderSkeleton } from "@/lib/email-skeletons";
+import { verifyRequest } from "@/lib/api-auth";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const MODEL = "llama-3.3-70b-versatile";
@@ -308,12 +309,10 @@ function parseChatResponse(raw: string): {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth.response;
+
   try {
-    // Auth check — same pattern as other campaign API routes
-    const uid = req.headers.get("x-uid");
-    if (!uid) {
-      return NextResponse.json({ error: "Unauthorized: missing x-uid header" }, { status: 401 });
-    }
 
     const body = (await req.json()) as AssembleRequest;
     const { action } = body;

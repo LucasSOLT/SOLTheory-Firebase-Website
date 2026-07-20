@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initAdmin, getFirestore } from "@/firebase/admin";
 import { getAuth } from "firebase-admin/auth";
+import { verifyAdmin } from "@/lib/api-auth";
 
 /**
  * POST /api/provision-user
@@ -12,6 +13,8 @@ import { getAuth } from "firebase-admin/auth";
  * Body: { email: string, organization: string, accessLevel: string, displayName?: string }
  */
 export async function POST(req: Request) {
+  const auth = await verifyAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const { email, organization, accessLevel, displayName } = await req.json();
 
