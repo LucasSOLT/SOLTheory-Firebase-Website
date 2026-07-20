@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/sections/header";
@@ -21,7 +21,7 @@ export default function InsightLoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showLoginCube, setShowLoginCube] = useState(false);
-  const router = useRouter();
+
   const auth = useAuth();
   const firestore = useFirestore();
 
@@ -82,10 +82,16 @@ export default function InsightLoginPage() {
       }
 
       const emailLower = email.toLowerCase();
+      const navigateTo = (path: string) => {
+        // Keep the cube visible for 3.5s then navigate with a full page load
+        // so the dashboard renders behind the white screen
+        setTimeout(() => { window.location.href = path; }, 3500);
+      };
+
       if (emailLower.endsWith("@soltheory.com")) {
-        router.push("/portal/dashboard/soltheory");
+        navigateTo("/portal/dashboard/soltheory");
       } else if (emailLower.endsWith("@nxtchapter.org")) {
-        router.push("/portal/dashboard/nxtchapter");
+        navigateTo("/portal/dashboard/nxtchapter");
       } else {
         // Check Firestore for org mapping (for Gmail and other external users)
         try {
@@ -96,9 +102,9 @@ export default function InsightLoginPage() {
           const mappedOrg = userData?.organization;
 
           if (mappedOrg === "soltheory") {
-            router.push("/portal/dashboard/soltheory");
+            navigateTo("/portal/dashboard/soltheory");
           } else if (mappedOrg === "nxtchapter") {
-            router.push("/portal/dashboard/nxtchapter");
+            navigateTo("/portal/dashboard/nxtchapter");
           } else {
             console.error("[Login] No org mapping found for user:", uid, "data:", userData);
             await signOut(auth);
@@ -121,7 +127,8 @@ export default function InsightLoginPage() {
         setError("Invalid credentials or unauthorized organization.");
       }
     } finally {
-      setIsLoading(false);
+      // Don't reset loading spinner if the cube is showing (we're navigating away)
+      if (!showLoginCube) setIsLoading(false);
     }
   };
 

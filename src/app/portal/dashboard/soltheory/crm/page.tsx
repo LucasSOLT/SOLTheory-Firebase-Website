@@ -55,6 +55,7 @@ import {
   Settings2, ArrowUpDown, ArrowUp, ArrowDown, Copy, Maximize2, Minimize2,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
+import { getAuthHeaders } from '@/lib/api-auth-client';
 
 type SortKey = "name" | "email" | "phone" | "tags" | "status";
 type SortDir = "asc" | "desc";
@@ -853,9 +854,10 @@ export default function CRMPage() {
       }
 
       const formattedBody = emailBody.split('\n').map(line => `<p style="margin:0 0 12px 0;">${line}</p>`).join('') + renderSignatureHtml();
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/crm/send-campaign", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           refreshToken: rToken,
           subject: emailSubject,
