@@ -545,8 +545,9 @@ export default function CRMPage() {
   const resizingRef = useRef<{ fieldId: string; startX: number; startWidth: number } | null>(null);
   const [contactSearch, setContactSearch] = useState("");
   const [contactsViewMode, setContactsViewMode] = useState<"table" | "pipeline">("table");
-  const CRM_PAGE_SIZE = 200;
-  const [crmPage, setCrmPage] = useState(1);
+  const CRM_BATCH_SIZE = 200;
+  const [visibleCount, setVisibleCount] = useState(CRM_BATCH_SIZE);
+  const scrollSentinelRef = useRef<HTMLDivElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<string>("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -1398,14 +1399,26 @@ export default function CRMPage() {
     return list;
   }, [sortedCustomers, tagFilter, statusFilter, dateFilterFrom, dateFilterTo, fieldFilters, segmentFilterFn, columnSortField, columnSortDir]);
 
-  // Pagination: only render CRM_PAGE_SIZE rows at a time for performance
-  const totalCrmPages = Math.max(1, Math.ceil(filteredSortedCustomers.length / CRM_PAGE_SIZE));
+  // Infinite scroll: show visibleCount rows from the filtered list
   const paginatedCustomers = useMemo(() => {
-    const start = (crmPage - 1) * CRM_PAGE_SIZE;
-    return filteredSortedCustomers.slice(start, start + CRM_PAGE_SIZE);
-  }, [filteredSortedCustomers, crmPage, CRM_PAGE_SIZE]);
-  // Reset page when filters change
-  useEffect(() => { setCrmPage(1); }, [contactSearch, tagFilter, statusFilter, segmentFilterFn]);
+    return filteredSortedCustomers.slice(0, visibleCount);
+  }, [filteredSortedCustomers, visibleCount]);
+  const hasMore = visibleCount < filteredSortedCustomers.length;
+  // Reset visible count when filters change
+  useEffect(() => { setVisibleCount(CRM_BATCH_SIZE); }, [contactSearch, tagFilter, statusFilter, segmentFilterFn]);
+
+  // IntersectionObserver: auto-load next batch when user scrolls to the sentinel
+  useEffect(() => {
+    const sentinel = scrollSentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && hasMore) {
+        setVisibleCount(prev => Math.min(prev + CRM_BATCH_SIZE, filteredSortedCustomers.length));
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, filteredSortedCustomers.length]);
 
   const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleSelectAll = () => { const visible = filteredSortedCustomers.map(c => c.id); const allSelected = visible.every(id => selectedIds.has(id)); if (allSelected) setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.delete(id)); return n; }); else setSelectedIds(prev => { const n = new Set(prev); visible.forEach(id => n.add(id)); return n; }); };
@@ -2324,6 +2337,7 @@ export default function CRMPage() {
                           <tr
                             key={c.id}
                             onClick={() => setSelectedContactId(selectedContactId === c.id ? null : c.id)}
+                            style={{ height: '44px', maxHeight: '44px' }}
                             className={`group border-b transition-colors cursor-pointer ${
                               isDarkMode
                                 ? `border-slate-800 ${idx % 2 === 1 ? 'bg-slate-800/20' : ''} hover:bg-slate-800/50`
@@ -2467,11 +2481,13 @@ export default function CRMPage() {
                         ))}
                       </tbody>
                     </table>
+                    {/* Infinite scroll sentinel */}
+                    <div ref={scrollSentinelRef} style={{ height: 1 }} />
                   </div>
-                  {/* Footer — pagination controls */}
+                  {/* Footer — record count */}
                   <div className={`flex items-center justify-between px-4 py-2.5 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/40' : 'border-[#E5E7EB] bg-[#FAFBFC]'}`}>
                     <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Showing {Math.min((crmPage - 1) * CRM_PAGE_SIZE + 1, filteredSortedCustomers.length)}–{Math.min(crmPage * CRM_PAGE_SIZE, filteredSortedCustomers.length)} of {filteredSortedCustomers.length} record{filteredSortedCustomers.length !== 1 ? 's' : ''}
+                      Showing {Math.min(visibleCount, filteredSortedCustomers.length)} of {filteredSortedCustomers.length} record{filteredSortedCustomers.length !== 1 ? 's' : ''}
                       {filteredSortedCustomers.length !== customers.length ? ` (${customers.length} total)` : ''}
                     </span>
                     <div className="flex items-center gap-2">
@@ -2480,23 +2496,11 @@ export default function CRMPage() {
                           {selectedIds.size} selected
                         </span>
                       )}
-                      <button
-                        onClick={() => setCrmPage(p => Math.max(1, p - 1))}
-                        disabled={crmPage <= 1}
-                        className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5 inline" /> Prev
-                      </button>
-                      <span className={`text-[11px] font-semibold tabular-nums ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                        {crmPage} / {totalCrmPages}
-                      </span>
-                      <button
-                        onClick={() => setCrmPage(p => Math.min(totalCrmPages, p + 1))}
-                        disabled={crmPage >= totalCrmPages}
-                        className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                      >
-                        Next <ChevronRight className="w-3.5 h-3.5 inline" />
-                      </button>
+                      {hasMore && (
+                        <span className={`text-[10px] ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`}>
+                          Scroll for more
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -6,11 +6,25 @@ export default function DashboardLoading() {
         inset: 0,
         zIndex: 99999,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         background: "#ffffff",
       }}
     >
+      <p
+        style={{
+          fontSize: "13px",
+          fontWeight: 500,
+          letterSpacing: "0.15em",
+          textTransform: "uppercase" as const,
+          marginBottom: "28px",
+          color: "rgba(79, 70, 229, 0.6)",
+          animation: "loadCubeTextPulse 2s ease-in-out infinite",
+        }}
+      >
+        Loading
+      </p>
       <div className="load-cube-scene">
         <div className="load-cube">
           <div className="load-cube-face load-cf-front" />
@@ -22,6 +36,7 @@ export default function DashboardLoading() {
         </div>
       </div>
       <style>{`
+        @keyframes loadCubeTextPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         .load-cube-scene { width: 56px; height: 56px; perspective: 400px; }
         .load-cube {
           width: 100%; height: 100%; position: relative;

@@ -205,8 +205,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
   const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
 
-  // ── Navigation Cube: shows a 3-second spinning cube on every page navigation ──
+  // ── Navigation Cube: shows a 3-second spinning cube + "Loading" text on every page navigation ──
   const [navCubeVisible, setNavCubeVisible] = useState(false);
+  const [navFadeIn, setNavFadeIn] = useState(false);
   const prevPathRef = useRef<string>(pathname);
   const navCubeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -225,14 +226,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // Show the cube overlay
     setNavCubeVisible(true);
+    setNavFadeIn(false);
 
     // Clear any existing timer
     if (navCubeTimerRef.current) clearTimeout(navCubeTimerRef.current);
 
-    // Hide after 3 seconds — snap, no fade
+    // After 3 seconds: hide cube, start fade-in on the content
     navCubeTimerRef.current = setTimeout(() => {
       setNavCubeVisible(false);
+      setNavFadeIn(true);
       navCubeTimerRef.current = null;
+      // Remove the fade-in class after the animation completes
+      setTimeout(() => setNavFadeIn(false), 600);
     }, 3000);
 
     return () => {
@@ -1887,12 +1892,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 overflow-hidden px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none" tabIndex={-1}>
+        <main className={`flex-1 overflow-hidden px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none${navFadeIn ? ' navContentFadeIn' : ''}`} tabIndex={-1}>
           {children}
 
           {/* ── Navigation Cube Overlay ── */}
-          {/* Shows a 3-second spinning cube on white bg whenever the user navigates to a new page. */}
-          {/* No text, no loading bar, no fade — just cube then snap to content. */}
+          {/* Shows a 3-second spinning cube + "Loading" text, then fades into the content. */}
           {navCubeVisible && (
             <div
               style={{
@@ -1900,11 +1904,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 inset: 0,
                 zIndex: 9999,
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 background: isDarkMode ? '#020617' : '#ffffff',
               }}
             >
+              <p style={{
+                fontSize: 13, fontWeight: 500, letterSpacing: '0.15em',
+                textTransform: 'uppercase' as const, marginBottom: 28,
+                color: 'rgba(79,70,229,0.6)',
+                animation: 'navCubeTextPulse 2s ease-in-out infinite',
+              }}>Loading</p>
               <div style={{ width: 56, height: 56, perspective: 400 }}>
                 <div style={{
                   width: '100%', height: '100%', position: 'relative',
@@ -1923,6 +1934,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
               <style>{`
+                @keyframes navCubeTextPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
                 @keyframes navCubeRotate {
                   0%, 10%   { transform: rotateX(-25deg) rotateY(0deg); }
                   15%, 25%  { transform: rotateX(-25deg) rotateY(90deg); }
@@ -1932,6 +1944,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   75%, 85%  { transform: rotateX(-25deg) rotateY(450deg) rotateZ(0deg); }
                   90%, 100% { transform: rotateX(-25deg) rotateY(540deg); }
                 }
+                @keyframes navContentFadeIn { from { opacity: 0; } to { opacity: 1; } }
+                .navContentFadeIn { animation: navContentFadeIn 0.5s ease-out forwards; }
               `}</style>
             </div>
           )}
