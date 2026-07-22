@@ -25,7 +25,21 @@ import {
   Key,
   Wifi,
   WifiOff,
+  Users,
+  Search,
+  MoreVertical,
+  ChevronDown
 } from "lucide-react";
+
+import {
+  ROLE_COLORS,
+  ROLE_LABELS,
+  ALL_ROLES,
+  isDeveloper,
+  ORG_LABELS,
+  ALL_ORGS,
+  DEVELOPER_COLORS,
+} from "@/lib/rbac";
 
 /* ═══════════════════════════════════════════════════════════════
  * TYPES — Mirror the SAFE types from the backend.
@@ -83,8 +97,6 @@ interface DiagnosticLog {
  * CONSTANTS
  * ═══════════════════════════════════════════════════════════════ */
 
-const DEVELOPER_EMAIL = "lucas@soltheory.com";
-
 export default function SystemHealthPage() {
   const { isDarkMode } = useTheme();
   const { user, isUserLoading } = useUser();
@@ -101,12 +113,17 @@ export default function SystemHealthPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<SystemHealthReport | null>(null);
   const [logs, setLogs] = useState<DiagnosticLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"agents" | "credentials" | "tokens" | "logs">("agents");
+  const [activeTab, setActiveTab] = useState<"agents" | "credentials" | "tokens" | "logs" | "users">("agents");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
+  // Users tab state
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+
   // Check if user is the developer
-  const isDeveloper = user?.email === DEVELOPER_EMAIL;
+  const isDev = isDeveloper(user?.email);
 
   const fetchHealthData = useCallback(async (password: string, isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -161,6 +178,96 @@ export default function SystemHealthPage() {
     return () => clearInterval(interval);
   }, [autoRefresh, isAuthorized, passwordInput, fetchHealthData]);
 
+  const fetchUsers = useCallback(async () => {
+    if (!passwordInput) return;
+    setUsersLoading(true);
+    try {
+      const baseHeaders = await getAuthHeaders();
+      const res = await fetch("/api/admin/users", {
+        headers: baseHeaders,
+      });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      const data = await res.json();
+      setUsersList(data.users || []);
+    } catch (err: any) {
+      console.error("[SystemHealthPage] Fetch users error:", err);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [passwordInput]);
+
+  useEffect(() => {
+    if (activeTab === "users" && usersList.length === 0) {
+      fetchUsers();
+    }
+  }, [activeTab, fetchUsers, usersList.length]);
+
+  const handleUpdateUserRole = async (uid: string, org: string, newRole: string) => {
+    try {
+      const baseHeaders = await getAuthHeaders();
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { ...baseHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ uid, updates: { orgRoles: { [org]: newRole } } }),
+      });
+      if (res.ok) fetchUsers();
+    } catch (err: any) {
+      console.error("Update role error:", err);
+    }
+  };
+
+  const handleToggleOrgAccess = async (uid: string, allowedOrgs: string[], orgToToggle: string) => {
+    try {
+      const newOrgs = allowedOrgs.includes(orgToToggle) 
+        ? allowedOrgs.filter(o => o !== orgToToggle)
+        : [...allowedOrgs, orgToToggle];
+        
+      const baseHeaders = await getAuthHeaders();
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { ...baseHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ uid, updates: { allowedOrgs: newOrgs } }),
+      });
+      if (res.ok) fetchUsers();
+    } catch (err: any) {
+      console.error("Toggle org error:", err);
+    }
+  };
+
+  const handleToggleFreeze = async (uid: string, disabled: boolean) => {
+    try {
+      const baseHeaders = await getAuthHeaders();
+      let payload: any = { action: "unfreeze" };
+      if (!disabled) {
+        const reason = prompt("Enter reason for freezing this user:");
+        if (reason === null) return;
+        payload = { action: "freeze", reason };
+      }
+      const res = await fetch(`/api/admin/users/${uid}`, {
+        method: "POST",
+        headers: { ...baseHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) fetchUsers();
+    } catch (err: any) {
+      console.error("Freeze error:", err);
+    }
+  };
+
+  const handleDeleteUser = async (uid: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this user?")) return;
+    try {
+      const baseHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/admin/users/${uid}`, {
+        method: "DELETE",
+        headers: baseHeaders,
+      });
+      if (res.ok) fetchUsers();
+    } catch (err: any) {
+      console.error("Delete error:", err);
+    }
+  };
+
   // Handle password submission
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,7 +320,7 @@ export default function SystemHealthPage() {
   /* ═══════════════════════════════════════════════════════════════
    * GATE 2: Not the developer — full block
    * ═══════════════════════════════════════════════════════════════ */
-  if (!isDeveloper) {
+  if (!isDev) {
     return (
       <div className={`min-h-screen flex items-center justify-center p-6 ${isDarkMode ? "bg-[#0b0f19] text-slate-100" : "bg-slate-50 text-slate-900"}`}>
         <div className={`max-w-md w-full p-8 rounded-2xl border text-center ${isDarkMode ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"}`}>
@@ -478,6 +585,7 @@ export default function SystemHealthPage() {
               { key: "credentials" as const, icon: ShieldCheck, label: `Credentials (${report.envCheck.length})` },
               { key: "tokens" as const, icon: BarChart3, label: "Token & Rate Limits" },
               { key: "logs" as const, icon: Terminal, label: `Audit Logs (${logs.length})` },
+              { key: "users" as const, icon: Users, label: "End-User Management" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -676,6 +784,171 @@ export default function SystemHealthPage() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ─── TAB: END-USER MANAGEMENT ─── */}
+          {activeTab === "users" && (
+            <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? "bg-slate-900/60 border-slate-800/80" : "bg-white border-slate-200"}`}>
+              <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-4">
+                <h3 className="font-bold text-base flex items-center gap-2">
+                  <Users className="w-4 h-4 text-amber-500" /> End-User Management
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`} />
+                    <input
+                      type="text"
+                      placeholder="Search users..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className={`pl-9 pr-4 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2 focus:ring-amber-500/40 ${
+                        isDarkMode 
+                          ? "bg-slate-800/60 border-slate-700 text-slate-200 placeholder:text-slate-500" 
+                          : "bg-slate-50 border-slate-300 text-slate-800 placeholder:text-slate-400"
+                      }`}
+                    />
+                  </div>
+                  <button onClick={fetchUsers} disabled={usersLoading} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
+                    <RefreshCw className={`w-4 h-4 ${usersLoading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className={`border-b uppercase font-semibold text-[11px] ${isDarkMode ? "bg-slate-800/40 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"}`}>
+                    <tr>
+                      <th className="p-4">User</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Org Access</th>
+                      <th className="p-4">Primary Role</th>
+                      <th className="p-4">Created / Login</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    {usersList
+                      .filter(u => 
+                        (u.email || "").toLowerCase().includes(userSearch.toLowerCase()) || 
+                        (u.displayName || "").toLowerCase().includes(userSearch.toLowerCase())
+                      )
+                      .map((u) => {
+                        const isDevAccount = isDeveloper(u.email);
+                        const userRoleColors = isDevAccount ? DEVELOPER_COLORS : (ROLE_COLORS[u.orgRoles?.["soltheory"] as keyof typeof ROLE_COLORS] || ROLE_COLORS["read-only"]);
+                        const roleLabel = isDevAccount ? "Developer" : (ROLE_LABELS[u.orgRoles?.["soltheory"] as keyof typeof ROLE_LABELS] || "None");
+                        const initial = (u.displayName || u.email || "?").charAt(0).toUpperCase();
+                        
+                        return (
+                          <tr key={u.uid} className={isDarkMode ? "hover:bg-slate-800/30" : "hover:bg-slate-50"}>
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-600"}`}>
+                                  {initial}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-semibold">{u.displayName || "Unknown Name"}</span>
+                                  <span className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>{u.email}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {u.disabled ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                  Frozen
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                  Active
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1.5">
+                                {ALL_ORGS.map(org => {
+                                  const hasAccess = u.allowedOrgs?.includes(org);
+                                  return (
+                                    <button
+                                      key={org}
+                                      onClick={() => handleToggleOrgAccess(u.uid, u.allowedOrgs || [], org)}
+                                      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors border ${
+                                        hasAccess
+                                          ? isDarkMode ? "bg-sky-500/10 text-sky-400 border-sky-500/30 hover:bg-sky-500/20" : "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"
+                                          : isDarkMode ? "bg-slate-800/50 text-slate-500 border-slate-700 hover:bg-slate-800" : "bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200"
+                                      }`}
+                                    >
+                                      {ORG_LABELS[org]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="relative group inline-block">
+                                <select 
+                                  className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-semibold border focus:outline-none cursor-pointer ${
+                                    isDarkMode ? `${userRoleColors.darkBg} ${userRoleColors.darkText} ${userRoleColors.darkBorder}` : `${userRoleColors.bg} ${userRoleColors.text} ${userRoleColors.border}`
+                                  }`}
+                                  value={isDevAccount ? "developer" : (u.orgRoles?.["soltheory"] || "read-only")}
+                                  onChange={(e) => handleUpdateUserRole(u.uid, "soltheory", e.target.value)}
+                                  disabled={isDevAccount}
+                                >
+                                  {isDevAccount && <option value="developer">Developer</option>}
+                                  {!isDevAccount && ALL_ROLES.map(role => (
+                                    <option key={role} value={role}>{ROLE_LABELS[role as keyof typeof ROLE_LABELS]}</option>
+                                  ))}
+                                </select>
+                                {!isDevAccount && (
+                                  <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4 text-xs font-mono text-slate-400 whitespace-nowrap">
+                              <div>{u.metadata?.creationTime ? new Date(u.metadata.creationTime).toLocaleDateString() : 'N/A'}</div>
+                              <div className="text-[10px] opacity-70 mt-0.5">{u.metadata?.lastSignInTime ? new Date(u.metadata.lastSignInTime).toLocaleDateString() : 'Never'}</div>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {!isDevAccount && (
+                                  <>
+                                    <button
+                                      onClick={() => handleToggleFreeze(u.uid, u.disabled)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                                        u.disabled
+                                          ? isDarkMode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+                                          : isDarkMode ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20" : "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
+                                      }`}
+                                    >
+                                      {u.disabled ? "Unfreeze" : "Freeze"}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteUser(u.uid)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                                        isDarkMode ? "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20" : "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100"
+                                      }`}
+                                    >
+                                      Delete
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {usersList.length > 0 && usersList.filter(u => 
+                        (u.email || "").toLowerCase().includes(userSearch.toLowerCase()) || 
+                        (u.displayName || "").toLowerCase().includes(userSearch.toLowerCase())
+                      ).length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-sm text-slate-400">
+                            No users found matching "{userSearch}"
+                          </td>
+                        </tr>
+                      )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
