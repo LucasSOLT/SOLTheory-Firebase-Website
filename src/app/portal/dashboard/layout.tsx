@@ -14,6 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslation, TIMEZONE_OPTIONS } from "@/lib/i18n";
 import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
+import { isDeveloper } from "@/lib/rbac";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 
@@ -59,6 +60,73 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const firestore = useFirestore();
   const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Org Guard States
+  const [userProfileData, setUserProfileData] = useState<any>(null);
+  const [isCheckingOrg, setIsCheckingOrg] = useState(true);
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [noAccess, setNoAccess] = useState(false);
+
+  useEffect(() => {
+    if (isUserLoading) return;
+    if (!user) {
+      setIsCheckingOrg(false);
+      return;
+    }
+
+    const checkOrgAccess = async () => {
+      try {
+        const userRef = doc(firestore, "users", user.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          setUserProfileData(data);
+          
+          if (user.email && isDeveloper(user.email)) {
+            setIsCheckingOrg(false);
+            return;
+          }
+
+          if (data.frozenAt) {
+            setIsFrozen(true);
+            setIsCheckingOrg(false);
+            return;
+          }
+
+          const currentOrgUrl = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
+          
+          let allowed: string[] = [];
+          if (data.allowedOrgs && Array.isArray(data.allowedOrgs)) {
+            allowed = data.allowedOrgs;
+          } else if (data.organization) {
+            const orgVal = data.organization.toLowerCase().replace(/\s+/g, '');
+            if (orgVal.includes('nxt')) allowed.push('nxtchapter');
+            else allowed.push('soltheory');
+          }
+
+          if (allowed.length === 0) {
+            setNoAccess(true);
+            setIsCheckingOrg(false);
+            return;
+          }
+
+          if (!allowed.includes(currentOrgUrl)) {
+            router.push(`/portal/dashboard/${allowed[0]}`);
+            return;
+          }
+        } else {
+          if (!user.email || !isDeveloper(user.email)) {
+            setNoAccess(true);
+          }
+        }
+      } catch (err) {
+        console.error("Org check error", err);
+      }
+      setIsCheckingOrg(false);
+    };
+
+    checkOrgAccess();
+  }, [user, isUserLoading, pathname, firestore, router]);
 
 
   const { isDarkMode, setTheme: setAppTheme } = useTheme();
@@ -897,6 +965,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         : (isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-[#f2efe8] text-slate-600 hover:text-slate-900')
     }`;
   };
+
+  if (isCheckingOrg) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (isFrozen) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 p-4">
+        <div className="max-w-md w-full flex flex-col items-center text-center space-y-6">
+          <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto">
+            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Account Frozen</h1>
+            <p className="text-slate-500 dark:text-slate-400">Your account has been frozen. Contact your administrator at lucas@soltheory.com</p>
+          </div>
+          <button 
+            onClick={() => auth?.signOut()}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (noAccess) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 p-4">
+        <div className="max-w-md w-full flex flex-col items-center text-center space-y-6">
+          <div className="w-16 h-16 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center mx-auto">
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">No Access</h1>
+            <p className="text-slate-500 dark:text-slate-400">You do not have access to any organizations.</p>
+          </div>
+          <button 
+            onClick={() => auth?.signOut()}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>
