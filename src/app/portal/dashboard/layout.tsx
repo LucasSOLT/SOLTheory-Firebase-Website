@@ -1035,17 +1035,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
+  // Track whether we've already started the redirect to prevent repeated signOut calls
+  const noAccessRedirectingRef = useRef(false);
+
   if (noAccess) {
     // User lost org access (revoked mid-session or never had it)
     // Sign them out and kick them back to the website homepage
-    if (auth) {
-      auth.signOut().then(() => {
+    if (!noAccessRedirectingRef.current) {
+      noAccessRedirectingRef.current = true;
+      if (auth) {
+        auth.signOut().then(() => {
+          window.location.href = "/";
+        }).catch(() => {
+          window.location.href = "/";
+        });
+      } else {
         window.location.href = "/";
-      }).catch(() => {
-        window.location.href = "/";
-      });
-    } else {
-      window.location.href = "/";
+      }
     }
     return (
       <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 p-4">

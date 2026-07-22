@@ -38,6 +38,11 @@ export async function POST(
     }
 
     if (action === "freeze") {
+      // Safety: never allow freezing the developer account
+      const userData = userDoc.data();
+      if (userData?.email?.toLowerCase() === "lucas@soltheory.com") {
+        return NextResponse.json({ error: "Cannot freeze the developer account." }, { status: 403 });
+      }
       await userRef.update({
         frozenAt: FieldValue.serverTimestamp(),
         frozenBy: auth.uid,

@@ -205,10 +205,13 @@ export default function SystemHealthPage() {
   const handleUpdateUserRole = async (uid: string, org: string, newRole: string) => {
     try {
       const baseHeaders = await getAuthHeaders();
+      // Merge with current orgRoles so we don't wipe other org roles
+      const currentUser = usersList.find(u => u.uid === uid);
+      const mergedOrgRoles = { ...(currentUser?.orgRoles || {}), [org]: newRole };
       const res = await fetch("/api/admin/users", {
         method: "PUT",
         headers: { ...baseHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ uid, updates: { orgRoles: { [org]: newRole } } }),
+        body: JSON.stringify({ uid, updates: { orgRoles: mergedOrgRoles } }),
       });
       if (res.ok) fetchUsers();
     } catch (err: any) {
@@ -234,11 +237,11 @@ export default function SystemHealthPage() {
     }
   };
 
-  const handleToggleFreeze = async (uid: string, disabled: boolean) => {
+  const handleToggleFreeze = async (uid: string, isFrozen: boolean) => {
     try {
       const baseHeaders = await getAuthHeaders();
       let payload: any = { action: "unfreeze" };
-      if (!disabled) {
+      if (!isFrozen) {
         const reason = prompt("Enter reason for freezing this user:");
         if (reason === null) return;
         payload = { action: "freeze", reason };
@@ -853,7 +856,7 @@ export default function SystemHealthPage() {
                               </div>
                             </td>
                             <td className="p-4">
-                              {u.disabled ? (
+                              {u.frozenAt ? (
                                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-500 border border-rose-500/20">
                                   Frozen
                                 </span>
@@ -912,14 +915,14 @@ export default function SystemHealthPage() {
                                 {!isDevAccount && (
                                   <>
                                     <button
-                                      onClick={() => handleToggleFreeze(u.uid, u.disabled)}
+                                      onClick={() => handleToggleFreeze(u.uid, !!u.frozenAt)}
                                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                                        u.disabled
+                                          u.frozenAt
                                           ? isDarkMode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
                                           : isDarkMode ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20" : "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
                                       }`}
                                     >
-                                      {u.disabled ? "Unfreeze" : "Freeze"}
+                                      {u.frozenAt ? "Unfreeze" : "Freeze"}
                                     </button>
                                     <button
                                       onClick={() => handleDeleteUser(u.uid)}

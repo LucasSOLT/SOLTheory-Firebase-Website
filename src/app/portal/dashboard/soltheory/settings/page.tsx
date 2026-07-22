@@ -586,7 +586,7 @@ function SettingsContent() {
                             {/* Role Badge */}
                             <div className="pt-1">
                               {isDeveloper(user?.email) ? (
-                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DEVELOPER_COLORS.bg} ${DEVELOPER_COLORS.text} ${DEVELOPER_COLORS.border} ${isDarkMode ? `${DEVELOPER_COLORS.darkBg} ${DEVELOPER_COLORS.darkText} ${DEVELOPER_COLORS.darkBorder}` : ''}`}>
+                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isDarkMode ? `${DEVELOPER_COLORS.darkBg} ${DEVELOPER_COLORS.darkText} ${DEVELOPER_COLORS.darkBorder}` : `${DEVELOPER_COLORS.bg} ${DEVELOPER_COLORS.text} ${DEVELOPER_COLORS.border}`}`}>
                                   <ShieldCheck className="w-3.5 h-3.5" />
                                   Developer &middot; {ORG_LABELS['soltheory']}
                                 </div>
@@ -596,7 +596,7 @@ function SettingsContent() {
                                   const colors = ROLE_COLORS[normalizedRole] || ROLE_COLORS['user'];
                                   const label = ROLE_LABELS[normalizedRole] || userRole;
                                   return (
-                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors.bg} ${colors.text} ${colors.border} ${isDarkMode ? `${colors.darkBg} ${colors.darkText} ${colors.darkBorder}` : ''}`}>
+                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isDarkMode ? `${colors.darkBg} ${colors.darkText} ${colors.darkBorder}` : `${colors.bg} ${colors.text} ${colors.border}`}`}>
                                       <Shield className="w-3.5 h-3.5" />
                                       {label} &middot; {ORG_LABELS['soltheory']}
                                     </div>

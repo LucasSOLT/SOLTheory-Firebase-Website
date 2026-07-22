@@ -95,7 +95,9 @@ export default function InsightLoginPage() {
             createdAt: serverTimestamp(),
           });
         }
-      } catch (profileErr) {
+      } catch (profileErr: any) {
+        // Re-throw auth errors so they reach the main error handler
+        if (profileErr?.message === "Unauthorized organization") throw profileErr;
         console.warn('[Login] Failed to upsert user profile:', profileErr);
       }
 
