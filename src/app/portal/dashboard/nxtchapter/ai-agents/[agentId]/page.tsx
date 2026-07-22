@@ -2229,7 +2229,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <div className="flex-1 min-w-0">
                 <div className={`text-[10px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Model</div>
                 <div className={`text-sm font-semibold truncate mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                  {[{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'openai/gpt-oss-120b',name:'GPT 120B'},{id:'openai/gpt-oss-20b',name:'GPT 20B'},{id:'qwen/qwen3-32b',name:'Qwen 3'}].find(m => m.id === selectedModel)?.name || 'Llama 3.3'}
+                  {[{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'openai/gpt-oss-120b',name:'GPT 120B'},{id:'openai/gpt-oss-20b',name:'GPT 20B'},{id:'qwen/qwen3.6-27b',name:'Qwen 3'}].find(m => m.id === selectedModel)?.name || 'Llama 3.3'}
                 </div>
               </div>
               <svg className={`w-4 h-4 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -2240,7 +2240,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best all-around model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
                   { id: 'openai/gpt-oss-120b', name: 'GPT 120B', desc: 'Most powerful reasoning', tag: 'Pro', tagColor: 'bg-purple-50 text-purple-600' },
                   { id: 'openai/gpt-oss-20b', name: 'GPT 20B', desc: 'Lightweight & fast', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
-                  { id: 'qwen/qwen3-32b', name: 'Qwen 3', desc: 'Advanced reasoning & math', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
+                  { id: 'qwen/qwen3.6-27b', name: 'Qwen 3', desc: 'Advanced reasoning & math', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
                 ].map(model => (
                   <button
                     key={model.id}

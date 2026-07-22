@@ -430,7 +430,7 @@ export async function POST(req: Request) {
     const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream } = await req.json();
 
     // Validate model against whitelist, default to llama-3.3-70b
-    const ALLOWED_MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct'];
+    const ALLOWED_MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b', 'llama-3.1-8b-instant'];
     const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.3-70b-versatile';
 
     // Parse out scope prefixes for logic, but keep raw for database
@@ -2194,17 +2194,23 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     console.error("[DEBUG SERVER] Groq Error Catch Block:", error?.message || error, JSON.stringify(error?.error || {}));
 
     const errMsg = error?.message || "";
-    // Always return 200 with a friendly message so the user never sees a broken state
-    return NextResponse.json({
-      response: errMsg.includes("rate_limit") || errMsg.includes("429")
-        ? "I'm receiving a lot of requests right now. Please wait a moment and try again."
-        : errMsg.includes("spend alert") || errMsg.includes("blocked API access") || errMsg.includes("billing")
-        ? "⚠️ The AI service (Groq) has been paused due to a billing/spend limit. Please check your Groq dashboard at console.groq.com to resolve this, then try again."
-        : errMsg.includes("context_length") || errMsg.includes("too many tokens") || errMsg.includes("maximum context")
-        ? "Your conversation is getting quite long! Try starting a new chat session, or I can summarize what we've discussed so far."
-        : errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls")
-        ? "I ran into a small issue with one of my tools. Could you try asking me that one more time?"
-        : "I had a momentary hiccup. Could you try asking me that again? I'm ready to help!"
-    });
+    const isRateLimit = errMsg.includes("rate_limit") || errMsg.includes("429");
+    const isBilling = errMsg.includes("spend alert") || errMsg.includes("blocked API access") || errMsg.includes("billing");
+    const isContextLength = errMsg.includes("context_length") || errMsg.includes("too many tokens") || errMsg.includes("maximum context");
+    const isToolError = errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls");
+    const isAuth = errMsg.includes("auth") || errMsg.includes("API key") || errMsg.includes("401");
+
+    const friendlyMsg = isRateLimit
+      ? "I'm receiving a lot of requests right now. Please wait a moment and try again."
+      : isBilling
+      ? "⚠️ The AI service (Groq) has been paused due to a billing/spend limit. Please check your Groq dashboard at console.groq.com to resolve this, then try again."
+      : isContextLength
+      ? "Your conversation is getting quite long! Try starting a new chat session, or I can summarize what we've discussed so far."
+      : isToolError
+      ? "I ran into a small issue with one of my tools. Could you try asking me that one more time?"
+      : "I had a momentary hiccup. Could you try asking me that again? I'm ready to help!";
+
+    const statusCode = isAuth ? 401 : isRateLimit ? 429 : isBilling ? 402 : 500;
+    return NextResponse.json({ response: friendlyMsg, error: errMsg }, { status: statusCode });
   }
 }
