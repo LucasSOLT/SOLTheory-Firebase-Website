@@ -65,14 +65,32 @@ export default function InsightLoginPage() {
             lastLogin: serverTimestamp(),
           }, { merge: true });
         } else {
-          // First login — create full profile (include `id` field required by Firestore rules)
+          // First login — only create profile for recognized email domains
+          // This prevents deleted users from re-creating their profile
+          const emailLower = email.toLowerCase();
+          const isRecognized = emailLower === "lucas@soltheory.com" 
+            || emailLower.endsWith("@soltheory.com") 
+            || emailLower.endsWith("@nxtchapter.org");
+          
+          if (!isRecognized) {
+            // Unknown email with no existing profile — block access
+            await signOut(auth);
+            throw new Error("Unauthorized organization");
+          }
+
+          // Determine default org from email domain
+          const defaultOrg = emailLower.endsWith("@nxtchapter.org") ? "nxtchapter" : "soltheory";
+
           await setDoc(userRef, {
             id: uid,
-            email: email.toLowerCase(),
+            email: emailLower,
             displayName,
             firstName,
             lastName,
-            accessLevel: getDefaultAccessLevel(email.toLowerCase()),
+            accessLevel: getDefaultAccessLevel(emailLower),
+            organization: defaultOrg,
+            allowedOrgs: emailLower === "lucas@soltheory.com" ? ["soltheory", "nxtchapter"] : [defaultOrg],
+            orgRoles: { [defaultOrg]: emailLower === "lucas@soltheory.com" ? "owner" : "user" },
             lastLogin: serverTimestamp(),
             createdAt: serverTimestamp(),
           });

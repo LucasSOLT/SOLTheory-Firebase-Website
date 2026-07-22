@@ -988,7 +988,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <p className="text-slate-500 dark:text-slate-400">Your account has been frozen. Contact your administrator at lucas@soltheory.com</p>
           </div>
           <button 
-            onClick={() => auth?.signOut()}
+            onClick={() => {
+              auth?.signOut().then(() => { window.location.href = "/"; }).catch(() => { window.location.href = "/"; });
+            }}
             className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
           >
             Sign Out
@@ -999,6 +1001,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (noAccess) {
+    // User lost org access (revoked mid-session or never had it)
+    // Sign them out and kick them back to the website homepage
+    if (auth) {
+      auth.signOut().then(() => {
+        window.location.href = "/";
+      }).catch(() => {
+        window.location.href = "/";
+      });
+    } else {
+      window.location.href = "/";
+    }
     return (
       <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 p-4">
         <div className="max-w-md w-full flex flex-col items-center text-center space-y-6">
@@ -1008,15 +1021,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">No Access</h1>
-            <p className="text-slate-500 dark:text-slate-400">You do not have access to any organizations.</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Redirecting...</h1>
+            <p className="text-slate-500 dark:text-slate-400">You do not have access to this organization. Returning to homepage.</p>
           </div>
-          <button 
-            onClick={() => auth?.signOut()}
-            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
-          >
-            Sign Out
-          </button>
         </div>
       </div>
     );
