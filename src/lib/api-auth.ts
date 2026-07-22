@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initAdmin } from "@/firebase/admin";
 import { getAuth } from "firebase-admin/auth";
+import { DEVELOPER_EMAIL } from "@/lib/rbac";
 
 type AuthSuccess = { ok: true; uid: string; email: string };
 type AuthFailure = { ok: false; response: NextResponse };
@@ -94,4 +95,86 @@ export async function verifyAdmin(req: Request | NextRequest): Promise<AuthResul
   }
 
   return { ok: true, uid: auth.uid, email: auth.email };
+}
+
+/**
+ * Verify that the request is from the platform developer (lucas@soltheory.com).
+ * Use for God-mode endpoints like End-User Management, cross-org operations.
+ */
+export async function verifyDeveloper(req: Request | NextRequest): Promise<AuthResult> {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth;
+
+  if (auth.email.toLowerCase() !== DEVELOPER_EMAIL) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Forbidden — developer access required" },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { ok: true, uid: auth.uid, email: auth.email };
+}
+
+/**
+ * Verify that the authenticated user is a member of the specified organization.
+ * Checks the user's Firestore document for `allowedOrgs` array.
+ * Developer (lucas@soltheory.com) always passes.
+ */
+export async function verifyOrgMember(req: Request | NextRequest, orgId: string): Promise<AuthResult> {
+  const auth = await verifyRequest(req);
+  if (!auth.ok) return auth;
+
+  // Developer bypasses org checks
+  if (auth.email.toLowerCase() === DEVELOPER_EMAIL) {
+    return { ok: true, uid: auth.uid, email: auth.email };
+  }
+
+  try {
+    initAdmin();
+    const { getFirestore } = await import("firebase-admin/firestore");
+    const db = getFirestore();
+    const userDoc = await db.collection("users").doc(auth.uid).get();
+    const userData = userDoc.data();
+
+    // Check frozen status
+    if (userData?.frozenAt) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Account frozen. Contact your administrator." },
+          { status: 403 }
+        ),
+      };
+    }
+
+    // Check org membership
+    const allowedOrgs: string[] = userData?.allowedOrgs || [];
+    // Fallback: if allowedOrgs not yet set, check legacy `organization` field
+    const legacyOrg = userData?.organization;
+    const hasAccess = allowedOrgs.includes(orgId) || legacyOrg === orgId;
+
+    if (!hasAccess) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Forbidden — you do not have access to this organization" },
+          { status: 403 }
+        ),
+      };
+    }
+
+    return { ok: true, uid: auth.uid, email: auth.email };
+  } catch (err: any) {
+    console.error("[API Auth] Org membership check failed:", err.message);
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Failed to verify organization membership" },
+        { status: 500 }
+      ),
+    };
+  }
 }

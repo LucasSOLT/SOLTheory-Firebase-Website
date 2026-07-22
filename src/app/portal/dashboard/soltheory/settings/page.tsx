@@ -21,6 +21,7 @@ import OrgRBACPanel from "@/components/settings/OrgRBACPanel";
 import DevSettingsPanel from "@/components/settings/DevSettingsPanel";
 import AuditLogPanel from "@/components/settings/AuditLogPanel";
 import TwoFactorSetup from "@/components/settings/TwoFactorSetup";
+import { isDeveloper, DEVELOPER_COLORS, ROLE_COLORS, ROLE_LABELS, ORG_LABELS, OrgRole } from "@/lib/rbac";
 
 // Translation Dictionary
 const localDict = {
@@ -155,6 +156,7 @@ function SettingsContent() {
   const [newEmail, setNewEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
+  const [userRole, setUserRole] = useState<string>('');
 
   // Sign-In & Security sub-page states
   const [showPassword, setShowPassword] = useState(false);
@@ -230,6 +232,11 @@ function SettingsContent() {
             if (data.additionalEmails) setEmails([user.email || '', ...data.additionalEmails]);
             if (data.phoneNumber) setPhoneNumber(data.phoneNumber);
             if (data.address) setAddress(data.address);
+            if (data.orgRoles && data.orgRoles['soltheory']) {
+              setUserRole(data.orgRoles['soltheory']);
+            } else {
+              setUserRole(data.role || data.accessLevel || 'user');
+            }
             // Load iMessage config
             if (data.imessageServerUrl) {
               setImServerUrl(data.imessageServerUrl);
@@ -575,6 +582,28 @@ function SettingsContent() {
                             <Label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.accountName}</Label>
                             <Input value={accountName} onChange={e => setAccountName(e.target.value)} placeholder={lang === 'es' ? "Tu nombre legal o de la cuenta" : "Your legal or account name"} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10`} />
                             <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.accountNameNote}</p>
+                            
+                            {/* Role Badge */}
+                            <div className="pt-1">
+                              {isDeveloper(user?.email) ? (
+                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DEVELOPER_COLORS.bg} ${DEVELOPER_COLORS.text} ${DEVELOPER_COLORS.border} ${isDarkMode ? `${DEVELOPER_COLORS.darkBg} ${DEVELOPER_COLORS.darkText} ${DEVELOPER_COLORS.darkBorder}` : ''}`}>
+                                  <ShieldCheck className="w-3.5 h-3.5" />
+                                  Developer &middot; {ORG_LABELS['soltheory']}
+                                </div>
+                              ) : userRole ? (
+                                (() => {
+                                  const normalizedRole = (Object.keys(ROLE_LABELS).includes(userRole.toLowerCase()) ? userRole.toLowerCase() : 'user') as OrgRole;
+                                  const colors = ROLE_COLORS[normalizedRole] || ROLE_COLORS['user'];
+                                  const label = ROLE_LABELS[normalizedRole] || userRole;
+                                  return (
+                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors.bg} ${colors.text} ${colors.border} ${isDarkMode ? `${colors.darkBg} ${colors.darkText} ${colors.darkBorder}` : ''}`}>
+                                      <Shield className="w-3.5 h-3.5" />
+                                      {label} &middot; {ORG_LABELS['soltheory']}
+                                    </div>
+                                  );
+                                })()
+                              ) : null}
+                            </div>
                           </div>
 
                           {/* Emails */}

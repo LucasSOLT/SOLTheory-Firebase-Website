@@ -118,39 +118,45 @@ export default function InsightLoginPage() {
         setTimeout(() => { window.location.href = path; }, 5000);
       };
 
-      if (emailLower.endsWith("@soltheory.com")) {
+      // ── Check Firestore for frozen account & org access ──
+      const uid = cred.user.uid;
+      const userRef = doc(firestore, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.exists() ? userSnap.data() : null;
+
+      // Frozen account check (developer is never frozen)
+      if (userData?.frozenAt && emailLower !== "lucas@soltheory.com") {
+        await signOut(auth);
+        throw new Error("Account frozen");
+      }
+
+      // Route using allowedOrgs if available, then legacy org field, then email domain
+      const allowedOrgs: string[] = userData?.allowedOrgs || [];
+      const legacyOrg = userData?.organization;
+
+      // Developer always goes to soltheory
+      if (emailLower === "lucas@soltheory.com") {
+        navigateTo("/portal/dashboard/soltheory");
+      } else if (allowedOrgs.length > 0) {
+        // Use first allowed org as the landing page
+        navigateTo(`/portal/dashboard/${allowedOrgs[0]}`);
+      } else if (legacyOrg) {
+        navigateTo(`/portal/dashboard/${legacyOrg}`);
+      } else if (emailLower.endsWith("@soltheory.com")) {
         navigateTo("/portal/dashboard/soltheory");
       } else if (emailLower.endsWith("@nxtchapter.org")) {
         navigateTo("/portal/dashboard/nxtchapter");
       } else {
-        // Check Firestore for org mapping (for Gmail and other external users)
-        try {
-          const uid = cred.user.uid;
-          const userRef = doc(firestore, 'users', uid);
-          const userSnap = await getDoc(userRef);
-          const userData = userSnap.exists() ? userSnap.data() : null;
-          const mappedOrg = userData?.organization;
-
-          if (mappedOrg === "soltheory") {
-            navigateTo("/portal/dashboard/soltheory");
-          } else if (mappedOrg === "nxtchapter") {
-            navigateTo("/portal/dashboard/nxtchapter");
-          } else {
-            console.error("[Login] No org mapping found for user:", uid, "data:", userData);
-            await signOut(auth);
-            throw new Error("Unauthorized organization");
-          }
-        } catch (orgErr: any) {
-          if (orgErr.message === "Unauthorized organization") throw orgErr;
-          console.error("Error checking org mapping:", orgErr);
-          await signOut(auth);
-          throw new Error("Unauthorized organization");
-        }
+        console.error("[Login] No org mapping found for user:", uid, "data:", userData);
+        await signOut(auth);
+        throw new Error("Unauthorized organization");
       }
     } catch (err: any) {
       console.error("[Login] Full error:", err?.code, err?.message);
       if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password" || err?.code === "auth/user-not-found") {
         setError("Invalid email or password.");
+      } else if (err?.message === "Account frozen") {
+        setError("Your account has been frozen. Contact your administrator at lucas@soltheory.com.");
       } else if (err?.message === "Unauthorized organization") {
         setError("Your account is not linked to an organization. Contact an admin.");
       } else {

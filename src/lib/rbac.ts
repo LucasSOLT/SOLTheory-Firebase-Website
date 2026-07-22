@@ -97,6 +97,40 @@ export const ROLE_COLORS: Record<OrgRole, { bg: string; text: string; border: st
 /** All roles in ascending order. */
 export const ALL_ROLES: OrgRole[] = ["read-only", "user", "super-user", "admin", "owner"];
 
+/* ─── Developer Identity ────────────────────────────────────────────────────── */
+
+/**
+ * Developer is NOT an OrgRole — it's a separate identity layer that bypasses
+ * all RBAC restrictions. Only one email can ever be developer.
+ */
+export const DEVELOPER_EMAIL = "lucas@soltheory.com";
+
+/** Check if an email belongs to the platform developer (God-mode). */
+export function isDeveloper(email: string | undefined | null): boolean {
+  return !!email && email.toLowerCase() === DEVELOPER_EMAIL;
+}
+
+/** Developer badge colors (separate from OrgRole colors). */
+export const DEVELOPER_COLORS = {
+  bg: "bg-gradient-to-r from-indigo-50 to-violet-50",
+  text: "text-indigo-700",
+  border: "border-indigo-300",
+  darkBg: "bg-gradient-to-r from-indigo-900/40 to-violet-900/40",
+  darkText: "text-indigo-300",
+  darkBorder: "border-indigo-700",
+};
+
+/* ─── Organization Registry ─────────────────────────────────────────────────── */
+
+/** Known organizations and their display labels. */
+export const ORG_LABELS: Record<string, string> = {
+  soltheory: "SOL Theory",
+  nxtchapter: "NXT Chapter",
+};
+
+/** All known org IDs. */
+export const ALL_ORGS = Object.keys(ORG_LABELS);
+
 /* ─── Permission Checks ─────────────────────────────────────────────────────── */
 
 /**
