@@ -117,12 +117,18 @@ export default function SolTheoryDashboard() {
   const { isDarkMode } = useTheme();
   const [showConfetti, setShowConfetti] = useState(false);
   const { t, lang } = useTranslation();
-  // Brief loading gate — let widget data (Firestore snapshots) initialize
-  // before showing the page, so tiles don't flash with spinners
-  const [pageReady, setPageReady] = useState(false);
+  // Two-phase loading overlay:
+  // Phase 1 (0-3.5s): Overlay fully visible, dashboard content loads underneath
+  // Phase 2 (3.5-5s): Overlay fades out slowly (1.5s ease), revealing fully loaded content
+  // Phase 3 (5s+):    Overlay removed from DOM
+  const [pageReady, setPageReady] = useState(false);      // triggers the fade
+  const [overlayGone, setOverlayGone] = useState(false);  // removes overlay from DOM after fade completes
   useEffect(() => {
-    const timer = setTimeout(() => setPageReady(true), 1200);
-    return () => clearTimeout(timer);
+    // Wait 3.5s for Firestore snapshots, images, and widgets to fully initialize
+    const fadeTimer = setTimeout(() => setPageReady(true), 3500);
+    // Remove overlay from DOM after the 1.5s fade animation completes
+    const removeTimer = setTimeout(() => setOverlayGone(true), 5000);
+    return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
   }, []);
 
   // Ctrl+Alt+6 confetti easter egg
@@ -232,11 +238,9 @@ export default function SolTheoryDashboard() {
   return (
     <>
       {/* ── Login-to-Dashboard Bridge Overlay ──
-          This cube overlay is identical to the login page's cube.
-          It starts fully visible (white bg + spinning cube) so the
-          transition from login → dashboard is seamless.
-          Once pageReady=true, it fades out revealing the dashboard. */}
-      {!pageReady && (
+          Always rendered until overlayGone. Opacity controlled by pageReady.
+          All elements (white bg, cube, text) fade out together as one unit. */}
+      {!overlayGone && (
         <div
           style={{
             position: "fixed",
@@ -247,8 +251,9 @@ export default function SolTheoryDashboard() {
             alignItems: "center",
             justifyContent: "center",
             background: "#ffffff",
-            opacity: 1,
-            transition: "opacity 0.8s ease-out",
+            opacity: pageReady ? 0 : 1,
+            transition: "opacity 1.5s ease-in-out",
+            pointerEvents: pageReady ? "none" : "auto",
           }}
         >
           <p
@@ -306,7 +311,9 @@ export default function SolTheoryDashboard() {
           `}</style>
         </div>
       )}
-      <div className={`w-full mx-auto h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-all duration-700 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} style={{ opacity: pageReady ? 1 : 0 }} tabIndex={-1}>
+      {/* Dashboard content — always rendered at full opacity underneath the overlay
+          so all widgets, images, and Firestore data load while the user sees the cube */}
+      <div className={`w-full mx-auto h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
       {showConfetti && <ConfettiCanvas onDone={() => setShowConfetti(false)} />}
       <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
