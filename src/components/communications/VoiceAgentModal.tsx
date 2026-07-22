@@ -127,7 +127,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     // On mobile Android Chrome, continuous mode can silently stop working.
     // Keep continuous on desktop, but use shorter sessions on mobile with auto-restart.
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    recognition.continuous = true;
+    recognition.continuous = !isMobile;
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.maxAlternatives = 1;
@@ -391,8 +391,11 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         // Try with ideal constraints first, fall back to basic if device doesn't support them
         let stream: MediaStream;
         try {
+          if (!navigator?.mediaDevices?.getUserMedia) {
+            throw new Error('Media devices not available. Please use HTTPS.');
+          }
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 16000, channelCount: 1 }
           });
         } catch {
           // Fallback: some devices/browsers don't support constraints
@@ -1005,7 +1008,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-[200] w-80 bg-[#12121f] rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-white/10">
+      <div className="fixed bottom-6 right-4 sm:right-6 z-[200] w-80 max-w-[calc(100vw-32px)] bg-[#12121f] rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-white/10">
         <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
         
         <div className="p-4 relative">
@@ -1120,7 +1123,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#0a0a18] flex flex-col animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[200] bg-[#0a0a18] flex flex-col animate-in fade-in duration-300 h-[100dvh] max-h-[100dvh]">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
       <div className="flex flex-col flex-1 relative bg-gradient-to-b from-[#0c0c1e] via-[#0a0a18] to-[#080814] overflow-hidden">
@@ -1192,7 +1195,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         )}
 
         {/* ── Upper Section: Agent identity, waveform, controls ── */}
-        <div className="flex flex-col items-center pt-32 sm:pt-28 pb-6 shrink-0">
+        <div className="flex flex-col items-center pt-16 sm:pt-28 pb-4 sm:pb-6 shrink-0">
 
           {/* Speed Selector — dark glassmorphic design */}
           <div className="inline-flex items-center bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-xl mb-8">
@@ -1255,7 +1258,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             </svg>
             {/* Agent name — absolutely centered between the two center dots (y=85 and y=135, center = y=110) */}
             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-              <h2 className="text-5xl sm:text-6xl font-light text-white/60 tracking-[0.12em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
+              <h2 className="text-2xl sm:text-5xl md:text-6xl font-light text-white/60 tracking-[0.12em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
             </div>
           </div>
           <p className="text-white/30 text-sm font-medium tabular-nums mt-2">{formatTime(elapsed)}</p>

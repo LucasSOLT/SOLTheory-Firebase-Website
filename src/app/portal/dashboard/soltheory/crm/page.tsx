@@ -1405,7 +1405,7 @@ export default function CRMPage() {
   }, [filteredSortedCustomers, visibleCount]);
   const hasMore = visibleCount < filteredSortedCustomers.length;
   // Reset visible count when filters change
-  useEffect(() => { setVisibleCount(CRM_BATCH_SIZE); }, [contactSearch, tagFilter, statusFilter, segmentFilterFn]);
+  useEffect(() => { setVisibleCount(CRM_BATCH_SIZE); }, [contactSearch, tagFilter, statusFilter, segmentFilterFn, dateFilterFrom, dateFilterTo, columnSortField, columnSortDir]);
 
   // IntersectionObserver: auto-load next batch when user scrolls to the sentinel
   useEffect(() => {
@@ -2337,7 +2337,7 @@ export default function CRMPage() {
                           <tr
                             key={c.id}
                             onClick={() => setSelectedContactId(selectedContactId === c.id ? null : c.id)}
-                            style={{ height: '44px', maxHeight: '44px' }}
+                            style={{ minHeight: '44px' }}
                             className={`group border-b transition-colors cursor-pointer ${
                               isDarkMode
                                 ? `border-slate-800 ${idx % 2 === 1 ? 'bg-slate-800/20' : ''} hover:bg-slate-800/50`

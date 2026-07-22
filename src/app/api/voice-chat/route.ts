@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     
     return NextResponse.json(
       { response: errorMsg, error: error?.message },
-      { status: 200 }
+      { status: isAuthError ? 401 : 500 }
     );
   }
 }

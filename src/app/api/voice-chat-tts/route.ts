@@ -189,7 +189,7 @@ export async function POST(req: Request) {
     console.error("[voice-chat-tts Error]", error?.message);
     return NextResponse.json(
       { response: "I had a brief connection issue. Could you try again?", audioBase64: null, error: error?.message },
-      { status: 200 }
+      { status: 500 }
     );
   }
 }

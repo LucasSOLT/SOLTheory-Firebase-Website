@@ -204,6 +204,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showLeaveCube, setShowLeaveCube] = useState(false);
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
   const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
+  const noAccessRedirectingRef = useRef(false);
 
   // ── Navigation Cube: shows a 3-second spinning cube + "Loading" text on every page navigation ──
   const [navCubeVisible, setNavCubeVisible] = useState(false);
@@ -1040,8 +1041,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // Track whether we've already started the redirect to prevent repeated signOut calls
-  const noAccessRedirectingRef = useRef(false);
+
 
   if (noAccess) {
     // User lost org access (revoked mid-session or never had it)
@@ -1944,11 +1944,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   75%, 85%  { transform: rotateX(-25deg) rotateY(450deg) rotateZ(0deg); }
                   90%, 100% { transform: rotateX(-25deg) rotateY(540deg); }
                 }
-                @keyframes navContentFadeIn { from { opacity: 0; } to { opacity: 1; } }
-                .navContentFadeIn { animation: navContentFadeIn 0.5s ease-out forwards; }
               `}</style>
             </div>
           )}
+          {/* Persistent style for nav fade-in — must stay in DOM after cube unmounts */}
+          <style>{`
+            @keyframes navContentFadeIn { from { opacity: 0; } to { opacity: 1; } }
+            .navContentFadeIn { animation: navContentFadeIn 0.5s ease-out forwards; }
+          `}</style>
         </main>
       </div>
 

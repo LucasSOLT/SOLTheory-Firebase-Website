@@ -2591,8 +2591,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         <div className="flex-1 flex relative overflow-hidden">
 
           {/* Chat Wrapper */}
-          <div className={`flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-x-hidden h-full overflow-hidden`}>
-              <div className="flex-1 flex flex-col relative">
+          <div className={`flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-x-hidden h-full overflow-hidden min-h-0`}>
+              <div className="flex-1 flex flex-col relative min-h-0">
                 <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-8 pt-4 sm:pt-6 pb-4 sm:pb-8">
                   <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'max-w-4xl' : 'max-w-3xl'}`}>
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
@@ -2782,11 +2782,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
                         <Input
                           placeholder="Instruct the agent..."
-                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-1 sm:pl-2 pr-12 sm:pr-14 min-h-[44px] sm:min-h-[64px] bg-transparent placeholder:text-slate-500 text-sm sm:text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-1 sm:pl-2 pr-12 sm:pr-14 min-h-[44px] sm:min-h-[64px] bg-transparent placeholder:text-slate-500 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
                           value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                         />
 
-                        <Button size="icon" onClick={handleSendMessage} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
+                        <Button size="icon" onClick={handleSendMessage} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
                           {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
                         </Button>
                       </div>
