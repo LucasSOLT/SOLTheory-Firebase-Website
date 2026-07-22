@@ -1122,7 +1122,15 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     { value: 3000, label: 'Relaxed' },
   ];
 
-  return (
+    // Collapse sidebar when voice modal opens, restore when it closes
+    React.useEffect(() => {
+      window.dispatchEvent(new CustomEvent('soltheory-sidebar-toggle', { detail: { action: 'collapse' } }));
+      return () => {
+        window.dispatchEvent(new CustomEvent('soltheory-sidebar-toggle', { detail: { action: 'restore' } }));
+      };
+    }, []);
+
+    return (
     <div className="fixed inset-0 z-[200] bg-[#0a0a18] flex flex-col animate-in fade-in duration-300 h-[100dvh] max-h-[100dvh]">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
@@ -1214,8 +1222,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             ))}
           </div>
 
-          {/* Agent Name + Brain Diagram */}
-          <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '220px', paddingTop: '50px', paddingBottom: '50px' }}>
+          {/* Agent Name — clean centered display with gradient cloud behind */}
+          <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '140px', paddingTop: '30px', paddingBottom: '30px' }}>
             {/* Faint animated cloud behind JARVIS text for mystique — dark theme */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
               <div className="absolute w-[340px] h-[160px] rounded-full opacity-[0.25]" style={{ background: 'radial-gradient(ellipse, rgba(99,102,241,0.3) 0%, transparent 70%)', animation: 'jarvisCloud1 12s ease-in-out infinite' }} />
@@ -1226,38 +1234,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               @keyframes jarvisCloud1 { 0%, 100% { transform: translate(-15px, -5px) scale(1); } 33% { transform: translate(20px, 8px) scale(1.1); } 66% { transform: translate(-8px, -12px) scale(0.95); } }
               @keyframes jarvisCloud2 { 0%, 100% { transform: translate(10px, 5px) scale(1); } 50% { transform: translate(-18px, -8px) scale(1.15); } }
               @keyframes jarvisCloud3 { 0%, 100% { transform: translate(5px, 10px) scale(1.05); } 40% { transform: translate(-12px, -6px) scale(0.9); } 70% { transform: translate(15px, 3px) scale(1.1); } }
-              @keyframes nodePulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
             `}</style>
-            {/* Decorative brain/tools diagram — glassmorphic dark nodes */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid meet" overflow="visible">
-              {/* ═══ LEFT SIDE ═══ */}
-              <path d="M 500,85 L 410,10 L 130,10" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="15" y="-6" width="115" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
-              <text x="72" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">Qwen 3</text>
-              <circle cx="130" cy="10" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite' }} />
-
-              <path d="M 500,135 L 410,210 L 140,210" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="15" y="194" width="125" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
-              <text x="77" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">Knowledge</text>
-              <circle cx="140" cy="210" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite', animationDelay: '0.5s' }} />
-
-              {/* ═══ RIGHT SIDE ═══ */}
-              <path d="M 500,85 L 590,10 L 855,10" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="855" y="-6" width="130" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
-              <text x="920" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">ElevenLabs</text>
-              <circle cx="855" cy="10" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite', animationDelay: '1s' }} />
-
-              <path d="M 500,135 L 590,210 L 865,210" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="865" y="194" width="115" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
-              <text x="922" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">Internet</text>
-              <circle cx="865" cy="210" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite', animationDelay: '1.5s' }} />
-
-              {/* Center connection dots — glowing */}
-              <circle cx="500" cy="85" r="4" fill="rgba(165,180,252,0.5)" />
-              <circle cx="500" cy="135" r="4" fill="rgba(165,180,252,0.5)" />
-            </svg>
-            {/* Agent name — absolutely centered between the two center dots (y=85 and y=135, center = y=110) */}
-            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            {/* Agent name — centered */}
+            <div className="relative flex items-center justify-center z-10 pointer-events-none">
               <h2 className="text-2xl sm:text-5xl md:text-6xl font-light text-white/60 tracking-[0.12em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
             </div>
           </div>
@@ -1353,13 +1332,13 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         </div>
 
         {/* ── Lower Section: Chat Bubble Transcript ── */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-5">
           <div className="max-w-2xl mx-auto space-y-3">
 
             {/* Welcome hint — always shown as the first bubble */}
             {transcriptLines.length === 0 && !liveText && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-white/40 text-[14px] leading-relaxed">
+                <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-white/60 text-[14px] leading-relaxed">
                   Start speaking, and you&apos;ll see your words transcribed here in real time. When {agentName} responds, the reply will appear below.
                 </div>
               </div>
@@ -1380,8 +1359,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 )}
                 <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
                   line.isUser
-                    ? 'bg-indigo-600/30 text-white/90 rounded-br-md border border-indigo-500/20'
-                    : 'bg-white/5 border border-white/10 text-white/70 rounded-bl-md'
+                    ? 'bg-indigo-600/30 text-white rounded-br-md border border-indigo-500/20'
+                    : 'bg-white/8 border border-white/15 text-white/90 rounded-bl-md'
                 }`}>
                   {line.text}
                 </div>
