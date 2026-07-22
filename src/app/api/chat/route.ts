@@ -427,7 +427,7 @@ export async function POST(req: Request) {
   const auth = await verifyRequest(req);
   if (!auth.ok) return auth.response;
   try {
-    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText } = await req.json();
+    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream } = await req.json();
 
     // Validate model against whitelist, default to llama-3.3-70b
     const ALLOWED_MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct'];
@@ -446,14 +446,18 @@ export async function POST(req: Request) {
 
     // Read org profile from Firestore for dynamic context
     let orgProfileData: any = null;
-    try {
-      await initAdmin();
-      const adminDb = getAdminFirestore();
-      const orgProfileDoc = await adminDb.collection('org_profiles').doc(orgId).get();
-      if (orgProfileDoc.exists) orgProfileData = orgProfileDoc.data();
-    } catch (e) {
-      console.warn('[chat] Could not load org profile:', e);
-    }
+    // Kick off org profile fetch early — will be awaited alongside semantic KB later
+    const orgProfilePromise = (async () => {
+      try {
+        await initAdmin();
+        const adminDb = getAdminFirestore();
+        const orgProfileDoc = await adminDb.collection('org_profiles').doc(orgId).get();
+        if (orgProfileDoc.exists) return orgProfileDoc.data();
+      } catch (e) {
+        console.warn('[chat] Could not load org profile:', e);
+      }
+      return null;
+    })();
 
     let agentRole = "";
     switch (agentId) {
@@ -622,6 +626,8 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
 
     // --- KNOWLEDGE BASE: TIERED INJECTION ---
     // TIER 1 (Always present): Org context + hardcoded knowledge (company-specific)
+    // Await org profile that was started earlier (parallelized)
+    orgProfileData = await orgProfilePromise;
     let tier1Knowledge = "";
     const orgContext = buildOrgContext(orgProfileData, orgId);
     if (orgContext) {
@@ -786,7 +792,7 @@ Deliver the response directly — do NOT output these steps. Show your brillianc
         const searchQuery = (lastUserMsg?.content || '').substring(0, 200);
         console.log(`[ENRICHMENT] Non-blocking search for: "${searchQuery.substring(0, 60)}..."`);
 
-        const ENRICHMENT_TIMEOUT_MS = 800; // Increased from 300ms — was timing out too often
+        const ENRICHMENT_TIMEOUT_MS = 400; // Fast timeout — the model has web_search as a tool fallback
         const tavilyPromise = fetch("https://api.tavily.com/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2130,7 +2136,53 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
         })
       : [];
 
-    // Default Raw Response
+    // --- RESPONSE: SSE Streaming or JSON ---
+    if (wantStream) {
+      // SSE streaming path — stream the final response token-by-token
+      const encoder = new TextEncoder();
+      const responseText = finalResponse || "I'm here and ready to help! Could you try asking me that again?";
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Stream tokens in small chunks for natural typing feel
+            // Split on word boundaries for smooth rendering
+            const words = responseText.split(/(?<=\s)/);
+            let wordBuffer = '';
+            for (let i = 0; i < words.length; i++) {
+              wordBuffer += words[i];
+              // Flush every 1-3 words for natural pacing
+              if (wordBuffer.length >= 8 || i === words.length - 1) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: wordBuffer })}\n\n`));
+                wordBuffer = '';
+              }
+            }
+            // Send final metadata event
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              done: true,
+              usage: totalTokens,
+              executedTools: executedTools.length > 0 ? executedTools : undefined,
+              enrichmentUrls: enrichmentUrls.length > 0 ? enrichmentUrls : undefined,
+              citations: citations.length > 0 ? citations : undefined,
+            })}\n\n`));
+            controller.close();
+          } catch (streamErr) {
+            console.error('[STREAM] Error during streaming:', streamErr);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
+      });
+    }
+
+    // Default JSON Response (non-streaming fallback for voice, title gen, retries)
     return NextResponse.json({
       response: finalResponse || "I'm here and ready to help! Could you try asking me that again?",
       usage: totalTokens,

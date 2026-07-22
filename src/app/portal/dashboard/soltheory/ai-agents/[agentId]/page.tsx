@@ -1561,13 +1561,86 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           orgBrainText: orgBrain,
           pactText,
           userName: user?.displayName || undefined,
-          model: selectedModel
+          model: selectedModel,
+          stream: true,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
 
-      // Capture email drafts for Gmail View
+      // --- SSE Streaming Response Reader ---
+      // Read tokens as they arrive and render in real-time
+      let data: { response: string; usage?: number; executedTools?: any[]; enrichmentUrls?: any[]; citations?: any[] } = { response: '' };
+      const contentType = res.headers.get('content-type') || '';
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        // Streaming mode — render tokens as they arrive
+        const botMsgId = uid();
+        let fullText = '';
+        setMessages(prev => [...prev, { id: botMsgId, text: '', isSelf: false }]);
+        setIsTyping(false); // Hide spinner immediately — text is arriving
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const payload = JSON.parse(line.slice(6));
+              if (payload.token) {
+                fullText += payload.token;
+                setMessages(prev => prev.map(m =>
+                  m.id === botMsgId ? { ...m, text: fullText } : m
+                ));
+              }
+              if (payload.done) {
+                // Final metadata event — capture citations, tools, enrichment, usage
+                data = {
+                  response: fullText,
+                  usage: payload.usage,
+                  executedTools: payload.executedTools,
+                  enrichmentUrls: payload.enrichmentUrls,
+                  citations: payload.citations,
+                };
+                // Update message with citations if present
+                if (payload.citations && payload.citations.length > 0) {
+                  setMessages(prev => prev.map(m =>
+                    m.id === botMsgId ? { ...m, citations: payload.citations } : m
+                  ));
+                }
+              }
+              if (payload.error) {
+                fullText += '\n\nI had a momentary hiccup. Could you try asking me that again?';
+                setMessages(prev => prev.map(m =>
+                  m.id === botMsgId ? { ...m, text: fullText } : m
+                ));
+              }
+            } catch (parseErr) {
+              // Skip malformed SSE lines
+            }
+          }
+        }
+        setPendingCitations([]);
+      } else {
+        // Fallback: non-streaming JSON response (shouldn't happen in normal flow)
+        data = await res.json();
+        const botCitations = data.citations && Array.isArray(data.citations) ? data.citations : [];
+        setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false, citations: botCitations.length > 0 ? botCitations : undefined }]);
+        setPendingCitations([]);
+      }
+
+      // Capture email drafts for Gmail View (works for both streaming and JSON paths)
       if (data.executedTools && Array.isArray(data.executedTools)) {
         const emailTool = data.executedTools.find((t: any) => t.name === 'draft_outbound_email');
         if (emailTool?.args) {
@@ -1577,18 +1650,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             body: (emailTool.args.body || '').replace(/\\n/g, '\n'),
             timestamp: Date.now(),
           });
-          // Auto-switch to Gmail View in Agent Eye when an email is drafted
           if (isAgentEyeOpen || isAgentEyeMinimized) {
             setAgentEyeTab('gmail');
           }
         }
       }
 
-      // If the server returned real enrichment URLs, push them to Jarvis View
-      // These are REAL sites used for research — much more believable than mocks
+      // Push real enrichment URLs to Jarvis View
       if (data.enrichmentUrls && Array.isArray(data.enrichmentUrls) && data.enrichmentUrls.length > 0
           && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
-        // Push real URLs with staggered timing for natural feel
         data.enrichmentUrls.slice(0, 2).forEach((eu: { url: string; title: string }, idx: number) => {
           setTimeout(() => {
             setJarvisNavQueue(prev => [...prev, { url: eu.url, title: eu.title }]);
@@ -1596,10 +1666,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         });
       }
 
-      // Show response (animation is already running in parallel)
-      const botCitations = data.citations && Array.isArray(data.citations) ? data.citations : [];
-      setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false, citations: botCitations.length > 0 ? botCitations : undefined }]);
-      setPendingCitations([]);
       logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent AI chat message to ' + (agent?.name || params.agentId), { messagePreview: inputValue.substring(0, 200) });
 
       // Generate AI title for new sessions after first exchange
