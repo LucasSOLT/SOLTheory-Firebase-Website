@@ -250,7 +250,7 @@ export function evaluateGroup(customer: Customer, group: FilterGroup, fieldDefs?
 
 interface FilterBuilderProps {
   customers: Customer[];
-  onFilterChange: (filterFn: ((c: Customer) => boolean) | null) => void;
+  onFilterChange: (filterFn: any) => void;
   savedSegments: SavedSegment[];
   onSaveSegment: (segment: SavedSegment) => void;
   onDeleteSegment: (id: string) => void;

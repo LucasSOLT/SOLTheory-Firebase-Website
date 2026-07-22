@@ -584,6 +584,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   const [exploreTab, setExploreTab] = useState<"models" | "agents">("models");
   const [selectedExploreItem, setSelectedExploreItem] = useState<string | null>(null);
+  const [isLearnMoreOpen, setIsLearnMoreOpen] = useState(false);
 
   const [isAgentRequestModalOpen, setIsAgentRequestModalOpen] = useState(false);
   const [agentRequestForm, setAgentRequestForm] = useState({ name: '', email: '', phone: '', message: '' });
@@ -2502,168 +2503,58 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           <div className={`flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-x-hidden h-full overflow-hidden`}>
               <div className="flex-1 flex flex-col relative">
                 <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-8 pt-4 sm:pt-6 pb-4 sm:pb-8">
-                  <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'max-w-6xl' : 'max-w-3xl'}`}>
+                  <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'max-w-4xl' : 'max-w-3xl'}`}>
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
                       <div className="flex flex-col min-h-full w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                         
                         
-                        <div className="w-full pt-8 md:pt-20 lg:pt-28">
-                                                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4 w-full">
-                             <h2 className={`text-[24px] md:text-[40px] font-light tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                               Explore INSiGHT {exploreTab === "models" ? "Models" : "Agents"}
-                             </h2>
-                             <div className={`flex items-center gap-1 p-1 rounded-full self-start md:self-auto ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-slate-100 border border-slate-200/60'}`}>
-                               <button onClick={() => setExploreTab("models")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'models' ? (isDarkMode ? 'bg-slate-700 text-white shadow-sm border border-slate-500' : 'bg-[#faf8f3] text-slate-800 shadow-sm border border-slate-200/50') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-transparent' : 'text-slate-500 hover:text-slate-700 border border-transparent')}`}>Models</button>
-                               <button onClick={() => setExploreTab("agents")} className={`px-5 py-2 text-[13px] font-semibold rounded-full shadow-sm transition-all ${exploreTab === 'agents' ? (isDarkMode ? 'bg-slate-700 text-white shadow-sm border border-slate-500' : 'bg-[#faf8f3] text-slate-800 shadow-sm border border-slate-200/50') : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-transparent' : 'text-slate-500 hover:text-slate-700 border border-transparent')}`}>Agents</button>
-                             </div>
+                        <div className="w-full flex flex-col items-center justify-center flex-1 pt-16 md:pt-28 lg:pt-36">
+                          {/* Clean centered greeting */}
+                          <div className="flex flex-col items-center gap-4 mb-8">
+                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'}`}>
+                              <Bot className={`w-8 h-8 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                            </div>
+                            <h2 className={`text-3xl md:text-5xl font-light tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                              {agent.name}
+                            </h2>
+                            <p className={`text-center text-sm max-w-md ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              Ask anything — from drafting emails and scheduling events to strategy advice and deep research.
+                            </p>
+                            <button
+                              onClick={() => setIsLearnMoreOpen(true)}
+                              className={`text-[12px] font-medium transition-colors cursor-pointer hover:underline ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'}`}
+                            >
+                              Learn More ↗
+                            </button>
                           </div>
                           
-                                                                                                        {exploreTab === "models" ? (
-                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                               <div className={`relative border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200/80 bg-white/50'}`}>
-                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-50 transition-colors flex items-center justify-center text-amber-500">
-                                     <Sparkles className="w-4 h-4" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Featured</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Test out our premium Groq models.</p>
-                               </div>
-                               
-                               <div onClick={() => setSelectedExploreItem("Conversational AI")} className={`border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start ${isDarkMode ? 'border-slate-700 bg-slate-800/60 hover:border-slate-500 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center text-blue-500">
-                                     <MessageSquare className="w-5 h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Conversational AI</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Converse with our voice agent, Jarvis.</p>
-                               </div>
-                               
-                               <div className={`relative border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200/80 bg-white/50'}`}>
-                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-purple-50 transition-colors flex items-center justify-center text-purple-500">
-                                     <ImageIcon className="w-5 h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Image Generation</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Create and edit cutting-edge AI images - Coming Soon.</p>
-                               </div>
-                               
-                               <div className={`relative border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200/80 bg-white/50'}`}>
-                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-green-50 transition-colors flex items-center justify-center text-green-600">
-                                     <Video className="w-5 h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Video Generation</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Generate state of the art AI videos - Coming Soon.</p>
-                               </div>
-                               
-                               <div className={`relative border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200/80 bg-white/50'}`}>
-                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-rose-50 transition-colors flex items-center justify-center text-rose-500">
-                                     <Music className="w-5 h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Music Generation</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Explore our text to speech and music models - Coming Soon.</p>
-                               </div>
-                               
-                               <div className={`relative border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 transition-all flex flex-col justify-start opacity-50 pointer-events-none ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200/80 bg-white/50'}`}>
-                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] md:text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-orange-50 transition-colors flex items-center justify-center text-orange-500">
-                                     <Code className="w-5 h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Code Generation</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tackle your logic-related endeavors.</p>
-                               </div>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                               <div onClick={() => window.location.href = '/portal/dashboard/soltheory/agentic-campaigning'} className={`border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start ${isDarkMode ? 'border-slate-700 bg-slate-800/60 hover:border-slate-500 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center text-blue-500">
-                                     <Mail className="w-4 h-4 md:w-5 md:h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.emailAgents}</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Set up scheduled email campaigns!</p>
-                               </div>
-
-                               <div onClick={() => window.location.href = '/portal/dashboard/soltheory/agentic-campaigning/instagram'} className={`border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start ${isDarkMode ? 'border-slate-700 bg-slate-800/60 hover:border-slate-500 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-pink-50 group-hover:bg-pink-100 transition-colors flex items-center justify-center text-pink-500">
-                                     <Users className="w-4 h-4 md:w-5 md:h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.socialMediaAgents}</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Set up scheduled social media posts.</p>
-                               </div>
-
-                               <div onClick={() => window.location.href = '/portal/dashboard/soltheory/communications/imessage'} className={`border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start ${isDarkMode ? 'border-slate-700 bg-slate-800/60 hover:border-slate-500 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex items-center justify-center text-emerald-500">
-                                     <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.messageAgents}</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Create messaging app integrations with AI.</p>
-                               </div>
-
-                               <div onClick={() => window.location.href = '/portal/dashboard/soltheory/youtube'} className={`border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-start ${isDarkMode ? 'border-slate-700 bg-slate-800/60 hover:border-slate-500 hover:bg-slate-800' : 'border-slate-200/80 bg-white/50 hover:border-slate-300'}`}>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-red-50 group-hover:bg-red-100 transition-colors flex items-center justify-center text-red-500">
-                                     <Presentation className="w-4 h-4 md:w-5 md:h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>YouTube Agents</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage your YouTube channel and content.</p>
-                               </div>
-
-                               <div className={`border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 opacity-50 pointer-events-none relative flex flex-col justify-start ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200/80 bg-white/50'}`}>
-                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
-                                     <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.requestAnAgent}</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Submit a new agent request to the team.</p>
-                               </div>
-
-                               <div className={`border rounded-[16px] md:rounded-[20px] px-3 py-4 md:px-5 md:py-8 opacity-50 pointer-events-none relative flex flex-col justify-start ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200/80 bg-white/50'}`}>
-                                 <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[9px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500'}`}>Coming Soon</span>
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                                     <Settings className="w-4 h-4 md:w-5 md:h-5" />
-                                   </div>
-                                   <h3 className={`font-semibold text-[12px] md:text-[14px] whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{t.buildYourOwnAgent}</h3>
-                                 </div>
-                                 <p className={`text-[11px] md:text-[13px] leading-snug font-normal hidden md:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Configure a custom agent with our drag & drop system.</p>
-                               </div>
-                            </div>
-                          )}
+                          {/* Quick action suggestions */}
+                          <div className="flex flex-wrap justify-center gap-2 max-w-lg px-4">
+                            {[
+                              { label: '📧 Draft an email', action: 'Draft a professional email to ' },
+                              { label: '📅 Schedule a meeting', action: 'Schedule a meeting for ' },
+                              { label: '🔍 Research a topic', action: 'Research and summarize ' },
+                              { label: '📊 Create a survey', action: 'Create a survey about ' },
+                            ].map((suggestion) => (
+                              <button
+                                key={suggestion.label}
+                                onClick={() => setInputValue(suggestion.action)}
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer border ${
+                                  isDarkMode
+                                    ? 'border-slate-700 bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:border-slate-600'
+                                    : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white hover:border-slate-300 shadow-sm'
+                                }`}
+                              >
+                                {suggestion.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      
-                      
-                      {/* Tagline — input is now always at the bottom */}
-                      <div className="shrink-0 px-3 sm:px-4 pb-3 sm:pb-6 pt-1 sm:pt-2 z-20 mt-16 md:mt-24 lg:mt-32">
-                        <div className="max-w-4xl mx-auto">
-                          <p className="text-center text-[11px] sm:text-xs text-slate-400 mb-2 sm:mb-3">Ask Jarvis anything — he&apos;s a jack of all trades.</p>
-                        </div>
-                      </div>
                       </div>
                     ) : (
                                                                   <>
-                         <div className="flex justify-center mb-10 pt-10">
-                          <div className="text-lg sm:text-2xl md:text-3xl font-black opacity-10 tracking-[0.15em] sm:tracking-[0.3em] uppercase text-center max-w-full truncate px-2 sm:px-4">{selectedExploreItem ? `${exploreItemsMeta[selectedExploreItem]?.name || ''} - ${selectedExploreItem}` : agent.name}</div>
+                         <div className="hidden md:flex justify-center mb-10 pt-10">
+                          <div className="text-lg sm:text-2xl md:text-3xl font-black opacity-10 tracking-[0.15em] sm:tracking-[0.3em] uppercase text-center max-w-full truncate px-2 sm:px-4">{agent.name}</div>
                         </div>
                         {messages.map(msg => (
                       <div key={msg.id} className={`flex gap-2 sm:gap-4 ${msg.isSelf ? 'justify-end' : 'justify-start'}`}>
@@ -2833,6 +2724,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
                   </div>
                 </div>
+                <div className="flex justify-center mt-1">
+                  <button
+                    onClick={() => setIsLearnMoreOpen(true)}
+                    className={`text-[10px] font-medium transition-colors cursor-pointer hover:underline ${isDarkMode ? 'text-indigo-400/60 hover:text-indigo-300' : 'text-indigo-500/50 hover:text-indigo-600'}`}
+                  >
+                    Learn More ↗
+                  </button>
+                </div>
                 </div>
               </div>
           </div>
@@ -2879,6 +2778,52 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Learn More Modal */}
+      {isLearnMoreOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsLearnMoreOpen(false)}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf8f3]'}`} onClick={e => e.stopPropagation()}>
+            <div className={`p-6 shrink-0 ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Agent Capabilities</h3>
+                  <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Everything {agent.name} can do for you.</p>
+                </div>
+                <button onClick={() => setIsLearnMoreOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-6 space-y-3">
+              {[
+                { icon: '🧠', title: 'Semantic Knowledge Base', desc: 'Searches your uploaded documents using intelligent matching — finds relevant info even when keywords don\'t match exactly.' },
+                { icon: '💬', title: 'Multi-Tool Execution', desc: 'Can search emails, create calendar events, draft Google Docs, Sheets, Slides, and YouTube videos — all in one conversation.' },
+                { icon: '📧', title: 'Gmail Integration', desc: 'Full inbox management: search, draft, delete, block senders, and manage folders — hands-free.' },
+                { icon: '📅', title: 'Calendar & Google Meet', desc: 'Schedule events, check availability, and auto-generate Meet links with a single request.' },
+                { icon: '🎬', title: 'YouTube Creative Director', desc: 'Draft video concepts with titles, descriptions, and scripts pushed directly to YouTube Studio.' },
+                { icon: '📱', title: 'iMessage / SMS', desc: 'Read, search, and send text messages through your connected Twilio number.' },
+                { icon: '🌐', title: 'Real-Time Web Search', desc: 'Searches the live web for current events, facts, and research — always up to date.' },
+                { icon: '🔍', title: 'Past Conversation Memory', desc: 'Search across all your previous chat sessions to pull up context and decisions from earlier talks.' },
+                { icon: '📊', title: 'AI Survey Creator', desc: 'Generate intelligent surveys with AI-crafted questions and email them directly to recipients.' },
+                { icon: '🏦', title: 'Grant Scout Agents', desc: 'Spawn up to 4 autonomous sub-agents that research and match you with relevant grants.' },
+                { icon: '🧬', title: 'P.A.C.T. Memory', desc: 'Automatically learns personal facts (preferences, relationships, goals) and naturally uses them in future conversations.' },
+                { icon: '❤️', title: 'Heart / Brain / Soul', desc: 'Heart = autonomous background tasks. Brain = operational rules. Soul = personality & tone customization.' },
+                { icon: '📄', title: 'Knowledge Base Documents', desc: 'Upload PDFs and text documents for Jarvis to reference authoritatively in responses.' },
+                { icon: '🎙️', title: 'Voice-to-Voice', desc: 'Real-time voice conversations with natural speech synthesis and instant responses.' },
+                { icon: '⚡', title: 'Smart Context Window', desc: 'Keeps 32 messages in active memory with intelligent summarization of older messages for continuity.' },
+              ].map((feature, i) => (
+                <div key={i} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
+                  <span className="text-xl shrink-0 mt-0.5">{feature.icon}</span>
+                  <div>
+                    <h4 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{feature.title}</h4>
+                    <p className={`text-xs leading-relaxed mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{feature.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

@@ -6,52 +6,67 @@ import { Groq } from "groq-sdk";
  * Extracts personal facts from user↔AI exchanges as Q&A pairs.
  * Uses a cheap, fast model (llama-3.1-8b-instant) to avoid latency.
  *
- * Enhanced: supports multi-turn context, richer extraction prompt,
- * relaxed thresholds to capture more details.
+ * Enhanced v2: Richer extraction with confidence scores, categories,
+ * implicit fact detection, and multi-turn context analysis.
  */
 
-const EXTRACTION_PROMPT = `You are an expert fact extractor. Given a conversation exchange between a user and an AI assistant, extract any personal facts, preferences, relationships, context, or details the user revealed about themselves.
+const EXTRACTION_PROMPT = `You are an expert fact extractor with a talent for reading between the lines. Given a conversation exchange between a user and an AI assistant, extract personal facts, preferences, relationships, context, and details the user revealed — both EXPLICIT and IMPLICIT.
 
-Return a JSON array of objects with "question" and "answer" fields. The question should be phrased as if asking about the user. The answer should be a concise factual statement.
+Return a JSON array of objects with these fields:
+- "question": Phrased as if asking about the user
+- "answer": A concise factual statement
+- "confidence": "high" | "medium" | "low" — how certain you are this is a real personal fact
+- "category": One of: "identity", "work", "relationship", "goal", "preference", "temporal", "habit", "opinion", "location", "contact"
 
 Rules:
-- Extract any fact, preference, detail, habit, or context about the user that could be useful later
-- Be THOROUGH — capture anything that feels like a real detail about this person
-- The system will automatically clean up low-quality entries, so err on the side of capturing more
-- Pay attention to MULTI-TURN context: if an earlier message mentions something relevant, connect it to later messages
+- Extract EXPLICIT facts (stated directly: "I live in Denver")
+- Extract IMPLICIT facts (inferred from context: if user says "meeting ran late again", extract "User has recurring meetings" AND "User's meetings tend to run long")
+- If user discusses a project, extract the project name, status, and key details
+- If user mentions people, capture the relationship and context
+- If user expresses frustration/excitement, capture the underlying preference or opinion
+- Pay attention to MULTI-TURN context: connect earlier messages to later ones
+- Be THOROUGH — the system will filter low-quality entries automatically
 
-Categories to capture (non-exhaustive):
-- Identity: name, age, gender, pronouns, aliases, nicknames
-- Location: city, state, country, neighborhood, timezone, "I'm near downtown"
-- Work: job title, company, industry, work schedule, colleagues
-- Family & relationships: spouse, children, parents, siblings, friends, pets (with names)
-- Preferences: favorite color, food, music, hobbies, communication style ("email me, don't call")
-- Goals & projects: what they're working on, deadlines, aspirations
-- Opinions & feelings: likes, dislikes, frustrations, excitement about topics
-- Routines & habits: "I usually wake up at 6am", "I exercise on Mondays"
-- History & events: "I moved here last year", "I graduated from UCLA"
-- Contact info: email, phone, social media handles
-- Temporal context: "I'm traveling next week", "my birthday is in March"
+Categories guide:
+- "identity": name, age, gender, pronouns, aliases, nicknames
+- "location": city, state, country, neighborhood, timezone
+- "work": job title, company, industry, work schedule, colleagues, projects
+- "relationship": spouse, children, parents, siblings, friends, pets (with names)
+- "preference": favorite things, communication style, dislikes, tools they use
+- "goal": what they're working on, deadlines, aspirations, targets
+- "habit": routines, patterns, typical behaviors
+- "opinion": likes, dislikes, frustrations, excitement about topics
+- "temporal": upcoming events, recent changes, seasonal patterns
+- "contact": email, phone, social media handles
 
 CRITICAL rules:
-- Do NOT extract information if the user is ONLY asking a question (e.g. "How old am I?"). These are not facts.
+- Do NOT extract information if the user is ONLY asking a question (e.g. "How old am I?")
 - Do NOT extract information about the AI or system — only about the HUMAN user
 - If no personal facts were shared, return an empty array []
-- Keep questions and answers concise (1 sentence max each)
+- Keep questions and answers concise (1-2 sentences max each)
 - Use the user's name if known
+- For implicit facts, set confidence to "medium" or "low"
 
 Example input:
-User: "yeah for sure literally just like a random email draft and his name is Steve Huff by the way that's my dad"
-AI: "I have generated that email for you, go take a look."
+User: "yeah for sure, the Denver office has been crazy lately. Steve keeps scheduling these 8am standups and honestly I'm over it"
+AI: "That does sound frustrating. Early meetings can really throw off your day."
 
 Example output:
-[{"question":"What is the user's father's name?","answer":"Steve Huff"},{"question":"Does the user have a father named Steve Huff?","answer":"Yes, Steve Huff is the user's dad."}]
+[
+  {"question":"Where does the user work?","answer":"The user works at an office in Denver.","confidence":"high","category":"location"},
+  {"question":"Who is Steve in relation to the user?","answer":"Steve is a colleague who schedules meetings for the user.","confidence":"high","category":"relationship"},
+  {"question":"What time are the user's standup meetings?","answer":"The user has standup meetings at 8am.","confidence":"high","category":"work"},
+  {"question":"How does the user feel about early morning meetings?","answer":"The user dislikes early morning meetings and finds them frustrating.","confidence":"high","category":"opinion"},
+  {"question":"Does the user have recurring team standups?","answer":"Yes, the user has regular standup meetings (implied to be frequent).","confidence":"medium","category":"habit"}
+]
 
 Return ONLY the JSON array. No explanation, no markdown.`;
 
 export interface PACTFact {
   question: string;
   answer: string;
+  confidence?: "high" | "medium" | "low";
+  category?: "identity" | "work" | "relationship" | "goal" | "preference" | "temporal" | "habit" | "opinion" | "location" | "contact";
 }
 
 export async function extractPACTFacts(
@@ -98,7 +113,7 @@ export async function extractPACTFacts(
       ],
       model: "llama-3.1-8b-instant",
       temperature: 0.1,
-      max_tokens: 800, // Increased from 500 to capture more facts
+      max_tokens: 1200, // Increased from 800 to capture more facts with richer schema
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() || "[]";
@@ -112,14 +127,19 @@ export async function extractPACTFacts(
     const parsed = JSON.parse(cleaned);
     if (!Array.isArray(parsed)) return [];
 
-    // Validate structure
+    // Validate structure — accept both old (no confidence/category) and new format
     return parsed.filter(
       (item: any) =>
         typeof item.question === "string" &&
         typeof item.answer === "string" &&
         item.question.trim().length > 0 &&
         item.answer.trim().length > 0
-    );
+    ).map((item: any) => ({
+      question: item.question,
+      answer: item.answer,
+      confidence: item.confidence || "medium",
+      category: item.category || "preference",
+    }));
   } catch (err) {
     console.error("[PACT] Extraction failed:", err);
     return [];

@@ -1069,6 +1069,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Compass className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
                     </Link>
+                    {user?.email === 'lucas@soltheory.com' && (
+                    <Link href={`${dashboardHome}/system-health`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/system-health') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Activity className="w-5 h-5 text-amber-500" />
+                      <span>System Health</span>
+                    </Link>
+                    )}
                   </div>
                   )}
                 </div>
@@ -1423,6 +1429,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                   <span className="text-sm font-medium">{t.agenticProspecting || 'Agentic Prospecting'}</span>
                 </Link>
+
+                {user?.email === 'lucas@soltheory.com' && (
+                <Link href={`${dashboardHome}/system-health`} className={getSidebarLinkClass(pathname.includes('/system-health'))}>
+                  <div className={getSidebarIconClass(pathname.includes('/system-health'))}>
+                    <Activity className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <span className="text-sm font-medium">System Health</span>
+                </Link>
+                )}
               </div>
             )}
           </div>

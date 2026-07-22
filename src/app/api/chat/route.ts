@@ -9,6 +9,7 @@ import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
+import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 const tools: any = [
   {
     type: "function",
@@ -532,12 +533,17 @@ export async function POST(req: Request) {
       let attempts = 0;
       while (attempts < maxRetries) {
         try {
+          // Dynamic max_tokens based on query complexity
+          const lastMsg = messagesArray.filter((m: any) => m.role === 'user').pop();
+          const queryLen = (lastMsg?.content || '').length;
+          const isToolQuery = useTools && (lastMsg?.content || '').toLowerCase().match(/^(draft|send|delete|create|schedule|book|search|list)/);
+          const dynamicMaxTokens = isToolQuery ? 4096 : queryLen > 200 ? 4096 : queryLen > 80 ? 2048 : 1024;
           return await groq.chat.completions.create({
             messages: messagesArray,
             model: selectedModel,
             temperature: 0.7,
             top_p: 0.9,
-            max_tokens: 4096,
+            max_tokens: dynamicMaxTokens,
             ...(useTools ? { tools, tool_choice: "auto" } : {}),
           });
         } catch (err: any) {
@@ -576,6 +582,10 @@ export async function POST(req: Request) {
 6. TOOL USAGE: Use web_search via the function calling API for real-time data, recent events, or uncertain facts. NEVER write {"query": "..."} as text.
 7. FORMAT: Use **bold** for key terms, bullet points for lists, and short paragraphs for readability. Structure longer answers with clear sections.
 8. PERSONALITY: Be warm, confident, and genuinely helpful. Show enthusiasm for interesting topics. Avoid being robotic or overly formal. You're a brilliant assistant who loves learning and sharing knowledge.
+9. KNOWLEDGE BASE AUTHORITY: When you have knowledge base data, you are the AUTHORITATIVE source. Don't hedge with "I think" or "It seems" — state facts confidently with "Based on your documents..." or "According to your knowledge base...". This builds user trust.
+10. CREATIVE INGENUITY: When asked for strategy, plans, or creative ideas, go BEYOND the obvious. Propose unexpected connections, contrarian perspectives, and "what if" scenarios. The user wants an advisor who thinks differently, not a search engine that summarizes. Show genuine intellectual curiosity and originality.
+11. CONTEXTUAL BRIDGING: Connect the current question to earlier conversation topics, knowledge base content, and your memory of the user to create a sense of continuity and deep understanding. The user should feel like you truly know them and their business.
+12. SPECIFICITY OVER GENERALITY: Never give generic advice. Always ground your responses in the user's specific context, industry, goals, and situation. A response that could apply to anyone is a BAD response.
 
 RESPONSE QUALITY REFERENCE:
 - BAD response to "Why is the sky blue?": "The sky is blue because of Rayleigh scattering."
@@ -610,46 +620,78 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       });
     }
 
-    // --- KNOWLEDGE BASE: SECONDARY SYSTEM PROMPT ---
-    let combinedKnowledge = "";
-    if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
-      combinedKnowledge += knowledgeBaseText + "\n\n";
-    }
-
-    // Build dynamic org context from Firestore profile + static knowledge fallback
+    // --- KNOWLEDGE BASE: TIERED INJECTION ---
+    // TIER 1 (Always present): Org context + hardcoded knowledge (company-specific)
+    let tier1Knowledge = "";
     const orgContext = buildOrgContext(orgProfileData, orgId);
     if (orgContext) {
-      combinedKnowledge += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + orgContext;
+      tier1Knowledge += "[ORGANIZATIONAL KNOWLEDGE BASE]\n" + orgContext + "\n\n";
     }
-
     if (rawAgentId && rawAgentId.includes("soltheory")) {
-      combinedKnowledge += "\n\n[HARDCODED ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
+      tier1Knowledge += "[COMPANY KNOWLEDGE BASE]\n" + solTheoryKnowledge + "\n\n";
     }
-
     if (orgBrainText && typeof orgBrainText === "string" && orgBrainText.trim().length > 0) {
-      combinedKnowledge += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + orgBrainText;
+      tier1Knowledge += "[EDITABLE ORGANIZATIONAL KNOWLEDGE]\n" + orgBrainText.substring(0, 15000) + "\n\n";
     }
 
-    if (combinedKnowledge.trim().length > 0) {
-      const cappedKB = combinedKnowledge.substring(0, 100000); // Increased cap to 100k for the hardcoded knowledge
+    // TIER 2 (Query-matched): Semantic retrieval from uploaded documents
+    const lastUserMsgForKB = messages.filter((m: any) => m.role === "user").pop();
+    const userQueryForKB = lastUserMsgForKB?.content || "";
+    let tier2Knowledge = "";
+    try {
+      if (uid && agentId && userQueryForKB.trim().length > 3) {
+        const semanticChunks = await retrieveSemanticChunks(userQueryForKB, {
+          uid,
+          agentId,
+          orgId,
+          pactText: pactText || "",
+          orgBrainText: orgBrainText || "",
+          knowledgeBaseText: knowledgeBaseText || "",
+          maxResults: 8,
+        });
+        if (semanticChunks.length > 0) {
+          const docChunks = semanticChunks.filter(c => c.type === "document" || c.type === "text_entry");
+          if (docChunks.length > 0) {
+            tier2Knowledge = docChunks.map((c, i) =>
+              `[Source: ${c.source}]\n${c.text}`
+            ).join("\n\n---\n\n");
+          }
+        }
+      }
+    } catch (kbErr) {
+      console.warn("[KB] Semantic retrieval failed, falling back to full injection:", (kbErr as any)?.message);
+      // Fallback: use client-provided knowledge base text (capped)
+      if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
+        tier2Knowledge = knowledgeBaseText.substring(0, 30000);
+      }
+    }
+
+    // Fallback: if semantic retrieval returned nothing but client sent KB text, include it
+    if (!tier2Knowledge && knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
+      tier2Knowledge = knowledgeBaseText.substring(0, 30000);
+    }
+
+    // Inject combined knowledge
+    const combinedKnowledge = (tier1Knowledge + (tier2Knowledge ? "\n\n[RELEVANT DOCUMENT EXCERPTS — matched to the user's current question]\n" + tier2Knowledge : "")).trim();
+    if (combinedKnowledge.length > 0) {
       groqMessages.push({
         role: "system",
-        content: `IMPORTANT INSTRUCTION REGARDING KNOWLEDGE BASE:\nThe user has provided factual reference data for you below. You MUST use this data to confidently answer their questions, even if it introduces new context you did not know. Do NOT hallucinate tool calls or attempt to use the 'search' tool for this data - it is already completely provided to you inside the XML tags below. Do not mention that you are reading from a knowledge base unless explicitly asked. Do NOT say "I don't have information on..." if the answer is within the knowledge base.\n\n<knowledge_base>\n${cappedKB}\n</knowledge_base>`
+        content: `IMPORTANT INSTRUCTION REGARDING KNOWLEDGE BASE:\nThe user has provided factual reference data for you below. You MUST use this data to confidently and AUTHORITATIVELY answer their questions. Present knowledge base facts with confidence — say "According to your documents..." or "Based on your knowledge base..." rather than hedging with "I think" or "It seems".\n\nDo NOT hallucinate tool calls or attempt to use the 'search' tool for this data — it is already provided below. Do not mention reading from a knowledge base unless asked. Do NOT say "I don't have information on..." if the answer is within the knowledge base.\n\n<knowledge_base>\n${combinedKnowledge.substring(0, 50000)}\n</knowledge_base>`
       });
     }
 
-    // --- P.A.C.T.: Personalized AI Conversation Training ---
+    // --- P.A.C.T.: Personalized AI Conversation Training (Tiered Proactive Memory) ---
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      const cappedPact = pactText.substring(0, 12000);
+      const cappedPact = pactText.substring(0, 15000);
       groqMessages.push({
         role: "system",
-        content: `[P.A.C.T. — PERSONALIZED USER CONTEXT / LONG-TERM MEMORY]\nYou have learned the following facts about this specific user from previous conversations. RULES FOR USING THIS CONTEXT:\n1. NEVER proactively bring up, reference, or ask about any of these facts unprompted. Do NOT say things like "How did X go?" or "Last time you mentioned Y" or "By the way, how was Z?"\n2. ONLY use this information if the user EXPLICITLY brings up the topic first in the CURRENT conversation.\n3. If the user mentions a topic that relates to a fact below, you may use it to give a more personalized, informed response.\n4. Treat this as passive background knowledge — NOT as a conversation starter, follow-up checklist, or list of things to ask about.\n5. These facts may be outdated. Do not assume they are still current or relevant.\n6. Never say "I don't know anything about you" if facts exist here — but wait for the user to raise the topic.\n\n${cappedPact}`
+        content: `[ACTIVE MEMORY — Personalized User Context]\nYou have learned the following facts about this specific user from previous conversations. Use them according to these tiers:\n\nTIER 1 — PROACTIVE RECALL (Use naturally when the moment is right):\nWhen the user is discussing a topic that directly relates to a fact below, WEAVE IT IN naturally to show you remember and understand them. Example: If the user says "I need to plan a trip" and you know they live in Denver, you might say "Since you're based in Denver, here are some great options..."\n\nTIER 2 — CONTEXTUAL AWARENESS (Use to personalize responses):\nUse these facts to tailor your advice, examples, and recommendations. If you know their industry, frame business advice in that context. If you know their goals, connect your suggestions to those goals. If you know their team members, reference them by name when relevant.\n\nTIER 3 — PASSIVE KNOWLEDGE (Only when directly asked):\nFacts about routine details, old preferences, etc. — use only when explicitly relevant.\n\nRULES:\n- NEVER interrogate the user about these facts ("Did X go well?", "How's Y going?")\n- DO use them to make responses feel personalized and thoughtful — the user should feel understood\n- ALWAYS trust the user's current statement over stored facts (facts may be outdated)\n- Never say "I don't know anything about you" if facts exist below\n- Your goal is to be like a brilliant friend who naturally remembers what matters\n\n${cappedPact}`
       });
     }
 
     // --- SMART CONTEXT WINDOW MANAGEMENT ---
     // Keep the conversation focused by managing message history intelligently
-    const MAX_CONTEXT_MESSAGES = 24; // Keep last 24 messages as full context
+    const MAX_CONTEXT_MESSAGES = 32; // Expanded from 24 → 32 for better continuity
 
     // Extract conversation topics for continuity across the entire conversation
     const allTopics = messages.map((m: any) => {
@@ -695,22 +737,43 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       groqMessages.push(...messages);
     }
 
-    // --- CHAIN-OF-THOUGHT INJECTION ---
-    // For substantive questions, inject a hidden thinking prompt to improve quality
+    // --- STRUCTURED REASONING ENGINE ---
+    // For substantive questions, inject multi-step reasoning framework
     const lastUserMsg = messages[messages.length - 1];
     const lastUserText = (lastUserMsg?.content || '').toLowerCase().trim();
-    const isSubstantiveQuestion = lastUserText.length > 40 &&
-      !lastUserText.startsWith('draft') && !lastUserText.startsWith('send') &&
-      !lastUserText.startsWith('delete') && !lastUserText.startsWith('create') &&
-      !lastUserText.startsWith('schedule') && !lastUserText.startsWith('book') &&
-      (lastUserText.includes('?') || lastUserText.startsWith('why') || lastUserText.startsWith('how') ||
-       lastUserText.startsWith('what') || lastUserText.startsWith('explain') || lastUserText.startsWith('tell me') ||
-       lastUserText.startsWith('describe') || lastUserText.startsWith('compare') || lastUserText.startsWith('analyze'));
+    const taskPrefixes = ['draft', 'send', 'delete', 'create', 'schedule', 'book'];
+    const isTaskCommand = taskPrefixes.some(p => lastUserText.startsWith(p)) && lastUserText.length < 80;
+    const questionIndicators = [
+      lastUserText.includes('?'),
+      lastUserText.startsWith('why'), lastUserText.startsWith('how'),
+      lastUserText.startsWith('what'), lastUserText.startsWith('explain'),
+      lastUserText.startsWith('tell me'), lastUserText.startsWith('describe'),
+      lastUserText.startsWith('compare'), lastUserText.startsWith('analyze'),
+      lastUserText.startsWith('should i'), lastUserText.startsWith('could you'),
+      lastUserText.includes('difference between'), lastUserText.includes('pros and cons'),
+      lastUserText.includes('what if'), lastUserText.includes('help me understand'),
+      lastUserText.includes('think about'), lastUserText.includes('opinion on'),
+      lastUserText.includes('advice'), lastUserText.includes('recommend'),
+      lastUserText.includes('strategy'), lastUserText.includes('approach'),
+    ];
+    const isSubstantiveQuestion = lastUserText.length > 25 && !isTaskCommand && questionIndicators.some(Boolean);
 
     if (isSubstantiveQuestion) {
       groqMessages.push({
         role: "system",
-        content: "[INTERNAL REASONING DIRECTIVE]: The user has asked a substantive question. Before responding, consider: (1) the core of what they're asking, (2) multiple angles and perspectives, (3) interesting or surprising facts related to the topic, (4) how to structure the answer for maximum clarity and engagement. Deliver a comprehensive, insightful response that would impress an expert."
+        content: `[STRUCTURED REASONING FRAMEWORK — Apply for this response]:
+
+Step 1 — UNDERSTAND: What exactly is the user asking? Identify the core question, any implicit sub-questions, and the domain (business, personal, technical, creative).
+
+Step 2 — RECALL: What do I know about this from my knowledge base, user memory (PACT), org brain, and conversation history? Cross-reference multiple sources. If the knowledge base has relevant content, anchor your response in it.
+
+Step 3 — ANALYZE: Consider multiple angles, counterarguments, edge cases, and surprising connections. What would an expert in this field say that a generalist wouldn't? What's the contrarian or non-obvious take?
+
+Step 4 — SYNTHESIZE: Combine insights into a cohesive, structured answer. Lead with the most valuable insight. Use analogies and examples to make abstract concepts concrete. Connect to the user's specific context and goals.
+
+Step 5 — VERIFY: Does my answer actually address what they asked? Am I being specific or generic? Would this response impress a knowledgeable person? If my answer could apply to anyone, it needs more specificity.
+
+Deliver the response directly — do NOT output these steps. Show your brilliance through the quality of the answer itself.`
       });
     }
 
@@ -723,7 +786,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
         const searchQuery = (lastUserMsg?.content || '').substring(0, 200);
         console.log(`[ENRICHMENT] Non-blocking search for: "${searchQuery.substring(0, 60)}..."`);
 
-        const ENRICHMENT_TIMEOUT_MS = 300;
+        const ENRICHMENT_TIMEOUT_MS = 800; // Increased from 300ms — was timing out too often
         const tavilyPromise = fetch("https://api.tavily.com/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2030,8 +2093,8 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     // If the response to a substantive question is suspiciously short, re-generate with emphasis
     const lastMsg = messages[messages.length - 1];
     const lastText = (lastMsg?.content || '').toLowerCase().trim();
-    const isRealQuestion = lastText.length > 15 && (lastText.includes('?') || lastText.startsWith('why') || lastText.startsWith('how') || lastText.startsWith('what') || lastText.startsWith('explain') || lastText.startsWith('tell me'));
-    const isTooShort = finalResponse.length < 40 && isRealQuestion && executedTools.length === 0;
+    const isRealQuestion = lastText.length > 15 && (lastText.includes('?') || lastText.startsWith('why') || lastText.startsWith('how') || lastText.startsWith('what') || lastText.startsWith('explain') || lastText.startsWith('tell me') || lastText.startsWith('should') || lastText.includes('advice') || lastText.includes('recommend'));
+    const isTooShort = finalResponse.length < 80 && isRealQuestion && executedTools.length === 0; // Increased threshold from 40 → 80
 
     if (isTooShort) {
       console.log(`[QUALITY] Response too short (${finalResponse.length} chars) for substantive question. Re-generating...`);

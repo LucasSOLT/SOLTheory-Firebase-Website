@@ -5,6 +5,7 @@ import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
 import { buildOrgContext } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
+import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { verifyRequest } from "@/lib/api-auth";
 
@@ -51,12 +52,39 @@ export async function POST(req: Request) {
     if (systemInstructions) systemPrompt += "\n\n[SESSION INSTRUCTIONS]\n" + systemInstructions;
 
     if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
-      systemPrompt += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + knowledgeBaseText.substring(0, 50000);
+      systemPrompt += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + knowledgeBaseText.substring(0, 15000);
+    }
+
+    // --- SEMANTIC KB RETRIEVAL FOR VOICE ---
+    // Pull the most relevant document chunks for the user's voice query
+    const lastUserMsgForKB = messages.filter((m: any) => m.role === "user").pop();
+    const voiceQuery = lastUserMsgForKB?.content || "";
+    try {
+      if (uid && agentId && voiceQuery.trim().length > 3) {
+        const semanticChunks = await retrieveSemanticChunks(voiceQuery, {
+          uid,
+          agentId: (agentId || "").replace("soltheory_", "").replace("nxtchapter_", ""),
+          orgId: isNxt ? "nxtchapter" : "soltheory",
+          knowledgeBaseText: knowledgeBaseText || "",
+          maxResults: 4, // Fewer chunks for voice (shorter context window)
+        });
+        const docChunks = semanticChunks.filter(c => c.type === "document" || c.type === "text_entry");
+        if (docChunks.length > 0) {
+          const kbContext = docChunks.map(c => `[${c.source}]: ${c.text}`).join("\n\n");
+          systemPrompt += `\n\n[KNOWLEDGE BASE — Relevant to current question]\nUse this information to answer authoritatively. Present facts confidently.\n${kbContext.substring(0, 8000)}`;
+        }
+      }
+    } catch (kbErr) {
+      console.warn("[voice-chat-tts] KB retrieval failed (non-fatal):", (kbErr as any)?.message);
     }
 
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      systemPrompt += "\n\n[P.A.C.T. — PERSONALIZED USER CONTEXT]\nYou have learned the following facts about this specific user from previous conversations. RULES FOR USING THIS CONTEXT:\n1. NEVER proactively bring up, reference, or ask about any of these facts. Do NOT say things like \"How did X go?\" or \"Last time you mentioned Y.\"\n2. ONLY use this information if the user EXPLICITLY brings up the topic first in the CURRENT conversation.\n3. If the user mentions a topic that relates to a fact below, you may use it to give a more informed response.\n4. Treat this as passive background knowledge, NOT as a conversation starter or follow-up list.\n5. These facts may be outdated. Do not assume they are still current.\n\n" + pactText.substring(0, 5000);
+      systemPrompt += "\n\n[ACTIVE MEMORY — User Context]\nYou remember these facts about the user. WEAVE THEM IN naturally when relevant — don't interrogate, but do personalize. Example: If they mention travel and you know their city, reference it naturally.\n\n" + pactText.substring(0, 6000);
     }
+
+    // Dynamic response length based on question complexity
+    const isComplexVoiceQ = voiceQuery.length > 50 && (voiceQuery.includes('?') || voiceQuery.toLowerCase().match(/^(why|how|what|explain|compare|should)/));
+    const voiceMaxTokens = isComplexVoiceQ ? 250 : 150;
 
     // ── Step 1: LLM Call (Groq) ──
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -68,7 +96,7 @@ export async function POST(req: Request) {
       ],
       model: "llama-3.1-8b-instant",
       temperature: 0.5,
-      max_tokens: 150,
+      max_tokens: voiceMaxTokens,
     });
 
     const responseText = completion.choices[0]?.message?.content || "I couldn't process that.";

@@ -1254,7 +1254,7 @@ export default function CRMPage() {
         }
 
         if (Object.keys(updates).length > 0) {
-          try { await updateCustomer(existingContact.id, updates); updatedCount++; } catch (err) { console.error(`[CSV] Update failed for ${rowEmail}:`, err); }
+          try { await store.updateCustomer(existingContact.id, updates); updatedCount++; } catch (err) { console.error(`[CSV] Update failed for ${rowEmail}:`, err); }
         } else {
           skippedCount++;
         }

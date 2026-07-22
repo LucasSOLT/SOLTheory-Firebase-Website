@@ -1005,11 +1005,11 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-[200] w-80 bg-[#fefdfb] rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-slate-200">
+      <div className="fixed bottom-6 right-6 z-[200] w-80 bg-[#12121f] rounded-[24px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 border border-white/10">
         <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
         
         <div className="p-4 relative">
-          <button onClick={() => setIsMinimized(false)} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all z-10">
+          <button onClick={() => setIsMinimized(false)} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/60 flex items-center justify-center transition-all z-10">
             <Maximize2 className="w-4 h-4" />
           </button>
           
@@ -1022,8 +1022,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               <span className="pr-0.5">{statusLabel.split('—')[0]}</span>
             </div>
             
-            <h2 className="text-base font-light text-slate-500 tracking-[0.06em]" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
-            <p className="text-slate-400 text-[10px] font-medium mt-0.5">{formatTime(elapsed)}</p>
+            <h2 className="text-base font-light text-white/70 tracking-[0.06em]" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
+            <p className="text-white/30 text-[10px] font-medium mt-0.5">{formatTime(elapsed)}</p>
 
             {/* Waveform */}
             <div className="w-full max-w-[200px] mt-4 relative">
@@ -1056,7 +1056,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {/* Controls */}
             <div className="flex items-center justify-center gap-2 mt-4 w-full">
               <button onClick={() => setIsMicMuted(!isMicMuted)}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isMicMuted ? "bg-rose-500/20 text-rose-400 ring-2 ring-rose-500/30" : "bg-white/10 text-white/50 hover:bg-white/15 hover:text-white/80"}`}
               >
                 {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
@@ -1091,19 +1091,19 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                   } else { finishUserTurn(); }
                 }}
                 disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
-                className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200" : "bg-slate-200 text-slate-400"
+                className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20" : phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20" : "bg-white/10 text-white/40"
                   }`}
               >
                 {phase === "processing" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> ...</> : phase === "speaking" ? <><Mic className="w-3.5 h-3.5" /> Interrupt</> : <><Hand className="w-3.5 h-3.5" /> Send</>}
               </button>
 
               <button onClick={() => setIsPaused(!isPaused)}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isPaused ? "bg-amber-100 text-amber-600 ring-2 ring-amber-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600"}`}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${isPaused ? "bg-amber-500/20 text-amber-400 ring-2 ring-amber-500/30" : "bg-white/10 text-white/50 hover:bg-white/15 hover:text-white/80"}`}
               >
                 {isPaused ? <Play className="w-4 h-4 ml-0.5" /> : <Pause className="w-4 h-4" />}
               </button>
 
-              <button onClick={onClose} className="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-100">
+              <button onClick={onClose} className="w-9 h-9 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-500/20">
                 <Phone className="w-4 h-4 rotate-[135deg]" />
               </button>
             </div>
@@ -1120,33 +1120,33 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-50 flex flex-col animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[200] bg-[#0a0a18] flex flex-col animate-in fade-in duration-300">
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
-      <div className="flex flex-col flex-1 relative bg-gradient-to-b from-slate-50 to-white overflow-hidden">
+      <div className="flex flex-col flex-1 relative bg-gradient-to-b from-[#0c0c1e] via-[#0a0a18] to-[#080814] overflow-hidden">
         
         <div className="absolute top-6 left-4 right-4 sm:left-8 sm:right-8 flex items-center justify-between pointer-events-none z-[100]">
           {/* Top Left: Cost */}
-          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200/80 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-white transition-colors z-50">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
-            <span className="text-[11px] font-semibold tracking-wider text-slate-500 whitespace-nowrap">
+          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-9 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-white/10 transition-colors z-50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/40"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
+            <span className="text-[11px] font-semibold tracking-wider text-white/50 whitespace-nowrap">
               ${((groqTokens * 0.00000006) + (elevenLabsChars * 0.000167)).toFixed(4)}
             </span>
           </button>
           
           {/* Top Right: Minimize & Close */}
           <div className="flex items-center gap-2 pointer-events-auto z-[101]">
-            <button onClick={() => setIsMinimized(true)} className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200/80 hover:bg-white text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="Minimize">
+            <button onClick={() => setIsMinimized(true)} className="w-9 h-9 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 text-white/40 hover:text-white/80 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="Minimize">
               <Minimize2 className="w-4 h-4" />
             </button>
-            <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200/80 hover:bg-white text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="End Call">
+            <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 text-white/40 hover:text-white/80 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="End Call">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {showCostBreakdown && (
-          <div className="absolute top-20 left-6 z-[200] w-[340px] bg-white border border-slate-200 rounded-[12px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-20 left-6 z-[200] w-[340px] bg-[#16162a] border border-white/10 rounded-[12px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black text-slate-900 tracking-tight">Session Cost Breakdown</h3>
               <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -1194,16 +1194,16 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         {/* ── Upper Section: Agent identity, waveform, controls ── */}
         <div className="flex flex-col items-center pt-32 sm:pt-28 pb-6 shrink-0">
 
-          {/* Speed Selector — fixed neutral design, never changes with phase */}
-          <div className="inline-flex items-center bg-white border border-slate-200 rounded-full p-1 shadow-sm mb-8">
+          {/* Speed Selector — dark glassmorphic design */}
+          <div className="inline-flex items-center bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-xl mb-8">
             {speedOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setResponseDelay(opt.value)}
                 className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-200 ${
                   responseDelay === opt.value
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-600'
+                    ? 'bg-white/15 text-white shadow-sm shadow-white/5'
+                    : 'text-white/35 hover:text-white/60'
                 }`}
               >
                 {opt.label}
@@ -1213,53 +1213,52 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
           {/* Agent Name + Brain Diagram */}
           <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '220px', paddingTop: '50px', paddingBottom: '50px' }}>
-            {/* Faint animated cloud behind JARVIS text for mystique */}
+            {/* Faint animated cloud behind JARVIS text for mystique — dark theme */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-              <div className="absolute w-[340px] h-[160px] rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(ellipse, #c7d2fe 0%, transparent 70%)', animation: 'jarvisCloud1 12s ease-in-out infinite' }} />
-              <div className="absolute w-[260px] h-[120px] rounded-full opacity-[0.10]" style={{ background: 'radial-gradient(ellipse, #e0e7ff 0%, transparent 70%)', animation: 'jarvisCloud2 16s ease-in-out infinite', animationDelay: '-4s' }} />
-              <div className="absolute w-[400px] h-[140px] rounded-full opacity-[0.06]" style={{ background: 'radial-gradient(ellipse, #ddd6fe 0%, transparent 70%)', animation: 'jarvisCloud3 20s ease-in-out infinite', animationDelay: '-8s' }} />
+              <div className="absolute w-[340px] h-[160px] rounded-full opacity-[0.25]" style={{ background: 'radial-gradient(ellipse, rgba(99,102,241,0.3) 0%, transparent 70%)', animation: 'jarvisCloud1 12s ease-in-out infinite' }} />
+              <div className="absolute w-[260px] h-[120px] rounded-full opacity-[0.20]" style={{ background: 'radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 70%)', animation: 'jarvisCloud2 16s ease-in-out infinite', animationDelay: '-4s' }} />
+              <div className="absolute w-[400px] h-[140px] rounded-full opacity-[0.15]" style={{ background: 'radial-gradient(ellipse, rgba(79,70,229,0.2) 0%, transparent 70%)', animation: 'jarvisCloud3 20s ease-in-out infinite', animationDelay: '-8s' }} />
             </div>
             <style>{`
               @keyframes jarvisCloud1 { 0%, 100% { transform: translate(-15px, -5px) scale(1); } 33% { transform: translate(20px, 8px) scale(1.1); } 66% { transform: translate(-8px, -12px) scale(0.95); } }
               @keyframes jarvisCloud2 { 0%, 100% { transform: translate(10px, 5px) scale(1); } 50% { transform: translate(-18px, -8px) scale(1.15); } }
               @keyframes jarvisCloud3 { 0%, 100% { transform: translate(5px, 10px) scale(1.05); } 40% { transform: translate(-12px, -6px) scale(0.9); } 70% { transform: translate(15px, 3px) scale(1.1); } }
+              @keyframes nodePulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
             `}</style>
-            {/* Decorative brain/tools diagram — dotted lines from JARVIS to its inputs */}
-            {/* viewBox height=220: top boxes at y=10, text center ~y=110, bottom boxes at y=200 */}
+            {/* Decorative brain/tools diagram — glassmorphic dark nodes */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid meet" overflow="visible">
               {/* ═══ LEFT SIDE ═══ */}
-              {/* Line 1: Qwen 3 (LLM) — top left: 45° up from center, then horizontal left */}
-              <path d="M 500,85 L 410,10 L 130,10" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="15" y="-6" width="115" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="72" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Qwen 3</text>
-              <circle cx="130" cy="10" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,85 L 410,10 L 130,10" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="15" y="-6" width="115" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
+              <text x="72" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">Qwen 3</text>
+              <circle cx="130" cy="10" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite' }} />
 
-              {/* Line 2: Knowledge Base — bottom left: 45° down from center, then horizontal left */}
-              <path d="M 500,135 L 410,210 L 140,210" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="15" y="194" width="125" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="77" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Knowledge</text>
-              <circle cx="140" cy="210" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,135 L 410,210 L 140,210" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="15" y="194" width="125" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
+              <text x="77" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">Knowledge</text>
+              <circle cx="140" cy="210" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite', animationDelay: '0.5s' }} />
 
               {/* ═══ RIGHT SIDE ═══ */}
-              {/* Line 3: ElevenLabs (Voice) — top right: 45° up from center, then horizontal right */}
-              <path d="M 500,85 L 590,10 L 855,10" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="855" y="-6" width="130" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="920" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">ElevenLabs</text>
-              <circle cx="855" cy="10" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,85 L 590,10 L 855,10" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="855" y="-6" width="130" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
+              <text x="920" y="16" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">ElevenLabs</text>
+              <circle cx="855" cy="10" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite', animationDelay: '1s' }} />
 
-              {/* Line 4: Internet — bottom right: 45° down from center, then horizontal right */}
-              <path d="M 500,135 L 590,210 L 865,210" fill="none" stroke="#cbd5e1" strokeWidth="1.4" strokeDasharray="6 4" />
-              <rect x="865" y="194" width="115" height="32" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.3" />
-              <text x="922" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="#94a3b8" fontFamily="'Inter', system-ui, sans-serif">Internet</text>
-              <circle cx="865" cy="210" r="3.5" fill="#cbd5e1" />
+              <path d="M 500,135 L 590,210 L 865,210" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.4" strokeDasharray="6 4" />
+              <rect x="865" y="194" width="115" height="32" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.3" />
+              <text x="922" y="216" textAnchor="middle" fontSize="12.5" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="'Inter', system-ui, sans-serif">Internet</text>
+              <circle cx="865" cy="210" r="3.5" fill="rgba(165,180,252,0.6)" style={{ animation: 'nodePulse 3s ease-in-out infinite', animationDelay: '1.5s' }} />
 
-              {/* Center connection dots where 45° lines originate */}
-              <circle cx="500" cy="85" r="3.5" fill="#94a3b8" opacity="0.5" />
-              <circle cx="500" cy="135" r="3.5" fill="#94a3b8" opacity="0.5" />
+              {/* Center connection dots — glowing */}
+              <circle cx="500" cy="85" r="4" fill="rgba(165,180,252,0.5)" />
+              <circle cx="500" cy="135" r="4" fill="rgba(165,180,252,0.5)" />
             </svg>
-            <h2 className="text-5xl sm:text-6xl font-light text-slate-500 tracking-[0.12em] text-center relative z-10" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
+            {/* Agent name — absolutely centered between the two center dots (y=85 and y=135, center = y=110) */}
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+              <h2 className="text-5xl sm:text-6xl font-light text-white/60 tracking-[0.12em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
+            </div>
           </div>
-          <p className="text-slate-400 text-sm font-medium tabular-nums mt-2">{formatTime(elapsed)}</p>
+          <p className="text-white/30 text-sm font-medium tabular-nums mt-2">{formatTime(elapsed)}</p>
 
           {/* Waveform */}
           <div className="w-full max-w-[300px] sm:max-w-2xl mt-10 mb-8 relative">
@@ -1289,12 +1288,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             </div>
           </div>
 
-          <span className={`text-sm font-bold uppercase tracking-[0.2em] ${g.text[ac]} transition-colors duration-500 mb-6`}>{statusLabel}</span>
+          <span className={`text-sm font-bold uppercase tracking-[0.2em] text-white/50 transition-colors duration-500 mb-6`}>{statusLabel}</span>
 
           {/* Controls */}
           <div className="flex items-center justify-center gap-4 sm:gap-5 px-4">
             <button onClick={() => setIsMicMuted(!isMicMuted)}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isMicMuted ? "bg-rose-100 text-rose-600 ring-2 ring-rose-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isMicMuted ? "bg-rose-500/20 text-rose-400 ring-2 ring-rose-500/30" : "bg-white/8 border border-white/10 text-white/50 hover:bg-white/12 hover:text-white/80"}`}
             >
               {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
             </button>
@@ -1321,21 +1320,21 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               }}
               disabled={(phase !== "listening" && phase !== "speaking") || isMicMuted || isPaused}
               className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${
-                phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200/50" :
-                phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-200/50" :
-                "bg-slate-200 text-slate-400"
+                phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20" :
+                phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20" :
+                "bg-white/10 text-white/40"
               }`}
             >
               {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Mic className="w-5 h-5" /> Interrupt</> : <><Hand className="w-5 h-5" /> Send</>}
             </button>
 
             <button onClick={() => setIsPaused(!isPaused)}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isPaused ? "bg-amber-100 text-amber-600 ring-2 ring-amber-200" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isPaused ? "bg-amber-500/20 text-amber-400 ring-2 ring-amber-500/30" : "bg-white/8 border border-white/10 text-white/50 hover:bg-white/12 hover:text-white/80"}`}
             >
               {isPaused ? <Play className="w-6 h-6 ml-0.5" /> : <Pause className="w-6 h-6" />}
             </button>
 
-            <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-200 shadow-sm">
+            <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-500/20 shadow-sm">
               <Phone className="w-6 h-6 rotate-[135deg]" />
             </button>
           </div>
@@ -1344,9 +1343,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         {/* ── Divider ── */}
         <div className="mx-auto w-full max-w-2xl px-8">
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-slate-200/70" />
-            <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest">Transcript</span>
-            <div className="flex-1 h-px bg-slate-200/70" />
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Transcript</span>
+            <div className="flex-1 h-px bg-white/10" />
           </div>
         </div>
 
@@ -1357,7 +1356,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {/* Welcome hint — always shown as the first bubble */}
             {transcriptLines.length === 0 && !liveText && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-slate-200 text-slate-500 text-[14px] leading-relaxed shadow-sm">
+                <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-white/40 text-[14px] leading-relaxed">
                   Start speaking, and you&apos;ll see your words transcribed here in real time. When {agentName} responds, the reply will appear below.
                 </div>
               </div>
@@ -1378,8 +1377,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 )}
                 <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
                   line.isUser
-                    ? 'bg-slate-800 text-white rounded-br-md'
-                    : 'bg-white border border-slate-200 text-slate-700 rounded-bl-md shadow-sm'
+                    ? 'bg-indigo-600/30 text-white/90 rounded-br-md border border-indigo-500/20'
+                    : 'bg-white/5 border border-white/10 text-white/70 rounded-bl-md'
                 }`}>
                   {line.text}
                 </div>
@@ -1399,10 +1398,10 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             {/* AI thinking indicator — animated dots */}
             {phase === "processing" && (
               <div className="flex justify-start">
-                <div className="px-5 py-3 rounded-2xl rounded-bl-md bg-white border border-slate-200 shadow-sm flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
+                <div className="px-5 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
                 </div>
               </div>
             )}
