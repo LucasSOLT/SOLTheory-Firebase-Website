@@ -767,7 +767,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         // Use combined LLM+TTS endpoint — one round-trip for text + audio
         const res = await fetch("/api/voice-chat-tts", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             messages: messagesForCall,
             agentId: `${orgPrefix}_${agentId}`,

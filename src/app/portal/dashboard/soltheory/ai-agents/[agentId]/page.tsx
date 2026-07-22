@@ -18,6 +18,7 @@ import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from "@/lib/i18n";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -805,7 +806,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       const res = await fetch("/api/pact-evaluate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           entries: activeEntries.map((e: any) => ({ question: e.question, answer: e.answer })),
           userName: user?.displayName || undefined
@@ -1551,7 +1552,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text }));
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `soltheory_${params.agentId}`,
@@ -1676,7 +1677,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (activeSession && (activeSession.title === "New Chat" || !activeSession.title)) {
         fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             messages: [
               { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
@@ -1715,7 +1716,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const recentMsgs = newMessages.slice(-6).map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
         fetch("/api/pact/extract", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             userMessage: inputValue,
             aiResponse: data.response,
@@ -1768,7 +1769,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           const retryMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
           const retryRes = await fetch("/api/chat", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({
               messages: retryMessages,
               agentId: `soltheory_${params.agentId}`,
@@ -1842,7 +1843,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const kbText = await getKnowledgeBaseText();
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `soltheory_${params.agentId}`,
@@ -2036,7 +2037,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       const res = await fetch("/api/webhooks/gmail/attachment", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ uid: user.uid, refreshToken: rToken, messageId, attachmentId: att.attachmentId }),
       });
 
@@ -2081,7 +2082,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       const res = await fetch("/api/webhooks/gmail/list", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ uid: user.uid, refreshToken: rToken }),
       });
       const data = await res.json();
@@ -2121,7 +2122,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (!rToken) rToken = userData?.gmailOAuth?.refreshToken;
       const res = await fetch("/api/webhooks/gmail/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ messageId: id, refreshToken: rToken })
       });
       if (res.ok) {
@@ -2158,7 +2159,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const kbText = await getKnowledgeBaseText();
       const res = await fetch("/api/webhooks/gmail/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           uid: user.uid,
           refreshToken: rToken,
@@ -2257,7 +2258,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     try {
       const res = await fetch('/api/sms/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ from: smsTwilioNumber, to: smsActiveContact, message: smsNewMessage })
       });
       const data = await res.json();
@@ -2931,7 +2932,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         knowledgeBaseText={orgBrain}
         pactText={pactText}
         existingMessages={messages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }))}
-        onTranscriptUpdate={(userText, aiReply) => {
+        onTranscriptUpdate={async (userText, aiReply) => {
           // Lazily create a session if none exists (voice started from blank screen)
           let currentSessionId = activeSessionId;
           if (!currentSessionId) {
@@ -2951,7 +2952,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           if (!existingSession || existingSession.title === "New Chat" || !existingSession.title) {
             fetch("/api/chat", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: await getAuthHeaders(),
               body: JSON.stringify({
                 messages: [
                   { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
@@ -2992,7 +2993,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             const voiceRecentMsgs = messages.slice(-6).map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
             fetch("/api/pact/extract", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: await getAuthHeaders(),
               body: JSON.stringify({
                 userMessage: userText,
                 aiResponse: aiReply,
@@ -3070,7 +3071,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
           const res = await fetch("/api/chat", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({
               messages: apiMessages,
               agentId: `soltheory_${params.agentId}`,
