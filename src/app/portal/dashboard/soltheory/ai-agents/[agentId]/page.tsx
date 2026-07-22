@@ -7,8 +7,9 @@ import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { JarvisViewBrowser, type JarvisViewNavigation } from "@/components/ui/jarvis-view-browser";
 import { Input } from "@/components/ui/input";
 import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash} from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
+import AgentLibrary from "@/components/portal/AgentLibrary";
 import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc, setDoc, addDoc, collection, getDocs, query, orderBy, where, deleteDoc, writeBatch, limit as firestoreLimit } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
@@ -181,6 +182,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const { user } = useUser();
   const firestore = useFirestore();
   const { t } = useTranslation();
+  const router = useRouter();
+  const [showAgentLibrary, setShowAgentLibrary] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -2352,6 +2355,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin mt-2">
+          {/* Agent Library Button */}
+          <button 
+            onClick={() => setShowAgentLibrary(true)} 
+            className={`w-full text-left p-3 rounded-xl border transition-colors flex items-center gap-3 mb-4 group ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700' : 'border-slate-300 bg-[#faf6ed] hover:bg-slate-100'}`}
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
+              <Search className="w-4 h-4" />
+            </div>
+            <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Agent Library</span>
+          </button>
+          
                     <div className="flex items-center justify-between mb-2 px-1">
                       <span className={`text-xs font-semibold uppercase tracking-widest ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Chat History</span>
                       <button onClick={() => setIsChatSidebarCollapsed(true)} className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/30' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`} title="Collapse sidebar">
@@ -2437,6 +2451,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               </button>
             </div>
             <div className="p-3">
+              {/* Agent Library Button (Mobile) */}
+              <button 
+                onClick={() => { setShowAgentLibrary(true); setIsMobileSidebarOpen(false); }} 
+                className={`w-full text-left p-3 rounded-xl border transition-colors flex items-center gap-3 mb-3 group ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700' : 'border-slate-300 bg-[#faf6ed] hover:bg-slate-100'}`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
+                  <Search className="w-4 h-4" />
+                </div>
+                <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Agent Library</span>
+              </button>
+              
               <button onClick={() => { startNewSession(); setIsMobileSidebarOpen(false); }} className={`w-full text-left p-3 rounded-xl border border-dashed transition-colors flex items-center gap-3 group ${isDarkMode ? 'border-slate-600/50 bg-slate-800 hover:bg-slate-700' : 'border-slate-300/50 bg-[#faf6ed] hover:bg-slate-100'}`}>
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
                   <SquarePen className="w-4 h-4" />
@@ -3639,6 +3664,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       </>)}
         </div>
       )}
+
+      <AgentLibrary 
+        isOpen={showAgentLibrary}
+        onClose={() => setShowAgentLibrary(false)}
+        onSelectAgent={(id) => router.push(`/portal/dashboard/soltheory/ai-agents/${id}`)}
+        isDarkMode={isDarkMode}
+      />
     </>
   );
 }

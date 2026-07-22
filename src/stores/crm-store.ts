@@ -140,7 +140,7 @@ export interface Toast {
  * @param sub - Sub-collection name (contacts, meetings, etc.)
  * @param orgId - Organization ID (defaults to 'soltheory')
  */
-const crmPath = (_uid: string, sub: string, orgId: string = "soltheory") => `orgs/${orgId}/crm-instances/default/${sub}`;
+const crmPath = (_uid: string, sub: string, orgId: string = "soltheory", instanceId: string = "default") => `orgs/${orgId}/crm-instances/${instanceId}/${sub}`;
 
 /** Convert Firestore doc data to typed object, handling Timestamps */
 function docToCustomer(data: Record<string, unknown>, id: string): Customer {
@@ -255,6 +255,10 @@ interface CrmStore {
   pipelineConfig: PipelineConfig | null;
   crmSettings: { crmLabel: string; defaultView: "dashboard" | "board" | "follow_ups" };
 
+  /* ── Multi-database ── */
+  activeInstanceId: string;
+  availableInstances: { id: string; name: string }[];
+
   /* ── Firebase refs ── */
   _db: Firestore | null;
   _uid: string | null;
@@ -311,6 +315,13 @@ interface CrmStore {
   saveCrmSettings: (settings: { crmLabel: string; defaultView: "dashboard" | "board" | "follow_ups" }) => Promise<void>;
   loadCrmSettings: () => Promise<void>;
 
+  /* Multi-database */
+  switchInstance: (instanceId: string) => Promise<void>;
+  createInstance: (name: string) => Promise<string>;
+  deleteInstance: (instanceId: string) => Promise<void>;
+  renameInstance: (instanceId: string, newName: string) => Promise<void>;
+  loadInstances: () => Promise<void>;
+
   /* Direct setters (for Jarvis command compat) */
   setCustomers: (fn: (prev: Customer[]) => Customer[]) => void;
 
@@ -335,6 +346,8 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   toasts: [],
   pipelineConfig: null,
   crmSettings: { crmLabel: "Contacts", defaultView: "dashboard" },
+  activeInstanceId: "default",
+  availableInstances: [{ id: "default", name: "All Contacts" }],
 
   _db: null,
   _uid: null,
@@ -974,5 +987,138 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
 
   dismissToast: (id) => {
     set(state => ({ toasts: state.toasts.filter(t => t.id !== id) }));
+  },
+
+  /* ── Multi-database Methods ── */
+
+  loadInstances: async () => {
+    const { _db } = get();
+    if (!_db) return;
+    try {
+      const metaDoc = await getDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"));
+      if (metaDoc.exists()) {
+        const data = metaDoc.data();
+        const instances = (data.instances || []) as { id: string; name: string }[];
+        // Always ensure "default" exists
+        if (!instances.find(i => i.id === "default")) {
+          instances.unshift({ id: "default", name: "All Contacts" });
+        }
+        set({ availableInstances: instances });
+      }
+    } catch (err) {
+      console.warn("[CRM] Failed to load instances:", err);
+    }
+  },
+
+  switchInstance: async (instanceId: string) => {
+    const { _db, _uid } = get();
+    if (!_db || !_uid) return;
+
+    // Teardown old listeners
+    get().teardown();
+
+    // Set new instance and re-initialize
+    set({ activeInstanceId: instanceId, isLoading: true, _db, _uid });
+
+    // Re-subscribe to the new instance's contacts collection
+    const contactsRef = collection(_db, crmPath(_uid, "contacts", "soltheory", instanceId));
+    const unsubContacts = onSnapshot(
+      query(contactsRef),
+      (snapshot) => {
+        const customers = snapshot.docs.map(d => docToCustomer(d.data(), d.id));
+        set({ customers, isLoading: false });
+      },
+      (error) => {
+        console.error("CRM contacts snapshot error:", error);
+        set({ isLoading: false });
+      }
+    );
+
+    // Meetings
+    const meetingsRef = collection(_db, crmPath(_uid, "meetings", "soltheory", instanceId));
+    const unsubMeetings = onSnapshot(query(meetingsRef, orderBy("date", "desc")), (snapshot) => {
+      set({ meetings: snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Meeting)) });
+    });
+
+    // Tasks
+    const tasksRef = collection(_db, crmPath(_uid, "tasks", "soltheory", instanceId));
+    const unsubTasks = onSnapshot(query(tasksRef), (snapshot) => {
+      set({ tasks: snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CrmTask)) });
+    });
+
+    // Activities
+    const activitiesRef = collection(_db, crmPath(_uid, "activities", "soltheory", instanceId));
+    const unsubActivities = onSnapshot(query(activitiesRef, orderBy("timestamp", "desc")), (snapshot) => {
+      set({ activities: snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CrmActivity)) });
+    });
+
+    set({
+      _unsubContacts: unsubContacts,
+      _unsubMeetings: unsubMeetings,
+      _unsubTasks: unsubTasks,
+      _unsubActivities: unsubActivities,
+    });
+
+    get().showToast(`Switched to database`);
+  },
+
+  createInstance: async (name: string) => {
+    const { _db } = get();
+    if (!_db) throw new Error("Firestore not ready");
+
+    const instanceId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const { availableInstances } = get();
+    const updatedInstances = [...availableInstances, { id: instanceId, name }];
+
+    // Save to Firestore registry
+    await setDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"), {
+      instances: updatedInstances,
+      updatedAt: serverTimestamp(),
+    });
+
+    set({ availableInstances: updatedInstances });
+    get().showToast(`Database "${name}" created`);
+    return instanceId;
+  },
+
+  deleteInstance: async (instanceId: string) => {
+    if (instanceId === "default") {
+      get().showToast("Cannot delete the default database", "error");
+      return;
+    }
+    const { _db, availableInstances, activeInstanceId } = get();
+    if (!_db) return;
+
+    const updatedInstances = availableInstances.filter(i => i.id !== instanceId);
+    await setDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"), {
+      instances: updatedInstances,
+      updatedAt: serverTimestamp(),
+    });
+
+    set({ availableInstances: updatedInstances });
+
+    // If we deleted the active instance, switch to default
+    if (activeInstanceId === instanceId) {
+      await get().switchInstance("default");
+    }
+
+    get().showToast("Database deleted");
+  },
+
+  renameInstance: async (instanceId: string, newName: string) => {
+    const { _db, availableInstances } = get();
+    if (!_db) return;
+
+    const updatedInstances = availableInstances.map(i =>
+      i.id === instanceId ? { ...i, name: newName } : i
+    );
+
+    await setDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"), {
+      instances: updatedInstances,
+      updatedAt: serverTimestamp(),
+    });
+
+    set({ availableInstances: updatedInstances });
+    get().showToast(`Database renamed to "${newName}"`);
   },
 }));

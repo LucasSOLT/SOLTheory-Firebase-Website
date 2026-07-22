@@ -442,6 +442,16 @@ export default function CRMPage() {
   /* ─────────── LOCAL UI STATE ─────────── */
   const crmSettings = useCRMStore((s) => s.crmSettings);
   const saveCrmSettings = useCRMStore((s) => s.saveCrmSettings);
+  const activeInstanceId = useCRMStore((s) => s.activeInstanceId);
+  const availableInstances = useCRMStore((s) => s.availableInstances);
+  const switchInstance = useCRMStore((s) => s.switchInstance);
+  const createInstance = useCRMStore((s) => s.createInstance);
+  const deleteInstance = useCRMStore((s) => s.deleteInstance);
+  const renameInstance = useCRMStore((s) => s.renameInstance);
+  const loadInstances = useCRMStore((s) => s.loadInstances);
+  const [showDbDropdown, setShowDbDropdown] = useState(false);
+  const [showNewDbInput, setShowNewDbInput] = useState(false);
+  const [newDbName, setNewDbName] = useState("");
   /* Inline CRM label editing */
   const [isEditingCrmLabel, setIsEditingCrmLabel] = useState(false);
   const [editingLabelValue, setEditingLabelValue] = useState("");
@@ -472,8 +482,8 @@ export default function CRMPage() {
   const handleInlineSave = useCallback((contactId: string, fieldId: string, newValue: any) => {
     const knownKeys = ['firstName', 'lastName', 'email', 'phone', 'company', 'leadStatus', 'location',
       'totalRevenue', 'outstandingBalance', 'tags', 'notes', 'aiNotes', 'jobTitle', 'department',
-      'industry', 'birthday', 'website', 'linkedinUrl', 'twitterHandle', 'facebookUrl', 'instagramHandle',
-      'mobilePhone', 'workPhone', 'secondaryEmail', 'lastContactedDate', 'dateCreated', 'dateModified'];
+      'industry', 'role', 'service', 'birthday', 'website', 'linkedinUrl', 'twitterHandle', 'facebookUrl', 'instagramHandle',
+      'mobilePhone', 'workPhone', 'secondaryEmail', 'tertiaryEmail', 'lastContactedDate', 'dateCreated', 'dateModified'];
     
     if (knownKeys.includes(fieldId)) {
       store.updateCustomer(contactId, { [fieldId]: newValue });
@@ -905,7 +915,7 @@ export default function CRMPage() {
     return () => { teardown(); };
   }, [user?.uid, db, initializeStore, teardown]);
 
-  // Load pipeline config + CRM settings on mount
+  // Load pipeline config + CRM settings + available databases on mount
   useEffect(() => {
     if (user?.uid && db) {
       store.loadPipelineConfig();
@@ -919,6 +929,7 @@ export default function CRMPage() {
           }
         }
       });
+      loadInstances();
     }
   }, [user?.uid, db]);
 

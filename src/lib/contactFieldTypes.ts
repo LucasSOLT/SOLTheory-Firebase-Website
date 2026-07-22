@@ -47,11 +47,12 @@ export const DEFAULT_CRM_FIELDS: ContactFieldDef[] = [
   // ── Contact ──
   { id: "firstName",          label: "First Name",             type: "text",     category: "contact",   required: true, locked: true, width: "w-[110px]" },
   { id: "lastName",           label: "Last Name",              type: "text",     category: "contact",   required: true, locked: true, width: "w-[110px]" },
-  { id: "email",              label: "Email",                  type: "email",    category: "contact",   locked: true,  width: "w-[180px]" },
-  { id: "phone",              label: "Phone",                  type: "phone",    category: "contact",   locked: true,  width: "w-[130px]" },
-  { id: "mobilePhone",        label: "Mobile Phone",           type: "phone",    category: "contact",   locked: true,  width: "w-[130px]" },
-  { id: "workPhone",          label: "Work Phone",             type: "phone",    category: "contact",   locked: true,  width: "w-[130px]" },
-  { id: "secondaryEmail",     label: "Secondary Email",        type: "email",    category: "contact",   locked: true,  width: "w-[180px]" },
+  { id: "email",              label: "Email 1",                type: "email",    category: "contact",   locked: true,  width: "w-[180px]" },
+  { id: "secondaryEmail",     label: "Email 2",                type: "email",    category: "contact",   locked: true,  width: "w-[180px]" },
+  { id: "tertiaryEmail",      label: "Email 3",                type: "email",    category: "contact",   locked: true,  width: "w-[180px]" },
+  { id: "phone",              label: "Phone 1",                type: "phone",    category: "contact",   locked: true,  width: "w-[130px]" },
+  { id: "mobilePhone",        label: "Phone 2",                type: "phone",    category: "contact",   locked: true,  width: "w-[130px]" },
+  { id: "workPhone",          label: "Phone 3",                type: "phone",    category: "contact",   locked: true,  width: "w-[130px]" },
   { id: "prefix",             label: "Prefix",                 type: "select",   category: "contact",   locked: true,  width: "w-[90px]",  options: ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."] },
   { id: "suffix",             label: "Suffix",                 type: "text",     category: "contact",   locked: true,  width: "w-[90px]" },
   { id: "middleName",         label: "Middle Name",            type: "text",     category: "contact",   locked: true,  width: "w-[110px]" },
@@ -74,6 +75,7 @@ export const DEFAULT_CRM_FIELDS: ContactFieldDef[] = [
   { id: "managerName",        label: "Manager / Reports To",   type: "text",     category: "company",   locked: true,  width: "w-[140px]" },
   { id: "employeeId",         label: "Employee ID",            type: "text",     category: "company",   locked: true,  width: "w-[110px]" },
   { id: "role",               label: "Role",                   type: "text",     category: "company",   locked: true,  width: "w-[120px]" },
+  { id: "service",            label: "Service",                type: "text",     category: "company",   locked: true,  width: "w-[130px]" },
   { id: "yearsAtCompany",     label: "Years at Company",       type: "number",   category: "company",   locked: true,  width: "w-[110px]" },
 
   // ── General Info ──
@@ -163,7 +165,9 @@ export const DEFAULT_CRM_FIELDS: ContactFieldDef[] = [
 
 /** Default visible fields for CRM (matches current hardcoded columns minus 'id') */
 export const DEFAULT_CRM_VISIBLE_FIELDS: string[] = [
-  "firstName", "lastName", "company", "email", "phone",
+  "firstName", "lastName", "company", "industry", "service", "role",
+  "email", "secondaryEmail", "tertiaryEmail",
+  "phone", "mobilePhone", "workPhone",
   "leadStatus", "totalRevenue", "location", "lastContactedDate",
 ];
 
@@ -281,9 +285,11 @@ const FIELD_SYNONYMS: Record<string, string[]> = {
   dealValue:          ["deal", "opportunity", "deal value", "deal_value", "opp value"],
   assignedTo:         ["owner", "rep", "salesperson", "sales rep", "assigned", "assigned to"],
   referredBy:         ["referral", "referred by", "referred_by", "referrer"],
-  mobilePhone:        ["mobile", "mobile phone", "mobile_phone", "cell phone", "cell_phone"],
-  workPhone:          ["work phone", "work_phone", "office phone", "office_phone", "business phone"],
-  secondaryEmail:     ["secondary email", "secondary_email", "alternate email", "alt email", "other email"],
+  mobilePhone:        ["mobile", "mobile phone", "mobile_phone", "cell phone", "cell_phone", "phone 2", "phone2"],
+  workPhone:          ["work phone", "work_phone", "office phone", "office_phone", "business phone", "phone 3", "phone3"],
+  secondaryEmail:     ["secondary email", "secondary_email", "alternate email", "alt email", "other email", "email 2", "email2"],
+  tertiaryEmail:      ["tertiary email", "tertiary_email", "email 3", "email3", "third email"],
+  service:            ["service", "services", "service type", "service_type", "service area"],
   whatsappNumber:     ["whatsapp", "whats app", "wa number"],
   companyWebsite:     ["company website", "company_website", "company url", "business website"],
   annualRevenue:      ["annual revenue", "annual_revenue", "yearly revenue", "company revenue"],
