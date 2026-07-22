@@ -545,7 +545,7 @@ export default function CRMPage() {
   const resizingRef = useRef<{ fieldId: string; startX: number; startWidth: number } | null>(null);
   const [contactSearch, setContactSearch] = useState("");
   const [contactsViewMode, setContactsViewMode] = useState<"table" | "pipeline">("table");
-  const CRM_PAGE_SIZE = 50;
+  const CRM_PAGE_SIZE = 200;
   const [crmPage, setCrmPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<string>("");

@@ -157,7 +157,7 @@ function docToCustomer(data: Record<string, unknown>, id: string): Customer {
     aiNotes: (data.aiNotes as string) || "",
     transactions: (data.transactions as Transaction[]) || [],
     outstandingBalance: (data.outstandingBalance as number) || 0,
-    company: (data.company as string) || "",
+    company: (data.company as string) || (data.organizationName as string) || (data["Organization Name"] as string) || "",
     location: (data.location as string) || "",
     lastContactedDate: (data.lastContactedDate as string) || "",
     createdAt: data.createdAt || null,

@@ -5,41 +5,35 @@
  *
  * Run with: npx tsx scripts/migrate-rbac.ts
  *
- * What it does:
- * 1. Reads all docs from the `users` collection
- * 2. For each user missing `allowedOrgs`:
- *    - Maps legacy `organization` field to `allowedOrgs` array
- *    - Developer (lucas@soltheory.com) gets access to ALL orgs
- * 3. For each user missing `orgRoles`:
- *    - Maps legacy `role` or `accessLevel` to `orgRoles[org]`
- *
  * Safe to run multiple times — only updates docs that need it.
  */
 
-import * as admin from "firebase-admin";
-import { resolve } from "path";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import * as fs from "fs";
+import * as path from "path";
 
-// Initialize Firebase Admin with service account
-const serviceAccountPath = resolve(__dirname, "../.gcloud-adc.json");
+// Initialize with service account
+function initAdmin() {
+  if (getApps().length > 0) return;
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccountPath),
-  });
+  const saPath = path.resolve(__dirname, "../firebase-service-account.json");
+  if (fs.existsSync(saPath)) {
+    const sa = JSON.parse(fs.readFileSync(saPath, "utf8"));
+    initializeApp({ credential: cert(sa) });
+    console.log("[Init] Using firebase-service-account.json");
+  } else {
+    throw new Error("firebase-service-account.json not found. Cannot initialize Firebase Admin.");
+  }
 }
-
-const db = admin.firestore();
 
 const DEVELOPER_EMAIL = "lucas@soltheory.com";
 const ALL_ORGS = ["soltheory", "nxtchapter"];
 
-// Map legacy accessLevel to OrgRole
 function legacyToOrgRole(accessLevel: string, role?: string): string {
-  // Prefer new-style `role` field if it's already set
   if (role && ["read-only", "user", "super-user", "admin", "owner"].includes(role)) {
     return role;
   }
-  // Map legacy access levels
   switch (accessLevel) {
     case "Read Only": return "read-only";
     case "User-Level": return "user";
@@ -53,6 +47,8 @@ function legacyToOrgRole(accessLevel: string, role?: string): string {
 async function migrate() {
   console.log("🚀 Starting RBAC migration...\n");
 
+  initAdmin();
+  const db = getFirestore();
   const snapshot = await db.collection("users").get();
   let updated = 0;
   let skipped = 0;
@@ -62,7 +58,7 @@ async function migrate() {
     const email = (data.email || "").toLowerCase();
     const updates: Record<string, any> = {};
 
-    // Skip if already migrated
+    // Skip if already fully migrated
     if (data.allowedOrgs?.length > 0 && data.orgRoles && Object.keys(data.orgRoles).length > 0) {
       skipped++;
       continue;
@@ -73,7 +69,8 @@ async function migrate() {
       if (email === DEVELOPER_EMAIL) {
         updates.allowedOrgs = ALL_ORGS;
       } else if (data.organization) {
-        updates.allowedOrgs = [data.organization];
+        const orgVal = data.organization.toLowerCase().replace(/\s+/g, '');
+        updates.allowedOrgs = orgVal.includes('nxt') ? ["nxtchapter"] : ["soltheory"];
       } else if (email.endsWith("@soltheory.com")) {
         updates.allowedOrgs = ["soltheory"];
       } else if (email.endsWith("@nxtchapter.org")) {
@@ -106,7 +103,7 @@ async function migrate() {
     }
   }
 
-  console.log(`\n✨ Migration complete: ${updated} updated, ${skipped} skipped (already migrated), ${snapshot.size} total`);
+  console.log(`\n✨ Migration complete: ${updated} updated, ${skipped} skipped, ${snapshot.size} total`);
 }
 
 migrate().catch((err) => {
