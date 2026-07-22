@@ -100,13 +100,21 @@ export default function InsightLoginPage() {
       const navigateTo = (path: string) => {
         // Prefetch immediately so the dashboard loads during the cube animation
         prefetchDashboard(path);
-        // Timeline: 0-4s = bar fills | 4-4.8s = fade out | 4.8s = navigate
-        // This ensures the progress bar completes before the screen transitions
+        // Timeline:
+        // 0-4s   = progress bar fills to 100%
+        // 4s     = progress bar fades out (bar only, not the whole overlay)
+        // 4s-5s  = cube keeps spinning on white background, bar is gone
+        // 5s     = navigate — overlay stays fully visible (no flash)
+        //          Dashboard side has a matching overlay that fades out when ready
+
+        // Fade out just the progress bar after it finishes filling
         setTimeout(() => {
-          // Start fade out by adding a CSS class
-          const overlay = document.getElementById('login-cube-overlay');
-          if (overlay) overlay.style.opacity = '0';
-        }, 4200);
+          const bar = document.getElementById('login-progress-bar');
+          if (bar) bar.style.opacity = '0';
+        }, 4000);
+
+        // Navigate while the cube is still fully visible
+        // Do NOT fade the overlay — let it stay white so there's no flash
         setTimeout(() => { window.location.href = path; }, 5000);
       };
 
@@ -169,8 +177,6 @@ export default function InsightLoginPage() {
             alignItems: "center",
             justifyContent: "center",
             background: "#ffffff",
-            opacity: 1,
-            transition: "opacity 0.8s ease-out",
           }}
         >
           <p
@@ -197,6 +203,7 @@ export default function InsightLoginPage() {
             </div>
           </div>
           <div
+            id="login-progress-bar"
             style={{
               marginTop: "32px",
               width: "200px",
@@ -204,6 +211,8 @@ export default function InsightLoginPage() {
               borderRadius: "2px",
               overflow: "hidden",
               background: "rgba(99, 102, 241, 0.1)",
+              opacity: 1,
+              transition: "opacity 0.6s ease-out",
             }}
           >
             <div
