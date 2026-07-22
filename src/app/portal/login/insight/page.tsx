@@ -100,9 +100,14 @@ export default function InsightLoginPage() {
       const navigateTo = (path: string) => {
         // Prefetch immediately so the dashboard loads during the cube animation
         prefetchDashboard(path);
-        // Keep the cube visible for 3.5s then navigate with a full page load
-        // so the dashboard renders behind the white screen
-        setTimeout(() => { window.location.href = path; }, 3500);
+        // Timeline: 0-4s = bar fills | 4-4.8s = fade out | 4.8s = navigate
+        // This ensures the progress bar completes before the screen transitions
+        setTimeout(() => {
+          // Start fade out by adding a CSS class
+          const overlay = document.getElementById('login-cube-overlay');
+          if (overlay) overlay.style.opacity = '0';
+        }, 4200);
+        setTimeout(() => { window.location.href = path; }, 5000);
       };
 
       if (emailLower.endsWith("@soltheory.com")) {
@@ -154,6 +159,7 @@ export default function InsightLoginPage() {
       {/* ── Fullscreen Loading Cube (shown immediately on successful auth) ── */}
       {showLoginCube && (
         <div
+          id="login-cube-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -163,6 +169,8 @@ export default function InsightLoginPage() {
             alignItems: "center",
             justifyContent: "center",
             background: "#ffffff",
+            opacity: 1,
+            transition: "opacity 0.8s ease-out",
           }}
         >
           <p
@@ -203,14 +211,14 @@ export default function InsightLoginPage() {
                 height: "100%",
                 borderRadius: "2px",
                 background: "linear-gradient(90deg, #6366f1, #818cf8, #a78bfa)",
-                animation: "loginProgressFill 5s linear forwards",
+                animation: "loginProgressFill 4s ease-out forwards",
                 width: "0%",
               }}
             />
           </div>
           <style>{`
             @keyframes loginTextPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-            @keyframes loginProgressFill { 0% { width: 0%; } 100% { width: 100%; } }
+            @keyframes loginProgressFill { 0% { width: 0%; } 90% { width: 95%; } 100% { width: 100%; } }
             .login-cube-scene { width: 64px; height: 64px; perspective: 400px; }
             .login-cube {
               width: 100%; height: 100%; position: relative;

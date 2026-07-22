@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { initAdmin } from "@/firebase/admin";
 import { getAuth } from "firebase-admin/auth";
 
-type AuthSuccess = { ok: true; uid: string };
+type AuthSuccess = { ok: true; uid: string; email: string };
 type AuthFailure = { ok: false; response: NextResponse };
 type AuthResult = AuthSuccess | AuthFailure;
 
@@ -44,7 +44,7 @@ export async function verifyRequest(req: Request | NextRequest): Promise<AuthRes
   try {
     initAdmin();
     const decoded = await getAuth().verifyIdToken(idToken);
-    return { ok: true, uid: decoded.uid };
+    return { ok: true, uid: decoded.uid, email: decoded.email || "" };
   } catch (err: any) {
     console.error("[API Auth] Token verification failed:", err.message);
     return {
@@ -82,30 +82,16 @@ export async function verifyAdmin(req: Request | NextRequest): Promise<AuthResul
   const auth = await verifyRequest(req);
   if (!auth.ok) return auth;
 
-  try {
-    initAdmin();
-    const userRecord = await getAuth().getUser(auth.uid);
-    const email = userRecord.email || "";
-
-    if (!ADMIN_EMAILS.includes(email)) {
-      return {
-        ok: false,
-        response: NextResponse.json(
-          { error: "Forbidden — admin access required" },
-          { status: 403 }
-        ),
-      };
-    }
-
-    return { ok: true, uid: auth.uid };
-  } catch (err: any) {
-    console.error("[API Auth] Admin verification failed:", err.message);
+  // Use the email already extracted from the ID token by verifyRequest
+  if (!ADMIN_EMAILS.includes(auth.email)) {
     return {
       ok: false,
       response: NextResponse.json(
-        { error: "Admin verification failed" },
+        { error: "Forbidden — admin access required" },
         { status: 403 }
       ),
     };
   }
+
+  return { ok: true, uid: auth.uid, email: auth.email };
 }

@@ -122,6 +122,14 @@ export default function SolTheoryDashboard() {
   const [currentTime, setCurrentTime] = useState('');
   const [userTimezone, setUserTimezone] = useState('');
 
+  // Brief loading gate — let widget data (Firestore snapshots) initialize
+  // before showing the page, so tiles don't flash with spinners
+  const [pageReady, setPageReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setPageReady(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Load user timezone from localStorage / Firestore
   useEffect(() => {
     const savedTz = localStorage.getItem('user_timezone');
@@ -272,7 +280,7 @@ export default function SolTheoryDashboard() {
     : 'bg-[#faf8f3] border border-[#ede8da]/80';
 
   return (
-    <div className={`w-full mx-auto animate-in fade-in duration-700 h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
+    <div className={`w-full mx-auto h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none transition-all duration-700 ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} style={{ opacity: pageReady ? 1 : 0 }} tabIndex={-1}>
       {showConfetti && <ConfettiCanvas onDone={() => setShowConfetti(false)} />}
       <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
