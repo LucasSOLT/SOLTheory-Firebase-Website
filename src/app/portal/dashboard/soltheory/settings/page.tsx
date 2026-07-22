@@ -2,6 +2,7 @@
 
 import { logActivity } from '@/lib/activity-logger';
 import { useTheme } from '@/components/ThemeProvider';
+import { getAuthHeaders } from "@/lib/api-auth-client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -469,7 +470,7 @@ function SettingsContent() {
 
       const res = await fetch("/api/webhooks/gmail/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ uid: user.uid, refreshToken }),
       });
       const data = await res.json();

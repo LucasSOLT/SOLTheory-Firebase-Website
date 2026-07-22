@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import React, { useState } from "react";
 import { 
   ChevronLeft, 
@@ -100,7 +102,7 @@ export function CalendarView() {
 
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ 
           messages: [...messages, userMsg].map(m => ({
             role: m.isSelf ? "user" : "assistant",
@@ -160,7 +162,7 @@ export function CalendarView() {
     try {
       const res = await fetch("/api/calendar/events", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ refreshToken })
       });
       if (res.ok) {

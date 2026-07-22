@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useUser, useFirestore, useStorage } from "@/firebase";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -953,7 +954,7 @@ function ActionBoardContent() {
     try {
       await fetch("/api/action-board/on-complete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           task: {
             title: task.title,

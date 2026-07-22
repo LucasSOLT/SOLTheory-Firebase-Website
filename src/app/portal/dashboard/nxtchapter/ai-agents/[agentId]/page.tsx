@@ -2181,7 +2181,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     try {
       const res = await fetch('/api/sms/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ from: smsTwilioNumber, to: smsActiveContact, message: smsNewMessage })
       });
       const data = await res.json();

@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import React, { useState, useEffect } from "react";
 import { useUser, useFirestore } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -325,7 +327,7 @@ export function IntegrationWidget({
 
         const res = await fetch("/api/google/integration-data", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({ refreshToken: rToken, service: integration.googleService }),
         });
         const data = await res.json();

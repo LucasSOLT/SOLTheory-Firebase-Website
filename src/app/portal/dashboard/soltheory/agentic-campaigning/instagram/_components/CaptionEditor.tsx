@@ -176,7 +176,7 @@ export default function CaptionEditor({ isDark }: CaptionEditorProps) {
       try {
         const res = await fetch("/api/campaigning/ai", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             action: "rewrite",
             context: {

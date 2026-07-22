@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { Search, Menu, Settings, TrendingUp, Users, Clock, Sparkles, MessageSquare, X, Send, Bot, Play, Loader2, User, Youtube, Lightbulb, UserCheck, PlaySquare, Video, Upload, FileVideo, Trash2, CheckCircle, ChevronDown, ChevronUp, Edit2, Save } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
@@ -122,7 +124,7 @@ export function YouTubeDashboard() {
         
         const res = await fetch("/api/youtube/stats", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({ refreshToken: rToken })
         });
         const data = await res.json();
@@ -193,7 +195,7 @@ export function YouTubeDashboard() {
       
       const res = await fetch("/api/test-youtube", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ refreshToken: rToken })
       });
       const data = await res.json();
@@ -277,7 +279,7 @@ export function YouTubeDashboard() {
         if (rToken) {
           const res = await fetch("/api/youtube/delete", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({ youtubeId, type: youtubeType, refreshToken: rToken })
           });
           if (!res.ok) console.error("Failed to delete from YouTube API");
@@ -313,7 +315,7 @@ export function YouTubeDashboard() {
         if (rToken) {
           const res = await fetch("/api/youtube/update", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({ 
               youtubeId: draft.youtubeId, 
               type: draft.youtubeType, 
@@ -365,7 +367,7 @@ export function YouTubeDashboard() {
 
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ 
           messages: [...messages, userMsg].map(m => ({
             role: m.isSelf ? "user" : "assistant",

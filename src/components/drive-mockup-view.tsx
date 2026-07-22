@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import React, { useState, useEffect } from "react";
 import {
   FileText,
@@ -137,7 +139,7 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
 
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ 
           messages: [...messages, userMsg].map(m => ({
             role: m.isSelf ? "user" : "assistant",
@@ -204,7 +206,7 @@ When creating Google Docs, you MUST follow these rules:
     try {
       const res = await fetch("/api/drive/files", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ refreshToken, mimeTypePrefix: config.mimeType, fetchAll }),
       });
       if (res.ok) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import {
   Plus, ChevronRight, ChevronLeft, Play, Pause, BarChart3,
   Mail, Clock, Users, Zap, CheckCircle2, XCircle, Eye,
@@ -355,7 +356,7 @@ function EmailPreview({ subject, body, senderName, recipients, settings, onClose
     try {
       const resp = await fetch("/api/campaigning/email/test-send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           refreshToken,
           html: resolvedHtml || `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6;">${resolvedBody.split('\n').join('<br/>')}</div>`,
@@ -1116,7 +1117,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
     try {
       const resp = await fetch("/api/campaigning/email/assemble", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-uid": user?.uid || "" },
+        headers: { ...(await getAuthHeaders()), "x-uid": user?.uid || "" },
         body: JSON.stringify({
           action: "edit-html",
           currentHtml: assembledHtml,
@@ -1199,7 +1200,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
         const resp = await fetch("/api/campaigning/email/assemble", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-uid": user?.uid || "" },
+          headers: { ...(await getAuthHeaders()), "x-uid": user?.uid || "" },
           body: JSON.stringify({
             action: "chat",
             prompt,
@@ -1293,7 +1294,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
 
       const resp = await fetch("/api/campaigning/email/assemble", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-uid": user?.uid || "" },
+        headers: { ...(await getAuthHeaders()), "x-uid": user?.uid || "" },
         body: JSON.stringify({
           action: "chat",
           prompt,
@@ -1353,7 +1354,7 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
       const fromEmail = campaignSettings.senderEmail || user.email || "";
       const resp = await fetch("/api/campaigning/email/test-send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           refreshToken: gmailRefreshToken,
           html: assembledHtml,

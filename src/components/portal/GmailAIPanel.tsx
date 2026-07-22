@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Sparkles,
@@ -278,7 +280,7 @@ export function GmailAIPanel({
       try {
         const res = await fetch("/api/gmail-ai", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             messages: [...messages, userMessage].map((m) => ({
               role: m.role,
@@ -335,7 +337,7 @@ export function GmailAIPanel({
           try {
             const createRes = await fetch("/api/gmail-ai", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: await getAuthHeaders(),
               body: JSON.stringify({
                 action: "create_labels",
                 uid,
@@ -359,7 +361,7 @@ export function GmailAIPanel({
           try {
             const applyRes = await fetch("/api/gmail-ai", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: await getAuthHeaders(),
               body: JSON.stringify({
                 action: "apply_labels",
                 uid,
@@ -421,7 +423,7 @@ export function GmailAIPanel({
       try {
         const res = await fetch("/api/gmail-ai", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             action: "confirm_action",
             actionPayload: msg.actionCard.payload,
@@ -491,7 +493,7 @@ export function GmailAIPanel({
       try {
         const res = await fetch("/api/webhooks/gmail/send", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             uid,
             refreshToken,
@@ -574,7 +576,7 @@ export function GmailAIPanel({
       try {
         await fetch("/api/gmail-ai", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             action: "undo",
             logId,
@@ -675,7 +677,7 @@ export function GmailAIPanel({
     try {
       const res = await fetch("/api/gmail-ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           action: "batch_reply",
           uid,
@@ -726,7 +728,7 @@ export function GmailAIPanel({
       try {
         const res = await fetch("/api/webhooks/gmail/send", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             uid,
             refreshToken,
@@ -759,7 +761,7 @@ export function GmailAIPanel({
     try {
       await fetch("/api/gmail-ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           action: "mark_read",
           uid,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -169,7 +170,7 @@ export default function IMessagePage() {
     try {
       const res = await fetch("/api/sms/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ from: phoneNumber, to: targetNumber, message: newMessage }),
       });
       const data = await res.json();

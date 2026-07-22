@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, getDoc, collection, query, where, onSnapshot } from "firebase/firestore";
@@ -150,7 +152,7 @@ export function WeeklyTimesheetChart() {
 
       const res = await fetch("/api/quickbooks/data", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           realmId: qb.realmId,
           accessToken: qb.accessToken,

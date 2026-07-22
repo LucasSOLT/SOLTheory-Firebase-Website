@@ -1,5 +1,6 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import { logActivity } from '@/lib/activity-logger';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -449,7 +450,7 @@ function SettingsContent() {
 
       const res = await fetch("/api/webhooks/gmail/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ uid: user.uid, refreshToken }),
       });
       const data = await res.json();

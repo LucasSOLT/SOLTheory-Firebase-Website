@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import {
   Mail, Send, Search, Star, StarOff, Inbox, Archive, Trash2, RefreshCw,
   Paperclip, Reply, ReplyAll, Forward,
@@ -187,7 +188,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
     setEmails((prev) => prev.map((em) => (em.id === id ? { ...em, starred: !em.starred } : em)));
   }, []);
 
-  const markAsRead = useCallback((id: string, ev: React.MouseEvent) => {
+  const markAsRead = useCallback(async (id: string, ev: React.MouseEvent) => {
     ev.stopPropagation();
     // Instantly update local state
     setEmails((prev) => prev.map((em) => (em.id === id ? { ...em, read: true } : em)));
@@ -195,7 +196,7 @@ function GmailView({ uid, refreshToken, userEmail, userName, onConnectAccount }:
     if (uid && refreshToken) {
       fetch("/api/gmail-ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           action: "confirm_action",
           actionPayload: { type: "mark_read", emailIds: [id] },

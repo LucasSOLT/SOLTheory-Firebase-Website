@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { Megaphone, Search, Menu, Settings, TrendingUp, MousePointerClick, Clock, DollarSign, Sparkles, X, Send, Play, CalendarClock, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
@@ -83,7 +85,7 @@ export function GoogleAdsDashboard() {
 
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ 
           messages: [...messages, userMsg].map(m => ({
             role: m.isSelf ? "user" : "assistant",

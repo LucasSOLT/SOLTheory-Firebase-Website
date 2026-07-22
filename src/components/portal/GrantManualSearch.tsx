@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Search,
@@ -200,7 +202,7 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
 
       const res = await fetch("/api/grants/search", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(body),
       });
 

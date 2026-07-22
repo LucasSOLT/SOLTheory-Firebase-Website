@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuthHeaders } from "@/lib/api-auth-client";
+
 import React, { useState } from "react";
 import { useFirestore } from "@/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -38,7 +40,7 @@ export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCr
     try {
       const res = await fetch("/api/generate-survey", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ description, knowledgeBaseText, pactText })
       });
       const data = await res.json();

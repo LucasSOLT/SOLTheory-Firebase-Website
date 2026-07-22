@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,7 +161,7 @@ export default function AIKnowledgeBasePage() {
       }
       const res = await fetch("/api/pact-evaluate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           entries: activeEntries.map((e: any) => ({ question: e.question, answer: e.answer })),
           userName: user?.displayName || undefined
