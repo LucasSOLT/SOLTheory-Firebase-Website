@@ -12,7 +12,7 @@ import { getRecentDiagnosticLogs, DiagnosticLog } from "@/lib/diagnostics/logger
  */
 
 const DEVELOPER_EMAIL = "lucas@soltheory.com";
-const SYSTEM_HEALTH_PASSWORD = "65688998";
+const SYSTEM_HEALTH_PASSWORD = "89988998";
 
 /** Verify the requesting user is the developer (lucas@soltheory.com) */
 async function verifyDeveloper(uid: string): Promise<{ ok: boolean; response?: NextResponse }> {

@@ -82,7 +82,24 @@ export default function InsightLoginPage() {
       }
 
       const emailLower = email.toLowerCase();
+
+      // Prefetch the dashboard page during cube animation so components load instantly
+      const prefetchDashboard = (path: string) => {
+        // Warm the Next.js route cache by fetching the page HTML
+        // This triggers SSR and caches the result so navigation is instant
+        try {
+          const link = document.createElement('link');
+          link.rel = 'prefetch';
+          link.href = path;
+          document.head.appendChild(link);
+          // Also do a background fetch to warm the server-side cache
+          fetch(path, { priority: 'low' as any, credentials: 'include' }).catch(() => {});
+        } catch {}
+      };
+
       const navigateTo = (path: string) => {
+        // Prefetch immediately so the dashboard loads during the cube animation
+        prefetchDashboard(path);
         // Keep the cube visible for 3.5s then navigate with a full page load
         // so the dashboard renders behind the white screen
         setTimeout(() => { window.location.href = path; }, 3500);
