@@ -53,6 +53,7 @@ import {
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
   Table2, MapPin, Building2, ChevronLeft, ChevronRight, AlertTriangle, Save, Contact,
   Settings2, ArrowUpDown, ArrowUp, ArrowDown, Copy, Maximize2, Minimize2,
+  Database, CheckCircle2,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 import { getAuthHeaders } from '@/lib/api-auth-client';
@@ -2008,12 +2009,76 @@ export default function CRMPage() {
               />
               {/* Page Header — Clean */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <h1 className={`text-lg font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                  Database
-                  <span className={`ml-2 text-sm font-normal ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                <div className="flex items-center gap-3">
+                  <h1 className={`text-lg font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                    Database
+                  </h1>
+                  {/* Database Switcher */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowDbDropdown(!showDbDropdown)}
+                      className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                        isDarkMode
+                          ? 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-600'
+                          : 'border-slate-200 bg-white text-slate-600 hover:text-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      <Database className="w-3 h-3" />
+                      {availableInstances.find(i => i.id === activeInstanceId)?.name || "All Contacts"}
+                      <ChevronDown className="w-3 h-3 opacity-50" />
+                    </button>
+                    {showDbDropdown && (
+                      <div className={`absolute left-0 top-full mt-1 w-56 rounded-xl border shadow-lg z-50 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+                        <div className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Databases</div>
+                        {availableInstances.map(inst => (
+                          <button
+                            key={inst.id}
+                            onClick={() => { switchInstance(inst.id); setShowDbDropdown(false); }}
+                            className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors ${
+                              inst.id === activeInstanceId
+                                ? isDarkMode ? 'bg-indigo-900/30 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
+                                : isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="font-medium truncate">{inst.name}</span>
+                            {inst.id === activeInstanceId && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />}
+                          </button>
+                        ))}
+                        <div className={`border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                          {showNewDbInput ? (
+                            <div className="px-3 py-2 flex items-center gap-2">
+                              <input
+                                autoFocus
+                                value={newDbName}
+                                onChange={(e) => setNewDbName(e.target.value)}
+                                placeholder="Database name..."
+                                className={`flex-1 h-7 px-2 text-xs rounded-md border outline-none ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter' && newDbName.trim()) {
+                                    const newId = await createInstance(newDbName.trim());
+                                    setNewDbName(""); setShowNewDbInput(false); setShowDbDropdown(false);
+                                    switchInstance(newId);
+                                  }
+                                  if (e.key === 'Escape') { setShowNewDbInput(false); setNewDbName(""); }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setShowNewDbInput(true)}
+                              className={`w-full text-left px-3 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isDarkMode ? 'text-indigo-400 hover:bg-slate-800' : 'text-indigo-600 hover:bg-slate-50'}`}
+                            >
+                              <Plus className="w-3.5 h-3.5" /> New Database
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-sm font-normal ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                     {filteredSortedCustomers.length}{filteredSortedCustomers.length !== customers.length ? ` of ${customers.length}` : ''} records
                   </span>
-                </h1>
+                </div>
                 <div className="flex items-center gap-2">
                   {/* Search */}
                   <div className="relative flex items-center">
