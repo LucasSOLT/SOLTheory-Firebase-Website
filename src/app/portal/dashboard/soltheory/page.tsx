@@ -12,13 +12,11 @@ import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
 import { GrantPipelineMini } from "@/components/portal/GrantPipelineMini";
-import { SuggestedGrantsList } from "@/components/portal/SuggestedGrantsList";
 import { GrantAgentHub } from "@/components/portal/GrantAgentHub";
 import { useGrantsData } from "@/hooks/useGrantsData";
 import { AgentWorkerController, type AgentSlotData } from "@/components/portal/AgentWorkerController";
 import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
 import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
-import { QuickOverviewWidget } from "@/components/portal/QuickOverviewWidget";
 import { AIAgentOperationsWidget } from "@/components/portal/AIAgentOperationsWidget";
 import { CRMPipelineWidget } from "@/components/portal/CRMPipelineWidget";
 import { UpcomingDeadlinesWidget } from "@/components/portal/UpcomingDeadlinesWidget";
@@ -119,9 +117,6 @@ export default function SolTheoryDashboard() {
   const { isDarkMode } = useTheme();
   const [showConfetti, setShowConfetti] = useState(false);
   const { t, lang } = useTranslation();
-  const [currentTime, setCurrentTime] = useState('');
-  const [userTimezone, setUserTimezone] = useState('');
-
   // Brief loading gate — let widget data (Firestore snapshots) initialize
   // before showing the page, so tiles don't flash with spinners
   const [pageReady, setPageReady] = useState(false);
@@ -129,51 +124,6 @@ export default function SolTheoryDashboard() {
     const timer = setTimeout(() => setPageReady(true), 1200);
     return () => clearTimeout(timer);
   }, []);
-
-  // Load user timezone from localStorage / Firestore
-  useEffect(() => {
-    const savedTz = localStorage.getItem('user_timezone');
-    if (savedTz) {
-      setUserTimezone(savedTz);
-    } else if (firestore && user?.uid) {
-      getDoc(doc(firestore, 'users', user.uid)).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const tz = data.timezone || data.location || '';
-          if (tz) {
-            setUserTimezone(tz);
-            localStorage.setItem('user_timezone', tz);
-          }
-        }
-      }).catch(() => {});
-    }
-  }, [firestore, user?.uid]);
-
-  // Live clock that updates every second
-  useEffect(() => {
-    const updateClock = () => {
-      try {
-        const opts: Intl.DateTimeFormatOptions = {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          ...(userTimezone ? { timeZone: userTimezone } : {}),
-        };
-        const formatted = new Intl.DateTimeFormat(lang === 'es' ? 'es-ES' : 'en-US', opts).format(new Date());
-        setCurrentTime(formatted);
-      } catch {
-        setCurrentTime(new Date().toLocaleString());
-      }
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, [userTimezone, lang]);
 
   // Ctrl+Alt+6 confetti easter egg
   useEffect(() => {
@@ -338,62 +288,93 @@ export default function SolTheoryDashboard() {
             </CmsTileWrapper>
           </div>
 
-          {/* Row 2: Middle (Left Grant Analytics, Right Quick Overview) */}
+          {/* Row 2: Middle (Grant Analytics, YouTube, Instagram) */}
           <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch lg:max-h-[420px]">
-            {/* Slot 3: Grant Analytics (merged Tiles 3+4+5) — wider */}
-            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-[2.5] min-w-0 overflow-hidden">
+            {/* Slot 3: Grant Analytics (Performance Only) */}
+            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-1 min-w-0 overflow-hidden">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
-              <div className="flex-1 flex flex-col md:flex-row gap-5 min-h-0 overflow-hidden">
-                {/* Left Column: Charts */}
-                <div className="flex-1 flex flex-col min-h-0 hidden md:flex">
-                  {/* Header row with button */}
-                  <div className="flex items-center justify-between mb-3 shrink-0">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.performance}</span>
-                    <button
-                      onClick={() => setIsGrantConfigOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
-                    >
-                      <Activity className="w-3 h-3" />
-                      {t.spawnSubagent}
-                    </button>
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    <GrantPipelineMini grants={grantsData} loading={grantsLoading} />
-                  </div>
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Header row with button */}
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.performance}</span>
+                  <button
+                    onClick={() => setIsGrantConfigOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
+                  >
+                    <Activity className="w-3 h-3" />
+                    {t.spawnSubagent}
+                  </button>
                 </div>
-
-                {/* Divider */}
-                <div className={`w-px shrink-0 hidden md:block ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200/60'}`} />
-
-                {/* Right Column: Suggested Grants */}
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  {/* Header row with button */}
-                  <div className="flex items-center justify-between mb-3 shrink-0">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.suggestedGrants}</span>
-                    <button
-                      onClick={() => router.push("/portal/dashboard/soltheory/grant-statuses")}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      {t.viewAllGrants}
-                    </button>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto">
-                    <SuggestedGrantsList grants={grantsData} loading={grantsLoading} />
-                  </div>
+                <div className="flex-1 min-h-0">
+                  <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
+                </div>
+                <div className="flex-1 min-h-0">
+                  <GrantPipelineMini grants={grantsData} loading={grantsLoading} />
                 </div>
               </div>
             </div>
             </CmsTileWrapper>
 
-            {/* Slot 4: Quick Overview — narrower */}
-            <CmsTileWrapper tileId="tile-7" tileName="Quick Overview" className="flex-[1.5] min-w-0">
-            <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden flex flex-col`}>
-              <QuickOverviewWidget />
-            </div>
+            {/* Slot 4: YouTube Feed Placeholder */}
+            <CmsTileWrapper tileId="tile-youtube" tileName="YouTube Feed" className="flex-1 min-w-0">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>YouTube Live Feed</span>
+                  <div className={`p-1.5 rounded-lg bg-red-500/10 text-red-500`}>
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                  </div>
+                </div>
+                <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
+                  <div className="flex gap-3">
+                    <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                    <div className="flex flex-col gap-2 pt-1 w-full">
+                      <div className={`h-2.5 w-3/4 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                      <div className={`h-2 w-1/2 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                    <div className="flex flex-col gap-2 pt-1 w-full">
+                      <div className={`h-2.5 w-2/3 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                      <div className={`h-2 w-1/3 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                    <div className="flex flex-col gap-2 pt-1 w-full">
+                      <div className={`h-2.5 w-5/6 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                      <div className={`h-2 w-1/2 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                    </div>
+                  </div>
+                </div>
+                <button className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  Connect YouTube
+                </button>
+              </div>
+            </CmsTileWrapper>
+
+            {/* Slot 5: Instagram Feed Placeholder */}
+            <CmsTileWrapper tileId="tile-instagram" tileName="Instagram Feed" className="flex-1 min-w-0">
+              <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>Instagram Feed</span>
+                  <div className="p-1.5 rounded-lg bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 text-white">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                  </div>
+                </div>
+                <div className={`mb-3 text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  — followers
+                </div>
+                <div className="flex-1 grid grid-cols-2 gap-2 min-h-0">
+                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                </div>
+                <button className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  Connect Instagram
+                </button>
+              </div>
             </CmsTileWrapper>
           </div>
 
