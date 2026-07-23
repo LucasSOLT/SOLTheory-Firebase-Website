@@ -430,8 +430,8 @@ export async function POST(req: Request) {
     const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream } = await req.json();
 
     // Validate model against whitelist, default to llama-3.3-70b
-    const ALLOWED_MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b', 'llama-3.1-8b-instant'];
-    const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.3-70b-versatile';
+    const ALLOWED_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+    const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.1-8b-instant';
 
     // Parse out scope prefixes for logic, but keep raw for database
     const agentId = (rawAgentId || "").replace("soltheory_", "").replace("nxtchapter_", "");
@@ -2095,33 +2095,8 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
 
     let finalResponse = sanitizeResponse(finalResponseText);
 
-    // --- QUALITY GUARDRAIL ---
-    // If the response to a substantive question is suspiciously short, re-generate with emphasis
-    const lastMsg = messages[messages.length - 1];
-    const lastText = (lastMsg?.content || '').toLowerCase().trim();
-    const isRealQuestion = lastText.length > 15 && (lastText.includes('?') || lastText.startsWith('why') || lastText.startsWith('how') || lastText.startsWith('what') || lastText.startsWith('explain') || lastText.startsWith('tell me') || lastText.startsWith('should') || lastText.includes('advice') || lastText.includes('recommend'));
-    const isTooShort = finalResponse.length < 80 && isRealQuestion && executedTools.length === 0; // Increased threshold from 40 → 80
-
-    if (isTooShort) {
-      console.log(`[QUALITY] Response too short (${finalResponse.length} chars) for substantive question. Re-generating...`);
-      try {
-        const qualityCompletion = await groq.chat.completions.create({
-          messages: [
-            { role: "system", content: "You are an expert AI assistant. The user has asked a substantive question. Provide a thorough, detailed, and insightful answer in at least 3-4 paragraphs. Include context, examples, and interesting details. Never output JSON or code. Be conversational and engaging." },
-            { role: "user", content: lastMsg?.content || "" }
-          ],
-          model: "llama-3.1-8b-instant",
-          temperature: 0.75,
-          max_tokens: 2048,
-        });
-        const qualityResponse = qualityCompletion.choices[0]?.message?.content;
-        if (qualityResponse && qualityResponse.length > finalResponse.length) {
-          finalResponse = sanitizeResponse(qualityResponse);
-        }
-      } catch (qualityErr) {
-        console.warn("[QUALITY] Re-generation failed, using original:", (qualityErr as any)?.message);
-      }
-    }
+    // Quality guardrail removed for speed — llama-3.1-8b-instant is fast enough
+    // that a single LLM call is preferable to the latency of a retry.
 
     // Self-refinement pass removed for speed — the primary LLM call with
     // enriched context already produces high-quality output.

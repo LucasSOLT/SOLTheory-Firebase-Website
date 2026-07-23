@@ -581,7 +581,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionInstructions, setSessionInstructions] = useState("");
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
+  const [selectedModel, setSelectedModel] = useState("llama-3.1-8b-instant");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [emailSearchQuery, setEmailSearchQuery] = useState('');
   const [tagFilterOpen, setTagFilterOpen] = useState(false);
@@ -2311,7 +2311,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               <div className="flex-1 min-w-0">
                 <div className={`text-[10px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Model</div>
                 <div className={`text-sm font-semibold truncate mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                  {[{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'openai/gpt-oss-120b',name:'GPT 120B'},{id:'openai/gpt-oss-20b',name:'GPT 20B'},{id:'qwen/qwen3.6-27b',name:'Qwen 3'}].find(m => m.id === selectedModel)?.name || 'Llama 3.3'}
+                  {[{id:'llama-3.1-8b-instant',name:'Llama 3.1 8B'},{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'openai/gpt-oss-120b',name:'GPT 120B'},{id:'openai/gpt-oss-20b',name:'GPT 20B'},{id:'qwen/qwen3.6-27b',name:'Qwen 3'}].find(m => m.id === selectedModel)?.name || 'Llama 3.1 8B'}
                 </div>
               </div>
               <svg className={`w-4 h-4 text-slate-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -2319,7 +2319,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             {isModelDropdownOpen && (
               <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
                 {[
-                  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best all-around model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
+                  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Fastest responses', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
+                  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best all-around model', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
                   { id: 'openai/gpt-oss-120b', name: 'GPT 120B', desc: 'Most powerful reasoning', tag: 'Pro', tagColor: 'bg-purple-50 text-purple-600' },
                   { id: 'openai/gpt-oss-20b', name: 'GPT 20B', desc: 'Lightweight & fast', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
                   { id: 'qwen/qwen3.6-27b', name: 'Qwen 3', desc: 'Advanced reasoning & math', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
@@ -2361,15 +2362,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin mt-2">
           {/* Agent Library Button */}
-          <button 
-            onClick={() => setShowAgentLibrary(true)} 
-            className={`w-full text-left p-3 rounded-xl border transition-colors flex items-center gap-3 mb-4 group ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700' : 'border-slate-300 bg-[#faf6ed] hover:bg-slate-100'}`}
-          >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
-              <Search className="w-4 h-4" />
-            </div>
-            <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Agent Library</span>
-          </button>
           
                     <div className="flex items-center justify-between mb-2 px-1">
                       <span className={`text-xs font-semibold uppercase tracking-widest ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Chat History</span>
@@ -2456,16 +2448,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               </button>
             </div>
             <div className="p-3">
-              {/* Agent Library Button (Mobile) */}
-              <button 
-                onClick={() => { setShowAgentLibrary(true); setIsMobileSidebarOpen(false); }} 
-                className={`w-full text-left p-3 rounded-xl border transition-colors flex items-center gap-3 mb-3 group ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700' : 'border-slate-300 bg-[#faf6ed] hover:bg-slate-100'}`}
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
-                  <Search className="w-4 h-4" />
-                </div>
-                <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Agent Library</span>
-              </button>
               
               <button onClick={() => { startNewSession(); setIsMobileSidebarOpen(false); }} className={`w-full text-left p-3 rounded-xl border border-dashed transition-colors flex items-center gap-3 group ${isDarkMode ? 'border-slate-600/50 bg-slate-800 hover:bg-slate-700' : 'border-slate-300/50 bg-[#faf6ed] hover:bg-slate-100'}`}>
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
