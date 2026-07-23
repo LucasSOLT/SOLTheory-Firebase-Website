@@ -627,8 +627,13 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
 
     // --- KNOWLEDGE BASE: TIERED INJECTION ---
     // TIER 1 (Always present): Org context + hardcoded knowledge (company-specific)
-    // Await org profile that was started earlier (parallelized)
-    orgProfileData = await orgProfilePromise;
+    // Await org profile that was started earlier (parallelized, capped at 2s)
+    const tOrg = Date.now();
+    orgProfileData = await Promise.race([
+      orgProfilePromise,
+      new Promise<null>(resolve => setTimeout(() => resolve(null), 2000))
+    ]);
+    console.log(`[PERF] Org profile fetch took ${Date.now() - tOrg}ms | hasData=${!!orgProfileData}`);
     let tier1Knowledge = "";
     const orgContext = buildOrgContext(orgProfileData, orgId);
     if (orgContext) {
@@ -647,15 +652,21 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     let tier2Knowledge = "";
     try {
       if (uid && agentId && userQueryForKB.trim().length > 3) {
-        const semanticChunks = await retrieveSemanticChunks(userQueryForKB, {
-          uid,
-          agentId,
-          orgId,
-          pactText: pactText || "",
-          orgBrainText: orgBrainText || "",
-          knowledgeBaseText: knowledgeBaseText || "",
-          maxResults: 8,
-        });
+        const t1 = Date.now();
+        const semanticTimeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Semantic retrieval timeout')), 2000));
+        const semanticChunks = await Promise.race([
+          retrieveSemanticChunks(userQueryForKB, {
+            uid,
+            agentId,
+            orgId,
+            pactText: pactText || "",
+            orgBrainText: orgBrainText || "",
+            knowledgeBaseText: knowledgeBaseText || "",
+            maxResults: 8,
+          }),
+          semanticTimeout
+        ]);
+        console.log(`[PERF] Semantic retrieval took ${Date.now() - t1}ms | chunks=${semanticChunks.length}`);
         if (semanticChunks.length > 0) {
           const docChunks = semanticChunks.filter(c => c.type === "document" || c.type === "text_entry");
           if (docChunks.length > 0) {
@@ -753,14 +764,22 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     // The model has web_search as a tool fallback if it needs real-time info.
     let enrichmentUrls: { url: string; title: string }[] = [];
 
-    const useTools = !!(gmail || calendar || docsApi || youtubeApi || uid);
+    // Smart tool detection: Only include tool definitions when the message
+    // actually suggests a tool action. This dramatically reduces input tokens
+    // and Groq processing time for casual conversation.
+    const hasToolApis = !!(gmail || calendar || docsApi || youtubeApi);
+    const toolHintPatterns = /\b(draft|send|email|mail|inbox|calendar|schedule|book|meeting|search|look up|google|youtube|video|survey|text|imessage|message|grant|delete|create|folder|block|forward|remember when|what did we|last time we|event|appointment|reschedule|cancel|unread)\b/i;
+    const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const messageNeedsTools = toolHintPatterns.test(lastUserText2);
+    const useTools = !!(hasToolApis || uid) && messageNeedsTools;
 
     console.log(`[DEBUG] agentId="${agentId}" rawAgentId="${rawAgentId}" isEmailAgent=${isEmailAgent} refreshToken=${refreshToken ? "YES" : "NO"}`);
-    console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools}`);
+    console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools} messageNeedsTools=${messageNeedsTools}`);
 
-    // ── STANDARD PATH ──
-    // PASS 1: Generate Standard Response OR Tool Target (non-streaming to detect tool calls)
+    // ── PASS 1: Generate Response or Tool Target ──
+    const t0 = Date.now();
     let completion: any = await createCompletionWithRetry(groqMessages, useTools);
+    console.log(`[PERF] Groq completion took ${Date.now() - t0}ms | model=${selectedModel} useTools=${useTools}`);
 
     let responseMessage = completion.choices[0]?.message;
     console.log(`[DEBUG] LLM response: tool_calls=${responseMessage?.tool_calls?.length || 0} content_length=${responseMessage?.content?.length || 0}`);
