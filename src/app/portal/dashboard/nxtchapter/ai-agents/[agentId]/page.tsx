@@ -787,7 +787,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         return true;
       });
       if (currentEntries.length !== beforePurge) {
-        await updateDoc(userDocRef, { pact_entries_soltheory: currentEntries });
+        const sanitized = currentEntries.map((e: any) => JSON.parse(JSON.stringify(e)));
+        await updateDoc(userDocRef, { pact_entries_soltheory: sanitized });
       }
 
       // Phase 2: Evaluate active (non-marked) entries via LLM
@@ -946,7 +947,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const remaining = pactEntries.filter(e => !(e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS));
         setPactEntries(remaining);
         import("firebase/firestore").then(({ doc, updateDoc }) => {
-          updateDoc(doc(firestore, "users", user.uid), { pact_entries_soltheory: remaining }).catch(console.error);
+          const sanitized = remaining.map((e: any) => JSON.parse(JSON.stringify(e)));
+          updateDoc(doc(firestore, "users", user.uid), { pact_entries_soltheory: sanitized }).catch(console.error);
         });
       }
     }, 60000);
@@ -964,7 +966,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         setOrgBrain(snap.data()?.orgBrain || "");
       }
       setOrgBrainLoaded(true);
-    } catch (err) { console.error("Failed to load org brain", err); setOrgBrainLoaded(true); }
+    } catch (err) { /* org brain read may fail due to Firestore security rules — non-critical */ setOrgBrainLoaded(true); }
   };
 
   const saveOrgBrain = async () => {
