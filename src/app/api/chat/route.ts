@@ -668,13 +668,13 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       console.warn("[KB] Semantic retrieval failed, falling back to full injection:", (kbErr as any)?.message);
       // Fallback: use client-provided knowledge base text (capped)
       if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
-        tier2Knowledge = knowledgeBaseText.substring(0, 30000);
+        tier2Knowledge = knowledgeBaseText.substring(0, 8000);
       }
     }
 
     // Fallback: if semantic retrieval returned nothing but client sent KB text, include it
     if (!tier2Knowledge && knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
-      tier2Knowledge = knowledgeBaseText.substring(0, 30000);
+      tier2Knowledge = knowledgeBaseText.substring(0, 8000);
     }
 
     // Inject combined knowledge
@@ -682,16 +682,16 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     if (combinedKnowledge.length > 0) {
       groqMessages.push({
         role: "system",
-        content: `IMPORTANT INSTRUCTION REGARDING KNOWLEDGE BASE:\nThe user has provided factual reference data for you below. You MUST use this data to confidently and AUTHORITATIVELY answer their questions. Present knowledge base facts with confidence — say "According to your documents..." or "Based on your knowledge base..." rather than hedging with "I think" or "It seems".\n\nDo NOT hallucinate tool calls or attempt to use the 'search' tool for this data — it is already provided below. Do not mention reading from a knowledge base unless asked. Do NOT say "I don't have information on..." if the answer is within the knowledge base.\n\n<knowledge_base>\n${combinedKnowledge.substring(0, 50000)}\n</knowledge_base>`
+        content: `[KNOWLEDGE BASE]\nUse this data to answer questions authoritatively. Present facts with confidence. Do NOT hallucinate tool calls for this data.\n\n<knowledge_base>\n${combinedKnowledge.substring(0, 12000)}\n</knowledge_base>`
       });
     }
 
     // --- P.A.C.T.: Personalized AI Conversation Training (Tiered Proactive Memory) ---
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      const cappedPact = pactText.substring(0, 15000);
+      const cappedPact = pactText.substring(0, 6000);
       groqMessages.push({
         role: "system",
-        content: `[ACTIVE MEMORY — Personalized User Context]\nYou have learned the following facts about this specific user from previous conversations. Use them according to these tiers:\n\nTIER 1 — PROACTIVE RECALL (Use naturally when the moment is right):\nWhen the user is discussing a topic that directly relates to a fact below, WEAVE IT IN naturally to show you remember and understand them. Example: If the user says "I need to plan a trip" and you know they live in Denver, you might say "Since you're based in Denver, here are some great options..."\n\nTIER 2 — CONTEXTUAL AWARENESS (Use to personalize responses):\nUse these facts to tailor your advice, examples, and recommendations. If you know their industry, frame business advice in that context. If you know their goals, connect your suggestions to those goals. If you know their team members, reference them by name when relevant.\n\nTIER 3 — PASSIVE KNOWLEDGE (Only when directly asked):\nFacts about routine details, old preferences, etc. — use only when explicitly relevant.\n\nRULES:\n- NEVER interrogate the user about these facts ("Did X go well?", "How's Y going?")\n- DO use them to make responses feel personalized and thoughtful — the user should feel understood\n- ALWAYS trust the user's current statement over stored facts (facts may be outdated)\n- Never say "I don't know anything about you" if facts exist below\n- Your goal is to be like a brilliant friend who naturally remembers what matters\n\n${cappedPact}`
+        content: `[USER MEMORY]\nFacts about this user from previous conversations. Weave them in naturally when relevant. Never interrogate the user about these facts. Trust the user's current statement over stored facts.\n\n${cappedPact}`
       });
     }
 
@@ -699,26 +699,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     // Keep the conversation focused by managing message history intelligently
     const MAX_CONTEXT_MESSAGES = 32; // Expanded from 24 → 32 for better continuity
 
-    // Extract conversation topics for continuity across the entire conversation
-    const allTopics = messages.map((m: any) => {
-      const text = (m.content || '').toLowerCase();
-      // Extract key nouns/topics by finding capitalized words and longer terms
-      const words = (m.content || '').match(/\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)*/g) || [];
-      return words;
-    }).flat();
-    const topicCounts: Record<string, number> = {};
-    allTopics.forEach((t: string) => { topicCounts[t] = (topicCounts[t] || 0) + 1; });
-    const topTopics = Object.entries(topicCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 15)
-      .map(([topic]) => topic);
-
-    if (topTopics.length > 0) {
-      groqMessages.push({
-        role: "system",
-        content: `[CONVERSATION TOPIC TRACKER]: Key topics discussed in this conversation so far: ${topTopics.join(', ')}. Use this awareness to maintain coherent, connected responses that reference earlier discussion points when relevant.`
-      });
-    }
+    // Topic tracker removed for speed — minimal benefit, adds prompt tokens
 
     if (messages.length > MAX_CONTEXT_MESSAGES) {
       const oldMessages = messages.slice(0, messages.length - MAX_CONTEXT_MESSAGES);
@@ -764,80 +745,12 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     ];
     const isSubstantiveQuestion = lastUserText.length > 25 && !isTaskCommand && questionIndicators.some(Boolean);
 
-    if (isSubstantiveQuestion) {
-      groqMessages.push({
-        role: "system",
-        content: `[STRUCTURED REASONING FRAMEWORK — Apply for this response]:
+    // Reasoning framework removed for speed — the soul prompt already defines behavior.
+    // Tavily enrichment removed — always times out and the model has web_search as a tool fallback.
 
-Step 1 — UNDERSTAND: What exactly is the user asking? Identify the core question, any implicit sub-questions, and the domain (business, personal, technical, creative).
-
-Step 2 — RECALL: What do I know about this from my knowledge base, user memory (PACT), org brain, and conversation history? Cross-reference multiple sources. If the knowledge base has relevant content, anchor your response in it.
-
-Step 3 — ANALYZE: Consider multiple angles, counterarguments, edge cases, and surprising connections. What would an expert in this field say that a generalist wouldn't? What's the contrarian or non-obvious take?
-
-Step 4 — SYNTHESIZE: Combine insights into a cohesive, structured answer. Lead with the most valuable insight. Use analogies and examples to make abstract concepts concrete. Connect to the user's specific context and goals.
-
-Step 5 — VERIFY: Does my answer actually address what they asked? Am I being specific or generic? Would this response impress a knowledgeable person? If my answer could apply to anyone, it needs more specificity.
-
-Deliver the response directly — do NOT output these steps. Show your brilliance through the quality of the answer itself.`
-      });
-    }
-
-    // --- PROACTIVE CONTEXT ENRICHMENT (NON-BLOCKING) ---
-    // Fire Tavily search in parallel but only wait up to 500ms.
-    // If it doesn't return in time, skip it — the model has web_search as a tool.
+    // Tavily enrichment removed for speed — always timed out and added 400ms+ latency.
+    // The model has web_search as a tool fallback if it needs real-time info.
     let enrichmentUrls: { url: string; title: string }[] = [];
-    if (isSubstantiveQuestion && process.env.TAVILY_API_KEY) {
-      try {
-        const searchQuery = (lastUserMsg?.content || '').substring(0, 200);
-        console.log(`[ENRICHMENT] Non-blocking search for: "${searchQuery.substring(0, 60)}..."`);
-
-        const ENRICHMENT_TIMEOUT_MS = 400; // Fast timeout — the model has web_search as a tool fallback
-        const tavilyPromise = fetch("https://api.tavily.com/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            api_key: process.env.TAVILY_API_KEY,
-            query: searchQuery,
-            search_depth: "basic",
-            include_answer: true,
-            max_results: 3,
-          }),
-        }).then(async (res) => {
-          if (!res.ok) return null;
-          return res.json();
-        });
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), ENRICHMENT_TIMEOUT_MS));
-
-        const enrichData = await Promise.race([tavilyPromise, timeoutPromise]);
-
-        if (enrichData) {
-          const results = enrichData.results || [];
-          enrichmentUrls = results
-            .filter((r: any) => r.url && r.title)
-            .slice(0, 3)
-            .map((r: any) => ({ url: r.url, title: r.title }));
-
-          const snippets = results.map((r: any) =>
-            `**${r.title}** (${r.url}):\n${(r.content || '').substring(0, 350)}`
-          ).join('\n\n');
-          const enrichContext = enrichData.answer
-            ? `Summary: ${enrichData.answer}\n\nDetailed sources:\n${snippets}`
-            : snippets;
-          if (enrichContext.trim().length > 20) {
-            groqMessages.push({
-              role: "system",
-              content: `[REAL-TIME WEB RESEARCH]: The following is verified, up-to-date information from authoritative web sources. Use this data to provide accurate, detailed answers. Synthesize information from multiple sources for depth. Do NOT mention that you received web context — present the knowledge as your own expertise.\n\n${enrichContext.substring(0, 4000)}`
-            });
-            console.log(`[ENRICHMENT] Injected ${enrichContext.length} chars of web context from ${results.length} sources`);
-          }
-        } else {
-          console.log(`[ENRICHMENT] Skipped — Tavily did not respond within ${ENRICHMENT_TIMEOUT_MS}ms`);
-        }
-      } catch (enrichErr) {
-        console.warn("[ENRICHMENT] Proactive search failed (non-fatal):", (enrichErr as any)?.message);
-      }
-    }
 
     const useTools = !!(gmail || calendar || docsApi || youtubeApi || uid);
 
