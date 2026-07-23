@@ -581,7 +581,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionInstructions, setSessionInstructions] = useState("");
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("llama-3.1-8b-instant");
+  const [selectedModel, setSelectedModel] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('soltheory_selectedModel') || 'llama-3.1-8b-instant';
+    }
+    return 'llama-3.1-8b-instant';
+  });
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [emailSearchQuery, setEmailSearchQuery] = useState('');
   const [tagFilterOpen, setTagFilterOpen] = useState(false);
@@ -593,6 +598,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isAgentRequestModalOpen, setIsAgentRequestModalOpen] = useState(false);
   const [agentRequestForm, setAgentRequestForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [isSubmittingAgentRequest, setIsSubmittingAgentRequest] = useState(false);
+
+  // Persist model selection to localStorage
+  useEffect(() => {
+    localStorage.setItem('soltheory_selectedModel', selectedModel);
+  }, [selectedModel]);
 
   const submitAgentRequest = async () => {
     if (!agentRequestForm.name || !agentRequestForm.email || !agentRequestForm.message) {

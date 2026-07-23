@@ -976,9 +976,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   };
 
 
-
-
-
+  // Collapse sidebar when voice modal opens, restore when it closes
+  React.useEffect(() => {
+    if (!isOpen) return;
+    window.dispatchEvent(new CustomEvent('soltheory-sidebar-toggle', { detail: { action: 'collapse' } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('soltheory-sidebar-toggle', { detail: { action: 'restore' } }));
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -1122,13 +1127,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     { value: 3000, label: 'Relaxed' },
   ];
 
-    // Collapse sidebar when voice modal opens, restore when it closes
-    React.useEffect(() => {
-      window.dispatchEvent(new CustomEvent('soltheory-sidebar-toggle', { detail: { action: 'collapse' } }));
-      return () => {
-        window.dispatchEvent(new CustomEvent('soltheory-sidebar-toggle', { detail: { action: 'restore' } }));
-      };
-    }, []);
 
     return (
     <div className="fixed inset-0 z-[200] bg-[#0a0a18] flex flex-col animate-in fade-in duration-300 h-[100dvh] max-h-[100dvh]">
