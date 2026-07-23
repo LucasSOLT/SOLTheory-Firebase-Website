@@ -770,52 +770,60 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
 
     // ── TRUE STREAMING FAST PATH ──
     // If client wants streaming AND the LLM did NOT request any tools,
-    // skip all post-processing and re-stream directly from Groq for instant tokens.
-    // This cuts perceived latency from 10-20s to ~500ms for simple Q&A.
+    // stream the already-completed response immediately. No second Groq call needed.
     if (wantStream && !responseMessage?.tool_calls && responseMessage?.content) {
-      console.log(`[STREAM] True streaming fast path — no tool calls detected, re-streaming from Groq with model: ${selectedModel}`);
-      const lastMsg = groqMessages.filter((m: any) => m.role === 'user').pop();
-      const queryLen = (lastMsg?.content || '').length;
-      const dynamicMaxTokens = queryLen > 200 ? 4096 : queryLen > 80 ? 2048 : 1024;
+      console.log(`[STREAM] Fast path — no tool calls, streaming completed response (${responseMessage.content.length} chars) with model: ${selectedModel}`);
 
-      const streamCompletion = await groq.chat.completions.create({
-        messages: groqMessages,
-        model: selectedModel,
-        temperature: 0.7,
-        top_p: 0.9,
-        max_tokens: dynamicMaxTokens,
-        stream: true,
-      });
+      // Sanitize the response before streaming
+      const sanitizeResponse = (text: string): string => {
+        if (!text) return text;
+        let clean = text.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file|web_search)[^>]*>/gi, '');
+        clean = clean.replace(/\{\s*"(?:query|folderName|to|subject|body|title|date|time|description|videoTitle|content|searchQuery|fileId|type|name|function|arguments|tool_call)"\s*:(?:[^{}]|\{[^{}]*\})*\}/g, '');
+        clean = clean.replace(/\[\s*\{\s*"(?:query|type|name|function)"[^\]]*\]\s*/g, '');
+        clean = clean.replace(/```(?:json)?\s*\{[^`]*\}\s*```/gi, '');
+        clean = clean.replace(/^\s*[\[{]\s*"[^"]+"\s*:.*[}\]]\s*$/gm, '');
+        clean = clean.replace(/\n{3,}/g, '\n\n').trim();
+        if (clean.length < 5) clean = "I'm sorry, I wasn't able to process that properly. Could you try rephrasing your question?";
+        return clean;
+      };
 
+      const responseText = sanitizeResponse(responseMessage.content);
       const encoder = new TextEncoder();
-      let streamedTokenCount = 0;
+      const inputTokens = completion?.usage?.prompt_tokens || 0;
+      const outputTokens = completion?.usage?.completion_tokens || 0;
+      const totalTokens = completion?.usage?.total_tokens || 0;
+
+      // Retrieve knowledge base citations
+      const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+      const citations = lastUserMessage
+        ? retrieveRelevantSnippets(lastUserMessage.content || '', {
+            pactText: pactText || '',
+            knowledgeBaseText: knowledgeBaseText || '',
+            orgBrainText: orgBrainText || '',
+          })
+        : [];
+
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
-            for await (const chunk of streamCompletion) {
-              const token = chunk.choices[0]?.delta?.content || '';
-              if (token) {
-                streamedTokenCount++;
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token })}\n\n`));
+            // Stream the response in small word chunks for natural typing feel
+            const words = responseText.split(/(?<=\s)/);
+            let wordBuffer = '';
+            for (let i = 0; i < words.length; i++) {
+              wordBuffer += words[i];
+              if (wordBuffer.length >= 6 || i === words.length - 1) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: wordBuffer })}\n\n`));
+                wordBuffer = '';
               }
             }
-            // Retrieve knowledge base citations
-            const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
-            const citations = lastUserMessage
-              ? retrieveRelevantSnippets(lastUserMessage.content || '', {
-                  pactText: pactText || '',
-                  knowledgeBaseText: knowledgeBaseText || '',
-                  orgBrainText: orgBrainText || '',
-                })
-              : [];
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({
               done: true,
-              usage: streamedTokenCount,
+              usage: totalTokens,
               citations: citations.length > 0 ? citations : undefined,
             })}\n\n`));
             controller.close();
           } catch (streamErr: any) {
-            console.error('[STREAM] True streaming error:', streamErr?.message || streamErr);
+            console.error('[STREAM] Error:', streamErr?.message || streamErr);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`));
             controller.close();
           }
@@ -830,10 +838,10 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
           model: selectedModel,
           provider: 'groq',
           endpoint: '/api/chat',
-          inputTokens: completion?.usage?.prompt_tokens || 0,
-          outputTokens: streamedTokenCount,
-          totalTokens: (completion?.usage?.prompt_tokens || 0) + streamedTokenCount,
-          costUsd: calculateGroqCost(selectedModel, completion?.usage?.prompt_tokens || 0, streamedTokenCount),
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          costUsd: calculateGroqCost(selectedModel, inputTokens, outputTokens),
           timestamp: new Date(),
         });
       } catch (logErr) {
