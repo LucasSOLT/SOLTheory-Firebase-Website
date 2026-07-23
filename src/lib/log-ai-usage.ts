@@ -39,6 +39,8 @@ export function calculateElevenLabsCost(characterCount: number): number {
 }
 
 export async function logAIUsage(entry: AIUsageEntry) {
+  // Skip logging if no admin credentials — avoids 10s+ blocking on Vercel
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT) return;
   try {
     await initAdmin();
     const db = getAdminFirestore();

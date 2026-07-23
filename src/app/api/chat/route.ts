@@ -446,8 +446,8 @@ export async function POST(req: Request) {
 
     // Read org profile from Firestore for dynamic context
     let orgProfileData: any = null;
-    // Kick off org profile fetch early — will be awaited alongside semantic KB later
-    const orgProfilePromise = (async () => {
+    // Kick off org profile fetch early — but SKIP if no admin credentials (Vercel)
+    const orgProfilePromise = process.env.FIREBASE_SERVICE_ACCOUNT ? (async () => {
       try {
         await initAdmin();
         const adminDb = getAdminFirestore();
@@ -457,7 +457,7 @@ export async function POST(req: Request) {
         console.warn('[chat] Could not load org profile:', e);
       }
       return null;
-    })();
+    })() : Promise.resolve(null);
 
     let agentRole = "";
     switch (agentId) {
