@@ -388,27 +388,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           }
         }
 
-        // Pre-flight: check if microphone permission is permanently denied
-        let permissionState: string | null = null;
-        try {
-          if (navigator?.permissions?.query) {
-            const permStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-            permissionState = permStatus.state;
-            console.log(`[VOICE] Microphone permission state: ${permissionState}`);
-          }
-        } catch {
-          // permissions.query not supported in all browsers — continue to getUserMedia
-        }
-
-        if (permissionState === 'denied') {
-          setTranscriptLines(prev => [...prev, { 
-            text: "🎙️ Microphone access is blocked for this site. To fix: click the lock/tune icon 🔒 in the URL bar → find 'Microphone' → change to 'Allow' → then close and reopen this voice session.", 
-            isUser: false 
-          }]);
-          return;
-        }
-
-        // Request microphone access
+        // Request microphone access — go straight to getUserMedia
+        // (navigator.permissions.query is unreliable and can report stale 'denied' state
+        // even when the user has since allowed mic access via browser settings)
         let stream: MediaStream;
         try {
           if (!navigator?.mediaDevices?.getUserMedia) {

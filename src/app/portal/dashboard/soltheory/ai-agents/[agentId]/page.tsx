@@ -2703,22 +2703,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                     ))}
                     {isTyping && (
-                      <div className="flex gap-2 sm:gap-4">
-                        {/* Pending citation bubbles — to the left of thinking bubble */}
-                        {pendingCitations.length > 0 && (
-                          <div className="hidden sm:flex flex-col gap-1.5 items-end justify-end max-w-[180px] shrink-0 animate-in fade-in slide-in-from-left-2 duration-700">
-                            {pendingCitations.map((cite, ci) => (
-                              <div key={ci} className="border border-dashed border-slate-300/80 rounded-lg px-2.5 py-1.5 text-[10px] leading-tight text-slate-400 bg-white/40 backdrop-blur-sm max-w-full animate-in fade-in slide-in-from-left-1 duration-500" style={{ animationDelay: `${ci * 150}ms` }}>
-                                <div className="font-bold text-[9px] uppercase tracking-wider text-slate-400/70 mb-0.5">{cite.source}</div>
-                                <div className="line-clamp-2">{cite.text}</div>
-                              </div>
-                            ))}
+                      <div className="flex gap-2 sm:gap-4 justify-start">
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-slate-300 bg-slate-200/50`}><Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /></div>
+                        <div className="space-y-1 pt-1 min-w-0 max-w-[85%] sm:max-w-[80%]">
+                          <div className={`inline-block p-3 sm:p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg} flex items-center gap-3`}>
+                            <Loader2 className={`w-4 h-4 animate-spin ${agent.accent}`} />
+                            <span key={loadingPhraseIndex} className="animate-in fade-in duration-500 text-sm text-slate-600">{LOADING_PHRASES[loadingPhraseIndex % LOADING_PHRASES.length]}</span>
                           </div>
-                        )}
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-slate-300  bg-slate-200/50 `}><Bot className={`w-5 h-5 ${agent.accent}`} /></div>
-                        <div className={`inline-block p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg} flex items-center gap-3`}>
-                          <Loader2 className={`w-4 h-4 animate-spin ${agent.accent}`} />
-                          <span key={loadingPhraseIndex} className="animate-in fade-in duration-500 text-sm text-slate-600">{LOADING_PHRASES[loadingPhraseIndex % LOADING_PHRASES.length]}</span>
+                          {/* Pending citation bubbles — stacked below thinking bubble */}
+                          {pendingCitations.length > 0 && (
+                            <div className="flex flex-col gap-1 mt-1.5 animate-in fade-in duration-500">
+                              {pendingCitations.map((cite, ci) => (
+                                <div key={ci} className="border border-dashed border-slate-300/80 rounded-lg px-2 py-1 text-[10px] leading-tight text-slate-400 bg-white/40 backdrop-blur-sm max-w-[200px] animate-in fade-in slide-in-from-left-1 duration-500" style={{ animationDelay: `${ci * 150}ms` }}>
+                                  <span className="font-bold text-[9px] uppercase tracking-wider text-slate-400/70 mr-1">{cite.source}:</span>
+                                  <span className="line-clamp-1">{cite.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
