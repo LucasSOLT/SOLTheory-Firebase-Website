@@ -388,7 +388,27 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           }
         }
 
-        // Try with ideal constraints first, fall back to basic if device doesn't support them
+        // Pre-flight: check if microphone permission is permanently denied
+        let permissionState: string | null = null;
+        try {
+          if (navigator?.permissions?.query) {
+            const permStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+            permissionState = permStatus.state;
+            console.log(`[VOICE] Microphone permission state: ${permissionState}`);
+          }
+        } catch {
+          // permissions.query not supported in all browsers — continue to getUserMedia
+        }
+
+        if (permissionState === 'denied') {
+          setTranscriptLines(prev => [...prev, { 
+            text: "🎙️ Microphone access is blocked for this site. To fix: click the lock/tune icon 🔒 in the URL bar → find 'Microphone' → change to 'Allow' → then close and reopen this voice session.", 
+            isUser: false 
+          }]);
+          return;
+        }
+
+        // Request microphone access
         let stream: MediaStream;
         try {
           if (!navigator?.mediaDevices?.getUserMedia) {
@@ -403,6 +423,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           if (constraintErr?.name === 'NotAllowedError' || constraintErr?.name === 'NotFoundError') {
             throw constraintErr;
           }
+          console.warn('[VOICE] Retrying with basic audio constraints:', constraintErr?.message);
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
 
@@ -630,12 +651,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         // On iOS Safari, routing audio element output through createMediaElementSource often causes it
         // to be completely muted, crackly, or forced to the low-volume earpiece. Playing it directly is 100% stable.
       } catch (err: any) {
-        console.error("Microphone access denied:", err);
+        console.error("[VOICE] Microphone init failed:", err?.name, err?.message);
         const errorMsg = err?.name === 'NotAllowedError' 
-          ? "Microphone permission was denied. Please allow microphone access in your browser settings and try again."
+          ? "🎙️ Microphone access was denied. To fix: click the lock/tune icon 🔒 in the URL bar → find 'Microphone' → change to 'Allow' → then refresh the page and try again."
           : err?.name === 'NotFoundError'
-          ? "No microphone was found on your device. Please connect a microphone and try again."
-          : "Unable to access your microphone. Please check your device settings and try again.";
+          ? "🎤 No microphone found. Please connect a microphone to your device and try again."
+          : err?.message?.includes('HTTPS')
+          ? "🔒 Microphone requires a secure (HTTPS) connection. Please access this site via HTTPS."
+          : `⚠️ Unable to access your microphone (${err?.name || 'unknown error'}). Please check your browser and device settings.`;
         setTranscriptLines(prev => [...prev, { text: errorMsg, isUser: false }]);
       }
     };
