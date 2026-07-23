@@ -604,6 +604,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     localStorage.setItem('soltheory_selectedModel', selectedModel);
   }, [selectedModel]);
 
+  // Pre-warm server connections on dashboard load (eliminates cold-start on first message)
+  useEffect(() => {
+    const warmup = async () => {
+      try {
+        const headers = await getAuthHeaders();
+        fetch('/api/warmup', { headers }).catch(() => {});
+      } catch {}
+    };
+    warmup();
+  }, []);
+
   const submitAgentRequest = async () => {
     if (!agentRequestForm.name || !agentRequestForm.email || !agentRequestForm.message) {
       alert("Name, Email, and Message are required fields.");

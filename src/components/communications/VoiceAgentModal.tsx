@@ -395,10 +395,14 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             throw new Error('Media devices not available. Please use HTTPS.');
           }
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 16000, channelCount: 1 }
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
           });
-        } catch {
-          // Fallback: some devices/browsers don't support constraints
+        } catch (constraintErr: any) {
+          // Only retry with basic constraints for device/constraint errors
+          // Re-throw permission errors (NotAllowedError, NotFoundError) immediately
+          if (constraintErr?.name === 'NotAllowedError' || constraintErr?.name === 'NotFoundError') {
+            throw constraintErr;
+          }
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
 
