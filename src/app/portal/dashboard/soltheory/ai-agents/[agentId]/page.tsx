@@ -646,6 +646,40 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   };
 
   const [agentContacts, setAgentContacts] = useState<AgentContact[]>([]);
+  const [crmContacts, setCrmContacts] = useState<string>("");
+
+  // Fetch CRM contacts for Jarvis context (so users can ask about their CRM data)
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const fetchCrm = async () => {
+      try {
+        const crmRef = collection(firestore, `orgs/soltheory/crm-instances/default/contacts`);
+        const snap = await getDocs(query(crmRef, firestoreLimit(50)));
+        if (snap.empty) return;
+        const lines = snap.docs.map(d => {
+          const c = d.data();
+          const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || '';
+          const parts = [`Name: ${name}`];
+          if (c.email) parts.push(`Email: ${c.email}`);
+          if (c.phone) parts.push(`Phone: ${c.phone}`);
+          if (c.mobilePhone) parts.push(`Mobile: ${c.mobilePhone}`);
+          if (c.company) parts.push(`Company: ${c.company}`);
+          if (c.jobTitle) parts.push(`Title: ${c.jobTitle}`);
+          if (c.location) parts.push(`Location: ${c.location}`);
+          if (c.leadStatus) parts.push(`Status: ${c.leadStatus}`);
+          if (c.tags && Array.isArray(c.tags) && c.tags.length > 0) parts.push(`Tags: ${c.tags.join(', ')}`);
+          if (c.aiNotes) parts.push(`Notes: ${c.aiNotes.substring(0, 200)}`);
+          if (c.totalRevenue) parts.push(`Revenue: $${c.totalRevenue}`);
+          return parts.join(' | ');
+        }).filter(l => l.length > 10);
+        setCrmContacts(lines.join('\n'));
+        console.log(`[CRM] Loaded ${lines.length} contacts for Jarvis context`);
+      } catch (err) {
+        console.warn('[CRM] Failed to load contacts:', (err as any)?.message);
+      }
+    };
+    fetchCrm();
+  }, [firestore, user?.uid]);
 
   const toggleSelection = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -1591,6 +1625,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           pactText,
           userName: user?.displayName || undefined,
           model: selectedModel,
+          crmData: crmContacts || undefined,
           stream: true,
         }),
       });
@@ -1803,7 +1838,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               uid: user?.uid,
               pactText,
               userName: user?.displayName || undefined,
-              model: selectedModel
+              model: selectedModel,
+              crmData: crmContacts || undefined
             }),
           });
           const retryData = await retryRes.json();
@@ -1881,7 +1917,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           orgBrainText: orgBrain,
           pactText,
           userName: user?.displayName || undefined,
-          model: selectedModel
+          model: selectedModel,
+          crmData: crmContacts || undefined
         }),
       });
       const data = await res.json();
@@ -3082,7 +3119,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               orgBrainText: orgBrain,
               pactText,
               userName: user?.displayName || undefined,
-              model: selectedModel
+              model: selectedModel,
+              crmData: crmContacts || undefined
             }),
           });
           const data = await res.json();

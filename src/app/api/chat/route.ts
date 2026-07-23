@@ -427,7 +427,7 @@ export async function POST(req: Request) {
   const auth = await verifyRequest(req);
   if (!auth.ok) return auth.response;
   try {
-    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream } = await req.json();
+    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData } = await req.json();
 
     // Validate model against whitelist, default to llama-3.3-70b
     const ALLOWED_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
@@ -705,6 +705,16 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
         role: "system",
         content: `[USER MEMORY]\nFacts about this user from previous conversations. Weave them in naturally when relevant. Never interrogate the user about these facts. Trust the user's current statement over stored facts.\n\n${cappedPact}`
       });
+    }
+
+    // --- CRM DATABASE: Inject user's CRM contacts so Jarvis can answer questions about them ---
+    if (crmData && typeof crmData === "string" && crmData.trim().length > 0) {
+      const cappedCrm = crmData.substring(0, 8000);
+      groqMessages.push({
+        role: "system",
+        content: `[CRM DATABASE]\nThe user's CRM contacts are listed below. When they ask about a contact's phone number, email, company, status, or any other detail, answer confidently from this data. You can also reference this to look up names, companies, or contact info.\n\n${cappedCrm}`
+      });
+      console.log(`[CRM] Injected ${cappedCrm.length} chars of CRM data into context`);
     }
 
     // --- SMART CONTEXT WINDOW MANAGEMENT ---

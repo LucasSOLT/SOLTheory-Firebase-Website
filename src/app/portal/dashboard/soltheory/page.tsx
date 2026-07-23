@@ -517,6 +517,8 @@ export default function SolTheoryDashboard() {
           <a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-slate-600'}`}>{t.privacyPolicy}</a>
           <span className={`${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>·</span>
           <button onClick={() => window.dispatchEvent(new Event('open-welcome-walkthrough'))} className={`transition-colors cursor-pointer ${isDarkMode ? 'hover:text-white' : 'hover:text-slate-600'}`}>{t.howToUseInsight}</button>
+          <span className={`${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>·</span>
+          <span className={`${isDarkMode ? 'text-slate-600' : 'text-slate-400/60'} font-mono text-[10px]`}>v2.6.1</span>
         </div>
       </footer>
 
