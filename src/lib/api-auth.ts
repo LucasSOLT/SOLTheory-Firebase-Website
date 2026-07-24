@@ -127,6 +127,18 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
     return { ok: true, uid: auth.uid, email: auth.email };
   }
 
+  // Check email domain first — this doesn't require Firestore and covers the common case
+  try {
+    const { getOrgByEmailDomain, getAllOrgIds } = await import("@/lib/org-config");
+    const domainOrg = getOrgByEmailDomain(auth.email);
+    if (domainOrg && domainOrg.id === orgId) {
+      return { ok: true, uid: auth.uid, email: auth.email };
+    }
+  } catch (configErr: any) {
+    console.error("[API Auth] org-config import failed:", configErr.message);
+  }
+
+  // Check Firestore user document for allowedOrgs / organization field
   try {
     initAdmin();
     const { getFirestore } = await import("firebase-admin/firestore");
@@ -134,8 +146,19 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
     const userDoc = await db.collection("users").doc(auth.uid).get();
     const userData = userDoc.data();
 
+    if (!userData) {
+      console.warn(`[API Auth] No user document found for uid=${auth.uid}, email=${auth.email}`);
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "User profile not found. Please contact your administrator." },
+          { status: 403 }
+        ),
+      };
+    }
+
     // Check frozen status
-    if (userData?.frozenAt) {
+    if (userData.frozenAt) {
       return {
         ok: false,
         response: NextResponse.json(
@@ -146,36 +169,32 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
     }
 
     // Check org membership — handle both array and string allowedOrgs
-    const rawAllowed = userData?.allowedOrgs;
+    const rawAllowed = userData.allowedOrgs;
     const allowedOrgs: string[] = Array.isArray(rawAllowed) ? rawAllowed : (typeof rawAllowed === "string" ? [rawAllowed] : []);
 
-    // Fallback: if allowedOrgs not yet set, check legacy `organization` field
-    // Legacy field stores display names like "SOL Theory" — fuzzy-match against known org IDs
-    let hasAccess = allowedOrgs.includes(orgId);
-    if (!hasAccess && userData?.organization) {
+    if (allowedOrgs.includes(orgId)) {
+      return { ok: true, uid: auth.uid, email: auth.email };
+    }
+
+    // Fallback: check legacy `organization` field with fuzzy matching
+    // Legacy field stores display names like "SOL Theory" — normalize and check
+    if (userData.organization) {
       const orgVal = userData.organization.toLowerCase().replace(/\s+/g, "");
-      hasAccess = orgVal.includes(orgId) || orgId === orgVal;
-    }
-    // Final fallback: check if the user's email domain maps to the requested org
-    if (!hasAccess && auth.email) {
-      const { getOrgByEmailDomain } = await import("@/lib/org-config");
-      const domainOrg = getOrgByEmailDomain(auth.email);
-      if (domainOrg && domainOrg.id === orgId) hasAccess = true;
+      if (orgVal.includes(orgId) || orgId === orgVal) {
+        return { ok: true, uid: auth.uid, email: auth.email };
+      }
     }
 
-    if (!hasAccess) {
-      return {
-        ok: false,
-        response: NextResponse.json(
-          { error: "Forbidden — you do not have access to this organization" },
-          { status: 403 }
-        ),
-      };
-    }
-
-    return { ok: true, uid: auth.uid, email: auth.email };
+    console.warn(`[API Auth] Org access denied: uid=${auth.uid}, email=${auth.email}, orgId=${orgId}, allowedOrgs=${JSON.stringify(allowedOrgs)}, organization=${userData.organization || "none"}`);
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Forbidden — you do not have access to this organization" },
+        { status: 403 }
+      ),
+    };
   } catch (err: any) {
-    console.error("[API Auth] Org membership check failed:", err.message);
+    console.error("[API Auth] Org membership check failed:", err.message, err.stack);
     return {
       ok: false,
       response: NextResponse.json(
