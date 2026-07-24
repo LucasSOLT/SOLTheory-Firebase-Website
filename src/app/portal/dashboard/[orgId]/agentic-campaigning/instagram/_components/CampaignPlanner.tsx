@@ -213,7 +213,7 @@ export default function CampaignPlanner({
 
   // ── Submit handler ─────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
-    if (!isValid || isSubmitting) return;
+    if (!isValid || isSubmitting || !firestore) return;
     setIsSubmitting(true);
     setSubmitResult(null);
 

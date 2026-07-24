@@ -18,6 +18,7 @@ import {
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { useInstagramStore, type ScheduledPostStatus } from "@/stores/instagramStore";
+import { stripHtml } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -114,7 +115,7 @@ function truncateCaption(caption: string, maxLen = 100): string {
   return caption.slice(0, maxLen).trimEnd() + "…";
 }
 
-import { stripHtml } from "@/lib/utils";
+
 
 // ---------------------------------------------------------------------------
 // Props
