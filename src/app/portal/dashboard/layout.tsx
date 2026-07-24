@@ -7,7 +7,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -47,6 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [wtExperience, setWtExperience] = useState("");
   // Step 4: Tour
   const [showGuidedTour, setShowGuidedTour] = useState(false);
+  const [guidedTourSlide, setGuidedTourSlide] = useState(0);
   // Per-step interaction tracking (for greyed-out Next buttons)
   const [stepInteracted, setStepInteracted] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
 
@@ -407,6 +408,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     window.addEventListener('open-welcome-walkthrough', handleOpenWalkthrough);
     return () => window.removeEventListener('open-welcome-walkthrough', handleOpenWalkthrough);
   }, [user?.displayName]);
+
+  useEffect(() => {
+    const handleOpenGuidedTour = () => {
+      setGuidedTourSlide(0);
+      setShowGuidedTour(true);
+    };
+    window.addEventListener('open-guided-tour', handleOpenGuidedTour);
+    return () => window.removeEventListener('open-guided-tour', handleOpenGuidedTour);
+  }, []);
 
   const selectLanguage = (selected: "en" | "es") => {
     setWtLanguage(selected);
@@ -1961,6 +1971,196 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Persistent Floating Video Player — persists across all dashboard pages */}
       <WalkthroughPlayer />
 
+      {/* Guided Tour Slideshow */}
+      {showGuidedTour && (
+        <div 
+          className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/60 backdrop-blur-xl p-4"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowGuidedTour(false);
+            if (e.key === 'ArrowRight' && guidedTourSlide < 11) setGuidedTourSlide(prev => prev + 1);
+            if (e.key === 'ArrowLeft' && guidedTourSlide > 0) setGuidedTourSlide(prev => prev - 1);
+          }}
+          tabIndex={0}
+          autoFocus
+          ref={el => el?.focus()}
+        >
+          <div className="bg-[#faf8f3]/95 border border-slate-200/80 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden relative flex flex-col min-h-[400px]">
+            {/* Close / X button */}
+            <button onClick={() => setShowGuidedTour(false)} className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100/80 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors cursor-pointer" title="Close Tour">
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Left Nav Arrow */}
+            {guidedTourSlide > 0 && (
+              <button 
+                onClick={() => setGuidedTourSlide(prev => prev - 1)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/80 hover:bg-white flex items-center justify-center text-slate-600 hover:text-indigo-600 shadow-lg border border-slate-200/50 transition-all cursor-pointer"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* Right Nav Arrow */}
+            {guidedTourSlide < 11 && (
+              <button 
+                onClick={() => setGuidedTourSlide(prev => prev + 1)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/80 hover:bg-white flex items-center justify-center text-slate-600 hover:text-indigo-600 shadow-lg border border-slate-200/50 transition-all cursor-pointer"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* Slide Content */}
+            <div className="flex-1 flex items-center justify-center p-12 text-center relative overflow-hidden">
+              <div key={guidedTourSlide} className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl mx-auto flex flex-col items-center">
+                {guidedTourSlide === 0 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-blue-100 flex items-center justify-center mb-6 shadow-sm">
+                      <Home className="w-10 h-10 text-indigo-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Homepage</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Your mission control center. See daily digests, quick stats, team activity, and AI-powered insights — all in one place. Everything you need to start your day, right here.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 1 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center mb-6 shadow-sm">
+                      <MessageSquare className="w-10 h-10 text-purple-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Agent Manager — Text Chat</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Meet Jarvis, your AI executive assistant. Chat with Jarvis to draft emails, search your inbox, create documents, look up contacts, and more. Jarvis remembers your preferences across conversations.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 2 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center mb-6 shadow-sm">
+                      <Smartphone className="w-10 h-10 text-pink-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Agent Manager — Voice Chat</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Talk to Jarvis hands-free. Switch to voice mode for a natural conversation experience. Jarvis will listen, understand, and respond — just like talking to a real assistant.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 3 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center mb-6 shadow-sm">
+                      <Brain className="w-10 h-10 text-cyan-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">AI Knowledge Base</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Upload documents, PDFs, and notes for Jarvis to reference. Your AI assistant will search through your knowledge base to give accurate, source-backed answers specific to your organization.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 4 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center mb-6 shadow-sm">
+                      <GraduationCap className="w-10 h-10 text-amber-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Insight Walkthroughs</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Step-by-step video guides to help your team master every feature. Watch how-to tutorials and onboarding walkthroughs right inside the dashboard.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 5 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center mb-6 shadow-sm">
+                      <MessageCircle className="w-10 h-10 text-emerald-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Messages</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Send and receive internal messages within your organization. Stay connected with your team without leaving Insight.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 6 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-sky-100 to-indigo-100 flex items-center justify-center mb-6 shadow-sm">
+                      <BookUser className="w-10 h-10 text-sky-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Contacts</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Manage your contacts, leads, and relationships in one place. Track interactions, add notes, and keep your network organized with custom fields and filters.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 7 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-100 to-orange-100 flex items-center justify-center mb-6 shadow-sm">
+                      <Mail className="w-10 h-10 text-red-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Email</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Connect your Gmail and manage your inbox directly inside Insight. Search, read, draft, and organize emails — or let Jarvis handle it for you.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 8 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-lime-100 to-green-100 flex items-center justify-center mb-6 shadow-sm">
+                      <ClipboardList className="w-10 h-10 text-lime-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Action Board</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Your task management hub. Create, assign, and track tasks across your team. Set due dates, priorities, and watch progress in real-time.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 9 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center mb-6 shadow-sm">
+                      <Activity className="w-10 h-10 text-violet-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Timesheets</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Track work hours and productivity. Log time against projects, generate reports, and keep your team accountable.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 10 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-fuchsia-100 to-pink-100 flex items-center justify-center mb-6 shadow-sm">
+                      <Megaphone className="w-10 h-10 text-fuchsia-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Agentic Campaigning & Prospecting</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Let AI run your outreach campaigns. Set up automated email sequences, track engagement, and use AI-powered prospecting to find and connect with new leads.
+                    </p>
+                  </>
+                )}
+                {guidedTourSlide === 11 && (
+                  <>
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-rose-100 to-orange-100 flex items-center justify-center mb-6 shadow-sm">
+                      <ClipboardList className="w-10 h-10 text-rose-600" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Surveys</h2>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                      Create and send surveys to your team or contacts. Gather feedback, run assessments, and analyze results — all powered by AI question generation.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Pagination Dots */}
+            <div className="py-6 flex items-center justify-center gap-2 bg-white/40 border-t border-slate-200/50">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-2.5 rounded-full transition-all duration-300 ${i === guidedTourSlide ? 'w-8 bg-indigo-500' : 'w-2.5 bg-slate-300'}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Walkthrough Modal */}
       {showWelcome && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-xl p-4 animate-in fade-in duration-300">
@@ -2282,8 +2482,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                         <Sparkles className="w-5 h-5" />
                       </div>
-                      <p className="text-sm font-bold text-slate-800">{wtLanguage === "en" ? WT_LANG.en.takeTour : WT_LANG.es.takeTour}</p>
-                      <p className="text-xs text-slate-500 mt-1">{wtLanguage === "en" ? WT_LANG.en.takeTourDesc : WT_LANG.es.takeTourDesc}</p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{wtLanguage === "en" ? WT_LANG.en.takeTour : WT_LANG.es.takeTour}</p>
+                          <p className="text-xs text-slate-500 mt-1">{wtLanguage === "en" ? WT_LANG.en.takeTourDesc : WT_LANG.es.takeTourDesc}</p>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform" />
+                      </div>
                     </button>
                     <button
                       type="button"
