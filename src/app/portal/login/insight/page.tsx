@@ -151,7 +151,8 @@ export default function InsightLoginPage() {
       }
 
       // Route using allowedOrgs if available, then legacy org field, then email domain
-      const allowedOrgs: string[] = userData?.allowedOrgs || [];
+      const rawAllowed = userData?.allowedOrgs;
+      const allowedOrgs: string[] = Array.isArray(rawAllowed) ? rawAllowed : (typeof rawAllowed === 'string' ? [rawAllowed] : []);
       const legacyOrg = userData?.organization;
 
       // Developer always goes to soltheory

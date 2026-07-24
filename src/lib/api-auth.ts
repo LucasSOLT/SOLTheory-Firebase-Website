@@ -150,8 +150,9 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
       };
     }
 
-    // Check org membership
-    const allowedOrgs: string[] = userData?.allowedOrgs || [];
+    // Check org membership — handle both array and string allowedOrgs
+    const rawAllowed = userData?.allowedOrgs;
+    const allowedOrgs: string[] = Array.isArray(rawAllowed) ? rawAllowed : (typeof rawAllowed === "string" ? [rawAllowed] : []);
     // Fallback: if allowedOrgs not yet set, check legacy `organization` field
     const legacyOrg = userData?.organization;
     const hasAccess = allowedOrgs.includes(orgId) || legacyOrg === orgId;

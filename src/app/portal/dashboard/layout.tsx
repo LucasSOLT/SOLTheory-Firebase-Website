@@ -98,6 +98,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           let allowed: string[] = [];
           if (data.allowedOrgs && Array.isArray(data.allowedOrgs)) {
             allowed = data.allowedOrgs;
+          } else if (data.allowedOrgs && typeof data.allowedOrgs === 'string') {
+            // Handle manually-created user docs where allowedOrgs is a string instead of array
+            allowed = [data.allowedOrgs];
           } else if (data.organization) {
             const orgVal = data.organization.toLowerCase().replace(/\s+/g, '');
             if (orgVal.includes('nxt')) allowed.push('nxtchapter');
