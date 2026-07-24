@@ -655,28 +655,25 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   // Fetch CRM contacts for Jarvis context (so users can ask about their CRM data)
   useEffect(() => {
-    if (!firestore || !user?.uid) return;
+    if (!firestore || !user?.uid || !orgId) return;
     const fetchCrm = async () => {
       try {
         const crmRef = collection(firestore, `orgs/${orgId}/crm-instances/default/contacts`);
-        const snap = await getDocs(query(crmRef, firestoreLimit(50)));
+        const snap = await getDocs(query(crmRef, firestoreLimit(500)));
         if (snap.empty) return;
+        // Build compact contact lines: Name | Email | Phone — keeps data small for LLM context
         const lines = snap.docs.map(d => {
           const c = d.data();
           const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || '';
-          const parts = [`Name: ${name}`];
-          if (c.email) parts.push(`Email: ${c.email}`);
-          if (c.phone) parts.push(`Phone: ${c.phone}`);
-          if (c.mobilePhone) parts.push(`Mobile: ${c.mobilePhone}`);
-          if (c.company) parts.push(`Company: ${c.company}`);
-          if (c.jobTitle) parts.push(`Title: ${c.jobTitle}`);
-          if (c.location) parts.push(`Location: ${c.location}`);
-          if (c.leadStatus) parts.push(`Status: ${c.leadStatus}`);
-          if (c.tags && Array.isArray(c.tags) && c.tags.length > 0) parts.push(`Tags: ${c.tags.join(', ')}`);
-          if (c.aiNotes) parts.push(`Notes: ${c.aiNotes.substring(0, 200)}`);
-          if (c.totalRevenue) parts.push(`Revenue: $${c.totalRevenue}`);
+          if (!name) return '';
+          const parts = [name];
+          if (c.email) parts.push(c.email);
+          if (c.phone) parts.push(c.phone);
+          if (c.mobilePhone && c.mobilePhone !== c.phone) parts.push(c.mobilePhone);
+          if (c.company) parts.push(c.company);
+          if (c.jobTitle) parts.push(c.jobTitle);
           return parts.join(' | ');
-        }).filter(l => l.length > 10);
+        }).filter(l => l.length > 2);
         setCrmContacts(lines.join('\n'));
         console.log(`[CRM] Loaded ${lines.length} contacts for Jarvis context`);
       } catch (err) {
@@ -684,7 +681,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
     };
     fetchCrm();
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, orgId]);
 
   const toggleSelection = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();

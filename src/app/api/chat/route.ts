@@ -720,7 +720,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
 
     // --- CRM DATABASE: Inject user's CRM contacts so Jarvis can answer questions about them ---
     if (crmData && typeof crmData === "string" && crmData.trim().length > 0) {
-      const cappedCrm = crmData.substring(0, 8000);
+      const cappedCrm = crmData.substring(0, 16000);
       groqMessages.push({
         role: "system",
         content: `[CRM DATABASE]\nThe user's CRM contacts are listed below. When they ask about a contact's phone number, email, company, status, or any other detail, answer confidently from this data. You can also reference this to look up names, companies, or contact info.\n\n${cappedCrm}`
