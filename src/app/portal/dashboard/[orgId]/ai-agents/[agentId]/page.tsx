@@ -588,9 +588,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(`${orgId}_selectedModel`) || 'llama-3.1-8b-instant';
+      return localStorage.getItem(`${orgId}_selectedModel`) || 'llama-3.3-70b-versatile';
     }
-    return 'llama-3.1-8b-instant';
+    return 'llama-3.3-70b-versatile';
   });
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [emailSearchQuery, setEmailSearchQuery] = useState('');
@@ -2389,8 +2389,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             {isModelDropdownOpen && (
               <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
                 {[
-                  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Fastest responses', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
-                  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best all-around model', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
+                  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Fastest responses', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
+                  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best all-around model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
                   { id: 'openai/gpt-oss-120b', name: 'GPT 120B', desc: 'Most powerful reasoning', tag: 'Pro', tagColor: 'bg-purple-50 text-purple-600' },
                   { id: 'openai/gpt-oss-20b', name: 'GPT 20B', desc: 'Lightweight & fast', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
                   { id: 'qwen/qwen3.6-27b', name: 'Qwen 3', desc: 'Advanced reasoning & math', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },

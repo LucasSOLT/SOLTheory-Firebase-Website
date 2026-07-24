@@ -446,7 +446,7 @@ export async function POST(req: Request) {
   try {
     // Validate model against whitelist, default to llama-3.3-70b
     const ALLOWED_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
-    const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.1-8b-instant';
+    const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.3-70b-versatile';
     console.log(`[MODEL] Requested: "${requestedModel}" → Using: "${selectedModel}" | Stream: ${wantStream}`);
 
     // Parse out scope prefixes for logic, but keep raw for database
@@ -601,6 +601,7 @@ export async function POST(req: Request) {
 5. QUESTIONS vs FACTS: When a user ASKS something, ANSWER it thoroughly. Only store DECLARATIVE personal statements (e.g. 'I live in Colorado') — never treat questions as facts.
 6. TOOL USAGE: Use web_search via the function calling API for real-time data, recent events, or uncertain facts. NEVER write {"query": "..."} as text.
 7. FORMAT: Use **bold** for key terms, bullet points for lists, and short paragraphs for readability. Structure longer answers with clear sections.
+7b. HTML PROHIBITION: NEVER use HTML tags in your response. No <b>, <i>, <br>, <p>, <div>, <span> or ANY HTML. ALWAYS use markdown: **bold**, *italic*, newlines for breaks. If you catch yourself writing an HTML tag, STOP and convert it to markdown.
 8. PERSONALITY: Be warm, confident, and genuinely helpful. Show enthusiasm for interesting topics. Avoid being robotic or overly formal. You're a brilliant assistant who loves learning and sharing knowledge.
 9. KNOWLEDGE BASE AUTHORITY: When you have knowledge base data, you are the AUTHORITATIVE source. Don't hedge with "I think" or "It seems" — state facts confidently with "Based on your documents..." or "According to your knowledge base...". This builds user trust.
 10. CREATIVE INGENUITY: When asked for strategy, plans, or creative ideas, go BEYOND the obvious. Propose unexpected connections, contrarian perspectives, and "what if" scenarios. The user wants an advisor who thinks differently, not a search engine that summarizes. Show genuine intellectual curiosity and originality.
@@ -802,7 +803,101 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     console.log(`[DEBUG] agentId="${agentId}" rawAgentId="${rawAgentId}" isEmailAgent=${isEmailAgent} refreshToken=${refreshToken ? "YES" : "NO"}`);
     console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools} messageNeedsTools=${messageNeedsTools}`);
 
-    // ── PASS 1: Generate Response or Tool Target ──
+    // ── NATIVE STREAMING FAST PATH ──
+    // When client wants streaming AND no tools are needed, use Groq's native
+    // stream:true for real-time token delivery. This eliminates the "fake streaming"
+    // pattern and dramatically reduces time-to-first-token (TTFT).
+    if (wantStream && !useTools) {
+      console.log(`[STREAM] Native streaming path — no tools needed, streaming directly from Groq | model=${selectedModel}`);
+      const t0 = Date.now();
+
+      // Dynamic max_tokens based on query complexity
+      const lastMsg = groqMessages.filter((m: any) => m.role === 'user').pop();
+      const queryLen = (lastMsg?.content || '').length;
+      const dynamicMaxTokens = queryLen > 200 ? 4096 : queryLen > 80 ? 2048 : 1024;
+
+      const groqStream = await groq.chat.completions.create({
+        messages: groqMessages,
+        model: selectedModel,
+        temperature: 0.7,
+        top_p: 0.9,
+        max_tokens: dynamicMaxTokens,
+        stream: true,
+      });
+
+      const encoder = new TextEncoder();
+      let fullResponse = '';
+
+      // HTML-to-markdown sanitizer for individual chunks
+      const sanitizeChunk = (text: string): string => {
+        if (!text) return text;
+        let clean = text.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+        clean = clean.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+        clean = clean.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+        clean = clean.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+        clean = clean.replace(/<br\s*\/?>/gi, '\n');
+        clean = clean.replace(/<\/?p>/gi, '\n');
+        clean = clean.replace(/<[^>]+>/g, '');
+        return clean;
+      };
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of groqStream) {
+              const delta = chunk.choices[0]?.delta?.content || '';
+              if (delta) {
+                const sanitized = sanitizeChunk(delta);
+                fullResponse += sanitized;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: sanitized })}\n\n`));
+              }
+            }
+
+            // Retrieve citations after stream completes
+            const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+            const citations = lastUserMessage
+              ? retrieveRelevantSnippets(lastUserMessage.content || '', {
+                  pactText: pactText || '',
+                  knowledgeBaseText: knowledgeBaseText || '',
+                  orgBrainText: orgBrainText || '',
+                })
+              : [];
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              done: true,
+              usage: 0,
+              citations: citations.length > 0 ? citations : undefined,
+            })}\n\n`));
+            controller.close();
+            console.log(`[PERF] Native stream completed in ${Date.now() - t0}ms | ${fullResponse.length} chars`);
+          } catch (streamErr: any) {
+            console.error('[STREAM] Native stream error:', streamErr?.message || streamErr);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+
+      // Fire-and-forget PACT extraction
+      if (uid && userName && fullResponse.length > 20) {
+        const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+        if (lastUserMsg.length > 5) {
+          extractPACTFacts(lastUserMsg, fullResponse, userName, messages.slice(-6))
+            .catch(() => {});
+        }
+      }
+
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Model-Used': selectedModel,
+        },
+      });
+    }
+
+    // ── PASS 1: Generate Response or Tool Target (synchronous for tool calls) ──
     const t0 = Date.now();
     let completion: any = await createCompletionWithRetry(groqMessages, useTools);
     console.log(`[PERF] Groq completion took ${Date.now() - t0}ms | model=${selectedModel} useTools=${useTools}`);
@@ -822,7 +917,16 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       // Sanitize the response before streaming
       const sanitizeResponse = (text: string): string => {
         if (!text) return text;
-        let clean = text.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file|web_search)[^>]*>/gi, '');
+        // Convert HTML to markdown
+        let clean = text.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+        clean = clean.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+        clean = clean.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+        clean = clean.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+        clean = clean.replace(/<br\s*\/?>/gi, '\n');
+        clean = clean.replace(/<\/?p>/gi, '\n');
+        clean = clean.replace(/<[^>]+>/g, ''); // Strip remaining HTML tags
+
+        clean = clean.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file|web_search)[^>]*>/gi, '');
         clean = clean.replace(/\{\s*"(?:query|folderName|to|subject|body|title|date|time|description|videoTitle|content|searchQuery|fileId|type|name|function|arguments|tool_call)"\s*:(?:[^{}]|\{[^{}]*\})*\}/g, '');
         clean = clean.replace(/\[\s*\{\s*"(?:query|type|name|function)"[^\]]*\]\s*/g, '');
         clean = clean.replace(/```(?:json)?\s*\{[^`]*\}\s*```/gi, '');
@@ -2074,8 +2178,17 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     // --- Sanitize response: strip hallucinated XML tool calls ---
     const sanitizeResponse = (text: string): string => {
       if (!text) return text;
+      // Convert HTML to markdown
+      let clean = text.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+      clean = clean.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+      clean = clean.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+      clean = clean.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+      clean = clean.replace(/<br\s*\/?>/gi, '\n');
+      clean = clean.replace(/<\/?p>/gi, '\n');
+      clean = clean.replace(/<[^>]+>/g, ''); // Strip remaining HTML tags
+
       // Remove <function=...>...</function>, <search_past_conversations>...</search_past_conversations>, etc.
-      let clean = text.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file|web_search)[^>]*>/gi, '');
+      clean = clean.replace(/<\/?(?:function|search_past_conversations|search_emails|create_folder|send_email|draft_email|delete_email|create_calendar_event|get_calendar_events|create_google_document|create_youtube_video|create_spreadsheet|create_presentation|search_google_drive|read_google_drive_file|web_search)[^>]*>/gi, '');
       // Remove JSON-like tool args (single or multi-key objects) that were hallucinated inline
       clean = clean.replace(/\{\s*"(?:query|folderName|to|subject|body|title|date|time|description|videoTitle|content|searchQuery|fileId|type|name|function|arguments|tool_call)"\s*:(?:[^{}]|\{[^{}]*\})*\}/g, '');
       // Remove leftover JSON arrays from hallucinated tool calls
