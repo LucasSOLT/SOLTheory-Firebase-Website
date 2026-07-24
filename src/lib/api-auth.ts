@@ -16,7 +16,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initAdmin } from "@/firebase/admin";
 import { getAuth } from "firebase-admin/auth";
-import { isGlobalAdmin, DEVELOPER_EMAIL } from "@/lib/org-config";
+import { isGlobalAdmin, DEVELOPER_EMAIL, getOrgByEmailDomain } from "@/lib/org-config";
+import { getFirestore } from "firebase-admin/firestore";
 
 type AuthSuccess = { ok: true; uid: string; email: string };
 type AuthFailure = { ok: false; response: NextResponse };
@@ -127,21 +128,15 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
     return { ok: true, uid: auth.uid, email: auth.email };
   }
 
-  // Check email domain first — this doesn't require Firestore and covers the common case
-  try {
-    const { getOrgByEmailDomain, getAllOrgIds } = await import("@/lib/org-config");
-    const domainOrg = getOrgByEmailDomain(auth.email);
-    if (domainOrg && domainOrg.id === orgId) {
-      return { ok: true, uid: auth.uid, email: auth.email };
-    }
-  } catch (configErr: any) {
-    console.error("[API Auth] org-config import failed:", configErr.message);
+  // Check email domain first — no Firestore needed, covers the common case fast
+  const domainOrg = getOrgByEmailDomain(auth.email);
+  if (domainOrg && domainOrg.id === orgId) {
+    return { ok: true, uid: auth.uid, email: auth.email };
   }
 
   // Check Firestore user document for allowedOrgs / organization field
   try {
     initAdmin();
-    const { getFirestore } = await import("firebase-admin/firestore");
     const db = getFirestore();
     const userDoc = await db.collection("users").doc(auth.uid).get();
     const userData = userDoc.data();
