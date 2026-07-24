@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
-import { verifyRequest } from "@/lib/api-auth";
+import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
 
 const HEAD_ADMIN_EMAIL = "lucas@soltheory.com";
 
@@ -22,6 +22,9 @@ export async function POST(req: Request) {
     if (filter === "all" && email === HEAD_ADMIN_EMAIL) {
       // Head admin sees everything — no filter applied
     } else if (filter === "org" && orgId) {
+      // Verify user belongs to the requested org
+      const orgAuth = await verifyOrgMember(req, orgId);
+      if (!orgAuth.ok) return orgAuth.response;
       query = query.where("orgId", "==", orgId);
     } else {
       // Default: user's own usage

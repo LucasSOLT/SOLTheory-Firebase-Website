@@ -1,7 +1,7 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
-import { verifyRequest } from "@/lib/api-auth";
+import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
 
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { nxtChapterKnowledge, buildOrgContext } from "@/lib/jarvis-knowledge";
@@ -424,11 +424,25 @@ const tools: any = [
 ];
 
 export async function POST(req: Request) {
-  const auth = await verifyRequest(req);
-  if (!auth.ok) return auth.response;
-  try {
-    const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData } = await req.json();
+  // Clone request for body reading before auth (verifyOrgMember also reads headers)
+  const body = await req.json();
+  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData } = body;
 
+  // Determine org from agentId prefix and enforce org membership
+  const requestOrg = (rawAgentId || "").includes("nxtchapter") ? "nxtchapter"
+    : (rawAgentId || "").includes("soltheory") ? "soltheory"
+    : null;
+
+  if (requestOrg) {
+    const auth = await verifyOrgMember(req, requestOrg);
+    if (!auth.ok) return auth.response;
+  } else {
+    // Fallback: at minimum verify the user is authenticated
+    const auth = await verifyRequest(req);
+    if (!auth.ok) return auth.response;
+  }
+
+  try {
     // Validate model against whitelist, default to llama-3.3-70b
     const ALLOWED_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
     const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.1-8b-instant';

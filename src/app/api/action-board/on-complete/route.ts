@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sgMail from "@sendgrid/mail";
-import { verifyRequest } from "@/lib/api-auth";
+import { verifyOrgMember } from "@/lib/api-auth";
 
 // Initialize SendGrid
 if (process.env.SENDGRID_API_KEY) {
@@ -51,11 +51,13 @@ const TRIGGER_CONFIG: Record<EmailTrigger, { emoji: string; label: string; heade
  */
 
 export async function POST(req: Request) {
-  const auth = await verifyRequest(req);
-  if (!auth.ok) return auth.response;
-
   try {
-    const { task, automations, trigger = "completed", orgId = "soltheory" } = await req.json();
+    const body = await req.json();
+    const { task, automations, trigger = "completed", orgId = "soltheory" } = body;
+
+    // Verify user belongs to the org
+    const auth = await verifyOrgMember(req, orgId);
+    if (!auth.ok) return auth.response;
 
     // Org-specific branding
     const ORG_NAMES: Record<string, string> = {

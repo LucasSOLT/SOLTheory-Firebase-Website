@@ -95,6 +95,16 @@ service cloud.firestore {
       return isOwner(userId);
     }
 
+    /**
+     * Checks if the authenticated user is a member of the specified organization.
+     * Looks up /orgs/{orgId}/members/{uid} — returns true if the document exists.
+     * Super-admins (lucas@soltheory.com) always pass.
+     */
+    function isOrgMember(orgId) {
+      return request.auth.token.email == 'lucas@soltheory.com'
+          || exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid));
+    }
+
 
     // -------------------------------------------------------------------------
     // Collection Rules
@@ -401,10 +411,13 @@ service cloud.firestore {
         return request.auth.token.email == 'lucas@soltheory.com';
       }
 
-      // Any authenticated user can read tasks — org-level filtering is enforced
-      // by client queries using where("orgId", "==", ORG_ID).
-      // Update/delete still require participant or super-admin status.
-      allow read: if isSignedIn();
+      // Read: only org members can read tasks (orgId field matches)
+      // Super-admin can read all tasks
+      allow read: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com'
+        || resource.data.orgId == null
+        || isOrgMember(resource.data.orgId)
+      );
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (isTaskParticipant() || isSuperAdmin());
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.createdBy || isSuperAdmin());
@@ -425,7 +438,10 @@ service cloud.firestore {
      * @allow (read, write) Any signed-in user can manage org profiles.
      */
     match /org_profiles/{orgId} {
-      allow read, write: if isSignedIn();
+      // Read: any signed-in user (org profiles contain public branding info)
+      allow read: if isSignedIn();
+      // Write: only org members or super-admin can modify their org profile
+      allow write: if isSignedIn() && isOrgMember(orgId);
     }
 
     /**
@@ -601,11 +617,9 @@ service cloud.firestore {
      * @allow (delete) Any signed-in user.
      */
     match /shared/crm/{subcollection}/{docId} {
+      // Legacy path — read-only for migration. No new writes allowed.
       allow read: if isSignedIn();
-      allow create, update: if isSignedIn()
-        && request.resource.data.keys().size() < 100
-        && request.resource.size < 1048576;
-      allow delete: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
     /**
@@ -656,14 +670,14 @@ service cloud.firestore {
      * @path /orgs/{orgId}/crm-instances/{instanceId}/settings/{settingId}
      */
     match /orgs/{orgId}/crm-instances/{instanceId}/{sub}/{docId} {
-      // Any org member can read
-      allow read: if isSignedIn();
-      // Users (role >= user) can create and update
-      allow create, update: if isSignedIn()
+      // Only org members can read CRM data
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      // Org members can create and update
+      allow create, update: if isSignedIn() && isOrgMember(orgId)
         && request.resource.data.keys().size() < 100
         && request.resource.size < 1048576;
-      // Super-users and above can delete
-      allow delete: if isSignedIn();
+      // Org members can delete
+      allow delete: if isSignedIn() && isOrgMember(orgId);
     }
 
     /**
