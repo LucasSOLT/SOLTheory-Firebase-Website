@@ -51,7 +51,7 @@ export const ORG_REGISTRY: Record<string, OrgConfig> = {
     supportEmail: "nxtchapterorg@gmail.com",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com",
     knowledgeModule: "nxtchapter",
-    theme: { icon: "▲", color: "indigo" },
+    theme: { icon: "/nxt_logo.png", color: "indigo" },
   },
   lnu: {
     id: "lnu",

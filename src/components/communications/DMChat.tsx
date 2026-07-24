@@ -52,36 +52,36 @@ const ChatToolsMenu = ({ onInsertList, isDarkMode }: { onInsertList: (rows: numb
 
   return (
     <div className="relative">
-      <button onClick={() => setIsOpen(!isOpen)} className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`} title="Herramientas">
+      <button onClick={() => setIsOpen(!isOpen)} className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`} title="Tools">
         <Wrench className={`w-5 h-5 ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`} />
       </button>
       {isOpen && (
         <div className={`absolute bottom-16 left-0 w-64 rounded-xl shadow-xl border p-2 z-50 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
           {view === 'menu' ? (
             <div className="flex flex-col gap-1">
-              <button onClick={() => setView('listForm')} className={`text-left px-3 py-2 text-sm font-medium rounded-md ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Crear Lista</button>
-              <button disabled className={`text-left px-3 py-2 text-sm font-medium opacity-50 cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Crear Encuesta</button>
-              <button disabled className={`text-left px-3 py-2 text-sm font-medium opacity-50 cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Crear Hilo</button>
+              <button onClick={() => setView('listForm')} className={`text-left px-3 py-2 text-sm font-medium rounded-md ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Create List</button>
+              <button disabled className={`text-left px-3 py-2 text-sm font-medium opacity-50 cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Create Poll</button>
+              <button disabled className={`text-left px-3 py-2 text-sm font-medium opacity-50 cursor-not-allowed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Create Thread</button>
             </div>
           ) : (
             <div className="p-2 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Nueva Lista</span>
+                <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>New List</span>
                 <button onClick={() => { setView('menu'); setIsOpen(false); }}><X className={`w-4 h-4 ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`} /></button>
               </div>
               <div>
-                <label className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Filas (Máx 50)</label>
+                <label className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Rows (Max 50)</label>
                 <input type="number" min="1" max="50" value={rows} onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} className={`w-full mt-1 border rounded-md p-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`} />
               </div>
               <label className="flex items-center gap-2 cursor-pointer mt-3">
                 <input type="checkbox" checked={isCheckbox} onChange={e => setIsCheckbox(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer" />
-                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Agregar Casillas</span>
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Add Checkboxes</span>
               </label>
               <Button size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 mt-2 text-white font-medium" onClick={() => {
                 onInsertList(rows, isCheckbox);
                 setIsOpen(false);
                 setView('menu');
-              }}>Enviar Lista</Button>
+              }}>Send List</Button>
             </div>
           )}
         </div>
@@ -477,12 +477,12 @@ export function DMChat() {
       {/* Left Pane: Chat List */}
       <div className={`w-80 flex flex-col border-r relative z-10 transition-all shrink-0 ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'}`}>
         <div className={`p-4 border-b space-y-4 backdrop-blur-sm ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-white/50'}`}>
-          <h2 className={`text-sm font-bold tracking-wide uppercase px-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Contactos</h2>
+          <h2 className={`text-sm font-bold tracking-wide uppercase px-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Contacts</h2>
           
           <div className="flex flex-col gap-2 relative">
             <div className="flex items-center gap-2">
               <Input 
-                placeholder="Buscar contacto o ingresar correo..." 
+                placeholder="Search contact or enter email..." 
                 value={newContactEmail}
                 onChange={e => {
                   setNewContactEmail(e.target.value);
@@ -536,7 +536,7 @@ export function DMChat() {
                   <span className={`text-sm font-semibold truncate ${isActive ? (isDarkMode ? 'text-indigo-300' : 'text-indigo-900') : (isDarkMode ? 'text-slate-200' : 'text-slate-700')}`}>
                     {displayName}
                   </span>
-                  <span className="text-xs text-slate-400 truncate">Mensaje Directo</span>
+                  <span className="text-xs text-slate-400 truncate">Direct Message</span>
                 </div>
               </div>
             );
@@ -544,7 +544,7 @@ export function DMChat() {
           {chats.length === 0 && (
             <div className="flex flex-col items-center justify-center h-48 text-slate-400">
               <Search className="w-8 h-8 mb-2 opacity-20" />
-              <p className="text-xs font-medium">Aún no hay contactos</p>
+              <p className="text-xs font-medium">No contacts yet</p>
             </div>
           )}
         </div>
@@ -555,7 +555,7 @@ export function DMChat() {
             {user?.email?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className={`text-xs font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Yo</span>
+            <span className={`text-xs font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Me</span>
             <span className="text-[10px] text-slate-500 truncate">{user?.email}</span>
           </div>
         </div>
@@ -617,8 +617,8 @@ export function DMChat() {
             {/* Right-click Context Menu */}
             {contextMenu && (
               <div className={`fixed z-[9999] rounded-xl shadow-2xl border py-1 w-48 overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} style={{ left: contextMenu.x, top: contextMenu.y }}>
-                <button onClick={() => handleDeleteForMe(contextMenu.msgId)} className={`w-full text-left px-4 py-2.5 text-sm font-medium ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Eliminar para mí</button>
-                {contextMenu.isMe && <button onClick={() => handleDeleteForEveryone(contextMenu.msgId)} className={`w-full text-left px-4 py-2.5 text-sm text-red-600 font-medium ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>Eliminar para todos</button>}
+                <button onClick={() => handleDeleteForMe(contextMenu.msgId)} className={`w-full text-left px-4 py-2.5 text-sm font-medium ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Delete for me</button>
+                {contextMenu.isMe && <button onClick={() => handleDeleteForEveryone(contextMenu.msgId)} className={`w-full text-left px-4 py-2.5 text-sm text-red-600 font-medium ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>Delete for everyone</button>}
               </div>
             )}
 
@@ -657,14 +657,14 @@ export function DMChat() {
                      await addDoc(collection(firestore!, `dms/${activeChatId}/messages`), msgData);
                      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
                    }} />
-                   <label className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`} title="Subir Foto">
+                   <label className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`} title="Upload File">
                      <Paperclip className={`w-5 h-5 ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`} />
                      <input type="file" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" onChange={handleImageUpload} />
                    </label>
                    <Input 
                      value={inputText}
                      onChange={e => setInputText(e.target.value)}
-                     placeholder={`Mensaje a ${contactDisplayName}...`}
+                     placeholder={`Message ${contactDisplayName}...`}
                      className={`flex-1 border-transparent focus-visible:ring-indigo-100 rounded-full h-12 px-6 shadow-none ${isDarkMode ? 'bg-slate-700 text-white placeholder:text-slate-400' : 'bg-slate-100 text-slate-900'}`}
                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (inputText.trim() || pendingAttachments.length > 0) && handleSendMessage()}
                    />
@@ -680,11 +680,9 @@ export function DMChat() {
             <div className={`w-20 h-20 rounded-full shadow-sm flex items-center justify-center mb-6 border ${isDarkMode ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-white text-slate-300 border-slate-100'}`}>
                <MessageSquareX className="w-10 h-10" />
             </div>
-            <h2 className={`text-2xl font-extrabold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{lang === 'es' ? 'Sin Chat Seleccionado' : 'No Chat Selected'}</h2>
+            <h2 className={`text-2xl font-extrabold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>No Chat Selected</h2>
             <p className="text-slate-400 mt-2 max-w-sm">
-              {lang === 'es'
-                ? 'Selecciona un contacto existente del menú izquierdo o escribe un correo electrónico para iniciar un nuevo hilo de mensajes directos.'
-                : 'Select an existing contact from the left menu or type an email to start a new direct message thread.'}
+              Select an existing contact from the left menu or type an email to start a new direct message thread.
             </p>
           </div>
         )}

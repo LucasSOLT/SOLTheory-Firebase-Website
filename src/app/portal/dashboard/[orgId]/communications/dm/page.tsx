@@ -24,10 +24,10 @@ export default function DMPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-            Mensajes Directos
+            Direct Messages
           </h1>
           <p className={`text-sm max-w-2xl font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Comunícate de forma segura a través de la red de la plataforma.
+            Communicate securely through the platform network.
           </p>
         </div>
       </div>
