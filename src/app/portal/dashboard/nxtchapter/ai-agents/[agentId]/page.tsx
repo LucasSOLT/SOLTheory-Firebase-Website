@@ -1733,8 +1733,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     } catch (error: any) {
       console.error("[handleSendMessage] Error:", error?.message || error);
       const errorMsg = error?.message || "";
-      // Provide user-friendly error messages
-      let friendlyError = "Hmm, something went wrong on my end. Let me try that again...";
+      // Provide user-friendly error messages with debug info in dev
+      let friendlyError = `Hmm, something went wrong on my end. Let me try that again... (${errorMsg.substring(0, 80) || 'Unknown error'})`;
       if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError") || errorMsg.includes("net::")) {
         friendlyError = "I'm having trouble connecting. Please check your internet connection and try again.";
       } else if (errorMsg.includes("timeout") || errorMsg.includes("Timeout")) {
