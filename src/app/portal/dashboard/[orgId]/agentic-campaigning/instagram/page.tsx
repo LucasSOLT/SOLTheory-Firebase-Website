@@ -22,12 +22,6 @@ import CampaignLanding from "./_components/CampaignLanding";
 import ErrorAlertHandler from "./_components/ErrorAlertHandler";
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-// ORG_ID is now derived dynamically in the component from the URL path
-
-// ---------------------------------------------------------------------------
 // Suspense wrapper — required by Next.js 15 for useSearchParams()
 // ---------------------------------------------------------------------------
 
@@ -52,17 +46,15 @@ export default function InstagramPage() {
 function InstagramPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname();
   const orgPrefix = useOrgId();
   const { user } = useUser();
   const firestore = useFirestore();
 
   // Connection state
   const [isLoading, setIsLoading] = useState(true);
-
-  // View state: landing shows campaign list, workspace shows the editor
   const [view, setView] = useState<'landing' | 'workspace'>('landing');
   const [isConnected, setIsConnected] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Zustand store sync
   const setConnectionStatus = useInstagramStore((s) => s.setConnectionStatus);
@@ -112,7 +104,6 @@ function InstagramPageContent() {
         setConnectionStatus(false);
       } finally {
         setIsLoading(false);
-        // Clean up query params to prevent re-triggering on refresh
         if (connectionParam) {
           router.replace(window.location.pathname, { scroll: false });
         }
@@ -121,6 +112,36 @@ function InstagramPageContent() {
 
     checkConnection();
   }, [firestore, connectionParam, setConnectionStatus, router]);
+
+  // ── Meta OAuth connect handler ────────────────────────────────────────
+  const handleConnectMeta = () => {
+    if (!user?.uid) return;
+    setIsRedirecting(true);
+
+    const appUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "http://localhost:3000";
+
+    const state = btoa(
+      JSON.stringify({ uid: user.uid, origin: orgPrefix })
+    );
+
+    const redirectUri = `${appUrl}/api/auth/instagram/callback`;
+
+    const fbOAuthUrl =
+      `https://www.facebook.com/v20.0/dialog/oauth?` +
+      new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_META_APP_ID || "1037738182104775",
+        redirect_uri: redirectUri,
+        state,
+        config_id: "1000741799470765",
+        response_type: "code",
+      }).toString();
+
+    window.location.href = fbOAuthUrl;
+    setTimeout(() => setIsRedirecting(false), 5000);
+  };
 
   // ── Style tokens ──────────────────────────────────────────────────────
   const bgColor = isDark ? "bg-slate-950" : "bg-[#faf8f3]";
@@ -133,11 +154,9 @@ function InstagramPageContent() {
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className={`min-h-screen ${bgColor}`}>
-      {/* ── Top Header Bar — hidden when CampaignLanding is showing (it has its own) ──── */}
+      {/* ── Top Header Bar — hidden when CampaignLanding is showing ──── */}
       {!(isConnected && view === 'landing' && !isLoading) && (
-      <div
-        className={`sticky top-0 z-30 border-b backdrop-blur-xl ${headerBg}`}
-      >
+      <div className={`sticky top-0 z-30 border-b backdrop-blur-xl ${headerBg}`}>
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Left: Back + Title */}
           <div className="flex items-center gap-3">
@@ -151,15 +170,12 @@ function InstagramPageContent() {
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-500 via-purple-500 to-orange-400 flex items-center justify-center">
                 <Instagram className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
-                <h1
-                  className={`text-sm font-semibold leading-none ${textPrimary}`}
-                >
+                <h1 className={`text-sm font-semibold leading-none ${textPrimary}`}>
                   Instagram Creative Assistant
                 </h1>
                 <p className={`text-[11px] mt-0.5 ${textSecondary}`}>
@@ -169,9 +185,9 @@ function InstagramPageContent() {
             </div>
           </div>
 
-          {/* Right: Profile + Connection status */}
+          {/* Right: Connected profile OR Connect button */}
           <div className="flex items-center gap-3">
-            {isConnected && (
+            {isConnected ? (
               <>
                 <a
                   href={`https://www.instagram.com/${connectedAccount?.username || ''}/`}
@@ -210,7 +226,20 @@ function InstagramPageContent() {
                   Connected
                 </Badge>
               </>
-            )}
+            ) : !isLoading ? (
+              <button
+                onClick={handleConnectMeta}
+                disabled={isRedirecting}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 text-white text-xs font-semibold shadow-md shadow-pink-500/20 hover:shadow-lg hover:shadow-pink-500/30 transition-all cursor-pointer disabled:opacity-60"
+              >
+                {isRedirecting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Instagram className="w-3.5 h-3.5" />
+                )}
+                {isRedirecting ? 'Redirecting…' : 'Connect Meta Account'}
+              </button>
+            ) : null}
             <Badge className="bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 text-white border-0 text-[10px]">
               Beta
             </Badge>
@@ -262,10 +291,27 @@ function InstagramPageContent() {
         )}
       </AnimatePresence>
 
+      {/* ── Not Connected Banner ─────────────────────────────────────────── */}
+      {!isLoading && !isConnected && (
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4">
+          <div
+            className={`rounded-xl px-4 py-3 flex items-center gap-3 text-sm font-medium ${
+              isDark
+                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                : "bg-amber-50 text-amber-700 border border-amber-200"
+            }`}
+          >
+            <Instagram className="w-4 h-4 shrink-0" />
+            <span>
+              Connect your Meta account to publish posts. You can still draft and plan campaigns below.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── Main Content ────────────────────────────────────────────────── */}
       <main className={isConnected && view === 'landing' && !isLoading ? '' : 'max-w-[1600px] mx-auto px-4 sm:px-6 py-6'}>
         {isLoading ? (
-          // Loading state
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -278,48 +324,34 @@ function InstagramPageContent() {
               Checking connection status…
             </p>
           </motion.div>
-        ) : isConnected ? (
-          // Connected: show landing or workspace based on view state
-          view === 'landing' ? (
-            <CampaignLanding
-              clientId={orgPrefix}
-              onCreateNew={() => setView('workspace')}
-              onBack={() => router.push(`/portal/dashboard/${orgPrefix}/agentic-campaigning`)}
-            />
-          ) : (
-            <motion.div
-              key="workspace"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {/* Back to campaigns button */}
-              <div className="mb-4">
-                <button
-                  onClick={() => setView('landing')}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    isDark
-                      ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to Campaigns
-                </button>
-              </div>
-              <ErrorAlertHandler clientId={orgPrefix} isDark={isDark} />
-              <WorkspaceLayout orgId={orgPrefix} />
-            </motion.div>
-          )
+        ) : view === 'landing' && isConnected ? (
+          <CampaignLanding
+            clientId={orgPrefix}
+            onCreateNew={() => setView('workspace')}
+            onBack={() => router.push(`/portal/dashboard/${orgPrefix}/agentic-campaigning`)}
+          />
         ) : (
-          // Not connected: show onboarding
           <motion.div
-            key="onboarding"
+            key="workspace"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <OnboardingView orgId={orgPrefix} />
+            <div className="mb-4">
+              <button
+                onClick={() => isConnected ? setView('landing') : router.push(`/portal/dashboard/${orgPrefix}/agentic-campaigning`)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  isDark
+                    ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                {isConnected ? 'Back to Campaigns' : 'Back'}
+              </button>
+            </div>
+            <ErrorAlertHandler clientId={orgPrefix} isDark={isDark} />
+            <WorkspaceLayout orgId={orgPrefix} />
           </motion.div>
         )}
       </main>
