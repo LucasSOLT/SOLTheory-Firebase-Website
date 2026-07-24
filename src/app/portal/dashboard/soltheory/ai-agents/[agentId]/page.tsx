@@ -11,7 +11,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import AgentLibrary from "@/components/portal/AgentLibrary";
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc, setDoc, addDoc, collection, getDocs, query, orderBy, where, deleteDoc, writeBatch, limit as firestoreLimit } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, addDoc, collection, getDocs, query, orderBy, where, deleteDoc, writeBatch, limit as firestoreLimit, arrayUnion } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
@@ -1936,20 +1936,29 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (data.pactFacts && data.pactFacts.length > 0 && user?.uid && firestore) {
         (async () => {
           try {
-            const orgId = "soltheory";
-            const pactCol = collection(firestore, "users", user.uid, "pact_entries");
-            const existingSnap = await getDocs(query(pactCol, where("orgId", "==", orgId)));
-            const existingQs = new Set<string>();
-            existingSnap.forEach(d => existingQs.add(d.data().question?.toLowerCase()?.trim()));
-            for (const fact of data.pactFacts) {
-              const nq = fact.question.toLowerCase().trim();
-              if (!existingQs.has(nq) && existingSnap.size < 200) {
-                await addDoc(pactCol, { question: fact.question, answer: fact.answer, source: "text", orgId, createdAt: Date.now(), updatedAt: Date.now() });
-                existingQs.add(nq);
-              }
+            const userDocRef = doc(firestore, "users", user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            const existingField = userDocSnap.data()?.pact_entries_soltheory || [];
+            const existingQs = new Set<string>(existingField.map((e: any) => e.question?.toLowerCase()?.trim()));
+            const newFacts = data.pactFacts
+              .filter((f: any) => !existingQs.has(f.question?.toLowerCase()?.trim()))
+              .map((f: any) => ({
+                question: f.question,
+                answer: f.answer,
+                confidence: f.confidence || "medium",
+                category: f.category || "preference",
+                source: "voice",
+                orgId: "soltheory",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+              }));
+            if (newFacts.length > 0 && existingField.length + newFacts.length <= 200) {
+              await updateDoc(userDocRef, {
+                pact_entries_soltheory: arrayUnion(...newFacts)
+              });
             }
             fetchPACTEntries();
-            console.log(`[PACT] Saved ${data.pactFacts.length} facts locally (observer)`);
+            console.log(`[PACT] Saved ${newFacts.length} facts (observer, unified path)`);
           } catch (e) { console.error("[PACT] Client save error:", e); }
         })();
       }

@@ -4,6 +4,7 @@ import { google } from "googleapis";
 import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
 
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { nxtChapterKnowledge, buildOrgContext } from "@/lib/jarvis-knowledge";
 import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
@@ -661,13 +662,15 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     }
 
     // TIER 2 (Query-matched): Semantic retrieval from uploaded documents
-    const lastUserMsgForKB = messages.filter((m: any) => m.role === "user").pop();
-    const userQueryForKB = lastUserMsgForKB?.content || "";
+    // Use last 3 user messages for richer context (fixes "tell me more about that" queries)
+    const userMsgsForKB = messages.filter((m: any) => m.role === "user");
+    const recentUserMsgs = userMsgsForKB.slice(-3);
+    const userQueryForKB = recentUserMsgs.map((m: any) => m.content).join(" ").substring(0, 500);
     let tier2Knowledge = "";
     try {
       if (uid && agentId && userQueryForKB.trim().length > 3) {
         const t1 = Date.now();
-        const semanticTimeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Semantic retrieval timeout')), 2000));
+        const semanticTimeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Semantic retrieval timeout')), 4000));
         const semanticChunks = await Promise.race([
           retrieveSemanticChunks(userQueryForKB, {
             uid,
@@ -676,7 +679,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
             pactText: pactText || "",
             orgBrainText: orgBrainText || "",
             knowledgeBaseText: knowledgeBaseText || "",
-            maxResults: 8,
+            maxResults: 12,
           }),
           semanticTimeout
         ]);
@@ -705,19 +708,13 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
 
     // Inject combined knowledge
     const combinedKnowledge = (tier1Knowledge + (tier2Knowledge ? "\n\n[RELEVANT DOCUMENT EXCERPTS — matched to the user's current question]\n" + tier2Knowledge : "")).trim();
-    if (combinedKnowledge.length > 0) {
-      groqMessages.push({
-        role: "system",
-        content: `[KNOWLEDGE BASE]\nUse this data to answer questions authoritatively. Present facts with confidence. Do NOT hallucinate tool calls for this data.\n\n<knowledge_base>\n${combinedKnowledge.substring(0, 12000)}\n</knowledge_base>`
-      });
-    }
-
     // --- P.A.C.T.: Personalized AI Conversation Training (Tiered Proactive Memory) ---
+    // Injected BEFORE knowledge base so KB (query-matched content) is closest to conversation
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      const cappedPact = pactText.substring(0, 6000);
+      const cappedPact = pactText.substring(0, 8000);
       groqMessages.push({
         role: "system",
-        content: `[USER MEMORY]\nFacts about this user from previous conversations. Weave them in naturally when relevant. Never interrogate the user about these facts. Trust the user's current statement over stored facts.\n\n${cappedPact}`
+        content: `[USER MEMORY — P.A.C.T.]\nPersonal facts about this user from previous conversations. These are REAL facts the user has shared — use them with confidence:\n- Weave relevant facts in naturally when they help your response\n- If the user's current statement contradicts a stored fact, trust the current statement (they may have changed)\n- Never interrogate the user about these facts or list them back unprompted\n- Biographical facts (name, location, job) are highest priority\n- Contact info (phone, email) should be used when the user asks for it\n\n${cappedPact}`
       });
     }
 
@@ -729,6 +726,14 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
         content: `[CRM DATABASE]\nThe user's CRM contacts are listed below. When they ask about a contact's phone number, email, company, status, or any other detail, answer confidently from this data. You can also reference this to look up names, companies, or contact info.\n\n${cappedCrm}`
       });
       console.log(`[CRM] Injected ${cappedCrm.length} chars of CRM data into context`);
+    }
+
+    // --- KNOWLEDGE BASE: Injected LAST so it's closest to conversation (better LLM attention) ---
+    if (combinedKnowledge.length > 0) {
+      groqMessages.push({
+        role: "system",
+        content: `[KNOWLEDGE BASE]\nThis is the user's organizational knowledge base. These are AUTHORITATIVE facts that OVERRIDE your general training data. When answering questions:\n1. ALWAYS check this knowledge base FIRST before using general knowledge\n2. If the answer is in the knowledge base, use it with confidence — do not hedge or add disclaimers\n3. If you reference a specific source, mention it naturally (e.g., "According to your documents...")\n4. If the knowledge base contradicts your training data, the knowledge base is CORRECT\n5. If the user's question is NOT answered by the knowledge base, you may use general knowledge but note that you're going beyond their documents\n\n<knowledge_base>\n${combinedKnowledge.substring(0, 16000)}\n</knowledge_base>`
+      });
     }
 
     // --- SMART CONTEXT WINDOW MANAGEMENT ---
@@ -889,6 +894,61 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
         });
       } catch (logErr) {
         console.warn('[AI Usage] Logging failed (non-fatal):', (logErr as any)?.message);
+      }
+
+      // Fire-and-forget server-side PACT extraction — runs in background, doesn't slow response
+      if (uid && userName && responseText.length > 20) {
+        const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+        if (lastUserMsg.length > 5) {
+          extractPACTFacts(lastUserMsg, responseText, userName, messages.slice(-6))
+            .then(async (facts) => {
+              if (facts.length === 0) return;
+              try {
+                await initAdmin();
+                const db = getAdminFirestore();
+                const userRef = db.collection("users").doc(uid);
+                const userDoc = await userRef.get();
+                const existingEntries: any[] = userDoc.data()?.pact_entries_soltheory || [];
+                const existingQuestions = new Set(existingEntries.map((e: any) => e.question?.toLowerCase().trim()));
+                
+                // Deduplicate and format new entries
+                const newEntries = facts
+                  .filter(f => !existingQuestions.has(f.question?.toLowerCase().trim()))
+                  .map(f => ({
+                    question: f.question,
+                    answer: f.answer,
+                    confidence: f.confidence || "medium",
+                    category: f.category || "preference",
+                    source: "server_background",
+                    orgId,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                  }));
+                
+                if (newEntries.length > 0) {
+                  // Cap total entries at 200 — if adding would exceed, trim oldest low-confidence first
+                  const totalAfter = existingEntries.length + newEntries.length;
+                  if (totalAfter > 200) {
+                    const sorted = [...existingEntries].sort((a, b) => {
+                      const confScore: Record<string, number> = { high: 3, medium: 2, low: 1 };
+                      return (confScore[a.confidence] || 2) - (confScore[b.confidence] || 2) || (a.createdAt || 0) - (b.createdAt || 0);
+                    });
+                    const toRemove = totalAfter - 200;
+                    const entriesToRemove = sorted.slice(0, toRemove);
+                    // Remove old entries and add new ones
+                    const remaining = existingEntries.filter((e: any) => !entriesToRemove.includes(e));
+                    await userRef.update({ pact_entries_soltheory: [...remaining, ...newEntries] });
+                  } else {
+                    await userRef.update({ pact_entries_soltheory: FieldValue.arrayUnion(...newEntries) });
+                  }
+                  console.log(`[PACT Server] Extracted ${newEntries.length} new facts for user ${uid}`);
+                }
+              } catch (dbErr) {
+                console.warn("[PACT Server] Firestore write failed:", (dbErr as any)?.message);
+              }
+            })
+            .catch(err => console.warn("[PACT Server] Background extraction failed:", (err as any)?.message));
+        }
       }
 
       return new Response(readableStream, {
@@ -2214,6 +2274,56 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
           'X-Accel-Buffering': 'no',
         },
       });
+    }
+
+    // Fire-and-forget server-side PACT extraction for non-streaming path (voice, fallback)
+    const nonStreamResponseText = finalResponse || "";
+    if (uid && userName && nonStreamResponseText.length > 20) {
+      const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+      if (lastUserMsg.length > 5) {
+        extractPACTFacts(lastUserMsg, nonStreamResponseText, userName, messages.slice(-6))
+          .then(async (facts) => {
+            if (facts.length === 0) return;
+            try {
+              await initAdmin();
+              const db = getAdminFirestore();
+              const userRef = db.collection("users").doc(uid);
+              const userDoc = await userRef.get();
+              const existingEntries: any[] = userDoc.data()?.pact_entries_soltheory || [];
+              const existingQuestions = new Set(existingEntries.map((e: any) => e.question?.toLowerCase().trim()));
+              const newEntries = facts
+                .filter(f => !existingQuestions.has(f.question?.toLowerCase().trim()))
+                .map(f => ({
+                  question: f.question,
+                  answer: f.answer,
+                  confidence: f.confidence || "medium",
+                  category: f.category || "preference",
+                  source: "server_background",
+                  orgId,
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                }));
+              if (newEntries.length > 0) {
+                const totalAfter = existingEntries.length + newEntries.length;
+                if (totalAfter > 200) {
+                  const sorted = [...existingEntries].sort((a, b) => {
+                    const confScore: Record<string, number> = { high: 3, medium: 2, low: 1 };
+                    return (confScore[a.confidence] || 2) - (confScore[b.confidence] || 2) || (a.createdAt || 0) - (b.createdAt || 0);
+                  });
+                  const toRemove = totalAfter - 200;
+                  const remaining = existingEntries.filter((e: any) => !sorted.slice(0, toRemove).includes(e));
+                  await userRef.update({ pact_entries_soltheory: [...remaining, ...newEntries] });
+                } else {
+                  await userRef.update({ pact_entries_soltheory: FieldValue.arrayUnion(...newEntries) });
+                }
+                console.log(`[PACT Server] Extracted ${newEntries.length} new facts for user ${uid} (non-stream)`);
+              }
+            } catch (dbErr) {
+              console.warn("[PACT Server] Firestore write failed:", (dbErr as any)?.message);
+            }
+          })
+          .catch(err => console.warn("[PACT Server] Background extraction failed:", (err as any)?.message));
+      }
     }
 
     // Default JSON Response (non-streaming fallback for voice, title gen, retries)

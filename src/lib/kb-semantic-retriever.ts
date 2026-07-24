@@ -74,6 +74,52 @@ const SYNONYM_MAP: Record<string, string[]> = {
   goal: ["objective", "target", "aspiration", "milestone", "aim"],
   habit: ["routine", "practice", "ritual", "discipline", "pattern"],
   wellness: ["health", "wellbeing", "fitness", "selfcare", "balance"],
+
+  // Operations & Logistics
+  address: ["location", "directions", "where", "office", "street", "building", "map"],
+  contact: ["phone", "email", "address", "reach", "connect", "touch", "inquiry"],
+  contract: ["agreement", "terms", "document", "deal", "clause", "binding"],
+  deadline: ["due", "schedule", "cutoff", "timeline", "target", "date"],
+  invoice: ["bill", "payment", "statement", "receipt", "charge", "fee"],
+  phone: ["call", "telephone", "contact", "mobile", "number", "dial"],
+  proposal: ["pitch", "bid", "offer", "plan", "submission", "tender"],
+
+  // Finance & Fundraising
+  donation: ["contribution", "gift", "giving", "charity", "support", "fundraiser"],
+  expense: ["cost", "spending", "outlay", "disbursement", "expenditure", "bill"],
+  fundraising: ["campaign", "donations", "grants", "capital", "crowdfunding", "drive"],
+  payment: ["remittance", "transaction", "settlement", "disbursement", "checkout"],
+  sponsorship: ["underwriting", "backing", "support", "patronage", "benefactor"],
+
+  // Reentry & Social Services
+  coaching: ["mentorship", "guidance", "counseling", "advising", "support", "training"],
+  impact: ["results", "outcomes", "difference", "effect", "benefit", "metrics"],
+  mentor: ["advisor", "guide", "coach", "counselor", "role-model", "supporter"],
+  reentry: ["reintegration", "transition", "rehousing", "rehabilitation", "release"],
+  volunteer: ["supporter", "contributor", "helper", "advocate", "service", "participant"],
+
+  // Legal & Justice System
+  court: ["justice", "legal", "judge", "hearing", "tribunal", "proceedings"],
+  incarceration: ["prison", "jail", "detention", "correctional", "confinement", "custody"],
+  parole: ["supervision", "release", "probation", "conditional", "clearance"],
+  probation: ["supervision", "conditional", "monitoring", "parole", "diversion"],
+  sentencing: ["judgment", "penalty", "verdict", "conviction", "ruling", "term"],
+
+  // Education & Training
+  certification: ["credential", "license", "qualification", "accreditation", "certificate"],
+  curriculum: ["syllabus", "courses", "modules", "training", "program", "lessons"],
+  training: ["workshop", "education", "instruction", "coaching", "learning", "prep"],
+  workshop: ["seminar", "session", "class", "training", "lab", "webinar"],
+
+  // Communication & Outreach
+  announcement: ["notice", "update", "bulletin", "broadcast", "news", "release"],
+  newsletter: ["bulletin", "update", "publication", "digest", "dispatch", "circular"],
+  outreach: ["engagement", "awareness", "advocacy", "networking", "connection", "campaign"],
+
+  // General & User Queries
+  help: ["support", "assistance", "guide", "faq", "service", "info"],
+  resources: ["materials", "tools", "guides", "assets", "information", "library"],
+  schedule: ["calendar", "hours", "timeline", "availability", "appointments", "dates"],
 };
 
 /** Expand a set of query tokens with related terms */
