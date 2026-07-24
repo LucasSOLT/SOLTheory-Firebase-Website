@@ -1905,7 +1905,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Dynamic Page Content */}
-        <main className={`flex-1 overflow-hidden px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none${navFadeIn ? ' navContentFadeIn' : ''}`} tabIndex={-1}>
+        <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none${navFadeIn ? ' navContentFadeIn' : ''}`} tabIndex={-1}>
           {children}
 
           {/* ── Navigation Cube Overlay ── */}

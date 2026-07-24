@@ -290,7 +290,7 @@ export async function runSystemDiagnostics(): Promise<SystemHealthReport> {
   try {
     await initAdmin();
     const db = getAdminFirestore();
-    const snap = await db.collection("ai_usage").limit(5000).get();
+    const snap = await db.collection("ai_usage").orderBy("timestamp", "desc").limit(500).get();
     snap.forEach(doc => {
       const d = doc.data();
       const modelKey = `${d.provider || "groq"}/${d.model || "llama-3"}`;
