@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useDarkMode } from "@/lib/useDarkMode";
 import { useFirestore, useUser } from "@/firebase";
+import { useOrgId } from "@/contexts/OrgContext";
 import {
   doc,
   getDoc,
@@ -107,6 +108,8 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
   const isDarkMode = useDarkMode();
   const firestore = useFirestore();
   const { user } = useUser();
+  const contextOrgId = useOrgId();
+  const orgId = contextOrgId;
 
   // State
   const [config, setConfig] = useState<AgentConfig | null>(null);
@@ -132,7 +135,7 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
       try {
         setConfigLoading(true);
         setConfigError(null);
-        const configRef = doc(firestore!, "grant_agent_config", "soltheory");
+        const configRef = doc(firestore!, "grant_agent_config", orgId);
         const snap = await getDoc(configRef);
         if (snap.exists()) {
           const data = snap.data() as AgentConfig;
@@ -314,7 +317,7 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
             agency: grant.agency,
             amount: grant.amount,
             status: "unapplied",
-            orgId: "soltheory",
+            orgId: orgId,
             url: grant.sourceUrl || grant.applicationUrl || "",
             eligibility: (grant.eligibleApplicants || []).join(", "),
             fundingInstrument: grant.fundingInstrument || "",

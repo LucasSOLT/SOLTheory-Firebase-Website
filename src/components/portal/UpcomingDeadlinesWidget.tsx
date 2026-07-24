@@ -74,7 +74,11 @@ const LABEL_CLASSES: Record<DotColor, { light: string; dark: string }> = {
   green: { light: "text-emerald-700", dark: "text-emerald-400" },
 };
 
-export function UpcomingDeadlinesWidget({ orgId = "soltheory" }: { orgId?: string }) {
+import { useOrgId } from "@/contexts/OrgContext";
+
+export function UpcomingDeadlinesWidget({ orgId: orgIdProp }: { orgId?: string }) {
+  const contextOrgId = useOrgId();
+  const orgId = orgIdProp || contextOrgId;
   const { lang } = useTranslation();
   const { user } = useUser();
   const firestore = useFirestore();

@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initAdmin } from "@/firebase/admin";
 import { getAuth } from "firebase-admin/auth";
-import { DEVELOPER_EMAIL } from "@/lib/rbac";
+import { isGlobalAdmin, DEVELOPER_EMAIL } from "@/lib/org-config";
 
 type AuthSuccess = { ok: true; uid: string; email: string };
 type AuthFailure = { ok: false; response: NextResponse };
@@ -67,12 +67,7 @@ export async function verifyRequest(req: Request | NextRequest): Promise<AuthRes
  *   fetch("/api/some-route", { headers, ... });
  */
 
-/** Admin email whitelist */
-const ADMIN_EMAILS = [
-  "lucas@soltheory.com",
-  "steve@soltheory.com",
-  "gerard@soltheory.com",
-];
+
 
 /**
  * Verify that the request contains a valid Firebase ID token
@@ -84,7 +79,7 @@ export async function verifyAdmin(req: Request | NextRequest): Promise<AuthResul
   if (!auth.ok) return auth;
 
   // Use the email already extracted from the ID token by verifyRequest
-  if (!ADMIN_EMAILS.includes(auth.email)) {
+  if (!isGlobalAdmin(auth.email)) {
     return {
       ok: false,
       response: NextResponse.json(
@@ -98,7 +93,7 @@ export async function verifyAdmin(req: Request | NextRequest): Promise<AuthResul
 }
 
 /**
- * Verify that the request is from the platform developer (lucas@soltheory.com).
+ * Verify that the request is from the platform developer.
  * Use for God-mode endpoints like End-User Management, cross-org operations.
  */
 export async function verifyDeveloper(req: Request | NextRequest): Promise<AuthResult> {
@@ -121,7 +116,7 @@ export async function verifyDeveloper(req: Request | NextRequest): Promise<AuthR
 /**
  * Verify that the authenticated user is a member of the specified organization.
  * Checks the user's Firestore document for `allowedOrgs` array.
- * Developer (lucas@soltheory.com) always passes.
+ * Developer always passes.
  */
 export async function verifyOrgMember(req: Request | NextRequest, orgId: string): Promise<AuthResult> {
   const auth = await verifyRequest(req);
@@ -153,9 +148,20 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
     // Check org membership — handle both array and string allowedOrgs
     const rawAllowed = userData?.allowedOrgs;
     const allowedOrgs: string[] = Array.isArray(rawAllowed) ? rawAllowed : (typeof rawAllowed === "string" ? [rawAllowed] : []);
+
     // Fallback: if allowedOrgs not yet set, check legacy `organization` field
-    const legacyOrg = userData?.organization;
-    const hasAccess = allowedOrgs.includes(orgId) || legacyOrg === orgId;
+    // Legacy field stores display names like "SOL Theory" — fuzzy-match against known org IDs
+    let hasAccess = allowedOrgs.includes(orgId);
+    if (!hasAccess && userData?.organization) {
+      const orgVal = userData.organization.toLowerCase().replace(/\s+/g, "");
+      hasAccess = orgVal.includes(orgId) || orgId === orgVal;
+    }
+    // Final fallback: check if the user's email domain maps to the requested org
+    if (!hasAccess && auth.email) {
+      const { getOrgByEmailDomain } = await import("@/lib/org-config");
+      const domainOrg = getOrgByEmailDomain(auth.email);
+      if (domainOrg && domainOrg.id === orgId) hasAccess = true;
+    }
 
     if (!hasAccess) {
       return {

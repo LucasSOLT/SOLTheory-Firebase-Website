@@ -11,8 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/lib/i18n';
-
-const ADMIN_EMAIL = "lucas@soltheory.com";
+import { useOrgId } from "@/contexts/OrgContext";
+import { isDeveloper, isOrgAdmin } from "@/lib/org-config";
 
 const CATEGORY_OPTIONS = [
   "Getting Started",
@@ -61,6 +61,7 @@ export function WalkthroughsLibrary() {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const orgId = useOrgId();
 
   // Dark mode state
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -74,7 +75,7 @@ export function WalkthroughsLibrary() {
     return () => { window.removeEventListener('storage', handleTheme); clearInterval(interval); };
   }, []);
 
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = user?.email ? (isDeveloper(user.email) || isOrgAdmin(orgId, user.email)) : false;
 
   // Listen to walkthroughs collection
   useEffect(() => {

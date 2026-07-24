@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { saveInstagramConnection } from "@/firebase/firestore/instagram";
+import { getAllOrgIds } from "@/lib/org-config";
 
 /**
  * GET /api/auth/instagram/callback
@@ -85,7 +86,7 @@ export async function GET(req: Request) {
   const redirectUri = `${appUrl}/api/auth/instagram/callback`;
 
   // ── Decode state ────────────────────────────────────────────────────────
-  let state: OAuthState = { uid: "", origin: "soltheory" };
+  let state: OAuthState = { uid: "", origin: "" };
   try {
     if (stateRaw) {
       state = JSON.parse(Buffer.from(stateRaw, "base64").toString("utf8"));
@@ -94,7 +95,7 @@ export async function GET(req: Request) {
     // Fallback — state was malformed; continue with defaults
   }
 
-  const orgId = state.origin || "soltheory";
+  const orgId = state.origin || getAllOrgIds()[0];
 
   // Build the redirect destination for both success and error cases
   const dashboardRedirect = `${appUrl}/portal/dashboard/${orgId}/agentic-campaigning/instagram`;

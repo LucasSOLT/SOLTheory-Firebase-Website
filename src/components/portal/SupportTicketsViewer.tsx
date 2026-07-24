@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus, CheckCircle2, Loader2, Send, Archive, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { logActivity } from '@/lib/activity-logger';
-
-const SUPPORT_EMAIL = "lucas@soltheory.com";
+import { useOrgId } from "@/contexts/OrgContext";
+import { getOrgConfig } from "@/lib/org-config";
 
 type TicketComment = {
   text: string;
@@ -38,7 +38,8 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const orgId = useOrgId();
+  const SUPPORT_EMAIL = getOrgConfig(orgId)?.supportEmail || "support@soltheory.com";
 
   const isAdmin = user?.email === SUPPORT_EMAIL;
 

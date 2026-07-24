@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Sparkles, Wand2, RefreshCw, Check, X, ChevronDown } from "lucide-react";
 import { getAIAssist } from "@/lib/gmail-api";
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
+import { useOrgId } from '@/contexts/OrgContext';
 
 interface AIComposeAssistProps {
   subject: string;
@@ -14,7 +15,8 @@ interface AIComposeAssistProps {
 }
 
 export default function AIComposeAssist({ subject, body, onApplySubject, onApplyBody, onRewriteBody }: AIComposeAssistProps) {
-  const { knowledgeBaseText, pactText } = useKnowledgeBase('soltheory');
+  const orgId = useOrgId();
+  const { knowledgeBaseText, pactText } = useKnowledgeBase(orgId);
   const [loading, setLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);

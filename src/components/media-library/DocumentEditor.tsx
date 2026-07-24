@@ -39,6 +39,7 @@ import {
   Clipboard, Copy, Scissors,
 } from "lucide-react";
 import "./editor-styles.css";
+import { useOrgId } from "@/contexts/OrgContext";
 
 /* ═══════════════════════════════════════════════════════════════
    CUSTOM EXTENSION: FontSize via TextStyle
@@ -161,7 +162,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 const AUTO_SAVE_DELAY = 15000;
-const LOCALSTORAGE_PREFIX = "soltheory_doc_";
+const getLocalStoragePrefix = (orgId: string) => `${orgId}_doc_`;
 
 const SHORTCUTS = [
   { keys: "Ctrl+B", desc: "Bold" }, { keys: "Ctrl+I", desc: "Italic" },
@@ -403,6 +404,7 @@ function ShortcutsPanel({ isDark, onClose }: { isDark: boolean; onClose: () => v
 export default function DocumentEditor({
   fileId, fileName, initialContent, isDark, onSave, onClose, onRename,
 }: DocumentEditorProps) {
+  const orgId = useOrgId();
   // ─── State ───
   const [docTitle, setDocTitle] = useState(fileName.replace(/\.[^.]+$/, ""));
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -458,11 +460,11 @@ export default function DocumentEditor({
   // ─── Load from localStorage ───
   const getStoredContent = useCallback(() => {
     try {
-      const stored = localStorage.getItem(LOCALSTORAGE_PREFIX + fileId);
+      const stored = localStorage.getItem(getLocalStoragePrefix(orgId) + fileId);
       if (stored) { const p = JSON.parse(stored); if (p.content) return p.content; }
     } catch { /* ignore */ }
     return null;
-  }, [fileId]);
+  }, [fileId, orgId]);
 
   const contentToLoad = getStoredContent() || initialContent || "<p></p>";
 
@@ -563,12 +565,12 @@ export default function DocumentEditor({
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
       const html = editor.getHTML();
-      try { localStorage.setItem(LOCALSTORAGE_PREFIX + fileId, JSON.stringify({ content: html, timestamp: Date.now() })); } catch {}
+      try { localStorage.setItem(getLocalStoragePrefix(orgId) + fileId, JSON.stringify({ content: html, timestamp: Date.now() })); } catch {}
       setSaveStatus("saving"); onSave(html); setLastSaved(new Date());
       setTimeout(() => setSaveStatus("saved"), 400);
     }, AUTO_SAVE_DELAY);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [editor, saveStatus, fileId, onSave]);
+  }, [editor, saveStatus, fileId, onSave, orgId]);
 
   // ─── Print ───
   const handlePrint = useCallback(() => {
@@ -592,10 +594,10 @@ export default function DocumentEditor({
     if (!editor) return;
     const html = editor.getHTML();
     setSaveStatus("saving"); onSave(html);
-    try { localStorage.setItem(LOCALSTORAGE_PREFIX + fileId, JSON.stringify({ content: html, timestamp: Date.now() })); } catch {}
+    try { localStorage.setItem(getLocalStoragePrefix(orgId) + fileId, JSON.stringify({ content: html, timestamp: Date.now() })); } catch {}
     setLastSaved(new Date());
     setTimeout(() => setSaveStatus("saved"), 400);
-  }, [editor, onSave, fileId]);
+  }, [editor, onSave, fileId, orgId]);
 
   // ─── Keyboard shortcuts ───
   useEffect(() => {
@@ -630,10 +632,10 @@ export default function DocumentEditor({
     if (editor && saveStatus === "unsaved") {
       const html = editor.getHTML();
       onSave(html);
-      try { localStorage.setItem(LOCALSTORAGE_PREFIX + fileId, JSON.stringify({ content: html, timestamp: Date.now() })); } catch {}
+      try { localStorage.setItem(getLocalStoragePrefix(orgId) + fileId, JSON.stringify({ content: html, timestamp: Date.now() })); } catch {}
     }
     onClose();
-  }, [editor, saveStatus, onSave, onClose, fileId]);
+  }, [editor, saveStatus, onSave, onClose, fileId, orgId]);
 
 
 

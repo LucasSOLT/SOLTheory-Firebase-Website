@@ -13,8 +13,8 @@ export async function POST(req: Request) {
     const kbText = ((body.knowledgeBaseText as string) || "").slice(0, 20000);
     const pactTextVal = ((body.pactText as string) || "").slice(0, 5000);
 
-    if (!description) {
-      return NextResponse.json({ error: "Description is required" }, { status: 400 });
+    if (!description || !orgId) {
+      return NextResponse.json({ error: "Description and orgId are required" }, { status: 400 });
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -86,7 +86,7 @@ Make the survey professional and perfectly tailored to their request.`
     const outputTokens = completion.usage?.completion_tokens || 0;
     logAIUsage({
       userId: uid || "anonymous",
-      orgId: orgId || "soltheory",
+      orgId: orgId,
       model: surveyModel,
       provider: "groq",
       endpoint: "/api/generate-survey",

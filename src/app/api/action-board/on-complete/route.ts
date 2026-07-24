@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sgMail from "@sendgrid/mail";
 import { verifyOrgMember } from "@/lib/api-auth";
+import { getOrgLabel, getOrgConfig } from "@/lib/org-config";
 
 // Initialize SendGrid
 if (process.env.SENDGRID_API_KEY) {
@@ -60,12 +61,7 @@ export async function POST(req: Request) {
     if (!auth.ok) return auth.response;
 
     // Org-specific branding
-    const ORG_NAMES: Record<string, string> = {
-      soltheory: "SOL Theory",
-      nxtchapter: "NXT Chapter",
-      lnu: "LifeNavigationU",
-    };
-    const orgDisplayName = ORG_NAMES[orgId] || "SOL Theory";
+    const orgDisplayName = getOrgLabel(orgId);
 
     if (!task || !automations) {
       return NextResponse.json({ error: "Missing task or automations" }, { status: 400 });
@@ -81,7 +77,7 @@ export async function POST(req: Request) {
         console.error("[ActionBoard] SENDGRID_API_KEY not configured");
         results.push({ type: "email", status: "error", error: "SendGrid API key not configured" });
       } else {
-        const fromEmail = process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com";
+        const fromEmail = getOrgConfig(orgId)?.fromEmail || process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com";
         const fromName = orgDisplayName;
 
         for (const email of automations.emails) {

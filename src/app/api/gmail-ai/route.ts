@@ -39,6 +39,7 @@ interface RequestBody {
   knowledgeBaseText?: string;
   pactText?: string;
   orgBrainText?: string;
+  orgId?: string;
 }
 
 interface AIResponseShape {
@@ -785,6 +786,7 @@ export async function POST(req: Request) {
     const kbText = body.knowledgeBaseText || "";
     const pactTextVal = body.pactText || "";
     const orgBrainVal = body.orgBrainText || "";
+    const orgId = body.orgId || body.dashboardId || "soltheory";
 
     if (!uid || !refreshToken) {
       return NextResponse.json({ error: "Missing uid or refreshToken" }, { status: 400 });
@@ -879,7 +881,7 @@ ${emailList}`
       logAIUsage({
         userId: uid,
         userEmail: userEmail || undefined,
-        orgId: "soltheory",
+        orgId: orgId,
         model,
         provider: "groq",
         endpoint: "/api/gmail-ai (batch_reply)",
@@ -942,7 +944,7 @@ ${emailList}`
     logAIUsage({
       userId: uid,
       userEmail: userEmail || undefined,
-      orgId: "soltheory",
+      orgId: orgId,
       model,
       provider: "groq",
       endpoint: "/api/gmail-ai",

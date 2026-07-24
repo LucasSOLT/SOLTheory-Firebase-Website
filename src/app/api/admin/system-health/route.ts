@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
 import { runSystemDiagnostics } from "@/lib/diagnostics/health";
 import { getRecentDiagnosticLogs, DiagnosticLog } from "@/lib/diagnostics/logger";
+import { DEVELOPER_EMAIL } from "@/lib/org-config";
 
 /**
  * SECURITY: This endpoint is restricted to lucas@soltheory.com ONLY.
@@ -9,7 +10,7 @@ import { getRecentDiagnosticLogs, DiagnosticLog } from "@/lib/diagnostics/logger
  * No API key names, masked values, or env var identifiers are returned.
  */
 
-const DEVELOPER_EMAIL = "lucas@soltheory.com";
+
 const SYSTEM_HEALTH_PASSWORD = "89988998";
 
 /** Sanitize diagnostic logs before sending to client — strip errorDetails that may contain env var names */

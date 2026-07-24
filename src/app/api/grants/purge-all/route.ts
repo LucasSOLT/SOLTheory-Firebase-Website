@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initAdmin, getFirestore } from "@/firebase/admin";
 import { verifyRequest } from "@/lib/api-auth";
 import { getAuth } from "firebase-admin/auth";
+import { DEVELOPER_EMAIL } from "@/lib/org-config";
 
 /**
  * DELETE /api/grants/purge-all
@@ -10,7 +11,7 @@ import { getAuth } from "firebase-admin/auth";
  * REQUIRES authentication — only admin users can purge all grants.
  */
 
-const AUTHORIZED_EMAIL = "lucas@soltheory.com";
+
 
 export async function DELETE(req: Request) {
   // 1. Verify Firebase Auth token
@@ -21,7 +22,7 @@ export async function DELETE(req: Request) {
     // 2. Verify the user is an authorized admin
     initAdmin();
     const userRecord = await getAuth().getUser(auth.uid);
-    if (userRecord.email !== AUTHORIZED_EMAIL) {
+    if (userRecord.email !== DEVELOPER_EMAIL) {
       console.warn(`[PurgeAll] Unauthorized purge attempt by ${userRecord.email} (uid: ${auth.uid})`);
       return NextResponse.json(
         { error: "You are not authorized to perform this action" },

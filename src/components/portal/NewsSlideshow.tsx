@@ -3,26 +3,28 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useFirestore } from "@/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
+import { useOrgId } from "@/contexts/OrgContext";
+import { getOrgLabel } from "@/lib/org-config";
 
 /* --- Default slide data (fallback) --- */
-const DEFAULT_SLIDES = [
+const getDefaultSlides = (orgLabel: string) => [
   {
-    headline: "NXT Chapter x Advanced Pathways",
-    subtitle: "New Denver Shelter Partnership -- Expanding capacity to 3 additional locations across the metro area.",
+    headline: `${orgLabel} x Advanced Pathways`,
+    subtitle: `New Partnership -- Expanding capacity to 3 additional locations across the metro area.`,
     gradient: "from-indigo-600 via-violet-600 to-purple-700",
     badge: "PARTNERSHIP",
     date: "June 2025",
   },
   {
     headline: "AI Grant Discovery Launched",
-    subtitle: "SOL Theory's autonomous grant agents now scan Grants.gov 24/7 -- surfacing federal funding opportunities in real time.",
+    subtitle: `${orgLabel}'s autonomous grant agents now scan Grants.gov 24/7 -- surfacing federal funding opportunities in real time.`,
     gradient: "from-emerald-600 via-teal-600 to-cyan-700",
     badge: "PRODUCT",
     date: "May 2025",
   },
   {
     headline: "Q2 Impact Report: 1,200+ Served",
-    subtitle: "Across all partner shelters, NXT Chapter programs reached over 1,200 individuals with housing, workforce, and behavioral health services.",
+    subtitle: `Across all partner shelters, ${orgLabel} programs reached over 1,200 individuals with housing, workforce, and behavioral health services.`,
     gradient: "from-amber-500 via-orange-500 to-red-500",
     badge: "IMPACT",
     date: "April 2025",
@@ -55,7 +57,9 @@ export interface NewsSlideData {
 
 export function NewsSlideshow() {
   const firestore = useFirestore();
-  const [slides, setSlides] = useState<NewsSlideData[]>(DEFAULT_SLIDES);
+  const orgId = useOrgId();
+  const orgLabel = getOrgLabel(orgId);
+  const [slides, setSlides] = useState<NewsSlideData[]>(getDefaultSlides(orgLabel));
   const [shuffleInterval, setShuffleInterval] = useState(15000);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -66,7 +70,7 @@ export function NewsSlideshow() {
   /* â”€â”€â”€ Listen to Firestore for persisted slide data â”€â”€â”€ */
   useEffect(() => {
     if (!firestore) return;
-    const docRef = doc(firestore, "cms_config", "news_slideshow");
+    const docRef = doc(firestore, "cms_config", `news_slideshow_${orgId}`);
     const unsub = onSnapshot(docRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();

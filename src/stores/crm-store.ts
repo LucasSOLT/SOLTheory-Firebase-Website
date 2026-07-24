@@ -140,7 +140,7 @@ export interface Toast {
  * @param sub - Sub-collection name (contacts, meetings, etc.)
  * @param orgId - Organization ID (defaults to 'soltheory')
  */
-const crmPath = (_uid: string, sub: string, orgId: string = "soltheory", instanceId: string = "default") => `orgs/${orgId}/crm-instances/${instanceId}/${sub}`;
+const crmPath = (_uid: string, sub: string, orgId: string, instanceId: string = "default") => `orgs/${orgId}/crm-instances/${instanceId}/${sub}`;
 
 /** Convert Firestore doc data to typed object, handling Timestamps */
 function docToCustomer(data: Record<string, unknown>, id: string): Customer {
@@ -262,6 +262,7 @@ interface CrmStore {
   /* ── Firebase refs ── */
   _db: Firestore | null;
   _uid: string | null;
+  _orgId: string | null;
   _unsubContacts: Unsubscribe | null;
   _unsubMeetings: Unsubscribe | null;
   _unsubTasks: Unsubscribe | null;
@@ -276,7 +277,7 @@ interface CrmStore {
   isSendingReply: boolean;
 
   /* ── Lifecycle ── */
-  initializeStore: (db: Firestore, uid: string) => Promise<void>;
+  initializeStore: (db: Firestore, uid: string, orgId: string) => Promise<void>;
   teardown: () => void;
 
   /* ── Async Actions ── */
@@ -351,6 +352,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
 
   _db: null,
   _uid: null,
+  _orgId: null,
   _unsubContacts: null,
   _unsubMeetings: null,
   _unsubTasks: null,
@@ -364,15 +366,15 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   isSendingReply: false,
 
   /* ── Initialize with real Firestore ── */
-  initializeStore: async (db, uid) => {
+  initializeStore: async (db, uid, orgId) => {
     // Teardown previous listeners if re-initializing
     get().teardown();
-    set({ isLoading: true, _db: db, _uid: uid });
-    console.log("[CRM Store] Initializing Firestore for UID:", uid);
+    set({ isLoading: true, _db: db, _uid: uid, _orgId: orgId });
+    console.log("[CRM Store] Initializing Firestore for UID:", uid, "Org:", orgId);
 
     try {
       // ── Set up real-time listeners FIRST (so contacts load immediately) ──
-      const contactsRef = collection(db, crmPath(uid, "contacts"));
+      const contactsRef = collection(db, crmPath(uid, "contacts", orgId));
       const unsubContacts = onSnapshot(
         query(contactsRef),
         (snapshot) => {
@@ -399,13 +401,13 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
             if (!oldSnap.empty) {
               console.log(`[CRM Store] Merging ${oldSnap.size} contacts from user path to org-scoped path...`);
               await Promise.all(oldSnap.docs.map(d =>
-                setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
+                setDoc(doc(db, crmPath(uid, "contacts", orgId), d.id), d.data(), { merge: true })
               ));
               console.log(`[CRM Store] Merge complete.`);
               const oldMeetingsSnap = await getDocs(query(collection(db, `users/${uid}/meetings`)));
               if (!oldMeetingsSnap.empty) {
                 await Promise.all(oldMeetingsSnap.docs.map(d =>
-                  setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
+                  setDoc(doc(db, crmPath(uid, "meetings", orgId), d.id), d.data(), { merge: true })
                 ));
               }
             }
@@ -425,13 +427,13 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
             if (!sharedSnap.empty) {
               console.log(`[CRM Store] Migrating ${sharedSnap.size} contacts from shared/crm to org-scoped path...`);
               await Promise.all(sharedSnap.docs.map(d =>
-                setDoc(doc(db, crmPath(uid, "contacts"), d.id), d.data(), { merge: true })
+                setDoc(doc(db, crmPath(uid, "contacts", orgId), d.id), d.data(), { merge: true })
               ));
               const sharedMeetingsRef = collection(db, "shared/crm/meetings");
               const sharedMeetingsSnap = await getDocs(query(sharedMeetingsRef));
               if (!sharedMeetingsSnap.empty) {
                 await Promise.all(sharedMeetingsSnap.docs.map(d =>
-                  setDoc(doc(db, crmPath(uid, "meetings"), d.id), d.data(), { merge: true })
+                  setDoc(doc(db, crmPath(uid, "meetings", orgId), d.id), d.data(), { merge: true })
                 ));
               }
               console.log(`[CRM Store] Shared → org-scoped migration complete.`);
@@ -444,7 +446,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       })();
 
       // Set up real-time listener for meetings
-      const meetingsRef = collection(db, crmPath(uid, "meetings"));
+      const meetingsRef = collection(db, crmPath(uid, "meetings", orgId));
       const unsubMeetings = onSnapshot(
         query(meetingsRef),
         (snapshot) => {
@@ -469,7 +471,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       );
 
       // Set up real-time listener for tasks
-      const tasksRef = collection(db, crmPath(uid, "tasks"));
+      const tasksRef = collection(db, crmPath(uid, "tasks", orgId));
       const unsubTasks = onSnapshot(
         query(tasksRef),
         (snapshot) => {
@@ -490,7 +492,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       );
 
       // Set up real-time listener for activities
-      const activitiesRef = collection(db, crmPath(uid, "activities"));
+      const activitiesRef = collection(db, crmPath(uid, "activities", orgId));
       const unsubActivities = onSnapshot(
         query(activitiesRef, orderBy("timestamp", "desc")),
         (snapshot) => {
@@ -511,7 +513,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       );
 
       // Set up real-time listener for conversations
-      const conversationsRef = collection(db, crmPath(uid, "conversations"));
+      const conversationsRef = collection(db, crmPath(uid, "conversations", orgId));
       const unsubConversations = onSnapshot(
         query(conversationsRef),
         (snapshot) => {
@@ -563,6 +565,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     set({
       _db: null,
       _uid: null,
+      _orgId: null,
       _unsubContacts: null,
       _unsubMeetings: null,
       _unsubTasks: null,
@@ -578,15 +581,15 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
 
   /* ── Contact CRUD (Firestore) ── */
   addContact: async (customer) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) {
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) {
       console.error("addContact: Firestore not initialized", { _db: !!_db, _uid });
       get().showToast("⚠️ Database not connected. Please refresh.", "error");
       return;
     }
     set({ isAddingContact: true });
     try {
-      await setDoc(doc(_db, crmPath(_uid, "contacts"), customer.id), {
+      await setDoc(doc(_db, crmPath(_uid, "contacts", _orgId), customer.id), {
         firstName: customer.firstName,
         lastName: customer.lastName,
         phone: customer.phone,
@@ -616,10 +619,10 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   updateCustomer: async (id, updates) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "contacts"), id), updates as any);
+      await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id), updates as any);
     } catch (error) {
       console.error("updateCustomer error:", error);
       get().showToast("⚠️ Failed to update contact", "error");
@@ -627,11 +630,11 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   deleteContact: async (id) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     const customer = get().customers.find(c => c.id === id);
     try {
-      await deleteDoc(doc(_db, crmPath(_uid, "contacts"), id));
+      await deleteDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id));
       if (customer) get().showToast(`🗑️ ${customer.firstName} ${customer.lastName} removed`);
     } catch (error) {
       console.error("deleteContact error:", error);
@@ -640,11 +643,11 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   updateStatus: async (id, status) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     set({ isUpdatingStatus: true });
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "contacts"), id), { leadStatus: status });
+      await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id), { leadStatus: status });
       get().showToast(`📊 Status updated to ${status}`);
     } catch (error) {
       console.error("updateStatus error:", error);
@@ -654,13 +657,13 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   bulkDelete: async (ids) => {
-    const { _db, _uid, showToast } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId, showToast } = get();
+    if (!_db || !_uid || !_orgId) return;
     const BATCH_SIZE = 450;
     try {
       for (let i = 0; i < ids.length; i += BATCH_SIZE) {
         const chunk = ids.slice(i, i + BATCH_SIZE);
-        await Promise.all(chunk.map(id => deleteDoc(doc(_db, crmPath(_uid, "contacts"), id))));
+        await Promise.all(chunk.map(id => deleteDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id))));
       }
       showToast(`🗑️ ${ids.length} contact(s) deleted`);
     } catch (error) {
@@ -671,16 +674,16 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
 
   /* Direct setter for Jarvis compat — also persists to Firestore */
   setCustomers: (fn) => {
-    const { _db, _uid, customers } = get();
+    const { _db, _uid, _orgId, customers } = get();
     const updated = fn(customers);
     set({ customers: updated });
     // Persist any changes to Firestore
-    if (_db && _uid) {
+    if (_db && _uid && _orgId) {
       updated.forEach(c => {
         const original = customers.find(o => o.id === c.id);
         if (!original || JSON.stringify(original) !== JSON.stringify(c)) {
           const { id, ...data } = c;
-          setDoc(doc(_db, crmPath(_uid, "contacts"), id), data).catch(console.error);
+          setDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id), data).catch(console.error);
         }
       });
     }
@@ -688,12 +691,12 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
 
   /* ── Meetings (Firestore) ── */
   addMeeting: async (meetingData) => {
-    const { _db, _uid } = get();
+    const { _db, _uid, _orgId } = get();
     const meeting: Meeting = { ...meetingData, id: `MTG-${Date.now()}` };
-    if (_db && _uid) {
+    if (_db && _uid && _orgId) {
       try {
         const { id, ...data } = meeting;
-        await setDoc(doc(_db, crmPath(_uid, "meetings"), id), data);
+        await setDoc(doc(_db, crmPath(_uid, "meetings", _orgId), id), data);
       } catch (error) {
         console.error("addMeeting error:", error);
         // Still add locally even if Firestore fails
@@ -712,12 +715,12 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
 
   /* ── Tasks (Firestore) ── */
   addTask: async (taskData) => {
-    const { _db, _uid } = get();
+    const { _db, _uid, _orgId } = get();
     const task: CrmTask = { ...taskData, id: `TSK-${Date.now()}`, createdAt: serverTimestamp() };
-    if (_db && _uid) {
+    if (_db && _uid && _orgId) {
       try {
         const { id, ...data } = task;
-        await setDoc(doc(_db, crmPath(_uid, "tasks"), id), data);
+        await setDoc(doc(_db, crmPath(_uid, "tasks", _orgId), id), data);
       } catch (error) {
         console.error("addTask error:", error);
       }
@@ -726,20 +729,20 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   updateTask: async (id, updates) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "tasks"), id), updates);
+      await updateDoc(doc(_db, crmPath(_uid, "tasks", _orgId), id), updates);
     } catch (error) {
       console.error("updateTask error:", error);
     }
   },
 
   deleteTask: async (id) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      await deleteDoc(doc(_db, crmPath(_uid, "tasks"), id));
+      await deleteDoc(doc(_db, crmPath(_uid, "tasks", _orgId), id));
     } catch (error) {
       console.error("deleteTask error:", error);
     }
@@ -747,12 +750,12 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
 
   /* ── Activities (Firestore) ── */
   addActivity: async (activityData) => {
-    const { _db, _uid } = get();
+    const { _db, _uid, _orgId } = get();
     const activity: CrmActivity = { ...activityData, id: `ACT-${Date.now()}`, timestamp: serverTimestamp() };
-    if (_db && _uid) {
+    if (_db && _uid && _orgId) {
       try {
         const { id, ...data } = activity;
-        await setDoc(doc(_db, crmPath(_uid, "activities"), id), data);
+        await setDoc(doc(_db, crmPath(_uid, "activities", _orgId), id), data);
       } catch (error) {
         console.error("addActivity error:", error);
       }
@@ -778,8 +781,8 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     set({ isSendingReply: true });
     await new Promise<void>(res => setTimeout(res, 300));
     
-    const { _db, _uid, conversations } = get();
-    if (!_db || !_uid) {
+    const { _db, _uid, _orgId, conversations } = get();
+    if (!_db || !_uid || !_orgId) {
       set({ isSendingReply: false });
       return;
     }
@@ -794,7 +797,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const updatedMessages = [...conv.messages, msg];
     
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "conversations"), convId), {
+      await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId), convId), {
         messages: updatedMessages,
         lastMessage: text,
         lastTimestamp: msg.timestamp
@@ -807,10 +810,10 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   updateTicketStatus: async (convId, status) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "conversations"), convId), { ticketStatus: status });
+      await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId), convId), { ticketStatus: status });
       get().showToast(`🎫 Ticket status updated to ${status}`);
     } catch (error) {
       console.error("updateTicketStatus error:", error);
@@ -818,12 +821,12 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   markConversationRead: async (convId) => {
-    const { _db, _uid, conversations } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId, conversations } = get();
+    if (!_db || !_uid || !_orgId) return;
     const conv = conversations.find(c => c.id === convId);
     if (conv && conv.unread) {
       try {
-        await updateDoc(doc(_db, crmPath(_uid, "conversations"), convId), { unread: false });
+        await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId), convId), { unread: false });
       } catch (error) {
         console.error("markConversationRead error:", error);
       }
@@ -869,7 +872,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const deduction = `Jarvis Deduction (${new Date().toLocaleDateString()}):\n📊 ${revenueInsight}\n🎯 ${statusInsight}\n🏷️ ${tagInsight}\n💳 ${txInsight}\n${balanceInsight}`;
 
     // Update locally + persist to Firestore
-    const { _db, _uid } = get();
+    const { _db, _uid, _orgId } = get();
     const newNotes = c.aiNotes ? c.aiNotes + "\n\n" + deduction : deduction;
     set(state => ({
       customers: state.customers.map(x => x.id === customerId
@@ -878,8 +881,8 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       ),
       isDeducing: false,
     }));
-    if (_db && _uid) {
-      updateDoc(doc(_db, crmPath(_uid, "contacts"), customerId), { aiNotes: newNotes }).catch(console.error);
+    if (_db && _uid && _orgId) {
+      updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId), customerId), { aiNotes: newNotes }).catch(console.error);
     }
     get().showToast("🧠 Jarvis deduction complete");
   },
@@ -898,10 +901,10 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   setPipelineConfig: (config) => set({ pipelineConfig: config }),
 
   savePipelineConfig: async (config) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      await setDoc(doc(_db, crmPath(_uid, "settings"), "pipelineConfig"), {
+      await setDoc(doc(_db, crmPath(_uid, "settings", _orgId), "pipelineConfig"), {
         id: config.id,
         name: config.name,
         stages: config.stages,
@@ -916,10 +919,10 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   loadPipelineConfig: async () => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      const snap = await getDocs(query(collection(_db, crmPath(_uid, "settings"))));
+      const snap = await getDocs(query(collection(_db, crmPath(_uid, "settings", _orgId))));
       const configDoc = snap.docs.find(d => d.id === "pipelineConfig");
       if (configDoc) {
         const data = configDoc.data();
@@ -941,10 +944,10 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     set((state) => ({ crmSettings: { ...state.crmSettings, ...updates } })),
 
   saveCrmSettings: async (settings) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      await setDoc(doc(_db, crmPath(_uid, "settings"), "general"), {
+      await setDoc(doc(_db, crmPath(_uid, "settings", _orgId), "general"), {
         crmLabel: settings.crmLabel,
         defaultView: settings.defaultView,
         updatedAt: serverTimestamp(),
@@ -958,10 +961,10 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   loadCrmSettings: async () => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
     try {
-      const snap = await getDoc(doc(_db, crmPath(_uid, "settings"), "general"));
+      const snap = await getDoc(doc(_db, crmPath(_uid, "settings", _orgId), "general"));
       if (snap.exists()) {
         const data = snap.data();
         set({
@@ -992,10 +995,10 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   /* ── Multi-database Methods ── */
 
   loadInstances: async () => {
-    const { _db } = get();
-    if (!_db) return;
+    const { _db, _orgId } = get();
+    if (!_db || !_orgId) return;
     try {
-      const metaDoc = await getDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"));
+      const metaDoc = await getDoc(doc(_db, `orgs/${_orgId}/crm-instances-meta`, "registry"));
       if (metaDoc.exists()) {
         const data = metaDoc.data();
         const instances = (data.instances || []) as { id: string; name: string }[];
@@ -1011,17 +1014,17 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   switchInstance: async (instanceId: string) => {
-    const { _db, _uid } = get();
-    if (!_db || !_uid) return;
+    const { _db, _uid, _orgId } = get();
+    if (!_db || !_uid || !_orgId) return;
 
     // Teardown old listeners
     get().teardown();
 
     // Set new instance and re-initialize
-    set({ activeInstanceId: instanceId, isLoading: true, _db, _uid });
+    set({ activeInstanceId: instanceId, isLoading: true, _db, _uid, _orgId });
 
     // Re-subscribe to the new instance's contacts collection
-    const contactsRef = collection(_db, crmPath(_uid, "contacts", "soltheory", instanceId));
+    const contactsRef = collection(_db, crmPath(_uid, "contacts", _orgId, instanceId));
     const unsubContacts = onSnapshot(
       query(contactsRef),
       (snapshot) => {
@@ -1035,19 +1038,19 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     );
 
     // Meetings
-    const meetingsRef = collection(_db, crmPath(_uid, "meetings", "soltheory", instanceId));
+    const meetingsRef = collection(_db, crmPath(_uid, "meetings", _orgId, instanceId));
     const unsubMeetings = onSnapshot(query(meetingsRef, orderBy("date", "desc")), (snapshot) => {
       set({ meetings: snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Meeting)) });
     });
 
     // Tasks
-    const tasksRef = collection(_db, crmPath(_uid, "tasks", "soltheory", instanceId));
+    const tasksRef = collection(_db, crmPath(_uid, "tasks", _orgId, instanceId));
     const unsubTasks = onSnapshot(query(tasksRef), (snapshot) => {
       set({ tasks: snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CrmTask)) });
     });
 
     // Activities
-    const activitiesRef = collection(_db, crmPath(_uid, "activities", "soltheory", instanceId));
+    const activitiesRef = collection(_db, crmPath(_uid, "activities", _orgId, instanceId));
     const unsubActivities = onSnapshot(query(activitiesRef, orderBy("timestamp", "desc")), (snapshot) => {
       set({ activities: snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CrmActivity)) });
     });
@@ -1063,15 +1066,15 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   createInstance: async (name: string) => {
-    const { _db } = get();
-    if (!_db) throw new Error("Firestore not ready");
+    const { _db, _orgId } = get();
+    if (!_db || !_orgId) throw new Error("Firestore not ready");
 
     const instanceId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
     const { availableInstances } = get();
     const updatedInstances = [...availableInstances, { id: instanceId, name }];
 
     // Save to Firestore registry
-    await setDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"), {
+    await setDoc(doc(_db, `orgs/${_orgId}/crm-instances-meta`, "registry"), {
       instances: updatedInstances,
       updatedAt: serverTimestamp(),
     });
@@ -1086,11 +1089,11 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       get().showToast("Cannot delete the default database", "error");
       return;
     }
-    const { _db, availableInstances, activeInstanceId } = get();
-    if (!_db) return;
+    const { _db, _orgId, availableInstances, activeInstanceId } = get();
+    if (!_db || !_orgId) return;
 
     const updatedInstances = availableInstances.filter(i => i.id !== instanceId);
-    await setDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"), {
+    await setDoc(doc(_db, `orgs/${_orgId}/crm-instances-meta`, "registry"), {
       instances: updatedInstances,
       updatedAt: serverTimestamp(),
     });
@@ -1106,14 +1109,14 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   },
 
   renameInstance: async (instanceId: string, newName: string) => {
-    const { _db, availableInstances } = get();
-    if (!_db) return;
+    const { _db, _orgId, availableInstances } = get();
+    if (!_db || !_orgId) return;
 
     const updatedInstances = availableInstances.map(i =>
       i.id === instanceId ? { ...i, name: newName } : i
     );
 
-    await setDoc(doc(_db, "orgs/soltheory/crm-instances-meta", "registry"), {
+    await setDoc(doc(_db, `orgs/${_orgId}/crm-instances-meta`, "registry"), {
       instances: updatedInstances,
       updatedAt: serverTimestamp(),
     });

@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import { useOrgRole } from "@/hooks/useOrgRole";
 import { getCrmPermissions } from "@/lib/rbac";
 import type { OrgRole, CrmPermissions, OrgMember } from "@/lib/rbac";
+import { useOrgId } from "@/contexts/OrgContext";
 
 interface UseCrmPermissionsReturn extends CrmPermissions {
   /** The current user's org role. */
@@ -22,8 +23,11 @@ interface UseCrmPermissionsReturn extends CrmPermissions {
   setMemberRole: (targetUid: string, newRole: OrgRole) => Promise<void>;
 }
 
-export function useCrmPermissions(orgId: string = "soltheory"): UseCrmPermissionsReturn {
-  const { role, isLoading, members, setMemberRole } = useOrgRole(orgId);
+export function useCrmPermissions(orgId?: string): UseCrmPermissionsReturn {
+  const contextOrgId = useOrgId();
+  const effectiveOrgId = orgId || contextOrgId;
+
+  const { role, isLoading, members, setMemberRole } = useOrgRole(effectiveOrgId);
 
   const permissions = useMemo(() => getCrmPermissions(role), [role]);
 

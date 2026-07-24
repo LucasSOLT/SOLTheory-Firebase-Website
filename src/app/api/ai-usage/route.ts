@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
-
-const HEAD_ADMIN_EMAIL = "lucas@soltheory.com";
+import { DEVELOPER_EMAIL } from "@/lib/org-config";
 
 export async function POST(req: Request) {
   const auth = await verifyRequest(req);
@@ -19,7 +18,7 @@ export async function POST(req: Request) {
     // We fetch ALL records for the given scope.
     let query: FirebaseFirestore.Query = db.collection("ai_usage");
 
-    if (filter === "all" && email === HEAD_ADMIN_EMAIL) {
+    if (filter === "all" && email === DEVELOPER_EMAIL) {
       // Head admin sees everything — no filter applied
     } else if (filter === "org" && orgId) {
       // Verify user belongs to the requested org

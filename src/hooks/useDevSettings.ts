@@ -12,6 +12,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { collection, doc, query, onSnapshot, setDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { ALL_ORGS, type OrgId } from "@/lib/admin";
 import type { OrgRole, OrgMember } from "@/lib/rbac";
+import { ORG_REGISTRY, isDeveloper as checkIsDeveloper } from "@/lib/org-config";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -35,15 +36,8 @@ export interface OrgInfo {
 }
 
 /** Email domains → org ID mapping for auto-assignment. */
-const DOMAIN_TO_ORG: Record<string, OrgId> = {
-  "soltheory.com": "soltheory",
-  "nxtchapter.com": "nxtchapter",
-  "nxtchapter.org": "nxtchapter",
-  "lifenavigationu.com": "lnu",
-};
-
-/** Developer email addresses that have access to this panel. */
-const DEV_EMAILS = ["lucas@soltheory.com", "lucas.huff@soltheory.com"];
+const DOMAIN_TO_ORG: Record<string, string> = {};
+Object.values(ORG_REGISTRY).forEach(org => org.emailDomains.forEach(d => { DOMAIN_TO_ORG[d] = org.id; }));
 
 /* ─── Hook ──────────────────────────────────────────────────────────────────── */
 
@@ -55,7 +49,7 @@ export function useDevSettings() {
   const [isLoading, setIsLoading] = useState(true);
 
   const isDeveloper = useMemo(() => {
-    return !!user?.email && DEV_EMAILS.includes(user.email.toLowerCase());
+    return !!user?.email && checkIsDeveloper(user.email);
   }, [user?.email]);
 
   const allOrgs: OrgInfo[] = useMemo(() => {

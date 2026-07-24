@@ -9,14 +9,18 @@ import { useState } from 'react';
 import { FAQ_LIST } from '@/components/portal/FAQView';
 import { StarBackground } from '@/components/ui/star-background';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation } from '@/lib/i18n';
 
+import { useTranslation } from '@/lib/i18n';
+import { useOrgId } from '@/contexts/OrgContext';
+import { getOrgLabel } from '@/lib/org-config';
 
 import { usePathname } from 'next/navigation';
 
 export function Header() {
   const pathname = usePathname();
-  const isNxtChapter = pathname?.startsWith('/portal/dashboard/nxtchapter');
+  const orgId = useOrgId();
+  const isSolTheory = orgId === 'soltheory' || !orgId;
+  const orgLabel = getOrgLabel(orgId);
   const { t, lang } = useTranslation();
   
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -42,9 +46,9 @@ export function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 py-3 bg-black/50 backdrop-blur-xl border-b border-white/5">
       <div className="container mx-auto px-4 flex items-center justify-between relative">
         <Link href="/" className="flex items-center gap-2 group">
-          {!isNxtChapter && <Logo className="h-6 w-6" />}
-          {isNxtChapter ? (
-            <span className="font-bold text-lg text-white">NXT Chapter</span>
+          {isSolTheory && <Logo className="h-6 w-6" />}
+          {!isSolTheory ? (
+            <span className="font-bold text-lg text-white">{orgLabel}</span>
           ) : (
             <SolTheoryLogoText />
           )}

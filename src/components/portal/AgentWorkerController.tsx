@@ -5,6 +5,7 @@ import { useFirestore } from "@/firebase";
 import { collection, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
 import { startAgentWorker, stopAgentWorker, stopAllAgentWorkers } from "@/services/grantAgentWorker";
+import { useOrgId } from "@/contexts/OrgContext";
 
 export interface AgentSlotData {
   id: string;
@@ -41,6 +42,7 @@ export function AgentWorkerController({
   onSlotsChange?: (slots: AgentSlotData[]) => void;
 }) {
   const firestore = useFirestore();
+  const orgId = useOrgId();
   // Maps workerKey → configHash so we only restart when config actually changes
   const startedRef = useRef<Map<string, string>>(new Map());
   const callbackRef = useRef(onSlotsChange);
@@ -59,7 +61,7 @@ export function AgentWorkerController({
 
     const sessionsQuery = query(
       collection(firestore, "grant_sessions"),
-      where("orgId", "==", "soltheory")
+      where("orgId", "==", orgId)
     );
 
     const unsub = onSnapshot(

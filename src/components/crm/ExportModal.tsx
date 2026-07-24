@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useOrgId } from "@/contexts/OrgContext";
+import { getOrgLabel } from "@/lib/org-config";
 import {
   X,
   Download,
@@ -151,6 +153,7 @@ function downloadPDF(
   includeSummary: boolean,
   filename: string,
   title: string,
+  orgLabel: string
 ) {
   // Sort
   let sorted = [...customers];
@@ -254,7 +257,7 @@ function downloadPDF(
     html += `</div>`;
   }
 
-  html += `<div class="footer">SOLTheory CRM · Confidential</div></body></html>`;
+  html += `<div class="footer">${escapeHtml(orgLabel)} CRM · Confidential</div></body></html>`;
 
   // Open print window
   const printWindow = window.open("", "_blank");
@@ -278,6 +281,8 @@ export default function ExportModal({
   selectedCustomers,
   isDarkMode,
 }: ExportModalProps) {
+  const orgId = useOrgId();
+  const orgLabel = getOrgLabel(orgId);
   // Format
   const [format, setFormat] = useState<ExportFormat>("csv");
   // Scope
@@ -373,6 +378,7 @@ export default function ExportModal({
         includeSummary,
         `contacts_export_${dateStr}.pdf`,
         reportTitle,
+        orgLabel
       );
     }
     onClose();

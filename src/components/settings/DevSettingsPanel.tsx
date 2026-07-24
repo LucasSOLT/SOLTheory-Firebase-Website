@@ -4,7 +4,7 @@
  * @file DevSettingsPanel.tsx
  * @description Developer-only cross-organization management panel.
  * Provides visibility into ALL organizations, ALL users, and ALL member assignments.
- * Only visible to lucas@soltheory.com — if the current user is not a developer,
+ * Only visible to developers — if the current user is not a developer,
  * the component renders nothing.
  */
 
@@ -324,7 +324,7 @@ export default function DevSettingsPanel() {
                 isDarkMode ? "text-slate-400" : "text-slate-500"
               }`}
             >
-              Platform-wide admin tools — lucas@soltheory.com only
+              Platform-wide admin tools — developers only
             </p>
           </div>
         </div>

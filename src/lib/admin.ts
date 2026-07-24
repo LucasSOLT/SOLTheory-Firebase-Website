@@ -1,18 +1,26 @@
 /**
  * Admin configuration — centralized source of truth for admin privileges.
+ * Now pulls from org-config.ts for org-specific data.
  */
 
-export const ADMIN_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'] as const;
+import { ORG_REGISTRY, isGlobalAdmin, getAllOrgs } from './org-config';
+
+/** All admin emails across all orgs (flattened). */
+export const ADMIN_EMAILS = [
+  ...new Set(Object.values(ORG_REGISTRY).flatMap(org => org.adminEmails))
+] as readonly string[];
 
 /** Check if a given email belongs to an admin user. */
 export const isAdmin = (email: string | null | undefined): boolean =>
-  !!email && ADMIN_EMAILS.includes(email as typeof ADMIN_EMAILS[number]);
+  !!email && isGlobalAdmin(email);
 
 /** All available organizations for the content manager. */
-export const ALL_ORGS = [
-  { id: 'soltheory', name: 'SOL Theory', icon: '◆', color: 'fuchsia' },
-  { id: 'nxtchapter', name: 'NXT Chapter', icon: '▲', color: 'indigo' },
-  { id: 'lnu', name: 'LifeNavigationU', icon: '●', color: 'emerald' },
-] as const;
+export const ALL_ORGS = getAllOrgs().map(org => ({
+  id: org.id,
+  name: org.label,
+  icon: org.theme.icon,
+  color: org.theme.color,
+}));
 
-export type OrgId = typeof ALL_ORGS[number]['id'];
+export type OrgId = string;
+

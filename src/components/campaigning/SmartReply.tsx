@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Sparkles, Zap } from "lucide-react";
 import { getAIAssist } from "@/lib/gmail-api";
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
+import { useOrgId } from '@/contexts/OrgContext';
 
 interface SmartReplyProps {
   emailBody: string;
@@ -16,7 +17,8 @@ export default function SmartReply({ emailBody, emailSubject, emailFrom, onSelec
   const [replies, setReplies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const { knowledgeBaseText, pactText } = useKnowledgeBase('soltheory');
+  const orgId = useOrgId();
+  const { knowledgeBaseText, pactText } = useKnowledgeBase(orgId);
 
   const generateReplies = useCallback(async () => {
     if (loading || !emailBody) return;

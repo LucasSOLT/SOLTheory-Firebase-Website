@@ -5,8 +5,10 @@ import { Clock, Globe, FileText, Users, HardDrive, Youtube, Bot, BarChart3, Cale
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CollapsibleTile } from "@/components/ui/collapsible-tile";
+import { useOrgId } from "@/contexts/OrgContext";
+import { getAllOrgIds } from "@/lib/org-config";
 
-const STORAGE_KEY = "soltheory_daily_digest";
+const getStorageKey = (orgId: string) => `${orgId}_daily_digest`;
 
 const iconMap: Record<string, any> = {
   Globe, FileText, Users, HardDrive, Youtube, Bot, BarChart3,
@@ -23,13 +25,14 @@ type DigestEntry = {
 };
 
 export function RecentPlaces() {
+  const orgId = useOrgId();
   const [places, setPlaces] = useState<DigestEntry[]>([]);
   const pathname = usePathname();
 
   useEffect(() => {
     const loadPlaces = () => {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(getStorageKey(orgId));
         if (!raw) return;
         const entries: DigestEntry[] = JSON.parse(raw);
         
@@ -40,7 +43,8 @@ export function RecentPlaces() {
         for (const entry of entries) {
           if (entry.type === "navigation" && entry.path) {
             // Ignore dashboard root paths to focus on inner tools
-            if (entry.path.endsWith("/soltheory") || entry.path.endsWith("/nxtchapter")) continue;
+            const allOrgs = getAllOrgIds();
+            if (allOrgs.some(id => entry.path?.endsWith(`/${id}`))) continue;
             
             if (!uniquePaths.has(entry.path)) {
               uniquePaths.add(entry.path);
@@ -62,7 +66,7 @@ export function RecentPlaces() {
       window.removeEventListener("digest-update", loadPlaces);
       window.removeEventListener("storage", loadPlaces);
     };
-  }, [pathname]);
+  }, [pathname, orgId]);
 
   return (
     <CollapsibleTile id="recent-places" title="Recent Places" icon={<Clock className="w-4 h-4" />} className="w-full h-full min-h-[300px] p-5 flex flex-col">

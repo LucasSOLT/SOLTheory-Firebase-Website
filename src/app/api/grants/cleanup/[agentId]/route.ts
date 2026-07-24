@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initAdmin, getFirestore } from "@/firebase/admin";
 import { verifyRequest } from "@/lib/api-auth";
 import { getAuth } from "firebase-admin/auth";
+import { DEVELOPER_EMAIL } from "@/lib/org-config";
 
 /**
  * DELETE /api/grants/cleanup/[agentId]
@@ -10,7 +11,7 @@ import { getAuth } from "firebase-admin/auth";
  * Requires authentication with an authorized admin user.
  */
 
-const AUTHORIZED_EMAIL = "lucas@soltheory.com";
+
 
 export async function DELETE(
   request: Request,
@@ -30,7 +31,7 @@ export async function DELETE(
     // 2. Verify the user is an authorized admin
     initAdmin();
     const userRecord = await getAuth().getUser(auth.uid);
-    if (userRecord.email !== AUTHORIZED_EMAIL) {
+    if (userRecord.email !== DEVELOPER_EMAIL) {
       console.warn(
         `[Cleanup:${agentId}] Unauthorized cleanup attempt by ${userRecord.email} (uid: ${auth.uid})`
       );

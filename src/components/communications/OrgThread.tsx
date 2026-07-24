@@ -6,9 +6,13 @@ import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy,
 import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, ChevronDown, Pencil, Check, Paperclip, Wrench, CornerDownRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { playMessageSendSound } from "@/lib/send-sound";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from "@/lib/i18n";
+import { isDeveloper } from "@/lib/org-config";
 
 interface Channel {
   id: string;
@@ -224,7 +228,7 @@ export function OrgThread() {
 
   const userDomain = user?.email?.split("@")[1] || "";
   const getUserRole = (channel: Channel, email: string): Role => {
-    if (email === "lucas@soltheory.com") return "admin";
+    if (isDeveloper(email)) return "admin";
     if (email === channel.createdBy) return "admin";
     if (channel.roles && channel.roles[email]) return channel.roles[email];
     return "member";

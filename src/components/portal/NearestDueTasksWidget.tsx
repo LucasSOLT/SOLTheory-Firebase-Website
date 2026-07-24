@@ -137,9 +137,11 @@ function getAssigneeAvatar(name: string | null, colorMap: Map<string, number>) {
   return ASSIGNEE_COLORS[colorMap.get(key)!].avatar;
 }
 
+import { useOrgId } from "@/contexts/OrgContext";
 
-
-export function NearestDueTasksWidget({ orgId = "soltheory" }: { orgId?: string }) {
+export function NearestDueTasksWidget({ orgId: orgIdProp }: { orgId?: string }) {
+  const contextOrgId = useOrgId();
+  const orgId = orgIdProp || contextOrgId;
   const { t } = useTranslation();
   const { user } = useUser();
   const firestore = useFirestore();

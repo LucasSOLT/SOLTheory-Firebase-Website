@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useFirestore, useUser } from "@/firebase";
+import { useOrgId } from "@/contexts/OrgContext";
 import {
   collection,
   doc,
@@ -72,7 +73,10 @@ const MAX_SESSIONS = 10;
 
 /* ─── Hook ──────────────────────────────────────────────────────────────── */
 
-export function useGrantSessions(orgId: string = "soltheory") {
+export function useGrantSessions(orgId?: string) {
+  const contextOrgId = useOrgId();
+  const effectiveOrgId = orgId || contextOrgId;
+
   const firestore = useFirestore();
   const { user } = useUser();
   const [sessions, setSessions] = useState<GrantSession[]>([]);
@@ -86,7 +90,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
 
     const q = query(
       collection(firestore, "grant_sessions"),
-      where("orgId", "==", orgId)
+      where("orgId", "==", effectiveOrgId)
     );
 
     const unsub = onSnapshot(q, (snap) => {
@@ -95,7 +99,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
         const data = docSnap.data();
         loaded.push({
           id: docSnap.id,
-          orgId: data.orgId || orgId,
+          orgId: data.orgId || effectiveOrgId,
           name: data.name || "Untitled Session",
           color: data.color || "indigo",
           config: { ...DEFAULT_CONFIG, ...data.config },
@@ -128,7 +132,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
     });
 
     return () => unsub();
-  }, [firestore, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [firestore, effectiveOrgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Migration: check if we need to migrate from old grant_agent_config
   // Uses localStorage to prevent re-triggering after user intentionally deletes all sessions
@@ -142,7 +146,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
     }
 
     // Check localStorage — if migration already ran for this org, don't re-create sessions
-    const migrationKey = `grant_sessions_migrated_${orgId}`;
+  const migrationKey = `grant_sessions_migrated_${effectiveOrgId}`;
     if (typeof window !== "undefined" && localStorage.getItem(migrationKey) === "true") {
       setMigrated(true);
       return;
@@ -151,7 +155,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
     // No sessions found and no migration flag — attempt migration from old format
     async function migrate() {
       try {
-        const oldDocRef = doc(firestore!, "grant_agent_config", orgId);
+        const oldDocRef = doc(firestore!, "grant_agent_config", effectiveOrgId);
         const oldSnap = await getDoc(oldDocRef);
 
         if (oldSnap.exists()) {
@@ -181,7 +185,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
             }
 
             await setDoc(sessionRef, {
-              orgId,
+              orgId: effectiveOrgId,
               name: "Default Session",
               color: "indigo",
               config: sessionConfig,
@@ -196,7 +200,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
             // Update existing grant_suggestions to add sessionId
             const grantsQuery = query(
               collection(firestore!, "grant_suggestions"),
-              where("orgId", "==", orgId)
+              where("orgId", "==", effectiveOrgId)
             );
             const grantsSnap = await getDocs(grantsQuery);
 
@@ -225,7 +229,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
           const sessionId = `session_${Date.now()}`;
           const sessionRef = doc(firestore!, "grant_sessions", sessionId);
           await setDoc(sessionRef, {
-            orgId,
+            orgId: effectiveOrgId,
             name: "Default Session",
             color: "indigo",
             config: DEFAULT_CONFIG,
@@ -252,7 +256,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
     }
 
     migrate();
-  }, [firestore, loading, migrated, sessions.length, orgId, user?.uid]);
+  }, [firestore, loading, migrated, sessions.length, effectiveOrgId, user?.uid]);
 
   // Active session
   const activeSession = useMemo(
@@ -275,7 +279,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
         const chosenColor = color || SESSION_COLORS[sessions.length % SESSION_COLORS.length];
 
         await setDoc(sessionRef, {
-          orgId,
+          orgId: effectiveOrgId,
           name,
           color: chosenColor,
           config,
@@ -298,7 +302,7 @@ export function useGrantSessions(orgId: string = "soltheory") {
         return null;
       }
     },
-    [firestore, sessions.length, orgId, user?.uid]
+    [firestore, sessions.length, effectiveOrgId, user?.uid]
   );
 
   // Update a session

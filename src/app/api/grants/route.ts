@@ -69,7 +69,10 @@ async function getAdminFirestore() {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get("orgId") || "soltheory";
+    const orgId = searchParams.get("orgId");
+    if (!orgId) {
+      return NextResponse.json({ error: "orgId is required" }, { status: 400 });
+    }
     const statusFilter = searchParams.get("status");
 
     // Verify user belongs to the requested org

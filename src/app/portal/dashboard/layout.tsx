@@ -14,7 +14,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslation, TIMEZONE_OPTIONS } from "@/lib/i18n";
 import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
-import { isDeveloper } from "@/lib/rbac";
+import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, DEVELOPER_EMAIL } from "@/lib/org-config";
+import { OrgProvider } from "@/contexts/OrgContext";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 
@@ -94,7 +95,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             return;
           }
 
-          const currentOrgUrl = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
+          // Extract orgId dynamically from URL path
+          const pathSegments = pathname.split('/');
+          const dashIdx = pathSegments.indexOf('dashboard');
+          const currentOrgUrl = dashIdx >= 0 && pathSegments[dashIdx + 1] ? pathSegments[dashIdx + 1] : '';
           
           let allowed: string[] = [];
           if (data.allowedOrgs && Array.isArray(data.allowedOrgs)) {
@@ -104,8 +108,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             allowed = [data.allowedOrgs];
           } else if (data.organization) {
             const orgVal = data.organization.toLowerCase().replace(/\s+/g, '');
-            if (orgVal.includes('nxt')) allowed.push('nxtchapter');
-            else allowed.push('soltheory');
+            // Try to match against known org IDs
+            const matchedOrg = getAllOrgIds().find(id => orgVal.includes(id));
+            if (matchedOrg) allowed.push(matchedOrg);
+            else allowed.push(orgVal || currentOrgUrl);
           }
 
           if (allowed.length === 0) {
@@ -250,9 +256,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
   }, [pathname]);
 
-  const DUAL_ORG_EMAILS = ['lucas@soltheory.com', 'steve@soltheory.com', 'gerard@soltheory.com'];
-  const isDualOrgUser = DUAL_ORG_EMAILS.includes(user?.email || '');
-  const isNxtChapter = pathname.includes('/nxtchapter');
+  // Extract the current org from the URL path dynamically
+  const pathSegments = pathname.split('/');
+  const dashIdx = pathSegments.indexOf('dashboard');
+  const currentOrgId = dashIdx >= 0 && pathSegments[dashIdx + 1] ? pathSegments[dashIdx + 1] : getAllOrgIds()[0];
+  const isNxtChapter = currentOrgId === 'nxtchapter';
+
+  // Dual-org users: anyone who appears in adminEmails across multiple orgs
+  const isDualOrgUser = (() => {
+    if (!user?.email) return false;
+    const email = user.email.toLowerCase();
+    let count = 0;
+    for (const org of Object.values(ORG_REGISTRY)) {
+      if (org.adminEmails.includes(email)) count++;
+    }
+    return count >= 2;
+  })();
   const userIsAdmin = isAdmin(user?.email);
   const contentManagerActive = useContentManagerStore((s) => s.active);
   const setContentManagerActive = useContentManagerStore((s) => s.setActive);
@@ -450,7 +469,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       // Bridge org data to the unified org profile
       if (wtOrganization) {
-        const orgId = pathname.includes("/nxtchapter/") ? "nxtchapter" : "soltheory";
+        const orgId = currentOrgId;
         const orgRef = doc(firestore, "org_profiles", orgId);
         await setDoc(orgRef, {
           orgName: wtOrganization,
@@ -549,7 +568,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   // Detect which org the user is in based on the current path
-  const dashboardHome = pathname.includes('/nxtchapter') ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
+  const dashboardHome = `/portal/dashboard/${currentOrgId}`;
 
   // All admin/dual-org users have full access to both orgs — no guest mode
   const isGuestMode = false;
@@ -599,7 +618,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!pathname) return;
     // Skip bare dashboard roots
-    if (pathname === '/portal/dashboard/soltheory' || pathname === '/portal/dashboard/nxtchapter') return;
+    if (pathname === `/portal/dashboard/${currentOrgId}`) return;
 
     const getNavInfo = (p: string): { icon: string; label: string } => {
       if (p.includes('/ai-agents/')) {
@@ -1039,7 +1058,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Account Frozen</h1>
-            <p className="text-slate-500 dark:text-slate-400">Your account has been frozen. Contact your administrator at lucas@soltheory.com</p>
+            <p className="text-slate-500 dark:text-slate-400">Your account has been frozen. Contact your administrator at {DEVELOPER_EMAIL}</p>
           </div>
           <button 
             onClick={() => {
@@ -1140,65 +1159,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0]'}`}
                   >
-                    {isNxtChapter ? (
-                      <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
-                    ) : (
-                      <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
-                        <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-6 h-6 object-contain" />
-                      </div>
-                    )}
-                    <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{isNxtChapter ? 'NXT Chapter' : 'SOL Theory'}</span>
+                    <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
+                      <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-6 h-6 object-contain" />
+                    </div>
+                    <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                     <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isOrgSwitcherOpen && (
                     <div className={`absolute left-4 right-4 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-slate-200'}`}>
-                      {/* SOL Theory option */}
-                      <button
-                        onClick={() => {
-                          setIsOrgSwitcherOpen(false);
-                          setIsMobileMenuOpen(false);
-                          if (isNxtChapter) router.push('/portal/dashboard/soltheory');
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2ece0]')}`}
-                      >
-                        <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-6 h-6 object-contain" />
-                        </div>
-                        <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? (isDarkMode ? 'text-white' : 'text-indigo-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>SOL Theory</span>
-                        {!isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
-                      </button>
-                      {/* NXT Chapter option */}
-                      <button
-                        onClick={() => {
-                          setIsOrgSwitcherOpen(false);
-                          setIsMobileMenuOpen(false);
-                          if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100'} ${isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2ece0]')}`}
-                      >
-                        <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-8 h-8 object-contain rounded-lg" />
-                        <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? (isDarkMode ? 'text-white' : 'text-indigo-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>NXT Chapter</span>
-                        {isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
-                      </button>
+                      {getAllOrgIds().map((orgId, idx) => {
+                        const isCurrent = currentOrgId === orgId;
+                        return (
+                          <button
+                            key={orgId}
+                            onClick={() => {
+                              setIsOrgSwitcherOpen(false);
+                              setIsMobileMenuOpen(false);
+                              if (!isCurrent) router.push(`/portal/dashboard/${orgId}`);
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2ece0]')}`}
+                          >
+                            <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
+                              <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-6 h-6 object-contain" />
+                            </div>
+                            <span className={`text-sm font-semibold flex-1 text-left ${isCurrent ? (isDarkMode ? 'text-white' : 'text-indigo-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
+                            {isCurrent && <Check className="w-4 h-4 text-indigo-600" />}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               ) : (
                 <Link href={dashboardHome} className={`p-6 pt-6 pb-6 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2ece0]'}`} onClick={() => setIsMobileMenuOpen(false)}>
-                  {isNxtChapter ? (
-                    <>
-                      <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-32 h-auto object-contain object-left" />
-                      <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>NXT Chapter</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="bg-[#8b7355] p-2 rounded-2xl flex items-center justify-center">
-                        <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-12 h-12 object-contain" />
-                      </div>
-                      <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
-                    </>
-                  )}
+                  <>
+                    <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-12 h-12 object-contain" />
+                    <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
+                  </>
                 </Link>
               )}
 
@@ -1259,7 +1257,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Compass className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
                     </Link>
-                    {user?.email === 'lucas@soltheory.com' && (
+                    {user?.email && isDeveloper(user.email) && (
                     <Link href={`${dashboardHome}/system-health`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/system-health') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Activity className="w-5 h-5 text-amber-500" />
                       <span>System Health</span>
@@ -1406,70 +1404,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         <aside className={`w-full flex flex-col h-full relative overflow-x-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-          <div style={{ width: sidebarWidth, minWidth: 230 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
+<div style={{ width: sidebarWidth, minWidth: 230 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
             {isDualOrgUser ? (
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
                 <button
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}
                 >
-                  {isNxtChapter ? (
-                    <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
-                  ) : (
-                    <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
-                    </div>
-                  )}
-                  <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{isNxtChapter ? 'NXT Chapter' : 'SOL Theory'}</span>
+                  <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
+                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" />
+                  </div>
+                  <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                   <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isOrgSwitcherOpen && (
                   <div className={`absolute left-5 right-5 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-[#e0ddd4]'}`}>
-                    {/* SOL Theory option */}
-                    <button
-                      onClick={() => {
-                        setIsOrgSwitcherOpen(false);
-                        if (isNxtChapter) router.push('/portal/dashboard/soltheory');
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${!isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
-                    >
-                      <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
-                        <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-7 h-7 object-contain" />
-                      </div>
-                      <span className={`text-sm font-semibold flex-1 text-left ${!isNxtChapter ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>SOL Theory</span>
-                      {!isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
-                    </button>
-                    {/* NXT Chapter option */}
-                    <button
-                      onClick={() => {
-                        setIsOrgSwitcherOpen(false);
-                        if (!isNxtChapter) router.push('/portal/dashboard/nxtchapter');
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} ${isNxtChapter ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
-                    >
-                      <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-10 h-10 object-contain rounded-lg" />
-                      <span className={`text-sm font-semibold flex-1 text-left ${isNxtChapter ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>NXT Chapter</span>
-                      {isNxtChapter && <Check className="w-4 h-4 text-indigo-600" />}
-                    </button>
+                    {getAllOrgIds().map((orgId, idx) => {
+                      const isCurrent = currentOrgId === orgId;
+                      return (
+                        <button
+                          key={orgId}
+                          onClick={() => {
+                            setIsOrgSwitcherOpen(false);
+                            if (!isCurrent) router.push(`/portal/dashboard/${orgId}`);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
+                        >
+                          <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
+                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-7 h-7 object-contain" />
+                          </div>
+                          <span className={`text-sm font-semibold flex-1 text-left ${isCurrent ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
+                          {isCurrent && <Check className="w-4 h-4 text-indigo-600" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             ) : (
               <Link href={dashboardHome} className={`p-6 pt-8 pb-8 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}>
-                {isNxtChapter ? (
-                  <>
-                    <img src="/nxt_logo.png" alt="NXT Chapter Logo" className="w-40 h-auto object-contain object-left" />
-                    <span className={`font-bold text-2xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>NXT Chapter</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="bg-[#8b7355] p-2 rounded-2xl flex items-center justify-center">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-16 h-16 object-contain" />
-                    </div>
-                    <span className={`font-bold text-2xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
-                  </>
-                )}
+                <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-9 h-9 object-contain" />
+                <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
               </Link>
             )}
 
@@ -1620,7 +1596,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-sm font-medium">{t.agenticProspecting || 'Agentic Prospecting'}</span>
                 </Link>
 
-                {user?.email === 'lucas@soltheory.com' && (
+                {user?.email && isDeveloper(user.email) && (
                 <Link href={`${dashboardHome}/system-health`} className={getSidebarLinkClass(pathname.includes('/system-health'))}>
                   <div className={getSidebarIconClass(pathname.includes('/system-health'))}>
                     <Activity className="w-4 h-4 text-amber-500" />
@@ -1906,7 +1882,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Dynamic Page Content */}
         <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none${navFadeIn ? ' navContentFadeIn' : ''}`} tabIndex={-1}>
-          {children}
+          <OrgProvider orgId={currentOrgId}>
+            {children}
+          </OrgProvider>
 
           {/* ── Navigation Cube Overlay ── */}
           {/* Shows a 3-second spinning cube + "Loading" text, then fades into the content. */}

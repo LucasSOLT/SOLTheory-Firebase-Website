@@ -18,6 +18,8 @@ import { uploadCampaignImage, deleteCampaignImage } from "@/lib/campaign-image-u
 import type { UploadedImage } from "@/lib/campaign-image-upload";
 import { SKELETON_REGISTRY } from "@/lib/email-skeletons";
 import { useKnowledgeBase } from "@/hooks/useKnowledgeBase";
+import { useOrgId } from "@/contexts/OrgContext";
+import { getAllOrgIds } from "@/lib/org-config";
 
 /* ═══════════════════════════════════════════════════════════════
    TYPES
@@ -826,7 +828,8 @@ function CampaignCreator({ onSave, onCancel, editCampaign, crmContacts, campaign
   const { user } = useUser();
   const creatorFirestore = useFirestore();
   const creatorStorage = useStorage();
-  const { knowledgeBaseText, pactText } = useKnowledgeBase('soltheory');
+  const orgId = useOrgId();
+  const { knowledgeBaseText, pactText } = useKnowledgeBase(orgId);
   const [personalInfo, setPersonalInfo] = useState<{ senderName: string; orgName: string; phoneNumber: string }>({ senderName: campaignSettings.senderName || '', orgName: campaignSettings.orgName || '', phoneNumber: campaignSettings.phoneNumber || '' });
   const [savedPresets, setSavedPresets] = useState<{ id: string; label: string; senderName: string; orgName: string; phoneNumber: string }[]>([]);
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
@@ -2616,9 +2619,10 @@ function CampaignSettingsPanel({ settings, onSave, onBack }: {
    MAIN CAMPAIGN MANAGER
    ═══════════════════════════════════════════════════════════════ */
 
-export default function CampaignManager({ onBack, focusCampaignId, onFocusHandled, orgId = 'soltheory' }: { onBack: () => void; focusCampaignId?: string | null; onFocusHandled?: () => void; orgId?: 'soltheory' | 'nxtchapter' }) {
-  // SOL Theory users can see campaigns from ALL orgs; NXT Chapter users see only their org.
-  const isSolTheoryUser = typeof window !== 'undefined' && window.location.pathname.includes('/soltheory');
+export default function CampaignManager({ onBack, focusCampaignId, onFocusHandled }: { onBack: () => void; focusCampaignId?: string | null; onFocusHandled?: () => void; orgId?: string }) {
+  const orgId = useOrgId();
+  // SOL Theory users can see campaigns from ALL orgs; others see only their org.
+  const isSolTheoryUser = orgId === 'soltheory';
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [view, setView] = useState<"list" | "creator" | "settings">("list");
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
@@ -2738,7 +2742,7 @@ export default function CampaignManager({ onBack, focusCampaignId, onFocusHandle
   // NXT Chapter users: subscribe to nxtchapter + legacy user path
   useEffect(() => {
     if (!firestore || !user?.uid) return;
-    const orgIds = isSolTheoryUser ? ['soltheory', 'nxtchapter'] : [orgId];
+    const orgIds = isSolTheoryUser ? getAllOrgIds() : [orgId];
     const unsubscribers: (() => void)[] = [];
     const buckets: Record<string, Campaign[]> = {};
 

@@ -8,6 +8,7 @@ import { GrantAgentBrowserSim } from "./GrantAgentBrowserSim";
 import { logActivity } from '@/lib/activity-logger';
 import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { useGrantSessions } from '@/hooks/useGrantSessions';
+import { useOrgId } from "@/contexts/OrgContext";
 
 /* â”€â”€â”€ Types â”€â”€â”€ */
 export interface AgentSlot {
@@ -109,7 +110,8 @@ function ConfirmDialog({
 export function GrantAgentHub({ onClose }: { onClose: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
-  const { orgProfile, saveOrgProfile } = useOrgProfile("soltheory");
+  const orgId = useOrgId();
+  const { orgProfile, saveOrgProfile } = useOrgProfile(orgId);
 
   // ── Session-aware state ──
   const {
@@ -117,7 +119,7 @@ export function GrantAgentHub({ onClose }: { onClose: () => void }) {
     activeSessionId,
     updateSessionAgents,
     loading: sessionsLoading,
-  } = useGrantSessions("soltheory");
+  } = useGrantSessions(orgId);
 
   const [configuringSlotIndex, setConfiguringSlotIndex] = useState<number | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{

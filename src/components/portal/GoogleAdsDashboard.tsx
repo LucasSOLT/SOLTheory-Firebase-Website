@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { logActivity } from '@/lib/activity-logger';
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
+import { useOrgId } from '@/contexts/OrgContext';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -18,7 +19,8 @@ const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(3
 export function GoogleAdsDashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
-  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase('soltheory');
+  const orgId = useOrgId();
+  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase(orgId);
   const [budget, setBudget] = useState<string>("50.00");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");

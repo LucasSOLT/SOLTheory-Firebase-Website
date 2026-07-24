@@ -34,7 +34,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const orgId = req.nextUrl.searchParams.get("orgId") || "soltheory";
+  const orgId = req.nextUrl.searchParams.get("orgId");
+  if (!orgId) {
+    return NextResponse.json({ error: "orgId is required" }, { status: 400 });
+  }
   console.log(`[CRM Server Migration] Starting migration from shared/crm to orgs/${orgId}/crm-instances/default...`);
 
   try {

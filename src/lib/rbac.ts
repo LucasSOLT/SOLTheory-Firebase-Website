@@ -8,6 +8,7 @@
  */
 
 import { ADMIN_EMAILS } from './admin';
+import { DEVELOPER_EMAIL, isDeveloper, getOrgLabelsMap, getAllOrgIds } from './org-config';
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -53,7 +54,7 @@ export const ACCESS_LEVEL_INFO: Record<AccessLevel, { description: string; funct
     functional: true,
   },
   'Oracle': {
-    description: 'Highest level. All Admin capabilities plus ability to demote admins. Reserved for lucas@soltheory.com.',
+    description: `Highest level. All Admin capabilities plus ability to demote admins. Reserved for ${DEVELOPER_EMAIL}.`,
     functional: false,
   },
 };
@@ -102,13 +103,9 @@ export const ALL_ROLES: OrgRole[] = ["read-only", "user", "super-user", "admin",
 /**
  * Developer is NOT an OrgRole — it's a separate identity layer that bypasses
  * all RBAC restrictions. Only one email can ever be developer.
+ * Re-exported from org-config.ts (single source of truth).
  */
-export const DEVELOPER_EMAIL = "lucas@soltheory.com";
-
-/** Check if an email belongs to the platform developer (God-mode). */
-export function isDeveloper(email: string | undefined | null): boolean {
-  return !!email && email.toLowerCase() === DEVELOPER_EMAIL;
-}
+export { DEVELOPER_EMAIL, isDeveloper } from './org-config';
 
 /** Developer badge colors (separate from OrgRole colors). */
 export const DEVELOPER_COLORS = {
@@ -122,14 +119,14 @@ export const DEVELOPER_COLORS = {
 
 /* ─── Organization Registry ─────────────────────────────────────────────────── */
 
-/** Known organizations and their display labels. */
-export const ORG_LABELS: Record<string, string> = {
-  soltheory: "SOL Theory",
-  nxtchapter: "NXT Chapter",
-};
+/**
+ * Known organizations and their display labels.
+ * Dynamically built from org-config.ts (single source of truth).
+ */
+export const ORG_LABELS: Record<string, string> = getOrgLabelsMap();
 
 /** All known org IDs. */
-export const ALL_ORGS = Object.keys(ORG_LABELS);
+export const ALL_ORGS = getAllOrgIds();
 
 /* ─── Permission Checks ─────────────────────────────────────────────────────── */
 

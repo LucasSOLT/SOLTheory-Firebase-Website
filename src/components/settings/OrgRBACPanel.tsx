@@ -35,21 +35,10 @@ import {
   getAssignableRoles,
   hasPermission,
 } from "@/lib/rbac";
+import { getOrgConfig, getOrgLabel } from "@/lib/org-config";
+import { useOrgId } from "@/contexts/OrgContext";
 
-/* ─── Org ↔ Email Domain mapping ─────────────────────────────────────────────── */
 
-const ORG_EMAIL_DOMAINS: Record<string, string[]> = {
-  soltheory: ["@soltheory.com"],
-  nxtchapter: ["@nxtchapter.com", "@nxtchapter.org"],
-  lnu: ["@lifenavigationu.com"],
-};
-
-/** Human-readable org names */
-const ORG_DISPLAY_NAMES: Record<string, string> = {
-  soltheory: "SOL Theory",
-  nxtchapter: "NXT Chapter",
-  lnu: "Life Navigation U",
-};
 
 /* ─── Role descriptions for guide ────────────────────────────────────────────── */
 
@@ -69,7 +58,9 @@ interface OrgRBACPanelProps {
 
 /* ─── Component ──────────────────────────────────────────────────────────────── */
 
-export default function OrgRBACPanel({ orgId = "soltheory" }: OrgRBACPanelProps) {
+export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
+  const contextOrgId = useOrgId();
+  const orgId = orgIdProp || contextOrgId;
   const { isDarkMode } = useTheme();
   const { role: currentUserRole, members, setMemberRole, isLoading } = useOrgRole(orgId);
   const firestore = useFirestore();
@@ -101,7 +92,8 @@ export default function OrgRBACPanel({ orgId = "soltheory" }: OrgRBACPanelProps)
   useEffect(() => {
     if (!firestore) return;
 
-    const domains = ORG_EMAIL_DOMAINS[orgId] ?? [];
+    const orgConfig = getOrgConfig(orgId);
+    const domains = orgConfig?.emailDomains.map(d => "@" + d) ?? [];
     if (domains.length === 0) return;
 
     const usersRef = collection(firestore, "users");
@@ -185,7 +177,7 @@ export default function OrgRBACPanel({ orgId = "soltheory" }: OrgRBACPanelProps)
   );
 
   const assignableRoles = getAssignableRoles(currentUserRole);
-  const orgDisplayName = ORG_DISPLAY_NAMES[orgId] || orgId;
+  const orgDisplayName = getOrgLabel(orgId);
 
   /* ─── Loading State ────────────────────────────────────────────────────────── */
 

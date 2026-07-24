@@ -1,4 +1,5 @@
 export interface AnnouncementData {
+  orgLabel?: string;
   accentImage?: string;
   headline: string;
   bodyText: string;
@@ -155,7 +156,7 @@ export function renderAnnouncement(data: AnnouncementData): string {
           <tr>
             <td style="padding: 0 40px 24px 40px; text-align: center; background-color: #ffffff;">
               <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 400; line-height: 16px; color: #d1d5db;">
-                Sent via SOLTheory
+                Sent via ${data.orgLabel || 'SOLTheory'}
               </p>
             </td>
           </tr>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { useOrgId } from "@/contexts/OrgContext";
 
 /* ─── Org Profile Shape ─────────────────────────────────────────────────────── */
 
@@ -48,7 +49,10 @@ const EMPTY_PROFILE: OrgProfileData = {
 
 /* ─── Hook ──────────────────────────────────────────────────────────────────── */
 
-export function useOrgProfile(orgId: string = "soltheory") {
+export function useOrgProfile(orgId?: string) {
+  const contextOrgId = useOrgId();
+  const effectiveOrgId = orgId || contextOrgId;
+
   const firestore = useFirestore();
   const { user } = useUser();
   const [orgProfile, setOrgProfile] = useState<OrgProfileData | null>(null);
@@ -60,7 +64,7 @@ export function useOrgProfile(orgId: string = "soltheory") {
 
     async function load() {
       try {
-        const docRef = doc(firestore!, "org_profiles", orgId);
+        const docRef = doc(firestore!, "org_profiles", effectiveOrgId);
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
@@ -96,14 +100,14 @@ export function useOrgProfile(orgId: string = "soltheory") {
     }
 
     load();
-  }, [firestore, orgId]);
+  }, [firestore, effectiveOrgId]);
 
   // Save org profile to Firestore
   const saveOrgProfile = useCallback(
     async (profile: Partial<OrgProfileData>) => {
       if (!firestore) return;
       try {
-        const docRef = doc(firestore, "org_profiles", orgId);
+        const docRef = doc(firestore, "org_profiles", effectiveOrgId);
         await setDoc(
           docRef,
           {
@@ -119,7 +123,7 @@ export function useOrgProfile(orgId: string = "soltheory") {
         console.error("[useOrgProfile] Failed to save org profile:", err);
       }
     },
-    [firestore, orgId, user?.uid]
+    [firestore, effectiveOrgId, user?.uid]
   );
 
   return { orgProfile, loading, saveOrgProfile };

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyDeveloper } from "@/lib/api-auth";
 import { initAdmin } from "@/firebase/admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { isDeveloper } from "@/lib/org-config";
 
 export async function POST(
   req: NextRequest,
@@ -40,7 +41,7 @@ export async function POST(
     if (action === "freeze") {
       // Safety: never allow freezing the developer account
       const userData = userDoc.data();
-      if (userData?.email?.toLowerCase() === "lucas@soltheory.com") {
+      if (isDeveloper(userData?.email)) {
         return NextResponse.json({ error: "Cannot freeze the developer account." }, { status: 403 });
       }
       await userRef.update({
@@ -84,7 +85,7 @@ export async function DELETE(
 
     // Safety: prevent deleting the developer's own account
     const userData = userDoc.data();
-    if (userData?.email?.toLowerCase() === "lucas@soltheory.com") {
+    if (isDeveloper(userData?.email)) {
       return NextResponse.json({ error: "Cannot delete the developer account" }, { status: 403 });
     }
 

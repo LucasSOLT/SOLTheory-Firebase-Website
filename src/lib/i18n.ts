@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DEVELOPER_EMAIL } from './org-config';
 
 type Lang = 'en' | 'es';
 
@@ -736,7 +737,7 @@ export const dictionaries = {
     pubSmsOptIn: "SMS Opt-in",
     pubHelpFaq: "Help & FAQ",
     pubTopCommonIssues: "Top 10 Common Issues",
-    pubNeedMoreHelp: "Need more help? Email lucas@soltheory.com",
+    pubNeedMoreHelp: `Need more help? Email ${DEVELOPER_EMAIL}`,
     pubFaqSubtitle: "Common troubleshooting solutions for the platform network.",
     pubHeroTagline: "The Evolution of Self Improvement",
     pubHeroDescription: "A social innovation firm building AI-powered tools for organizations and individuals driven to create meaningful change.",
@@ -1460,7 +1461,7 @@ export const dictionaries = {
     pubSmsOptIn: "Suscripción SMS",
     pubHelpFaq: "Ayuda y FAQ",
     pubTopCommonIssues: "Los 10 Problemas Más Comunes",
-    pubNeedMoreHelp: "¿Necesita más ayuda? Envíe un email a lucas@soltheory.com",
+    pubNeedMoreHelp: `¿Necesita más ayuda? Envíe un email a ${DEVELOPER_EMAIL}`,
     pubFaqSubtitle: "Soluciones comunes para la red de plataformas.",
     pubHeroTagline: "La Evolución del Automejoramiento",
     pubHeroDescription: "Una firma de innovación social que desarrolla herramientas impulsadas por IA para organizaciones e individuos comprometidos con crear un cambio significativo.",

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAllOrgIds } from "@/lib/org-config";
 
 /**
  * GET /api/auth/quickbooks?uid=<uid>&origin=<nxtchapter|soltheory>
@@ -11,7 +12,7 @@ import { NextResponse } from "next/server";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const uid = url.searchParams.get("uid");
-  const origin = url.searchParams.get("origin") || "nxtchapter";
+  const origin = url.searchParams.get("origin") || getAllOrgIds()[0];
 
   if (!uid) {
     return NextResponse.json({ error: "User ID is required" }, { status: 400 });

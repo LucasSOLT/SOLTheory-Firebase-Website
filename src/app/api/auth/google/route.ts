@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+import { getAllOrgIds } from "@/lib/org-config";
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const uid = url.searchParams.get("uid");
   const agentId = url.searchParams.get("agentId") || "email";
-  const origin = url.searchParams.get("origin") || "nxtchapter";
+  const origin = url.searchParams.get("origin") || getAllOrgIds()[0];
   const returnTo = url.searchParams.get("returnTo") || "settings";
 
   if (!uid) {

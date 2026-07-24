@@ -8,6 +8,7 @@ import type { ActivityType } from '@/lib/activity-logger';
 import { useTranslation } from '@/lib/i18n';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useRouter, usePathname } from 'next/navigation';
+import { useOrgId } from '@/contexts/OrgContext';
 
 interface ActivityItem {
   id: string;
@@ -56,6 +57,7 @@ function timeAgo(seconds: number): string {
 export function OrgActivityFeed() {
   const { t } = useTranslation();
   const firestore = useFirestore();
+  const contextOrgId = useOrgId();
   const { user } = useUser();
   const isDarkMode = useDarkMode();
   const router = useRouter();
@@ -64,8 +66,9 @@ export function OrgActivityFeed() {
   const [filter, setFilter] = useState<'all' | ActivityType>('all');
   const [loading, setLoading] = useState(true);
 
-  const isNxtChapter = pathname.includes('/nxtchapter');
-  const dashboardHome = isNxtChapter ? '/portal/dashboard/nxtchapter' : '/portal/dashboard/soltheory';
+  const orgIdMatch = pathname.match(/\/portal\/dashboard\/([^/]+)/);
+  const orgId = orgIdMatch?.[1] || contextOrgId;
+  const dashboardHome = `/portal/dashboard/${orgId}`;
 
   const orgDomain = user?.email?.split('@')[1] || '';
 

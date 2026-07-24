@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Zap, MessageSquare, Globe, FileText, Users, HardDrive, Youtube, Bot, Clock, BarChart3, CalendarDays, Settings, Mail, Presentation, Table, HelpCircle } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { CollapsibleTile } from "@/components/ui/collapsible-tile";
+import { useOrgId } from "@/contexts/OrgContext";
 
 type DigestEntry = {
   id: string;
@@ -15,7 +16,7 @@ type DigestEntry = {
   path?: string;
 };
 
-const STORAGE_KEY = "soltheory_daily_digest";
+const getStorageKey = (orgId: string) => `${orgId}_daily_digest`;
 
 const iconMap: Record<string, any> = {
   Globe, FileText, Users, HardDrive, Youtube, Bot, BarChart3,
@@ -40,10 +41,10 @@ function getIconForPath(path: string): { icon: string; label: string } {
   return { icon: "Globe", label: "Dashboard" };
 }
 
-function loadEntries(): DigestEntry[] {
+function loadEntries(orgId: string): DigestEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey(orgId));
     if (!raw) return [];
     const entries: DigestEntry[] = JSON.parse(raw);
     const todayStart = new Date();
@@ -54,17 +55,17 @@ function loadEntries(): DigestEntry[] {
   }
 }
 
-function saveEntries(entries: DigestEntry[]) {
+function saveEntries(entries: DigestEntry[], orgId: string) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, 50)));
+  localStorage.setItem(getStorageKey(orgId), JSON.stringify(entries.slice(0, 50)));
 }
 
-export function logDigestEntry(entry: Omit<DigestEntry, "id" | "timestamp">) {
-  const entries = loadEntries();
+export function logDigestEntry(entry: Omit<DigestEntry, "id" | "timestamp">, orgId: string = "soltheory") {
+  const entries = loadEntries(orgId);
   // Dedupe: skip if same label within last 5 seconds
   if (entries.length > 0 && entries[0].label === entry.label && Date.now() - entries[0].timestamp < 5000) return;
   const newEntry: DigestEntry = { ...entry, id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, timestamp: Date.now() };
-  saveEntries([newEntry, ...entries]);
+  saveEntries([newEntry, ...entries], orgId);
   window.dispatchEvent(new Event("digest-update"));
 }
 
@@ -77,6 +78,7 @@ function timeAgo(ts: number): string {
 }
 
 export function DailyDigest() {
+  const orgId = useOrgId();
   const [entries, setEntries] = useState<DigestEntry[]>([]);
   const pathname = usePathname();
 
@@ -84,7 +86,7 @@ export function DailyDigest() {
 
   // Listen for updates
   useEffect(() => {
-    const refresh = () => setEntries(loadEntries());
+    const refresh = () => setEntries(loadEntries(orgId));
     refresh();
     const interval = setInterval(refresh, 5000);
     window.addEventListener("digest-update", refresh);
@@ -94,7 +96,7 @@ export function DailyDigest() {
       window.removeEventListener("digest-update", refresh);
       window.removeEventListener("storage", refresh);
     };
-  }, []);
+  }, [orgId]);
 
   return (
     <CollapsibleTile id="daily-digest" title="Daily Digest" icon={<Zap className="w-4 h-4" />} className="p-6 h-full flex flex-col">

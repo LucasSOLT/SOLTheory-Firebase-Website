@@ -181,6 +181,6 @@ export async function getAIAssist(
 /**
  * Build the OAuth connect URL for users who haven't linked Gmail yet.
  */
-export function getGmailConnectUrl(uid: string): string {
-  return `/api/auth/google?uid=${uid}&agentId=campaigning&origin=soltheory&returnTo=agentic-campaigning`;
+export function getGmailConnectUrl(uid: string, orgId: string = 'soltheory'): string {
+  return `/api/auth/google?uid=${uid}&agentId=campaigning&origin=${orgId}&returnTo=agentic-campaigning`;
 }

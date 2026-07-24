@@ -6,8 +6,11 @@ import { useTranslation } from "@/lib/i18n";
 import { useDarkMode } from "@/lib/useDarkMode";
 import { useGrantsData } from "@/hooks/useGrantsData";
 import { useFirestore } from "@/firebase";
+import { useOrgId } from "@/contexts/OrgContext";
 
-export function AIAgentOperationsWidget({ orgId = "soltheory" }: { orgId?: string }) {
+export function AIAgentOperationsWidget({ orgId: orgIdProp }: { orgId?: string }) {
+  const contextOrgId = useOrgId();
+  const orgId = orgIdProp || contextOrgId;
   const { lang } = useTranslation();
   const isDarkMode = useDarkMode();
   const { grants } = useGrantsData(orgId);

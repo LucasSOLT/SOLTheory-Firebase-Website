@@ -12,6 +12,7 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
+import { getOrgByEmailDomain, ORG_REGISTRY } from "@/lib/org-config";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -77,10 +78,9 @@ export default function LoginPage() {
       }
       
       const emailLower = email.toLowerCase();
-      if (emailLower.endsWith("@soltheory.com")) {
-        router.push("/portal/dashboard/soltheory");
-      } else if (emailLower.endsWith("@nxtchapter.org")) {
-        router.push("/portal/dashboard/nxtchapter");
+      const matchedOrg = getOrgByEmailDomain(emailLower);
+      if (matchedOrg) {
+        router.push(`/portal/dashboard/${matchedOrg.id}`);
       } else {
         // Check Firestore for org mapping (for Gmail and other external users)
         try {
@@ -90,10 +90,8 @@ export default function LoginPage() {
           const userData = userSnap.exists() ? userSnap.data() : null;
           const mappedOrg = userData?.organization;
 
-          if (mappedOrg === "soltheory") {
-            router.push("/portal/dashboard/soltheory");
-          } else if (mappedOrg === "nxtchapter") {
-            router.push("/portal/dashboard/nxtchapter");
+          if (mappedOrg && ORG_REGISTRY[mappedOrg]) {
+            router.push(`/portal/dashboard/${mappedOrg}`);
           } else {
             console.error("[Login] No org mapping found for user:", uid, "data:", userData);
             await signOut(auth);

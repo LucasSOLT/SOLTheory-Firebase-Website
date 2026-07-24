@@ -29,13 +29,15 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { logActivity } from '@/lib/activity-logger';
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
+import { useOrgId } from '@/contexts/OrgContext';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
 export function CalendarView() {
   const { user } = useUser();
-  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase('soltheory');
+  const orgId = useOrgId();
+  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase(orgId);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("Month");
   
@@ -143,7 +145,7 @@ export function CalendarView() {
   const [isConnecting, setIsConnecting] = useState(false);
 
   // Detect which org the user is in based on the URL path
-  const origin = pathname.includes('/nxtchapter') ? 'nxtchapter' : 'soltheory';
+  const origin = orgId;
 
   // Helper: read refresh token from Firestore
   const getRefreshToken = async (uid: string): Promise<string | null> => {

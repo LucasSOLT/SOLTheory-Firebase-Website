@@ -17,17 +17,17 @@ import { doc, collection, onSnapshot, query, setDoc, Timestamp } from "firebase/
 import type { OrgRole, OrgMember } from "@/lib/rbac";
 import { hasPermission, ROLE_HIERARCHY } from "@/lib/rbac";
 import { ADMIN_EMAILS } from "@/lib/admin";
+import { ORG_REGISTRY } from "@/lib/org-config";
+import { useOrgId } from "@/contexts/OrgContext";
 
 /* ─── Protected Owners ──────────────────────────────────────────────────────
  * These users are PERMANENTLY owner. They cannot be demoted from any UI.
  * To change org ownership, edit this map directly in the IDE.
  * Key = orgId, Value = array of email addresses (lowercase).
  * ────────────────────────────────────────────────────────────────────────── */
-const PROTECTED_OWNERS: Record<string, string[]> = {
-  soltheory: ["lucas@soltheory.com", "lucas.huff@soltheory.com"],
-  // nxtchapter: ["owner@nxtchapter.com"],
-  // lnu: ["owner@lifenavigationu.com"],
-};
+const PROTECTED_OWNERS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(ORG_REGISTRY).map(([id, cfg]) => [id, cfg.adminEmails])
+);
 
 /** Check if a given email is a protected owner for an org */
 function isProtectedOwner(orgId: string, email: string): boolean {
@@ -46,7 +46,10 @@ interface UseOrgRoleReturn {
   setMemberRole: (targetUid: string, newRole: OrgRole) => Promise<void>;
 }
 
-export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
+export function useOrgRole(orgId?: string): UseOrgRoleReturn {
+  const contextOrgId = useOrgId();
+  const effectiveOrgId = orgId || contextOrgId;
+
   const { user } = useUser();
   const firestore = useFirestore();
   const [role, setRole] = useState<OrgRole>("user");
@@ -61,7 +64,7 @@ export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
     }
 
     const email = (user.email || "").toLowerCase();
-    const memberDocRef = doc(firestore, `orgs/${orgId}/members`, user.uid);
+    const memberDocRef = doc(firestore, `orgs/${effectiveOrgId}/members`, user.uid);
 
     const unsub = onSnapshot(
       memberDocRef,
@@ -73,7 +76,7 @@ export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
           // ── PROTECTED OWNER ENFORCEMENT ──
           // If this user is a protected owner but their Firestore doc says otherwise,
           // auto-correct it back to "owner" immediately.
-          if (isProtectedOwner(orgId, email) && firestoreRole !== "owner") {
+          if (isProtectedOwner(effectiveOrgId, email) && firestoreRole !== "owner") {
             console.warn(`[useOrgRole] Protected owner ${email} had role "${firestoreRole}" — auto-correcting to "owner"`);
             try {
               await setDoc(memberDocRef, { role: "owner" }, { merge: true });
@@ -89,9 +92,9 @@ export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
           let defaultRole: OrgRole = "user";
 
           // Protected owners always get owner
-          if (isProtectedOwner(orgId, email)) {
+          if (isProtectedOwner(effectiveOrgId, email)) {
             defaultRole = "owner";
-          } else if (email === "steve@soltheory.com" || email === "gerard@soltheory.com") {
+          } else if (ORG_REGISTRY[effectiveOrgId]?.adminEmails.includes(email)) {
             defaultRole = "admin";
           } else if (ADMIN_EMAILS.some(ae => ae.toLowerCase() === email)) {
             defaultRole = "admin";
@@ -120,7 +123,7 @@ export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
     );
 
     return () => unsub();
-  }, [firestore, user?.uid, user?.email, user?.displayName, orgId]);
+  }, [firestore, user?.uid, user?.email, user?.displayName, effectiveOrgId]);
 
   // If user is Admin/Owner, listen to ALL members
   useEffect(() => {
@@ -129,7 +132,7 @@ export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
       return;
     }
 
-    const membersRef = collection(firestore, `orgs/${orgId}/members`);
+    const membersRef = collection(firestore, `orgs/${effectiveOrgId}/members`);
     const unsub = onSnapshot(
       query(membersRef),
       (snapshot) => {
@@ -153,7 +156,7 @@ export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
     );
 
     return () => unsub();
-  }, [firestore, user?.uid, role, orgId]);
+  }, [firestore, user?.uid, role, effectiveOrgId]);
 
   // Function to update a member's role
   const setMemberRole = async (targetUid: string, newRole: OrgRole) => {
@@ -162,12 +165,12 @@ export function useOrgRole(orgId: string = "soltheory"): UseOrgRoleReturn {
     // ── PROTECTED OWNER GUARD ──
     // Find the target member's email and block demotion of protected owners
     const targetMember = members.find(m => m.uid === targetUid);
-    if (targetMember && isProtectedOwner(orgId, targetMember.email)) {
+    if (targetMember && isProtectedOwner(effectiveOrgId, targetMember.email)) {
       console.warn(`[useOrgRole] Blocked attempt to change protected owner ${targetMember.email}'s role`);
       throw new Error("Cannot change the role of a protected owner. This can only be changed in the source code.");
     }
 
-    const memberDocRef = doc(firestore, `orgs/${orgId}/members`, targetUid);
+    const memberDocRef = doc(firestore, `orgs/${effectiveOrgId}/members`, targetUid);
     try {
       await setDoc(
         memberDocRef,

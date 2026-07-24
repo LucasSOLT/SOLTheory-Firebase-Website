@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useUser, useFirestore } from "@/firebase";
 import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import { useOrgId } from "@/contexts/OrgContext";
 
 interface UserKnowledgeContext {
   knowledgeBaseText: string;
@@ -18,7 +19,10 @@ interface UserKnowledgeContext {
  * Usage:
  *   const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase("soltheory");
  */
-export function useKnowledgeBase(orgPrefix: string = "soltheory"): UserKnowledgeContext {
+export function useKnowledgeBase(orgPrefix?: string): UserKnowledgeContext {
+  const contextOrgId = useOrgId();
+  const effectiveOrgPrefix = orgPrefix || contextOrgId;
+
   const { user } = useUser();
   const firestore = useFirestore();
   const [knowledgeBaseText, setKnowledgeBaseText] = useState("");
@@ -36,7 +40,7 @@ export function useKnowledgeBase(orgPrefix: string = "soltheory"): UserKnowledge
       try {
         // 1. Load Knowledge Base documents
         const kbTexts: string[] = [];
-        const agentIds = ["jarvis", `${orgPrefix}_jarvis`, "email", `${orgPrefix}_email`];
+        const agentIds = ["jarvis", `${effectiveOrgPrefix}_jarvis`, "email", `${effectiveOrgPrefix}_email`];
 
         for (const agentId of agentIds) {
           try {
@@ -65,7 +69,7 @@ export function useKnowledgeBase(orgPrefix: string = "soltheory"): UserKnowledge
         // 2. Load P.A.C.T. facts
         try {
           const userDoc = await getDoc(doc(firestore, "users", user.uid));
-          const pactField = `pact_entries_${orgPrefix}`;
+          const pactField = `pact_entries_${effectiveOrgPrefix}`;
           const entries: any[] = userDoc.data()?.[pactField] || [];
           const activeFacts = entries
             .filter((e: any) => !e.markedForDeletion)
@@ -78,7 +82,7 @@ export function useKnowledgeBase(orgPrefix: string = "soltheory"): UserKnowledge
 
         // 3. Load Org Brain
         try {
-          const orgDoc = await getDoc(doc(firestore, "organizations", orgPrefix));
+          const orgDoc = await getDoc(doc(firestore, "organizations", effectiveOrgPrefix));
           setOrgBrainText(orgDoc.data()?.orgBrain || "");
         } catch {
           // ignore
@@ -91,7 +95,7 @@ export function useKnowledgeBase(orgPrefix: string = "soltheory"): UserKnowledge
     };
 
     loadAll();
-  }, [user?.uid, firestore, orgPrefix]);
+  }, [user?.uid, firestore, effectiveOrgPrefix]);
 
   return { knowledgeBaseText, pactText, orgBrainText, isLoading };
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
+import { getOrgLabel } from "@/lib/org-config";
 
 /**
  * POST /api/sms/opt-in-confirm
@@ -16,7 +17,8 @@ import twilio from "twilio";
  */
 export async function POST(req: Request) {
   try {
-    const { phone } = await req.json();
+    const { phone, orgId = "soltheory" } = await req.json();
+    const orgLabel = getOrgLabel(orgId);
 
     if (!phone || phone.replace(/\D/g, "").length < 10) {
       return NextResponse.json(
@@ -45,7 +47,7 @@ export async function POST(req: Request) {
 
     // The confirmation message — MUST match the A2P campaign registration exactly
     const confirmationMessage =
-      "SOLTheory: You are now opted in to receive messages. For help, reply HELP. To stop, reply STOP. Msg and data rates may apply.";
+      `${orgLabel}: You are now opted in to receive messages. For help, reply HELP. To stop, reply STOP. Msg and data rates may apply.`;
 
     let sent: any;
 

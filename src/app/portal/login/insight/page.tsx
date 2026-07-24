@@ -12,6 +12,7 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
+import { getOrgByEmailDomain, isDeveloper } from "@/lib/org-config";
 import Link from "next/link";
 
 export default function InsightLoginPage() {
@@ -68,9 +69,8 @@ export default function InsightLoginPage() {
           // First login — only create profile for recognized email domains
           // This prevents deleted users from re-creating their profile
           const emailLower = email.toLowerCase();
-          const isRecognized = emailLower === "lucas@soltheory.com" 
-            || emailLower.endsWith("@soltheory.com") 
-            || emailLower.endsWith("@nxtchapter.org");
+          const matchedOrg = getOrgByEmailDomain(emailLower);
+          const isRecognized = isDeveloper(emailLower) || !!matchedOrg;
           
           if (!isRecognized) {
             // Unknown email with no existing profile — block access
@@ -79,7 +79,7 @@ export default function InsightLoginPage() {
           }
 
           // Determine default org from email domain
-          const defaultOrg = emailLower.endsWith("@nxtchapter.org") ? "nxtchapter" : "soltheory";
+          const defaultOrg = matchedOrg ? matchedOrg.id : "soltheory";
 
           await setDoc(userRef, {
             id: uid,
@@ -89,8 +89,8 @@ export default function InsightLoginPage() {
             lastName,
             accessLevel: getDefaultAccessLevel(emailLower),
             organization: defaultOrg,
-            allowedOrgs: emailLower === "lucas@soltheory.com" ? ["soltheory", "nxtchapter"] : [defaultOrg],
-            orgRoles: { [defaultOrg]: emailLower === "lucas@soltheory.com" ? "owner" : "user" },
+            allowedOrgs: isDeveloper(emailLower) ? ["soltheory", "nxtchapter"] : [defaultOrg],
+            orgRoles: { [defaultOrg]: isDeveloper(emailLower) ? "owner" : "user" },
             lastLogin: serverTimestamp(),
             createdAt: serverTimestamp(),
           });
@@ -145,7 +145,7 @@ export default function InsightLoginPage() {
       const userData = userSnap.exists() ? userSnap.data() : null;
 
       // Frozen account check (developer is never frozen)
-      if (userData?.frozenAt && emailLower !== "lucas@soltheory.com") {
+      if (userData?.frozenAt && !isDeveloper(emailLower)) {
         await signOut(auth);
         throw new Error("Account frozen");
       }
@@ -156,17 +156,16 @@ export default function InsightLoginPage() {
       const legacyOrg = userData?.organization;
 
       // Developer always goes to soltheory
-      if (emailLower === "lucas@soltheory.com") {
+      const matchedOrgRoute = getOrgByEmailDomain(emailLower);
+      if (isDeveloper(emailLower)) {
         navigateTo("/portal/dashboard/soltheory");
       } else if (allowedOrgs.length > 0) {
         // Use first allowed org as the landing page
         navigateTo(`/portal/dashboard/${allowedOrgs[0]}`);
       } else if (legacyOrg) {
         navigateTo(`/portal/dashboard/${legacyOrg}`);
-      } else if (emailLower.endsWith("@soltheory.com")) {
-        navigateTo("/portal/dashboard/soltheory");
-      } else if (emailLower.endsWith("@nxtchapter.org")) {
-        navigateTo("/portal/dashboard/nxtchapter");
+      } else if (matchedOrgRoute) {
+        navigateTo(`/portal/dashboard/${matchedOrgRoute.id}`);
       } else {
         console.error("[Login] No org mapping found for user:", uid, "data:", userData);
         await signOut(auth);

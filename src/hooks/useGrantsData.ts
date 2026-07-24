@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { useOrgId } from "@/contexts/OrgContext";
 
 /* ─── Schema matching grant_suggestions documents ─── */
 export interface GrantRecord {
@@ -52,7 +53,10 @@ interface UseGrantsDataResult {
  * are immediately visible). All three Tile 5 widgets consume this so
  * we make exactly ONE listener instead of three.
  */
-export function useGrantsData(orgId: string = "soltheory", sessionId?: string | null): UseGrantsDataResult {
+export function useGrantsData(orgId?: string, sessionId?: string | null): UseGrantsDataResult {
+  const contextOrgId = useOrgId();
+  const effectiveOrgId = orgId || contextOrgId;
+
   const { user } = useUser();
   const firestore = useFirestore();
 
@@ -75,7 +79,7 @@ export function useGrantsData(orgId: string = "soltheory", sessionId?: string | 
       const grantsRef = collection(firestore, "grant_suggestions");
       // Query by orgId only — sessionId filtering is done client-side
       // to avoid requiring a composite Firestore index
-      const q = query(grantsRef, where("orgId", "==", orgId));
+      const q = query(grantsRef, where("orgId", "==", effectiveOrgId));
 
       unsub = onSnapshot(
         q,
@@ -158,7 +162,7 @@ export function useGrantsData(orgId: string = "soltheory", sessionId?: string | 
     }
 
     return () => unsub?.();
-  }, [firestore, user?.uid, orgId, sessionId]);
+  }, [firestore, user?.uid, effectiveOrgId, sessionId]);
 
   const refetch = useCallback(() => {
     // onSnapshot is real-time, so this is a no-op

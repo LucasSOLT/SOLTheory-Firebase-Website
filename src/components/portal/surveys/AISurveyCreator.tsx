@@ -9,6 +9,7 @@ import { getAuth } from "firebase/auth";
 import { Bot, Check, Trash2, RefreshCw, Send, Copy, X, Plus, Globe, Lock, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
+import { useOrgId } from '@/contexts/OrgContext';
 
 interface AISurveyCreatorProps {
   onClose: () => void;
@@ -18,7 +19,8 @@ interface AISurveyCreatorProps {
 export default function AISurveyCreator({ onClose, onSurveyCreated }: AISurveyCreatorProps) {
   const firestore = useFirestore();
   const auth = getAuth();
-  const { knowledgeBaseText, pactText } = useKnowledgeBase('soltheory');
+  const orgId = useOrgId();
+  const { knowledgeBaseText, pactText } = useKnowledgeBase(orgId);
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [generatedSurvey, setGeneratedSurvey] = useState<any>(null);

@@ -6,6 +6,7 @@ import { Clock, Users, Bot, CalendarCheck, TrendingUp, Zap } from "lucide-react"
 import { useTranslation } from "@/lib/i18n";
 import { useDarkMode } from "@/lib/useDarkMode";
 import { useRouter } from "next/navigation";
+import { useOrgId } from "@/contexts/OrgContext";
 
 export function QuickOverviewWidget() {
   const { lang, t } = useTranslation();
@@ -13,6 +14,7 @@ export function QuickOverviewWidget() {
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
+  const orgId = useOrgId();
 
   const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
@@ -43,7 +45,7 @@ export function QuickOverviewWidget() {
       unsubs.push(onSnapshot(cq, (snap) => setContactCount(snap.size), () => {}));
 
       // Active tasks
-      const tq = query(collection(firestore, "action_board_tasks"), where("orgId", "==", "soltheory"));
+      const tq = query(collection(firestore, "action_board_tasks"), where("orgId", "==", orgId));
       unsubs.push(onSnapshot(tq, (snap) => {
         setTaskCount(snap.docs.filter(d => d.data().column !== "done").length);
       }, () => {}));
@@ -54,12 +56,12 @@ export function QuickOverviewWidget() {
     });
 
     return () => unsubs.forEach(u => u());
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, orgId]);
 
   const quickLinks = [
-    { icon: <Users className="w-4 h-4" />, label: lang === "es" ? "CRM" : "CRM", count: contactCount, href: "/portal/dashboard/soltheory/crm", color: "text-violet-500", bgColor: isDarkMode ? "bg-violet-950/40" : "bg-violet-50" },
-    { icon: <CalendarCheck className="w-4 h-4" />, label: lang === "es" ? "Tareas" : "Tasks", count: taskCount, href: "/portal/dashboard/soltheory/action-board", color: "text-amber-500", bgColor: isDarkMode ? "bg-amber-950/40" : "bg-amber-50" },
-    { icon: <Bot className="w-4 h-4" />, label: lang === "es" ? "Grants" : "Grants", count: grantCount, href: "/portal/dashboard/soltheory/grant-statuses", color: "text-emerald-500", bgColor: isDarkMode ? "bg-emerald-950/40" : "bg-emerald-50" },
+    { icon: <Users className="w-4 h-4" />, label: lang === "es" ? "CRM" : "CRM", count: contactCount, href: `/portal/dashboard/${orgId}/crm`, color: "text-violet-500", bgColor: isDarkMode ? "bg-violet-950/40" : "bg-violet-50" },
+    { icon: <CalendarCheck className="w-4 h-4" />, label: lang === "es" ? "Tareas" : "Tasks", count: taskCount, href: `/portal/dashboard/${orgId}/action-board`, color: "text-amber-500", bgColor: isDarkMode ? "bg-amber-950/40" : "bg-amber-50" },
+    { icon: <Bot className="w-4 h-4" />, label: lang === "es" ? "Grants" : "Grants", count: grantCount, href: `/portal/dashboard/${orgId}/grant-statuses`, color: "text-emerald-500", bgColor: isDarkMode ? "bg-emerald-950/40" : "bg-emerald-50" },
   ];
 
   return (

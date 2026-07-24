@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { verifyRequest } from "@/lib/api-auth";
+import { getOrgLabel } from "@/lib/org-config";
 
 const getTwilioClient = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -21,7 +22,8 @@ export async function POST(req: Request) {
   const auth = await verifyRequest(req);
   if (!auth.ok) return auth.response;
   try {
-    const { areaCode } = await req.json();
+    const { areaCode, orgId = "soltheory" } = await req.json();
+    const orgLabel = getOrgLabel(orgId);
 
     const client = getTwilioClient();
 
@@ -50,9 +52,9 @@ export async function POST(req: Request) {
     // Purchase the number
     const purchased = await client.incomingPhoneNumbers.create({
       phoneNumber: number.phoneNumber,
-      smsUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://soltheory.com"}/api/sms/webhook`,
+      smsUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/sms/webhook`,
       smsMethod: "POST",
-      friendlyName: `SOLTheory Messaging`,
+      friendlyName: `${orgLabel} Messaging`,
     });
 
     console.log(`[SMS] Provisioned ${purchased.phoneNumber} (SID: ${purchased.sid})`);

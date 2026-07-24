@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+import { getAllOrgIds } from "@/lib/org-config";
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   }
 
   let agentId = "inbound-email";
-  let origin = "nxtchapter";
+  let origin = getAllOrgIds()[0];
   let returnTo = "settings";
 
   try {
@@ -31,9 +32,7 @@ export async function GET(req: Request) {
 
   const subpath = returnTo; // "settings" or "calendar"
 
-  const redirectBase = origin === "soltheory"
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/soltheory/${subpath}`
-    : `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/nxtchapter/${subpath}`;
+  const redirectBase = `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/${origin}/${subpath}`;
 
   try {
     const { tokens } = await oauth2Client.getToken(code);

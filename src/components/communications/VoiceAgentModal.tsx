@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api-auth-client";
+import { useOrgId } from "@/contexts/OrgContext";
 
 interface VoiceAgentModalProps {
   isOpen: boolean;
   onClose: () => void;
   agentName: string;
   agentId: string;
-  orgPrefix: "soltheory" | "nxtchapter";
+  orgPrefix?: string;
   onCallAI?: (messages: any[]) => Promise<any>;
   onUsageUpdate?: (groqTokens: number, elevenLabsChars: number) => void;
   existingMessages?: { role: string; content: string }[];
@@ -31,6 +32,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [elapsed, setElapsed] = useState(0);
   const [transcriptLines, setTranscriptLines] = useState<TranscriptLine[]>([]);
   const [liveText, setLiveText] = useState("");
+  const contextOrgId = useOrgId();
+  const effectiveOrgPrefix = orgPrefix || contextOrgId;
 
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -779,7 +782,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
           headers: await getAuthHeaders(),
           body: JSON.stringify({
             messages: messagesForCall,
-            agentId: `${orgPrefix}_${agentId}`,
+            agentId: `${effectiveOrgPrefix}_${agentId}`,
             systemInstructions,
             knowledgeBaseText,
             pactText,

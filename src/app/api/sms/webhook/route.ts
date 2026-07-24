@@ -3,6 +3,7 @@ import { getFirestore, collection, addDoc, getDocs, query, where, limit, updateD
 import { firebaseConfig } from "@/firebase/config";
 import { initializeApp as initAdmin, cert, getApps as getAdminApps } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
+import { getOrgLabel, getOrgConfig, DEVELOPER_EMAIL } from "@/lib/org-config";
 
 // Use a named app to avoid conflicts with other Firebase instances
 const WEBHOOK_APP_NAME = "sms-webhook";
@@ -132,6 +133,10 @@ export async function POST(req: Request) {
       );
     }
 
+    const userData = usersSnapshot.docs[0].data();
+    const orgId = userData.organization || (userData.allowedOrgs ? userData.allowedOrgs[0] : "soltheory");
+    const orgLabel = getOrgLabel(orgId);
+
     // --- Handle START / YES opt-in keywords ---
     if (OPT_IN_KEYWORDS.includes(normalizedBody)) {
       console.log(`[SMS Webhook] OPT-IN received from ${from}. Re-activating...`);
@@ -167,7 +172,7 @@ export async function POST(req: Request) {
         console.error(`[SMS Webhook] Error processing opt-in: ${optInErr.message}`);
       }
 
-      const optInMsg = "SOLTheory: You are now opted in to receive messages. For help, reply HELP. To stop, reply STOP. Msg and data rates may apply.";
+      const optInMsg = `${orgLabel}: You are now opted in to receive messages. For help, reply HELP. To stop, reply STOP. Msg and data rates may apply.`;
       return new Response(
         `<Response><Message>${optInMsg}</Message></Response>`,
         { headers: { "Content-Type": "text/xml" } }
@@ -176,7 +181,9 @@ export async function POST(req: Request) {
 
     if (HELP_KEYWORDS.includes(normalizedBody)) {
       console.log(`[SMS Webhook] HELP received from ${from}. Sending help response.`);
-      const helpText = "SOLTheory SMS Help: For assistance, email lucas@soltheory.com or visit soltheory.com. Msg and data rates may apply. Reply STOP to unsubscribe.";
+      const supportEmail = getOrgConfig(orgId)?.supportEmail || DEVELOPER_EMAIL;
+      const appDomain = getOrgConfig(orgId)?.emailDomains?.[0] || "soltheory.com";
+      const helpText = `${orgLabel} SMS Help: For assistance, email ${supportEmail} or visit ${appDomain}. Msg and data rates may apply. Reply STOP to unsubscribe.`;
       return new Response(
         `<Response><Message>${helpText}</Message></Response>`,
         { headers: { "Content-Type": "text/xml" } }

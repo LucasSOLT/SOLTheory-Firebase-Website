@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAllOrgIds } from "@/lib/org-config";
 
 /**
  * GET /api/auth/quickbooks/callback
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   }
 
   let uid = "";
-  let origin = "nxtchapter";
+  let origin = getAllOrgIds()[0];
 
   try {
     const decoded = JSON.parse(Buffer.from(state, "base64").toString("utf8"));
@@ -33,9 +34,7 @@ export async function GET(req: Request) {
   const clientSecret = process.env.QUICKBOOKS_CLIENT_SECRET!;
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/quickbooks/callback`;
 
-  const redirectBase = origin === "soltheory"
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/soltheory/settings`
-    : `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/nxtchapter/settings`;
+  const redirectBase = `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/${origin}/settings`;
 
   try {
     // Exchange authorization code for tokens

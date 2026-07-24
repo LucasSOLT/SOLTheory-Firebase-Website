@@ -12,6 +12,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { logActivity } from '@/lib/activity-logger';
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
+import { useOrgId } from '@/contexts/OrgContext';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -20,7 +21,8 @@ export function YouTubeDashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = useStorage();
-  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase('soltheory');
+  const orgId = useOrgId();
+  const { knowledgeBaseText, pactText, orgBrainText } = useKnowledgeBase(orgId);
   const [strategy, setStrategy] = useState({
     targetDemographic: "Young Adult Entrepreneurs",
     tone: "Professional but energetic",
