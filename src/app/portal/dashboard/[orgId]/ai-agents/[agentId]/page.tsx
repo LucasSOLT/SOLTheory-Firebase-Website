@@ -661,7 +661,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const crmRef = collection(firestore, `orgs/${orgId}/crm-instances/default/contacts`);
         const snap = await getDocs(query(crmRef, firestoreLimit(500)));
         if (snap.empty) return;
-        // Build compact contact lines: Name | Email | Phone — keeps data small for LLM context
+        // Build compact contact lines for LLM context — includes key CRM fields
         const lines = snap.docs.map(d => {
           const c = d.data();
           const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || '';
@@ -672,6 +672,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           if (c.mobilePhone && c.mobilePhone !== c.phone) parts.push(c.mobilePhone);
           if (c.company) parts.push(c.company);
           if (c.jobTitle) parts.push(c.jobTitle);
+          if (c.leadStatus && c.leadStatus !== 'Cold Lead') parts.push(c.leadStatus);
+          if (c.tags && Array.isArray(c.tags) && c.tags.length > 0) parts.push(`[${c.tags.join(',')}]`);
           return parts.join(' | ');
         }).filter(l => l.length > 2);
         setCrmContacts(lines.join('\n'));

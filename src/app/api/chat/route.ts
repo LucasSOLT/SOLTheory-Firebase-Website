@@ -723,7 +723,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       const cappedCrm = crmData.substring(0, 16000);
       groqMessages.push({
         role: "system",
-        content: `[CRM DATABASE]\nThe user's CRM contacts are listed below. When they ask about a contact's phone number, email, company, status, or any other detail, answer confidently from this data. You can also reference this to look up names, companies, or contact info.\n\n${cappedCrm}`
+        content: `[CRM DATABASE]\nBelow is the user's CRM contact database. Each line is a contact with fields separated by " | " in order: Name, Email, Phone, Mobile, Company, Title, Lead Status, [Tags].\n\nRules for using this data:\n1. SEARCH THOROUGHLY: When asked about a person, search ALL contacts by name, email, company, or any matching field — not just the first few lines.\n2. ANSWER CONFIDENTLY: If you find the contact, provide all their available details (email, phone, company, etc.) without hedging.\n3. ASK TO CLARIFY: If multiple contacts match (e.g. two "Johns" or similar names), list the matches and ask the user which one they mean.\n4. LEAD STATUS: Contacts may have statuses like "Warm Lead", "Interested", or "Sale Completed". Answer questions like "who are my warm leads?" by filtering on this.\n5. TAGS: Tags appear in [brackets]. Answer questions like "show me VIP contacts" by matching tags.\n6. If a contact is NOT found in this database, say so clearly — do not make up contact information.\n\n${cappedCrm}`
       });
       console.log(`[CRM] Injected ${cappedCrm.length} chars of CRM data into context`);
     }
