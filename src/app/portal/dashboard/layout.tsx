@@ -17,6 +17,7 @@ import { isAdmin } from "@/lib/admin";
 import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, DEVELOPER_EMAIL } from "@/lib/org-config";
 import { OrgProvider } from "@/contexts/OrgContext";
 import { useContentManagerStore } from "@/stores/content-manager-store";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 
 
@@ -31,6 +32,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push("/portal/login");
     }
   }, [user, isUserLoading, router]);
+
+  // Pre-warm backend APIs on dashboard load to eliminate cold-start delay
+  useEffect(() => {
+    if (!user) return;
+    const doWarmup = async () => {
+      try {
+        const headers = await getAuthHeaders();
+        fetch('/api/warmup', { headers }).catch(() => {});
+      } catch {} // fire-and-forget
+    };
+    doWarmup();
+  }, [user]);
 
   // Welcome Walkthrough States
   const [showWelcome, setShowWelcome] = useState(false);

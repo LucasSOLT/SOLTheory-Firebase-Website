@@ -642,13 +642,40 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
 
     // --- KNOWLEDGE BASE: TIERED INJECTION ---
     // TIER 1 (Always present): Org context + hardcoded knowledge (company-specific)
-    // Await org profile that was started earlier (parallelized, capped at 2s)
-    const tOrg = Date.now();
-    orgProfileData = await Promise.race([
-      orgProfilePromise,
-      new Promise<null>(resolve => setTimeout(() => resolve(null), 2000))
+    // TIER 2 (Query-matched): Semantic retrieval from uploaded documents
+    // OPTIMIZATION: Run org profile fetch AND semantic retrieval IN PARALLEL
+    const userMsgsForKB = messages.filter((m: any) => m.role === "user");
+    const recentUserMsgs = userMsgsForKB.slice(-3);
+    const userQueryForKB = recentUserMsgs.map((m: any) => m.content).join(" ").substring(0, 500);
+
+    // Fire semantic retrieval promise immediately (don't wait for org profile)
+    const semanticPromise = (uid && agentId && userQueryForKB.trim().length > 3)
+      ? Promise.race([
+          retrieveSemanticChunks(userQueryForKB, {
+            uid,
+            agentId,
+            orgId,
+            pactText: pactText || "",
+            orgBrainText: orgBrainText || "",
+            knowledgeBaseText: knowledgeBaseText || "",
+            maxResults: 12,
+          }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Semantic retrieval timeout')), 4000))
+        ]).catch((kbErr) => {
+          console.warn("[KB] Semantic retrieval failed, will use fallback:", (kbErr as any)?.message);
+          return null;
+        })
+      : Promise.resolve(null);
+
+    // Await BOTH in parallel — saves up to 4s vs sequential
+    const tParallel = Date.now();
+    const [orgProfileResult, semanticResult] = await Promise.all([
+      Promise.race([orgProfilePromise, new Promise<null>(resolve => setTimeout(() => resolve(null), 2000))]),
+      semanticPromise,
     ]);
-    console.log(`[PERF] Org profile fetch took ${Date.now() - tOrg}ms | hasData=${!!orgProfileData}`);
+    console.log(`[PERF] Parallel fetch (org + KB) took ${Date.now() - tParallel}ms`);
+
+    orgProfileData = orgProfileResult;
     let tier1Knowledge = "";
     const orgContext = buildOrgContext(orgProfileData, orgId);
     if (orgContext) {
@@ -661,49 +688,19 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       tier1Knowledge += "[EDITABLE ORGANIZATIONAL KNOWLEDGE]\n" + orgBrainText.substring(0, 15000) + "\n\n";
     }
 
-    // TIER 2 (Query-matched): Semantic retrieval from uploaded documents
-    // Use last 3 user messages for richer context (fixes "tell me more about that" queries)
-    const userMsgsForKB = messages.filter((m: any) => m.role === "user");
-    const recentUserMsgs = userMsgsForKB.slice(-3);
-    const userQueryForKB = recentUserMsgs.map((m: any) => m.content).join(" ").substring(0, 500);
     let tier2Knowledge = "";
-    try {
-      if (uid && agentId && userQueryForKB.trim().length > 3) {
-        const t1 = Date.now();
-        const semanticTimeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Semantic retrieval timeout')), 4000));
-        const semanticChunks = await Promise.race([
-          retrieveSemanticChunks(userQueryForKB, {
-            uid,
-            agentId,
-            orgId,
-            pactText: pactText || "",
-            orgBrainText: orgBrainText || "",
-            knowledgeBaseText: knowledgeBaseText || "",
-            maxResults: 12,
-          }),
-          semanticTimeout
-        ]);
-        console.log(`[PERF] Semantic retrieval took ${Date.now() - t1}ms | chunks=${semanticChunks.length}`);
-        if (semanticChunks.length > 0) {
-          const docChunks = semanticChunks.filter(c => c.type === "document" || c.type === "text_entry");
-          if (docChunks.length > 0) {
-            tier2Knowledge = docChunks.map((c, i) =>
-              `[Source: ${c.source}]\n${c.text}`
-            ).join("\n\n---\n\n");
-          }
-        }
+    if (semanticResult && Array.isArray(semanticResult) && semanticResult.length > 0) {
+      const docChunks = semanticResult.filter((c: any) => c.type === "document" || c.type === "text_entry");
+      if (docChunks.length > 0) {
+        tier2Knowledge = docChunks.map((c: any) =>
+          `[Source: ${c.source}]\n${c.text}`
+        ).join("\n\n---\n\n");
       }
-    } catch (kbErr) {
-      console.warn("[KB] Semantic retrieval failed, falling back to full injection:", (kbErr as any)?.message);
+    } else if (!semanticResult) {
       // Fallback: use client-provided knowledge base text (capped)
       if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
         tier2Knowledge = knowledgeBaseText.substring(0, 8000);
       }
-    }
-
-    // Fallback: if semantic retrieval returned nothing but client sent KB text, include it
-    if (!tier2Knowledge && knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
-      tier2Knowledge = knowledgeBaseText.substring(0, 8000);
     }
 
     // Inject combined knowledge
