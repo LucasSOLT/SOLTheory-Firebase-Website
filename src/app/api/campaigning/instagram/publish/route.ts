@@ -1,3 +1,18 @@
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  ⚠️  FROZEN CODE — DO NOT MODIFY THIS FILE ⚠️                          ║
+// ║                                                                        ║
+// ║  This Instagram feature is PRODUCTION-STABLE as of July 2026.          ║
+// ║  Any modifications risk breaking the live Instagram integration        ║
+// ║  for all users and organizations.                                      ║
+// ║                                                                        ║
+// ║  If you MUST make changes:                                             ║
+// ║    1. Get explicit approval from the project owner                     ║
+// ║    2. Test thoroughly in a staging environment first                    ║
+// ║    3. Do NOT refactor, rename, or restructure any exports              ║
+// ║                                                                        ║
+// ║  See: .agents/AGENTS.md for the full frozen-code policy.               ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
 import { NextResponse } from "next/server";
 import { initAdmin } from "@/firebase/admin";
 import {

@@ -1,5 +1,20 @@
 "use client";
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  ⚠️  FROZEN CODE — DO NOT MODIFY THIS FILE ⚠️                          ║
+// ║                                                                        ║
+// ║  This Instagram feature is PRODUCTION-STABLE as of July 2026.          ║
+// ║  Any modifications risk breaking the live Instagram integration        ║
+// ║  for all users and organizations.                                      ║
+// ║                                                                        ║
+// ║  If you MUST make changes:                                             ║
+// ║    1. Get explicit approval from the project owner                     ║
+// ║    2. Test thoroughly in a staging environment first                    ║
+// ║    3. Do NOT refactor, rename, or restructure any exports              ║
+// ║                                                                        ║
+// ║  See: .agents/AGENTS.md for the full frozen-code policy.               ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
 import React, { useState, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,11 +24,12 @@ import {
   CheckCircle2,
   XCircle,
   ExternalLink,
+  LogOut,
 } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useOrgId } from "@/contexts/OrgContext";
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { useInstagramStore } from "@/stores/instagramStore";
 import OnboardingView from "./_components/OnboardingView";
@@ -55,6 +71,7 @@ function InstagramPageContent() {
   const [view, setView] = useState<'landing' | 'workspace'>('landing');
   const [isConnected, setIsConnected] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   // Zustand store sync
   const setConnectionStatus = useInstagramStore((s) => s.setConnectionStatus);
@@ -143,6 +160,27 @@ function InstagramPageContent() {
     setTimeout(() => setIsRedirecting(false), 5000);
   };
 
+  // ── Disconnect / Sign Out handler ─────────────────────────────────────
+  const handleDisconnect = async () => {
+    if (!firestore) return;
+    const confirmed = window.confirm(
+      'Disconnect your Instagram account? You can reconnect at any time.'
+    );
+    if (!confirmed) return;
+
+    setIsDisconnecting(true);
+    try {
+      await deleteDoc(doc(firestore, 'instagram_connections', orgPrefix));
+      setIsConnected(false);
+      setConnectionStatus(false);
+      setView('workspace');
+    } catch (err) {
+      console.error('[InstagramPage] Disconnect failed:', err);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
   // ── Style tokens ──────────────────────────────────────────────────────
   const bgColor = isDark ? "bg-slate-950" : "bg-[#faf8f3]";
   const textPrimary = isDark ? "text-white" : "text-slate-900";
@@ -225,6 +263,22 @@ function InstagramPageContent() {
                   <CheckCircle2 className="w-3 h-3 mr-1" />
                   Connected
                 </Badge>
+                <button
+                  onClick={handleDisconnect}
+                  disabled={isDisconnecting}
+                  title="Sign out of Instagram"
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    isDark
+                      ? 'hover:bg-red-500/10 text-slate-500 hover:text-red-400'
+                      : 'hover:bg-red-50 text-slate-400 hover:text-red-500'
+                  }`}
+                >
+                  {isDisconnecting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <LogOut className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </>
             ) : !isLoading ? (
               <button
