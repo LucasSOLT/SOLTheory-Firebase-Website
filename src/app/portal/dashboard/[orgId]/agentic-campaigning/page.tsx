@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useParams } from "next/navigation";
 import { useOrgId } from "@/contexts/OrgContext";
 import { getOrgConfig } from "@/lib/org-config";
 import { motion } from "framer-motion";
