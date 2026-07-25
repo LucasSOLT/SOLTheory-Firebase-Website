@@ -11,6 +11,7 @@ import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
+import { createStreamingCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
 const tools: any = [
   {
     type: "function",
@@ -444,9 +445,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Validate model against whitelist, default to llama-3.3-70b
-    const ALLOWED_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
-    const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.3-70b-versatile';
+    // Validate model against registry, default to llama-3.3-70b
+    const ALLOWED_MODELS = [...Object.keys(MODEL_REGISTRY), 'auto'];
+    let selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.3-70b-versatile';
     console.log(`[MODEL] Requested: "${requestedModel}" → Using: "${selectedModel}" | Stream: ${wantStream}`);
 
     // Parse out scope prefixes for logic, but keep raw for database
@@ -804,25 +805,31 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools} messageNeedsTools=${messageNeedsTools}`);
 
     // ── NATIVE STREAMING FAST PATH ──
-    // When client wants streaming AND no tools are needed, use Groq's native
-    // stream:true for real-time token delivery. This eliminates the "fake streaming"
-    // pattern and dramatically reduces time-to-first-token (TTFT).
+    // When client wants streaming AND no tools are needed, use the LLM router's
+    // native streaming for real-time token delivery across ANY provider.
     if (wantStream && !useTools) {
-      console.log(`[STREAM] Native streaming path — no tools needed, streaming directly from Groq | model=${selectedModel}`);
+      // Resolve 'auto' mode to an actual model
+      if (selectedModel === 'auto') {
+        const lastUserText = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+        selectedModel = autoSelectModel(lastUserText, useTools);
+        console.log(`[AUTO] Auto-selected model: ${selectedModel}`);
+      }
+      const modelConfig = getModelConfig(selectedModel);
+      const providerName = modelConfig?.provider || 'groq';
+      console.log(`[STREAM] Native streaming path — provider=${providerName} model=${selectedModel}`);
       const t0 = Date.now();
 
       // Dynamic max_tokens based on query complexity
       const lastMsg = groqMessages.filter((m: any) => m.role === 'user').pop();
       const queryLen = (lastMsg?.content || '').length;
-      const dynamicMaxTokens = queryLen > 200 ? 4096 : queryLen > 80 ? 2048 : 1024;
+      const dynamicMaxTokens = queryLen > 200 ? 8192 : queryLen > 80 ? 4096 : 2048;
 
-      const groqStream = await groq.chat.completions.create({
+      const streamGenerator = createStreamingCompletion({
         messages: groqMessages,
         model: selectedModel,
         temperature: 0.7,
-        top_p: 0.9,
-        max_tokens: dynamicMaxTokens,
-        stream: true,
+        topP: 0.9,
+        maxTokens: dynamicMaxTokens,
       });
 
       const encoder = new TextEncoder();
@@ -844,10 +851,10 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
-            for await (const chunk of groqStream) {
-              const delta = chunk.choices[0]?.delta?.content || '';
-              if (delta) {
-                const sanitized = sanitizeChunk(delta);
+            for await (const chunk of streamGenerator) {
+              if (chunk.done) break;
+              if (chunk.token) {
+                const sanitized = sanitizeChunk(chunk.token);
                 fullResponse += sanitized;
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: sanitized })}\n\n`));
               }
@@ -898,6 +905,16 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     }
 
     // ── PASS 1: Generate Response or Tool Target (synchronous for tool calls) ──
+    // Resolve 'auto' mode for synchronous path (tool calls always use Groq for speed)
+    if (selectedModel === 'auto') {
+      const lastUserText = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+      selectedModel = autoSelectModel(lastUserText, useTools);
+      console.log(`[AUTO] Auto-selected model for sync path: ${selectedModel}`);
+    }
+    // Tool calls require Groq (fastest tool support) — reroute premium models for tool paths
+    const syncModel = (useTools && getModelConfig(selectedModel)?.provider === 'openrouter')
+      ? 'llama-3.3-70b-versatile'
+      : selectedModel;
     const t0 = Date.now();
     let completion: any = await createCompletionWithRetry(groqMessages, useTools);
     console.log(`[PERF] Groq completion took ${Date.now() - t0}ms | model=${selectedModel} useTools=${useTools}`);
