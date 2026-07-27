@@ -546,7 +546,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     }
     set({ isAddingContact: true });
     try {
-      await setDoc(doc(_db, crmPath(_uid, "contacts", _orgId), customer.id), {
+      await setDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), customer.id), {
         firstName: customer.firstName,
         lastName: customer.lastName,
         phone: customer.phone,
@@ -579,7 +579,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id), updates as any);
+      await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), id), updates as any);
     } catch (error) {
       console.error("updateCustomer error:", error);
       get().showToast("⚠️ Failed to update contact", "error");
@@ -591,7 +591,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     if (!_db || !_uid || !_orgId) return;
     const customer = get().customers.find(c => c.id === id);
     try {
-      await deleteDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id));
+      await deleteDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), id));
       if (customer) get().showToast(`🗑️ ${customer.firstName} ${customer.lastName} removed`);
     } catch (error) {
       console.error("deleteContact error:", error);
@@ -604,7 +604,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     if (!_db || !_uid || !_orgId) return;
     set({ isUpdatingStatus: true });
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id), { leadStatus: status });
+      await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), id), { leadStatus: status });
       get().showToast(`📊 Status updated to ${status}`);
     } catch (error) {
       console.error("updateStatus error:", error);
@@ -620,7 +620,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     try {
       for (let i = 0; i < ids.length; i += BATCH_SIZE) {
         const chunk = ids.slice(i, i + BATCH_SIZE);
-        await Promise.all(chunk.map(id => deleteDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id))));
+        await Promise.all(chunk.map(id => deleteDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), id))));
       }
       showToast(`🗑️ ${ids.length} contact(s) deleted`);
     } catch (error) {
@@ -640,7 +640,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
         const original = customers.find(o => o.id === c.id);
         if (!original || JSON.stringify(original) !== JSON.stringify(c)) {
           const { id, ...data } = c;
-          setDoc(doc(_db, crmPath(_uid, "contacts", _orgId), id), data).catch(console.error);
+          setDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), id), data).catch(console.error);
         }
       });
     }
@@ -653,7 +653,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     if (_db && _uid && _orgId) {
       try {
         const { id, ...data } = meeting;
-        await setDoc(doc(_db, crmPath(_uid, "meetings", _orgId), id), data);
+        await setDoc(doc(_db, crmPath(_uid, "meetings", _orgId, get().activeInstanceId), id), data);
       } catch (error) {
         console.error("addMeeting error:", error);
         // Still add locally even if Firestore fails
@@ -677,7 +677,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     if (_db && _uid && _orgId) {
       try {
         const { id, ...data } = task;
-        await setDoc(doc(_db, crmPath(_uid, "tasks", _orgId), id), data);
+        await setDoc(doc(_db, crmPath(_uid, "tasks", _orgId, get().activeInstanceId), id), data);
       } catch (error) {
         console.error("addTask error:", error);
       }
@@ -689,7 +689,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "tasks", _orgId), id), updates);
+      await updateDoc(doc(_db, crmPath(_uid, "tasks", _orgId, get().activeInstanceId), id), updates);
     } catch (error) {
       console.error("updateTask error:", error);
     }
@@ -699,7 +699,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      await deleteDoc(doc(_db, crmPath(_uid, "tasks", _orgId), id));
+      await deleteDoc(doc(_db, crmPath(_uid, "tasks", _orgId, get().activeInstanceId), id));
     } catch (error) {
       console.error("deleteTask error:", error);
     }
@@ -712,7 +712,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     if (_db && _uid && _orgId) {
       try {
         const { id, ...data } = activity;
-        await setDoc(doc(_db, crmPath(_uid, "activities", _orgId), id), data);
+        await setDoc(doc(_db, crmPath(_uid, "activities", _orgId, get().activeInstanceId), id), data);
       } catch (error) {
         console.error("addActivity error:", error);
       }
@@ -754,7 +754,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const updatedMessages = [...conv.messages, msg];
     
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId), convId), {
+      await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId, get().activeInstanceId), convId), {
         messages: updatedMessages,
         lastMessage: text,
         lastTimestamp: msg.timestamp
@@ -770,7 +770,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId), convId), { ticketStatus: status });
+      await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId, get().activeInstanceId), convId), { ticketStatus: status });
       get().showToast(`🎫 Ticket status updated to ${status}`);
     } catch (error) {
       console.error("updateTicketStatus error:", error);
@@ -783,7 +783,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const conv = conversations.find(c => c.id === convId);
     if (conv && conv.unread) {
       try {
-        await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId), convId), { unread: false });
+        await updateDoc(doc(_db, crmPath(_uid, "conversations", _orgId, get().activeInstanceId), convId), { unread: false });
       } catch (error) {
         console.error("markConversationRead error:", error);
       }
@@ -839,7 +839,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
       isDeducing: false,
     }));
     if (_db && _uid && _orgId) {
-      updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId), customerId), { aiNotes: newNotes }).catch(console.error);
+      updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), customerId), { aiNotes: newNotes }).catch(console.error);
     }
     get().showToast("🧠 Jarvis deduction complete");
   },
@@ -861,7 +861,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      await setDoc(doc(_db, crmPath(_uid, "settings", _orgId), "pipelineConfig"), {
+      await setDoc(doc(_db, crmPath(_uid, "settings", _orgId, get().activeInstanceId), "pipelineConfig"), {
         id: config.id,
         name: config.name,
         stages: config.stages,
@@ -879,7 +879,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      const snap = await getDocs(query(collection(_db, crmPath(_uid, "settings", _orgId))));
+      const snap = await getDocs(query(collection(_db, crmPath(_uid, "settings", _orgId, get().activeInstanceId))));
       const configDoc = snap.docs.find(d => d.id === "pipelineConfig");
       if (configDoc) {
         const data = configDoc.data();
@@ -904,7 +904,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      await setDoc(doc(_db, crmPath(_uid, "settings", _orgId), "general"), {
+      await setDoc(doc(_db, crmPath(_uid, "settings", _orgId, get().activeInstanceId), "general"), {
         crmLabel: settings.crmLabel,
         defaultView: settings.defaultView,
         updatedAt: serverTimestamp(),
@@ -921,7 +921,7 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
-      const snap = await getDoc(doc(_db, crmPath(_uid, "settings", _orgId), "general"));
+      const snap = await getDoc(doc(_db, crmPath(_uid, "settings", _orgId, get().activeInstanceId), "general"));
       if (snap.exists()) {
         const data = snap.data();
         set({

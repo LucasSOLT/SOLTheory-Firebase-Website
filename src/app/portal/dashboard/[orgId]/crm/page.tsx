@@ -458,6 +458,7 @@ export default function CRMPage() {
   const [showDbDropdown, setShowDbDropdown] = useState(false);
   const [showNewDbInput, setShowNewDbInput] = useState(false);
   const [newDbName, setNewDbName] = useState("");
+  const [confirmDeleteDb, setConfirmDeleteDb] = useState<{ id: string; name: string } | null>(null);
   /* Inline CRM label editing */
   const [isEditingCrmLabel, setIsEditingCrmLabel] = useState(false);
   const [editingLabelValue, setEditingLabelValue] = useState("");
@@ -2087,18 +2088,30 @@ export default function CRMPage() {
                       <div className={`absolute left-0 top-full mt-1 w-56 rounded-xl border shadow-lg z-50 overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
                         <div className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Databases</div>
                         {availableInstances.map(inst => (
-                          <button
-                            key={inst.id}
-                            onClick={() => { switchInstance(inst.id); setShowDbDropdown(false); }}
-                            className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors ${
-                              inst.id === activeInstanceId
-                                ? isDarkMode ? 'bg-indigo-900/30 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
-                                : isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span className="font-medium truncate">{inst.name}</span>
-                            {inst.id === activeInstanceId && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />}
-                          </button>
+                          <div key={inst.id} className="flex items-center group">
+                            <button
+                              onClick={() => { switchInstance(inst.id); setShowDbDropdown(false); }}
+                              className={`flex-1 text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors ${
+                                inst.id === activeInstanceId
+                                  ? isDarkMode ? 'bg-indigo-900/30 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
+                                  : isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span className="font-medium truncate">{inst.name}</span>
+                              {inst.id === activeInstanceId && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />}
+                            </button>
+                            {inst.id !== "default" && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteDb(inst); }}
+                                className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded-md transition-all cursor-pointer ${
+                                  isDarkMode ? 'hover:bg-red-900/40 text-slate-500 hover:text-red-400' : 'hover:bg-red-50 text-slate-300 hover:text-red-500'
+                                }`}
+                                title={`Delete "${inst.name}"`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         ))}
                         <div className={`border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                           {showNewDbInput ? (
@@ -3781,6 +3794,46 @@ export default function CRMPage() {
         onClose={() => setShowDuplicateDetector(false)}
         customers={customers}
       />
+      {/* ━━━━━━ DELETE DATABASE CONFIRMATION ━━━━━━ */}
+      {confirmDeleteDb && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setConfirmDeleteDb(null)}>
+          <div
+            className={`w-96 rounded-2xl border shadow-2xl p-6 ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Delete Database</h3>
+                <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>This action cannot be undone</p>
+              </div>
+            </div>
+            <p className={`text-sm mb-5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              Are you sure you want to delete <span className="font-semibold">&quot;{confirmDeleteDb.name}&quot;</span>? All contacts in this database will be permanently removed.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setConfirmDeleteDb(null)}
+                className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await deleteInstance(confirmDeleteDb.id);
+                  setConfirmDeleteDb(null);
+                  setShowDbDropdown(false);
+                }}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors cursor-pointer"
+              >
+                Delete Database
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

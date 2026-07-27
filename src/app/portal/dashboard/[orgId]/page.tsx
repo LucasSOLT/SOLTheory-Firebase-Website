@@ -2,7 +2,6 @@
 
 import { useOrgId } from "@/contexts/OrgContext";
 import { SolTheoryHome } from "./SolTheoryHome";
-import { NxtChapterHome } from "./NxtChapterHome";
 import type { ComponentType } from "react";
 
 /**
@@ -12,7 +11,7 @@ import type { ComponentType } from "react";
  */
 const ORG_HOME_COMPONENTS: Record<string, ComponentType> = {
   soltheory: SolTheoryHome,
-  nxtchapter: NxtChapterHome,
+  nxtchapter: SolTheoryHome, // NXT Chapter uses the same layout as SOLTheory
 };
 
 export default function DashboardHome() {
