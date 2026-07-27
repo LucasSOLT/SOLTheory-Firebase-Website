@@ -429,7 +429,7 @@ export async function POST(req: Request) {
     const userPrompt = buildUserPrompt(contact, webResearch, contact.previousInsight || null);
 
     // ── Step 3: Cascade through LLM providers ──
-    const geminiModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
+    const geminiModels = ["gemini-2.0-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.0-flash-lite"];
 
     for (const model of geminiModels) {
       try {
