@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { TIMEZONE_OPTIONS, useTranslation } from "@/lib/i18n";
-import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield, Users as UsersIcon, Code, Clock } from "lucide-react";
+import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield, Users as UsersIcon, Code, Clock, Copy, Check } from "lucide-react";
 import { useUser, useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile, sendPasswordResetEmail } from "firebase/auth";
@@ -151,6 +151,7 @@ function SettingsContent() {
   const [location, setLocation] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
+  const [copiedUid, setCopiedUid] = useState(false);
   
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [subPage, setSubPage] = useState<SubPage>(null);
@@ -993,6 +994,28 @@ function SettingsContent() {
                         <div className="space-y-1.5">
                           <Label htmlFor="email" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.accountEmail}</Label>
                           <Input id="email" type="email" value={user?.email || ""} readOnly className={`${isDarkMode ? 'bg-slate-800/50 border-slate-700 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'} cursor-not-allowed h-10`} />
+                          {/* User ID */}
+                          <div className="mt-3">
+                            <label className={`block text-xs font-semibold mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>User ID</label>
+                            <div className="flex items-center gap-2">
+                              <code className={`text-[11px] font-mono px-2.5 py-1.5 rounded-lg select-all ${isDarkMode ? 'bg-slate-800/80 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                                {user?.uid}
+                              </code>
+                              <button
+                                onClick={() => {
+                                  if (user?.uid) {
+                                    navigator.clipboard.writeText(user.uid);
+                                    setCopiedUid(true);
+                                    setTimeout(() => setCopiedUid(false), 2000);
+                                  }
+                                }}
+                                className={`p-1.5 rounded-md transition-colors ${isDarkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
+                                title="Copy User ID"
+                              >
+                                {copiedUid ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                         <div className="space-y-1.5 md:col-span-2">
                           <Label htmlFor="location" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.location}</Label>

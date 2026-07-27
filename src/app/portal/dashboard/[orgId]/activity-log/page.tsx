@@ -5,6 +5,7 @@ import { useFirestore, useUser } from "@/firebase";
 import { collection, query, orderBy, limit, where, onSnapshot } from "firebase/firestore";
 import { Activity, ChevronDown, ChevronRight, Filter, Search, X } from "lucide-react";
 import { useDarkMode } from "@/lib/useDarkMode";
+import { useParams } from "next/navigation";
 
 interface ActivityEntry {
   id: string;
@@ -79,7 +80,9 @@ export default function ActivityLogPage() {
   const [userFilter, setUserFilter] = useState("all");
   const fallbackUnsubRef = useRef<(() => void) | null>(null);
 
-  const orgDomain = user?.email?.split('@')[1] || '';
+  const params = useParams();
+  const orgId = params?.orgId as string;
+  const orgDomain = orgId ? `${orgId}.com` : '';
 
   // Real-time listener for activity log — with fallback if index is still building
   useEffect(() => {

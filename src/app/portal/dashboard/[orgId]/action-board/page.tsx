@@ -441,30 +441,25 @@ function ActionBoardContent() {
     fetchRole();
   }, [firestore, user?.uid]);
 
-  // ——— Fetch org members for assignee picker ———
+  // ––– Fetch org members for assignee picker –––
   useEffect(() => {
     if (!firestore) return;
     const fetchMembers = async () => {
       try {
-        const usersSnap = await getDocs(collection(firestore, "users"));
+        // Query org-scoped members instead of global users collection
+        const membersSnap = await getDocs(collection(firestore, `orgs/${ORG_ID}/members`));
         const members: OrgMember[] = [];
-        usersSnap.docs.forEach(d => {
+        membersSnap.docs.forEach(d => {
           const data = d.data();
-          const email = data.email || data.profile?.email || "";
+          const email = data.email || "";
           if (email) {
-            // Only include users who belong to this org, or cross-org admins
-            const userOrg = data.organization || "";
-            const isSameOrg = userOrg === ORG_ID;
-            const isCrossOrgAdmin = ADMIN_EMAILS.includes(email.toLowerCase());
-            if (isSameOrg || isCrossOrgAdmin) {
-              members.push({
-                uid: d.id,
-                email,
-                displayName: data.displayName || data.profile?.displayName || data.name || "",
-                photoURL: data.photoURL || data.profile?.photoURL || "",
-                role: data.role || "member",
-              });
-            }
+            members.push({
+              uid: d.id,
+              email,
+              displayName: data.displayName || email.split("@")[0] || "",
+              photoURL: data.photoURL || "",
+              role: data.role || "member",
+            });
           }
         });
 

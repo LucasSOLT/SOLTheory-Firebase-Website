@@ -2316,6 +2316,24 @@ export default function CRMPage() {
                               <Settings2 className="w-3.5 h-3.5 text-slate-400" />
                               Manage Fields
                             </button>
+                            {activeInstanceId !== 'default' && (
+                              <>
+                                <div className={`border-t my-1 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`} />
+                                <button
+                                  onClick={() => {
+                                    setShowFilterPanel(false);
+                                    setConfirmDeleteDb({
+                                      id: activeInstanceId,
+                                      name: availableInstances.find(i => i.id === activeInstanceId)?.name || activeInstanceId,
+                                    });
+                                  }}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-red-950/30 text-red-400' : 'hover:bg-red-50 text-red-500'}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete Database
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </>

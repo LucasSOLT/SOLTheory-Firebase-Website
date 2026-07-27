@@ -24,7 +24,7 @@ export function ContactsView() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { t } = useTranslation();
-  const orgId = useOrgId() || "soltheory";
+  const orgId = useOrgId();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [name, setName] = useState("");
