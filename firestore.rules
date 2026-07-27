@@ -674,8 +674,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && isOrgMember(orgId);
       // Org members can create and update
       allow create, update: if isSignedIn() && isOrgMember(orgId)
-        && request.resource.data.keys().size() < 100
-        && request.resource.size < 1048576;
+        && request.resource.data.keys().size() < 100;
       // Org members can delete
       allow delete: if isSignedIn() && isOrgMember(orgId);
     }
