@@ -38,6 +38,7 @@ export function SupportTicketsViewer({ dashboardName }: { dashboardName: string 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const orgId = useOrgId();
   const SUPPORT_EMAIL = getOrgConfig(orgId)?.supportEmail || "support@soltheory.com";
 

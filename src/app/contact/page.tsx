@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { Header } from '@/components/sections/header';
 import { Footer } from '@/components/sections/footer';
 import { StarBackground } from '@/components/ui/star-background';
-import { Mail, Phone, Wrench, ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
+import { Mail, Phone, Wrench, ArrowLeft, ExternalLink, Sparkles, Send, CheckCircle2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useTranslation } from '@/lib/i18n';
@@ -53,6 +54,37 @@ const fadeUp = {
 
 export default function ContactPage() {
   const { t, lang } = useTranslation();
+
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) return;
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit form');
+      }
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('Contact form submission error:', err);
+      setErrorMessage(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   return (
     <div className="flex flex-col min-h-screen bg-[#0A0A0B] text-slate-200 selection:bg-fuchsia-500/30 overflow-x-hidden">
       <div className="absolute top-0 w-full z-50 fixed">
@@ -159,6 +191,124 @@ export default function ContactPage() {
                 </motion.a>
               ))}
             </div>
+
+            {/* Interactive Contact Form */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.6 }}
+              className="w-full max-w-3xl mt-16 bg-black/50 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-fuchsia-400" />
+                {lang === 'es' ? 'Envíanos un Mensaje Directo' : 'Send Us a Direct Message'}
+              </h2>
+              <p className="text-slate-400 text-sm mb-8">
+                {lang === 'es' ? 'Llena el formulario a continuación y nos pondremos en contacto contigo lo antes posible.' : 'Fill out the form below and our team will get right back to you.'}
+              </p>
+
+              {submitted ? (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center space-y-3">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto animate-bounce" />
+                  <h3 className="text-xl font-bold text-white">
+                    {lang === 'es' ? '¡Mensaje Enviado con Éxito!' : 'Message Sent Successfully!'}
+                  </h3>
+                  <p className="text-emerald-200 text-sm">
+                    {lang === 'es' ? 'Gracias por contactarnos. Responderemos a tu correo electrónico pronto.' : 'Thank you for reaching out. We have received your submission and will reply via email.'}
+                  </p>
+                  <button
+                    onClick={() => { setSubmitted(false); setForm({ name: '', email: '', subject: '', message: '' }); }}
+                    className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    {lang === 'es' ? 'Enviar Otro Mensaje' : 'Send Another Message'}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {errorMessage && (
+                    <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm rounded-xl p-4">
+                      {errorMessage}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        {lang === 'es' ? 'Nombre Completo' : 'Full Name'} *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        placeholder="John Doe"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        {lang === 'es' ? 'Correo Electrónico' : 'Email Address'} *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        placeholder="john@example.com"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                      {lang === 'es' ? 'Asunto' : 'Subject'}
+                    </label>
+                    <input
+                      type="text"
+                      value={form.subject}
+                      onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                      placeholder={lang === 'es' ? '¿En qué te podemos ayudar?' : 'How can we help?'}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                      {lang === 'es' ? 'Mensaje' : 'Message'} *
+                    </label>
+                    <textarea
+                      required
+                      rows={5}
+                      value={form.message}
+                      onChange={(e) => setForm({ ...form, message: e.target.value })}
+                      placeholder={lang === 'es' ? 'Escribe tu mensaje aquí...' : 'Write your message here...'}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-4 px-8 bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        {lang === 'es' ? 'Enviando...' : 'Sending Message...'}
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        {lang === 'es' ? 'Enviar Mensaje' : 'Send Message'}
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </motion.div>
 
             {/* Bottom tagline */}
             <motion.p

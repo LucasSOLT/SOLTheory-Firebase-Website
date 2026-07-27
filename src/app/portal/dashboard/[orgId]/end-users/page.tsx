@@ -40,7 +40,6 @@ export default function EndUserDashboardPage() {
         snap.forEach((d) => {
           const data = d.data();
           const email = (data.email || "").toLowerCase();
-          const known = KNOWN_USERS[email];
 
           // Determine correct access level — admins are always Admin-Level
           let accessLevel: AccessLevel = data.accessLevel || "User-Level";

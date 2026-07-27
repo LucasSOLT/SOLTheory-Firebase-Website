@@ -41,7 +41,7 @@ export const ORG_REGISTRY: Record<string, OrgConfig> = {
     supportEmail: "lucas@soltheory.com",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com",
     knowledgeModule: "soltheory",
-    theme: { icon: "◆", color: "fuchsia" },
+    theme: { icon: "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440", color: "fuchsia" },
   },
   nxtchapter: {
     id: "nxtchapter",
@@ -60,7 +60,7 @@ export const ORG_REGISTRY: Record<string, OrgConfig> = {
     adminEmails: [],
     supportEmail: "lucas@soltheory.com",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com",
-    theme: { icon: "●", color: "emerald" },
+    theme: { icon: "/images/icon-building.png", color: "emerald" },
   },
 };
 

@@ -277,7 +277,7 @@ interface CrmStore {
   isSendingReply: boolean;
 
   /* ── Lifecycle ── */
-  initializeStore: (db: Firestore, uid: string, orgId: string) => Promise<void>;
+  initializeStore: (db: Firestore, uid: string, orgId: string, _retryCount?: number) => Promise<void>;
   teardown: () => void;
 
   /* ── Async Actions ── */
@@ -366,11 +366,11 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
   isSendingReply: false,
 
   /* ── Initialize with real Firestore ── */
-  initializeStore: async (db, uid, orgId) => {
+  initializeStore: async (db, uid, orgId, _retryCount = 0) => {
     // Teardown previous listeners if re-initializing
     get().teardown();
     set({ isLoading: true, _db: db, _uid: uid, _orgId: orgId });
-    console.log("[CRM Store] Initializing Firestore for UID:", uid, "Org:", orgId);
+    console.log("[CRM Store] Initializing Firestore for UID:", uid, "Org:", orgId, _retryCount > 0 ? `(retry ${_retryCount})` : "");
 
     try {
       // ── Set up real-time listeners FIRST (so contacts load immediately) ──
@@ -383,6 +383,15 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
         },
         (error) => {
           console.error("CRM contacts snapshot error:", error);
+          // If permission denied and we haven't retried too many times,
+          // the member doc may still be provisioning — retry after a delay
+          if (error.code === "permission-denied" && _retryCount < 2) {
+            console.log("[CRM Store] Permission denied — retrying in 2s (member doc may still be provisioning)...");
+            setTimeout(() => {
+              get().initializeStore(db, uid, orgId, _retryCount + 1);
+            }, 2000);
+            return;
+          }
           set({ isLoading: false });
           get().showToast("⚠️ Error loading contacts", "error");
         }

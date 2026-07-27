@@ -682,6 +682,19 @@ service cloud.firestore {
 
     /**
      * ════════════════════════════════════════════════════════════════
+     * ORG-SCOPED CRM INSTANCE METADATA — Multi-database registry
+     * ════════════════════════════════════════════════════════════════
+     * @description Stores the registry of CRM databases (instances) per org.
+     * Org members can read/write to manage their CRM books.
+     * @path /orgs/{orgId}/crm-instances-meta/{docId}
+     */
+    match /orgs/{orgId}/crm-instances-meta/{docId} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow write: if isSignedIn() && isOrgMember(orgId);
+    }
+
+    /**
+     * ════════════════════════════════════════════════════════════════
      * ORG-SCOPED CAMPAIGNS — Shared across org members
      * ════════════════════════════════════════════════════════════════
      * @description Campaigns shared with all members of an organization.

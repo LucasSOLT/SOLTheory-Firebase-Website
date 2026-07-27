@@ -275,6 +275,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const currentOrgId = dashIdx >= 0 && pathSegments[dashIdx + 1] ? pathSegments[dashIdx + 1] : getAllOrgIds()[0];
   const isNxtChapter = currentOrgId === 'nxtchapter';
 
+  // ── Auto-provision org member doc on dashboard load ──
+  // Ensures the Firestore security rule `isOrgMember(orgId)` passes for CRM and
+  // other org-scoped reads. Without this, users who never visited the RBAC settings
+  // panel would have no member doc → permission errors → empty contacts.
+  const [isMemberReady, setIsMemberReady] = useState(false);
+  useEffect(() => {
+    if (!firestore || !user?.uid || !currentOrgId) return;
+    const memberDocRef = doc(firestore, `orgs/${currentOrgId}/members`, user.uid);
+    getDoc(memberDocRef).then((snap) => {
+      if (!snap.exists()) {
+        const email = (user.email || "").toLowerCase();
+        // Determine role based on org config
+        let defaultRole = "user";
+        const orgConfig = ORG_REGISTRY[currentOrgId];
+        if (email === "lucas@soltheory.com") {
+          defaultRole = "owner";
+        } else if (orgConfig?.adminEmails?.includes(email)) {
+          defaultRole = "admin";
+        }
+        setDoc(memberDocRef, {
+          uid: user.uid,
+          email: user.email || "",
+          displayName: user.displayName || "",
+          role: defaultRole,
+          joinedAt: new Date().toISOString(),
+        }).then(() => {
+          console.log(`[Dashboard] Auto-provisioned member doc for ${email} in ${currentOrgId}`);
+          setIsMemberReady(true);
+        }).catch((err) => {
+          console.error("[Dashboard] Failed to auto-provision member doc:", err);
+          setIsMemberReady(true); // proceed anyway so UI isn't blocked
+        });
+      } else {
+        setIsMemberReady(true);
+      }
+    }).catch((err) => {
+      console.error("[Dashboard] Failed to check member doc:", err);
+      setIsMemberReady(true); // proceed anyway
+    });
+  }, [firestore, user?.uid, user?.email, user?.displayName, currentOrgId]);
+
   // Dual-org users: anyone who appears in adminEmails across multiple orgs
   const isDualOrgUser = (() => {
     if (!user?.email) return false;
@@ -1207,8 +1248,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ) : (
                 <Link href={dashboardHome} className={`p-6 pt-6 pb-6 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2ece0]'}`} onClick={() => setIsMobileMenuOpen(false)}>
                   <>
-                    <img src="https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440" alt="SOL Theory Logo" className="w-12 h-12 object-contain" />
-                    <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
+                    <img src={getOrgConfig(currentOrgId)?.theme.icon || "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440"} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-9 h-9 object-contain" />
+                    <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                   </>
                 </Link>
               )}
@@ -1424,8 +1465,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}
                 >
-                  <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
-                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" />
+                  <div className="bg-[#8b7355]/10 p-1 rounded-xl flex items-center justify-center border border-[#8b7355]/20">
+                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-8 h-8 object-contain" />
                   </div>
                   <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                   <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
@@ -1444,8 +1485,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           }}
                           className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
                         >
-                          <div className="bg-[#8b7355] p-1.5 rounded-xl flex items-center justify-center">
-                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-7 h-7 object-contain" />
+                          <div className="bg-[#8b7355]/10 p-1 rounded-xl flex items-center justify-center border border-[#8b7355]/20">
+                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-8 h-8 object-contain" />
                           </div>
                           <span className={`text-sm font-semibold flex-1 text-left ${isCurrent ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
                           {isCurrent && <Check className="w-4 h-4 text-indigo-600" />}

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n";
 import ManageFieldsSidebar from "@/components/crm/ManageFieldsSidebar";
+import { useOrgId } from "@/contexts/OrgContext";
 import { useContactFields } from "@/hooks/useContactFields";
 
 interface Contact {
@@ -23,6 +24,7 @@ export function ContactsView() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { t } = useTranslation();
+  const orgId = useOrgId() || "soltheory";
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [name, setName] = useState("");
@@ -39,33 +41,87 @@ export function ContactsView() {
   useEffect(() => {
     if (!firestore || !user?.uid) return;
 
-    const q = query(collection(firestore, `users/${user.uid}/contacts`));
-    const unsub = onSnapshot(q, (snap) => {
-      const fetched: Contact[] = [];
-      snap.forEach(doc => {
-        fetched.push({ id: doc.id, ...doc.data() } as Contact);
+    let userContacts: Contact[] = [];
+    let orgContacts: Contact[] = [];
+
+    const combineAndSet = () => {
+      const map = new Map<string, Contact>();
+      [...orgContacts, ...userContacts].forEach(c => {
+        const key = (c.email || c.id).toLowerCase().trim();
+        if (key && !map.has(key)) {
+          map.set(key, c);
+        }
       });
-      // Sort organically by name
-      fetched.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      setContacts(fetched);
+      const combined = Array.from(map.values());
+      combined.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setContacts(combined);
+    };
+
+    // 1. Subscribe to user-specific contacts
+    const qUser = query(collection(firestore, `users/${user.uid}/contacts`));
+    const unsubUser = onSnapshot(qUser, (snap) => {
+      userContacts = snap.docs.map(d => ({ id: d.id, ...d.data() } as Contact));
+      combineAndSet();
     });
 
-    return () => unsub();
-  }, [firestore, user?.uid]);
+    // 2. Subscribe to org-wide CRM contacts (e.g. soltheory)
+    const qOrg = query(collection(firestore, `orgs/${orgId}/crm-instances/default/contacts`));
+    const unsubOrg = onSnapshot(qOrg, (snap) => {
+      orgContacts = snap.docs.map(d => {
+        const data = d.data();
+        const fullName = `${data.firstName || ""} ${data.lastName || ""}`.trim() || data.name || data.email || "Unnamed Contact";
+        return {
+          id: d.id,
+          name: fullName,
+          email: data.email || "",
+          aliases: data.aliases || fullName,
+          ignore: false
+        } as Contact;
+      });
+      combineAndSet();
+    }, (error) => {
+      console.error("[ContactsView] Org contacts snapshot error:", error);
+      // Still show user-specific contacts even if org read fails
+    });
+
+    return () => {
+      unsubUser();
+      unsubOrg();
+    };
+  }, [firestore, user?.uid, orgId]);
 
   const handleAddContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore || !user?.uid || !email.trim() || !name.trim()) return;
 
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedAliases = aliases.trim() || trimmedName;
+    const nameParts = trimmedName.split(" ");
+    const firstName = nameParts[0] || trimmedName;
+    const lastName = nameParts.slice(1).join(" ") || "";
+
     try {
+      // Add to user contacts
       await addDoc(collection(firestore, `users/${user.uid}/contacts`), {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        aliases: aliases.trim() || name.trim(),
+        name: trimmedName,
+        email: trimmedEmail,
+        aliases: trimmedAliases,
         ignore: false,
         createdAt: serverTimestamp()
       });
-      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName || '' }, `Created contact "${name.trim()}" (${email.trim().toLowerCase()})`);
+
+      // Add to shared org CRM contacts so team members see it instantly
+      await addDoc(collection(firestore, `orgs/${orgId}/crm-instances/default/contacts`), {
+        firstName,
+        lastName,
+        name: trimmedName,
+        email: trimmedEmail,
+        leadStatus: "Warm Lead",
+        createdAt: serverTimestamp()
+      });
+
+      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName || '' }, `Created contact "${trimmedName}" (${trimmedEmail})`);
       setName("");
       setEmail("");
       setAliases("");

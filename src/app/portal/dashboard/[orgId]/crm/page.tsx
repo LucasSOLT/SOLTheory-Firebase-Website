@@ -927,10 +927,10 @@ export default function CRMPage() {
   /* ─────────── INITIALIZE FIRESTORE ─────────── */
   useEffect(() => {
     if (user?.uid && db) {
-      initializeStore(db, user.uid);
+      initializeStore(db, user.uid, orgId);
     }
     return () => { teardown(); };
-  }, [user?.uid, db, initializeStore, teardown]);
+  }, [user?.uid, db, initializeStore, teardown, orgId]);
 
   // Load pipeline config + CRM settings + available databases on mount
   useEffect(() => {
@@ -2107,17 +2107,29 @@ export default function CRMPage() {
                                 autoFocus
                                 value={newDbName}
                                 onChange={(e) => setNewDbName(e.target.value)}
-                                placeholder="Database name..."
+                                placeholder="Book / Database name..."
                                 className={`flex-1 h-7 px-2 text-xs rounded-md border outline-none ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}
                                 onKeyDown={async (e) => {
                                   if (e.key === 'Enter' && newDbName.trim()) {
                                     const newId = await createInstance(newDbName.trim());
                                     setNewDbName(""); setShowNewDbInput(false); setShowDbDropdown(false);
-                                    switchInstance(newId);
+                                    if (newId) switchInstance(newId);
                                   }
                                   if (e.key === 'Escape') { setShowNewDbInput(false); setNewDbName(""); }
                                 }}
                               />
+                              <button
+                                onClick={async () => {
+                                  if (newDbName.trim()) {
+                                    const newId = await createInstance(newDbName.trim());
+                                    setNewDbName(""); setShowNewDbInput(false); setShowDbDropdown(false);
+                                    if (newId) switchInstance(newId);
+                                  }
+                                }}
+                                className="h-7 px-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md flex items-center justify-center transition-colors cursor-pointer"
+                              >
+                                Add
+                              </button>
                             </div>
                           ) : (
                             <button
