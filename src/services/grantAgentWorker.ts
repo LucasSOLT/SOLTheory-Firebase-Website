@@ -3,6 +3,7 @@
 import { collection, addDoc, Timestamp, doc, getDoc, getDocs, query, where, updateDoc, setDoc } from "firebase/firestore";
 import type { Firestore } from "firebase/firestore";
 import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 
 /* ═══════════════════════════════════════════════════════
    Grant Agent Worker — BULLETPROOF ARCHITECTURE
@@ -32,6 +33,7 @@ declare global {
 
 interface WorkerHandle {
   agentId: string;
+  orgId: string;
   sessionId?: string;
   searchMode?: 'federal' | 'philanthropic';
   timeoutId: ReturnType<typeof setTimeout> | null;
@@ -161,12 +163,13 @@ async function searchWebForGrants(config: GrantAgentConfig, searchMode?: 'federa
   { title: string; url: string; description: string; source: string; agency?: string; closeDate?: string; awardAmountMax?: number; awardAmountMin?: number; opportunityNumber?: string; sources?: string[]; grantScope?: string; relevanceScore?: number; relevanceExplanation?: string; categoryCodes?: string[]; sourceUrl?: string; id?: string }[]
 > {
   try {
+    const authHeaders = await getAuthHeaders();
     const endpoint = searchMode === 'philanthropic'
       ? '/api/grants/search-philanthropic'
       : '/api/grants/search';
     const res = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({
         // Legacy fields
         grantTypes: config.grantTypes,
@@ -228,9 +231,10 @@ async function validateGrantEligibility(
   config: GrantAgentConfig
 ): Promise<{ eligible: boolean; confidence: number; eligibilityText: string; reasoning: string }> {
   try {
+    const authHeaders = await getAuthHeaders();
     const res = await fetch("/api/grants/validate-eligibility", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({
         grantTitle: grant.title,
         grantDescription: grant.description,
@@ -326,7 +330,7 @@ async function executeAgentScan(
     // 6. Load existing grant titles from Firestore to prevent duplicates
     const grantsRef = collection(firestore, "grant_suggestions");
     const existingSnap = await getDocs(
-      query(grantsRef, where("orgId", "==", "soltheory"))
+      query(grantsRef, where("orgId", "==", handle.orgId))
     );
     const existingTitles = new Set<string>();
     const existingUrls = new Set<string>();
@@ -433,7 +437,7 @@ async function executeAgentScan(
       agency: selected.agency || selected.source,
       amount,
       status: "unapplied",
-      orgId: "soltheory",
+      orgId: handle.orgId,
       agentId,
       ...(handle.sessionId ? { sessionId: handle.sessionId } : {}),
       searchMode: handle.searchMode || 'federal',
@@ -576,7 +580,8 @@ export function startAgentWorker(
   config: GrantAgentConfig,
   onGrantFound?: (grantId: string) => void,
   sessionId?: string,
-  searchMode?: 'federal' | 'philanthropic'
+  searchMode?: 'federal' | 'philanthropic',
+  orgId?: string
 ) {
   // 1. Kill any existing worker (including from previous HMR)
   stopAgentWorker(agentId);
@@ -586,6 +591,7 @@ export function startAgentWorker(
 
   const handle: WorkerHandle = {
     agentId,
+    orgId: orgId || "soltheory",
     sessionId,
     searchMode,
     timeoutId: null,

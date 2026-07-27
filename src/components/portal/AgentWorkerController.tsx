@@ -109,7 +109,7 @@ export function AgentWorkerController({
                 ).catch(() => {});
 
                 // Start the worker with sessionId and searchMode
-                startAgentWorker(firestore, workerKey, saved.config, undefined, sessionId, sessionSearchMode);
+                startAgentWorker(firestore, workerKey, saved.config, undefined, sessionId, sessionSearchMode, orgId);
                 startedRef.current.set(workerKey, configHash);
               }
             }
