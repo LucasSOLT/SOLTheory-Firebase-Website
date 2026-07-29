@@ -215,7 +215,7 @@ export function SolTheoryHome() {
         setYtVideos(allVids.map(v => ({
           id: v.id,
           title: v.title || v.name || "Untitled Video",
-          thumbnail: v.thumbnailUrl || v.url || "",
+          thumbnail: v.thumbnailUrl || "",
           description: v.description || "",
           publishedAt: v.publishedAt || "",
         })));
@@ -509,7 +509,7 @@ export function SolTheoryHome() {
                       <div key={vid.id} className="flex gap-3 group/vid">
                         <div className={`w-24 h-16 rounded-md shrink-0 overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
                           {vid.thumbnail ? (
-                            <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="currentColor" viewBox="0 0 24 24"><path d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
@@ -570,7 +570,7 @@ export function SolTheoryHome() {
                     igPosts.slice(0, 4).map((post) => (
                       <div key={post.id} className={`rounded-md w-full h-full min-h-[60px] overflow-hidden relative group/ig ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`}>
                         {post.imageUrl ? (
-                          <img src={post.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <img src={post.imageUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect></svg>

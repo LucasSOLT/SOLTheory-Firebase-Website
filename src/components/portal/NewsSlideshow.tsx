@@ -67,11 +67,15 @@ export function NewsSlideshow() {
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /* â”€â”€â”€ Listen to Firestore for persisted slide data â”€â”€â”€ */
+  /* ─── Listen to Firestore for persisted slide data ─── */
   useEffect(() => {
     if (!firestore) return;
-    const docRef = doc(firestore, "cms_config", `news_slideshow_${orgId}`);
-    const unsub = onSnapshot(docRef, (snap) => {
+    // Try org-specific doc first, then fall back to generic "news_slideshow" doc
+    const orgDocRef = doc(firestore, "cms_config", `news_slideshow_${orgId}`);
+    const genericDocRef = doc(firestore, "cms_config", "news_slideshow");
+    let usingGeneric = false;
+
+    const handleDoc = (snap: any) => {
       if (snap.exists()) {
         const data = snap.data();
         if (data.slides && Array.isArray(data.slides) && data.slides.length > 0) {
@@ -80,12 +84,22 @@ export function NewsSlideshow() {
         if (data.shuffleInterval && typeof data.shuffleInterval === 'number') {
           setShuffleInterval(data.shuffleInterval);
         }
+      } else if (!usingGeneric) {
+        // Org-specific doc doesn't exist, try generic fallback
+        usingGeneric = true;
+        unsubOrg();
+        unsubGeneric = onSnapshot(genericDocRef, handleDoc, () => {});
       }
-    }, () => {
-      // Silently handle missing doc/permissions â€” use defaults
-    });
-    return () => unsub();
-  }, [firestore]);
+    };
+
+    const unsubOrg = onSnapshot(orgDocRef, handleDoc, () => {});
+    let unsubGeneric: (() => void) | null = null;
+
+    return () => {
+      unsubOrg();
+      if (unsubGeneric) unsubGeneric();
+    };
+  }, [firestore, orgId]);
 
   const totalSlides = slides.length;
 
@@ -180,7 +194,6 @@ export function NewsSlideshow() {
                 src={slide.backgroundImage!}
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover z-0"
-                referrerPolicy="no-referrer"
                 onError={(e) => {
                   // Hide broken images gracefully — gradient shows through
                   (e.target as HTMLImageElement).style.display = 'none';
