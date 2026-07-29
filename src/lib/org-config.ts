@@ -47,7 +47,7 @@ export const ORG_REGISTRY: Record<string, OrgConfig> = {
     id: "nxtchapter",
     label: "NXT Chapter",
     emailDomains: ["nxtchapter.com", "nxtchapter.org"],
-    adminEmails: [],
+    adminEmails: ["nxtchapter@nxtchapter.org", "nxtchapterorg@gmail.com", "josie.burton@nxtchapter.org", "josie@nxtchapter.org"],
     supportEmail: "nxtchapterorg@gmail.com",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com",
     knowledgeModule: "nxtchapter",
