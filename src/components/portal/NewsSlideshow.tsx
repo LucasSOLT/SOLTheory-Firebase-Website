@@ -287,7 +287,7 @@ export function NewsSlideshow() {
       {/* â•â•â• "NEWS" persistent label â•â•â• */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
         <span className="text-[9px] font-extrabold tracking-[0.25em] uppercase text-white/30">
-          Sol Theory News
+          {orgLabel} News
         </span>
       </div>
     </div>

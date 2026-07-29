@@ -4,10 +4,11 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter, useParams } from "next/navigation";
 
-import { doc, updateDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, updateDoc, setDoc, onSnapshot, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
 import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
@@ -165,7 +166,98 @@ export function SolTheoryHome() {
   const [newsSlides, setNewsSlides] = useState<SlideData[]>(DEFAULT_SLIDES);
   const [newsShuffleInterval, setNewsShuffleInterval] = useState(15000);
 
-  // Listen for Firestore news slideshow config
+  // YouTube feed state
+  const [ytConnected, setYtConnected] = useState(false);
+  const [ytVideos, setYtVideos] = useState<{id: string; title: string; thumbnail: string; description: string; publishedAt: string}[]>([]);
+  const [ytChannelName, setYtChannelName] = useState("");
+
+  // Instagram feed state
+  const [igConnected, setIgConnected] = useState(false);
+  const [igPosts, setIgPosts] = useState<{id: string; imageUrl: string; caption: string}[]>([]);
+  const [igUsername, setIgUsername] = useState("");
+
+  // Fetch YouTube data
+  useEffect(() => {
+    if (!user || !firestore) return;
+    (async () => {
+      try {
+        const userSnap = await getDoc(doc(firestore, "users", user.uid));
+        const userData = userSnap.data();
+        if (!userData) return;
+        const rToken = userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken || userData?.gmailOAuth?.refreshToken;
+        if (!rToken) return;
+        setYtConnected(true);
+
+        // Fetch channel stats + branding
+        const statsRes = await fetch("/api/youtube/stats", {
+          method: "POST",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({ refreshToken: rToken }),
+        });
+        const statsData = await statsRes.json();
+        if (statsData.success && statsData.branding) {
+          setYtChannelName(statsData.branding.title);
+        }
+
+        // Fetch latest videos from Firestore
+        const videosSnap = await getDocs(collection(firestore, "users", user.uid, "youtube_videos"));
+        const vids: any[] = [];
+        videosSnap.forEach(d => vids.push({ id: d.id, ...d.data() }));
+        vids.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+        // Also fetch drafts as fallback
+        const draftsSnap = await getDocs(collection(firestore, "users", user.uid, "youtube_drafts"));
+        const draftVids: any[] = [];
+        draftsSnap.forEach(d => draftVids.push({ id: d.id, ...d.data() }));
+        draftVids.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+        const allVids = [...vids, ...draftVids].slice(0, 3);
+        setYtVideos(allVids.map(v => ({
+          id: v.id,
+          title: v.title || v.name || "Untitled Video",
+          thumbnail: v.thumbnailUrl || v.url || "",
+          description: v.description || "",
+          publishedAt: v.publishedAt || "",
+        })));
+      } catch (e) {
+        console.error("Failed to fetch YouTube feed:", e);
+      }
+    })();
+  }, [user, firestore]);
+
+  // Fetch Instagram data
+  useEffect(() => {
+    if (!firestore) return;
+    // Check Instagram connection
+    const igDocRef = doc(firestore, "instagram_connections", orgId);
+    const unsub = onSnapshot(igDocRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setIgConnected(true);
+        setIgUsername(data.username || data.pageName || "");
+      }
+    }, () => {});
+
+    // Fetch latest posts
+    const postsQuery = query(
+      collection(firestore, "scheduled_instagram_posts"),
+      where("orgId", "==", orgId),
+      where("status", "==", "published"),
+      orderBy("publishedAt", "desc"),
+      limit(4)
+    );
+    const unsubPosts = onSnapshot(postsQuery, (snap) => {
+      const posts: any[] = [];
+      snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+      setIgPosts(posts.map(p => ({
+        id: p.id,
+        imageUrl: p.mediaItemUrls?.[0] || p.imageUrl || "",
+        caption: p.caption || "",
+      })));
+    }, () => {});
+
+    return () => { unsub(); unsubPosts(); };
+  }, [firestore, orgId]);
   useEffect(() => {
     if (!firestore) return;
     const docRef = doc(firestore, "cms_config", "news_slideshow");
@@ -399,64 +491,113 @@ export function SolTheoryHome() {
             </div>
             </CmsTileWrapper>
 
-            {/* Slot 4: YouTube Feed Placeholder */}
+            {/* Slot 4: YouTube Feed */}
             <CmsTileWrapper tileId="tile-youtube" tileName="YouTube Feed" className="flex-1 min-w-0">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
                 <div className="flex items-center justify-between mb-3 shrink-0">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>YouTube Live Feed</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>YouTube Live Feed</span>
+                    {ytChannelName && <span className={`text-[9px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>• {ytChannelName}</span>}
+                  </div>
                   <div className={`p-1.5 rounded-lg bg-red-500/10 text-red-500`}>
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                   </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
-                  <div className="flex gap-3">
-                    <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                    <div className="flex flex-col gap-2 pt-1 w-full">
-                      <div className={`h-2.5 w-3/4 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                      <div className={`h-2 w-1/2 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                    <div className="flex flex-col gap-2 pt-1 w-full">
-                      <div className={`h-2.5 w-2/3 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                      <div className={`h-2 w-1/3 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                    <div className="flex flex-col gap-2 pt-1 w-full">
-                      <div className={`h-2.5 w-5/6 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                      <div className={`h-2 w-1/2 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                    </div>
-                  </div>
+                <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto min-h-0">
+                  {ytConnected && ytVideos.length > 0 ? (
+                    ytVideos.map((vid) => (
+                      <div key={vid.id} className="flex gap-3 group/vid">
+                        <div className={`w-24 h-16 rounded-md shrink-0 overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                          {vid.thumbnail ? (
+                            <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="currentColor" viewBox="0 0 24 24"><path d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-0.5 pt-0.5 min-w-0 flex-1">
+                          <span className={`text-[11px] font-semibold leading-tight line-clamp-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{vid.title}</span>
+                          <span className={`text-[9px] leading-tight line-clamp-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{vid.description.slice(0, 80)}{vid.description.length > 80 ? '…' : ''}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : !ytConnected ? (
+                    /* Skeleton placeholder when not connected */
+                    <>
+                      {[0,1,2].map(i => (
+                        <div key={i} className="flex gap-3">
+                          <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                          <div className="flex flex-col gap-2 pt-1 w-full">
+                            <div className={`h-2.5 w-3/4 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                            <div className={`h-2 w-1/2 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className={`flex-1 flex items-center justify-center text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>No videos yet</div>
+                  )}
                 </div>
-                <button className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                  Connect YouTube
+                <button
+                  onClick={() => router.push(`/portal/dashboard/${orgId}/youtube`)}
+                  className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {ytConnected ? 'Go to Content Creator' : 'Connect YouTube'}
                 </button>
               </div>
             </CmsTileWrapper>
 
-            {/* Slot 5: Instagram Feed Placeholder */}
+            {/* Slot 5: Instagram Feed */}
             <CmsTileWrapper tileId="tile-instagram" tileName="Instagram Feed" className="flex-1 min-w-0">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
                 <div className="flex items-center justify-between mb-3 shrink-0">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>Instagram Feed</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>Instagram Feed</span>
+                    {igUsername && <span className={`text-[9px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>@{igUsername}</span>}
+                  </div>
                   <div className="p-1.5 rounded-lg bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 text-white">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
                   </div>
                 </div>
-                <div className={`mb-3 text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  — followers
-                </div>
+                {igConnected && igUsername && (
+                  <div className={`mb-2 text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    @{igUsername}
+                  </div>
+                )}
                 <div className="flex-1 grid grid-cols-2 gap-2 min-h-0">
-                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                  <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                  {igConnected && igPosts.length > 0 ? (
+                    igPosts.slice(0, 4).map((post) => (
+                      <div key={post.id} className={`rounded-md w-full h-full min-h-[60px] overflow-hidden relative group/ig ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`}>
+                        {post.imageUrl ? (
+                          <img src={post.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect></svg>
+                          </div>
+                        )}
+                        {post.caption && (
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover/ig:opacity-100 transition-opacity">
+                            <span className="text-[8px] text-white/90 leading-tight line-clamp-2">{post.caption.slice(0, 60)}{post.caption.length > 60 ? '…' : ''}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    /* Skeleton placeholders */
+                    <>
+                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                    </>
+                  )}
                 </div>
-                <button className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                  Connect Instagram
+                <button
+                  onClick={() => router.push(`/portal/dashboard/${orgId}/agentic-campaigning`)}
+                  className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {igConnected ? 'Go to Content Creator' : 'Connect Instagram'}
                 </button>
               </div>
             </CmsTileWrapper>
