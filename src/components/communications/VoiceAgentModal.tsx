@@ -19,12 +19,14 @@ interface VoiceAgentModalProps {
   knowledgeBaseText?: string;
   pactText?: string;
   voiceId?: string;
+  crmInstanceId?: string;
+  crmInstances?: { id: string; name: string }[];
 }
 
 type Phase = "listening" | "processing" | "speaking";
 type TranscriptLine = { text: string; isUser: boolean; citations?: { text: string; source: string; type: string }[] };
 
-export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate, systemInstructions, knowledgeBaseText, pactText, voiceId }: VoiceAgentModalProps) {
+export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix, onCallAI, onUsageUpdate, existingMessages, onTranscriptUpdate, systemInstructions, knowledgeBaseText, pactText, voiceId, crmInstanceId, crmInstances }: VoiceAgentModalProps) {
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState<Phase>("listening");
@@ -787,6 +789,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             knowledgeBaseText,
             pactText,
             voiceId: voiceId || undefined,
+            crmInstanceId: crmInstanceId || undefined,
+            crmInstances: crmInstances || undefined,
           }),
         });
         const data = await res.json();
@@ -805,7 +809,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         : "Connection issue. Try again.";
       return { reply: msg, pactFacts: [], usage: 0, audioBase64: null };
     }
-  }, [onCallAI, orgPrefix, agentId, systemInstructions, knowledgeBaseText, pactText, voiceId]);
+  }, [onCallAI, orgPrefix, agentId, systemInstructions, knowledgeBaseText, pactText, voiceId, crmInstanceId, crmInstances]);
 
   const fetchAIReplyRef = useRef(fetchAIReply);
   useEffect(() => { fetchAIReplyRef.current = fetchAIReply; }, [fetchAIReply]);

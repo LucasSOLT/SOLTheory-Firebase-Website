@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { X, Clock, ChevronDown, Plus, Calendar } from "lucide-react";
-import { collection, addDoc, onSnapshot, serverTimestamp, query, where, orderBy } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, serverTimestamp, query, where, orderBy, doc, updateDoc } from "firebase/firestore";
 import { TimesheetCustomerModal } from "./TimesheetCustomerModal";
 import { TimesheetServiceModal } from "./TimesheetServiceModal";
 import { logActivity } from "@/lib/activity-logger";
@@ -23,6 +23,16 @@ interface TimesheetEntryModalProps {
   onSaved: () => void;
   prefillDate?: string;
   prefillUser?: string;
+  editingEntry?: {
+    id: string;
+    userName: string;
+    customerName: string;
+    serviceName: string;
+    billableRate: number | null;
+    startDate: string;
+    durationMinutes: number;
+    notes: string;
+  };
 }
 
 interface CustomerDoc {
@@ -69,6 +79,7 @@ export function TimesheetEntryModal({
   onSaved,
   prefillDate,
   prefillUser,
+  editingEntry,
 }: TimesheetEntryModalProps) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -122,16 +133,30 @@ export function TimesheetEntryModal({
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setForm({
-        ...EMPTY_FORM,
-        startDate: prefillDate || todayString(),
-        userName: prefillUser || "",
-      });
+      if (editingEntry) {
+        setForm({
+          userName: editingEntry.userName,
+          customerName: editingEntry.customerName,
+          serviceName: editingEntry.serviceName,
+          billableEnabled: editingEntry.billableRate !== null && editingEntry.billableRate > 0,
+          billableRate: editingEntry.billableRate ? editingEntry.billableRate.toString() : "",
+          startDate: editingEntry.startDate,
+          durationHours: Math.floor(editingEntry.durationMinutes / 60).toString(),
+          durationMinutes: (editingEntry.durationMinutes % 60).toString(),
+          notes: editingEntry.notes || "",
+        });
+      } else {
+        setForm({
+          ...EMPTY_FORM,
+          startDate: prefillDate || todayString(),
+          userName: prefillUser || "",
+        });
+      }
       setErrors({});
       setSaveDropdownOpen(false);
       setSaveError("");
     }
-  }, [isOpen, prefillDate, prefillUser]);
+  }, [isOpen, prefillDate, prefillUser, editingEntry]);
 
   const updateField = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -159,21 +184,38 @@ export function TimesheetEntryModal({
       const h = parseInt(form.durationHours) || 0;
       const m = parseInt(form.durationMinutes) || 0;
       const totalMinutes = h * 60 + m;
-      await addDoc(collection(firestore, "timesheet_entries"), {
-        userName: form.userName,
-        userEmail: userEmail,
-        orgDomain: orgDomain,
-        customerName: form.customerName,
-        serviceName: form.serviceName,
-        billableRate: form.billableEnabled ? parseFloat(form.billableRate) || 0 : null,
-        startDate: form.startDate,
-        durationMinutes: totalMinutes,
-        notes: form.notes,
-        createdAt: serverTimestamp(),
-        createdBy: userEmail,
-      });
+      
+      if (editingEntry) {
+        await updateDoc(doc(firestore, "timesheet_entries", editingEntry.id), {
+          userName: form.userName,
+          customerName: form.customerName,
+          serviceName: form.serviceName,
+          billableRate: form.billableEnabled ? parseFloat(form.billableRate) || 0 : null,
+          startDate: form.startDate,
+          durationMinutes: totalMinutes,
+          notes: form.notes,
+          updatedAt: serverTimestamp(),
+          updatedBy: userEmail,
+        });
+        logActivity(firestore, 'timesheet_entry_updated', { email: userEmail, displayName: form.userName }, `Updated entry: ${form.durationHours || 0}h ${form.durationMinutes || 0}m for ${form.customerName} on ${form.startDate}`);
+      } else {
+        await addDoc(collection(firestore, "timesheet_entries"), {
+          userName: form.userName,
+          userEmail: userEmail,
+          orgDomain: orgDomain,
+          customerName: form.customerName,
+          serviceName: form.serviceName,
+          billableRate: form.billableEnabled ? parseFloat(form.billableRate) || 0 : null,
+          startDate: form.startDate,
+          durationMinutes: totalMinutes,
+          notes: form.notes,
+          createdAt: serverTimestamp(),
+          createdBy: userEmail,
+        });
+        logActivity(firestore, 'timesheet_entry_created', { email: userEmail, displayName: form.userName }, `Logged ${form.durationHours || 0}h ${form.durationMinutes || 0}m for ${form.customerName} on ${form.startDate}`);
+      }
+      
       onSaved();
-      logActivity(firestore, 'timesheet_entry_created', { email: userEmail, displayName: form.userName }, `Logged ${form.durationHours || 0}h ${form.durationMinutes || 0}m for ${form.customerName} on ${form.startDate}`);
       return true;
     } catch (e) {
       console.error("Failed to save timesheet entry:", e);
@@ -228,7 +270,7 @@ export function TimesheetEntryModal({
               <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
                 <Clock className="w-4 h-4 text-slate-500" />
               </div>
-              <h2 className="text-base font-bold text-slate-800">Single day entry</h2>
+              <h2 className="text-base font-bold text-slate-800">{editingEntry ? "Edit Time Entry" : "Single day entry"}</h2>
             </div>
             <button
               onClick={onClose}

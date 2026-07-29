@@ -1788,7 +1788,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {isNotificationsOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
-                    <div className={`fixed md:absolute inset-x-0 bottom-0 md:inset-x-auto md:bottom-auto md:right-0 md:top-full md:mt-2 w-full md:w-[380px] max-w-full rounded-t-2xl md:rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 md:slide-in-from-top-2 duration-200 max-h-[70vh] md:max-h-[unset] ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
+                    <div className={`fixed md:absolute inset-x-2 md:inset-x-auto bottom-2 md:bottom-auto md:right-0 md:top-full md:mt-2 w-[calc(100vw-1rem)] md:w-[380px] min-w-[300px] md:min-w-[380px] rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 md:slide-in-from-top-2 duration-200 max-h-[70vh] md:max-h-[unset] ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
                       <div className={`flex items-center justify-between px-5 py-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
                         <div className="flex items-center gap-2">
                           <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.notifications}</h3>

@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from '@/lib/i18n';
+import { ActionBoardTimer } from '@/components/portal/ActionBoardTimer';
 
 // â”€â”€ Types â”€â”€
 type Priority = "High" | "Medium" | "Low";
@@ -108,6 +109,9 @@ interface ActionBoardTask {
   // Comments
   comments?: TaskComment[];
   attachments?: { url: string; name: string; type: string; size: number }[];
+  // Estimated duration for timesheet auto-logging
+  estimatedMinutes?: number;
+  autoLogTimesheet?: boolean;
 }
 
 type EmailTrigger = "assigned" | "in_progress" | "completed" | "overdue";
@@ -418,6 +422,14 @@ function ActionBoardContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  // Delete confirmation modal
+  const [boardDeleteConfirmId, setBoardDeleteConfirmId] = useState<string | null>(null);
+  // Timesheet auto-log prompt
+  const [timesheetPrompt, setTimesheetPrompt] = useState<{ taskTitle: string; minutes: number; assignedToName: string; assignedToEmail: string; taskId: string } | null>(null);
+  // Estimated duration form state
+  const [newEstimatedHours, setNewEstimatedHours] = useState(0);
+  const [newEstimatedMinutes, setNewEstimatedMinutes] = useState(0);
+  const [newAutoLogTimesheet, setNewAutoLogTimesheet] = useState(false);
 
   // —— Derived ——
   const isAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
@@ -526,6 +538,8 @@ function ActionBoardContent() {
           automations: data.automations || undefined,
           isArchived: data.isArchived || false,
           comments: data.comments || [],
+          estimatedMinutes: data.estimatedMinutes || undefined,
+          autoLogTimesheet: data.autoLogTimesheet || false,
         };
 
         // Auto-delete denied tasks older than 30 days
@@ -538,6 +552,20 @@ function ActionBoardContent() {
         }
 
         allTasks.push(task);
+      });
+
+      // Auto-archive completed tasks older than 24 hours
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+      allTasks.forEach(task => {
+        if (task.column === "done" && !task.isArchived && task.completedAt) {
+          const completedMs = task.completedAt.toMillis();
+          if (nowMs - completedMs > TWENTY_FOUR_HOURS) {
+            updateDoc(doc(firestore, "action_board_tasks", task.id), {
+              isArchived: true,
+              updatedAt: serverTimestamp(),
+            }).catch(() => {});
+          }
+        }
       });
 
       setTasks(allTasks);
@@ -728,6 +756,13 @@ function ActionBoardContent() {
       updatedAt: serverTimestamp(),
     };
 
+    // Estimated duration for timesheet auto-logging
+    const totalEstMinutes = (newEstimatedHours * 60) + newEstimatedMinutes;
+    if (totalEstMinutes > 0) {
+      taskData.estimatedMinutes = totalEstMinutes;
+      taskData.autoLogTimesheet = newAutoLogTimesheet;
+    }
+
     // Only include automations field if it has data (avoid null/undefined in Firestore)
     if (automationsData) {
       taskData.automations = automationsData;
@@ -793,6 +828,11 @@ function ActionBoardContent() {
     setAssigneeSearch("");
     setNewStartDate(task.startDate ? toDatetimeLocalString(task.startDate.toDate()) : "");
     setNewDueDate(task.dueDate ? toDatetimeLocalString(task.dueDate.toDate()) : "");
+    // Estimated duration
+    const estMin = task.estimatedMinutes || 0;
+    setNewEstimatedHours(Math.floor(estMin / 60));
+    setNewEstimatedMinutes(estMin % 60);
+    setNewAutoLogTimesheet(task.autoLogTimesheet || false);
 
     const auto = task.automations || {};
     setAutoEmailChips(auto.emails || []);
@@ -815,6 +855,7 @@ function ActionBoardContent() {
     setIsAutomationsOpen(false);
     setIsCommentsOpen(false); setCommentInput("");
     setPendingAttachments([]);
+    setNewEstimatedHours(0); setNewEstimatedMinutes(0); setNewAutoLogTimesheet(false);
   };
 
   const saveTask = async () => {
@@ -863,6 +904,11 @@ function ActionBoardContent() {
       dueDate: dueDateObj ? Timestamp.fromDate(dueDateObj) : null,
       updatedAt: serverTimestamp(),
     };
+
+    // Estimated duration for timesheet auto-logging
+    const totalEstMinutes = (newEstimatedHours * 60) + newEstimatedMinutes;
+    taskData.estimatedMinutes = totalEstMinutes > 0 ? totalEstMinutes : null;
+    taskData.autoLogTimesheet = totalEstMinutes > 0 ? newAutoLogTimesheet : false;
 
     if (newColumn === "done") {
       if (task?.column !== "done") {
@@ -1040,6 +1086,41 @@ function ActionBoardContent() {
         logActivity(firestore, 'action_board_completed', { email: user?.email || '', displayName: user?.displayName }, `Completed task: ${task.title}`);
         fireAutomations({ ...task, column: "done", completedAt: Timestamp.now() }, "completed");
         setShowConfetti(true);
+
+        // Timesheet auto-logging
+        if (task.estimatedMinutes && task.estimatedMinutes > 0) {
+          if (task.autoLogTimesheet) {
+            // Auto-log immediately
+            try {
+              await addDoc(collection(firestore, "timesheet_entries"), {
+                userName: task.assignedToName || user?.displayName || "",
+                userEmail: task.assignedToEmail || user?.email || "",
+                orgDomain: `${ORG_ID}.com`,
+                customerName: "Action Board Task",
+                serviceName: task.title,
+                billableRate: null,
+                startDate: new Date().toISOString().split("T")[0],
+                durationMinutes: task.estimatedMinutes,
+                notes: `Auto-logged from action board: "${task.title}"`,
+                createdAt: serverTimestamp(),
+                createdBy: user?.email || "",
+                sourceTaskId: task.id,
+              });
+              const hrs = Math.floor(task.estimatedMinutes / 60);
+              const mins = task.estimatedMinutes % 60;
+              console.log(`[ActionBoard] Auto-logged ${hrs}h ${mins}m to timesheet for "${task.title}"`);
+            } catch (tsErr) { console.error("[ActionBoard] Timesheet auto-log failed:", tsErr); }
+          } else {
+            // Show manual prompt
+            setTimesheetPrompt({
+              taskTitle: task.title,
+              minutes: task.estimatedMinutes,
+              assignedToName: task.assignedToName || user?.displayName || "",
+              assignedToEmail: task.assignedToEmail || user?.email || "",
+              taskId: task.id,
+            });
+          }
+        }
       }
       if (to === "doing" && task && task.column !== "doing") {
         fireAutomations({ ...task, column: "doing" }, "in_progress");
@@ -1068,6 +1149,7 @@ function ActionBoardContent() {
       const updateData: Record<string, any> = {
         isArchived: false,
         column: "done" as ColumnId,
+        completedAt: serverTimestamp(), // Reset completedAt to prevent immediate re-auto-archive
         updatedAt: serverTimestamp(),
       };
       // If restoring to a different user (admin feature)
@@ -1220,6 +1302,9 @@ function ActionBoardContent() {
               </div>
             )}
 
+            {/* Work Timer */}
+            <ActionBoardTimer isDarkMode={isDarkMode} tasks={tasks.filter(t => !t.isArchived)} />
+
             {/* Archive - always visible, left of Incoming */}
             <button onClick={() => { setIsArchiveOpen(true); setConfirmDeleteId(null); setRestoreDropdownId(null); }} className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300' : 'border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0] text-slate-600'} transition-colors text-sm font-medium cursor-pointer`}>
               <Archive className="w-4 h-4" />
@@ -1334,6 +1419,12 @@ function ActionBoardContent() {
                           draggable
                           onDragStart={e => onDragStart(e, task.id)}
                           onDragEnd={onDragEnd}
+                          onDoubleClick={(e) => {
+                            // Don't trigger if clicking menu or attachment elements
+                            const target = e.target as HTMLElement;
+                            if (target.closest('button') || target.closest('a') || target.closest('[data-no-dblclick]')) return;
+                            openEditTaskModal(task);
+                          }}
                           className={`group ${isDarkMode ? 'bg-slate-800' : 'bg-[#fefdfb]'} rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
                             openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
                           } ${
@@ -1389,7 +1480,7 @@ function ActionBoardContent() {
                                           </div>
                                         </div>
                                       )}
-                                      <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }} className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
+                                      <button onClick={(e) => { e.stopPropagation(); setBoardDeleteConfirmId(task.id); setOpenMenuId(null); }} className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
                                         <Trash2 className="w-3.5 h-3.5" /> {t.abDelete}
                                       </button>
                                     </>
@@ -1661,6 +1752,31 @@ function ActionBoardContent() {
                   </label>
                   <input type="datetime-local" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} min={newStartDate || undefined} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm cursor-pointer`} />
                 </div>
+              </div>
+
+              {/* Estimated Duration + Auto-Log */}
+              <div>
+                <label className={`block text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider mb-2`}>
+                  <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> Estimated Duration</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative">
+                    <input type="number" min={0} max={99} value={newEstimatedHours} onChange={e => setNewEstimatedHours(Math.max(0, parseInt(e.target.value) || 0))} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm pr-12`} />
+                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>hrs</span>
+                  </div>
+                  <div className="relative">
+                    <input type="number" min={0} max={59} value={newEstimatedMinutes} onChange={e => setNewEstimatedMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))} className={`w-full px-3 py-3 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-900 text-white focus:bg-slate-800' : 'border-slate-200 bg-[#faf6ed] text-slate-800 focus:bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm pr-12`} />
+                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>min</span>
+                  </div>
+                </div>
+                {(newEstimatedHours > 0 || newEstimatedMinutes > 0) && (
+                  <label className={`flex items-center gap-2 mt-3 cursor-pointer group`}>
+                    <input type="checkbox" checked={newAutoLogTimesheet} onChange={e => setNewAutoLogTimesheet(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-500 focus:ring-indigo-500/20 cursor-pointer" />
+                    <span className={`text-xs ${isDarkMode ? 'text-slate-400 group-hover:text-slate-300' : 'text-slate-500 group-hover:text-slate-700'} transition-colors`}>
+                      Auto-log to timesheet on completion
+                    </span>
+                  </label>
+                )}
               </div>
 
               {/* Assign To */}
@@ -2099,6 +2215,92 @@ function ActionBoardContent() {
           <button onClick={() => setLightboxUrl(null)} className="absolute top-6 right-6 text-white bg-black/50 rounded-full p-2 hover:bg-black/70 transition-colors cursor-pointer">
             <X className="w-6 h-6" />
           </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {boardDeleteConfirmId && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center" onClick={() => setBoardDeleteConfirmId(null)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div onClick={e => e.stopPropagation()} className={`relative z-10 w-full max-w-sm mx-4 rounded-2xl shadow-2xl p-6 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Delete Action Item</h3>
+                <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mt-0.5`}>
+                  {tasks.find(t => t.id === boardDeleteConfirmId)?.title || 'this task'}
+                </p>
+              </div>
+            </div>
+            <p className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} mb-6`}>
+              Are you sure you want to delete this action item? This cannot be reversed.
+            </p>
+            <div className="flex items-center gap-3 justify-end">
+              <button onClick={() => setBoardDeleteConfirmId(null)} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>
+                Cancel
+              </button>
+              <button onClick={() => { deleteTask(boardDeleteConfirmId); setBoardDeleteConfirmId(null); }} className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-sm cursor-pointer">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Timesheet Auto-Log Prompt */}
+      {timesheetPrompt && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center" onClick={() => setTimesheetPrompt(null)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div onClick={e => e.stopPropagation()} className={`relative z-10 w-full max-w-sm mx-4 rounded-2xl shadow-2xl p-6 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Log to Timesheet?</h3>
+                <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mt-0.5`}>Task completed!</p>
+              </div>
+            </div>
+            <p className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>
+              <strong>&ldquo;{timesheetPrompt.taskTitle}&rdquo;</strong> has an estimated duration of{' '}
+              <strong>{Math.floor(timesheetPrompt.minutes / 60)}h {timesheetPrompt.minutes % 60}m</strong>.
+            </p>
+            <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-6`}>
+              Would you like to log this time to your timesheet?
+            </p>
+            <div className="flex items-center gap-3 justify-end">
+              <button onClick={() => setTimesheetPrompt(null)} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${isDarkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>
+                No Thanks
+              </button>
+              <button
+                onClick={async () => {
+                  if (!firestore || !user?.email) { setTimesheetPrompt(null); return; }
+                  try {
+                    await addDoc(collection(firestore, "timesheet_entries"), {
+                      userName: timesheetPrompt.assignedToName,
+                      userEmail: timesheetPrompt.assignedToEmail,
+                      orgDomain: `${ORG_ID}.com`,
+                      customerName: "Action Board Task",
+                      serviceName: timesheetPrompt.taskTitle,
+                      billableRate: null,
+                      startDate: new Date().toISOString().split("T")[0],
+                      durationMinutes: timesheetPrompt.minutes,
+                      notes: `Logged from action board: "${timesheetPrompt.taskTitle}"`,
+                      createdAt: serverTimestamp(),
+                      createdBy: user.email,
+                      sourceTaskId: timesheetPrompt.taskId,
+                    });
+                  } catch (err) { console.error("[ActionBoard] Manual timesheet log failed:", err); }
+                  setTimesheetPrompt(null);
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer"
+              >
+                Log Time
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

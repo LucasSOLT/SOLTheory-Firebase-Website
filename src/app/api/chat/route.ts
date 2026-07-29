@@ -12,6 +12,7 @@ import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 import { createStreamingCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
+import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
 const tools: any = [
   {
     type: "function",
@@ -422,13 +423,15 @@ const tools: any = [
         required: ["slotNumber"]
       }
     }
-  }
+  },
+  // ── CRM / Contacts Tools ──
+  ...CRM_TOOL_DEFINITIONS,
 ];
 
 export async function POST(req: Request) {
   // Clone request for body reading before auth (verifyOrgMember also reads headers)
   const body = await req.json();
-  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData } = body;
+  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances } = body;
 
   // Determine org from agentId prefix and enforce org membership
   const requestOrg = (rawAgentId || "").includes("nxtchapter") ? "nxtchapter"
@@ -725,6 +728,17 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
         content: `[CRM DATABASE]\nBelow is the user's CRM contact database. Each line is a contact with fields separated by " | " in order: Name, Email, Phone, Mobile, Company, Title, Lead Status, [Tags].\n\nRules for using this data:\n1. SEARCH THOROUGHLY: When asked about a person, search ALL contacts by name, email, company, or any matching field — not just the first few lines.\n2. ANSWER CONFIDENTLY: If you find the contact, provide all their available details (email, phone, company, etc.) without hedging.\n3. ASK TO CLARIFY: If multiple contacts match (e.g. two "Johns" or similar names), list the matches and ask the user which one they mean.\n4. LEAD STATUS: Contacts may have statuses like "Warm Lead", "Interested", or "Sale Completed". Answer questions like "who are my warm leads?" by filtering on this.\n5. TAGS: Tags appear in [brackets]. Answer questions like "show me VIP contacts" by matching tags.\n6. If a contact is NOT found in this database, say so clearly — do not make up contact information.\n\n${cappedCrm}`
       });
       console.log(`[CRM] Injected ${cappedCrm.length} chars of CRM data into context`);
+    }
+
+    // --- CRM TOOLS CONTEXT: Inject active contact book and field mapping into Jarvis ---
+    if (crmInstanceId && agentId === "jarvis") {
+      const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+      const crmToolPrompt = buildCrmSystemPrompt(crmInstanceId, parsedInstances);
+      groqMessages.push({
+        role: "system",
+        content: crmToolPrompt,
+      });
+      console.log(`[CRM TOOLS] Injected CRM management context — active book: ${crmInstanceId}`);
     }
 
     // --- KNOWLEDGE BASE: Injected LAST so it's closest to conversation (better LLM attention) ---
@@ -2145,6 +2159,78 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               }
             } catch (delErr: any) {
               functionResult = JSON.stringify({ error: "Failed to delete grant agent: " + delErr.message });
+            }
+          } else if (functionName === "crm_create_contact") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmCreateContact(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Created contact: ${args.firstName} ${args.lastName || ""}`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to create contact: " + crmErr.message });
+            }
+          } else if (functionName === "crm_update_contact") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmUpdateContact(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Updated contact: ${args.searchQuery}`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to update contact: " + crmErr.message });
+            }
+          } else if (functionName === "crm_delete_contact") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmDeleteContact(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Delete contact request: ${args.searchQuery} (confirmed: ${args.confirmed})`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to delete contact: " + crmErr.message });
+            }
+          } else if (functionName === "crm_search_contacts") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmSearchContacts(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Searched contacts: ${args.query}`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to search contacts: " + crmErr.message });
+            }
+          } else if (functionName === "crm_list_contact_books") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmListContactBooks(orgId, crmInstanceId || "default", parsedInstances);
+              console.log(`[CRM TOOL] Listed contact books`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to list contact books: " + crmErr.message });
+            }
+          } else if (functionName === "crm_get_analytics") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmGetAnalytics(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Analytics requested: ${JSON.stringify(args.metrics)}`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to compute CRM analytics: " + crmErr.message });
+            }
+          } else if (functionName === "crm_resolve_contact") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmResolveContact(orgId, args, parsedInstances);
+              console.log(`[CRM TOOL] Resolved contact: ${args.name}`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to resolve contact: " + crmErr.message });
+            }
+          } else if (functionName === "crm_evaluate_contacts") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmEvaluateContacts(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Evaluate contacts: ${args.evaluationType}`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to evaluate contacts: " + crmErr.message });
+            }
+          } else if (functionName === "crm_batch_update") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmBatchUpdate(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Batch update: ${args.action?.type} (confirmed: ${args.confirmed})`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to batch update contacts: " + crmErr.message });
             }
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });

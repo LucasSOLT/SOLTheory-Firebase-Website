@@ -8,6 +8,7 @@ import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { verifyRequest } from "@/lib/api-auth";
+import { CRM_TOOL_DEFINITIONS, buildCrmVoicePrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
 
 /**
  * Combined Voice Chat + TTS endpoint.
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   const auth = await verifyRequest(req);
   if (!auth.ok) return auth.response;
   try {
-    const { messages, agentId, uid, systemInstructions, knowledgeBaseText, pactText, voiceId } = await req.json();
+    const { messages, agentId, uid, systemInstructions, knowledgeBaseText, pactText, voiceId, crmInstanceId, crmInstances } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Messages required" }, { status: 400 });
@@ -82,6 +83,13 @@ export async function POST(req: Request) {
       systemPrompt += "\n\n[ACTIVE MEMORY — User Context]\nYou remember these facts about the user. WEAVE THEM IN naturally when relevant — don't interrogate, but do personalize. Example: If they mention travel and you know their city, reference it naturally.\n\n" + pactText.substring(0, 6000);
     }
 
+    // --- CRM TOOLS CONTEXT ---
+    const parsedCrmInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+    const activeCrmId = crmInstanceId || "default";
+    if (activeCrmId) {
+      systemPrompt += buildCrmVoicePrompt(activeCrmId, parsedCrmInstances);
+    }
+
     // Dynamic response length based on question complexity
     const isComplexVoiceQ = voiceQuery.length > 50 && (voiceQuery.includes('?') || voiceQuery.toLowerCase().match(/^(why|how|what|explain|compare|should)/));
     const voiceMaxTokens = isComplexVoiceQ ? 250 : 150;
@@ -89,7 +97,7 @@ export async function POST(req: Request) {
     // ── Step 1: LLM Call (Groq) ──
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    const completion = await groq.chat.completions.create({
+    const completionParams: any = {
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
@@ -97,9 +105,82 @@ export async function POST(req: Request) {
       model: "llama-3.1-8b-instant",
       temperature: 0.5,
       max_tokens: voiceMaxTokens,
-    });
+      tools: CRM_TOOL_DEFINITIONS,
+      tool_choice: "auto",
+    };
 
-    const responseText = completion.choices[0]?.message?.content || "I couldn't process that.";
+    let completion = await groq.chat.completions.create(completionParams);
+    let responseMessage = completion.choices[0]?.message;
+    let responseText = responseMessage?.content || "";
+
+    // Mini tool execution loop for CRM operations (max 1 iteration for voice latency)
+    if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
+      const toolCall = responseMessage.tool_calls[0];
+      const functionName = toolCall.function.name;
+      console.log(`[VOICE CRM] Tool requested: ${functionName}`);
+
+      let toolResult = "";
+      try {
+        const toolArgs = JSON.parse(toolCall.function.arguments);
+        const orgId = isNxt ? "nxtchapter" : "soltheory";
+
+        if (functionName === "crm_create_contact") {
+          toolResult = await executeCrmCreateContact(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_update_contact") {
+          toolResult = await executeCrmUpdateContact(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_delete_contact") {
+          toolResult = await executeCrmDeleteContact(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_search_contacts") {
+          toolResult = await executeCrmSearchContacts(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_list_contact_books") {
+          toolResult = await executeCrmListContactBooks(orgId, activeCrmId, parsedCrmInstances);
+        } else if (functionName === "crm_get_analytics") {
+          toolResult = await executeCrmGetAnalytics(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_resolve_contact") {
+          toolResult = await executeCrmResolveContact(orgId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_evaluate_contacts") {
+          toolResult = await executeCrmEvaluateContacts(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_batch_update") {
+          toolResult = await executeCrmBatchUpdate(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else {
+          toolResult = JSON.stringify({ error: `Unknown CRM tool: ${functionName}` });
+        }
+      } catch (toolErr: any) {
+        console.error(`[VOICE CRM] Tool error:`, toolErr?.message);
+        toolResult = JSON.stringify({ error: `Tool failed: ${toolErr?.message}` });
+      }
+
+      // Re-call LLM with tool result for natural spoken confirmation
+      const followUpMessages = [
+        { role: "system", content: systemPrompt },
+        ...messages,
+        responseMessage,
+        { role: "tool", content: toolResult, tool_call_id: toolCall.id },
+      ];
+
+      // Track initial call usage before overwriting
+      const initialInputTokens = completion.usage?.prompt_tokens || 0;
+      const initialOutputTokens = completion.usage?.completion_tokens || 0;
+
+      const followUp = await groq.chat.completions.create({
+        messages: followUpMessages,
+        model: "llama-3.1-8b-instant",
+        temperature: 0.5,
+        max_tokens: 150,
+        tools: CRM_TOOL_DEFINITIONS,
+      });
+
+      responseText = followUp.choices[0]?.message?.content || "Done.";
+      // Sum token usage from both calls for accurate cost tracking
+      completion = followUp as any;
+      if (completion.usage) {
+        completion.usage.prompt_tokens = (completion.usage.prompt_tokens || 0) + initialInputTokens;
+        completion.usage.completion_tokens = (completion.usage.completion_tokens || 0) + initialOutputTokens;
+        completion.usage.total_tokens = (completion.usage.prompt_tokens || 0) + (completion.usage.completion_tokens || 0);
+      }
+    }
+
+    if (!responseText) responseText = "I couldn't process that.";
     const inputTokens = completion.usage?.prompt_tokens || 0;
     const outputTokens = completion.usage?.completion_tokens || 0;
     const totalTokens = completion.usage?.total_tokens || 0;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { TimesheetEntryModal } from "./TimesheetEntryModal";
+import { TimesheetEntryDrawer } from "./TimesheetEntryDrawer";
 import { useDarkMode } from "@/lib/useDarkMode";
 import { useTranslation } from "@/lib/i18n";
 
@@ -34,6 +35,9 @@ interface TimesheetEntry {
   startDate: string;
   durationMinutes: number;
   billableRate: number | null;
+  customerName?: string;
+  serviceName?: string;
+  notes?: string;
 }
 
 type ViewMode = "week" | "month" | "custom";
@@ -150,6 +154,11 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
   const [addTimeOpen, setAddTimeOpen] = useState(false);
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
+  
+  // Drawer and editing state
+  const [drawerCell, setDrawerCell] = useState<{ userName: string; date: string } | null>(null);
+  const [editingEntry, setEditingEntry] = useState<any>(null);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; date: string; userName: string } | null>(null);
@@ -189,6 +198,9 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
             startDate: data.startDate || "",
             durationMinutes: data.durationMinutes || 0,
             billableRate: data.billableRate ?? null,
+            customerName: data.customerName || "",
+            serviceName: data.serviceName || "",
+            notes: data.notes || "",
           });
         });
         setEntries(docs);
@@ -545,9 +557,20 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
                         setContextMenu({ x: e.clientX, y: e.clientY, date: cellDateStr, userName: user.name });
                       }}
                       onDoubleClick={() => {
+                        // Cancel the delayed single-click drawer open
+                        if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
                         setPrefillDate(cellDateStr);
                         setPrefillUser(user.name);
+                        setEditingEntry(null);
                         setEntryModalOpen(true);
+                      }}
+                      onClick={() => {
+                        // Delay drawer open so double-click can cancel it
+                        if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                        clickTimerRef.current = setTimeout(() => {
+                          setDrawerCell({ userName: user.name, date: cellDateStr });
+                          clickTimerRef.current = null;
+                        }, 250);
                       }}
                     >
                       {hasData ? (
@@ -664,7 +687,12 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
       {firestore && orgDomain && userEmail && (
         <TimesheetEntryModal
           isOpen={entryModalOpen}
-          onClose={() => { setEntryModalOpen(false); setPrefillDate(undefined); setPrefillUser(undefined); }}
+          onClose={() => { 
+            setEntryModalOpen(false); 
+            setPrefillDate(undefined); 
+            setPrefillUser(undefined); 
+            setEditingEntry(null); 
+          }}
           firestore={firestore}
           orgDomain={orgDomain}
           userEmail={userEmail}
@@ -672,8 +700,29 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
           onSaved={() => {}}
           prefillDate={prefillDate}
           prefillUser={prefillUser}
+          editingEntry={editingEntry}
         />
       )}
+      
+      {/* Drawer */}
+      <TimesheetEntryDrawer
+        isOpen={!!drawerCell}
+        onClose={() => setDrawerCell(null)}
+        userName={drawerCell?.userName || ""}
+        date={drawerCell?.date || ""}
+        entries={entries.filter(e => e.userName === drawerCell?.userName && e.startDate === drawerCell?.date)}
+        firestore={firestore}
+        onEdit={(entry) => {
+          setEditingEntry(entry);
+          setEntryModalOpen(true);
+        }}
+        onAdd={() => {
+          setPrefillDate(drawerCell?.date);
+          setPrefillUser(drawerCell?.userName);
+          setEditingEntry(null);
+          setEntryModalOpen(true);
+        }}
+      />
 
       {/* Right-click Context Menu */}
       {contextMenu && (
@@ -691,6 +740,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
               onClick={() => {
                 setPrefillDate(contextMenu.date);
                 setPrefillUser(contextMenu.userName);
+                setEditingEntry(null);
                 setEntryModalOpen(true);
                 setContextMenu(null);
               }}
@@ -708,6 +758,7 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
               onClick={() => {
                 setPrefillDate(contextMenu.date);
                 setPrefillUser(contextMenu.userName);
+                setEditingEntry(null);
                 setEntryModalOpen(true);
                 setContextMenu(null);
               }}

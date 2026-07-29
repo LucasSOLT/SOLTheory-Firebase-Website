@@ -22,6 +22,7 @@ import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from "@/lib/i18n";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { getAuthHeaders } from "@/lib/api-auth-client";
+import { useCRMStore } from "@/stores/crm-store";
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -652,13 +653,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   const [agentContacts, setAgentContacts] = useState<AgentContact[]>([]);
   const [crmContacts, setCrmContacts] = useState<string>("");
+  const crmActiveInstanceId = useCRMStore((s) => s.activeInstanceId) || "default";
+  const crmAvailableInstances = useCRMStore((s) => s.availableInstances) || [];
 
   // Fetch CRM contacts for Jarvis context (so users can ask about their CRM data)
   useEffect(() => {
     if (!firestore || !user?.uid || !orgId) return;
     const fetchCrm = async () => {
       try {
-        const crmRef = collection(firestore, `orgs/${orgId}/crm-instances/default/contacts`);
+        const crmRef = collection(firestore, `orgs/${orgId}/crm-instances/${crmActiveInstanceId}/contacts`);
         const snap = await getDocs(query(crmRef, firestoreLimit(500)));
         if (snap.empty) return;
         // Build compact contact lines for LLM context — includes key CRM fields
@@ -1631,6 +1634,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           userName: user?.displayName || undefined,
           model: selectedModel,
           crmData: crmContacts || undefined,
+          crmInstanceId: crmActiveInstanceId,
+          crmInstances: crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }],
           stream: true,
         }),
       });
@@ -1843,7 +1848,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               pactText,
               userName: user?.displayName || undefined,
               model: selectedModel,
-              crmData: crmContacts || undefined
+              crmData: crmContacts || undefined,
+              crmInstanceId: crmActiveInstanceId,
+              crmInstances: crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }]
             }),
           });
           const retryData = await retryRes.json();
@@ -1922,7 +1929,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           pactText,
           userName: user?.displayName || undefined,
           model: selectedModel,
-          crmData: crmContacts || undefined
+          crmData: crmContacts || undefined,
+          crmInstanceId: crmActiveInstanceId,
+          crmInstances: crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }]
         }),
       });
       const data = await res.json();
@@ -2983,6 +2992,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         systemInstructions={sessionInstructions}
         knowledgeBaseText={orgBrain}
         pactText={pactText}
+        crmInstanceId={crmActiveInstanceId}
+        crmInstances={crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }]}
         existingMessages={messages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }))}
         onTranscriptUpdate={async (userText, aiReply) => {
           // Lazily create a session if none exists (voice started from blank screen)
@@ -3136,7 +3147,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               pactText,
               userName: user?.displayName || undefined,
               model: selectedModel,
-              crmData: crmContacts || undefined
+              crmData: crmContacts || undefined,
+              crmInstanceId: crmActiveInstanceId,
+              crmInstances: crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }]
             }),
           });
           const data = await res.json();
