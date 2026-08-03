@@ -1,5 +1,4 @@
-import LoadingSkeleton from '@/components/LoadingSkeleton';
-
+// No in-dashboard loading animation — pages render directly.
 export default function OrgLoading() {
-  return <LoadingSkeleton />;
+  return null;
 }

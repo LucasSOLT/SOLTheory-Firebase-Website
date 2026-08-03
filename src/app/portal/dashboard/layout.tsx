@@ -229,45 +229,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const orgSwitcherMobileRef = useRef<HTMLDivElement>(null);
   const noAccessRedirectingRef = useRef(false);
 
-  // ── Navigation Cube: shows a 3-second spinning cube + "Loading" text on every page navigation ──
-  const [navCubeVisible, setNavCubeVisible] = useState(false);
-  const [navFadeIn, setNavFadeIn] = useState(false);
-  const prevPathRef = useRef<string>(pathname);
-  const navCubeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isInitialLoadRef = useRef(true);
 
-  useEffect(() => {
-    // Skip the very first render (initial page load is handled by the dashboard page's own overlay)
-    if (isInitialLoadRef.current) {
-      isInitialLoadRef.current = false;
-      prevPathRef.current = pathname;
-      return;
-    }
-
-    // Only trigger on actual pathname changes (not query param changes)
-    if (pathname === prevPathRef.current) return;
-    prevPathRef.current = pathname;
-
-    // Show the cube overlay
-    setNavCubeVisible(true);
-    setNavFadeIn(false);
-
-    // Clear any existing timer
-    if (navCubeTimerRef.current) clearTimeout(navCubeTimerRef.current);
-
-    // After 3 seconds: hide cube, start fade-in on the content
-    navCubeTimerRef.current = setTimeout(() => {
-      setNavCubeVisible(false);
-      setNavFadeIn(true);
-      navCubeTimerRef.current = null;
-      // Remove the fade-in class after the animation completes
-      setTimeout(() => setNavFadeIn(false), 600);
-    }, 3000);
-
-    return () => {
-      if (navCubeTimerRef.current) clearTimeout(navCubeTimerRef.current);
-    };
-  }, [pathname]);
 
   // Extract the current org from the URL path dynamically
   const pathSegments = pathname.split('/');
@@ -1935,7 +1897,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Dynamic Page Content */}
-        <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none${navFadeIn ? ' navContentFadeIn' : ''}`} tabIndex={-1}>
+        <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none`} tabIndex={-1}>
+
           <OrgProvider orgId={currentOrgId}>
             {isMemberReady ? children : (
               <div className="flex-1 flex items-center justify-center">
@@ -1944,63 +1907,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </OrgProvider>
 
-          {/* ── Navigation Cube Overlay ── */}
-          {/* Shows a 3-second spinning cube + "Loading" text, then fades into the content. */}
-          {navCubeVisible && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 9999,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: isDarkMode ? '#020617' : '#ffffff',
-              }}
-            >
-              <p style={{
-                fontSize: 13, fontWeight: 500, letterSpacing: '0.15em',
-                textTransform: 'uppercase' as const, marginBottom: 28,
-                color: 'rgba(79,70,229,0.6)',
-                animation: 'navCubeTextPulse 2s ease-in-out infinite',
-              }}>Loading</p>
-              <div style={{ width: 56, height: 56, perspective: 400 }}>
-                <div style={{
-                  width: '100%', height: '100%', position: 'relative',
-                  transformStyle: 'preserve-3d' as const,
-                  animation: 'navCubeRotate 6s ease-in-out infinite',
-                }}>
-                  {['translateZ(28px)', 'rotateY(180deg) translateZ(28px)', 'rotateY(90deg) translateZ(28px)', 'rotateY(-90deg) translateZ(28px)', 'rotateX(90deg) translateZ(28px)', 'rotateX(-90deg) translateZ(28px)'].map((t, i) => (
-                    <div key={i} style={{
-                      position: 'absolute', width: 56, height: 56, borderRadius: 10,
-                      border: '1.5px solid rgba(129,140,248,0.3)',
-                      background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(129,140,248,0.1) 50%, rgba(167,139,250,0.15) 100%)',
-                      boxShadow: 'inset 0 0 20px rgba(99,102,241,0.06), 0 0 15px rgba(99,102,241,0.05)',
-                      transform: t,
-                    }} />
-                  ))}
-                </div>
-              </div>
-              <style>{`
-                @keyframes navCubeTextPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-                @keyframes navCubeRotate {
-                  0%, 10%   { transform: rotateX(-25deg) rotateY(0deg); }
-                  15%, 25%  { transform: rotateX(-25deg) rotateY(90deg); }
-                  30%, 40%  { transform: rotateX(-25deg) rotateY(180deg); }
-                  45%, 55%  { transform: rotateX(-25deg) rotateY(270deg); }
-                  60%, 70%  { transform: rotateX(-25deg) rotateY(360deg) rotateZ(5deg); }
-                  75%, 85%  { transform: rotateX(-25deg) rotateY(450deg) rotateZ(0deg); }
-                  90%, 100% { transform: rotateX(-25deg) rotateY(540deg); }
-                }
-              `}</style>
-            </div>
-          )}
-          {/* Persistent style for nav fade-in — must stay in DOM after cube unmounts */}
-          <style>{`
-            @keyframes navContentFadeIn { from { opacity: 0; } to { opacity: 1; } }
-            .navContentFadeIn { animation: navContentFadeIn 0.5s ease-out forwards; }
-          `}</style>
+
         </main>
       </div>
 

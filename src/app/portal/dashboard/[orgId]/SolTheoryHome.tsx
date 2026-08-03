@@ -168,12 +168,12 @@ export function SolTheoryHome() {
 
   // YouTube feed state
   const [ytConnected, setYtConnected] = useState(false);
-  const [ytVideos, setYtVideos] = useState<{id: string; title: string; thumbnail: string; description: string; publishedAt: string}[]>([]);
+  const [ytVideos, setYtVideos] = useState<{id: string; title: string; thumbnail: string; videoUrl: string; youtubeId: string; description: string; publishedAt: string}[]>([]);
   const [ytChannelName, setYtChannelName] = useState("");
 
   // Instagram feed state
   const [igConnected, setIgConnected] = useState(false);
-  const [igPosts, setIgPosts] = useState<{id: string; imageUrl: string; caption: string}[]>([]);
+  const [igPosts, setIgPosts] = useState<{id: string; imageUrl: string; caption: string; status: string}[]>([]);
   const [igUsername, setIgUsername] = useState("");
 
   // Fetch YouTube data
@@ -212,13 +212,24 @@ export function SolTheoryHome() {
         draftVids.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
         const allVids = [...vids, ...draftVids].slice(0, 3);
-        setYtVideos(allVids.map(v => ({
-          id: v.id,
-          title: v.title || v.name || "Untitled Video",
-          thumbnail: v.thumbnailUrl || "",
-          description: v.description || "",
-          publishedAt: v.publishedAt || "",
-        })));
+        setYtVideos(allVids.map(v => {
+          // Build the best available thumbnail:
+          // 1. Explicit thumbnailUrl from Firestore doc
+          // 2. YouTube API thumbnail (if the draft has a youtubeId)
+          // 3. Empty string — the JSX renderer will fall back to <video> element or icon
+          const ytId = v.youtubeId || '';
+          const ytApiThumb = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '';
+          const bestThumbnail = v.thumbnailUrl || ytApiThumb || '';
+          return {
+            id: v.id,
+            title: v.title || v.name || "Untitled Video",
+            thumbnail: bestThumbnail,
+            videoUrl: v.url || v.videoUrl || '',
+            youtubeId: ytId,
+            description: v.description || "",
+            publishedAt: v.publishedAt || "",
+          };
+        }));
       } catch (e) {
         console.error("Failed to fetch YouTube feed:", e);
       }
@@ -238,25 +249,64 @@ export function SolTheoryHome() {
       }
     }, () => {});
 
-    // Fetch latest posts
-    const postsQuery = query(
-      collection(firestore, "scheduled_instagram_posts"),
+    // Fetch latest posts — query ALL posts for this org (not just published),
+    // so the feed always has content. We sort by updatedAt desc as a universal
+    // timestamp that exists on every post regardless of status.
+    // Firestore requires a composite index for (orgId, updatedAt desc).
+    // We use two query strategies with fallback to handle missing indexes gracefully.
+    const postsCol = collection(firestore, "scheduled_instagram_posts");
+
+    // Strategy 1: Try the compound query with ordering
+    const primaryQuery = query(
+      postsCol,
       where("orgId", "==", orgId),
-      where("status", "==", "published"),
-      orderBy("publishedAt", "desc"),
-      limit(4)
+      orderBy("updatedAt", "desc"),
+      limit(8)
     );
-    const unsubPosts = onSnapshot(postsQuery, (snap) => {
+
+    const mapPosts = (snap: any) => {
       const posts: any[] = [];
-      snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
-      setIgPosts(posts.map(p => ({
+      snap.forEach((d: any) => posts.push({ id: d.id, ...d.data() }));
+      // Sort: published first (most valuable), then scheduled, then drafts.
+      // Within each status group, sort by most recent timestamp.
+      const statusPriority: Record<string, number> = { published: 0, scheduled: 1, processing: 2, draft: 3, failed: 4 };
+      posts.sort((a, b) => {
+        const pa = statusPriority[a.status] ?? 5;
+        const pb = statusPriority[b.status] ?? 5;
+        if (pa !== pb) return pa - pb;
+        const ta = a.publishedAt?.seconds || a.updatedAt?.seconds || a.createdAt?.seconds || 0;
+        const tb = b.publishedAt?.seconds || b.updatedAt?.seconds || b.createdAt?.seconds || 0;
+        return tb - ta;
+      });
+      setIgPosts(posts.slice(0, 4).map(p => ({
         id: p.id,
         imageUrl: p.mediaItemUrls?.[0] || p.imageUrl || "",
         caption: p.caption || "",
+        status: p.status || "draft",
       })));
-    }, () => {});
+    };
 
-    return () => { unsub(); unsubPosts(); };
+    const unsubPosts = onSnapshot(primaryQuery, mapPosts, () => {
+      // Fallback: if composite index is missing, use simpler query without ordering
+      const fallbackQuery = query(
+        postsCol,
+        where("orgId", "==", orgId),
+        limit(8)
+      );
+      const unsubFallback = onSnapshot(fallbackQuery, mapPosts, () => {});
+      // Store fallback unsub for cleanup — since we're in the error handler,
+      // we attach it to the window to ensure it gets cleaned up
+      (window as any).__igFallbackUnsub = unsubFallback;
+    });
+
+    return () => {
+      unsub();
+      unsubPosts();
+      if ((window as any).__igFallbackUnsub) {
+        (window as any).__igFallbackUnsub();
+        delete (window as any).__igFallbackUnsub;
+      }
+    };
   }, [firestore, orgId]);
   useEffect(() => {
     if (!firestore) return;
@@ -332,7 +382,8 @@ export function SolTheoryHome() {
     <>
       {/* ── Login-to-Dashboard Bridge Overlay ──
           Always rendered until overlayGone. Opacity controlled by pageReady.
-          All elements (white bg, cube, text) fade out together as one unit. */}
+          Uses a circle spinner (NOT cube) so the cube only plays once during SSO login.
+          White background matches the login cube overlay for a seamless handoff. */}
       {!overlayGone && (
         <div
           style={{
@@ -349,57 +400,37 @@ export function SolTheoryHome() {
             pointerEvents: pageReady ? "none" : "auto",
           }}
         >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              border: "3px solid rgba(99, 102, 241, 0.15)",
+              borderTopColor: "#6366f1",
+              animation: "dashSpinnerRotate 0.8s linear infinite",
+            }}
+          />
           <p
             style={{
               fontSize: "13px",
               fontWeight: 500,
               letterSpacing: "0.15em",
               textTransform: "uppercase" as const,
-              marginBottom: "28px",
+              marginTop: "24px",
               color: "rgba(79, 70, 229, 0.6)",
-              animation: "dashCubeTextPulse 2s ease-in-out infinite",
+              animation: "dashSpinnerTextPulse 2s ease-in-out infinite",
             }}
           >
             Loading
           </p>
-          <div className="dash-cube-scene">
-            <div className="dash-cube">
-              <div className="dash-cube-face dash-cf-front" />
-              <div className="dash-cube-face dash-cf-back" />
-              <div className="dash-cube-face dash-cf-right" />
-              <div className="dash-cube-face dash-cf-left" />
-              <div className="dash-cube-face dash-cf-top" />
-              <div className="dash-cube-face dash-cf-bottom" />
-            </div>
-          </div>
           <style>{`
-            @keyframes dashCubeTextPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-            .dash-cube-scene { width: 64px; height: 64px; perspective: 400px; }
-            .dash-cube {
-              width: 100%; height: 100%; position: relative;
-              transform-style: preserve-3d;
-              animation: dashCubeRotate 6s ease-in-out infinite;
+            @keyframes dashSpinnerRotate {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
             }
-            .dash-cube-face {
-              position: absolute; width: 64px; height: 64px; border-radius: 10px;
-              border: 1.5px solid rgba(129, 140, 248, 0.3);
-              background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(129,140,248,0.1) 50%, rgba(167,139,250,0.15) 100%);
-              box-shadow: inset 0 0 20px rgba(99,102,241,0.06), 0 0 15px rgba(99,102,241,0.05);
-            }
-            .dash-cf-front  { transform: translateZ(32px); }
-            .dash-cf-back   { transform: rotateY(180deg) translateZ(32px); }
-            .dash-cf-right  { transform: rotateY(90deg) translateZ(32px); }
-            .dash-cf-left   { transform: rotateY(-90deg) translateZ(32px); }
-            .dash-cf-top    { transform: rotateX(90deg) translateZ(32px); }
-            .dash-cf-bottom { transform: rotateX(-90deg) translateZ(32px); }
-            @keyframes dashCubeRotate {
-              0%, 10%   { transform: rotateX(-25deg) rotateY(0deg); }
-              15%, 25%  { transform: rotateX(-25deg) rotateY(90deg); }
-              30%, 40%  { transform: rotateX(-25deg) rotateY(180deg); }
-              45%, 55%  { transform: rotateX(-25deg) rotateY(270deg); }
-              60%, 70%  { transform: rotateX(-25deg) rotateY(360deg) rotateZ(5deg); }
-              75%, 85%  { transform: rotateX(-25deg) rotateY(450deg) rotateZ(0deg); }
-              90%, 100% { transform: rotateX(-25deg) rotateY(540deg); }
+            @keyframes dashSpinnerTextPulse {
+              0%, 100% { opacity: 0.6; }
+              50% { opacity: 1; }
             }
           `}</style>
         </div>
@@ -508,8 +539,43 @@ export function SolTheoryHome() {
                     ytVideos.map((vid) => (
                       <div key={vid.id} className="flex gap-3 group/vid">
                         <div className={`w-24 h-16 rounded-md shrink-0 overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                          {vid.thumbnail ? (
-                            <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          {(vid.thumbnail) ? (
+                            <img
+                              src={vid.thumbnail}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Thumbnail URL failed (e.g. private YouTube video) — fall back to video first-frame
+                                const img = e.target as HTMLImageElement;
+                                img.style.display = 'none';
+                                if (vid.videoUrl) {
+                                  const container = img.parentElement;
+                                  if (container && !container.querySelector('video')) {
+                                    const videoEl = document.createElement('video');
+                                    videoEl.src = vid.videoUrl;
+                                    videoEl.muted = true;
+                                    videoEl.preload = 'metadata';
+                                    videoEl.className = 'w-full h-full object-cover';
+                                    videoEl.style.width = '100%';
+                                    videoEl.style.height = '100%';
+                                    videoEl.style.objectFit = 'cover';
+                                    videoEl.addEventListener('loadedmetadata', () => { videoEl.currentTime = Math.min(1, videoEl.duration * 0.1); });
+                                    container.appendChild(videoEl);
+                                  }
+                                }
+                              }}
+                            />
+                          ) : vid.videoUrl ? (
+                            <video
+                              src={vid.videoUrl}
+                              muted
+                              preload="metadata"
+                              className="w-full h-full object-cover"
+                              onLoadedMetadata={(e) => {
+                                const v = e.target as HTMLVideoElement;
+                                v.currentTime = Math.min(1, v.duration * 0.1);
+                              }}
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="currentColor" viewBox="0 0 24 24"><path d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
@@ -523,7 +589,6 @@ export function SolTheoryHome() {
                       </div>
                     ))
                   ) : !ytConnected ? (
-                    /* Skeleton placeholder when not connected */
                     <>
                       {[0,1,2].map(i => (
                         <div key={i} className="flex gap-3">
@@ -570,10 +635,39 @@ export function SolTheoryHome() {
                     igPosts.slice(0, 4).map((post) => (
                       <div key={post.id} className={`rounded-md w-full h-full min-h-[60px] overflow-hidden relative group/ig ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`}>
                         {post.imageUrl ? (
-                          <img src={post.imageUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <img
+                            src={post.imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              // Hide broken image and show fallback icon
+                              const img = e.target as HTMLImageElement;
+                              img.style.display = 'none';
+                              const container = img.parentElement;
+                              if (container && !container.querySelector('.ig-fallback-icon')) {
+                                const fallback = document.createElement('div');
+                                fallback.className = 'ig-fallback-icon w-full h-full flex items-center justify-center';
+                                fallback.innerHTML = `<svg class="w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect></svg>`;
+                                container.appendChild(fallback);
+                              }
+                            }}
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect></svg>
+                          </div>
+                        )}
+                        {/* Status badge for non-published posts */}
+                        {post.status && post.status !== 'published' && (
+                          <div className="absolute top-1 right-1">
+                            <span className={`text-[7px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
+                              post.status === 'scheduled' ? 'bg-blue-500/80 text-white' :
+                              post.status === 'processing' ? 'bg-amber-500/80 text-white' :
+                              post.status === 'failed' ? 'bg-red-500/80 text-white' :
+                              'bg-slate-500/80 text-white'
+                            }`}>{post.status}</span>
                           </div>
                         )}
                         {post.caption && (
