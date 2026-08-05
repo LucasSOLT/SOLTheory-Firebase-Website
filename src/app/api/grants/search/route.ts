@@ -143,7 +143,8 @@ function computeRelevanceScore(
   companyDesc: string,
   targetKeywords: string[]
 ): number {
-  let score = 0;
+  // Baseline: any grant returned by the API already passed source-level keyword matching
+  let score = 10;
   const titleLower = grant.title.toLowerCase();
   const descLower = (grant.description || "").toLowerCase();
   const combinedText = `${titleLower} ${descLower}`;
@@ -541,13 +542,15 @@ export async function POST(request: Request) {
     });
 
     // 5. Filter out grants below minimum relevance threshold
-    const MINIMUM_RELEVANCE_SCORE = 30;
+    // Use a lower threshold when AI scoring is unavailable (keyword-only produces lower scores)
+    const aiScoringAvailable = aiScores.size > 0;
+    const MINIMUM_RELEVANCE_SCORE = aiScoringAvailable ? 30 : 15;
     const preFilterCount = scored.length;
     const filtered = scored.filter((g) => (g.relevanceScore || 0) >= MINIMUM_RELEVANCE_SCORE);
     const filteredOutCount = preFilterCount - filtered.length;
     if (filteredOutCount > 0) {
       console.log(
-        `[GrantSearch] Filtered out ${filteredOutCount} grants below relevance threshold (${MINIMUM_RELEVANCE_SCORE})`
+        `[GrantSearch] Filtered out ${filteredOutCount} grants below relevance threshold (${MINIMUM_RELEVANCE_SCORE}, AI=${aiScoringAvailable ? "on" : "off"})`
       );
     }
 

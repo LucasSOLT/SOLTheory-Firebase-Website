@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useFirestore } from "@/firebase";
-import { collection, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
 import { startAgentWorker, stopAgentWorker, stopAllAgentWorkers } from "@/services/grantAgentWorker";
 import { useOrgId } from "@/contexts/OrgContext";
@@ -82,6 +82,8 @@ export function AgentWorkerController({
             config: GrantAgentConfig | null;
           }> | undefined;
           const sessionSearchMode = (data?.searchMode as 'federal' | 'philanthropic') || 'federal';
+          // Session-level config used as fallback when per-agent config is missing
+          const sessionConfig = (data?.config as GrantAgentConfig | undefined) ?? null;
 
           if (!agents) return;
 
@@ -91,25 +93,23 @@ export function AgentWorkerController({
             const saved = agents[agentId];
             const workerKey = `${sessionId}_${agentId}`;
 
-            if (saved?.active && saved?.config) {
+            // Resolve config: prefer per-agent config, fall back to session-level config
+            const resolvedConfig: GrantAgentConfig | null = saved?.config ?? sessionConfig;
+
+            if (saved?.active && resolvedConfig) {
               activeWorkerKeys.add(workerKey);
 
-              // Hash only the config to detect changes
-              const configHash = JSON.stringify(saved.config);
+              // Hash only the config to detect changes (sort keys for deterministic comparison)
+              const configHash = JSON.stringify(resolvedConfig, Object.keys(resolvedConfig).sort());
               const prevHash = startedRef.current.get(workerKey);
 
               if (prevHash !== configHash) {
                 console.log(`[Controller] Starting worker ${workerKey} (mode: ${sessionSearchMode})`);
 
-                // Reset timing gate for this agent in the session document
-                setDoc(
-                  doc(firestore, "grant_sessions", sessionId),
-                  { lastScanTimes: { [agentId]: null } },
-                  { merge: true }
-                ).catch(() => {});
-
                 // Start the worker with sessionId and searchMode
-                startAgentWorker(firestore, workerKey, saved.config, undefined, sessionId, sessionSearchMode, orgId);
+                // Note: timing gate reset is handled inside startAgentWorker, NOT here,
+                // to avoid triggering onSnapshot re-fires that cause restart loops.
+                startAgentWorker(firestore, workerKey, resolvedConfig, undefined, sessionId, sessionSearchMode, orgId);
                 startedRef.current.set(workerKey, configHash);
               }
             }
@@ -172,7 +172,7 @@ export function AgentWorkerController({
       stopAllAgentWorkers();
       startedRef.current.clear();
     };
-  }, [firestore]);
+  }, [firestore, orgId]);
 
   return null;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useOrgId } from "@/contexts/OrgContext";
 import {
@@ -81,8 +81,15 @@ export function useGrantSessions(orgId?: string) {
   const { user } = useUser();
   const [sessions, setSessions] = useState<GrantSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [migrated, setMigrated] = useState(false);
+
+  // Wrapped setter that keeps ref in sync
+  const setActiveSessionIdStable = useCallback((id: string | null) => {
+    activeSessionIdRef.current = id;
+    setActiveSessionId(id);
+  }, []);
 
   // Real-time listener on grant_sessions collection
   useEffect(() => {
@@ -118,9 +125,9 @@ export function useGrantSessions(orgId?: string) {
 
       setSessions(loaded);
 
-      // Auto-select first session if none selected
-      if (!activeSessionId && loaded.length > 0) {
-        setActiveSessionId(loaded[0].id);
+      // Auto-select first session ONLY if nothing has ever been selected
+      if (!activeSessionIdRef.current && loaded.length > 0) {
+        setActiveSessionIdStable(loaded[0].id);
       }
 
       setLoading(false);
@@ -169,7 +176,7 @@ export function useGrantSessions(orgId?: string) {
               ? { ...DEFAULT_CONFIG, ...firstAgentWithConfig.config }
               : DEFAULT_CONFIG;
 
-            // Create the default session
+            // Create the migrated session
             const sessionId = `session_${Date.now()}`;
             const sessionRef = doc(firestore!, "grant_sessions", sessionId);
 
@@ -186,7 +193,7 @@ export function useGrantSessions(orgId?: string) {
 
             await setDoc(sessionRef, {
               orgId: effectiveOrgId,
-              name: "Default Session",
+              name: "Migrated Session",
               color: "indigo",
               config: sessionConfig,
               agents: sessionAgents,
@@ -219,30 +226,13 @@ export function useGrantSessions(orgId?: string) {
               }
             }
 
-            setActiveSessionId(sessionId);
+            setActiveSessionIdStable(sessionId);
             console.log("[useGrantSessions] Migrated old config to session:", sessionId);
           }
         }
 
-        // If no old config either, auto-create a default session (first time only)
-        if (!oldSnap.exists() || !oldSnap.data()?.agents) {
-          const sessionId = `session_${Date.now()}`;
-          const sessionRef = doc(firestore!, "grant_sessions", sessionId);
-          await setDoc(sessionRef, {
-            orgId: effectiveOrgId,
-            name: "Default Session",
-            color: "indigo",
-            config: DEFAULT_CONFIG,
-            agents: {},
-            lastScanTimes: {},
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now(),
-            updatedBy: user?.uid || null,
-            active: true,
-          });
-          setActiveSessionId(sessionId);
-          console.log("[useGrantSessions] Created default session:", sessionId);
-        }
+        // No auto-creation of default sessions — users must explicitly create sessions.
+        // If no legacy data exists, the UI will show an empty state.
 
         // Mark migration as done so it never re-triggers
         if (typeof window !== "undefined") {
@@ -256,7 +246,7 @@ export function useGrantSessions(orgId?: string) {
     }
 
     migrate();
-  }, [firestore, loading, migrated, sessions.length, effectiveOrgId, user?.uid]);
+  }, [firestore, loading, migrated, effectiveOrgId, user?.uid]);
 
   // Active session
   const activeSession = useMemo(
@@ -284,7 +274,7 @@ export function useGrantSessions(orgId?: string) {
           color: chosenColor,
           config,
           agents: {
-            agent_1: { name: "Primary Scout", active: true },
+            agent_1: { name: "Primary Scout", active: true, config },
           },
           lastScanTimes: {},
           searchMode: searchMode || 'federal',
@@ -294,7 +284,7 @@ export function useGrantSessions(orgId?: string) {
           active: true,
         });
 
-        setActiveSessionId(sessionId);
+        setActiveSessionIdStable(sessionId);
         console.log("[useGrantSessions] Created session:", sessionId, "mode:", searchMode || 'federal');
         return sessionId;
       } catch (err) {
@@ -351,10 +341,16 @@ export function useGrantSessions(orgId?: string) {
         // Delete the session document
         await deleteDoc(doc(firestore, "grant_sessions", sessionId));
 
+        // Stamp localStorage so migration never re-creates sessions for this org
+        const migrationKey = `grant_sessions_migrated_${effectiveOrgId}`;
+        if (typeof window !== "undefined") {
+          localStorage.setItem(migrationKey, "true");
+        }
+
         // Switch to another session if the deleted one was active
         if (activeSessionId === sessionId) {
           const remaining = sessions.filter((s) => s.id !== sessionId);
-          setActiveSessionId(remaining.length > 0 ? remaining[0].id : null);
+          setActiveSessionIdStable(remaining.length > 0 ? remaining[0].id : null);
         }
 
         console.log("[useGrantSessions] Deleted session:", sessionId);
@@ -362,7 +358,7 @@ export function useGrantSessions(orgId?: string) {
         console.error("[useGrantSessions] Failed to delete session:", err);
       }
     },
-    [firestore, activeSessionId, sessions]
+    [firestore, activeSessionId, sessions, effectiveOrgId]
   );
 
   // Rename a session
@@ -397,7 +393,7 @@ export function useGrantSessions(orgId?: string) {
     sessions,
     activeSession,
     activeSessionId,
-    setActiveSessionId,
+    setActiveSessionId: setActiveSessionIdStable,
     loading: loading && !migrated,
     createSession,
     updateSession,

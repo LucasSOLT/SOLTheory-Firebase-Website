@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Users, UserPlus, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useDarkMode } from "@/lib/useDarkMode";
 import { useFirestore, useUser } from "@/firebase";
@@ -27,17 +26,17 @@ const STATUS_CONFIG = [
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 /* Mini SVG Sparkline with month markers */
-function Sparkline({ data, months, color, width = 120, height = 36 }: { data: number[]; months: string[]; color: string; width?: number; height?: number }) {
+function Sparkline({ data, months, color, width = 200, height = 36 }: { data: number[]; months: string[]; color: string; width?: number; height?: number }) {
   if (data.length < 2) {
     const y = height / 2;
     return (
-      <div className="shrink-0 flex flex-col items-center">
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <div className="w-full flex flex-col items-center">
+        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
           <line x1={0} y1={y} x2={width} y2={y} stroke={color} strokeWidth={1.5} strokeOpacity={0.3} />
           <circle cx={width / 2} cy={y} r={2.5} fill={color} />
         </svg>
         {months.length > 0 && (
-          <div className="flex justify-center w-full" style={{ width }}>
+          <div className="flex justify-center w-full">
             <span className="text-[9px] font-bold text-slate-400">{months[0]}</span>
           </div>
         )}
@@ -56,14 +55,14 @@ function Sparkline({ data, months, color, width = 120, height = 36 }: { data: nu
   const areaPath = `M${pts[0].x},${pts[0].y} ${pts.slice(1).map(p => `L${p.x},${p.y}`).join(' ')} L${width},${height} L0,${height} Z`;
   const gradId = `spk-${color.replace('#','')}`;
 
-  // Pick label indices: first and last always, plus middle if > 3 months
-  const labelIndices: number[] = [0];
-  if (months.length > 3) labelIndices.push(Math.floor(months.length / 2));
-  if (months.length > 1) labelIndices.push(months.length - 1);
+  // Pick label indices: show all when 3 or fewer months, otherwise first/mid/last
+  const labelIndices: number[] = months.length <= 3
+    ? months.map((_, i) => i)
+    : [0, Math.floor(months.length / 2), months.length - 1];
 
   return (
-    <div className="shrink-0 flex flex-col">
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <div className="w-full flex flex-col">
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity={0.18} />
@@ -79,8 +78,8 @@ function Sparkline({ data, months, color, width = 120, height = 36 }: { data: nu
           return <line key={i} x1={pts[i].x} y1={height - 2} x2={pts[i].x} y2={height} stroke="#94a3b8" strokeWidth={0.8} strokeOpacity={0.5} />;
         })}
       </svg>
-      {/* Month labels as HTML for legibility */}
-      <div className="flex justify-between" style={{ width, marginTop: 1 }}>
+      {/* Month labels */}
+      <div className="flex justify-between w-full" style={{ marginTop: 1 }}>
         {labelIndices.map(i => (
           <span key={i} className="text-[9px] font-bold text-slate-400 leading-none">{months[i] || ""}</span>
         ))}
@@ -138,60 +137,50 @@ export function CRMPipelineWidget() {
     }).length;
   }, [customers]);
 
-  // Build month-based sparkline data with month labels
+  // Build month-based sparkline data — fixed 3-month window, incremental counts
   const statusData = useMemo(() => {
     const now = new Date();
-    
-    // Find the earliest createdAt across all contacts
-    let earliest = now.getTime();
-    customers.forEach(c => {
-      if (!c.createdAt) return;
-      const ts = typeof c.createdAt.toMillis === "function" ? c.createdAt.toMillis() : new Date(c.createdAt).getTime();
-      if (ts > 0 && ts < earliest) earliest = ts;
-    });
 
-    // Build month buckets from earliest to now
-    const startDate = new Date(earliest);
-    const startMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    const endMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    const monthBuckets: { year: number; month: number; label: string }[] = [];
-    const iter = new Date(startMonth);
-    while (iter <= endMonth) {
-      monthBuckets.push({ 
-        year: iter.getFullYear(), 
-        month: iter.getMonth(),
-        label: MONTH_LABELS[iter.getMonth()]
+    // Always show exactly 3 months: (current-2), (current-1), current
+    // e.g. in August 2026: Jun, Jul, Aug
+    const monthBuckets: { year: number; month: number; label: string; start: number; end: number }[] = [];
+    for (let offset = -2; offset <= 0; offset++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      monthBuckets.push({
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        label: MONTH_LABELS[d.getMonth()],
+        start: d.getTime(),
+        end: nextMonth.getTime(),
       });
-      iter.setMonth(iter.getMonth() + 1);
     }
-    // Ensure at least 2 months for a line
-    if (monthBuckets.length < 2) {
-      const prev = new Date(startMonth);
-      prev.setMonth(prev.getMonth() - 1);
-      monthBuckets.unshift({ year: prev.getFullYear(), month: prev.getMonth(), label: MONTH_LABELS[prev.getMonth()] });
-    }
+
+    // Helper: get timestamp from Firestore Timestamp or date string
+    const getTs = (createdAt: any): number => {
+      if (!createdAt) return 0;
+      if (typeof createdAt.toMillis === "function") return createdAt.toMillis();
+      const t = new Date(createdAt).getTime();
+      return isNaN(t) ? 0 : t;
+    };
 
     return STATUS_CONFIG.map(cfg => {
-      const count = customers.filter(c => c.leadStatus === cfg.key).length;
-      
-      // Build cumulative count per month
-      const monthlyData = monthBuckets.map(mb => {
-        return customers.filter(c => {
-          if (c.leadStatus !== cfg.key) return false;
-          if (!c.createdAt) return true; // include contacts without createdAt in all months
-          const ts = typeof c.createdAt.toMillis === "function" ? c.createdAt.toMillis() : new Date(c.createdAt).getTime();
-          const contactMonth = new Date(ts);
-          // Contact exists in this month if it was created on or before the end of this month
-          return (contactMonth.getFullYear() < mb.year) || 
-                 (contactMonth.getFullYear() === mb.year && contactMonth.getMonth() <= mb.month);
+      const matching = customers.filter(c => c.leadStatus === cfg.key);
+      const count = matching.length;
+
+      // Count NEW contacts added in each month bucket (incremental, not cumulative)
+      const sparkData = monthBuckets.map(mb => {
+        return matching.filter(c => {
+          const ts = getTs(c.createdAt);
+          if (ts === 0) return false; // skip contacts without dates
+          return ts >= mb.start && ts < mb.end;
         }).length;
       });
 
-      return { 
-        ...cfg, 
-        count, 
-        sparkData: monthlyData,
+      return {
+        ...cfg,
+        count,
+        sparkData,
         monthLabels: monthBuckets.map(m => m.label),
       };
     });
@@ -206,75 +195,65 @@ export function CRMPipelineWidget() {
   return (
     <div className="flex flex-col h-full w-full min-h-0 select-none">
       {/* Header */}
-      <div className="flex items-center justify-between shrink-0 mb-2.5">
+      <div className="flex items-center justify-between shrink-0 mb-3">
         <div>
           <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
             {lang === "es" ? "Relaciones con Clientes" : "Customer Relations"}
           </h3>
-          <p className={`text-[10px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            {lang === "es" ? "Contactos y revenue en tiempo real" : "Live contacts & revenue metrics"}
+          <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+            {customers.length} {lang === "es" ? "contactos" : "contacts"} · {lang === "es" ? "métricas en vivo" : "live metrics"}
           </p>
         </div>
-        <div className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border ${
-          customers.length > 0
-            ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-            : 'text-slate-400 bg-slate-500/10 border-slate-500/10'
-        }`}>
-          <Users className="w-3 h-3" />
-          <span>{customers.length} {lang === "es" ? "contactos" : "contacts"}</span>
+      </div>
+
+      {/* Metrics Row */}
+      <div className="grid grid-cols-3 gap-2 shrink-0 mb-3">
+        {/* Revenue */}
+        <div className={`p-2 rounded-lg border border-l-2 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30 border-l-emerald-500' : 'bg-white/50 border-slate-200/60 border-l-emerald-500'}`}>
+          <span className={`text-[8px] font-semibold uppercase tracking-widest block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Revenue</span>
+          <span className={`text-sm font-extrabold tracking-tight block mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{fmtMoney(totalRevenue)}</span>
+        </div>
+        {/* Outstanding */}
+        <div className={`p-2 rounded-lg border border-l-2 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30 border-l-amber-500' : 'bg-white/50 border-slate-200/60 border-l-amber-500'}`}>
+          <span className={`text-[8px] font-semibold uppercase tracking-widest block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Outstanding</span>
+          <span className={`text-sm font-extrabold tracking-tight block mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{fmtMoney(totalOutstanding)}</span>
+        </div>
+        {/* New Contacts */}
+        <div className={`p-2 rounded-lg border border-l-2 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30 border-l-indigo-500' : 'bg-white/50 border-slate-200/60 border-l-indigo-500'}`}>
+          <span className={`text-[8px] font-semibold uppercase tracking-widest block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>New</span>
+          <span className={`text-sm font-extrabold tracking-tight block mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{newContactsThisMonth}</span>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0 mb-3">
-        <div className={`p-2 rounded-xl border ${isDarkMode ? 'bg-emerald-950/20 border-emerald-900/30' : 'bg-emerald-50/60 border-emerald-100'} flex flex-col`}>
-          <span className="text-[9px] font-semibold text-emerald-600 uppercase tracking-wider block">Revenue</span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className={`text-sm font-extrabold tracking-tight ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{fmtMoney(totalRevenue)}</span>
-            {totalRevenue > 0 && <ArrowUpRight className="w-3 h-3 text-emerald-500" />}
-          </div>
-        </div>
-        <div className={`p-2 rounded-xl border ${isDarkMode ? 'bg-amber-950/20 border-amber-900/30' : 'bg-amber-50/60 border-amber-100'} flex flex-col`}>
-          <span className="text-[9px] font-semibold text-amber-600 uppercase tracking-wider block">Outstanding</span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className={`text-sm font-extrabold tracking-tight ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>{fmtMoney(totalOutstanding)}</span>
-            {totalOutstanding > 0 && <ArrowDownRight className="w-3 h-3 text-amber-500" />}
-          </div>
-        </div>
-        <div className={`p-2 rounded-xl border ${isDarkMode ? 'bg-indigo-950/20 border-indigo-900/30' : 'bg-indigo-50/60 border-indigo-100'} flex flex-col`}>
-          <span className="text-[9px] font-semibold text-indigo-600 uppercase tracking-wider block">New Contacts</span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className={`text-sm font-extrabold tracking-tight ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{newContactsThisMonth}</span>
-            {newContactsThisMonth > 0 && <UserPlus className="w-3 h-3 text-indigo-500" />}
-          </div>
-        </div>
-      </div>
-
-      {/* Pipeline Sparklines */}
+      {/* Pipeline Trends */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <span className={`text-[9px] font-bold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-          {lang === "es" ? "Pipeline" : "Pipeline Trends"}
+        <span className={`text-[8px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+          {lang === "es" ? "Pipeline" : "Pipeline"}
         </span>
-        <div className="flex-1 min-h-0 grid grid-rows-4 gap-1.5">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5">
           {statusData.map((s) => (
             <div
               key={s.key}
-              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-colors ${
+              className={`flex items-center gap-3 px-2.5 py-1.5 rounded-lg transition-colors ${
                 isDarkMode
-                  ? `${s.bgDark} border-slate-700/40`
-                  : `${s.bgLight} border-slate-200/60`
+                  ? 'bg-slate-800/30 hover:bg-slate-800/50'
+                  : 'bg-slate-50/60 hover:bg-slate-100/60'
               }`}
             >
-              <div className="flex-1 min-w-0 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                <span className={`text-[10px] font-semibold truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              {/* Status dot + label + count */}
+              <div className="flex items-center gap-2 min-w-0 shrink-0" style={{ width: '28%' }}>
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                <span className={`text-[10px] font-medium truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                   {lang === "es" ? s.labelEs : s.label}
                 </span>
-                <span className={`text-[11px] font-extrabold ml-auto tabular-nums ${s.textColor}`}>
+                <span className={`text-[11px] font-bold ml-auto tabular-nums shrink-0 ${s.textColor}`}>
                   {s.count}
                 </span>
               </div>
-              <Sparkline data={s.sparkData} months={s.monthLabels} color={s.color} width={120} height={36} />
+              {/* Sparkline — fill remaining width */}
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <Sparkline data={s.sparkData} months={s.monthLabels} color={s.color} width={200} height={36} />
+              </div>
             </div>
           ))}
         </div>

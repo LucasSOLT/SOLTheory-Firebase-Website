@@ -28,6 +28,7 @@ declare global {
     __grantAgentVersion?: number;
     __lastGrantScanStatus?: "found" | "no_new" | "searching" | "idle";
     __lastGrantScanMessage?: string;
+    __lastGrantScanStartedAt?: number;
   }
 }
 
@@ -76,6 +77,121 @@ function intervalToMs(value: number, unit: string): number {
   const ms = value * (multipliers[unit] || 60_000);
   return Math.max(ms, 60_000); // minimum 1 minute
 }
+/** Generate human-readable match reasons for a grant suggestion */
+function generateMatchReasons(
+  grant: { 
+    title?: string; 
+    eligibleApplicants?: string[]; 
+    categories?: string[]; 
+    awardAmountMax?: number | null; 
+    awardAmountMin?: number | null; 
+    closeDate?: string; 
+    sources?: string[]; 
+    source?: string;
+    grantScope?: string;
+  },
+  config: GrantAgentConfig
+): string[] {
+  const reasons: string[] = [];
+
+  // Eligibility match
+  const eligApplicants = grant.eligibleApplicants ?? [];
+  const ELIG_LABELS: Record<string, string> = {
+    nonprofit_501c3: '501(c)(3)',
+    nonprofits_non_higher_education_with_501c3: '501(c)(3)',
+    nonprofit_non501c3: 'Nonprofit (non-501c3)',
+    nonprofits_non_higher_education_without_501c3: 'Nonprofit (non-501c3)',
+    for_profit: 'For-profit',
+    small_business: 'Small business',
+    small_businesses: 'Small business',
+    state_government: 'State government',
+    state_governments: 'State government',
+    tribal_government: 'Tribal government',
+    housing_authority: 'Housing authority',
+    public_and_indian_housing_authorities: 'Housing authority',
+    unrestricted: 'Unrestricted eligibility',
+  };
+  const configEligType = config.eligibilityType ?? '';
+  for (const ea of eligApplicants) {
+    const label = ELIG_LABELS[ea];
+    if (label) {
+      reasons.push(`Matches ${label} eligibility`);
+      break;
+    }
+  }
+  if (reasons.length === 0 && configEligType) {
+    const label = ELIG_LABELS[configEligType];
+    if (label) reasons.push(`Open to ${label} applicants`);
+  }
+
+  // Location match
+  const STATE_NAMES: Record<string, string> = {
+    AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
+    CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',
+    HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',
+    KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',
+    MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',
+    MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',
+    NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',
+    ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',
+    RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',
+    TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',
+    WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'District of Columbia',
+  };
+  if (config.locationState) {
+    const stateName = STATE_NAMES[config.locationState.toUpperCase()] || config.locationState;
+    reasons.push(`Target location: ${stateName}`);
+  }
+
+  // Category/focus match
+  const FOCUS_LABELS: Record<string, string> = {
+    housing_shelter: 'Housing & Shelter', housing: 'Housing',
+    health_services: 'Health Services', health: 'Health',
+    education: 'Education', community_development: 'Community Development',
+    income_security: 'Income Security & Social Services',
+    income_security_and_social_services: 'Income Security & Social Services',
+    food_nutrition: 'Food & Nutrition', food_and_nutrition: 'Food & Nutrition',
+    disaster_relief: 'Disaster Relief', disaster_prevention_and_relief: 'Disaster Relief',
+    employment: 'Employment & Training', employment_labor_and_training: 'Employment & Training',
+    environment: 'Environment', energy: 'Energy', transportation: 'Transportation',
+    arts_culture: 'Arts & Culture', arts: 'Arts',
+  };
+  const grantCats = grant.categories ?? [];
+  const configTypes = config.grantTypes ?? [];
+  const allCats = [...grantCats, ...configTypes];
+  for (const cat of allCats) {
+    const label = FOCUS_LABELS[cat];
+    if (label) {
+      reasons.push(`Focus: ${label}`);
+      break;
+    }
+  }
+
+  // Funding amount
+  const amount = grant.awardAmountMax || grant.awardAmountMin;
+  if (amount && amount > 0) {
+    reasons.push(`Award up to $${amount.toLocaleString()}`);
+  }
+
+  // Active deadline
+  if (grant.closeDate) {
+    try {
+      const closeDate = new Date(grant.closeDate);
+      if (!isNaN(closeDate.getTime()) && closeDate > new Date()) {
+        reasons.push(`Active deadline: ${closeDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Source type
+  const sources = grant.sources ?? (grant.source ? [grant.source] : []);
+  if (sources.includes('grants.gov') || sources.includes('sam.gov')) {
+    reasons.push('Federal funding opportunity');
+  }
+
+  return reasons;
+}
+
 /**
  * Parse a worker key into sessionId + bare agentId.
  * Worker keys are either "sessionId_agent_N" (session-scoped) or just "agent_N" (legacy).
@@ -319,9 +435,15 @@ async function executeAgentScan(
 
     if (safeResults.length === 0) {
       console.log(`[GrantAgent:${agentId}] No results from web search`);
+      // Only show "no_new" if enough time has passed since last "searching" start
+      // to prevent rapid flickering between states
       if (typeof window !== "undefined") {
-        window.__lastGrantScanStatus = "no_new";
-        window.__lastGrantScanMessage = "No new grants found — continuing the search";
+        const elapsed = Date.now() - (window.__lastGrantScanStartedAt || 0);
+        if (elapsed >= 30_000) {
+          window.__lastGrantScanStatus = "no_new";
+          window.__lastGrantScanMessage = "No new grants found — continuing the search";
+        }
+        // else: keep showing "searching" to the user
       }
       await recordScanTime(firestore, agentId); // Record even on empty to avoid rapid retry
       return null;
@@ -353,8 +475,11 @@ async function executeAgentScan(
     if (newResults.length === 0) {
       console.log(`[GrantAgent:${agentId}] All results already exist in Firestore`);
       if (typeof window !== "undefined") {
-        window.__lastGrantScanStatus = "no_new";
-        window.__lastGrantScanMessage = "No new grants — all results already suggested";
+        const elapsed = Date.now() - (window.__lastGrantScanStartedAt || 0);
+        if (elapsed >= 30_000) {
+          window.__lastGrantScanStatus = "no_new";
+          window.__lastGrantScanMessage = "No new grants — all results already suggested";
+        }
       }
       await recordScanTime(firestore, agentId);
       return null;
@@ -395,8 +520,11 @@ async function executeAgentScan(
     if (acceptedGrants.length === 0) {
       console.log(`[GrantAgent:${agentId}] No candidates passed eligibility validation`);
       if (typeof window !== "undefined") {
-        window.__lastGrantScanStatus = "no_new";
-        window.__lastGrantScanMessage = "Found grants but none matched your eligibility — refining search";
+        const elapsed = Date.now() - (window.__lastGrantScanStartedAt || 0);
+        if (elapsed >= 30_000) {
+          window.__lastGrantScanStatus = "no_new";
+          window.__lastGrantScanMessage = "Found grants but none matched your eligibility — refining search";
+        }
       }
       await recordScanTime(firestore, agentId);
       return null;
@@ -427,14 +555,15 @@ async function executeAgentScan(
       }
     }
 
-    const nextSteps = buildNextSteps(selected.source, selected.url, selected.description);
+    const selectedSource = selected.source || selected.sources?.[0] || "";
+    const nextSteps = buildNextSteps(selectedSource, selected.url, selected.description);
 
     const selectedUrl = selected.url || selected.sourceUrl || "";
 
     const grantDoc: Record<string, unknown> = {
       title: selected.title,
       description: nextSteps,
-      agency: selected.agency || selected.source,
+      agency: selected.agency || selectedSource,
       amount,
       status: "unapplied",
       orgId: handle.orgId,
@@ -452,17 +581,18 @@ async function executeAgentScan(
       eligibilityReason: validationResult.reasoning,
       relevanceScore: selected.relevanceScore ?? null,
       relevanceExplanation: selected.relevanceExplanation || null,
+      matchReasons: generateMatchReasons(selected, config),
       fundingInstrument: "Grant",
       activityCategories: selected.categoryCodes || config.grantTypes,
       grantStructures: ["Grant"],
       grantScope: selected.grantScope || null,
-      sources: selected.sources || [selected.source],
+      sources: selected.sources || [selectedSource],
       agencyLevels: handle.searchMode === 'philanthropic'
         ? ["Foundation"]
-        : [selected.source === "grants.gov" ? "Federal" : "State/Local"],
+        : [selectedSource === "grants.gov" ? "Federal" : "State/Local"],
       classification: config.grantTypes[0] || "housing_shelter",
       ...(closeDateObj ? { closeDate: Timestamp.fromDate(closeDateObj) } : {}),
-      sourceWebsite: selected.source,
+      sourceWebsite: selected.source || selected.sources?.[0] || "",
       sourceUrl: selectedUrl,
       opportunityNumber: selected.opportunityNumber || "",
     };
@@ -487,15 +617,16 @@ async function executeAgentScan(
         const extraDoc: Record<string, unknown> = {
           ...grantDoc,
           title: extra.grant.title,
-          description: buildNextSteps(extra.grant.source, extraUrl, extra.grant.description),
-          agency: extra.grant.agency || extra.grant.source,
+          description: buildNextSteps(extra.grant.source || extra.grant.sources?.[0] || "", extraUrl, extra.grant.description),
+          agency: extra.grant.agency || extra.grant.source || extra.grant.sources?.[0] || "",
           amount: extraAmount,
           url: extraUrl,
           sourceUrl: extraUrl,
-          sources: extra.grant.sources || [extra.grant.source],
+          sources: extra.grant.sources || [extra.grant.source || ""],
           grantScope: extra.grant.grantScope || null,
           relevanceScore: extra.grant.relevanceScore ?? null,
           relevanceExplanation: extra.grant.relevanceExplanation || null,
+          matchReasons: generateMatchReasons(extra.grant, config),
           activityCategories: extra.grant.categoryCodes || config.grantTypes,
           eligibility: extra.validation.eligibilityText,
           eligibilityVerified: extra.validation.confidence > 0,
@@ -555,6 +686,13 @@ function scheduleNextScan(
       return; // DIE — do not reschedule
     }
 
+    // Reset searching status for this scan cycle
+    if (typeof window !== "undefined") {
+      window.__lastGrantScanStatus = "searching";
+      window.__lastGrantScanMessage = "Searching for new grants...";
+      window.__lastGrantScanStartedAt = Date.now();
+    }
+
     // Run the scan
     const id = await executeAgentScan(firestore, handle);
     if (id && onGrantFound) onGrantFound(id);
@@ -611,7 +749,26 @@ export function startAgentWorker(
   const workers = getWorkersMap();
   workers.set(agentId, handle);
 
-  // 4. Run an IMMEDIATE first scan (with a small delay to let UI settle)
+  // 4. Set "searching" status IMMEDIATELY for the user
+  if (typeof window !== "undefined") {
+    window.__lastGrantScanStatus = "searching";
+    window.__lastGrantScanMessage = "Searching for new grants...";
+    window.__lastGrantScanStartedAt = Date.now();
+  }
+
+  // 4b. Reset timing gate so the first scan isn't blocked by a stale timestamp.
+  // This was previously done in AgentWorkerController's onSnapshot callback,
+  // but writing to Firestore from inside onSnapshot caused an infinite restart loop.
+  if (sessionId) {
+    const { bareAgentId } = parseWorkerKey(agentId);
+    setDoc(
+      doc(firestore, "grant_sessions", sessionId),
+      { lastScanTimes: { [bareAgentId]: null } },
+      { merge: true }
+    ).catch(() => {});
+  }
+
+  // 5. Run an IMMEDIATE first scan (with a small delay to let UI settle)
   setTimeout(async () => {
     const current = workers.get(agentId);
     if (!current || current.version !== version) return;
@@ -620,7 +777,7 @@ export function startAgentWorker(
     const id = await executeAgentScan(firestore, handle);
     if (id && onGrantFound) onGrantFound(id);
 
-    // 5. Schedule recurring scans after the first one completes
+    // 6. Schedule recurring scans after the first one completes
     const stillCurrent = workers.get(agentId);
     if (stillCurrent && stillCurrent.version === version) {
       scheduleNextScan(firestore, handle, onGrantFound);

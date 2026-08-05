@@ -4,23 +4,21 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter, useParams } from "next/navigation";
 
-import { doc, updateDoc, setDoc, onSnapshot, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
-import { Clock, ExternalLink, Activity, ChevronRight, Settings } from "lucide-react";
+import { doc, updateDoc, setDoc, onSnapshot, getDoc, collection, getDocs } from "firebase/firestore";
+import { Clock, ExternalLink, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
-import { GrantCompletionsLineChart } from "@/components/portal/GrantCompletionsLineChart";
-import { GrantPipelineMini } from "@/components/portal/GrantPipelineMini";
 import { GrantAgentHub } from "@/components/portal/GrantAgentHub";
-import { useGrantsData } from "@/hooks/useGrantsData";
+import AgenticCampaignCarousel from "@/components/portal/AgenticCampaignCarousel";
 import { AgentWorkerController, type AgentSlotData } from "@/components/portal/AgentWorkerController";
 import { ActiveAgentsPreview } from "@/components/portal/ActiveAgentsPreview";
 import { NewsSlideshow } from "@/components/portal/NewsSlideshow";
-import { AIAgentOperationsWidget } from "@/components/portal/AIAgentOperationsWidget";
+import AgenticProspectingFeed from "@/components/portal/AgenticProspectingFeed";
 import { CRMPipelineWidget } from "@/components/portal/CRMPipelineWidget";
-import { UpcomingDeadlinesWidget } from "@/components/portal/UpcomingDeadlinesWidget";
+import WeeklyCalendarGrid from "@/components/portal/WeeklyCalendarGrid";
 import { ContentManagerBar } from "@/components/admin/ContentManagerBar";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { TileSettingsPopup } from "@/components/admin/TileSettingsPopup";
@@ -112,7 +110,7 @@ export function SolTheoryHome() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isGrantConfigOpen, setIsGrantConfigOpen] = useState(false);
-  const { grants: grantsData, loading: grantsLoading } = useGrantsData(orgId);
+
   const [agentSlots, setAgentSlots] = useState<AgentSlotData[]>([]);
   const handleSlotsChange = useCallback((slots: AgentSlotData[]) => setAgentSlots(slots), []);
   const [activeTilePopup, setActiveTilePopup] = useState<string | null>(null);
@@ -239,75 +237,48 @@ export function SolTheoryHome() {
   // Fetch Instagram data
   useEffect(() => {
     if (!firestore) return;
-    // Check Instagram connection
+    // Check Instagram connection + get username
     const igDocRef = doc(firestore, "instagram_connections", orgId);
     const unsub = onSnapshot(igDocRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
         setIgConnected(true);
-        setIgUsername(data.username || data.pageName || "");
+        setIgUsername(data.instagramUsername || data.username || data.pageName || "");
       }
     }, () => {});
 
-    // Fetch latest posts — query ALL posts for this org (not just published),
-    // so the feed always has content. We sort by updatedAt desc as a universal
-    // timestamp that exists on every post regardless of status.
-    // Firestore requires a composite index for (orgId, updatedAt desc).
-    // We use two query strategies with fallback to handle missing indexes gracefully.
-    const postsCol = collection(firestore, "scheduled_instagram_posts");
-
-    // Strategy 1: Try the compound query with ordering
-    const primaryQuery = query(
-      postsCol,
-      where("orgId", "==", orgId),
-      orderBy("updatedAt", "desc"),
-      limit(8)
-    );
-
-    const mapPosts = (snap: any) => {
-      const posts: any[] = [];
-      snap.forEach((d: any) => posts.push({ id: d.id, ...d.data() }));
-      // Sort: published first (most valuable), then scheduled, then drafts.
-      // Within each status group, sort by most recent timestamp.
-      const statusPriority: Record<string, number> = { published: 0, scheduled: 1, processing: 2, draft: 3, failed: 4 };
-      posts.sort((a, b) => {
-        const pa = statusPriority[a.status] ?? 5;
-        const pb = statusPriority[b.status] ?? 5;
-        if (pa !== pb) return pa - pb;
-        const ta = a.publishedAt?.seconds || a.updatedAt?.seconds || a.createdAt?.seconds || 0;
-        const tb = b.publishedAt?.seconds || b.updatedAt?.seconds || b.createdAt?.seconds || 0;
-        return tb - ta;
-      });
-      setIgPosts(posts.slice(0, 4).map(p => ({
-        id: p.id,
-        imageUrl: p.mediaItemUrls?.[0] || p.imageUrl || "",
-        caption: p.caption || "",
-        status: p.status || "draft",
-      })));
-    };
-
-    const unsubPosts = onSnapshot(primaryQuery, mapPosts, () => {
-      // Fallback: if composite index is missing, use simpler query without ordering
-      const fallbackQuery = query(
-        postsCol,
-        where("orgId", "==", orgId),
-        limit(8)
-      );
-      const unsubFallback = onSnapshot(fallbackQuery, mapPosts, () => {});
-      // Store fallback unsub for cleanup — since we're in the error handler,
-      // we attach it to the window to ensure it gets cleaned up
-      (window as any).__igFallbackUnsub = unsubFallback;
-    });
-
-    return () => {
-      unsub();
-      unsubPosts();
-      if ((window as any).__igFallbackUnsub) {
-        (window as any).__igFallbackUnsub();
-        delete (window as any).__igFallbackUnsub;
-      }
-    };
+    return () => unsub();
   }, [firestore, orgId]);
+
+  // Fetch published Instagram media from Graph API
+  useEffect(() => {
+    if (!igConnected) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch("/api/campaigning/instagram/media", {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ orgId, limit: 9 }),
+        });
+        if (!cancelled && res.ok) {
+          const json = await res.json();
+          if (json.success && json.media?.length > 0) {
+            setIgPosts(json.media.slice(0, 9).map((m: any) => ({
+              id: m.id,
+              imageUrl: m.mediaType === "VIDEO" ? (m.thumbnailUrl || m.mediaUrl) : m.mediaUrl,
+              caption: m.caption || "",
+              status: "published",
+            })));
+          }
+        }
+      } catch (err) {
+        console.warn("[Instagram Feed] Failed to fetch media:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [igConnected, orgId]);
   useEffect(() => {
     if (!firestore) return;
     const docRef = doc(firestore, "cms_config", "news_slideshow");
@@ -394,7 +365,7 @@ export function SolTheoryHome() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            background: "#ffffff",
+            background: isDarkMode ? "#020617" : "#ffffff",
             opacity: pageReady ? 0 : 1,
             transition: "opacity 1.5s ease-in-out",
             pointerEvents: pageReady ? "none" : "auto",
@@ -405,7 +376,7 @@ export function SolTheoryHome() {
               width: 40,
               height: 40,
               borderRadius: "50%",
-              border: "3px solid rgba(99, 102, 241, 0.15)",
+              border: isDarkMode ? "3px solid rgba(99, 102, 241, 0.25)" : "3px solid rgba(99, 102, 241, 0.15)",
               borderTopColor: "#6366f1",
               animation: "dashSpinnerRotate 0.8s linear infinite",
             }}
@@ -417,7 +388,7 @@ export function SolTheoryHome() {
               letterSpacing: "0.15em",
               textTransform: "uppercase" as const,
               marginTop: "24px",
-              color: "rgba(79, 70, 229, 0.6)",
+              color: isDarkMode ? "rgba(129, 140, 248, 0.7)" : "rgba(79, 70, 229, 0.6)",
               animation: "dashSpinnerTextPulse 2s ease-in-out infinite",
             }}
           >
@@ -497,28 +468,10 @@ export function SolTheoryHome() {
 
           {/* Row 2: Middle (Grant Analytics, YouTube, Instagram) */}
           <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch lg:max-h-[420px]">
-            {/* Slot 3: Grant Analytics (Performance Only) */}
-            <CmsTileWrapper tileId="tile-grants" tileName="Grant Analytics" className="flex-1 min-w-0 overflow-hidden">
+            {/* Slot 3: Agentic Campaign Carousel */}
+            <CmsTileWrapper tileId="tile-grants" tileName="Agentic Campaigns" className="flex-1 min-w-0 overflow-hidden">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
-              <div className="flex-1 flex flex-col min-h-0">
-                {/* Header row with button */}
-                <div className="flex items-center justify-between mb-3 shrink-0">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-300' : 'text-slate-400'}`}>{t.performance}</span>
-                  <button
-                    onClick={() => setIsGrantConfigOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
-                  >
-                    <Activity className="w-3 h-3" />
-                    {t.spawnSubagent}
-                  </button>
-                </div>
-                <div className="flex-1 min-h-0">
-                  <GrantCompletionsLineChart grants={grantsData} loading={grantsLoading} />
-                </div>
-                <div className="flex-1 min-h-0">
-                  <GrantPipelineMini grants={grantsData} loading={grantsLoading} />
-                </div>
-              </div>
+              <AgenticCampaignCarousel orgId={orgId} isDarkMode={isDarkMode} />
             </div>
             </CmsTileWrapper>
 
@@ -604,12 +557,16 @@ export function SolTheoryHome() {
                     <div className={`flex-1 flex items-center justify-center text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>No videos yet</div>
                   )}
                 </div>
-                <button
-                  onClick={() => router.push(`/portal/dashboard/${orgId}/youtube`)}
-                  className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  {ytConnected ? 'Go to Content Creator' : 'Connect YouTube'}
-                </button>
+                {/* Gradient fade into button area */}
+                <div className="shrink-0 relative">
+                  <div className={`absolute -top-10 inset-x-0 h-10 pointer-events-none ${isDarkMode ? 'bg-gradient-to-t from-slate-900 to-transparent' : 'bg-gradient-to-t from-white to-transparent'}`} />
+                  <button
+                    onClick={() => router.push(`/portal/dashboard/${orgId}/youtube`)}
+                    className={`relative z-10 mt-2 w-full py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    {ytConnected ? 'Go to Content Creator' : 'Connect YouTube'}
+                  </button>
+                </div>
               </div>
             </CmsTileWrapper>
 
@@ -625,74 +582,78 @@ export function SolTheoryHome() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
                   </div>
                 </div>
-                {igConnected && igUsername && (
-                  <div className={`mb-2 text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    @{igUsername}
-                  </div>
-                )}
-                <div className="flex-1 grid grid-cols-2 gap-2 min-h-0">
+                <div className="flex-1 grid grid-cols-3 grid-rows-3 gap-1.5 min-h-0">
                   {igConnected && igPosts.length > 0 ? (
-                    igPosts.slice(0, 4).map((post) => (
-                      <div key={post.id} className={`rounded-md w-full h-full min-h-[60px] overflow-hidden relative group/ig ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`}>
-                        {post.imageUrl ? (
-                          <img
-                            src={post.imageUrl}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                            crossOrigin="anonymous"
-                            onError={(e) => {
-                              // Hide broken image and show fallback icon
-                              const img = e.target as HTMLImageElement;
-                              img.style.display = 'none';
-                              const container = img.parentElement;
-                              if (container && !container.querySelector('.ig-fallback-icon')) {
-                                const fallback = document.createElement('div');
-                                fallback.className = 'ig-fallback-icon w-full h-full flex items-center justify-center';
-                                fallback.innerHTML = `<svg class="w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect></svg>`;
-                                container.appendChild(fallback);
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect></svg>
-                          </div>
-                        )}
-                        {/* Status badge for non-published posts */}
-                        {post.status && post.status !== 'published' && (
-                          <div className="absolute top-1 right-1">
-                            <span className={`text-[7px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
-                              post.status === 'scheduled' ? 'bg-blue-500/80 text-white' :
-                              post.status === 'processing' ? 'bg-amber-500/80 text-white' :
-                              post.status === 'failed' ? 'bg-red-500/80 text-white' :
-                              'bg-slate-500/80 text-white'
-                            }`}>{post.status}</span>
-                          </div>
-                        )}
-                        {post.caption && (
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover/ig:opacity-100 transition-opacity">
-                            <span className="text-[8px] text-white/90 leading-tight line-clamp-2">{post.caption.slice(0, 60)}{post.caption.length > 60 ? '…' : ''}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    /* Skeleton placeholders */
                     <>
-                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                      <div className={`rounded-md w-full h-full min-h-[60px] ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
+                      {igPosts.slice(0, 9).map((post) => (
+                        <a
+                          key={post.id}
+                          href={`https://www.instagram.com/p/${post.id}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`rounded-lg overflow-hidden relative group/ig aspect-square cursor-pointer ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}
+                        >
+                          {post.imageUrl ? (
+                            <img
+                              src={post.imageUrl}
+                              alt=""
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover/ig:scale-105"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                img.style.display = 'none';
+                                const container = img.parentElement;
+                                if (container && !container.querySelector('.ig-fallback')) {
+                                  const fb = document.createElement('div');
+                                  fb.className = `ig-fallback w-full h-full flex items-center justify-center ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`;
+                                  fb.innerHTML = '<svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path></svg>';
+                                  container.appendChild(fb);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className={`w-5 h-5 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect></svg>
+                            </div>
+                          )}
+                          {post.caption && (
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 group-hover/ig:opacity-100 transition-opacity">
+                              <span className="text-[7px] text-white/90 leading-tight line-clamp-2">{post.caption.slice(0, 60)}{post.caption.length > 60 ? '…' : ''}</span>
+                            </div>
+                          )}
+                        </a>
+                      ))}
+                      {/* Fill remaining spots if fewer than 9 */}
+                      {Array.from({ length: Math.max(0, 9 - igPosts.length) }).map((_, i) => (
+                        <div key={`ph-${i}`} className={`rounded-lg aspect-square ${isDarkMode ? 'bg-slate-800/30' : 'bg-slate-100/50'}`} />
+                      ))}
+                    </>
+                  ) : !igConnected ? (
+                    /* Not connected — show connect prompt */
+                    <>
+                      {Array.from({ length: 9 }).map((_, i) => (
+                        <div key={`sk-${i}`} className={`rounded-lg aspect-square ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-200/60'}`} />
+                      ))}
+                    </>
+                  ) : (
+                    /* Connected but no published media yet */
+                    <>
+                      {Array.from({ length: 9 }).map((_, i) => (
+                        <div key={`em-${i}`} className={`rounded-lg aspect-square animate-pulse ${isDarkMode ? 'bg-slate-800/40' : 'bg-slate-200/40'}`} />
+                      ))}
                     </>
                   )}
                 </div>
-                <button
-                  onClick={() => router.push(`/portal/dashboard/${orgId}/agentic-campaigning`)}
-                  className={`mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  {igConnected ? 'Go to Content Creator' : 'Connect Instagram'}
-                </button>
+                {/* Gradient fade into button area */}
+                <div className="shrink-0 relative">
+                  <div className={`absolute -top-10 inset-x-0 h-10 pointer-events-none ${isDarkMode ? 'bg-gradient-to-t from-slate-900 to-transparent' : 'bg-gradient-to-t from-white to-transparent'}`} />
+                  <button
+                    onClick={() => router.push(`/portal/dashboard/${orgId}/agentic-campaigning`)}
+                    className={`relative z-10 mt-2 w-full py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    {igConnected ? 'Go to Content Creator' : 'Connect Instagram'}
+                  </button>
+                </div>
               </div>
             </CmsTileWrapper>
           </div>
@@ -701,10 +662,10 @@ export function SolTheoryHome() {
           <div className="flex flex-col lg:flex-row gap-5 w-full">
             {/* Slot 5: Aspect 16:9 (Wide, Large) -> Two-column grid of AI Agent Operations and CRM Funnel */}
             <div className="flex-[8] aspect-auto lg:aspect-[16/9] hidden md:grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-              {/* Tile 9: AI Agent Operations */}
-              <CmsTileWrapper tileId="tile-9" tileName="Tile 9" className="h-full">
+              {/* Tile 9: Agentic Prospecting Feed */}
+              <CmsTileWrapper tileId="tile-9" tileName="Agentic Prospecting" className="h-full">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
-                <AIAgentOperationsWidget orgId={orgId} />
+                <AgenticProspectingFeed orgId={orgId} />
               </div>
               </CmsTileWrapper>
 
@@ -718,10 +679,10 @@ export function SolTheoryHome() {
 
             {/* Slot 6: Aspect 2:3 (Narrow, Tall) -> Splits vertically into 2 cards (Blank White Cards) */}
             <div className="flex-[3] aspect-auto lg:aspect-[2/3] flex flex-col gap-5">
-              {/* Card 6A: Upcoming Milestones (Deadlines Widget) */}
-              <CmsTileWrapper tileId="tile-10" tileName="Tile 10" className="flex-1">
+              {/* Card 6A: Weekly Calendar Grid */}
+              <CmsTileWrapper tileId="tile-10" tileName="Weekly Calendar" className="flex-1">
               <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
-                <UpcomingDeadlinesWidget />
+                <WeeklyCalendarGrid orgId={orgId} />
               </div>
               </CmsTileWrapper>
 

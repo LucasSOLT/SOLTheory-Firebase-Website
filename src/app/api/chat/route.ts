@@ -2012,23 +2012,41 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             try {
               await initAdmin();
               const adminDb = getAdminFirestore();
-              const configRef = adminDb.collection("grant_agent_config").doc("soltheory");
-              const configSnap = await configRef.get();
-              const configData = configSnap.exists ? configSnap.data() : {};
-              const agents = configData?.agents || {};
 
-              // Find first available slot
+              // Query grant_sessions for this org to find an existing session or available slot
+              const sessionsSnap = await adminDb.collection("grant_sessions")
+                .where("orgId", "==", orgId)
+                .get();
+
+              // Collect all agents across all sessions to find an available slot
               const slotIds = ["agent_1", "agent_2", "agent_3", "agent_4"];
               const slotNames = ["Grant Scout Alpha", "Grant Scout Beta", "Grant Scout Gamma", "Grant Scout Delta"];
+
+              // Use the first session if one exists, otherwise we'll create a new one
+              let targetSessionRef: FirebaseFirestore.DocumentReference | null = null;
+              let existingAgents: Record<string, any> = {};
               let targetSlot: string | null = null;
               let targetIdx = -1;
-              for (let i = 0; i < slotIds.length; i++) {
-                const slot = agents[slotIds[i]];
-                if (!slot || !slot.active || !slot.config) {
-                  targetSlot = slotIds[i];
-                  targetIdx = i;
-                  break;
+
+              if (!sessionsSnap.empty) {
+                // Use first existing session
+                const sessionDoc = sessionsSnap.docs[0];
+                targetSessionRef = sessionDoc.ref;
+                existingAgents = sessionDoc.data()?.agents || {};
+
+                // Find first available slot in this session
+                for (let i = 0; i < slotIds.length; i++) {
+                  const slot = existingAgents[slotIds[i]];
+                  if (!slot || !slot.active || !slot.config) {
+                    targetSlot = slotIds[i];
+                    targetIdx = i;
+                    break;
+                  }
                 }
+              } else {
+                // No sessions exist — we'll create one; slot 1 is open
+                targetSlot = "agent_1";
+                targetIdx = 0;
               }
 
               if (!targetSlot) {
@@ -2036,9 +2054,9 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                   error: "All 4 subagent slots are currently full and active. The user must delete an existing agent before spawning a new one. Tell the user which agents are running and ask which one to replace.",
                   activeAgents: slotIds.map((id, i) => ({
                     slot: i + 1,
-                    name: agents[id]?.name || slotNames[i],
-                    active: agents[id]?.active ?? false,
-                    keywords: agents[id]?.config?.welfareKeywords || [],
+                    name: existingAgents[id]?.name || slotNames[i],
+                    active: existingAgents[id]?.active ?? false,
+                    keywords: existingAgents[id]?.config?.welfareKeywords || [],
                   }))
                 });
               } else {
@@ -2054,25 +2072,57 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                   intervalUnit: args.intervalUnit || "minutes",
                   companyDescription: args.companyDescription || orgProfileData?.companyDescription || "Nonprofit organization providing social services, housing support, workforce development, and community engagement programs.",
                   welfareKeywords: args.welfareKeywords || ["501(c)(3) grants"],
+                  eligibilityType: "nonprofit_501c3",
+                  serviceAreas: args.serviceAreas || [],
+                  populationsServed: args.populationsServed || [],
+                  eligibilityTypes: args.eligibilityTypes || ["nonprofit_501c3"],
+                  fundingInstruments: args.fundingInstruments || [],
+                  fundingSources: args.fundingSources || ["federal"],
+                  geoScope: args.geoScope || "state",
+                  deadlineWindow: args.deadlineWindow || "any",
+                  orgBudget: null,
+                  orgStaffSize: null,
+                  orgEin: "",
+                  orgSamUei: "",
+                  orgYearFounded: null,
                 };
 
                 const agentName = args.agentName || slotNames[targetIdx];
 
-                // Write to Firestore — AgentWorkerController picks this up via onSnapshot
-                const updatedAgents = { ...agents };
+                const updatedAgents = { ...existingAgents };
                 updatedAgents[targetSlot] = {
                   name: agentName,
                   config: newConfig,
                   active: true,
                 };
 
-                await configRef.set({
-                  agents: updatedAgents,
-                  updatedAt: new Date(),
-                  updatedBy: uid || "jarvis-chat",
-                  // Reset scan timing so the agent starts scanning immediately
-                  [`lastScanTimes.${targetSlot}`]: null,
-                }, { merge: true });
+                if (targetSessionRef) {
+                  // Update existing session — merge agents + reset timing gate
+                  await targetSessionRef.set({
+                    agents: updatedAgents,
+                    config: newConfig,
+                    updatedAt: FieldValue.serverTimestamp(),
+                    updatedBy: uid || "jarvis-chat",
+                    lastScanTimes: { [targetSlot]: null },
+                  }, { merge: true });
+                } else {
+                  // Create a brand-new session document
+                  const sessionId = `session_${Date.now()}`;
+                  targetSessionRef = adminDb.collection("grant_sessions").doc(sessionId);
+                  await targetSessionRef.set({
+                    orgId,
+                    name: `Chat Agent — ${agentName}`,
+                    color: "indigo",
+                    config: newConfig,
+                    agents: updatedAgents,
+                    lastScanTimes: {},
+                    searchMode: "federal",
+                    createdAt: FieldValue.serverTimestamp(),
+                    updatedAt: FieldValue.serverTimestamp(),
+                    updatedBy: uid || "jarvis-chat",
+                    active: true,
+                  });
+                }
 
                 functionResult = JSON.stringify({
                   result: `Successfully spawned grant prospecting subagent in slot ${targetIdx + 1}.`,
@@ -2094,11 +2144,17 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             try {
               await initAdmin();
               const adminDb = getAdminFirestore();
-              const configSnap = await adminDb.collection("grant_agent_config").doc("soltheory").get();
-              const configData = configSnap.exists ? configSnap.data() : {};
-              const agents = configData?.agents || {};
+              const sessionsSnap = await adminDb.collection("grant_sessions")
+                .where("orgId", "==", orgId)
+                .get();
+
               const slotIds = ["agent_1", "agent_2", "agent_3", "agent_4"];
               const slotNames = ["Grant Scout Alpha", "Grant Scout Beta", "Grant Scout Gamma", "Grant Scout Delta"];
+
+              // Aggregate agents from the first session (matches UI behavior)
+              const agents: Record<string, any> = !sessionsSnap.empty
+                ? (sessionsSnap.docs[0].data()?.agents || {})
+                : {};
 
               const slots = slotIds.map((id, i) => {
                 const slot = agents[id];
@@ -2120,6 +2176,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                 result: `${activeCount} of 4 agent slots are active.`,
                 slots,
                 availableSlots: 4 - activeCount,
+                sessionCount: sessionsSnap.size,
               });
             } catch (listErr: any) {
               functionResult = JSON.stringify({ error: "Failed to list grant agents: " + listErr.message });
@@ -2132,30 +2189,36 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               } else {
                 await initAdmin();
                 const adminDb = getAdminFirestore();
-                const configRef = adminDb.collection("grant_agent_config").doc("soltheory");
-                const configSnap = await configRef.get();
-                const configData = configSnap.exists ? configSnap.data() : {};
-                const agents = configData?.agents || {};
-                const slotId = `agent_${slotNum}`;
-                const slotName = agents[slotId]?.name || `Agent ${slotNum}`;
+                const sessionsSnap = await adminDb.collection("grant_sessions")
+                  .where("orgId", "==", orgId)
+                  .get();
 
-                // Deactivate the slot
-                const updatedAgents = { ...agents };
-                updatedAgents[slotId] = {
-                  ...updatedAgents[slotId],
-                  active: false,
-                  config: null,
-                };
+                if (sessionsSnap.empty) {
+                  functionResult = JSON.stringify({ error: "No active grant sessions found for this organization." });
+                } else {
+                  const sessionDoc = sessionsSnap.docs[0];
+                  const agents = sessionDoc.data()?.agents || {};
+                  const slotId = `agent_${slotNum}`;
+                  const slotName = agents[slotId]?.name || `Agent ${slotNum}`;
 
-                await configRef.set({
-                  agents: updatedAgents,
-                  updatedAt: new Date(),
-                  updatedBy: uid || "jarvis-chat",
-                }, { merge: true });
+                  // Deactivate the slot
+                  const updatedAgents = { ...agents };
+                  updatedAgents[slotId] = {
+                    ...updatedAgents[slotId],
+                    active: false,
+                    config: null,
+                  };
 
-                functionResult = JSON.stringify({
-                  result: `Successfully deactivated and cleared agent in slot ${slotNum} ("${slotName}"). The slot is now available for a new agent.`,
-                });
+                  await sessionDoc.ref.set({
+                    agents: updatedAgents,
+                    updatedAt: FieldValue.serverTimestamp(),
+                    updatedBy: uid || "jarvis-chat",
+                  }, { merge: true });
+
+                  functionResult = JSON.stringify({
+                    result: `Successfully deactivated and cleared agent in slot ${slotNum} ("${slotName}"). The slot is now available for a new agent.`,
+                  });
+                }
               }
             } catch (delErr: any) {
               functionResult = JSON.stringify({ error: "Failed to delete grant agent: " + delErr.message });

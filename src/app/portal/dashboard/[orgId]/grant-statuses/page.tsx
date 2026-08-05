@@ -1,18 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, onSnapshot, query, where, doc, updateDoc, deleteDoc, addDoc, Timestamp } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
 import { logActivity } from "@/lib/activity-logger";
 import { useGrantSessions } from "@/hooks/useGrantSessions";
+import { useTheme } from "@/components/ThemeProvider";
+import { GrantAgentConfigModal, type GrantAgentConfig } from '@/components/portal/GrantAgentConfigModal';
+import { SessionSwitcher } from '@/components/portal/SessionSwitcher';
+import { useOrgProfile } from '@/hooks/useOrgProfile';
+import { useGrantScanStatus } from '@/hooks/useGrantScanStatus';
+import { AgentWorkerController } from '@/components/portal/AgentWorkerController';
+import { SERVICE_AREA_GROUPS } from '@/data/service-areas';
+import { POPULATION_CATEGORIES } from '@/data/populations';
 import {
   ArrowLeft, ChevronDown, Loader2, AlertCircle, ScrollText, Search,
   Send, CheckCircle2, XCircle, Building2, Calendar, DollarSign, Tag,
   FileText, ShieldCheck, Layers, Globe, ExternalLink, Trash2, CheckSquare,
   TrendingUp, Clock, AlertTriangle, Filter, ArrowUpDown, Sparkles,
   Timer, Target, Zap, X, Download, PlusCircle, StickyNote, ClipboardCheck,
-  BookOpen, Save,
+  BookOpen, Save, MonitorSmartphone, MapPin, Users, Brain
 } from "lucide-react";
 
 /* ——— Types ——— */
@@ -112,15 +120,21 @@ function fixGrantUrl(url: string | undefined | null): string | null {
   return URL_FIXUPS[url] || url;
 }
 
-const STATUS_STYLES: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
+const STATUS_STYLES_LIGHT: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
   approved: { label: "Approved", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-500" },
   denied: { label: "Denied", bg: "bg-red-50", text: "text-red-600", border: "border-red-200", dot: "bg-red-500" },
   applied: { label: "Applied", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", dot: "bg-amber-500" },
   unapplied: { label: "New", bg: "bg-slate-50", text: "text-slate-500", border: "border-slate-200", dot: "bg-slate-400" },
 };
+const STATUS_STYLES_DARK: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
+  approved: { label: "Approved", bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", dot: "bg-emerald-500" },
+  denied: { label: "Denied", bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", dot: "bg-red-500" },
+  applied: { label: "Applied", bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", dot: "bg-amber-500" },
+  unapplied: { label: "New", bg: "bg-slate-500/10", text: "text-slate-400", border: "border-slate-500/20", dot: "bg-slate-400" },
+};
 
 /* ═══ Relevance Ring ═══ */
-function RelevanceRing({ score }: { score: number | null }) {
+function RelevanceRing({ score, dark }: { score: number | null; dark?: boolean }) {
   if (score == null || score <= 0) return null;
   const radius = 18;
   const circumference = 2 * Math.PI * radius;
@@ -130,14 +144,14 @@ function RelevanceRing({ score }: { score: number | null }) {
   return (
     <div className="relative w-12 h-12 shrink-0">
       <svg className="w-12 h-12 -rotate-90" viewBox="0 0 44 44">
-        <circle cx="22" cy="22" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="3" />
+        <circle cx="22" cy="22" r={radius} fill="none" stroke={dark ? "#2a2b30" : "#e2e8f0"} strokeWidth="3" />
         <circle
           cx="22" cy="22" r={radius} fill="none" stroke={color} strokeWidth="3"
           strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
           strokeLinecap="round" className="transition-all duration-700"
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-slate-700">
+      <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-extrabold ${dark ? "text-slate-300" : "text-slate-700"}`}>
         {score}%
       </span>
     </div>
@@ -186,33 +200,36 @@ function DeadlineBadge({ closeDate }: { closeDate: any }) {
 
 /* ═══ Detail Field ═══ */
 function DetailField({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
+  const { isDarkMode: dk } = useTheme();
   return (
     <div className="flex gap-3">
-      <div className="w-8 h-8 rounded-lg bg-[#faf6ed] border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+      <div className={`w-8 h-8 rounded-lg ${dk ? "bg-[#15161a] border-[#1e2028]" : "bg-[#faf6ed] border-slate-100"} flex items-center justify-center shrink-0 mt-0.5`}>
         <Icon className="w-4 h-4 text-slate-400" />
       </div>
       <div className="min-w-0">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
-        <div className="text-sm text-slate-700 leading-relaxed">{value}</div>
+        <div className={`text-sm ${dk ? "text-slate-300" : "text-slate-700"} leading-relaxed`}>{value}</div>
       </div>
     </div>
   );
 }
 
 /* ═══ KPI Card ═══ */
-function KpiCard({ label, value, subtitle, gradient, borderColor, textColor, icon: Icon, pulse }: {
+function KpiCard({ label, value, subtitle, gradient, darkGradient, borderColor, darkBorderColor, textColor, darkTextColor, icon: Icon, pulse }: {
   label: string; value: string | number; subtitle: string;
-  gradient: string; borderColor: string; textColor: string;
+  gradient: string; darkGradient?: string; borderColor: string; darkBorderColor?: string;
+  textColor: string; darkTextColor?: string;
   icon: any; pulse?: boolean;
 }) {
+  const { isDarkMode: dk } = useTheme();
   return (
-    <div className={`${gradient} border ${borderColor} rounded-2xl p-4 relative overflow-hidden group hover:shadow-md transition-all duration-300`}>
+    <div className={`${dk ? (darkGradient || 'bg-[#111214]') : gradient} border ${dk ? (darkBorderColor || 'border-[#1e2028]') : borderColor} rounded-2xl p-4 relative overflow-hidden group hover:shadow-md transition-all duration-300`}>
       <div className="absolute -right-3 -top-3 opacity-[0.07] group-hover:opacity-[0.12] transition-opacity duration-500">
         <Icon className="w-20 h-20" />
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className={`text-2xl font-extrabold ${textColor} tabular-nums mt-0.5 ${pulse ? "animate-pulse" : ""}`}>{value}</p>
-      <p className="text-[11px] text-slate-400 mt-1">{subtitle}</p>
+      <p className={`text-[10px] font-bold uppercase tracking-wider ${dk ? 'text-slate-500' : 'text-slate-400'}`}>{label}</p>
+      <p className={`text-2xl font-extrabold ${dk ? (darkTextColor || 'text-slate-100') : textColor} tabular-nums mt-0.5 ${pulse ? "animate-pulse" : ""}`}>{value}</p>
+      <p className={`text-[11px] ${dk ? 'text-slate-500' : 'text-slate-400'} mt-1`}>{subtitle}</p>
     </div>
   );
 }
@@ -244,12 +261,16 @@ function GrantCard({
   onSaveNotes: (id: string, notes: string) => void;
   onUpdateField: (id: string, field: string, value: any) => void;
   onToggleChecklist: (id: string, itemKey: string, checked: boolean) => void;
+  dk?: boolean;
 }) {
+  const { isDarkMode: dk } = useTheme();
   const contentRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   const [localNotes, setLocalNotes] = useState(grant.notes || "");
   const notesTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const STATUS_STYLES = dk ? STATUS_STYLES_DARK : STATUS_STYLES_LIGHT;
 
   useEffect(() => {
     if (isExpanded && contentRef.current) {
@@ -274,20 +295,27 @@ function GrantCard({
   const fundingAgencyLevels = grant.fundingAgencyLevels?.length ? grant.fundingAgencyLevels : ["Federal", "State Pass-Through", "Local/Municipal"];
 
   const cardBorder = isUrgent
-    ? "border-red-200/70 shadow-red-100/40"
+    ? (dk ? "border-red-500/30 shadow-red-500/10" : "border-red-200/70 shadow-red-100/40")
     : grant.status === "approved"
-    ? "border-emerald-100/70"
+    ? (dk ? "border-emerald-500/20" : "border-emerald-100/70")
     : grant.status === "denied"
-    ? "border-red-100/50"
-    : "border-slate-100/80";
+    ? (dk ? "border-red-500/20" : "border-red-100/50")
+    : (dk ? "border-[#1e2028]" : "border-slate-100/80");
 
   return (
     <div
       ref={(el) => { outerRef.current = el; onCardRef?.(el); }}
-      className={`bg-[#faf8f3] rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${cardBorder} ${
+      className={`${dk ? "bg-[#111214]" : "bg-[#fffdf8]"} rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${cardBorder} ${
         isSelected ? "ring-2 ring-indigo-400/40" : ""
       }`}
     >
+      {/* Status accent bar */}
+      <div className={`h-[3px] w-full ${
+        grant.status === 'approved' ? 'bg-emerald-500'
+        : grant.status === 'applied' ? 'bg-amber-500'
+        : grant.status === 'denied' ? 'bg-red-500'
+        : (dk ? 'bg-indigo-500/40' : 'bg-indigo-400/30')
+      }`} />
       {/* ── Card Header ── */}
       <div className="px-5 pt-4 pb-3 cursor-pointer group" onClick={onToggle}>
         <div className="flex items-start gap-3">
@@ -305,7 +333,7 @@ function GrantCard({
           {/* Title & Meta */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
-              <h3 className="text-sm font-bold text-slate-800 leading-tight truncate group-hover:text-indigo-700 transition-colors">
+              <h3 className={`text-sm font-bold leading-tight truncate group-hover:text-indigo-700 transition-colors ${dk ? "text-slate-100" : "text-slate-800"}`}>
                 {grant.title}
               </h3>
             </div>
@@ -314,12 +342,12 @@ function GrantCard({
               {/* Source badges */}
               {(grant.sources && grant.sources.length > 0) ? (
                 grant.sources.map((src) => (
-                  <span key={src} className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200/60 text-indigo-500">
+                  <span key={src} className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${dk ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border border-indigo-200/60 text-indigo-500'}`}>
                     {src}
                   </span>
                 ))
               ) : grant.sourceWebsite ? (
-                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200/60 text-indigo-500">
+                <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${dk ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border border-indigo-200/60 text-indigo-500'}`}>
                   {grant.sourceWebsite}
                 </span>
               ) : null}
@@ -327,7 +355,7 @@ function GrantCard({
           </div>
 
           {/* Relevance Ring */}
-          <RelevanceRing score={grant.relevanceScore ?? null} />
+          <RelevanceRing score={grant.relevanceScore ?? null} dark={dk} />
 
           {/* Status Badge */}
           <div className="shrink-0 pt-0.5">
@@ -465,7 +493,7 @@ function GrantCard({
       >
         <div
           ref={contentRef}
-          className="border-t border-slate-100/60 px-6 py-5 bg-[#faf6ed]/30"
+          className={`border-t ${dk ? "border-[#1e2028] bg-[#0c0d0f]" : "border-slate-100/60 bg-[#faf6ed]/30"} px-6 py-5`}
         >
           {/* Relevance explanation block */}
           {grant.relevanceExplanation && (
@@ -489,7 +517,7 @@ function GrantCard({
               <DetailField
                 icon={FileText}
                 label="Description"
-                value={<p className="text-[13px] text-slate-600 leading-relaxed">{description}</p>}
+                value={<p className={`text-[13px] ${dk ? "text-slate-400" : "text-slate-600"} leading-relaxed`}>{description}</p>}
               />
               <DetailField icon={Building2} label="Provider" value={grant.agency} />
               <DetailField
@@ -505,7 +533,7 @@ function GrantCard({
               <DetailField
                 icon={DollarSign}
                 label="Funding Value"
-                value={<span className={`text-base font-extrabold ${grant.amount != null ? "text-slate-800" : "text-slate-400 italic text-sm"}`}>{formatCurrency(grant.amount)}</span>}
+                value={<span className={`text-base font-extrabold ${grant.amount != null ? (dk ? "text-slate-100" : "text-slate-800") : "text-slate-400 italic text-sm"}`}>{formatCurrency(grant.amount)}</span>}
               />
             </div>
 
@@ -564,7 +592,7 @@ function GrantCard({
               }}
               onClick={(e) => e.stopPropagation()}
               placeholder="Add notes about this opportunity, application progress, contacts..."
-              className="w-full text-[13px] text-slate-700 bg-white/80 border border-slate-200 rounded-xl p-3 resize-y min-h-[60px] focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 placeholder:text-slate-300"
+              className={`w-full text-[13px] ${dk ? "bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500" : "bg-white/80 border-slate-200 text-slate-700 placeholder:text-slate-300"} rounded-xl p-3 resize-y min-h-[60px] focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300`}
               rows={2}
             />
           </div>
@@ -584,7 +612,7 @@ function GrantCard({
                   }}
                   onClick={(e) => e.stopPropagation()}
                   placeholder="0"
-                  className="w-40 pl-7 pr-3 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className={`w-40 pl-7 pr-3 py-2 text-sm font-semibold ${dk ? "bg-[#15161a] border-[#1e2028] text-slate-100" : "bg-white border-slate-200 text-slate-700"} rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300`}
                 />
               </div>
             </div>
@@ -729,6 +757,8 @@ function GrantCard({
    ═══════════════════════════════════════════════════════════ */
 export default function GrantStatusesPage() {
   const { user } = useUser();
+  const { isDarkMode } = useTheme();
+  const dk = isDarkMode;
   const firestore = useFirestore();
   const router = useRouter();
   const { orgId } = useParams<{ orgId: string }>();
@@ -748,7 +778,27 @@ export default function GrantStatusesPage() {
   const [filterSources, setFilterSources] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<string>("all");
   const [showAddGrant, setShowAddGrant] = useState(false);
-  const { sessions, activeSessionId, setActiveSessionId } = useGrantSessions(orgId);
+  
+  const {
+    sessions, activeSession, activeSessionId, setActiveSessionId,
+    createSession, updateSession, deleteSession, renameSession, canCreateMore,
+    loading: sessionsLoading,
+  } = useGrantSessions(orgId);
+  const { orgProfile, saveOrgProfile } = useOrgProfile(orgId);
+  const { status: scanStatus, message: scanMessage, isScanning } = useGrantScanStatus();
+
+  const [showNewSessionWizard, setShowNewSessionWizard] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+
+  // Discovery flash: briefly highlight session pill green when grants found
+  const [discoveryFlash, setDiscoveryFlash] = useState(false);
+  useEffect(() => {
+    if (scanStatus === 'found') {
+      setDiscoveryFlash(true);
+      const timer = setTimeout(() => setDiscoveryFlash(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [scanStatus]);
 
   // Card refs for scroll-to
   const cardRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -1132,7 +1182,9 @@ export default function GrantStatusesPage() {
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-[#faf6ed]">
+    <div className={`h-full w-full flex flex-col ${dk ? "bg-[#0a0b0d]" : "bg-[#faf6ed]"}`}>
+      {/* Mount the worker controller so scanning runs on this page */}
+      <AgentWorkerController />
       {/* ═══ Header ═══ */}
       <div className="shrink-0 px-6 lg:px-8 pt-6 pb-2">
         <button
@@ -1146,10 +1198,16 @@ export default function GrantStatusesPage() {
         <div className="flex items-start justify-between mb-1">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Grant Command Center</h1>
+              <h1 className={`text-2xl font-extrabold tracking-tight ${dk ? "text-slate-100" : "text-slate-900"}`}>Grant Command Center</h1>
               {!loading && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200/60 text-indigo-500 tabular-nums">
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full tabular-nums ${dk ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border border-indigo-200/60 text-indigo-500'}`}>
                   {grants.length} grants
+                </span>
+              )}
+              {isScanning && (
+                <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full ${dk ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border border-emerald-200 text-emerald-600'}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Agent scanning
                 </span>
               )}
             </div>
@@ -1168,14 +1226,14 @@ export default function GrantStatusesPage() {
             <button
               onClick={exportCsv}
               disabled={processedGrants.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${dk ? "border-[#1e2028] text-slate-400 hover:bg-[#111214]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
             >
               <Download className="w-3.5 h-3.5" />
               Export CSV
             </button>
             <button
               onClick={() => router.push(`/portal/dashboard/${orgId}/grant-statuses/grant-writing-guide`)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${dk ? "border-[#1e2028] text-slate-400 hover:bg-[#111214]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
             >
               <BookOpen className="w-3.5 h-3.5" />
               Guide
@@ -1197,7 +1255,7 @@ export default function GrantStatusesPage() {
                 className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                   !activeSessionId
                     ? "bg-indigo-600 text-white shadow-sm"
-                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    : (dk ? "bg-[#1e2028] text-slate-400 hover:bg-[#2a2d3d]" : "bg-slate-100 text-slate-500 hover:bg-slate-200")
                 }`}
               >
                 All Sessions
@@ -1209,7 +1267,7 @@ export default function GrantStatusesPage() {
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeSessionId === s.id
                       ? "bg-indigo-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      : (dk ? "bg-[#1e2028] text-slate-400 hover:bg-[#2a2d3d]" : "bg-slate-100 text-slate-500 hover:bg-slate-200")
                   }`}
                 >
                   {s.name}
@@ -1232,13 +1290,116 @@ export default function GrantStatusesPage() {
                 className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                   filterMode === f.key
                     ? f.key === "philanthropic" ? "bg-amber-500 text-white shadow-sm" : "bg-indigo-600 text-white shadow-sm"
-                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    : (dk ? "bg-[#1e2028] text-slate-400 hover:bg-[#2a2d3d]" : "bg-slate-100 text-slate-500 hover:bg-slate-200")
                 }`}
               >
                 {f.label}
               </button>
             ))}
           </div>
+
+          {/* ── Session Switcher with CRUD ── */}
+          <div className={`rounded-xl border p-4 mb-4 transition-all duration-500 ${discoveryFlash ? (dk ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-300') : (dk ? 'bg-[#111214] border-[#1e2028]' : 'bg-white border-slate-200')}`}>
+            {discoveryFlash && (
+              <div className={`flex items-center gap-2 mb-3 ${dk ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="text-[12px] font-bold">✓ New grants found</span>
+              </div>
+            )}
+            <SessionSwitcher
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onSelectSession={setActiveSessionId}
+              onCreateSession={() => setShowNewSessionWizard(true)}
+              onDeleteSession={(id) => deleteSession(id, true)}
+              onRenameSession={renameSession}
+              onEditSession={(id) => setEditingSessionId(id)}
+              onDuplicateSession={async (id) => {
+                const src = sessions.find((s: any) => s.id === id);
+                if (!src) return;
+                await createSession(src.name + " (Copy)", src.config, undefined, src.searchMode === 'federal' ? undefined : src.searchMode as any);
+              }}
+              canCreateMore={canCreateMore}
+              loading={sessionsLoading}
+            />
+          </div>
+
+
+          {/* ── Active filter summary strip ── */}
+          {activeSession && (() => {
+            const cfg = (activeSession as any).config;
+            if (!cfg) return null;
+            const tags: { icon: React.ReactNode; text: string }[] = [];
+
+            // Location
+            if (cfg.locationCity && cfg.locationState) {
+              tags.push({ icon: <MapPin className="w-3 h-3" />, text: `${cfg.locationCity}, ${cfg.locationState}` });
+            } else if (cfg.locationState) {
+              tags.push({ icon: <MapPin className="w-3 h-3" />, text: cfg.locationState });
+            } else if (cfg.geoScope === 'nationwide') {
+              tags.push({ icon: <MapPin className="w-3 h-3" />, text: 'Nationwide' });
+            }
+
+            // Service areas (show up to 3)
+            if (cfg.serviceAreas?.length > 0) {
+              const labels = cfg.serviceAreas.slice(0, 3).map((id: string) => {
+                for (const g of SERVICE_AREA_GROUPS) {
+                  const sub = g.subcategories.find((s: any) => s.id === id);
+                  if (sub) return sub.label.split(' & ')[0];
+                }
+                return id;
+              });
+              const extra = cfg.serviceAreas.length > 3 ? ` +${cfg.serviceAreas.length - 3}` : '';
+              tags.push({ icon: <FileText className="w-3 h-3" />, text: labels.join(', ') + extra });
+            }
+
+            // Budget
+            if (cfg.budgetMin || cfg.budgetMax) {
+              const fmt = (n: number) => n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : `$${n}`;
+              if (cfg.budgetMin && cfg.budgetMax) {
+                tags.push({ icon: <DollarSign className="w-3 h-3" />, text: `${fmt(cfg.budgetMin)}–${fmt(cfg.budgetMax)}` });
+              } else if (cfg.budgetMin) {
+                tags.push({ icon: <DollarSign className="w-3 h-3" />, text: `${fmt(cfg.budgetMin)}+` });
+              } else if (cfg.budgetMax) {
+                tags.push({ icon: <DollarSign className="w-3 h-3" />, text: `Up to ${fmt(cfg.budgetMax)}` });
+              }
+            }
+
+            // Deadline
+            if (cfg.deadlineWindow && cfg.deadlineWindow !== 'any') {
+              const dl: Record<string, string> = { '30': '30 days', '60': '60 days', '90': '90 days', '180': '6 months', 'custom': 'Custom' };
+              tags.push({ icon: <Calendar className="w-3 h-3" />, text: dl[cfg.deadlineWindow] || cfg.deadlineWindow });
+            }
+
+            // Populations (show up to 2)
+            if (cfg.populationsServed?.length > 0) {
+              const popLabels = cfg.populationsServed.slice(0, 2).map((id: string) => {
+                const cat = POPULATION_CATEGORIES?.find?.((p: any) => p.id === id);
+                return cat?.label?.split(' (')[0] || id;
+              });
+              const extra = cfg.populationsServed.length > 2 ? ` +${cfg.populationsServed.length - 2}` : '';
+              tags.push({ icon: <Users className="w-3 h-3" />, text: popLabels.join(', ') + extra });
+            }
+
+            if (tags.length === 0) return null;
+
+            return (
+              <div className="flex flex-wrap items-center gap-2 mb-4 px-1">
+                {tags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors ${
+                      dk ? 'bg-[#1a1b1f] text-slate-400 border border-[#252730]' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    {tag.icon}
+                    {tag.text}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
+
 
           {loading ? (
             <div className="flex items-center justify-center py-32">
@@ -1255,26 +1416,6 @@ export default function GrantStatusesPage() {
               <h3 className="text-base font-bold text-red-700 mb-1">Failed to Load</h3>
               <p className="text-sm text-red-500">{error}</p>
             </div>
-          ) : grants.length === 0 ? (
-            /* ═══ Empty State ═══ */
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex items-center justify-center mb-6 shadow-sm">
-                <ScrollText className="w-12 h-12 text-indigo-300" />
-              </div>
-              <h3 className="text-xl font-extrabold text-slate-700 mb-2">No Grants Yet</h3>
-              <p className="text-sm text-slate-400 max-w-sm leading-relaxed mb-6">
-                Your grant agents haven&apos;t found any opportunities yet. Once deployed, discovered grants will appear here automatically.
-              </p>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => router.push(`/portal/dashboard/${orgId}`)}
-                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Configure Search Agents
-                </button>
-              </div>
-            </div>
           ) : (
             <>
               {/* ═══ Section 1: KPI Header Strip ═══ */}
@@ -1284,8 +1425,11 @@ export default function GrantStatusesPage() {
                   value={kpis.totalFound}
                   subtitle={`from ${kpis.sourceCount} source${kpis.sourceCount !== 1 ? "s" : ""}`}
                   gradient="bg-gradient-to-br from-indigo-500/10 to-violet-500/10"
+                  darkGradient="bg-gradient-to-br from-indigo-500/8 to-violet-500/8"
                   borderColor="border-indigo-200/50"
+                  darkBorderColor="border-indigo-500/20"
                   textColor="text-indigo-600"
+                  darkTextColor="text-indigo-400"
                   icon={Target}
                 />
                 <KpiCard
@@ -1293,8 +1437,11 @@ export default function GrantStatusesPage() {
                   value={kpis.fundingAvailable > 0 ? formatCurrency(kpis.fundingAvailable) : "$0"}
                   subtitle={`${kpis.grantsWithAmounts} grants with amounts`}
                   gradient="bg-gradient-to-br from-emerald-500/10 to-teal-500/10"
+                  darkGradient="bg-gradient-to-br from-emerald-500/8 to-teal-500/8"
                   borderColor="border-emerald-200/50"
+                  darkBorderColor="border-emerald-500/20"
                   textColor="text-emerald-600"
+                  darkTextColor="text-emerald-400"
                   icon={DollarSign}
                 />
                 <KpiCard
@@ -1302,8 +1449,11 @@ export default function GrantStatusesPage() {
                   value={kpis.closingSoon}
                   subtitle={kpis.urgentCount > 0 ? `${kpis.urgentCount} urgent (< 3 days)` : "within 14 days"}
                   gradient="bg-gradient-to-br from-amber-500/10 to-orange-500/10"
+                  darkGradient="bg-gradient-to-br from-amber-500/8 to-orange-500/8"
                   borderColor="border-amber-200/50"
+                  darkBorderColor="border-amber-500/20"
                   textColor="text-amber-600"
+                  darkTextColor="text-amber-400"
                   icon={AlertTriangle}
                   pulse={kpis.urgentCount > 0}
                 />
@@ -1312,14 +1462,17 @@ export default function GrantStatusesPage() {
                   value={`${kpis.appliedCount + kpis.approvedCount}`}
                   subtitle={`${kpis.appliedCount} applied · ${kpis.approvedCount} approved`}
                   gradient="bg-gradient-to-br from-violet-500/10 to-purple-500/10"
+                  darkGradient="bg-gradient-to-br from-violet-500/8 to-purple-500/8"
                   borderColor="border-violet-200/50"
+                  darkBorderColor="border-violet-500/20"
                   textColor="text-violet-600"
+                  darkTextColor="text-violet-400"
                   icon={TrendingUp}
                 />
               </div>
 
               {/* ═══ Section 2: Sort & Filter Toolbar ═══ */}
-              <div className="bg-[#faf8f3] border border-slate-100/80 rounded-2xl p-4 mb-4 space-y-3">
+              <div className={`${dk ? "bg-[#111214] border-[#1e2028]" : "bg-[#faf8f3] border-slate-100/80"} border rounded-2xl p-4 mb-4 space-y-3`}>
                 {/* Row 1: Search + Sort */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="relative flex-1 min-w-[200px] max-w-lg">
@@ -1328,7 +1481,7 @@ export default function GrantStatusesPage() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search by name, agency, or description..."
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400"
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? "bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500 focus:bg-[#15161a]" : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:bg-white"}`}
                     />
                     {searchQuery && (
                       <button
@@ -1345,7 +1498,7 @@ export default function GrantStatusesPage() {
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as SortOption)}
-                      className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all cursor-pointer appearance-none pr-8"
+                      className={`text-xs font-semibold border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all cursor-pointer appearance-none pr-8 ${dk ? "bg-[#15161a] border-[#1e2028] text-slate-400" : "bg-white border-slate-200 text-slate-600"}`}
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: "right 0.5rem center", backgroundRepeat: "no-repeat", backgroundSize: "1.25rem" }}
                     >
                       <option value="relevance">Sort by Relevance</option>
@@ -1380,7 +1533,7 @@ export default function GrantStatusesPage() {
                       className={`text-[11px] font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
                         filterStatus === sf.key
                           ? statusPillColors[sf.key]
-                          : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                          : (dk ? "bg-[#111214] border-[#1e2028] text-slate-400 hover:bg-[#1e2028]" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50")
                       }`}
                     >
                       {sf.label}
@@ -1399,7 +1552,7 @@ export default function GrantStatusesPage() {
                           className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
                             filterSources.has(src)
                               ? "bg-violet-600 text-white border-violet-600"
-                              : "bg-white border-slate-200 text-slate-400 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-500"
+                              : (dk ? "bg-[#111214] border-[#1e2028] text-slate-400 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-violet-400" : "bg-white border-slate-200 text-slate-400 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-500")
                           }`}
                         >
                           {src}
@@ -1410,14 +1563,44 @@ export default function GrantStatusesPage() {
                 </div>
               </div>
 
+              {/* ═══ Visual Divider: Controls → Results ═══ */}
+              <div className={`flex items-center gap-3 my-3 ${dk ? 'text-slate-600' : 'text-slate-300'}`}>
+                <div className={`flex-1 h-px ${dk ? 'bg-gradient-to-r from-transparent via-[#1e2028] to-transparent' : 'bg-gradient-to-r from-transparent via-slate-300 to-transparent'}`} />
+                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 ${dk ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {processedGrants.length > 0
+                    ? `${processedGrants.length} Result${processedGrants.length !== 1 ? 's' : ''}${filterStatus !== 'all' ? ` · ${filterStatus}` : ''}${activeSessionId ? ` · ${sessions.find((s: any) => s.id === activeSessionId)?.name || ''}` : ''}`
+                    : 'Results'
+                  }
+                </span>
+                <div className={`flex-1 h-px ${dk ? 'bg-gradient-to-r from-transparent via-[#1e2028] to-transparent' : 'bg-gradient-to-r from-transparent via-slate-300 to-transparent'}`} />
+              </div>
+
+              {processedGrants.length === 0 ? (
+                <div className={`rounded-2xl border p-10 text-center ${dk ? 'bg-[#111214] border-[#1e2028]' : 'bg-[#fffdf8] border-slate-100'}`}>
+                  <div className={`w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center ${dk ? 'bg-indigo-500/10' : 'bg-indigo-50'}`}>
+                    {isScanning ? (
+                      <Loader2 className={`w-7 h-7 animate-spin ${dk ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                    ) : (
+                      <ScrollText className={`w-7 h-7 ${dk ? 'text-indigo-400' : 'text-indigo-400'}`} />
+                    )}
+                  </div>
+                  <h3 className={`text-base font-bold mb-1.5 ${dk ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {isScanning ? 'Scanning for grants...' : 'No grants found yet'}
+                  </h3>
+                  <p className={`text-sm max-w-sm mx-auto leading-relaxed ${dk ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {isScanning ? 'Your agent is actively searching federal databases. Grants will appear here as they\'re discovered.' : 'Create a search session above and your agent will begin scanning for matching grants.'}
+                  </p>
+                </div>
+              ) : (
+              <>
               {/* ═══ Section 3: Deadline Alerts Banner ═══ */}
               {deadlineAlerts.length > 0 && (
-                <div className="mb-4 bg-gradient-to-r from-amber-50/80 to-red-50/40 border border-amber-200/60 rounded-2xl p-4">
+                <div className={`mb-4 rounded-2xl p-4 border ${dk ? 'bg-gradient-to-r from-amber-500/5 to-red-500/5 border-amber-500/20' : 'bg-gradient-to-r from-amber-50/80 to-red-50/40 border-amber-200/60'}`}>
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dk ? 'bg-amber-500/10' : 'bg-amber-100'}`}>
                       <AlertTriangle className="w-4 h-4 text-amber-600" />
                     </div>
-                    <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+                    <p className={`text-[11px] font-bold uppercase tracking-wider ${dk ? 'text-amber-500' : 'text-amber-700'}`}>
                       Deadline Alerts — {deadlineAlerts.length} grant{deadlineAlerts.length !== 1 ? "s" : ""} closing soon
                     </p>
                   </div>
@@ -1434,14 +1617,14 @@ export default function GrantStatusesPage() {
                           }}
                           className={`flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all cursor-pointer hover:shadow-sm ${
                             isVeryUrgent
-                              ? "bg-red-100/80 border border-red-200 hover:bg-red-100"
-                              : "bg-white/80 border border-amber-200/60 hover:bg-amber-50"
+                              ? (dk ? "bg-red-500/10 border border-red-500/20 hover:bg-red-500/20" : "bg-red-100/80 border border-red-200 hover:bg-red-100")
+                              : (dk ? "bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10" : "bg-white/80 border border-amber-200/60 hover:bg-amber-50")
                           }`}
                         >
-                          <span className={`text-[10px] font-extrabold tabular-nums ${isVeryUrgent ? "text-red-600" : "text-amber-600"}`}>
+                          <span className={`text-[10px] font-extrabold tabular-nums ${isVeryUrgent ? (dk ? "text-red-400" : "text-red-600") : (dk ? "text-amber-400" : "text-amber-600")}`}>
                             {d === 0 ? "TODAY" : `${d}d`}
                           </span>
-                          <span className="text-[11px] font-semibold text-slate-700 truncate max-w-[180px]">{g.title}</span>
+                          <span className={`text-[11px] font-semibold truncate max-w-[180px] ${dk ? "text-slate-300" : "text-slate-700"}`}>{g.title}</span>
                         </button>
                       );
                     })}
@@ -1476,23 +1659,6 @@ export default function GrantStatusesPage() {
               )}
 
               {/* ═══ Section 4: Grant Cards ═══ */}
-              {processedGrants.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
-                    <Search className="w-7 h-7 text-slate-300" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-500 mb-1">No Matching Grants</h3>
-                  <p className="text-xs text-slate-400 max-w-xs">
-                    Try adjusting your search query or filters to find grants.
-                  </p>
-                  <button
-                    onClick={() => { setSearchQuery(""); setFilterStatus("all"); setFilterSources(new Set()); }}
-                    className="mt-4 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
-                  >
-                    Clear all filters
-                  </button>
-                </div>
-              ) : (
                 <div className="space-y-3">
                   {processedGrants.map((grant) => (
                     <GrantCard
@@ -1512,7 +1678,6 @@ export default function GrantStatusesPage() {
                     />
                   ))}
                 </div>
-              )}
 
               {/* Results summary */}
               {processedGrants.length > 0 && (
@@ -1524,6 +1689,8 @@ export default function GrantStatusesPage() {
                   </p>
                 </div>
               )}
+              </>
+              )}
             </>
           )}
         </div>
@@ -1533,13 +1700,13 @@ export default function GrantStatusesPage() {
       {showAddGrant && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowAddGrant(false)}>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+            className={`${dk ? 'bg-[#111214]' : 'bg-white'} rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className={`px-6 py-4 border-b ${dk ? 'border-[#1e2028]' : 'border-slate-100'} flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-indigo-500" />
-                <h2 className="text-lg font-bold text-slate-800">Add Grant Manually</h2>
+                <h2 className={`text-lg font-bold ${dk ? 'text-slate-100' : 'text-slate-800'}`}>Add Grant Manually</h2>
               </div>
               <button onClick={() => setShowAddGrant(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
@@ -1563,27 +1730,27 @@ export default function GrantStatusesPage() {
               className="px-6 py-5 space-y-4"
             >
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Title *</label>
-                <input name="title" required className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="e.g., HUD CoC Planning Grant 2026" />
+                <label className={`text-[11px] font-bold ${dk ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wider block mb-1`}>Title *</label>
+                <input name="title" required className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 ${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500' : 'border-slate-200 bg-white text-slate-800'}`} placeholder="e.g., HUD CoC Planning Grant 2026" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Funder / Agency</label>
-                  <input name="agency" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="e.g., HUD" />
+                  <label className={`text-[11px] font-bold ${dk ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wider block mb-1`}>Funder / Agency</label>
+                  <input name="agency" className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 ${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500' : 'border-slate-200 bg-white text-slate-800'}`} placeholder="e.g., HUD" />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Amount</label>
-                  <input name="amount" type="number" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="500000" />
+                  <label className={`text-[11px] font-bold ${dk ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wider block mb-1`}>Amount</label>
+                  <input name="amount" type="number" className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 ${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500' : 'border-slate-200 bg-white text-slate-800'}`} placeholder="500000" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Deadline</label>
-                  <input name="deadline" type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                  <label className={`text-[11px] font-bold ${dk ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wider block mb-1`}>Deadline</label>
+                  <input name="deadline" type="date" className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 ${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500' : 'border-slate-200 bg-white text-slate-800'}`} />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Source Type</label>
-                  <select name="searchMode" defaultValue="federal" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+                  <label className={`text-[11px] font-bold ${dk ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wider block mb-1`}>Source Type</label>
+                  <select name="searchMode" defaultValue="federal" className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 ${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-100' : 'border-slate-200 bg-white text-slate-800'}`}>
                     <option value="federal">Federal</option>
                     <option value="philanthropic">Philanthropic</option>
                     <option value="other">Other</option>
@@ -1591,15 +1758,15 @@ export default function GrantStatusesPage() {
                 </div>
               </div>
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">URL</label>
-                <input name="url" type="url" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="https://www.grants.gov/..." />
+                <label className={`text-[11px] font-bold ${dk ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wider block mb-1`}>URL</label>
+                <input name="url" type="url" className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 ${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500' : 'border-slate-200 bg-white text-slate-800'}`} placeholder="https://www.grants.gov/..." />
               </div>
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Notes</label>
-                <textarea name="notes" rows={2} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y" placeholder="Any notes about this opportunity..." />
+                <label className={`text-[11px] font-bold ${dk ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wider block mb-1`}>Notes</label>
+                <textarea name="notes" rows={2} className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y ${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-100 placeholder:text-slate-500' : 'border-slate-200 bg-white text-slate-800'}`} placeholder="Any notes about this opportunity..." />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowAddGrant(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 cursor-pointer">Cancel</button>
+                <button type="button" onClick={() => setShowAddGrant(false)} className={`px-4 py-2 text-sm font-semibold cursor-pointer ${dk ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>Cancel</button>
                 <button type="submit" className="px-5 py-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors cursor-pointer">
                   <Save className="w-3.5 h-3.5 inline mr-1.5" />
                   Add Grant
@@ -1609,6 +1776,42 @@ export default function GrantStatusesPage() {
           </div>
         </div>
       )}
+
+      {/* ═══ New Session Wizard Modal ═══ */}
+      {showNewSessionWizard && (
+        <GrantAgentConfigModal
+          onClose={() => setShowNewSessionWizard(false)}
+          onSave={async (config: GrantAgentConfig) => {
+            const newId = await createSession("New Search Session", config, undefined, 'federal');
+            setShowNewSessionWizard(false);
+            if (newId) setActiveSessionId(newId);
+          }}
+          orgProfile={orgProfile}
+          onSaveOrgProfile={saveOrgProfile}
+        />
+      )}
+
+      {/* ═══ Edit Session Modal ═══ */}
+      {editingSessionId && (() => {
+        const s = sessions.find((ses: any) => ses.id === editingSessionId);
+        if (!s) return null;
+        return (
+          <GrantAgentConfigModal
+            onClose={() => setEditingSessionId(null)}
+            onSave={async (config: GrantAgentConfig) => {
+              await updateSession(editingSessionId, {
+                config,
+                agents: { agent_1: { name: "Primary Scout", active: true, config } },
+              });
+              setEditingSessionId(null);
+            }}
+            orgProfile={orgProfile}
+            onSaveOrgProfile={saveOrgProfile}
+            initialConfig={(s as any).config}
+            isEditMode
+          />
+        );
+      })()}
     </div>
   );
 }

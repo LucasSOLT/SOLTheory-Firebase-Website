@@ -24,8 +24,13 @@ import { useOrgId } from "@/contexts/OrgContext";
 import {
   doc,
   getDoc,
+  getDocs,
   addDoc,
   collection,
+  query,
+  where,
+  limit,
+  orderBy,
   Timestamp,
 } from "firebase/firestore";
 
@@ -38,8 +43,19 @@ interface AgentConfig {
   locationCity?: string;
   companyDescription?: string;
   eligibilityType?: string;
-  budgetMin?: number;
-  budgetMax?: number;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  // Config Overhaul fields
+  serviceAreas?: string[];
+  populationsServed?: string[];
+  eligibilityTypes?: string[];
+  fundingInstruments?: string[];
+  fundingSources?: string[];
+  geoScope?: string;
+  deadlineWindow?: string;
+  orgBudget?: number | null;
+  orgStaffSize?: number | null;
+  orgSamUei?: string;
 }
 
 interface SearchResult {
@@ -127,7 +143,7 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
 
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Load agent config from Firestore
+  // Load agent config from grant_sessions (modern) with fallback to legacy grant_agent_config
   useEffect(() => {
     if (!firestore) return;
 
@@ -135,15 +151,34 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
       try {
         setConfigLoading(true);
         setConfigError(null);
-        const configRef = doc(firestore!, "grant_agent_config", orgId);
-        const snap = await getDoc(configRef);
-        if (snap.exists()) {
-          const data = snap.data() as AgentConfig;
-          console.log("[GrantUI] Loaded agent config:", data);
-          setConfig(data);
+
+        // Try modern grant_sessions first
+        const sessionsQuery = query(
+          collection(firestore!, "grant_sessions"),
+          where("orgId", "==", orgId),
+          orderBy("updatedAt", "desc"),
+          limit(1)
+        );
+        const sessionsSnap = await getDocs(sessionsQuery);
+
+        if (!sessionsSnap.empty) {
+          const sessionData = sessionsSnap.docs[0].data();
+          // Prefer session-level config (always present in modern schema)
+          const sessionConfig = (sessionData.config as AgentConfig) || {};
+          console.log("[GrantUI] Loaded config from grant_sessions:", sessionConfig);
+          setConfig(sessionConfig);
         } else {
-          console.log("[GrantUI] No agent config found");
-          setConfig({});
+          // Fallback: try legacy grant_agent_config
+          const configRef = doc(firestore!, "grant_agent_config", orgId);
+          const snap = await getDoc(configRef);
+          if (snap.exists()) {
+            const data = snap.data() as AgentConfig;
+            console.log("[GrantUI] Loaded legacy agent config:", data);
+            setConfig(data);
+          } else {
+            console.log("[GrantUI] No agent config found");
+            setConfig({});
+          }
         }
       } catch (err) {
         console.error("[GrantUI] Failed to load agent config:", err);
@@ -154,7 +189,7 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
     }
 
     loadConfig();
-  }, [firestore]);
+  }, [firestore, orgId]);
 
   // Escape key closes modal
   useEffect(() => {
@@ -201,6 +236,17 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
         eligibilityType: config?.eligibilityType || "nonprofit_501c3",
         budgetMin: config?.budgetMin ?? null,
         budgetMax: config?.budgetMax ?? null,
+        // Config Overhaul fields
+        serviceAreas: config?.serviceAreas || [],
+        populationsServed: config?.populationsServed || [],
+        eligibilityTypes: config?.eligibilityTypes || [],
+        fundingInstruments: config?.fundingInstruments || [],
+        fundingSources: config?.fundingSources || [],
+        geoScope: config?.geoScope || "state",
+        deadlineWindow: config?.deadlineWindow || "any",
+        orgBudget: config?.orgBudget ?? null,
+        orgStaffSize: config?.orgStaffSize ?? null,
+        orgSamUei: config?.orgSamUei || "",
       };
 
       const res = await fetch("/api/grants/search", {
@@ -564,9 +610,27 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
                 />
                 <ConfigField
                   label="Eligibility"
-                  value={config?.eligibilityType || "nonprofit_501c3"}
+                  value={
+                    config?.eligibilityTypes?.length
+                      ? config.eligibilityTypes.join(", ")
+                      : config?.eligibilityType || "nonprofit_501c3"
+                  }
                   dark={isDarkMode}
                 />
+                {config?.serviceAreas && config.serviceAreas.length > 0 && (
+                  <ConfigField
+                    label="Service Areas"
+                    value={config.serviceAreas.join(", ")}
+                    dark={isDarkMode}
+                  />
+                )}
+                {config?.populationsServed && config.populationsServed.length > 0 && (
+                  <ConfigField
+                    label="Populations"
+                    value={config.populationsServed.join(", ")}
+                    dark={isDarkMode}
+                  />
+                )}
               </div>
             )}
           </div>

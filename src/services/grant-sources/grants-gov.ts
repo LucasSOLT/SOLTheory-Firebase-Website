@@ -1,7 +1,7 @@
 // ============================================================================
-// Grants.gov Source Adapter
-// Endpoint: POST https://api.grants.gov/v1/api/search2
-// No API key required.
+// Grants.gov Source Adapter (Simpler Grants API)
+// Endpoint: POST https://api.simpler.grants.gov/v1/opportunities/search
+// Requires: SIMPLER_GRANTS_API_KEY environment variable
 // ============================================================================
 
 import type {
@@ -9,65 +9,112 @@ import type {
   GrantSearchParams,
   NormalizedGrant,
 } from '@/types/grants';
-import {
-  GRANTS_GOV_CATEGORY_MAP,
-  GRANTS_GOV_ELIGIBILITY_MAP,
-} from '@/types/grants';
 import { isInternationalGrant } from './filters';
 
-// ── Grants.gov funding instrument type codes ────────────────────────────────
-const FUNDING_INSTRUMENT_MAP: Record<string, string> = {
-  grant: 'G',
-  cooperative_agreement: 'CA',
-  procurement_contract: 'PC',
-  other: 'O',
-};
-
 const LOG_PREFIX = '[GrantSearch:GrantsGov]';
-const API_URL = 'https://api.grants.gov/v1/api/search2';
-const MAX_RESULTS_PER_KEYWORD = 50; // keep payloads manageable
+const API_URL = 'https://api.simpler.grants.gov/v1/opportunities/search';
+const MAX_RESULTS_PER_KEYWORD = 50;
 const MAX_KEYWORDS = 5;
 
-// ── Raw Grants.gov API response shapes ──────────────────────────────────────
+// ── Simpler Grants API response shapes ──────────────────────────────────────
 
-interface GrantsGovHit {
-  id?: number;
-  number?: string;            // opportunity number
-  title?: string;
-  synopsis?: string;
-  agencyName?: string;
-  agencyCode?: string;
-  openDate?: string;          // MM/DD/YYYY
-  closeDate?: string;         // MM/DD/YYYY
-  archiveDate?: string;       // MM/DD/YYYY
-  awardCeiling?: number;
-  awardFloor?: number;
-  estimatedTotalProgramFunding?: number;
-  categoryOfFundingActivity?: string;
-  cfdaList?: Array<{ cfda?: string }>;
-  eligibleApplicants?: string[];
-  fundingInstrumentType?: string;
-  additionalInformationUrl?: string;
-  oppStatus?: string;
+interface SimplerGrantsSummary {
+  summary_description?: string | null;
+  award_floor?: number | null;
+  award_ceiling?: number | null;
+  estimated_total_program_funding?: number | null;
+  expected_number_of_awards?: number | null;
+  post_date?: string | null;
+  close_date?: string | null;
+  archive_date?: string | null;
+  is_forecast?: boolean;
+  is_cost_sharing?: boolean | null;
+  applicant_types?: string[];
+  applicant_eligibility_description?: string | null;
+  funding_categories?: string[];
+  funding_category_description?: string | null;
+  funding_instruments?: string[];
+  additional_info_url?: string | null;
+  additional_info_url_description?: string | null;
 }
 
-interface GrantsGovResponse {
-  oppHits?: GrantsGovHit[];
-  totalCount?: number;
+interface SimplerGrantsHit {
+  opportunity_id?: string;
+  opportunity_number?: string | null;
+  opportunity_title?: string | null;
+  opportunity_status?: string;
+  agency_code?: string | null;
+  agency_name?: string | null;
+  top_level_agency_name?: string | null;
+  legacy_opportunity_id?: number | null;
+  opportunity_assistance_listings?: Array<{
+    assistance_listing_number?: string | null;
+    program_title?: string | null;
+  }>;
+  summary?: SimplerGrantsSummary;
 }
 
-// ── Date helpers ────────────────────────────────────────────────────────────
-
-/** Convert Grants.gov MM/DD/YYYY → ISO YYYY-MM-DD */
-function toIsoDate(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const parts = raw.split('/');
-  if (parts.length === 3) {
-    const [mm, dd, yyyy] = parts;
-    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-  }
-  return raw; // already ISO or unknown format — pass through
+interface SimplerGrantsResponse {
+  data?: SimplerGrantsHit[];
+  pagination_info?: {
+    total_records?: number;
+    total_pages?: number;
+  };
+  message?: string;
+  status_code?: number;
 }
+
+// ── Map our internal eligibility types to Simpler Grants applicant_type enums ─
+const ELIGIBILITY_TO_APPLICANT_TYPE: Record<string, string> = {
+  nonprofit_501c3: 'nonprofits_non_higher_education_with_501c3',
+  nonprofit_non501c3: 'nonprofits_non_higher_education_without_501c3',
+  for_profit: 'for_profit_organizations_other_than_small_businesses',
+  small_business: 'small_businesses',
+  state_government: 'state_governments',
+  county_government: 'county_governments',
+  city_government: 'city_or_township_governments',
+  tribal_government: 'federally_recognized_native_american_tribal_governments',
+  higher_education_public: 'public_and_state_institutions_of_higher_education',
+  higher_education_private: 'private_institutions_of_higher_education',
+  individual: 'individuals',
+  housing_authority: 'public_and_indian_housing_authorities',
+  special_district: 'special_district_governments',
+  school_district: 'independent_school_districts',
+  unrestricted: 'unrestricted',
+};
+
+// ── Map our internal grant types to Simpler Grants funding_category enums ───
+const CATEGORY_TO_FUNDING_CATEGORY: Record<string, string> = {
+  housing_shelter: 'housing',
+  health_services: 'health',
+  education: 'education',
+  community_development: 'community_development',
+  income_security: 'income_security_and_social_services',
+  food_nutrition: 'food_and_nutrition',
+  disaster_relief: 'disaster_prevention_and_relief',
+  employment: 'employment_labor_and_training',
+  environment: 'environment',
+  energy: 'energy',
+  transportation: 'transportation',
+  arts_culture: 'arts',
+  agriculture: 'agriculture',
+  science_research: 'science_technology_and_other_research_and_development',
+  law_justice: 'law_justice_and_legal_services',
+  regional_development: 'regional_development',
+  business_commerce: 'business_and_commerce',
+  consumer_protection: 'consumer_protection',
+  humanities: 'humanities',
+  natural_resources: 'natural_resources',
+  information_statistics: 'information_and_statistics',
+};
+
+// ── Map our internal funding instrument types to Simpler Grants enums ────────
+const INSTRUMENT_TO_FUNDING_INSTRUMENT: Record<string, string> = {
+  grant: 'grant',
+  cooperative_agreement: 'cooperative_agreement',
+  procurement_contract: 'procurement_contract',
+  other: 'other',
+};
 
 // ── Adapter ─────────────────────────────────────────────────────────────────
 
@@ -75,8 +122,13 @@ export const grantsGovAdapter: GrantSourceAdapter = {
   name: 'grants.gov',
 
   isAvailable(): boolean {
-    // No API key required
-    return true;
+    const hasKey = !!process.env.SIMPLER_GRANTS_API_KEY;
+    if (!hasKey) {
+      console.warn(
+        `${LOG_PREFIX} SIMPLER_GRANTS_API_KEY not set — grants.gov adapter will be skipped`,
+      );
+    }
+    return hasKey;
   },
 
   async search(params: GrantSearchParams): Promise<NormalizedGrant[]> {
@@ -89,53 +141,63 @@ export const grantsGovAdapter: GrantSourceAdapter = {
       state: params.locationState,
     });
 
-    // Build category codes from grantTypes + service areas
-    const fundingCategories: string[] = [];
-    // Legacy: from grantTypes
-    for (const gt of params.grantTypes) {
-      const code = GRANTS_GOV_CATEGORY_MAP[gt];
-      if (code && !fundingCategories.includes(code)) fundingCategories.push(code);
-    }
-    // New: from NTEE service areas (if available)
-    if (params.serviceAreas && params.serviceAreas.length > 0) {
-      try {
-        const { getCfdaCodesForServiceAreas } = require('@/data/service-areas');
-        const areaCodes: string[] = getCfdaCodesForServiceAreas(params.serviceAreas);
-        for (const code of areaCodes) {
-          if (!fundingCategories.includes(code)) fundingCategories.push(code);
-        }
-        console.log(`${LOG_PREFIX} CFDA codes from service areas: ${areaCodes.join(', ')}`);
-      } catch (e) {
-        console.warn(`${LOG_PREFIX} Could not load service areas:`, e);
-      }
-    }
+    const apiKey = process.env.SIMPLER_GRANTS_API_KEY!;
 
-    // Build eligibility filter (supports multi-select)
-    const eligibilities: string[] = [];
+    // Build applicant_type filter from eligibility types
+    const applicantTypes: string[] = [];
     if (params.eligibilityTypes && params.eligibilityTypes.length > 0) {
       for (const et of params.eligibilityTypes) {
-        const code = GRANTS_GOV_ELIGIBILITY_MAP[et];
-        if (code && !eligibilities.includes(code)) eligibilities.push(code);
+        const mapped = ELIGIBILITY_TO_APPLICANT_TYPE[et];
+        if (mapped && !applicantTypes.includes(mapped)) applicantTypes.push(mapped);
       }
     } else if (params.eligibilityType) {
-      const code = GRANTS_GOV_ELIGIBILITY_MAP[params.eligibilityType];
-      if (code) eligibilities.push(code);
+      const mapped = ELIGIBILITY_TO_APPLICANT_TYPE[params.eligibilityType];
+      if (mapped) applicantTypes.push(mapped);
     }
 
-    // Build funding instrument filter
-    const fundingInstrumentCodes: string[] = [];
+    // Build funding_category filter from grant types
+    const fundingCategories: string[] = [];
+    for (const gt of params.grantTypes) {
+      const mapped = CATEGORY_TO_FUNDING_CATEGORY[gt];
+      if (mapped && !fundingCategories.includes(mapped)) fundingCategories.push(mapped);
+    }
+
+    // Build funding_instrument filter
+    const fundingInstruments: string[] = [];
     if (params.fundingInstruments && params.fundingInstruments.length > 0) {
       for (const fi of params.fundingInstruments) {
-        const code = FUNDING_INSTRUMENT_MAP[fi];
-        if (code && !fundingInstrumentCodes.includes(code)) fundingInstrumentCodes.push(code);
+        const mapped = INSTRUMENT_TO_FUNDING_INSTRUMENT[fi];
+        if (mapped && !fundingInstruments.includes(mapped)) fundingInstruments.push(mapped);
       }
-      console.log(`${LOG_PREFIX} Funding instrument codes: ${fundingInstrumentCodes.join(', ')}`);
     }
 
-    // We search once per keyword (up to MAX_KEYWORDS) and merge results
+    // Build filter object
+    const filters: Record<string, unknown> = {
+      opportunity_status: { one_of: ['posted'] },
+    };
+    if (applicantTypes.length > 0) {
+      filters.applicant_type = { one_of: applicantTypes };
+    }
+    if (fundingCategories.length > 0) {
+      filters.funding_category = { one_of: fundingCategories };
+    }
+    if (fundingInstruments.length > 0) {
+      filters.funding_instrument = { one_of: fundingInstruments };
+    }
+    // Budget filters
+    if (params.budgetMin != null || params.budgetMax != null) {
+      if (params.budgetMax != null) {
+        filters.award_ceiling = { min: params.budgetMin ?? 0, max: params.budgetMax };
+      }
+      if (params.budgetMin != null) {
+        filters.award_floor = { min: params.budgetMin };
+      }
+    }
+
+    // Search once per keyword (up to MAX_KEYWORDS) and merge results
     const keywords = params.keywords.slice(0, MAX_KEYWORDS);
     if (keywords.length === 0) {
-      keywords.push(''); // empty keyword = broad search
+      keywords.push('grant'); // default broad query
     }
 
     const allResults: NormalizedGrant[] = [];
@@ -144,99 +206,105 @@ export const grantsGovAdapter: GrantSourceAdapter = {
     for (const keyword of keywords) {
       try {
         const body: Record<string, unknown> = {
-          keyword: keyword,
-          oppStatuses: 'posted',
-          rows: MAX_RESULTS_PER_KEYWORD,
-          sortBy: 'relevance',
+          query: keyword,
+          query_operator: 'OR',
+          filters,
+          pagination: {
+            page_offset: 1,
+            page_size: MAX_RESULTS_PER_KEYWORD,
+            sort_order: [
+              { order_by: 'relevancy', sort_direction: 'descending' },
+            ],
+          },
         };
 
-        if (fundingCategories.length > 0) {
-          body.fundingCategories = fundingCategories.join('|');
-        }
-        if (eligibilities.length > 0) {
-          body.eligibilities = eligibilities.join('|');
-        }
-        if (fundingInstrumentCodes.length > 0) {
-          body.fundingInstruments = fundingInstrumentCodes.join('|');
-        }
-
-        console.log(`${LOG_PREFIX} Searching keyword="${keyword}"`, body);
+        console.log(`${LOG_PREFIX} Searching query="${keyword}"`, JSON.stringify(body).slice(0, 500));
 
         let response = await fetch(API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey,
+          },
           body: JSON.stringify(body),
         });
 
         if (!response.ok) {
+          const errText = await response.text().catch(() => '');
           console.error(
-            `${LOG_PREFIX} API returned ${response.status} for keyword="${keyword}"`,
+            `${LOG_PREFIX} API returned ${response.status} for query="${keyword}":`, errText.slice(0, 300),
           );
           continue;
         }
 
-        let data: GrantsGovResponse = await response.json();
-        let hits = data.oppHits ?? [];
+        let data: SimplerGrantsResponse = await response.json();
+        let hits = data.data ?? [];
 
-        // If 0 results with strict filters, retry without category codes (broader search)
+        // If 0 results with strict filters, retry without category filter (broader search)
         if (hits.length === 0 && fundingCategories.length > 0) {
-          console.log(`${LOG_PREFIX} 0 results with category filter — retrying broader search for "${keyword}"`);
-          const broaderBody = { ...body };
-          delete broaderBody.fundingCategories;
+          console.log(`${LOG_PREFIX} 0 results with category filter — retrying broader for "${keyword}"`);
+          const broaderFilters = { ...filters };
+          delete broaderFilters.funding_category;
+          const broaderBody = { ...body, filters: broaderFilters };
           const retryResp = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey,
+            },
             body: JSON.stringify(broaderBody),
           });
           if (retryResp.ok) {
             data = await retryResp.json();
-            hits = data.oppHits ?? [];
+            hits = data.data ?? [];
             console.log(`${LOG_PREFIX} Broader search found ${hits.length} hits for "${keyword}"`);
           }
         }
+
         console.log(
-          `${LOG_PREFIX} Received ${hits.length} hits for keyword="${keyword}" (total: ${data.totalCount ?? '?'})`,
+          `${LOG_PREFIX} Received ${hits.length} hits for query="${keyword}" (total: ${data.pagination_info?.total_records ?? '?'})`,
         );
 
         for (const hit of hits) {
-          const grantId = `grantsgov_${hit.id ?? hit.number ?? ''}`;
+          const grantId = `grantsgov_${hit.opportunity_id ?? hit.legacy_opportunity_id ?? ''}`;
           if (seenIds.has(grantId)) continue;
           seenIds.add(grantId);
 
-          const title = hit.title ?? 'Untitled Opportunity';
-          const description = hit.synopsis ?? '';
+          const title = hit.opportunity_title ?? 'Untitled Opportunity';
+          const description = hit.summary?.summary_description ?? '';
 
           // Detect international scope from content
           const international = isInternationalGrant(title, description);
+
+          // Extract assistance listing (CFDA) numbers
+          const categoryCodes = (hit.opportunity_assistance_listings ?? [])
+            .map((al) => al.assistance_listing_number ?? '')
+            .filter(Boolean);
 
           const normalized: NormalizedGrant = {
             id: grantId,
             sources: ['grants.gov'],
             title,
             description,
-            agency: hit.agencyName ?? 'Unknown Agency',
-            agencyCode: hit.agencyCode,
-            opportunityNumber: hit.number,
+            agency: hit.agency_name ?? hit.top_level_agency_name ?? 'Unknown Agency',
+            agencyCode: hit.agency_code ?? undefined,
+            opportunityNumber: hit.opportunity_number ?? undefined,
 
             // Financials — NEVER fabricate
-            awardAmountMin: hit.awardFloor ?? null,
-            awardAmountMax: hit.awardCeiling ?? null,
-            estimatedTotalFunding: hit.estimatedTotalProgramFunding ?? null,
+            awardAmountMin: hit.summary?.award_floor ?? null,
+            awardAmountMax: hit.summary?.award_ceiling ?? null,
+            estimatedTotalFunding: hit.summary?.estimated_total_program_funding ?? null,
 
-            // Dates
-            postedDate: toIsoDate(hit.openDate),
-            closeDate: toIsoDate(hit.closeDate),
-            archiveDate: toIsoDate(hit.archiveDate),
+            // Dates (already ISO format from Simpler Grants)
+            postedDate: hit.summary?.post_date ?? undefined,
+            closeDate: hit.summary?.close_date ?? undefined,
+            archiveDate: hit.summary?.archive_date ?? undefined,
 
             // Classification
-            categories: hit.categoryOfFundingActivity
-              ? [hit.categoryOfFundingActivity]
-              : [],
-            categoryCodes: (hit.cfdaList ?? [])
-              .map((c) => c.cfda ?? '')
-              .filter(Boolean),
-            eligibleApplicants: hit.eligibleApplicants ?? [],
-            fundingInstrument: hit.fundingInstrumentType,
+            categories: hit.summary?.funding_categories ?? [],
+            categoryCodes,
+            eligibleApplicants: hit.summary?.applicant_types ?? [],
+            fundingInstrument: hit.summary?.funding_instruments?.[0] ?? undefined,
 
             // Geography
             grantScope: international ? 'international' : 'national',
@@ -244,18 +312,18 @@ export const grantsGovAdapter: GrantSourceAdapter = {
             targetCity: params.locationCity,
 
             // Links
-            applicationUrl: hit.additionalInformationUrl,
-            sourceUrl: `https://www.grants.gov/search-results-detail/${hit.id ?? ''}`,
+            applicationUrl: hit.summary?.additional_info_url ?? undefined,
+            sourceUrl: `https://www.grants.gov/search-results-detail/${hit.legacy_opportunity_id ?? hit.opportunity_id ?? ''}`,
 
             // Status
-            status: mapStatus(hit.oppStatus),
+            status: (hit.opportunity_status as 'posted' | 'forecasted' | 'closed' | 'archived') ?? 'posted',
           };
 
           allResults.push(normalized);
         }
       } catch (error) {
         console.error(
-          `${LOG_PREFIX} Error searching keyword="${keyword}":`,
+          `${LOG_PREFIX} Error searching query="${keyword}":`,
           error,
         );
         // Graceful fallback — continue with remaining keywords
@@ -268,16 +336,3 @@ export const grantsGovAdapter: GrantSourceAdapter = {
     return allResults;
   },
 };
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function mapStatus(
-  raw?: string,
-): 'posted' | 'forecasted' | 'closed' | 'archived' {
-  if (!raw) return 'posted';
-  const lower = raw.toLowerCase();
-  if (lower.includes('forecast')) return 'forecasted';
-  if (lower.includes('closed')) return 'closed';
-  if (lower.includes('archive')) return 'archived';
-  return 'posted';
-}
