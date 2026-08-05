@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useTheme } from "@/components/ThemeProvider";
 import {
   X, Loader2, Rocket, CheckCircle2, MapPin, DollarSign, Calendar,
   Timer, FileText, Tag, Plus, ShieldCheck, ChevronDown, ChevronRight,
@@ -176,6 +177,7 @@ function LocationAutocomplete({
   options: string[];
   placeholder: string;
 }) {
+  const { isDarkMode: dk } = useTheme();
   const [focused, setFocused] = useState(false);
   const [query, setQuery] = useState(value);
   const ref = useRef<HTMLDivElement>(null);
@@ -198,27 +200,27 @@ function LocationAutocomplete({
 
   return (
     <div className="relative" ref={ref}>
-      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+      <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>
         {label}
       </label>
       <div className="relative">
-        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+        <MapPin className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
         <input
           value={query}
           onChange={(e) => { setQuery(e.target.value); setFocused(true); }}
           onFocus={() => setFocused(true)}
           placeholder={placeholder}
-          className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf6ed] focus:bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400"
+          className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#15161a]' : 'bg-[#faf6ed]'} focus:bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'}`}
         />
       </div>
       {focused && filtered.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-[70] bg-[#faf8f3] border border-slate-200 rounded-xl shadow-lg py-1 max-h-[180px] overflow-y-auto">
+        <div className={`absolute left-0 right-0 top-full mt-1 z-[70] ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} rounded-xl shadow-lg py-1 max-h-[180px] overflow-y-auto`}>
           {filtered.map((opt) => (
             <button
               key={opt}
               onClick={() => { onChange(opt); setQuery(opt); setFocused(false); }}
               className={`w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer ${
-                opt === value ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-700 hover:bg-[#f2ece0]"
+                opt === value ? "bg-indigo-50 text-indigo-700 font-semibold" : `${dk ? 'text-slate-300' : 'text-slate-700'} ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-[#f2ece0]'}`
               }`}
             >
               {opt}
@@ -240,6 +242,7 @@ function TogglePill({ active, label, onClick, disabled, disabledLabel }: {
   disabled?: boolean;
   disabledLabel?: string;
 }) {
+  const { isDarkMode: dk } = useTheme();
   return (
     <button
       type="button"
@@ -247,16 +250,16 @@ function TogglePill({ active, label, onClick, disabled, disabledLabel }: {
       title={disabled ? (disabledLabel || "Coming soon") : undefined}
       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 ${
         disabled
-          ? "bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed opacity-60"
+          ? `${dk ? 'bg-[#1e2028]' : 'bg-slate-50'} ${dk ? 'border-[#1e2028]' : 'border-slate-200'} text-slate-300 cursor-not-allowed opacity-60`
           : active
             ? "bg-violet-100 border-violet-300 text-violet-800 shadow-sm cursor-pointer"
-            : "bg-violet-50/60 border-violet-200/80 text-violet-500 hover:bg-violet-50 cursor-pointer"
+            : `${dk ? 'bg-violet-500/10' : 'bg-violet-50/60'} ${dk ? 'border-violet-500/20' : 'border-violet-200/80'} text-violet-500 ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-violet-50'} cursor-pointer`
       }`}
     >
       {active && !disabled && <CheckCircle2 className="w-3 h-3 text-violet-600" />}
       {disabled && <Lock className="w-3 h-3" />}
       {label}
-      {disabled && <span className="text-[9px] font-bold text-slate-400 ml-0.5">SOON</span>}
+      {disabled && <span className={`text-[9px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} ml-0.5`}>SOON</span>}
     </button>
   );
 }
@@ -272,18 +275,19 @@ function SectionCard({ icon: Icon, iconBg, iconColor, title, description, childr
   description?: string;
   children: React.ReactNode;
 }) {
+  const { isDarkMode: dk } = useTheme();
   return (
-    <div className="bg-[#faf6ed] border border-slate-100 rounded-2xl p-4.5 space-y-3">
+    <div className={`${dk ? 'bg-[#15161a]' : 'bg-[#faf6ed]'} border ${dk ? 'border-[#1e2028]' : 'border-slate-100'} rounded-2xl p-4.5 space-y-3`}>
       <div className="flex items-center gap-2">
         <div className={`w-6 h-6 rounded-lg ${iconBg} ${iconColor} flex items-center justify-center`}>
           <Icon className="w-3.5 h-3.5" />
         </div>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <label className={`text-[10px] font-bold uppercase tracking-wider ${dk ? 'text-slate-500' : 'text-slate-400'}`}>
           {title}
         </label>
       </div>
       {description && (
-        <p className="text-[11px] text-slate-500 leading-normal">{description}</p>
+        <p className={`text-[11px] text-slate-500 leading-normal`}>{description}</p>
       )}
       {children}
     </div>
@@ -296,6 +300,7 @@ function SectionCard({ icon: Icon, iconBg, iconColor, title, description, childr
 const STEP_LABELS = ["Your Org", "What You Need", "Where & When", "Review"];
 
 function StepIndicator({ current, completed }: { current: number; completed: number[] }) {
+  const { isDarkMode: dk } = useTheme();
   return (
     <div className="flex items-center justify-between px-4">
       {STEP_LABELS.map((label, i) => {
@@ -352,6 +357,7 @@ export function GrantAgentConfigModal({
   /** Pass the most recent scan timestamp (Firestore Timestamp or Date) when editing, to show timer progress */
   lastScanTimestamp?: any;
 }) {
+  const { isDarkMode: dk } = useTheme();
   const [resetTimer, setResetTimer] = useState(false);
   const [saveAsDefault, setSaveAsDefault] = useState(true);
   const hasOrgProfile = !!(orgProfile && orgProfile.companyDescription);
@@ -526,7 +532,7 @@ export function GrantAgentConfigModal({
       <div className="space-y-5">
         {/* Auto-fill Banner */}
         {hasOrgProfile && (
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+          <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl ${dk ? 'bg-emerald-500/10' : 'bg-emerald-50'} border ${dk ? 'border-emerald-500/20' : 'border-emerald-200'}`}>
             <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="text-xs font-semibold text-emerald-700">Pre-filled from your organization profile — tweak anything below for this agent.</span>
           </div>
@@ -544,7 +550,7 @@ export function GrantAgentConfigModal({
             onChange={(e) => setConfig((prev) => ({ ...prev, companyDescription: e.target.value.slice(0, 500) }))}
             placeholder={"e.g. NXT Chapter is a 501(c)(3) nonprofit in Denver, CO that operates transitional housing programs and provides wraparound services — including behavioral health, job training, and case management — for individuals experiencing homelessness and substance use disorders."}
             rows={4}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 leading-relaxed resize-none font-medium"
+            className={`w-full px-3.5 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'} leading-relaxed resize-none font-medium`}
           />
           <div className="flex items-center justify-between">
             <span className={`text-[10px] font-semibold ${descCharCount < 100 ? "text-amber-500" : "text-slate-400"}`}>
@@ -570,24 +576,24 @@ export function GrantAgentConfigModal({
           <div className="grid grid-cols-3 gap-3">
             {/* Annual Budget */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Annual Budget</label>
+              <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>Annual Budget</label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <DollarSign className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                 <input
                   type="number"
                   min={0}
                   value={config.orgBudget ?? ""}
                   onChange={(e) => setConfig((p) => ({ ...p, orgBudget: e.target.value ? Number(e.target.value) : null }))}
                   placeholder="e.g. 500000"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 />
               </div>
             </div>
             {/* Year Founded */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Year Founded</label>
+              <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>Year Founded</label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                 <input
                   type="number"
                   min={1800}
@@ -595,22 +601,22 @@ export function GrantAgentConfigModal({
                   value={config.orgYearFounded ?? ""}
                   onChange={(e) => setConfig((p) => ({ ...p, orgYearFounded: e.target.value ? Number(e.target.value) : null }))}
                   placeholder="e.g. 2015"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 />
               </div>
             </div>
             {/* Staff Size */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Staff Size</label>
+              <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>Staff Size</label>
               <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Users className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                 <input
                   type="number"
                   min={0}
                   value={config.orgStaffSize ?? ""}
                   onChange={(e) => setConfig((p) => ({ ...p, orgStaffSize: e.target.value ? Number(e.target.value) : null }))}
                   placeholder="e.g. 12"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 />
               </div>
             </div>
@@ -618,31 +624,31 @@ export function GrantAgentConfigModal({
           <div className="grid grid-cols-2 gap-3">
             {/* EIN */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">EIN (optional)</label>
+              <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>EIN (optional)</label>
               <div className="relative">
-                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Hash className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                 <input
                   type="text"
                   value={config.orgEin}
                   onChange={(e) => setConfig((p) => ({ ...p, orgEin: e.target.value }))}
                   placeholder="XX-XXXXXXX"
                   maxLength={12}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'}`}
                 />
               </div>
             </div>
             {/* SAM UEI */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">SAM UEI (optional)</label>
+              <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>SAM UEI (optional)</label>
               <div className="relative">
-                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Hash className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                 <input
                   type="text"
                   value={config.orgSamUei}
                   onChange={(e) => setConfig((p) => ({ ...p, orgSamUei: e.target.value }))}
                   placeholder="XXXXXXXXXXXX"
                   maxLength={14}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'}`}
                 />
               </div>
             </div>
@@ -671,15 +677,15 @@ export function GrantAgentConfigModal({
 
         {/* D: Save as Default Checkbox */}
         {onSaveOrgProfile && (
-          <label className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+          <label className={`flex items-center gap-2.5 px-4 py-3 rounded-xl ${dk ? 'bg-[#1e2028]' : 'bg-slate-50'} border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} cursor-pointer ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-slate-100'} transition-colors select-none`}>
             <input
               type="checkbox"
               checked={saveAsDefault}
               onChange={(e) => setSaveAsDefault(e.target.checked)}
               className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
             />
-            <span className="text-xs font-semibold text-slate-600">Save these details as my default organization profile</span>
-            <span className="text-[10px] text-slate-400 font-medium ml-auto">Auto-fills future agents</span>
+            <span className={`text-xs font-semibold ${dk ? 'text-slate-400' : 'text-slate-600'}`}>Save these details as my default organization profile</span>
+            <span className={`text-[10px] ${dk ? 'text-slate-500' : 'text-slate-400'} font-medium ml-auto`}>Auto-fills future agents</span>
           </label>
         )}
       </div>
@@ -724,16 +730,16 @@ export function GrantAgentConfigModal({
               const allSelected = selectedInGroup === group.subcategories.length;
 
               return (
-                <div key={group.id} className="border border-slate-200 rounded-xl overflow-hidden bg-[#faf8f3]">
+                <div key={group.id} className={`border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} rounded-xl overflow-hidden ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'}`}>
                   {/* Group header */}
                   <div
-                    className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-[#f5f0e5] transition-colors select-none"
+                    className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-[#f5f0e5]'} transition-colors select-none`}
                     onClick={() => toggleGroupExpanded(group.id)}
                   >
                     <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
                       <GroupIcon className="w-3.5 h-3.5" />
                     </div>
-                    <span className="text-sm font-semibold text-slate-800 flex-1">{group.label}</span>
+                    <span className={`text-sm font-semibold ${dk ? 'text-slate-200' : 'text-slate-800'} flex-1`}>{group.label}</span>
                     {selectedInGroup > 0 && (
                       <span className="text-[10px] font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full">
                         {selectedInGroup}
@@ -751,14 +757,14 @@ export function GrantAgentConfigModal({
                       {allSelected ? "Deselect All" : "Select All"}
                     </button>
                     {expanded
-                      ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                      : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                      ? <ChevronDown className={`w-4 h-4 ${dk ? 'text-slate-500' : 'text-slate-400'} shrink-0`} />
+                      : <ChevronRight className={`w-4 h-4 ${dk ? 'text-slate-500' : 'text-slate-400'} shrink-0`} />
                     }
                   </div>
 
                   {/* Subcategories grid */}
                   {expanded && (
-                    <div className="px-3.5 pb-3 pt-1 border-t border-slate-100">
+                    <div className={`px-3.5 pb-3 pt-1 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-100'}`}>
                       <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
                         {group.subcategories.map((sub) => {
                           const active = config.serviceAreas.includes(sub.id);
@@ -770,7 +776,7 @@ export function GrantAgentConfigModal({
                               className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left cursor-pointer ${
                                 active
                                   ? "bg-violet-100 border-violet-300 text-violet-800 shadow-sm"
-                                  : "bg-white/60 border-slate-200 text-slate-600 hover:bg-violet-50 hover:border-violet-200"
+                                  : `${dk ? 'bg-[#15161a]' : 'bg-white/60'} ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'text-slate-400' : 'text-slate-600'} ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-violet-50'} hover:border-violet-200`
                               }`}
                             >
                               <span className="flex items-center gap-1.5">
@@ -815,16 +821,16 @@ export function GrantAgentConfigModal({
         </SectionCard>
 
         {/* C: Search Keywords (collapsed by default) */}
-        <div className="bg-[#faf6ed] border border-slate-100 rounded-2xl overflow-hidden">
+        <div className={`${dk ? 'bg-[#15161a]' : 'bg-[#faf6ed]'} border ${dk ? 'border-[#1e2028]' : 'border-slate-100'} rounded-2xl overflow-hidden`}>
           <button
             type="button"
             onClick={() => setKeywordsExpanded(!keywordsExpanded)}
-            className="w-full flex items-center gap-2 px-4.5 py-3.5 cursor-pointer hover:bg-[#f5f0e5] transition-colors"
+            className={`w-full flex items-center gap-2 px-4.5 py-3.5 cursor-pointer ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-[#f5f0e5]'} transition-colors`}
           >
             <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
               <Search className="w-3.5 h-3.5" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex-1 text-left">
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${dk ? 'text-slate-500' : 'text-slate-400'} flex-1 text-left`}>
               Advanced: Custom Keywords
             </span>
             {(config.welfareKeywords || []).length > 0 && (
@@ -833,13 +839,13 @@ export function GrantAgentConfigModal({
               </span>
             )}
             {keywordsExpanded
-              ? <ChevronDown className="w-4 h-4 text-slate-400" />
-              : <ChevronRight className="w-4 h-4 text-slate-400" />
+              ? <ChevronDown className={`w-4 h-4 ${dk ? 'text-slate-500' : 'text-slate-400'}`} />
+              : <ChevronRight className={`w-4 h-4 ${dk ? 'text-slate-500' : 'text-slate-400'}`} />
             }
           </button>
           {keywordsExpanded && (
-            <div className="px-4.5 pb-4 pt-1 border-t border-slate-100 space-y-3">
-              <p className="text-[11px] text-slate-500 leading-normal">
+            <div className={`px-4.5 pb-4 pt-1 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-100'} space-y-3`}>
+              <p className={`text-[11px] text-slate-500 leading-normal`}>
                 Add specific program names, acronyms, or CFDA numbers to refine search queries.
               </p>
               <div className="flex flex-wrap gap-2">
@@ -877,7 +883,7 @@ export function GrantAgentConfigModal({
                   onChange={(e) => setCustomKeywordInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomKeyword(); } }}
                   placeholder="Add custom keyword…"
-                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs text-slate-800 placeholder:text-slate-400 font-medium"
+                  className={`flex-1 px-3 py-2 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-xs ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'} font-medium`}
                 />
                 <button type="button" onClick={addCustomKeyword} className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1">
                   <Plus className="w-3.5 h-3.5" /> Add
@@ -958,7 +964,7 @@ export function GrantAgentConfigModal({
                   className={`flex items-start gap-3 px-3.5 py-3 rounded-xl border transition-all text-left cursor-pointer ${
                     active
                       ? "bg-indigo-50 border-indigo-300 shadow-sm"
-                      : "bg-white/50 border-slate-200 hover:bg-indigo-50/50 hover:border-indigo-200"
+                      : `${dk ? 'bg-[#15161a]' : 'bg-white/50'} ${dk ? 'border-[#1e2028]' : 'border-slate-200'} hover:bg-indigo-50/50 hover:border-indigo-200`
                   }`}
                 >
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
@@ -968,7 +974,7 @@ export function GrantAgentConfigModal({
                   </div>
                   <div>
                     <p className={`text-sm font-bold ${active ? "text-indigo-800" : "text-slate-700"}`}>{opt.label}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</p>
+                    <p className={`text-[10px] text-slate-500 mt-0.5`}>{opt.desc}</p>
                   </div>
                 </button>
               );
@@ -976,7 +982,7 @@ export function GrantAgentConfigModal({
           </div>
           {/* Location fields — visible when not nationwide */}
           {config.geoScope !== "nationwide" && (
-            <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-100">
+            <div className={`grid grid-cols-2 gap-4 mt-3 pt-3 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-100'}`}>
               <LocationAutocomplete
                 label="State"
                 value={config.locationState}
@@ -1017,7 +1023,7 @@ export function GrantAgentConfigModal({
                   className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     isActive
                       ? "bg-emerald-100 border-emerald-300 text-emerald-800 shadow-sm"
-                      : "bg-white/60 border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-200"
+                      : `${dk ? 'bg-[#15161a]' : 'bg-white/60'} ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'text-slate-400' : 'text-slate-600'} ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-emerald-50'} hover:border-emerald-200`
                   }`}
                 >
                   <span className="block">{preset.label}</span>
@@ -1029,30 +1035,30 @@ export function GrantAgentConfigModal({
           {/* Min/max manual inputs */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Minimum ($)</label>
+              <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>Minimum ($)</label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <DollarSign className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                 <input
                   type="number"
                   min={0}
                   value={config.budgetMin ?? ""}
                   onChange={(e) => setConfig((p) => ({ ...p, budgetMin: e.target.value ? Number(e.target.value) : null }))}
                   placeholder="0"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 />
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Maximum ($)</label>
+              <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>Maximum ($)</label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <DollarSign className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                 <input
                   type="number"
                   min={0}
                   value={config.budgetMax ?? ""}
                   onChange={(e) => setConfig((p) => ({ ...p, budgetMax: e.target.value ? Number(e.target.value) : null }))}
                   placeholder="No limit"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} ${dk ? 'placeholder:text-slate-500' : 'placeholder:text-slate-400'} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 />
               </div>
             </div>
@@ -1078,7 +1084,7 @@ export function GrantAgentConfigModal({
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     active
                       ? "bg-amber-100 border-amber-300 text-amber-800 shadow-sm"
-                      : "bg-white/60 border-slate-200 text-slate-600 hover:bg-amber-50 hover:border-amber-200"
+                      : `${dk ? 'bg-[#15161a]' : 'bg-white/60'} ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'text-slate-400' : 'text-slate-600'} ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-amber-50'} hover:border-amber-200`
                   }`}
                 >
                   {dp.label}
@@ -1088,29 +1094,29 @@ export function GrantAgentConfigModal({
           </div>
           {/* Custom date pickers */}
           {config.deadlineWindow === "custom" && (
-            <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-100">
+            <div className={`grid grid-cols-2 gap-4 mt-3 pt-3 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-100'}`}>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Open Date</label>
+                <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>Open Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                   <input
                     type="date"
                     value={config.openDate}
                     onChange={(e) => setConfig((p) => ({ ...p, openDate: e.target.value }))}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} cursor-pointer`}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Close Date</label>
+                <label className={`block text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1.5`}>Close Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
                   <input
                     type="date"
                     value={config.closeDate}
                     onChange={(e) => setConfig((p) => ({ ...p, closeDate: e.target.value }))}
                     min={config.openDate || undefined}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} cursor-pointer`}
                   />
                 </div>
               </div>
@@ -1127,9 +1133,9 @@ export function GrantAgentConfigModal({
           description="How frequently should this agent scan for new grant opportunities?"
         >
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-500 font-medium shrink-0">Every</span>
+            <span className={`text-sm text-slate-500 font-medium shrink-0`}>Every</span>
             <div className="relative">
-              <Timer className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <Timer className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} />
               <input
                 type="text"
                 inputMode="numeric"
@@ -1142,28 +1148,28 @@ export function GrantAgentConfigModal({
                   if (raw === "") { setConfig((p) => ({ ...p, intervalValue: 0 })); }
                   else { const num = parseInt(raw, 10); if (!isNaN(num) && num <= 999) setConfig((p) => ({ ...p, intervalValue: num })); }
                 }}
-                className="w-24 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800"
+                className={`w-24 pl-9 pr-3 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'}`}
               />
             </div>
             <div className="relative">
               <select
                 value={config.intervalUnit}
                 onChange={(e) => setConfig((p) => ({ ...p, intervalUnit: e.target.value as GrantAgentConfig["intervalUnit"] }))}
-                className="appearance-none pl-4 pr-8 py-2.5 rounded-xl border border-slate-200 bg-[#faf8f3] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm text-slate-800 cursor-pointer"
+                className={`appearance-none pl-4 pr-8 py-2.5 rounded-xl border ${dk ? 'border-[#1e2028]' : 'border-slate-200'} ${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all text-sm ${dk ? 'text-slate-200' : 'text-slate-800'} cursor-pointer`}
               >
                 <option value="minutes">Minutes</option>
                 <option value="hours">Hours</option>
                 <option value="days">Days</option>
                 <option value="weeks">Weeks</option>
               </select>
-              <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${dk ? 'text-slate-500' : 'text-slate-400'} pointer-events-none`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
           </div>
 
           {/* Timer continuation option — only in edit mode */}
           {isEditMode && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">When you save changes</p>
+            <div className={`mt-4 pt-4 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-100'}`}>
+              <p className={`text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5`}>When you save changes</p>
               {(() => {
                 // Calculate remaining time
                 let elapsed = 0;
@@ -1202,12 +1208,12 @@ export function GrantAgentConfigModal({
                     {hasTimerData && (
                       <div className="mb-3">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] text-slate-400 font-medium">Current timer progress</span>
+                          <span className={`text-[10px] ${dk ? 'text-slate-500' : 'text-slate-400'} font-medium`}>Current timer progress</span>
                           <span className="text-[10px] font-semibold text-indigo-600">
                             {remaining <= 0 ? "Ready to scan" : fmtRemaining(remaining)}
                           </span>
                         </div>
-                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-1.5 ${dk ? 'bg-[#1e2028]' : 'bg-slate-100'} rounded-full overflow-hidden`}>
                           <div
                             className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
                             style={{ width: `${progress}%` }}
@@ -1222,20 +1228,20 @@ export function GrantAgentConfigModal({
                       onClick={() => setResetTimer(false)}
                       className={`w-full flex items-start gap-3 px-3.5 py-3 rounded-xl border transition-all text-left cursor-pointer ${
                         !resetTimer
-                          ? "bg-emerald-50 border-emerald-300 shadow-sm"
-                          : "bg-white/50 border-slate-200 hover:bg-emerald-50/50 hover:border-emerald-200"
+                          ? `${dk ? 'bg-emerald-500/10' : 'bg-emerald-50'} ${dk ? 'border-emerald-500/20' : 'border-emerald-300'} shadow-sm`
+                          : `${dk ? 'bg-[#15161a]' : 'bg-white/50'} ${dk ? 'border-[#1e2028]' : 'border-slate-200'} hover:bg-emerald-50/50 hover:border-emerald-200`
                       }`}
                     >
                       <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                         !resetTimer ? "border-emerald-500 bg-emerald-500" : "border-slate-300"
                       }`}>
-                        {!resetTimer && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        {!resetTimer && <div className={`w-1.5 h-1.5 rounded-full ${dk ? 'bg-[#15161a]' : 'bg-white'}`} />}
                       </div>
                       <div>
                         <p className={`text-xs font-bold ${!resetTimer ? "text-emerald-800" : "text-slate-700"}`}>
                           Continue where it left off
                         </p>
-                        <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                        <p className={`text-[10px] text-slate-500 mt-0.5 leading-relaxed`}>
                           {hasTimerData && remaining > 0
                             ? `The agent has ${fmtRemaining(remaining)} on its current cycle. It will complete that countdown before starting the new interval.`
                             : "The agent will keep its current scan history and continue on schedule."
@@ -1250,20 +1256,20 @@ export function GrantAgentConfigModal({
                       onClick={() => setResetTimer(true)}
                       className={`w-full flex items-start gap-3 px-3.5 py-3 rounded-xl border transition-all text-left cursor-pointer ${
                         resetTimer
-                          ? "bg-amber-50 border-amber-300 shadow-sm"
-                          : "bg-white/50 border-slate-200 hover:bg-amber-50/50 hover:border-amber-200"
+                          ? `${dk ? 'bg-amber-500/10' : 'bg-amber-50'} ${dk ? 'border-amber-500/20' : 'border-amber-300'} shadow-sm`
+                          : `${dk ? 'bg-[#15161a]' : 'bg-white/50'} ${dk ? 'border-[#1e2028]' : 'border-slate-200'} hover:bg-amber-50/50 hover:border-amber-200`
                       }`}
                     >
                       <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                         resetTimer ? "border-amber-500 bg-amber-500" : "border-slate-300"
                       }`}>
-                        {resetTimer && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        {resetTimer && <div className={`w-1.5 h-1.5 rounded-full ${dk ? 'bg-[#15161a]' : 'bg-white'}`} />}
                       </div>
                       <div>
                         <p className={`text-xs font-bold ${resetTimer ? "text-amber-800" : "text-slate-700"}`}>
                           Reset timer
                         </p>
-                        <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                        <p className={`text-[10px] text-slate-500 mt-0.5 leading-relaxed`}>
                           Clear the timer and start fresh. The agent will scan immediately, then repeat every {config.intervalValue || 1} {config.intervalUnit || "days"}.
                         </p>
                       </div>
@@ -1305,14 +1311,15 @@ export function GrantAgentConfigModal({
       label: string;
       children: React.ReactNode;
     }) {
+      const { isDarkMode: dk } = useTheme();
       return (
-        <div className="flex items-start gap-3 py-3 border-b border-slate-100 last:border-0">
+        <div className={`flex items-start gap-3 py-3 border-b ${dk ? 'border-[#1e2028]' : 'border-slate-100'} last:border-0`}>
           <div className={`w-7 h-7 rounded-lg ${iconBg} ${iconColor} flex items-center justify-center shrink-0 mt-0.5`}>
             <Icon className="w-3.5 h-3.5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
-            <div className="text-sm text-slate-800">{children}</div>
+            <p className={`text-[10px] font-bold ${dk ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-wider mb-1`}>{label}</p>
+            <div className={`text-sm ${dk ? 'text-slate-200' : 'text-slate-800'}`}>{children}</div>
           </div>
         </div>
       );
@@ -1320,10 +1327,10 @@ export function GrantAgentConfigModal({
 
     return (
       <div className="space-y-4">
-        <div className="bg-gradient-to-br from-[#faf6ed] to-[#f5f0e8] border border-indigo-100 rounded-2xl p-5 space-y-0">
+        <div className={`bg-gradient-to-br ${dk ? 'from-[#15161a]' : 'from-[#faf6ed]'} ${dk ? 'to-[#1e2028]' : 'to-[#f5f0e8]'} border ${dk ? 'border-indigo-500/20' : 'border-indigo-100'} rounded-2xl p-5 space-y-0`}>
           {/* Org */}
           <ReviewRow icon={Building2} iconBg="bg-indigo-100" iconColor="text-indigo-600" label="Organization">
-            <p className="font-semibold text-slate-900">{orgName}</p>
+            <p className={`font-semibold ${dk ? 'text-slate-100' : 'text-slate-900'}`}>{orgName}</p>
             {eligLabels.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-1.5">
                 {eligLabels.map((l) => (
@@ -1339,7 +1346,7 @@ export function GrantAgentConfigModal({
               <div className="space-y-1.5">
                 {serviceAreasByGroup.map((g) => (
                   <div key={g.label}>
-                    <span className="text-[10px] font-bold text-slate-500">{g.label}:</span>
+                    <span className={`text-[10px] font-bold text-slate-500`}>{g.label}:</span>
                     <div className="flex flex-wrap gap-1 mt-0.5">
                       {g.selected.map((s) => (
                         <span key={s} className="text-[10px] font-semibold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">{s}</span>
@@ -1349,7 +1356,7 @@ export function GrantAgentConfigModal({
                 ))}
               </div>
             ) : (
-              <span className="text-slate-400 text-xs">None selected</span>
+              <span className={`${dk ? 'text-slate-500' : 'text-slate-400'} text-xs`}>None selected</span>
             )}
           </ReviewRow>
 
@@ -1362,7 +1369,7 @@ export function GrantAgentConfigModal({
                 ))}
               </div>
             ) : (
-              <span className="text-slate-400 text-xs">All populations</span>
+              <span className={`${dk ? 'text-slate-500' : 'text-slate-400'} text-xs`}>All populations</span>
             )}
           </ReviewRow>
 
@@ -1444,12 +1451,12 @@ export function GrantAgentConfigModal({
       onClick={onClose}
     >
       <div
-        className="bg-[#faf8f3] rounded-2xl shadow-2xl w-full max-w-3xl animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
+        className={`${dk ? 'bg-[#111214]' : 'bg-[#faf8f3]'} rounded-2xl shadow-2xl w-full max-w-3xl animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
+        <div className={`px-6 py-5 border-b ${dk ? 'border-[#1e2028]' : 'border-slate-100'} flex items-center justify-between shrink-0`}>
+          <h3 className={`text-lg font-bold ${dk ? 'text-slate-100' : 'text-slate-900'} flex items-center gap-2.5`}>
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
               <Rocket className="w-4 h-4 text-white" />
             </div>
@@ -1457,7 +1464,7 @@ export function GrantAgentConfigModal({
           </h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className={`w-8 h-8 rounded-full flex items-center justify-center ${dk ? 'text-slate-500' : 'text-slate-400'} hover:text-slate-600 ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-slate-100'} transition-colors cursor-pointer`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -1473,7 +1480,7 @@ export function GrantAgentConfigModal({
             How does this work?
           </button>
           {showHowItWorks && (
-            <div className="mt-3 mb-1 p-4 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-3">
+            <div className={`mt-3 mb-1 p-4 rounded-xl ${dk ? 'bg-indigo-500/10' : 'bg-indigo-50/60'} border ${dk ? 'border-indigo-500/20' : 'border-indigo-100'} space-y-3`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <p className="text-[11px] font-bold text-indigo-800 flex items-center gap-1.5"><Globe className="w-3 h-3" /> Data Sources</p>
@@ -1494,7 +1501,7 @@ export function GrantAgentConfigModal({
                     { num: "4", text: "AI scores each result for relevance" },
                     { num: "5", text: "Filters below threshold (30/100) & saves matches" },
                   ].map((s) => (
-                    <span key={s.num} className="inline-flex items-center gap-1.5 text-[10px] text-indigo-700/80 px-2 py-1 rounded-lg bg-white/70 border border-indigo-100">
+                    <span key={s.num} className={`inline-flex items-center gap-1.5 text-[10px] text-indigo-700/80 px-2 py-1 rounded-lg bg-white/70 border ${dk ? 'border-indigo-500/20' : 'border-indigo-100'}`}>
                       <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">{s.num}</span>
                       {s.text}
                     </span>
@@ -1507,7 +1514,7 @@ export function GrantAgentConfigModal({
         </div>
 
         {/* Step Indicator */}
-        <div className="px-6 py-4 border-b border-slate-100 shrink-0">
+        <div className={`px-6 py-4 border-b ${dk ? 'border-[#1e2028]' : 'border-slate-100'} shrink-0`}>
           <StepIndicator current={step} completed={completedSteps} />
         </div>
 
@@ -1522,20 +1529,20 @@ export function GrantAgentConfigModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0">
+        <div className={`px-6 py-4 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-100'} flex items-center justify-between shrink-0`}>
           {/* Left: Cancel or Back */}
           <div>
             {step === 1 ? (
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#f2ece0] transition-colors cursor-pointer"
+                className={`px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-[#f2ece0]'} transition-colors cursor-pointer`}
               >
                 Cancel
               </button>
             ) : (
               <button
                 onClick={() => setStep((s) => s - 1)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-[#f2ece0] transition-colors cursor-pointer flex items-center gap-1"
+                className={`px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-[#f2ece0]'} transition-colors cursor-pointer flex items-center gap-1`}
               >
                 ← Back
               </button>
@@ -1543,7 +1550,7 @@ export function GrantAgentConfigModal({
           </div>
 
           {/* Center: validation */}
-          <div className="text-[10px] text-slate-400 font-medium">
+          <div className={`text-[10px] ${dk ? 'text-slate-500' : 'text-slate-400'} font-medium`}>
             {step === 2 && config.serviceAreas.length === 0 && (
               <span className="text-amber-500 font-semibold flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />

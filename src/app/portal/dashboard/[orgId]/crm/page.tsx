@@ -56,7 +56,7 @@ import {
   Menu, Palette, Link2, Edit3, Trash, Loader2, ImagePlus, PenTool, CalendarRange,
   Table2, MapPin, Building2, ChevronLeft, ChevronRight, AlertTriangle, Save, Contact,
   Settings2, ArrowUpDown, ArrowUp, ArrowDown, Copy, Maximize2, Minimize2,
-  Database, CheckCircle2,
+  Database, CheckCircle2, RefreshCw,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 import { getAuthHeaders } from '@/lib/api-auth-client';
@@ -615,13 +615,17 @@ export default function CRMPage() {
 
   // ── Export Modal state ──
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const [showPipelineStages, setShowPipelineStages] = useState(true);
 
   // ── Sidebar collapse state ──
   const presetTagNames = useMemo(() => INITIAL_TAGS.map(t => t.name), []);
   const sortedAvailableTags = useMemo(() => {
+    const pipelineStageNames = (store.pipelineConfig?.stages || []).map(s => s.name);
     const allNames = customTags.map(t => t.name);
-    const customNames = allNames.filter(name => !presetTagNames.includes(name));
-    const presetNames = presetTagNames.filter(name => allNames.includes(name));
+    const customNames = allNames.filter(name => !presetTagNames.includes(name) && !pipelineStageNames.includes(name));
+    const presetNames = presetTagNames.filter(name => allNames.includes(name) && !pipelineStageNames.includes(name));
     
     if (mruPresetTag && presetNames.includes(mruPresetTag)) {
       const idx = presetNames.indexOf(mruPresetTag);
@@ -629,8 +633,8 @@ export default function CRMPage() {
       presetNames.unshift(mruPresetTag);
     }
     
-    return [...customNames, ...presetNames];
-  }, [customTags, presetTagNames, mruPresetTag]);
+    return [...pipelineStageNames, ...customNames, ...presetNames];
+  }, [customTags, presetTagNames, mruPresetTag, store.pipelineConfig?.stages]);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1928,17 +1932,125 @@ export default function CRMPage() {
             <Contact className="w-[18px] h-[18px] text-sky-500" />
             <span className="hidden sm:inline">Contact</span>
           </button>
-          {rbacCanDelete && (
-          <button
-            onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
-              isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30' : 'text-red-500 hover:text-red-700 hover:bg-red-50'
-            }`}
-          >
-            <Trash2 className="w-[18px] h-[18px]" />
-            <span className="hidden sm:inline">Delete</span>
-          </button>
-          )}
+          
+          <div className="relative w-full">
+            <button
+              onClick={() => { if (selectedIds.size > 0) setShowStatusDropdown(!showStatusDropdown); }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+                isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-emerald-50'
+              }`}
+            >
+              <RefreshCw className="w-[18px] h-[18px] text-emerald-500" />
+              Status
+            </button>
+            {showStatusDropdown && (
+              <div className={`absolute top-full left-0 mt-1 w-full rounded-lg shadow-lg border p-1 z-50 ${
+                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+              }`}>
+                {["Cold Lead", "Warm Lead", "Interested", "Sale Completed"].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => {
+                      selectedIds.forEach(id => updateStatus(id, status as any));
+                      showToast(`Updated ${selectedIds.size} contacts to ${status}`);
+                      setSelectedIds(new Set());
+                      setShowStatusDropdown(false);
+                    }}
+                    className={`w-full text-left px-2 py-1.5 text-xs rounded-md ${
+                      isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative w-full">
+            <button
+              onClick={() => { if (selectedIds.size > 0) setShowTagDropdown(!showTagDropdown); }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+                isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-indigo-50'
+              }`}
+            >
+              <Tag className="w-[18px] h-[18px] text-indigo-500" />
+              Tag
+            </button>
+            {showTagDropdown && (
+              <div className={`absolute top-full left-0 mt-1 w-[200px] max-h-64 overflow-y-auto rounded-lg shadow-lg border p-1 z-50 ${
+                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+              }`}>
+                {(() => {
+                  const pipelineStageNames = (store.pipelineConfig?.stages || []).map(s => s.name);
+                  const regularTags = sortedAvailableTags.filter(t => !pipelineStageNames.includes(t));
+                  return (
+                    <>
+                      {pipelineStageNames.length > 0 && (
+                        <div className="mb-1">
+                          <button 
+                            onClick={() => setShowPipelineStages(!showPipelineStages)} 
+                            className={`w-full flex items-center justify-between px-2 py-1 text-[10px] font-semibold tracking-wider uppercase rounded ${
+                              isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'
+                            }`}
+                          >
+                            <span>Pipeline Stages</span>
+                            <span>{showPipelineStages ? '▼' : '▶'}</span>
+                          </button>
+                          {showPipelineStages && pipelineStageNames.map(name => (
+                            <button
+                              key={name}
+                              onClick={() => {
+                                if (presetTagNames.includes(name)) setMruPresetTag(name);
+                                selectedIds.forEach(id => {
+                                  const customer = customers.find(c => c.id === id);
+                                  if (customer && !customer.tags.includes(name)) {
+                                    store.updateCustomer(id, { tags: [...customer.tags, name] });
+                                  }
+                                });
+                                showToast(`Added "${name}" to ${selectedIds.size} contacts`);
+                                setShowTagDropdown(false);
+                              }}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md mt-0.5 ${
+                                isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: store.pipelineConfig?.stages.find(s => s.name === name)?.color || '#6366f1' }} />
+                              <span className="truncate">{name}</span>
+                            </button>
+                          ))}
+                          <div className={`my-1 border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} />
+                        </div>
+                      )}
+                      
+                      {regularTags.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            if (presetTagNames.includes(tag)) setMruPresetTag(tag);
+                            selectedIds.forEach(id => {
+                              const customer = customers.find(c => c.id === id);
+                              if (customer && !customer.tags.includes(tag)) {
+                                store.updateCustomer(id, { tags: [...customer.tags, tag] });
+                              }
+                            });
+                            showToast(`Added "${tag}" to ${selectedIds.size} contacts`);
+                            setShowTagDropdown(false);
+                          }}
+                          className={`w-full text-left px-2 py-1.5 text-xs rounded-md ${
+                            isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => {
               if (selectedIds.size > 0) {
@@ -1957,6 +2069,28 @@ export default function CRMPage() {
             <MailPlus className="w-[18px] h-[18px] text-purple-500" />
             Draft Email
           </button>
+          
+          <button
+            onClick={() => { if (selectedIds.size > 0) setShowExportModal(true); }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+              isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-amber-50'
+            }`}
+          >
+            <Download className="w-[18px] h-[18px] text-amber-500" />
+            Export
+          </button>
+
+          {rbacCanDelete && (
+          <button
+            onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
+              isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30' : 'text-red-500 hover:text-red-700 hover:bg-red-50'
+            }`}
+          >
+            <Trash2 className="w-[18px] h-[18px]" />
+            <span className="hidden sm:inline">Delete</span>
+          </button>
+          )}
         </div>
         )}
         {/* ── Collapsed sidebar: icon-only actions ── */}
@@ -1988,19 +2122,128 @@ export default function CRMPage() {
             >
               <Contact className="w-[18px] h-[18px] text-sky-500" />
             </button>
-            {rbacCanDelete && (
-            <button
-              onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
-              title="Delete"
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                selectedIds.size > 0
-                  ? (isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30' : 'text-red-500 hover:text-red-700 hover:bg-red-50')
-                  : 'opacity-40 pointer-events-none text-slate-400'
-              }`}
-            >
-              <Trash2 className="w-[18px] h-[18px]" />
-            </button>
-            )}
+
+            <div className="relative">
+              <button
+                onClick={() => { if (selectedIds.size > 0) setShowStatusDropdown(!showStatusDropdown); }}
+                title="Status"
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  selectedIds.size > 0
+                    ? (isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-emerald-50')
+                    : 'opacity-40 pointer-events-none text-slate-400'
+                }`}
+              >
+                <RefreshCw className="w-[18px] h-[18px] text-emerald-500" />
+              </button>
+              {showStatusDropdown && (
+                <div className={`absolute left-full top-0 ml-1 w-32 rounded-lg shadow-lg border p-1 z-50 ${
+                  isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+                }`}>
+                  {["Cold Lead", "Warm Lead", "Interested", "Sale Completed"].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        selectedIds.forEach(id => updateStatus(id, status as any));
+                        showToast(`Updated ${selectedIds.size} contacts to ${status}`);
+                        setSelectedIds(new Set());
+                        setShowStatusDropdown(false);
+                      }}
+                      className={`w-full text-left px-2 py-1.5 text-xs rounded-md ${
+                        isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => { if (selectedIds.size > 0) setShowTagDropdown(!showTagDropdown); }}
+                title="Tag"
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  selectedIds.size > 0
+                    ? (isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-indigo-50')
+                    : 'opacity-40 pointer-events-none text-slate-400'
+                }`}
+              >
+                <Tag className="w-[18px] h-[18px] text-indigo-500" />
+              </button>
+              {showTagDropdown && (
+                <div className={`absolute left-full top-0 ml-1 w-[200px] max-h-64 overflow-y-auto rounded-lg shadow-lg border p-1 z-50 ${
+                  isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+                }`}>
+                  {(() => {
+                    const pipelineStageNames = (store.pipelineConfig?.stages || []).map(s => s.name);
+                    const regularTags = sortedAvailableTags.filter(t => !pipelineStageNames.includes(t));
+                    return (
+                      <>
+                        {pipelineStageNames.length > 0 && (
+                          <div className="mb-1">
+                            <button 
+                              onClick={() => setShowPipelineStages(!showPipelineStages)} 
+                              className={`w-full flex items-center justify-between px-2 py-1 text-[10px] font-semibold tracking-wider uppercase rounded ${
+                                isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span>Pipeline Stages</span>
+                              <span>{showPipelineStages ? '▼' : '▶'}</span>
+                            </button>
+                            {showPipelineStages && pipelineStageNames.map(name => (
+                              <button
+                                key={name}
+                                onClick={() => {
+                                  if (presetTagNames.includes(name)) setMruPresetTag(name);
+                                  selectedIds.forEach(id => {
+                                    const customer = customers.find(c => c.id === id);
+                                    if (customer && !customer.tags.includes(name)) {
+                                      store.updateCustomer(id, { tags: [...customer.tags, name] });
+                                    }
+                                  });
+                                  showToast(`Added "${name}" to ${selectedIds.size} contacts`);
+                                  setShowTagDropdown(false);
+                                }}
+                                className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md mt-0.5 ${
+                                  isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: store.pipelineConfig?.stages.find(s => s.name === name)?.color || '#6366f1' }} />
+                                <span className="truncate">{name}</span>
+                              </button>
+                            ))}
+                            <div className={`my-1 border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} />
+                          </div>
+                        )}
+                        {regularTags.map(tag => (
+                          <button
+                            key={tag}
+                            onClick={() => {
+                              if (presetTagNames.includes(tag)) setMruPresetTag(tag);
+                              selectedIds.forEach(id => {
+                                const customer = customers.find(c => c.id === id);
+                                if (customer && !customer.tags.includes(tag)) {
+                                  store.updateCustomer(id, { tags: [...customer.tags, tag] });
+                                }
+                              });
+                              showToast(`Added "${tag}" to ${selectedIds.size} contacts`);
+                              setShowTagDropdown(false);
+                            }}
+                            className={`w-full text-left px-2 py-1.5 text-xs rounded-md ${
+                              isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => {
                 if (selectedIds.size > 0) {
@@ -2021,6 +2264,32 @@ export default function CRMPage() {
             >
               <MailPlus className="w-[18px] h-[18px] text-purple-500" />
             </button>
+            
+            <button
+              onClick={() => { if (selectedIds.size > 0) setShowExportModal(true); }}
+              title="Export"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                selectedIds.size > 0
+                  ? (isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-800 hover:bg-amber-50')
+                  : 'opacity-40 pointer-events-none text-slate-400'
+              }`}
+            >
+              <Download className="w-[18px] h-[18px] text-amber-500" />
+            </button>
+
+            {rbacCanDelete && (
+            <button
+              onClick={() => { if (selectedIds.size > 0) setShowDeleteConfirm(true); }}
+              title="Delete"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                selectedIds.size > 0
+                  ? (isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30' : 'text-red-500 hover:text-red-700 hover:bg-red-50')
+                  : 'opacity-40 pointer-events-none text-slate-400'
+              }`}
+            >
+              <Trash2 className="w-[18px] h-[18px]" />
+            </button>
+            )}
           </div>
         )}
       </aside>
@@ -3767,43 +4036,6 @@ export default function CRMPage() {
           setIsCommandPaletteOpen(false);
         }}
         onAddContact={() => { setShowAddModal(true); setIsCommandPaletteOpen(false); }}
-      />
-
-      {/* ━━━━━━ BULK ACTIONS BAR ━━━━━━ */}
-      <BulkActionsBar
-        selectedCount={selectedIds.size}
-        onChangeStatus={(status) => {
-          selectedIds.forEach(id => updateStatus(id, status as any));
-          showToast(`Updated ${selectedIds.size} contacts to ${status}`);
-          setSelectedIds(new Set());
-        }}
-        onAddTag={(tag) => {
-          if (presetTagNames.includes(tag)) {
-            setMruPresetTag(tag);
-          }
-          selectedIds.forEach(id => {
-            const customer = customers.find(c => c.id === id);
-            if (customer && !customer.tags.includes(tag)) {
-              store.updateCustomer(id, { tags: [...customer.tags, tag] });
-            }
-          });
-          showToast(`Added "${tag}" to ${selectedIds.size} contacts`);
-        }}
-        onRemoveTag={(tag) => {
-          selectedIds.forEach(id => {
-            const customer = customers.find(c => c.id === id);
-            if (customer) {
-              store.updateCustomer(id, { tags: customer.tags.filter(t => t !== tag) });
-            }
-          });
-          showToast(`Removed "${tag}" from ${selectedIds.size} contacts`);
-        }}
-        onSendEmail={() => setShowEmailModal(true)}
-        onExport={() => setShowExportModal(true)}
-        onDelete={() => setShowDeleteConfirm(true)}
-        onClearSelection={() => setSelectedIds(new Set())}
-        availableTags={sortedAvailableTags}
-        availableStatuses={["Cold Lead", "Warm Lead", "Interested", "Sale Completed"]}
       />
 
       {/* ━━━━━━ DUPLICATE DETECTOR ━━━━━━ */}

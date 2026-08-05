@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { useOrgId } from "@/contexts/OrgContext";
@@ -1376,7 +1378,17 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                     ? 'bg-indigo-600/30 text-white rounded-br-md border border-indigo-500/20'
                     : 'bg-white/8 border border-white/15 text-white/90 rounded-bl-md'
                 }`}>
-                  {line.text}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => <span>{children}</span>,
+                      strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline hover:text-indigo-300">{children}</a>,
+                    }}
+                  >
+                    {line.text}
+                  </ReactMarkdown>
                 </div>
               </div>
             ))}

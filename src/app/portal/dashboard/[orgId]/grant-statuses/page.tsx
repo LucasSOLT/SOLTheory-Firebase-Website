@@ -414,7 +414,7 @@ function GrantCard({
       </div>
 
       {/* ── Quick Actions (always visible) ── */}
-      <div className="px-5 pb-3 flex items-center gap-2 flex-wrap border-t border-slate-100/60 pt-2.5 ml-0">
+      <div className={`px-5 pb-3 flex items-center gap-2 flex-wrap border-t pt-2.5 ml-0 ${dk ? 'border-[#1e2028]' : 'border-slate-100/60'}`}>
         {fixGrantUrl(grant.url) && (
           <a
             href={fixGrantUrl(grant.url)!}
@@ -432,7 +432,7 @@ function GrantCard({
           <button
             onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "applied"); }}
             disabled={isUpdating}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50/50 hover:bg-amber-100 transition-all cursor-pointer disabled:opacity-40"
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer disabled:opacity-40 ${dk ? 'border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20' : 'border-amber-200 text-amber-700 bg-amber-50/50 hover:bg-amber-100'}`}
           >
             <Send className="w-3 h-3" />
             Mark Applied
@@ -444,7 +444,7 @@ function GrantCard({
             <button
               onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "approved"); }}
               disabled={isUpdating}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold border border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 transition-all cursor-pointer disabled:opacity-40"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer disabled:opacity-40 ${dk ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100'}`}
             >
               <CheckCircle2 className="w-3 h-3" />
               Approved
@@ -452,7 +452,7 @@ function GrantCard({
             <button
               onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "denied"); }}
               disabled={isUpdating}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold border border-red-200 text-red-600 bg-red-50/50 hover:bg-red-100 transition-all cursor-pointer disabled:opacity-40"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer disabled:opacity-40 ${dk ? 'border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20' : 'border-red-200 text-red-600 bg-red-50/50 hover:bg-red-100'}`}
             >
               <XCircle className="w-3 h-3" />
               Denied
@@ -464,7 +464,7 @@ function GrantCard({
           <button
             onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "unapplied"); }}
             disabled={isUpdating}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer ${dk ? 'text-slate-500 hover:text-slate-300 hover:bg-[#1e2028]' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
           >
             Reset
           </button>
@@ -480,7 +480,7 @@ function GrantCard({
             }
           }}
           disabled={isUpdating}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold text-red-300 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer ml-auto disabled:opacity-40"
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer ml-auto disabled:opacity-40 ${dk ? 'text-red-500/50 hover:text-red-400 hover:bg-red-500/10' : 'text-red-300 hover:text-red-600 hover:bg-red-50'}`}
         >
           <Trash2 className="w-3 h-3" />
         </button>
@@ -497,12 +497,12 @@ function GrantCard({
         >
           {/* Relevance explanation block */}
           {grant.relevanceExplanation && (
-            <div className="bg-gradient-to-r from-indigo-50/80 to-violet-50/40 border border-indigo-100/80 rounded-xl p-4 mb-5">
+            <div className={`rounded-xl p-4 mb-5 border ${dk ? 'bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border-indigo-500/20' : 'bg-gradient-to-r from-indigo-50/80 to-violet-50/40 border-indigo-100/80'}`}>
               <div className="flex items-center gap-2 mb-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Why This Grant?</p>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${dk ? 'text-indigo-400' : 'text-indigo-500'}`}>Why This Grant?</p>
               </div>
-              <p className="text-[13px] text-indigo-700 leading-relaxed">{grant.relevanceExplanation}</p>
+              <p className={`text-[13px] leading-relaxed ${dk ? 'text-indigo-300' : 'text-indigo-700'}`}>{grant.relevanceExplanation}</p>
               {grant.relevanceScore != null && (
                 <p className="text-[11px] font-bold text-indigo-400 mt-2">
                   AI Relevance: {grant.relevanceScore}% match
@@ -552,7 +552,7 @@ function GrantCard({
                 value={
                   <div className="flex flex-wrap gap-1.5 mt-0.5">
                     {fundingCategories.map((cat) => (
-                      <span key={cat} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600">
+                      <span key={cat} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${dk ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border border-indigo-200 text-indigo-600'}`}>
                         {cat}
                       </span>
                     ))}
@@ -566,7 +566,7 @@ function GrantCard({
                 value={
                   <div className="flex flex-wrap gap-1.5 mt-0.5">
                     {fundingAgencyLevels.map((lvl) => (
-                      <span key={lvl} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-600">
+                      <span key={lvl} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${dk ? 'bg-slate-700/30 border border-slate-600/30 text-slate-400' : 'bg-slate-100 border border-slate-200 text-slate-600'}`}>
                         {lvl}
                       </span>
                     ))}
@@ -577,7 +577,7 @@ function GrantCard({
           </div>
 
           {/* ── Notes ── */}
-          <div className="mt-5 pt-4 border-t border-slate-200/60">
+          <div className={`mt-5 pt-4 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-200/60'}`}>
             <div className="flex items-center gap-2 mb-2">
               <StickyNote className="w-3.5 h-3.5 text-amber-500" />
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notes</span>
@@ -630,7 +630,7 @@ function GrantCard({
                     }}
                     onClick={(e) => e.stopPropagation()}
                     placeholder="0"
-                    className="w-40 pl-7 pr-3 py-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    className={`w-40 pl-7 pr-3 py-2 text-sm font-semibold rounded-lg focus:outline-none focus:ring-2 ${dk ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 focus:ring-emerald-500/30" : "bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-300"}`}
                   />
                 </div>
               </div>
@@ -638,7 +638,7 @@ function GrantCard({
           </div>
 
           {/* ── Application Readiness Checklist ── */}
-          <div className="mt-5 pt-4 border-t border-slate-200/60">
+          <div className={`mt-5 pt-4 border-t ${dk ? 'border-[#1e2028]' : 'border-slate-200/60'}`}>
             <div className="flex items-center gap-2 mb-3">
               <ClipboardCheck className="w-3.5 h-3.5 text-indigo-500" />
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Application Readiness Checklist</span>
@@ -667,15 +667,15 @@ function GrantCard({
                 <label
                   key={item.key}
                   onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  className={`flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer transition-colors ${dk ? "hover:bg-[#1e2028]" : "hover:bg-slate-50"}`}
                 >
                   <input
                     type="checkbox"
                     checked={!!grant.checklist?.[item.key]}
                     onChange={(e) => onToggleChecklist(grant.id, item.key, e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className={`w-3.5 h-3.5 rounded focus:ring-indigo-500 ${dk ? "bg-[#15161a] border-[#1e2028] text-indigo-500" : "border-slate-300 text-indigo-600"}`}
                   />
-                  <span className={`text-[12px] ${grant.checklist?.[item.key] ? "text-slate-400 line-through" : "text-slate-600"}`}>
+                  <span className={`text-[12px] ${grant.checklist?.[item.key] ? "text-slate-400 line-through" : (dk ? "text-slate-400" : "text-slate-600")}`}>
                     {item.label}
                   </span>
                 </label>
@@ -684,14 +684,14 @@ function GrantCard({
           </div>
 
           {/* Full action buttons in expanded view */}
-          <div className="mt-6 pt-5 border-t border-slate-200/60 flex flex-wrap items-center gap-3">
+          <div className={`mt-6 pt-5 border-t flex flex-wrap items-center gap-3 ${dk ? 'border-[#1e2028]' : 'border-slate-200/60'}`}>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-2">Update Status:</span>
 
             <button
               onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "applied"); }}
               disabled={isUpdating || grant.status === "applied"}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                grant.status === "applied" ? "bg-amber-100 border-amber-300 text-amber-800" : "bg-[#faf8f3] border-amber-200 text-amber-700 hover:bg-amber-50"
+                grant.status === "applied" ? (dk ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : "bg-amber-100 border-amber-300 text-amber-800") : (dk ? "bg-[#15161a] border-[#1e2028] text-amber-500 hover:bg-amber-500/10" : "bg-[#faf8f3] border-amber-200 text-amber-700 hover:bg-amber-50")
               }`}
             >
               <Send className="w-3.5 h-3.5" />
@@ -702,7 +702,7 @@ function GrantCard({
               onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "approved"); }}
               disabled={isUpdating || grant.status === "approved"}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                grant.status === "approved" ? "bg-emerald-100 border-emerald-300 text-emerald-800" : "bg-[#faf8f3] border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                grant.status === "approved" ? (dk ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-emerald-100 border-emerald-300 text-emerald-800") : (dk ? "bg-[#15161a] border-[#1e2028] text-emerald-500 hover:bg-emerald-500/10" : "bg-[#faf8f3] border-emerald-200 text-emerald-700 hover:bg-emerald-50")
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -713,7 +713,7 @@ function GrantCard({
               onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "denied"); }}
               disabled={isUpdating || grant.status === "denied"}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                grant.status === "denied" ? "bg-red-100 border-red-300 text-red-800" : "bg-[#faf8f3] border-red-200 text-red-700 hover:bg-red-50"
+                grant.status === "denied" ? (dk ? "bg-red-500/20 border-red-500/40 text-red-400" : "bg-red-100 border-red-300 text-red-800") : (dk ? "bg-[#15161a] border-[#1e2028] text-red-500 hover:bg-red-500/10" : "bg-[#faf8f3] border-red-200 text-red-700 hover:bg-red-50")
               }`}
             >
               <XCircle className="w-3.5 h-3.5" />
@@ -724,7 +724,7 @@ function GrantCard({
               <button
                 onClick={(e) => { e.stopPropagation(); onUpdateStatus(grant.id, "unapplied"); }}
                 disabled={isUpdating}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-[#f2ece0] transition-colors cursor-pointer"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-colors cursor-pointer ${dk ? "text-slate-400 hover:text-slate-300 hover:bg-[#1e2028]" : "text-slate-400 hover:text-slate-600 hover:bg-[#f2ece0]"}`}
               >
                 Reset
               </button>
@@ -738,7 +738,7 @@ function GrantCard({
                 }
               }}
               disabled={isUpdating}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-red-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold border border-transparent transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ml-auto ${dk ? "text-red-400/80 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20" : "text-red-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200"}`}
             >
               <Trash2 className="w-3.5 h-3.5" />
               Delete
@@ -774,6 +774,7 @@ export default function GrantStatusesPage() {
 
   // New sort & filter state
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterSources, setFilterSources] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<string>("all");
@@ -999,24 +1000,30 @@ export default function GrantStatusesPage() {
 
     // Sort
     result.sort((a, b) => {
+      let cmp = 0;
       switch (sortBy) {
         case "relevance":
-          return (b.relevanceScore || 0) - (a.relevanceScore || 0);
+          cmp = (b.relevanceScore || 0) - (a.relevanceScore || 0);
+          break;
         case "deadline": {
           const da = daysUntil(a.closeDate) ?? 99999;
           const db = daysUntil(b.closeDate) ?? 99999;
-          return da - db;
+          cmp = da - db;
+          break;
         }
         case "amount":
-          return (b.amount || 0) - (a.amount || 0);
+          cmp = (b.amount || 0) - (a.amount || 0);
+          break;
         case "dateFound":
         default:
-          return toMs(b.dateSuggested) - toMs(a.dateSuggested);
+          cmp = toMs(b.dateSuggested) - toMs(a.dateSuggested);
+          break;
       }
+      return sortDirection === 'asc' ? -cmp : cmp;
     });
 
     return result;
-  }, [grants, filterStatus, filterSources, filterMode, searchQuery, sortBy]);
+  }, [grants, filterStatus, filterSources, filterMode, searchQuery, sortBy, sortDirection]);
 
   /* ═══ Selection Handlers ═══ */
   function toggleSelect(id: string) {
@@ -1246,58 +1253,6 @@ export default function GrantStatusesPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 lg:px-8 pb-8">
 
-          {/* Session Filter Pills */}
-          {sessions.length > 1 && (
-            <div className="flex items-center gap-2 mb-4 overflow-x-auto scrollbar-hide py-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Session:</span>
-              <button
-                onClick={() => setActiveSessionId(null)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  !activeSessionId
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : (dk ? "bg-[#1e2028] text-slate-400 hover:bg-[#2a2d3d]" : "bg-slate-100 text-slate-500 hover:bg-slate-200")
-                }`}
-              >
-                All Sessions
-              </button>
-              {sessions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setActiveSessionId(s.id)}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                    activeSessionId === s.id
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : (dk ? "bg-[#1e2028] text-slate-400 hover:bg-[#2a2d3d]" : "bg-slate-100 text-slate-500 hover:bg-slate-200")
-                  }`}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Source Type Filter */}
-          <div className="flex items-center gap-2 mb-4 py-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Source:</span>
-            {[
-              { key: "all", label: "All" },
-              { key: "federal", label: "Federal" },
-              { key: "philanthropic", label: "Philanthropic" },
-            ].map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilterMode(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  filterMode === f.key
-                    ? f.key === "philanthropic" ? "bg-amber-500 text-white shadow-sm" : "bg-indigo-600 text-white shadow-sm"
-                    : (dk ? "bg-[#1e2028] text-slate-400 hover:bg-[#2a2d3d]" : "bg-slate-100 text-slate-500 hover:bg-slate-200")
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
           {/* ── Session Switcher with CRUD ── */}
           <div className={`rounded-xl border p-4 mb-4 transition-all duration-500 ${discoveryFlash ? (dk ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-300') : (dk ? 'bg-[#111214] border-[#1e2028]' : 'bg-white border-slate-200')}`}>
             {discoveryFlash && (
@@ -1494,7 +1449,13 @@ export default function GrantStatusesPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                    <button
+                      onClick={() => setSortDirection(d => d === 'desc' ? 'asc' : 'desc')}
+                      className={`p-1.5 rounded-lg transition-all cursor-pointer ${dk ? 'hover:bg-[#1e2028] text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                      title={sortDirection === 'desc' ? 'Sorted descending' : 'Sorted ascending'}
+                    >
+                      <ArrowUpDown className={`w-3.5 h-3.5 transition-transform ${sortDirection === 'asc' ? 'rotate-180' : ''}`} />
+                    </button>
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as SortOption)}

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { GrantSession } from "@/hooks/useGrantSessions";
 import { SESSION_COLOR_THEMES, type SessionColor } from "@/hooks/useGrantSessions";
+import { useTheme } from '@/components/ThemeProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +63,7 @@ export function SessionSwitcher({
   canCreateMore,
   loading = false,
 }: SessionSwitcherProps) {
+  const { isDarkMode: dk } = useTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -129,15 +131,15 @@ export function SessionSwitcher({
           <>
             <button
               onClick={scrollLeft}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-white/90 border border-slate-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer"
+              className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full ${dk ? 'bg-[#1e2028] border-[#2a2d3d]' : 'bg-white/90 border border-slate-200'} flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer`}
             >
-              <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
+              <ChevronLeft className={`w-3.5 h-3.5 ${dk ? 'text-slate-400' : 'text-slate-500'}`} />
             </button>
             <button
               onClick={scrollRight}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-white/90 border border-slate-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer"
+              className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full ${dk ? 'bg-[#1e2028] border-[#2a2d3d]' : 'bg-white/90 border border-slate-200'} flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer`}
             >
-              <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+              <ChevronRight className={`w-3.5 h-3.5 ${dk ? 'text-slate-400' : 'text-slate-500'}`} />
             </button>
           </>
         )}
@@ -163,7 +165,7 @@ export function SessionSwitcher({
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all select-none ${
                     isActive
                       ? `${theme.pillBg} ${theme.pillBorder} ${theme.pillText} shadow-sm font-bold`
-                      : "bg-white/60 border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 font-semibold"
+                      : `${dk ? 'bg-[#15161a] border-[#1e2028] text-slate-400 hover:bg-[#1e2028] hover:border-[#2a2d3d]' : 'bg-white/60 border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300'} font-semibold`
                   }`}
                 >
                   {/* Clickable session select area */}
@@ -200,8 +202,8 @@ export function SessionSwitcher({
                     <span
                       className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md ${
                         isActive
-                          ? `${theme.pillBorder} bg-white/50`
-                          : "bg-slate-100 text-slate-400 border border-slate-200"
+                          ? `${theme.pillBorder} ${dk ? 'bg-white/10' : 'bg-white/50'}`
+                          : `${dk ? 'bg-[#1e2028] text-slate-500 border border-[#2a2d3d]' : 'bg-slate-100 text-slate-400 border border-slate-200'}`
                       }`}
                       title={`Scan interval: Every ${cfg?.intervalValue} ${cfg?.intervalUnit}`}
                     >
@@ -216,7 +218,7 @@ export function SessionSwitcher({
                     </span>
                   )}
                   {!isActive && agentCount > 0 && (
-                    <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${dk ? 'text-slate-500 bg-[#1e2028]' : 'text-slate-400 bg-slate-100'}`}>
                       {agentCount}
                     </span>
                   )}
@@ -226,30 +228,30 @@ export function SessionSwitcher({
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="w-5 h-5 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 opacity-50 hover:opacity-100 hover:bg-slate-100"
+                        className={`w-5 h-5 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 opacity-50 hover:opacity-100 ${dk ? 'hover:bg-[#1e2028]' : 'hover:bg-slate-100'}`}
                       >
                         <MoreHorizontal className="w-3.5 h-3.5" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-[190px] rounded-xl shadow-2xl border-slate-200 p-1.5">
+                    <DropdownMenuContent align="start" className={`w-[190px] rounded-xl shadow-2xl p-1.5 ${dk ? 'bg-[#111214] border-[#1e2028]' : 'border-slate-200'}`}>
                       {onEditSession && (
-                        <DropdownMenuItem onClick={() => onEditSession(session.id)} className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer rounded-lg p-2">
+                        <DropdownMenuItem onClick={() => onEditSession(session.id)} className={`flex items-center gap-2.5 text-xs font-medium cursor-pointer rounded-lg p-2 ${dk ? 'text-slate-300' : 'text-slate-700'}`}>
                           <Settings className="w-3.5 h-3.5 text-slate-400" />
                           Edit Session
                         </DropdownMenuItem>
                       )}
                       {onDuplicateSession && (
-                        <DropdownMenuItem onClick={() => onDuplicateSession(session.id)} className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer rounded-lg p-2">
+                        <DropdownMenuItem onClick={() => onDuplicateSession(session.id)} className={`flex items-center gap-2.5 text-xs font-medium cursor-pointer rounded-lg p-2 ${dk ? 'text-slate-300' : 'text-slate-700'}`}>
                           <Copy className="w-3.5 h-3.5 text-slate-400" />
                           Duplicate Session
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => startRename(session.id, session.name)} className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer rounded-lg p-2">
+                      <DropdownMenuItem onClick={() => startRename(session.id, session.name)} className={`flex items-center gap-2.5 text-xs font-medium cursor-pointer rounded-lg p-2 ${dk ? 'text-slate-300' : 'text-slate-700'}`}>
                         <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         Rename
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-slate-100 my-1" />
-                      <DropdownMenuItem onClick={() => setConfirmDeleteId(session.id)} className="flex items-center gap-2.5 text-xs font-medium text-red-600 cursor-pointer rounded-lg p-2 focus:bg-red-50 focus:text-red-700">
+                      <DropdownMenuSeparator className={`my-1 ${dk ? 'bg-[#1e2028]' : 'bg-slate-100'}`} />
+                      <DropdownMenuItem onClick={() => setConfirmDeleteId(session.id)} className={`flex items-center gap-2.5 text-xs font-medium text-red-600 cursor-pointer rounded-lg p-2 focus:text-red-700 ${dk ? 'focus:bg-red-500/10' : 'focus:bg-red-50'}`}>
                         <Trash2 className="w-3.5 h-3.5 text-red-400" />
                         Delete Session
                       </DropdownMenuItem>
@@ -264,7 +266,7 @@ export function SessionSwitcher({
           {sessions.length === 0 && (
             <button
               onClick={onCreateSession}
-              className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors cursor-pointer"
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed transition-colors cursor-pointer ${dk ? 'border-[#2a2d3d] text-slate-400 hover:border-indigo-500/50 hover:text-indigo-400' : 'border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'}`}
             >
               <Plus className="w-4 h-4" />
               <span className="text-xs font-semibold">Create your first search session</span>
@@ -276,8 +278,8 @@ export function SessionSwitcher({
       {/* Delete Confirmation Dialog */}
       {confirmDeleteId && (
         <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Delete Session?</h3>
+          <div className={`rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6 animate-in zoom-in-95 duration-200 ${dk ? 'bg-[#111214]' : 'bg-white'}`}>
+            <h3 className={`text-sm font-bold mb-2 ${dk ? 'text-slate-100' : 'text-slate-900'}`}>Delete Session?</h3>
             <p className="text-xs text-slate-500 mb-4 leading-relaxed">
               This will permanently delete &ldquo;{sessions.find((s) => s.id === confirmDeleteId)?.name}&rdquo; and all its agents.
               Grant discoveries from this session will also be removed.
@@ -285,7 +287,7 @@ export function SessionSwitcher({
             <div className="flex items-center gap-3 justify-end">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${dk ? 'text-slate-400 hover:bg-[#1e2028]' : 'text-slate-500 hover:bg-slate-100'}`}
               >
                 Cancel
               </button>

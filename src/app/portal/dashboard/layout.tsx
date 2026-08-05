@@ -566,20 +566,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      const masterGain = ctx.createGain();
-      masterGain.connect(ctx.destination);
-      masterGain.gain.setValueAtTime(0, ctx.currentTime);
-      masterGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.03);
-      masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-      // Pleasant 3-note ascending chime (C5, E5, G5)
-      [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const now = ctx.currentTime;
+
+      // Short, crisp two-tone notification (like a text message)
+      const frequencies = [880, 1175]; // A5, D6 — pleasant two-note ding
+      const noteDuration = 0.08;
+      const noteGap = 0.06;
+
+      frequencies.forEach((freq, i) => {
         const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
         osc.type = 'sine';
         osc.frequency.value = freq;
-        osc.connect(masterGain);
-        osc.start(ctx.currentTime + i * 0.08);
-        osc.stop(ctx.currentTime + 1.2);
+
+        const start = now + i * (noteDuration + noteGap);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.3, start + 0.01); // Fast attack
+        gain.gain.exponentialRampToValueAtTime(0.001, start + noteDuration); // Quick decay
+
+        osc.start(start);
+        osc.stop(start + noteDuration + 0.02);
       });
+
+      // Clean up context after sound plays
+      setTimeout(() => ctx.close(), 500);
     } catch (e) {}
   };
 
