@@ -1296,25 +1296,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                 </div>
 
-                {/* Reports — collapsible */}
-                <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
-                  <button onClick={() => toggleSection('mob_reports')} className="flex items-center justify-between w-full px-4 py-1">
-                    <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{t.reports}</span>
-                    {collapsedSections['mob_reports'] ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
-                  </button>
-                  {!collapsedSections['mob_reports'] && (
-                  <div className="space-y-0.5 mt-1">
-                    <Link href={`${dashboardHome}/support-tickets`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/support-tickets') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <Ticket className="w-5 h-5" />
-                      <span>{t.supportTickets}</span>
-                    </Link>
-                    <Link href={`${dashboardHome}/surveys`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/surveys') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <ClipboardList className="w-5 h-5" />
-                      <span>{t.surveys}</span>
-                    </Link>
-                  </div>
-                  )}
-                </div>
 
 
                 {/* Settings */}
@@ -1637,30 +1618,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
           
-          {/* Section 2 */}
-          <div className="mb-2">
-            <button onClick={() => toggleSection('reports')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['reports'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.reports}</span>
-            </button>
-            {!collapsedSections['reports'] &&
-            <div className="space-y-1 animate-in fade-in duration-150">
-
-              <Link href={`${dashboardHome}/support-tickets`} className={getSidebarLinkClass(pathname.endsWith('/support-tickets'))}>
-                <div className={getSidebarIconClass(pathname.endsWith('/support-tickets'))}>
-                  <Ticket className="w-4 h-4 ml-1" />
-                </div>
-                <span className="text-sm font-medium">{t.submitTicket}</span>
-              </Link>
-
-              <Link href={`${dashboardHome}/surveys`} className={getSidebarLinkClass(pathname.endsWith('/surveys'))}>
-                <div className={getSidebarIconClass(pathname.endsWith('/surveys'))}>
-                  <ClipboardList className="w-4 h-4 ml-1" />
-                </div>
-                <span className="text-sm font-medium">{t.surveys}</span>
-              </Link>
-            </div>}
-          </div>
 
 
 
