@@ -13,6 +13,8 @@ import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 import { createStreamingCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
 import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
+import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
+import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
 const tools: any = [
   {
     type: "function",
@@ -568,7 +570,7 @@ export async function POST(req: Request) {
             temperature: 0.7,
             top_p: 0.9,
             max_tokens: dynamicMaxTokens,
-            ...(useTools ? { tools, tool_choice: "auto" } : {}),
+            ...(useTools ? { tools: domainTools, tool_choice: "auto" } : {}),
           });
         } catch (err: any) {
           attempts++;
@@ -749,6 +751,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       });
     }
 
+
     // --- SMART CONTEXT WINDOW MANAGEMENT ---
     // Keep the conversation focused by managing message history intelligently
     const MAX_CONTEXT_MESSAGES = 32; // Expanded from 24 → 32 for better continuity
@@ -806,14 +809,27 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     // The model has web_search as a tool fallback if it needs real-time info.
     let enrichmentUrls: { url: string; title: string }[] = [];
 
-    // Smart tool detection: Only include tool definitions when the message
-    // actually suggests a tool action. This dramatically reduces input tokens
-    // and Groq processing time for casual conversation.
+    // ── Domain Router: Classify intent and load only relevant tools ──
+    // Replaces the old toolHintPatterns regex with an intelligent router
+    // that selects the right domain (EMAIL, CALENDAR, CRM, etc.) and
+    // loads only that domain's tools — reducing token overhead by ~75%.
     const hasToolApis = !!(gmail || calendar || docsApi || youtubeApi);
-    const toolHintPatterns = /\b(draft|send|email|mail|inbox|calendar|schedule|book|meeting|search|look up|google|youtube|video|survey|text|imessage|message|grant|delete|create|folder|block|forward|remember when|what did we|last time we|event|appointment|reschedule|cancel|unread)\b/i;
     const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
-    const messageNeedsTools = toolHintPatterns.test(lastUserText2);
+    const routedDomain: JarvisDomain = await routeIntent(lastUserText2);
+    const messageNeedsTools = routedDomain !== 'GENERAL';
     const useTools = !!(hasToolApis || uid) && messageNeedsTools;
+    // Filter master tools array to only include domain-relevant tools
+    const domainTools = filterToolsForDomain(tools, routedDomain);
+    console.log(`[ROUTER] Domain: ${routedDomain} | Tools loaded: ${domainTools.length}/${tools.length} | useTools: ${useTools}`);
+
+    // Inject domain-specific system prompt supplement
+    if (useTools) {
+      groqMessages.push({
+        role: "system",
+        content: getDomainPrompt(routedDomain),
+      });
+      console.log(`[ROUTER] Injected domain prompt for: ${routedDomain}`);
+    }
 
     console.log(`[DEBUG] agentId="${agentId}" rawAgentId="${rawAgentId}" isEmailAgent=${isEmailAgent} refreshToken=${refreshToken ? "YES" : "NO"}`);
     console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools} messageNeedsTools=${messageNeedsTools}`);
