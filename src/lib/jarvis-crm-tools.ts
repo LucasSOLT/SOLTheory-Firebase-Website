@@ -615,7 +615,7 @@ async function searchContactsInFirestore(
       ...(Array.isArray(d.tags) ? d.tags : []),
     ].filter(Boolean).map(v => String(v).toLowerCase());
 
-    if (searchableFields.some(field => field.includes(q) || q.includes(field))) {
+    if (searchableFields.some(field => field.includes(q))) {
       results.push({ id: doc.id, data: d });
     }
   });

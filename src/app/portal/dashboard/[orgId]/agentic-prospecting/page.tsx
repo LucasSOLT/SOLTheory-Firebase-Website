@@ -89,19 +89,6 @@ export default function AgenticProspectingPage() {
       imageUrl: "/federal_grant_scout_demo.png",
       route: `${dash}/agentic-prospecting/federal-grant-scout`,
     },
-    {
-      id: "philanthropic-grants",
-      name: "Philanthropic Grant Scout",
-      tagline: "Foundation & Private Funding Discovery",
-      description: "Discovers private foundations, corporate giving programs, and philanthropic organizations aligned with your mission using IRS 990 data and foundation databases.",
-      orgCategory: "Health and Human Services",
-      icon: <ClipboardList className="w-5 h-5" />,
-      status: "active",
-      details: ["Source: ProPublica, IRS 990-PF", "Focus: Foundations & Philanthropists", "Frequency: Configurable"],
-      actionLabel: "Open Dashboard",
-      imageUrl: "/philanthropic_grant_scout_demo.png",
-      route: `${dash}/agentic-prospecting/philanthropic-grant-scout`,
-    },
   ];
 
   const categories = ["All", ...Array.from(new Set(agents.map(a => a.orgCategory)))];

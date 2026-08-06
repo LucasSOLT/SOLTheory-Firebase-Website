@@ -1045,17 +1045,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const getSidebarLinkClass = (isActive: boolean) => {
-    return `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${
+    return `flex items-center ${isSidebarCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${
       isActive 
-        ? (isDarkMode ? 'bg-slate-200 text-black shadow-sm' : 'bg-[#f0ede4] text-black shadow-sm') 
+        ? (isDarkMode ? (isSidebarCollapsed ? 'bg-slate-700 text-white' : 'bg-slate-200 text-black shadow-sm') : 'bg-[#f0ede4] text-black shadow-sm') 
         : (isDarkMode ? 'hover:bg-slate-800 text-slate-300 hover:text-white' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900')
     }`;
   };
 
   const getSidebarIconClass = (isActive: boolean) => {
-    return `w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+    return `${isSidebarCollapsed ? 'w-8 h-8' : 'w-6 h-6'} rounded-md flex items-center justify-center transition-colors ${
       isActive 
-        ? (isDarkMode ? 'bg-black text-white' : 'bg-stone-800 text-white')
+        ? (isDarkMode ? (isSidebarCollapsed ? 'bg-transparent text-white' : 'bg-black text-white') : 'bg-stone-800 text-white')
         : (isDarkMode ? 'bg-transparent text-slate-400 group-hover:text-slate-200' : 'bg-transparent text-slate-500 group-hover:text-stone-800')
     }`;
   };
@@ -1357,26 +1357,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
-      <div className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`} style={{ width: isSidebarCollapsed ? 0 : sidebarWidth, minWidth: isSidebarCollapsed ? 0 : 230, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
-        {/* Collapse toggle button — shows when collapsed */}
-        {isSidebarCollapsed && (
-          <div 
-            className="absolute top-1/2 -translate-y-1/2 z-50 left-1 cursor-pointer"
-            onClick={() => setIsSidebarCollapsed(false)}
-            title="Expand sidebar"
-          >
-            <div className={`w-[36px] h-[84px] rounded-2xl border shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-1 group transition-all duration-200 select-none ${isDarkMode ? 'bg-slate-800 border-slate-600/80 hover:border-slate-500 hover:bg-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
-              <div className="flex flex-col items-center gap-[3px] mb-1.5 opacity-50 group-hover:opacity-80 transition-opacity">
-                <span className="block w-4 h-[2px] bg-slate-400 rounded-full" />
-                <span className="block w-4 h-[2px] bg-slate-400 rounded-full" />
-                <span className="block w-4 h-[2px] bg-slate-400 rounded-full" />
-              </div>
-              <svg className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </div>
-        )}
+      <div className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`} style={{ width: isSidebarCollapsed ? 64 : sidebarWidth, minWidth: isSidebarCollapsed ? 64 : 230, maxWidth: isSidebarCollapsed ? 64 : 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
 
         {/* Drag-to-resize right edge */}
         {!isSidebarCollapsed && (
@@ -1413,9 +1394,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-<div style={{ width: sidebarWidth, minWidth: 230 }} className="flex flex-col h-full"> {/* Inner container matches outer width */}
-            {isDualOrgUser ? (
+        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
+          {/* Collapse/Expand Toggle */}
+          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-end'} px-2 pt-3 pb-1 shrink-0`}>
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isSidebarCollapsed ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" /></svg>
+              )}
+            </button>
+          </div>
+          <div style={{ width: isSidebarCollapsed ? 64 : sidebarWidth, minWidth: isSidebarCollapsed ? 64 : 230 }} className={`flex flex-col h-full overflow-hidden ${isSidebarCollapsed ? 'items-center [&_span]:hidden' : ''}`}> {/* Inner container matches outer width */}
+            {!isSidebarCollapsed && (isDualOrgUser ? (
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
                 <button
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
@@ -1457,7 +1452,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-9 h-9 object-contain" />
                 <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
               </Link>
-            )}
+            ))}
 
         <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onClick={(e) => {
           // Exit CMS mode when any sidebar link is clicked
@@ -1469,10 +1464,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}>
           {/* Section 1 */}
           <div>
-            <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.menu}</span>
-            </button>
+            {!isSidebarCollapsed && (
+              <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
+                <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.menu}</span>
+              </button>
+            )}
             {!collapsedSections['menu'] && <div className="animate-in fade-in duration-150">
               <div className="space-y-1 mb-4 pt-1">
               {/* Content Manager moved to Dev Tools dropdown in header */}
@@ -1504,28 +1501,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             
             {/* @Messages Collapsible */}
             <div className="mt-2">
-              <button 
-                onClick={() => setIsMessagesOpen(!isMessagesOpen)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 group ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
-                    isDarkMode 
-                      ? 'bg-transparent text-slate-400 group-hover:bg-slate-700 group-hover:text-slate-200' 
-                      : 'bg-[#f0ede4] text-stone-700 group-hover:bg-stone-800 group-hover:text-white'
-                  }`}>
-                    <MessageSquare className="w-3.5 h-3.5" />
+              {!isSidebarCollapsed && (
+                <button 
+                  onClick={() => setIsMessagesOpen(!isMessagesOpen)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 group ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+                      isDarkMode 
+                        ? 'bg-transparent text-slate-400 group-hover:bg-slate-700 group-hover:text-slate-200' 
+                        : 'bg-[#f0ede4] text-stone-700 group-hover:bg-stone-800 group-hover:text-white'
+                    }`}>
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </div>
+                    <span className={`text-sm font-semibold transition-colors ${
+                      isDarkMode 
+                        ? 'text-slate-300 group-hover:text-white' 
+                        : 'text-slate-700 group-hover:text-stone-900'
+                    }`}>{t.messages}</span>
                   </div>
-                  <span className={`text-sm font-semibold transition-colors ${
-                    isDarkMode 
-                      ? 'text-slate-300 group-hover:text-white' 
-                      : 'text-slate-700 group-hover:text-stone-900'
-                  }`}>{t.messages}</span>
-                </div>
-                {isMessagesOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-              </button>
+                  {isMessagesOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                </button>
+              )}
               
-              {isMessagesOpen && (
+              {(isMessagesOpen && !isSidebarCollapsed) && (
                 <div className="pl-12 pr-3 py-1 space-y-1 animate-in slide-in-from-top-1 fade-in duration-200">
                   <Link href={`${dashboardHome}/communications/dm`} className={getSidebarSubLinkClass(pathname.endsWith('/communications/dm'))}>
                     <UserSquare className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/dm') ? 'text-indigo-600' : ''}`} />
@@ -1543,10 +1542,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Section: Flagship Tools */}
           <div className="mb-2">
-            <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['flagship'] ? '-rotate-90' : ''}`} />
-              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.flagshipTools}</span>
-            </button>
+            {!isSidebarCollapsed && (
+              <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['flagship'] ? '-rotate-90' : ''}`} />
+                <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.flagshipTools}</span>
+              </button>
+            )}
             {!collapsedSections['flagship'] && (
               <div className="space-y-1 animate-in fade-in duration-150">
                 <Link href={`${dashboardHome}/crm`} className={getSidebarLinkClass(pathname.endsWith('/crm'))}>
@@ -1563,7 +1564,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-sm font-medium">{t.email}</span>
                 </Link>
 
-                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 cursor-not-allowed font-semibold">
+                <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl text-slate-300 cursor-not-allowed font-semibold`}>
                   <div className="w-6 h-6 rounded-md bg-transparent flex items-center justify-center">
                     <BarChart3 className="w-4 h-4" />
                   </div>
@@ -1624,10 +1625,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* User Footer Profile */}
-        <div className="p-4 mt-auto mb-4 flex items-center gap-2">
+        <div className={`p-4 mt-auto mb-4 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-2'}`}>
           <Link href={`${dashboardHome}/settings?tab=general`} className={`p-2.5 rounded-xl transition-colors shrink-0 shadow-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700' : 'hover:bg-[#f0ede4] text-slate-400 hover:text-slate-900 bg-[#f2efe8] border border-[#e0ddd4]'}`}>
              <Settings className="w-5 h-5" />
           </Link>
+          {!isSidebarCollapsed && (
           <Link href={`${dashboardHome}/settings?tab=profile`} className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-xl shadow-sm overflow-hidden transition-colors cursor-pointer group ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}>
             <Avatar className="h-8 w-8 shrink-0 group-hover:scale-105 transition-transform">
               <AvatarImage src={guestAvatar} />
@@ -1638,6 +1640,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className={`text-[10px] truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{guestEmail}</span>
             </div>
           </Link>
+          )}
         </div>
           </div>
         </aside>

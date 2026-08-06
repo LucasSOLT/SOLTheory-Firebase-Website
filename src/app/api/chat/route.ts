@@ -15,6 +15,8 @@ import { createStreamingCompletion, autoSelectModel, MODEL_REGISTRY, getModelCon
 import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
+import { orchestrateMultiStep } from "@/lib/jarvis-orchestrator";
+import type { AgentEvent } from "@/lib/agent-events";
 const tools: any = [
   {
     type: "function",
@@ -831,6 +833,25 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       console.log(`[ROUTER] Injected domain prompt for: ${routedDomain}`);
     }
 
+    // ── Agentic Planning Step: Generate intent understanding + deliverables ──
+    let planningText = '';
+    if (useTools && wantStream && routedDomain !== 'MULTI') {
+      try {
+        const planningCompletion = await groq.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: `You are a concise task planner. Given the user's request, respond with EXACTLY this format (no extra text):\n\nINTENT: [One sentence describing what the user is requesting]\n\nDELIVERABLES:\n1. [First step/action to take]\n2. [Second step/action if applicable]\n3. [Third step if applicable]\n\nKeep it brief. Max 3-4 deliverables. If the request is simple (single action), just list 1 deliverable.` },
+            { role: 'user', content: lastUserText2 }
+          ],
+          max_tokens: 150,
+          temperature: 0,
+        });
+        planningText = planningCompletion.choices[0]?.message?.content?.trim() || '';
+      } catch (planErr) {
+        console.log('[PLANNING] Planning step failed, continuing without plan:', planErr);
+      }
+    }
+
     console.log(`[DEBUG] agentId="${agentId}" rawAgentId="${rawAgentId}" isEmailAgent=${isEmailAgent} refreshToken=${refreshToken ? "YES" : "NO"}`);
     console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools} messageNeedsTools=${messageNeedsTools}`);
 
@@ -881,6 +902,10 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'routing', domain: routedDomain, timestamp: Date.now() })}\n\n`));
+            if (planningText) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'thinking', content: planningText, timestamp: Date.now() })}\n\n`));
+            }
             for await (const chunk of streamGenerator) {
               if (chunk.done) break;
               if (chunk.token) {
@@ -934,6 +959,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       });
     }
 
+
     // ── PASS 1: Generate Response or Tool Target (synchronous for tool calls) ──
     // Resolve 'auto' mode for synchronous path (tool calls always use Groq for speed)
     if (selectedModel === 'auto') {
@@ -946,13 +972,19 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       ? 'llama-3.3-70b-versatile'
       : selectedModel;
     const t0 = Date.now();
-    let completion: any = await createCompletionWithRetry(groqMessages, useTools);
-    console.log(`[PERF] Groq completion took ${Date.now() - t0}ms | model=${selectedModel} useTools=${useTools}`);
+    // Skip Pass 1 LLM call for MULTI routes — the orchestrator handles everything
+    let completion: any = null;
+    if (routedDomain !== 'MULTI') {
+      completion = await createCompletionWithRetry(groqMessages, useTools);
+      console.log(`[PERF] Groq completion took ${Date.now() - t0}ms | model=${selectedModel} useTools=${useTools}`);
+    }
 
-    let responseMessage = completion.choices[0]?.message;
-    console.log(`[DEBUG] LLM response: tool_calls=${responseMessage?.tool_calls?.length || 0} content_length=${responseMessage?.content?.length || 0}`);
-    if (responseMessage?.tool_calls) {
-      responseMessage.tool_calls.forEach((tc: any) => console.log(`[DEBUG] Tool requested: ${tc.function.name}`));
+    let responseMessage = completion?.choices?.[0]?.message;
+    if (completion) {
+      console.log(`[DEBUG] LLM response: tool_calls=${responseMessage?.tool_calls?.length || 0} content_length=${responseMessage?.content?.length || 0}`);
+      if (responseMessage?.tool_calls) {
+        responseMessage.tool_calls.forEach((tc: any) => console.log(`[DEBUG] Tool requested: ${tc.function.name}`));
+      }
     }
 
     // ── TRUE STREAMING FAST PATH ──
@@ -1002,6 +1034,10 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'routing', domain: routedDomain, timestamp: Date.now() })}\n\n`));
+            if (planningText) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'thinking', content: planningText, timestamp: Date.now() })}\n\n`));
+            }
             // Stream the response in small word chunks for natural typing feel
             const words = responseText.split(/(?<=\s)/);
             let wordBuffer = '';
@@ -1109,35 +1145,14 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       });
     }
 
-    let loopCount = 0;
     let lastMeetLink: string | null = null;
-    const MAX_LOOPS = 5;
-    const executedTools: { name: string; args: any }[] = [];
 
-    // If LLM generated tool_calls but no APIs are available, re-call without tools
-    if (responseMessage?.tool_calls && !gmail && !calendar && !docsApi && !youtubeApi && !uid) {
-      console.log(`[DEBUG] LLM called tools but no APIs available — re-calling without tools`);
-      completion = await createCompletionWithRetry(groqMessages, false);
-      responseMessage = completion.choices[0]?.message;
-    }
-
-    // Execute Tool Loop if Triggered
-    while (responseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid) && loopCount < MAX_LOOPS) {
-      groqMessages.push(responseMessage);
-
-      // Sort tool calls: process calendar events BEFORE email drafts so Meet links are available
-      const sortedToolCalls = [...responseMessage.tool_calls].sort((a: any, b: any) => {
-        const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'draft_outbound_email' ? 2 : 1;
-        return order(a.function.name) - order(b.function.name);
-      });
-      for (const toolCall of sortedToolCalls) {
-        const functionName = toolCall.function.name;
-        console.log(`[TOOL CALL] LLM requested tool: ${functionName} | args: ${toolCall.function.arguments?.substring(0, 200)}`);
-
-        let functionResult = "";
-        try {
-          const args = JSON.parse(toolCall.function.arguments);
-          executedTools.push({ name: functionName, args });
+    // ── Tool Executor (extracted for reuse by orchestrator) ──
+    // This function wraps the entire tool dispatch switch statement.
+    // It captures closure variables (gmail, calendar, docsApi, youtubeApi, orgId, uid, etc.)
+    // and is used both by the normal tool loop and by the multi-step orchestrator.
+    const executeToolByName = async (functionName: string, args: any): Promise<string> => {
+      let functionResult = "";
 
           if (functionName === "search_emails") {
             const res = await gmail.users.messages.list({ userId: 'me', q: args.query, maxResults: 10 });
@@ -2015,7 +2030,10 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
                 snippet: (r.content || "").substring(0, 300),
               }));
               // Append URL list to executedTools args for client-side Jarvis Eye animation
-              executedTools[executedTools.length - 1].args.searchResults = results;
+              // Guard: executedTools may be empty when called from the orchestrator
+              if (executedTools.length > 0 && executedTools[executedTools.length - 1]?.args) {
+                executedTools[executedTools.length - 1].args.searchResults = results;
+              }
               functionResult = JSON.stringify({
                 result: searchData.answer
                   ? `Web Search Answer: ${searchData.answer}\n\nSources:\n${results.map((r: any) => `- ${r.title}: ${r.url}\n  ${r.snippet}`).join("\n")}`
@@ -2314,6 +2332,257 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
           }
+      
+      return functionResult;
+    };
+
+    let loopCount = 0;
+    const MAX_LOOPS = 5;
+    const executedTools: { name: string; args: any }[] = [];
+
+    // ── MULTI-STEP ORCHESTRATOR ──
+    // When the router detects a multi-domain request, go straight to the orchestrator.
+    // Placed here because executeToolByName (defined above) must be in scope.
+    if (routedDomain === 'MULTI' && wantStream && (gmail || calendar || docsApi || youtubeApi || uid)) {
+      console.log(`[ORCHESTRATOR] Multi-step request detected, invoking orchestrator...`);
+      const recentContext = messages.slice(-4)
+        .filter((m: any) => m.role === 'user' || m.role === 'assistant')
+        .map((m: any) => `${m.role}: ${(m.content || '').substring(0, 200)}`)
+        .join('\n');
+
+      const encoder = new TextEncoder();
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Emit routing event
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'routing', domain: 'MULTI', timestamp: Date.now() })}\n\n`));
+            await new Promise(r => setTimeout(r, 100));
+            
+            // Run orchestrator with live event streaming
+            const orchResult = await orchestrateMultiStep(
+              lastUserText2,
+              groqMessages[0].content, // system prompt
+              tools,                    // master tools array
+              executeToolByName,        // tool executor callback
+              selectedModel === 'auto' ? 'llama-3.3-70b-versatile' : selectedModel,
+              recentContext,
+              async (event) => {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+                await new Promise(r => setTimeout(r, 100));
+              }
+            );
+            
+            // Stream final response as tokens
+            const words = orchResult.finalResponse.split(/(?<=\s)/);
+            let wordBuffer = '';
+            for (let i = 0; i < words.length; i++) {
+              wordBuffer += words[i];
+              if (wordBuffer.length >= 8 || i === words.length - 1) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: wordBuffer })}\n\n`));
+                wordBuffer = '';
+              }
+            }
+            
+            // Collect executed tools for done event
+            const allExecutedTools: { name: string; args: object }[] = [];
+            for (const sr of orchResult.stepResults) {
+              for (const toolName of sr.toolsExecuted) {
+                allExecutedTools.push({ name: toolName, args: {} });
+              }
+            }
+            
+            // Retrieve citations
+            const lastUserMessageLocal = messages.filter((m: any) => m.role === 'user').pop();
+            const citationsLocal = lastUserMessageLocal
+              ? retrieveRelevantSnippets(lastUserMessageLocal.content || '', {
+                  pactText: pactText || '',
+                  knowledgeBaseText: knowledgeBaseText || '',
+                  orgBrainText: orgBrainText || '',
+                })
+              : [];
+
+            // Done event
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              done: true,
+              usage: 0,
+              executedTools: allExecutedTools.length > 0 ? allExecutedTools : undefined,
+              citations: citationsLocal.length > 0 ? citationsLocal : undefined,
+            })}\n\n`));
+            
+            controller.close();
+          } catch (err: any) {
+            console.error(`[ORCHESTRATOR] Orchestration failed:`, err?.message);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Orchestrator error: ' + (err?.message || 'unknown') })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+      
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
+      });
+    }
+
+    // If LLM generated tool_calls but no APIs are available, re-call without tools
+    if (responseMessage?.tool_calls && !gmail && !calendar && !docsApi && !youtubeApi && !uid) {
+      console.log(`[DEBUG] LLM called tools but no APIs available — re-calling without tools`);
+      completion = await createCompletionWithRetry(groqMessages, false);
+      responseMessage = completion.choices[0]?.message;
+    }
+
+    // When we have stream + tools, restructure to stream events during execution
+    if (wantStream && responseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid)) {
+      const encoder = new TextEncoder();
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          try {
+            // 1. Emit routing event immediately
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'routing', domain: routedDomain, timestamp: Date.now() })}\n\n`));
+            await new Promise(r => setTimeout(r, 100));
+            
+            // 2. Emit planning/thinking event
+            if (planningText) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'thinking', content: planningText, timestamp: Date.now() })}\n\n`));
+              await new Promise(r => setTimeout(r, 300));
+            }
+            
+            // 3. Execute tool loop with real-time events
+            let localResponseMessage = responseMessage;
+            let localLoopCount = loopCount;
+            
+            while (localResponseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid) && localLoopCount < MAX_LOOPS) {
+              groqMessages.push(localResponseMessage);
+              
+              const sortedToolCalls = [...localResponseMessage.tool_calls].sort((a: any, b: any) => {
+                const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'draft_outbound_email' ? 2 : 1;
+                return order(a.function.name) - order(b.function.name);
+              });
+              
+              for (const toolCall of sortedToolCalls) {
+                const functionName = toolCall.function.name;
+                
+                // Emit tool_call event BEFORE execution — with delay so user sees it
+                await new Promise(r => setTimeout(r, 150));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'tool_call', tool: functionName, timestamp: Date.now() })}\n\n`));
+                
+                let functionResult = "";
+                try {
+                  const args = JSON.parse(toolCall.function.arguments);
+                  executedTools.push({ name: functionName, args });
+                  functionResult = await executeToolByName(functionName, args);
+                } catch (err: any) {
+                  functionResult = JSON.stringify({ error: err.message });
+                }
+                
+                groqMessages.push({
+                  tool_call_id: toolCall.id,
+                  role: "tool",
+                  name: functionName,
+                  content: functionResult,
+                });
+              }
+              
+              completion = await createCompletionWithRetry(groqMessages, useTools);
+              localResponseMessage = completion.choices[0]?.message;
+              localLoopCount++;
+            }
+            
+            // 4. Get final response text
+            const finalText = localResponseMessage?.content
+              || responseMessage?.content
+              || "I've completed the task. Is there anything else you'd like me to do?";
+            
+            // 5. Stream final text as tokens
+            const words = finalText.split(/(?<=\s)/);
+            let wordBuffer = '';
+            for (let i = 0; i < words.length; i++) {
+              wordBuffer += words[i];
+              if (wordBuffer.length >= 8 || i === words.length - 1) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: wordBuffer })}\n\n`));
+                wordBuffer = '';
+              }
+            }
+            
+            // 6. Log usage
+            const inputTokens2 = completion?.usage?.prompt_tokens || 0;
+            const outputTokens2 = completion?.usage?.completion_tokens || 0;
+            const totalTokens2 = completion?.usage?.total_tokens || 0;
+            try {
+              logAIUsage({
+                userId: uid || "anonymous",
+                orgId: isNxtChapter ? "nxtchapter" : "soltheory",
+                model: selectedModel,
+                provider: "groq",
+                inputTokens: inputTokens2,
+                outputTokens: outputTokens2,
+                totalTokens: totalTokens2,
+                endpoint: "/api/chat",
+                costUsd: calculateGroqCost(selectedModel, inputTokens2, outputTokens2),
+                timestamp: new Date(),
+              });
+            } catch (e) { /* non-blocking */ }
+            
+            // Calculate citations for done event
+            const lastUserMessageLocal = messages.filter((m: any) => m.role === 'user').pop();
+            const citationsLocal = lastUserMessageLocal
+              ? retrieveRelevantSnippets(lastUserMessageLocal.content || '', {
+                  pactText: pactText || '',
+                  knowledgeBaseText: knowledgeBaseText || '',
+                  orgBrainText: orgBrainText || '',
+                })
+              : [];
+
+            // 7. Done event
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              done: true,
+              usage: totalTokens2,
+              executedTools: executedTools.length > 0 ? executedTools : undefined,
+              enrichmentUrls: enrichmentUrls.length > 0 ? enrichmentUrls : undefined,
+              citations: citationsLocal.length > 0 ? citationsLocal : undefined,
+            })}\n\n`));
+            
+            controller.close();
+          } catch (streamErr: any) {
+            console.error('[STREAM] Error during live tool streaming:', streamErr);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+      
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
+      });
+    }
+
+    // Execute Tool Loop if Triggered
+    while (responseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid) && loopCount < MAX_LOOPS) {
+      groqMessages.push(responseMessage);
+
+      // Sort tool calls: process calendar events BEFORE email drafts so Meet links are available
+      const sortedToolCalls = [...responseMessage.tool_calls].sort((a: any, b: any) => {
+        const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'draft_outbound_email' ? 2 : 1;
+        return order(a.function.name) - order(b.function.name);
+      });
+      for (const toolCall of sortedToolCalls) {
+        const functionName = toolCall.function.name;
+        console.log(`[TOOL CALL] LLM requested tool: ${functionName} | args: ${toolCall.function.arguments?.substring(0, 200)}`);
+
+        let functionResult = "";
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          executedTools.push({ name: functionName, args });
+          functionResult = await executeToolByName(functionName, args);
         } catch (err: any) {
           functionResult = JSON.stringify({ error: err.message });
         }
@@ -2531,6 +2800,16 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
+            // Emit agent events before streaming text
+            const agentEvents: AgentEvent[] = [];
+            agentEvents.push({ type: 'routing', domain: routedDomain, timestamp: Date.now() });
+            for (const tool of executedTools) {
+              agentEvents.push({ type: 'tool_call', tool: tool.name, timestamp: Date.now() });
+            }
+            for (const evt of agentEvents) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`));
+            }
+
             // Stream the already-generated response in small word chunks
             // (tool paths require the full response for sanitization/recovery first)
             const words = responseText.split(/(?<=\s)/);

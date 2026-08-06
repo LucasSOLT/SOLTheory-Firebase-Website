@@ -23,11 +23,13 @@ import { useTranslation } from "@/lib/i18n";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { useCRMStore } from "@/stores/crm-store";
+import ThinkingDisplay from './_components/ThinkingDisplay';
+import type { AgentEvent } from '@/lib/agent-events';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
-type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; };
+type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number; attachmentId?: string }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
@@ -1099,7 +1101,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       name: "Jarvis (Executive Agent)",
       greeting: "Hello. I am Jarvis. How can I assist you today?",
       theme: "border-blue-200 text-blue-600 bg-blue-50",
-      chatBg: "bg-[#faf8f3] border-slate-200 shadow-sm",
+      chatBg: isDarkMode ? "bg-slate-800/80 border-slate-700 shadow-lg" : "bg-[#faf8f3] border-slate-200 shadow-sm",
       accent: "text-blue-600"
     }
   };
@@ -1672,6 +1674,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             if (!line.startsWith('data: ')) continue;
             try {
               const payload = JSON.parse(line.slice(6));
+
+              // Handle agent events
+              if (payload.type && ['routing', 'plan', 'step_start', 'step_complete', 'tool_call', 'thinking'].includes(payload.type)) {
+                setMessages(prev => prev.map(m => 
+                  m.id === botMsgId 
+                    ? { ...m, agentEvents: [...(m.agentEvents || []), payload as AgentEvent] } 
+                    : m
+                ));
+                continue; // Don't process as token
+              }
+
               if (payload.token) {
                 fullText += payload.token;
                 setMessages(prev => prev.map(m =>
@@ -2375,104 +2388,124 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   return (
     <>
-    <div className={`flex w-full flex-1 min-h-0 overflow-hidden font-sans selection:bg-fuchsia-500/30 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#faf6ed] text-slate-800'}`} style={{ height: '100%', maxHeight: '100dvh' }}>
+    <style>{`
+      /* Override dashboard layout padding for Agent Manager — fills edge-to-edge */
+      main.flex-1 { padding: 0 !important; }
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    `}</style>
+    <div className={`flex w-full flex-1 min-h-0 overflow-hidden font-sans selection:bg-fuchsia-500/30 ${isDarkMode ? 'bg-slate-900 text-slate-100 border-t border-slate-700' : 'bg-[#faf6ed] text-slate-800 border-t border-slate-200'}`} style={{ height: '100%' }}>
 
       {/* Sessions Sidebar */}
-      <div className={`hidden md:flex flex-col backdrop-blur-3xl shrink-0 z-20 relative overflow-hidden ${isDarkMode ? 'bg-slate-900/95 border-r border-slate-700' : 'bg-[#faf8f3]/90 border-r border-slate-200'}`} style={{ width: isChatSidebarCollapsed ? 0 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 0 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
-        {/* Sidebar header unchanged for brevity (Using standard implementation) */}
-        <div className={`p-4 flex flex-col gap-3 ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-200'}`}>
-          {/* Model Selector */}
-          <div className="relative" data-dropdown="model">
-            <button
-              onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-              className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 hover:border-slate-500' : 'border-slate-200 bg-[#faf6ed] hover:bg-slate-100 hover:border-slate-300'}`}
-            >
-              <div className="flex-1 min-w-0">
-                <div className={`text-[10px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Model</div>
-                <div className={`text-sm font-semibold truncate mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                  {[{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'auto',name:'Auto'},{id:'claude-sonnet',name:'Claude Sonnet 4'},{id:'claude-haiku',name:'Claude Haiku'},{id:'gpt-4o',name:'GPT-4o'},{id:'gpt-4o-mini',name:'GPT-4o Mini'},{id:'llama-3.1-8b-instant',name:'Llama 3.1 8B'},{id:'openai/gpt-oss-120b',name:'GPT 120B'},{id:'openai/gpt-oss-20b',name:'GPT 20B'},{id:'qwen/qwen3.6-27b',name:'Qwen 3'}].find(m => m.id === selectedModel)?.name || 'Llama 3.3'}
-                </div>
-              </div>
-              <svg className={`w-4 h-4 text-slate-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {isModelDropdownOpen && (
-              <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
-                {[
-                  { id: 'auto', name: 'Auto', desc: 'Smart routing — picks the best model', tag: '✨ Recommended', tagColor: 'bg-violet-50 text-violet-600' },
-                  { id: 'claude-sonnet', name: 'Claude Sonnet 4', desc: 'Most intelligent — deep reasoning', tag: 'Premium', tagColor: 'bg-orange-50 text-orange-600' },
-                  { id: 'claude-haiku', name: 'Claude Haiku', desc: 'Smart & fast — best value', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
-                  { id: 'gpt-4o', name: 'GPT-4o', desc: 'OpenAI flagship multimodal', tag: 'Premium', tagColor: 'bg-orange-50 text-orange-600' },
-                  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Fast & affordable OpenAI', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
-                  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best open-source model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
-                  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Fastest responses', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
-                  { id: 'openai/gpt-oss-120b', name: 'GPT 120B', desc: 'Most powerful open model', tag: 'Pro', tagColor: 'bg-purple-50 text-purple-600' },
-                  { id: 'openai/gpt-oss-20b', name: 'GPT 20B', desc: 'Lightweight & fast', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
-                  { id: 'qwen/qwen3.6-27b', name: 'Qwen 3', desc: 'Advanced reasoning & math', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
-                ].map(model => (
-                  <button
-                    key={model.id}
-                    onClick={() => { setSelectedModel(model.id); setIsModelDropdownOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
-                      <div className="min-w-0">
-                        <span className={`text-sm font-medium block ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
-                        <span className={`text-[10px] block ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{model.desc}</span>
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${model.tagColor}`}>{model.tag}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* System Instructions Box */}
+      <div className={`hidden md:flex flex-col backdrop-blur-3xl shrink-0 z-20 relative overflow-hidden ${isDarkMode ? 'bg-slate-900/95 border-r border-slate-700' : 'bg-[#faf8f3]/90 border-r border-slate-200'}`} style={{ width: isChatSidebarCollapsed ? 40 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 40 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
+        {/* Collapse/Expand Toggle */}
+        <div className={`flex items-center ${isChatSidebarCollapsed ? 'justify-center' : 'justify-end'} px-2 pt-2 pb-1 shrink-0`}>
           <button
-            onClick={() => setIsSystemInstructionsOpen(true)}
-            className={`w-full text-left p-3 rounded-xl border transition-all group cursor-pointer ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 hover:border-slate-500' : 'border-slate-200 bg-[#faf6ed] hover:bg-slate-100 hover:border-slate-300'}`}
+            onClick={() => setIsChatSidebarCollapsed(!isChatSidebarCollapsed)}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200'}`}
+            title={isChatSidebarCollapsed ? 'Expand chat history' : 'Collapse chat history'}
           >
-            <div className="flex items-center justify-between">
-              <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>System instructions</span>
-              {sessionInstructions && <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />}
-            </div>
-            <p className={`text-xs mt-0.5 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-              {sessionInstructions
-                ? sessionInstructions.substring(0, 60) + (sessionInstructions.length > 60 ? '...' : '')
-                : t.optionalToneStyle}
-            </p>
+            {isChatSidebarCollapsed ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" /></svg>
+            )}
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin mt-2">
-          {/* Agent Library Button */}
-          
-                    <div className="flex items-center justify-between mb-2 px-1">
-                      <span className={`text-xs font-semibold uppercase tracking-widest ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Chat History</span>
-                      <button onClick={() => setIsChatSidebarCollapsed(true)} className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/30' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`} title="Collapse sidebar">
-                        <svg className="w-3 h-3 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                      </button>
+
+        {!isChatSidebarCollapsed && (
+          <>
+            {/* Sidebar header unchanged for brevity (Using standard implementation) */}
+            <div className={`p-4 flex flex-col gap-3 ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-200'}`}>
+              {/* Model Selector */}
+              <div className="relative" data-dropdown="model">
+                <button
+                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 hover:border-slate-500' : 'border-slate-200 bg-[#faf6ed] hover:bg-slate-100 hover:border-slate-300'}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[10px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Model</div>
+                    <div className={`text-sm font-semibold truncate mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                      {[{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'auto',name:'Auto'},{id:'llama-3.1-8b-instant',name:'Llama 3.1 8B'},{id:'llama3-70b-8192',name:'Llama 3 70B'},{id:'mixtral-8x7b-32768',name:'Mixtral 8x7B'},{id:'gemma2-9b-it',name:'Gemma 2 9B'}].find(m => m.id === selectedModel)?.name || 'Llama 3.3'}
                     </div>
-          <button onClick={() => startNewSession()} className={`w-full text-left p-3 rounded-xl border border-dashed transition-colors flex items-center gap-3 mb-4 group ${isDarkMode ? 'border-slate-600/50 bg-slate-800 hover:bg-slate-700' : 'border-slate-300/50 bg-[#faf6ed] hover:bg-slate-100'}`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
-              <SquarePen className="w-4 h-4" />
-            </div>
-            <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>New Chat</span>
-          </button>
-          {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
-            <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
-          )}
-          {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
-            <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[40px] py-2 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? 'bg-slate-700/60 text-white border border-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? 'bg-slate-300/50 text-slate-900 border border-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')}`}>
-              <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
-              <span className="text-sm font-medium flex-1 break-words leading-snug">{s.title}</span>
-              <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
-                <Trash2 className="w-3.5 h-3.5" />
+                  </div>
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {isModelDropdownOpen && (
+                  <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
+                    {[
+                      { id: 'auto', name: 'Auto', desc: 'Smart routing — picks the best model', tag: '✨ Recommended', tagColor: 'bg-violet-50 text-violet-600' },
+                      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best open-source model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
+                      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Fastest responses', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
+                      { id: 'llama3-70b-8192', name: 'Llama 3 70B', desc: 'Strong general reasoning', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
+                      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', desc: '32K context window', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
+                      { id: 'gemma2-9b-it', name: 'Gemma 2 9B', desc: 'Compact & efficient', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
+                    ].map(model => (
+                      <button
+                        key={model.id}
+                        onClick={() => { setSelectedModel(model.id); setIsModelDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                          <div className="min-w-0">
+                            <span className={`text-sm font-medium block ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
+                            <span className={`text-[10px] block ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{model.desc}</span>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${model.tagColor}`}>{model.tag}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* System Instructions Box */}
+              <button
+                onClick={() => setIsSystemInstructionsOpen(true)}
+                className={`w-full text-left p-3 rounded-xl border transition-all group cursor-pointer ${isDarkMode ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 hover:border-slate-500' : 'border-slate-200 bg-[#faf6ed] hover:bg-slate-100 hover:border-slate-300'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>System instructions</span>
+                  {sessionInstructions && <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />}
+                </div>
+                <p className={`text-xs mt-0.5 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+                  {sessionInstructions
+                    ? sessionInstructions.substring(0, 60) + (sessionInstructions.length > 60 ? '...' : '')
+                    : t.optionalToneStyle}
+                </p>
               </button>
             </div>
-          ))}
-        </div>
-
+            <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-hide mt-2">
+              {/* Agent Library Button */}
+              
+                        <div className="flex items-center justify-between mb-2 px-1">
+                          <span className={`text-xs font-semibold uppercase tracking-widest ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Chat History</span>
+                          <button onClick={() => setIsChatSidebarCollapsed(true)} className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/30' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`} title="Collapse sidebar">
+                            <svg className="w-3 h-3 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                          </button>
+                        </div>
+              <button onClick={() => startNewSession()} className={`w-full text-left p-3 rounded-xl border border-dashed transition-colors flex items-center gap-3 mb-4 group ${isDarkMode ? 'border-slate-600/50 bg-slate-800 hover:bg-slate-700' : 'border-slate-300/50 bg-[#faf6ed] hover:bg-slate-100'}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
+                  <SquarePen className="w-4 h-4" />
+                </div>
+                <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>New Chat</span>
+              </button>
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
+                <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
+              )}
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
+                <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[40px] py-2 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? 'bg-slate-700/60 text-white border border-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? 'bg-slate-300/50 text-slate-900 border border-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')}`}>
+                  <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
+                  <span className="text-sm font-medium flex-1 break-words leading-snug">{s.title}</span>
+                  <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
       </div>
 
@@ -2540,7 +2573,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>New Chat</span>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 pb-4">
+            <div className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-hide">
               {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
                 <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
               )}
@@ -2563,18 +2596,18 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       )}
 
       {/* Main UI Pane */}
-      <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
+      <div className={`flex-1 flex flex-col h-full relative z-10 overflow-hidden ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf6ed]'}`}>
 
         {/* Background Ambient Glow */}
         <div className="absolute inset-0 pointer-events-none z-0">
-          <div className="absolute inset-0 pointer-events-none" style={{ animation: 'spin 180s linear infinite', opacity: messages.length === 0 && !selectedExploreItem ? 1 : 0, transition: 'opacity 1s ease' }}>
-            <div className="absolute top-[10%] right-[10%] w-[500px] h-[500px] bg-fuchsia-600/10 blur-[150px] rounded-full mix-blend-screen" />
-            <div className="absolute bottom-[20%] left-[20%] w-[600px] h-[600px] bg-indigo-600/10 blur-[150px] rounded-full mix-blend-screen" />
+          <div className="absolute inset-0 pointer-events-none" style={{ animation: 'spin 360s linear infinite', opacity: messages.length === 0 && !selectedExploreItem ? 1 : 0, transition: 'opacity 1s ease' }}>
+            <div className="absolute top-[10%] right-[10%] w-[500px] h-[500px] bg-fuchsia-600/20 blur-[150px] rounded-full" />
+            <div className="absolute bottom-[20%] left-[20%] w-[600px] h-[600px] bg-indigo-600/20 blur-[150px] rounded-full" />
           </div>
         </div>
 
         {/* Top Navigator */}
-        <div className={`h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 shrink-0 z-20 backdrop-blur-xl ${isDarkMode ? 'border-b border-slate-700 bg-slate-900/80' : 'border-b border-slate-200 bg-slate-100'}`}>
+        <div className={`h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 shrink-0 z-20 backdrop-blur-xl ${isDarkMode ? 'bg-slate-900/80' : 'bg-slate-100'}`}>
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Mobile hamburger menu */}
             <button
@@ -2664,13 +2697,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           {/* Chat Wrapper */}
           <div className={`flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-x-hidden h-full overflow-hidden min-h-0`}>
               <div className="flex-1 flex flex-col relative min-h-0">
-                <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-8 pt-4 sm:pt-6 pb-4 sm:pb-8">
-                  <div className={`mx-auto space-y-8 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'max-w-4xl' : 'max-w-3xl'}`}>
+                <div className={`flex-1 overflow-y-auto p-0 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'flex items-center justify-center' : ''}`} style={{ scrollbarGutter: 'stable' }}>
+                  <div className={`${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'flex flex-col items-center justify-center w-full px-4' : 'mx-auto px-6 sm:px-8 md:px-12 pt-4 sm:pt-6 pb-4 sm:pb-8 max-w-4xl space-y-8'}`}>
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
-                      <div className="flex flex-col min-h-full w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-lg mx-auto">
                         
                         
-                        <div className="w-full flex flex-col items-center justify-center flex-1 pt-16 md:pt-28 lg:pt-36">
+                        <div className="flex flex-col items-center justify-center">
                           {/* Clean centered greeting */}
                           <div className="flex flex-col items-center gap-4 mb-8">
                             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'}`}>
@@ -2682,12 +2715,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                             <p className={`text-center text-sm max-w-md ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                               Ask anything — from drafting emails and scheduling events to strategy advice and deep research.
                             </p>
-                            <button
-                              onClick={() => setIsLearnMoreOpen(true)}
-                              className={`text-[12px] font-medium transition-colors cursor-pointer hover:underline ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'}`}
-                            >
-                              Learn More ↗
-                            </button>
+
                           </div>
                           
                           {/* Quick action suggestions */}
@@ -2715,14 +2743,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       </div>
                     ) : (
                                                                   <>
-                         <div className="hidden md:flex justify-center mb-10 pt-10">
-                          <div className="text-lg sm:text-2xl md:text-3xl font-black opacity-10 tracking-[0.15em] sm:tracking-[0.3em] uppercase text-center max-w-full truncate px-2 sm:px-4">{agent.name}</div>
+                         <div className="hidden md:flex justify-center mb-10 pt-10 w-full">
+                          <div className="text-lg sm:text-2xl md:text-3xl font-black opacity-10 tracking-[0.15em] sm:tracking-[0.3em] uppercase text-center w-full px-2 sm:px-4">{agent.name}</div>
                         </div>
                         {messages.map(msg => (
-                      <div key={msg.id} className={`flex gap-2 sm:gap-4 ${msg.isSelf ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-slate-300 ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : 'bg-slate-200/50'}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900" /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
-                        <div className={`space-y-1 pt-1 min-w-0 max-w-[85%] sm:max-w-[80%] ${msg.isSelf ? 'text-right' : ''}`}>
-                          <div className={`text-slate-800 inline-block p-3 sm:p-4 rounded-2xl shadow-xl text-left backdrop-blur-md text-sm sm:text-base max-w-full break-words ${msg.isSelf ? 'bg-slate-300/50 rounded-tr-sm' : `${agent.chatBg} rounded-tl-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>strong]:font-bold border`}`}>
+                      <div key={msg.id} className="space-y-1">
+                        {/* Thinking display — OUTSIDE the message bubble, shown first */}
+                        {!msg.isSelf && msg.agentEvents && msg.agentEvents.length > 0 && (
+                          <div className="pl-1 sm:pl-2 mb-1">
+                            <ThinkingDisplay events={msg.agentEvents} isDarkMode={isDarkMode} />
+                          </div>
+                        )}
+                        {/* Message row — only show if there's content to display */}
+                        {(msg.isSelf || msg.text || msg.imageUrl) && (
+                        <div className={`flex gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-12 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-12 sm:pr-20'}`}>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
+                        <div className={`space-y-1 pt-1 min-w-0 max-w-[80%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : ''}`}>
+                          <div className={`inline-block p-3 sm:p-4 rounded-2xl shadow-lg text-left backdrop-blur-md text-sm sm:text-base max-w-full break-words animate-in fade-in duration-300 ${msg.isSelf ? (isDarkMode ? 'bg-indigo-900/40 border border-indigo-800/50 text-slate-200 rounded-tr-sm' : 'bg-slate-300/50 text-slate-800 rounded-tr-sm') : `${agent.chatBg} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'} rounded-tl-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>strong]:font-bold border`}`}>
                             {msg.imageUrl ? (
                               <div className="flex flex-col mb-2">
                                 <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">
@@ -2742,48 +2779,40 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 <div className={msg.imageUrl ? "mt-2" : ""}>{msg.text}</div>
                               )
                             ) : (
-                              msg.text && (
-                                <div className={msg.imageUrl ? "mt-2" : ""}>
-                                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => (<a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline underline-offset-2 break-all">{children}</a>) }}>
-                                    {msg.text}
-                                  </ReactMarkdown>
-                                </div>
-                              )
+                              <>
+                                {msg.text && (
+                                  <div className={msg.imageUrl ? "mt-2" : ""}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => (<a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline underline-offset-2 break-all">{children}</a>) }}>
+                                      {msg.text}
+                                    </ReactMarkdown>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
-                          {/* Citation bubbles — below bot message, keeps alignment consistent */}
+                          {/* Citation tile — below bot message */}
                           {!msg.isSelf && msg.citations && msg.citations.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5 animate-in fade-in duration-500">
-                              {msg.citations.map((cite, ci) => (
-                                <div key={ci} className="border border-dashed border-slate-300 rounded-lg px-2 py-1 text-[10px] leading-tight text-slate-500 bg-white/60 backdrop-blur-sm max-w-[200px]">
-                                  <span className="font-bold text-[9px] uppercase tracking-wider text-slate-400 mr-1">{cite.source}:</span>
-                                  <span className="line-clamp-1">{cite.text}</span>
-                                </div>
-                              ))}
+                            <div className="flex mt-1.5 animate-in fade-in duration-500">
+                              <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-medium ${isDarkMode ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border border-indigo-100 text-indigo-600'}`}>
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                                <span>Knowledge Base</span>
+                              </div>
                             </div>
                           )}
                         </div>
+                        </div>
+                        )}
                       </div>
                     ))}
                     {isTyping && (
-                      <div className="flex gap-2 sm:gap-4 justify-start">
+                      <div className="flex gap-2 sm:gap-4 justify-start pl-2 sm:pl-4">
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-slate-300 bg-slate-200/50`}><Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /></div>
-                        <div className="space-y-1 pt-1 min-w-0 max-w-[85%] sm:max-w-[80%]">
-                          <div className={`inline-block p-3 sm:p-4 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg} flex items-center gap-3`}>
-                            <Loader2 className={`w-4 h-4 animate-spin ${agent.accent}`} />
-                            <span key={loadingPhraseIndex} className="animate-in fade-in duration-500 text-sm text-slate-600">{LOADING_PHRASES[loadingPhraseIndex % LOADING_PHRASES.length]}</span>
+                        <div className="space-y-1 pt-1 min-w-0">
+                          <div className={`inline-block px-4 py-2.5 rounded-2xl rounded-tl-sm border backdrop-blur-md ${agent.chatBg} flex items-center gap-2`}>
+                            <Loader2 className={`w-3.5 h-3.5 animate-spin ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                            <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Thinking...</span>
                           </div>
-                          {/* Pending citation bubbles — stacked below thinking bubble */}
-                          {pendingCitations.length > 0 && (
-                            <div className="flex flex-col gap-1 mt-1.5 animate-in fade-in duration-500">
-                              {pendingCitations.map((cite, ci) => (
-                                <div key={ci} className="border border-dashed border-slate-300/80 rounded-lg px-2 py-1 text-[10px] leading-tight text-slate-400 bg-white/40 backdrop-blur-sm max-w-[200px] animate-in fade-in slide-in-from-left-1 duration-500" style={{ animationDelay: `${ci * 150}ms` }}>
-                                  <span className="font-bold text-[9px] uppercase tracking-wider text-slate-400/70 mr-1">{cite.source}:</span>
-                                  <span className="line-clamp-1">{cite.text}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+
                         </div>
                       </div>
                     )}
@@ -2794,7 +2823,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </div>
 
                 {/* Chat input — ALWAYS visible at bottom */}
-                <div className="shrink-0 px-3 sm:px-4 pb-3 sm:pb-6 pt-1 sm:pt-2 z-20">
+                <div className="shrink-0 px-3 sm:px-4 pb-1 sm:pb-2 pt-1 sm:pt-2 z-20">
                   <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
@@ -2858,12 +2887,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     <div className="relative shrink-0">
                     <button
                       onClick={openVoiceSession}
-                      className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-slate-900/20 cursor-pointer"
+                      className="w-11 h-11 sm:w-14 sm:h-14 rounded-full text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-purple-900/30 cursor-pointer"
+                      style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea, #6d28d9)' }}
                       title="Start Voice Session"
                     >
                       <div className="relative flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5">
                         <AudioLines className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-slate-400" />
+                        <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-purple-200" />
                       </div>
                     </button>
 
@@ -2882,7 +2912,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     onClick={() => setIsLearnMoreOpen(true)}
                     className={`text-[10px] font-medium transition-colors cursor-pointer hover:underline ${isDarkMode ? 'text-indigo-400/60 hover:text-indigo-300' : 'text-indigo-500/50 hover:text-indigo-600'}`}
                   >
-                    Learn More ↗
+                    Learn More
                   </button>
                 </div>
                 </div>
