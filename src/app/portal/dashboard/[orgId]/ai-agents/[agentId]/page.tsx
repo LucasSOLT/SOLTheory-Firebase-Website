@@ -1589,14 +1589,29 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         getKnowledgeBaseText(),
       ]);
 
-      const apiMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text }));
+      const OPENROUTER_MODEL_IDS = ['claude-opus-5', 'gpt-5.6-sol', 'gemini-3.5-flash'];
+      const apiMessages = newMessages.map(m => {
+        const role = m.isSelf ? "user" : "assistant";
+        const textContent = m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text;
+        // If this message has an image, send as multimodal content (vision format)
+        if (m.isSelf && m.imageUrl && m.imageUrl.startsWith('data:')) {
+          return {
+            role,
+            content: [
+              { type: 'text' as const, text: textContent },
+              { type: 'image_url' as const, image_url: { url: m.imageUrl } },
+            ],
+          };
+        }
+        return { role, content: textContent };
+      });
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: await getAuthHeaders(),
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `${orgId}_${params.agentId}`,
-          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'llama-3.1-8b-instant': 'Llama 3.1 8B (Groq)', 'llama-3.3-70b-versatile': 'Llama 3.3 70B (Groq)', 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'openai/gpt-oss-20b': 'GPT OSS 20B (Groq)', 'groq/compound': 'Compound (Groq)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
@@ -1612,7 +1627,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           stream: true,
         }),
       });
-      console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${selectedModel.includes('/') && !selectedModel.startsWith('openai/gpt-oss') && !selectedModel.startsWith('groq/') ? 'OpenRouter' : 'Groq'}`, 'color: #10b981; font-weight: bold; font-size: 12px');
+      console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${OPENROUTER_MODEL_IDS.includes(selectedModel) ? 'OpenRouter' : 'Groq'}`, 'color: #10b981; font-weight: bold; font-size: 12px');
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(errData.error || `HTTP ${res.status}`);
