@@ -939,6 +939,15 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
+            // Send server-side metadata so client can verify actual provider in F12
+            const serverMeta = {
+              type: 'server_meta',
+              model: selectedModel,
+              provider: providerName,
+              openrouterKeySet: !!process.env.OPENROUTER_API_KEY,
+              timestamp: Date.now(),
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(serverMeta)}\n\n`));
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'routing', domain: routedDomain, timestamp: Date.now() })}\n\n`));
             if (planningText) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'thinking', content: planningText, timestamp: Date.now() })}\n\n`));

@@ -1684,6 +1684,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             try {
               const payload = JSON.parse(line.slice(6));
 
+              // Log server metadata to F12 console for debugging
+              if (payload.type === 'server_meta') {
+                console.log(
+                  `%c[SERVER] Model: ${payload.model} | Provider: ${payload.provider} | OpenRouter Key: ${payload.openrouterKeySet ? '✅ SET' : '❌ MISSING'}`,
+                  `color: ${payload.openrouterKeySet ? '#22c55e' : '#ef4444'}; font-weight: bold; font-size: 13px; background: #1e293b; padding: 4px 8px; border-radius: 4px;`
+                );
+                continue;
+              }
+
               // Handle agent events
               if (payload.type && ['routing', 'plan', 'step_start', 'step_complete', 'tool_call', 'thinking', 'done'].includes(payload.type)) {
                 setMessages(prev => prev.map(m => 
