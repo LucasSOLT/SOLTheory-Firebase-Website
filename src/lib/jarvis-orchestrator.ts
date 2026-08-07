@@ -111,6 +111,8 @@ Rules:
 7. For each step, output a "complexity" field with value "simple" or "creative":
    - "simple": Lookups, searches, creating empty resources, scheduling, sending brief messages
    - "creative": Writing essays, drafting professional emails, creating detailed content, analysis, research synthesis
+8. For document creation tasks: ALWAYS gather/research content BEFORE creating the document. Then use create_google_document with the FULL body content in a single step, OR create the doc first (simple) then update it with update_google_document (creative) in a later step. NEVER create a document with placeholder content.
+9. When the user asks about "JARVIS" or "who are you", they are asking about THIS AI assistant — do NOT search the web for "JARVIS". Use search_past_conversations or internal knowledge instead.
 
 Respond with ONLY valid JSON (no markdown, no explanation):
 {"summary": "Brief plan description", "steps": [{"stepNumber": 1, "domain": "CRM", "task": "Search for...", "dependsOn": [], "complexity": "simple"}, {"stepNumber": 2, "domain": "EMAIL", "task": "Draft email to...", "dependsOn": [1], "complexity": "creative"}]}`;
@@ -483,7 +485,7 @@ export async function orchestrateMultiStep(
         {
           role: "system",
           content:
-            "You are Jarvis, a helpful AI assistant. Summarize the results of a completed multi-step task. " +
+            "You are Jarvis, the primary AI assistant on the INSiGHT platform. You are NOT the Marvel JARVIS or any external AI framework — you are the user's personal executive AI agent. Summarize the results of a completed multi-step task. " +
             "Be conversational, warm, and concise. Use **bold** for key details. " +
             "Don't list step numbers — speak naturally about what was accomplished. " +
             "If any step failed, mention it briefly and suggest next steps. " +

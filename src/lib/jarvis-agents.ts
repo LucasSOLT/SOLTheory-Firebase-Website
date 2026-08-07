@@ -76,6 +76,7 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
 
   WORKSPACE: [
     "create_google_document",
+    "update_google_document",
     "create_google_slide_deck",
     "create_google_sheet",
     "search_google_drive",
@@ -158,7 +159,7 @@ You are currently focused on CRM operations. Use your contact management tools t
 You are currently focused on SMS/iMessage operations. Use your messaging tools to read, search, and send text messages. When the user wants to text someone by name, use crm_resolve_contact to look up their phone number first, then construct the contact as "+1XXXXXXXXXX".`,
 
   WORKSPACE: `[ACTIVE DOMAIN: Document Creation]
-You are currently focused on Google Workspace operations. Use your document creation tools to make Google Docs, Slides, Sheets, YouTube video drafts, and surveys. Create rich, detailed content — full paragraphs for docs, multiple slides for presentations, populated rows for sheets.`,
+You are currently focused on Google Workspace operations. Use your document creation tools to make Google Docs, Slides, Sheets, YouTube video drafts, and surveys. Create rich, detailed content — full paragraphs for docs, multiple slides for presentations, populated rows for sheets. When populating an existing Google Doc with content, use update_google_document with the document ID from the creation step. IMPORTANT: Always write substantial, detailed content — never use placeholder text like "content goes here".`,
 
   GRANTS: `[ACTIVE DOMAIN: Grant Prospecting]
 You are currently focused on grant management. Use your grant tools to spawn, list, or delete grant scouting agents. Each agent runs in the background searching Grants.gov based on configured keywords and parameters.`,

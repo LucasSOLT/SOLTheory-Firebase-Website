@@ -171,6 +171,23 @@ const tools: any = [
   {
     type: "function",
     function: {
+      name: "update_google_document",
+      description: "Write or replace content in an existing Google Docs document. Use this when you need to populate a previously created Google Doc with content, or update/append text to an existing document. You MUST write the full content — do not truncate or summarize.",
+      parameters: {
+        type: "object",
+        properties: {
+          documentId: { type: "string", description: "The Google Docs document ID (from the URL or from a prior create_google_document result)" },
+          body: { type: "string", description: "The full text content to insert. Use newlines for paragraphs. Separate sections with headings prefixed by '## '. This REPLACES the existing document content." },
+          font: { type: "string", description: "The font family to apply (e.g. 'Arial', 'Times New Roman', 'Georgia'). Defaults to 'Arial'." },
+          lineSpacing: { type: "string", enum: ["single", "double"], description: "Line spacing: 'single' (1.0) or 'double' (2.0). Defaults to 'double'." }
+        },
+        required: ["documentId", "body"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "create_google_slide_deck",
       description: "Create a new Google Slides presentation in the user's Google Drive. Each slide should have a title and body text. Use this when the user asks you to create a presentation, pitch deck, etc.",
       parameters: {
@@ -490,9 +507,9 @@ export async function POST(req: Request) {
     switch (agentId) {
       case "jarvis":
         if (isNxtChapter) {
-          agentRole = "You are Jarvis, the primary AI agent for NXT Chapter (Next Chapter Foundation Inc.) — a 501(c)(3) nonprofit in Denver, CO dedicated to reducing recidivism and helping formerly incarcerated individuals reintegrate into society. You are a highly organized executive assistant and persuasive outreach expert combined into one. You handle ALL inbound email management (replies, drafts, organization, deletions) AND outbound campaigns (partnership outreach, follow-ups, community engagement emails). You must NEVER mention SOL Theory or any other organization. You work exclusively for NXT Chapter. Focus on excellent communication, swift resolution, and high engagement for NXT Chapter's mission. If the user asks you to perform inbox actions (delete, draft, folder, block), use your tools autonomously. IMPORTANT: Do NOT automatically draft emails when the user is simply chatting or discussing topics. ONLY draft emails when explicitly commanded to do so.\n\nCRITICAL PHONETIC MAPPING: Whenever ANY user says or types 'next chapter', 'the next chapter', 'next-chapter', 'nxt chapter', or any phonetic equivalent, you MUST ALWAYS interpret this as referring to the Denver-based nonprofit NXT Chapter (Next Chapter Foundation Inc.). NEVER interpret it as a book chapter, life phase, or anything else. Do NOT ask for clarification. Respond immediately with NXT Chapter organizational knowledge.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
+          agentRole = "You are Jarvis, the primary AI agent for NXT Chapter (Next Chapter Foundation Inc.) — a 501(c)(3) nonprofit in Denver, CO dedicated to reducing recidivism and helping formerly incarcerated individuals reintegrate into society. Your name is JARVIS and you are the AI assistant built into the INSiGHT platform. When users ask who you are or about 'JARVIS', they are asking about YOU — the AI they are currently speaking with. Do NOT reference Marvel's JARVIS or any external JARVIS framework. You are a highly organized executive assistant and persuasive outreach expert combined into one. You handle ALL inbound email management (replies, drafts, organization, deletions) AND outbound campaigns (partnership outreach, follow-ups, community engagement emails). You must NEVER mention SOL Theory or any other organization. You work exclusively for NXT Chapter. Focus on excellent communication, swift resolution, and high engagement for NXT Chapter's mission. If the user asks you to perform inbox actions (delete, draft, folder, block), use your tools autonomously. IMPORTANT: Do NOT automatically draft emails when the user is simply chatting or discussing topics. ONLY draft emails when explicitly commanded to do so.\n\nCRITICAL PHONETIC MAPPING: Whenever ANY user says or types 'next chapter', 'the next chapter', 'next-chapter', 'nxt chapter', or any phonetic equivalent, you MUST ALWAYS interpret this as referring to the Denver-based nonprofit NXT Chapter (Next Chapter Foundation Inc.). NEVER interpret it as a book chapter, life phase, or anything else. Do NOT ask for clarification. Respond immediately with NXT Chapter organizational knowledge.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
         } else {
-          agentRole = "You are Jarvis, the primary AI agent for SOL Theory. You are a highly organized executive assistant and persuasive sales expert combined into one. You handle ALL inbound email management (replies, drafts, organization, deletions) AND outbound campaigns (cold outreach, follow-ups, high-converting sales emails). Embody our core values: keep your advice Simple, Practical, and Fun (SPF). Focus on excellent customer satisfaction, swift resolution, and high engagement on outbound prospects. If the user asks you to perform inbox actions (delete, draft, folder, block), use your tools autonomously. IMPORTANT: Do NOT automatically draft emails when the user is simply chatting or discussing topics. ONLY draft emails when explicitly commanded to do so.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
+          agentRole = "You are Jarvis, the primary AI agent for SOL Theory. Your name is JARVIS and you are the AI assistant built into the INSiGHT platform. When users ask who you are or about 'JARVIS', they are asking about YOU — the AI they are currently speaking with. Do NOT look up 'JARVIS' on the web or reference Marvel's JARVIS, Microsoft's JARVIS framework, or any other external JARVIS. You are JARVIS, the executive AI agent on INSiGHT. You are a highly organized executive assistant and persuasive sales expert combined into one. You handle ALL inbound email management (replies, drafts, organization, deletions) AND outbound campaigns (cold outreach, follow-ups, high-converting sales emails). Embody our core values: keep your advice Simple, Practical, and Fun (SPF). Focus on excellent customer satisfaction, swift resolution, and high engagement on outbound prospects. If the user asks you to perform inbox actions (delete, draft, folder, block), use your tools autonomously. IMPORTANT: Do NOT automatically draft emails when the user is simply chatting or discussing topics. ONLY draft emails when explicitly commanded to do so.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
         }
         break;
       case "youtube_director":
@@ -1571,6 +1588,121 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
             });
 
             functionResult = JSON.stringify({ result: `Google Doc '${args.title}' created successfully. Link: https://docs.google.com/document/d/${docId}/edit` });
+
+          } else if (functionName === "update_google_document" && docsApi) {
+            // Update an existing Google Doc with new content
+            const docId = args.documentId as string;
+            const body = args.body as string;
+            
+            if (!docId || !body) {
+              functionResult = JSON.stringify({ error: "documentId and body are required" });
+            } else {
+              // First, get the current document to find its content length
+              const docData = await docsApi.documents.get({ documentId: docId });
+              const endIndex = docData.data.body?.content?.reduce((max: number, el: any) => {
+                return Math.max(max, el.endIndex || 0);
+              }, 0) || 1;
+
+              // Clear existing content (if any beyond the initial newline)
+              if (endIndex > 2) {
+                await docsApi.documents.batchUpdate({
+                  documentId: docId,
+                  requestBody: {
+                    requests: [{
+                      deleteContentRange: {
+                        range: { startIndex: 1, endIndex: endIndex - 1 }
+                      }
+                    }]
+                  }
+                });
+              }
+
+              // Insert the new body text
+              await docsApi.documents.batchUpdate({
+                documentId: docId,
+                requestBody: {
+                  requests: [{
+                    insertText: {
+                      location: { index: 1 },
+                      text: body
+                    }
+                  }]
+                }
+              });
+
+              // Apply formatting (font + line spacing)
+              const fontFamily = (args.font as string) || "Arial";
+              const spacingMode = (args.lineSpacing as string) || "double";
+              const lineSpacingValue = spacingMode === "single" ? 100 : 200;
+              const textLength = body.length;
+              const formatRequests: any[] = [];
+
+              formatRequests.push({
+                updateTextStyle: {
+                  range: { startIndex: 1, endIndex: 1 + textLength },
+                  textStyle: {
+                    fontFamily: fontFamily,
+                    fontSize: { magnitude: 12, unit: "PT" }
+                  },
+                  fields: "fontFamily,fontSize"
+                }
+              });
+
+              formatRequests.push({
+                updateParagraphStyle: {
+                  range: { startIndex: 1, endIndex: 1 + textLength },
+                  paragraphStyle: {
+                    lineSpacing: lineSpacingValue,
+                    spaceAbove: { magnitude: 0, unit: "PT" },
+                    spaceBelow: { magnitude: 0, unit: "PT" }
+                  },
+                  fields: "lineSpacing,spaceAbove,spaceBelow"
+                }
+              });
+
+              // Detect headings marked with "## " and apply HEADING_2 style
+              const lines = body.split('\n');
+              let charIdx = 1;
+              for (const line of lines) {
+                if (line.startsWith('## ')) {
+                  const headingStart = charIdx;
+                  const headingEnd = charIdx + line.length;
+                  formatRequests.push({
+                    updateParagraphStyle: {
+                      range: { startIndex: headingStart, endIndex: headingEnd },
+                      paragraphStyle: { namedStyleType: "HEADING_2" },
+                      fields: "namedStyleType"
+                    }
+                  });
+                  formatRequests.push({
+                    deleteContentRange: {
+                      range: { startIndex: headingStart, endIndex: headingStart + 3 }
+                    }
+                  });
+                }
+                charIdx += line.length + 1;
+              }
+
+              if (formatRequests.length > 0) {
+                const deleteReqs = formatRequests.filter((r: any) => r.deleteContentRange);
+                const styleReqs = formatRequests.filter((r: any) => !r.deleteContentRange);
+                if (styleReqs.length > 0) {
+                  await docsApi.documents.batchUpdate({
+                    documentId: docId,
+                    requestBody: { requests: styleReqs }
+                  });
+                }
+                if (deleteReqs.length > 0) {
+                  deleteReqs.reverse();
+                  await docsApi.documents.batchUpdate({
+                    documentId: docId,
+                    requestBody: { requests: deleteReqs }
+                  });
+                }
+              }
+
+              functionResult = JSON.stringify({ result: `Google Doc updated successfully. Link: https://docs.google.com/document/d/${docId}/edit` });
+            }
 
           } else if (functionName === "create_google_slide_deck" && slidesApi && driveApi) {
             // Create a blank presentation

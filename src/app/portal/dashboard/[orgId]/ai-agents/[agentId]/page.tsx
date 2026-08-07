@@ -29,7 +29,7 @@ import type { AgentEvent } from '@/lib/agent-events';
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
-type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; };
+type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; sendTimestamp?: number; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number; attachmentId?: string }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
@@ -1540,6 +1540,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     // Filter out welcome greeting messages (bot-only messages that were never part of a real session)
     const realMessages = messages.filter(m => m.isSelf || messages.some(um => um.isSelf));
     const newMessages = [...realMessages, userMsg, ...extraUserMessages];
+    const msgSendTimestamp = Date.now();
     setMessages(newMessages); setIsTyping(true); setInputValue("");
 
     // Pre-compute citations client-side (instant — pure string matching) for thinking bubble
@@ -1664,7 +1665,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         // Streaming mode — render tokens as they arrive
         const botMsgId = uid();
         let fullText = '';
-        setMessages(prev => [...prev, { id: botMsgId, text: '', isSelf: false }]);
+        setMessages(prev => [...prev, { id: botMsgId, text: '', isSelf: false, sendTimestamp: msgSendTimestamp }]);
         setIsTyping(false); // Hide spinner immediately — text is arriving
 
         const reader = res.body.getReader();
@@ -1738,8 +1739,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }
         // Push a 'done' event so ThinkingDisplay knows to stop its timer
         setMessages(prev => prev.map(m =>
-          m.id === botMsgId && m.agentEvents && m.agentEvents.length > 0
-            ? { ...m, agentEvents: [...m.agentEvents, { type: 'done' as const, timestamp: Date.now() }] }
+          m.id === botMsgId 
+            ? { ...m, agentEvents: [...(m.agentEvents || []), { type: 'done' as const, timestamp: Date.now() }] } 
             : m
         ));
         setPendingCitations([]);
@@ -2772,11 +2773,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         {/* Thinking display — OUTSIDE the message bubble, shown first */}
                         {!msg.isSelf && msg.agentEvents && msg.agentEvents.length > 0 && (
                           <div className="pl-1 sm:pl-2 mb-1">
-                            <ThinkingDisplay events={msg.agentEvents} isDarkMode={isDarkMode} />
+                            <ThinkingDisplay events={msg.agentEvents} isDarkMode={isDarkMode} sendTimestamp={msg.sendTimestamp} />
                           </div>
                         )}
-                        {/* Message row — only show if there's content to display */}
-                        {(msg.isSelf || msg.text || msg.imageUrl) && (
+                        {/* Message row — only show if there's content to display (text, image, or active thinking events) */}
+                        {(msg.isSelf || msg.text || msg.imageUrl || (!msg.isSelf && msg.agentEvents && msg.agentEvents.length > 0)) && (
                         <div className={`flex gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-4 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-4 sm:pr-20'}`}>
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
                         <div className={`space-y-1 pt-1 min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : ''}`}>

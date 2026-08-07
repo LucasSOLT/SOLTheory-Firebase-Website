@@ -7,18 +7,31 @@ import type { AgentEvent } from '@/lib/agent-events';
 interface ThinkingDisplayProps {
   events: AgentEvent[];
   isDarkMode: boolean;
+  sendTimestamp?: number;
 }
 
-export default function ThinkingDisplay({ events, isDarkMode }: ThinkingDisplayProps) {
+export default function ThinkingDisplay({ events, isDarkMode, sendTimestamp }: ThinkingDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  // Start a live timer when events arrive
+  // Start a live timer — use the send timestamp (when user pressed send) if available,
+  // otherwise fall back to when events first arrive.
+  // We track whether the timer is running via state so the interval effect re-fires.
+  const [timerRunning, setTimerRunning] = useState(false);
+
+  useEffect(() => {
+    if (startTimeRef.current === 0 && sendTimestamp && sendTimestamp > 0) {
+      startTimeRef.current = sendTimestamp;
+      setTimerRunning(true);
+    }
+  }, [sendTimestamp]);
+
   useEffect(() => {
     if (events.length > 0 && startTimeRef.current === 0) {
       startTimeRef.current = Date.now();
+      setTimerRunning(true);
     }
   }, [events.length]);
 
@@ -39,22 +52,14 @@ export default function ThinkingDisplay({ events, isDarkMode }: ThinkingDisplayP
     ? planEvent.steps.every((s: any) => stepCompletes.some(sc => sc.step === s.step))
     : false;
 
-  // Auto-complete: for simple routes with no tools, force complete after 1.5s
-  const [forceComplete, setForceComplete] = useState(false);
-  useEffect(() => {
-    if (events.length > 0 && !hasToolsOrSteps && !isMulti) {
-      const timer = setTimeout(() => setForceComplete(true), 1500);
-      return () => clearTimeout(timer);
-    }
-    if (hasToolsOrSteps && !isMulti) setForceComplete(true);
-  }, [events.length, hasToolsOrSteps, isMulti]);
-
-  // 'done' event is the definitive completion signal — overrides all other checks
-  const isComplete = hasDoneEvent || (isMulti ? allStepsComplete : (hasToolsOrSteps || forceComplete));
+  // 'done' event is the definitive completion signal.
+  // For multi-agent: also complete if all plan steps finished.
+  // The timer runs until the stream is fully done — no early force-complete.
+  const isComplete = hasDoneEvent || (isMulti && allStepsComplete);
 
   // Live timer that ticks every 100ms while not complete
   useEffect(() => {
-    if (startTimeRef.current > 0 && !isComplete) {
+    if (timerRunning && startTimeRef.current > 0 && !isComplete) {
       timerRef.current = setInterval(() => {
         setElapsedMs(Date.now() - startTimeRef.current);
       }, 100);
@@ -70,7 +75,7 @@ export default function ThinkingDisplay({ events, isDarkMode }: ThinkingDisplayP
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isComplete]);
+  }, [isComplete, timerRunning]);
 
   const elapsedStr = (elapsedMs / 1000).toFixed(1);
 
