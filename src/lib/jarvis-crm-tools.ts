@@ -260,7 +260,7 @@ export const CRM_TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "crm_create_contact",
-      description: "Create a new contact in the user's CRM contacts database. Use this when the user asks to add, create, or save a new contact. You MUST map the user's information to the correct field parameters. After creating, always tell the user the contact name AND which contact book it was placed in.",
+      description: "Create a new contact in the user's CRM contacts database. Use this when the user asks to add, create, or save a new contact AND has provided at least a name. CRITICAL: If the user says something vague like 'add a contact' without providing ANY contact details (no name, no email, no phone), you MUST NOT call this tool. Instead, respond by asking: 'Sure! What is the contact\'s name? And do you have their email, phone number, or company info?' NEVER invent, fabricate, or hallucinate contact details. Only pass information the user explicitly provided. After creating, always tell the user the contact name AND which contact book it was placed in.",
       parameters: {
         type: "object",
         properties: {
@@ -300,7 +300,7 @@ export const CRM_TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "crm_update_contact",
-      description: "Update one or more fields on an existing contact. Search by name or email to find the contact, then provide the fields to update. If multiple contacts match, return them all and ask the user to clarify.",
+      description: "Update one or more fields on an existing contact. Search by name or email to find the contact, then provide the fields to update. If multiple contacts match, return them all and ask the user to clarify. CRITICAL: If the user says something vague like 'edit contact book' or 'update my contacts' without specifying which contact to update or what fields to change, you MUST NOT call this tool. Instead, ask: 'Which contact would you like to update, and what information should I change?' NEVER guess which contact the user means.",
       parameters: {
         type: "object",
         properties: {
@@ -478,6 +478,7 @@ AVAILABLE CONTACT BOOKS:
 ${bookList}
 
 WRITE RULES:
+0. NEVER FABRICATE CONTACT DATA: If the user asks to "add a contact" or "create a contact" without providing specific details (name, email, phone, etc.), you MUST ask the user for the contact's information BEFORE calling crm_create_contact. NEVER hallucinate, guess, or invent names, emails, phone numbers, or any other contact fields. Only use data the user explicitly provides in their message.
 1. Always write to the ACTIVE contact book ("${activeName}") unless the user explicitly specifies a different one.
 2. When the user names a different book (e.g. "put it in General" or "add to Personal Contacts"), set the contactBookName parameter to match.
 3. After EVERY CRM action, confirm what you did AND specify which contact book it was placed in. Example: "Done! I've added John Smith to your '${activeName}' contact book."
