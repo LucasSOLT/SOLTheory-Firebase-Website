@@ -155,7 +155,7 @@ const tools: any = [
     type: "function",
     function: {
       name: "create_google_document",
-      description: "Create a new Google Docs document in the user's Google Drive. Populates it with the provided text content. Use this when the user asks you to create a document, write a report, draft meeting notes, etc. You MUST write the full document — do not truncate or summarize. Write long-form, professional prose with clear paragraph breaks.",
+      description: "Create a new Google Docs document in the user's Google Drive. Populates it with the provided text content. Use this when the user asks you to create a document, Word document, write a report, draft meeting notes, draft a doc, write a doc, etc. You MUST write the full document — do not truncate or summarize. Write long-form, professional prose with clear paragraph breaks.",
       parameters: {
         type: "object",
         properties: {
@@ -1557,6 +1557,8 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
               }
 
               // Apply formatting requests (process in reverse order for heading deletions to maintain correct indices)
+              // Wrapped in try/catch — formatting is best-effort; the doc is already created and populated
+              try {
               if (formatRequests.length > 0) {
                 // Separate delete requests (must be applied separately, in reverse order)
                 const deleteReqs = formatRequests.filter((r: any) => r.deleteContentRange);
@@ -1578,6 +1580,9 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
                     requestBody: { requests: deleteReqs }
                   });
                 }
+              }
+              } catch (fmtErr: any) {
+                console.warn(`[create_google_document] Formatting failed (doc still created): ${fmtErr?.message}`);
               }
             }
 
@@ -1683,6 +1688,8 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
                 charIdx += line.length + 1;
               }
 
+              // Wrapped in try/catch — formatting is best-effort; content is already written
+              try {
               if (formatRequests.length > 0) {
                 const deleteReqs = formatRequests.filter((r: any) => r.deleteContentRange);
                 const styleReqs = formatRequests.filter((r: any) => !r.deleteContentRange);
@@ -1699,6 +1706,9 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
                     requestBody: { requests: deleteReqs }
                   });
                 }
+              }
+              } catch (fmtErr: any) {
+                console.warn(`[update_google_document] Formatting failed (content still written): ${fmtErr?.message}`);
               }
 
               functionResult = JSON.stringify({ result: `Google Doc updated successfully. Link: https://docs.google.com/document/d/${docId}/edit` });

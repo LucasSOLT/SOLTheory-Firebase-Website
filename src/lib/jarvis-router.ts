@@ -53,7 +53,7 @@ const DOMAIN_PATTERNS: Array<{ domain: JarvisDomain; pattern: RegExp }> = [
   // WORKSPACE — Google Docs, Slides, Sheets, YouTube, Survey, Drive
   {
     domain: "WORKSPACE",
-    pattern: /\b(create\s*(a\s*)?(google\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|make\s*(a\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|youtube\s*(video|draft|script)|draft\s*(a\s*)?video|create\s*(a\s*)?(survey|questionnaire|feedback\s*form)|search\s*(google\s*)?drive|read\s*(the\s*)?doc|google\s*drive)\b/i,
+    pattern: /\b(create\s*(a\s*)?(google\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|make\s*(a\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|(draft|write|generate)\s*(a\s*)?(google\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|word\s*(doc|document)|youtube\s*(video|draft|script)|draft\s*(a\s*)?video|create\s*(a\s*)?(survey|questionnaire|feedback\s*form)|search\s*(google\s*)?drive|read\s*(the\s*)?doc|google\s*drive)\b/i,
   },
   // GRANTS — grant scouting, agents
   {
