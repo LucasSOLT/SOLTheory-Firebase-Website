@@ -565,9 +565,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
     setIsVoiceModalOpen(true);
   };
-  const [totalGroqTokens, setTotalGroqTokens] = useState(0);
-  const [totalElevenLabsChars, setTotalElevenLabsChars] = useState(0);
-  const [showCostBreakdown, setShowCostBreakdown] = useState(false);
+
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [starredEmails, setStarredEmails] = useState<Set<string>>(new Set());
@@ -1073,15 +1071,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (isModelDropdownOpen && !target.closest('[data-dropdown="model"]')) {
         setIsModelDropdownOpen(false);
       }
-      // Close cost breakdown if clicking outside it
-      if (showCostBreakdown && !target.closest('[data-popup="cost"]')) {
-        setShowCostBreakdown(false);
-      }
     };
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsModelDropdownOpen(false);
-        setShowCostBreakdown(false);
         if (isSystemInstructionsOpen) setIsSystemInstructionsOpen(false);
         if (lightboxImage) setLightboxImage(null);
         if (isObserverFullScreen) setIsObserverFullScreen(false);
@@ -1094,7 +1087,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isModelDropdownOpen, showCostBreakdown, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
+  }, [isModelDropdownOpen, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string }> = {
     "jarvis": {
@@ -1276,30 +1269,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     return () => { if (tagSaveTimerRef.current) clearTimeout(tagSaveTimerRef.current); };
   }, [emailTags, senderTagMap, params.agentId, user?.uid, firestore]);
 
-  // Load Platform-Wide Usage (all users)
-  useEffect(() => {
-    if (!firestore) return;
-    import("firebase/firestore").then(({ collection, onSnapshot, query, orderBy }) => {
-      const q = query(collection(firestore, "ai_usage"), orderBy("timestamp", "desc"));
-      const unsub = onSnapshot(q, (snap) => {
-        let totalTokens = 0;
-        let totalChars = 0;
-        snap.forEach((d) => {
-          const data = d.data();
-          if (data.provider === "groq") {
-            totalTokens += data.totalTokens || 0;
-          } else if (data.provider === "elevenlabs") {
-            totalChars += data.characters || 0;
-          }
-        });
-        setTotalGroqTokens(totalTokens);
-        setTotalElevenLabsChars(totalChars);
-      }, (err) => {
-        console.error("[AI Usage] Failed to load platform usage:", err);
-      });
-      return () => unsub();
-    });
-  }, [firestore]);
+
 
   // Auth Binding Verification Map
   useEffect(() => {
@@ -1642,6 +1612,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           stream: true,
         }),
       });
+      console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${selectedModel.includes('/') && !selectedModel.startsWith('openai/gpt-oss') && !selectedModel.startsWith('groq/') ? 'OpenRouter' : 'Groq'}`, 'color: #10b981; font-weight: bold; font-size: 12px');
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(errData.error || `HTTP ${res.status}`);
@@ -2461,6 +2432,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           setIsModelDropdownOpen(false);
                           if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
                           setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**. Token rates vary.`, isSelf: false }]);
+                          console.log(`%c[MODEL SWITCH] → ${model.name} (${model.id})`, 'color: #f59e0b; font-weight: bold; font-size: 13px');
                         }}
                         className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
                       >
@@ -2490,6 +2462,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           setIsModelDropdownOpen(false);
                           if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
                           setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**. Token rates vary.`, isSelf: false }]);
+                          console.log(`%c[MODEL SWITCH] → ${model.name} (${model.id})`, 'color: #f59e0b; font-weight: bold; font-size: 13px');
                         }}
                         className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
                       >
@@ -2673,58 +2646,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Token Count Pill */}
-            <div className="relative">
-              <button data-popup="cost" onClick={() => setShowCostBreakdown(!showCostBreakdown)} className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full shadow-sm cursor-pointer transition-colors ${isDarkMode ? 'bg-slate-800 border border-slate-600 hover:bg-slate-700' : 'bg-[#faf8f3] border border-slate-200 hover:bg-[#f2ece0]'}`}>
-                <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
-                <span className={`text-[9px] sm:text-[10px] font-black tracking-wider uppercase truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                  <span className="hidden sm:inline">{totalGroqTokens.toLocaleString()} T <span className="opacity-30">|</span>{' '}</span>
-                  ≈ ${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}
-                </span>
-              </button>
-              {showCostBreakdown && (
-                <div data-popup="cost" className={`absolute top-full right-0 mt-2 z-[200] w-[calc(100vw-24px)] max-w-[340px] rounded-[6px] shadow-2xl p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black text-slate-900 tracking-tight">Platform Usage — All Users</h3>
-                    <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="p-3 bg-[#faf6ed] border border-slate-100 rounded-[4px]">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
-                      </div>
-                      <div className="text-xs text-slate-500 space-y-1">
-                        <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
-                        <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{totalGroqTokens.toLocaleString()}</span></div>
-                        <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
-                        <div className="h-px bg-slate-200 my-1" />
-                        <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalGroqTokens * 0.00000006).toFixed(6)}</span></div>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-[#faf6ed] border border-slate-100 rounded-[4px]">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Voice</span>
-                      </div>
-                      <div className="text-xs text-slate-500 space-y-1">
-                        <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
-                        <div className="flex justify-between"><span>Chars Used</span><span className="font-bold text-slate-700">{totalElevenLabsChars.toLocaleString()}</span></div>
-                        <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
-                        <div className="h-px bg-slate-200 my-1" />
-                        <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(totalElevenLabsChars * 0.000167).toFixed(6)}</span></div>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-slate-900 rounded-[4px]">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Platform Cost</span>
-                        <span className="text-lg font-black text-white">${((totalGroqTokens * 0.00000006) + (totalElevenLabsChars * 0.000167)).toFixed(4)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Agent Eye */}
             <button
               onClick={() => setIsAgentEyeOpen(!isAgentEyeOpen)}
               className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? (isDarkMode ? 'bg-amber-900/30 text-amber-400 border-amber-700' : 'bg-amber-50 text-amber-600 border-amber-300') : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-600 hover:text-amber-400 hover:border-amber-700 hover:bg-amber-900/20' : 'bg-[#faf8f3] text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50')}`}
