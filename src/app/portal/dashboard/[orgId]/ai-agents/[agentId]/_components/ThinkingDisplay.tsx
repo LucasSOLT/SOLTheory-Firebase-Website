@@ -33,7 +33,8 @@ export default function ThinkingDisplay({ events, isDarkMode }: ThinkingDisplayP
   const routingEvent = events.find(e => e.type === 'routing') as Extract<AgentEvent, { type: 'routing' }> | undefined;
   const isMulti = routingEvent?.domain === 'MULTI';
 
-  // Determine completion: for MULTI, all plan steps must be complete
+  // Determine completion: for MULTI, all plan steps must be complete OR a 'done' event arrived
+  const hasDoneEvent = events.some(e => e.type === 'done');
   const allStepsComplete = isMulti && planEvent
     ? planEvent.steps.every((s: any) => stepCompletes.some(sc => sc.step === s.step))
     : false;
@@ -48,7 +49,8 @@ export default function ThinkingDisplay({ events, isDarkMode }: ThinkingDisplayP
     if (hasToolsOrSteps && !isMulti) setForceComplete(true);
   }, [events.length, hasToolsOrSteps, isMulti]);
 
-  const isComplete = isMulti ? allStepsComplete : (hasToolsOrSteps || forceComplete);
+  // 'done' event is the definitive completion signal — overrides all other checks
+  const isComplete = hasDoneEvent || (isMulti ? allStepsComplete : (hasToolsOrSteps || forceComplete));
 
   // Live timer that ticks every 100ms while not complete
   useEffect(() => {

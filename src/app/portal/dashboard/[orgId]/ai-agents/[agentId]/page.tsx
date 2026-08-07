@@ -1159,8 +1159,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           }
           // Load only valid sessions — start with blank screen
           setSessions(validSessions);
-          setActiveSessionId(null);
-          setMessages([]);
+          // Restore last active session if user was in one before refresh
+          const savedSessionId = sessionStorage.getItem(`st_active_session_${params.agentId}`);
+          if (savedSessionId) {
+            const restoredSession = validSessions.find(s => s.id === savedSessionId);
+            if (restoredSession) {
+              setActiveSessionId(restoredSession.id);
+              setMessages(restoredSession.messages);
+            } else {
+              setActiveSessionId(null);
+              setMessages([]);
+            }
+          } else {
+            setActiveSessionId(null);
+            setMessages([]);
+          }
         } else {
           // Check for localStorage sessions to migrate
           const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
@@ -1318,6 +1331,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, activeSessionId, params.agentId]);
+
+  // Persist active session ID to sessionStorage so page refresh restores the current chat
+  useEffect(() => {
+    if (activeSessionId) {
+      sessionStorage.setItem(`st_active_session_${params.agentId}`, activeSessionId);
+    } else {
+      sessionStorage.removeItem(`st_active_session_${params.agentId}`);
+    }
+  }, [activeSessionId, params.agentId]);
 
   // Save active session to Firestore on message changes — ONLY if it has user messages
   useEffect(() => {
@@ -1663,7 +1685,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               const payload = JSON.parse(line.slice(6));
 
               // Handle agent events
-              if (payload.type && ['routing', 'plan', 'step_start', 'step_complete', 'tool_call', 'thinking'].includes(payload.type)) {
+              if (payload.type && ['routing', 'plan', 'step_start', 'step_complete', 'tool_call', 'thinking', 'done'].includes(payload.type)) {
                 setMessages(prev => prev.map(m => 
                   m.id === botMsgId 
                     ? { ...m, agentEvents: [...(m.agentEvents || []), payload as AgentEvent] } 
@@ -1705,6 +1727,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             }
           }
         }
+        // Push a 'done' event so ThinkingDisplay knows to stop its timer
+        setMessages(prev => prev.map(m =>
+          m.id === botMsgId && m.agentEvents && m.agentEvents.length > 0
+            ? { ...m, agentEvents: [...m.agentEvents, { type: 'done' as const, timestamp: Date.now() }] }
+            : m
+        ));
         setPendingCitations([]);
       } else {
         // Fallback: non-streaming JSON response (shouldn't happen in normal flow)

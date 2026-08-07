@@ -14,7 +14,8 @@ export type AgentEvent =
   | StepStartEvent
   | StepCompleteEvent
   | ToolCallEvent
-  | ThinkingEvent;
+  | ThinkingEvent
+  | DoneEvent;
 
 /** Emitted when the router classifies the user's intent into a domain */
 export interface RoutingEvent {
@@ -63,6 +64,12 @@ export interface ToolCallEvent {
 export interface ThinkingEvent {
   type: 'thinking';
   content: string;
+  timestamp: number;
+}
+
+/** Emitted when the full response stream is complete — signals timers to stop */
+export interface DoneEvent {
+  type: 'done';
   timestamp: number;
 }
 
