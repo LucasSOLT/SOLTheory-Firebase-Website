@@ -505,6 +505,8 @@ export async function POST(req: Request) {
         break;
     }
 
+    agentRole += `\n\nIMPORTANT: When a user asks you to create, write, or draft something that should be a document, presentation, spreadsheet, or email — ALWAYS use the appropriate tool (create_google_document, create_google_slide_deck, create_google_sheet, draft_outbound_email). Never output the content as raw text in the chat. If you're unsure whether the user wants a document or just a chat response, create the document — users prefer permanent artifacts over chat text.`;
+
     if (soul) agentRole += `\n\nYour specific personality, tone, and character overrides (Soul): ${soul}`;
     if (brain) agentRole += `\n\nStrict operational instructions and persistent knowledge (Brain): ${brain}`;
 
@@ -858,7 +860,9 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     const hasToolApis = !!(gmail || calendar || docsApi || youtubeApi);
     const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     const routedDomain: JarvisDomain = await routeIntent(lastUserText2);
-    const messageNeedsTools = routedDomain !== 'GENERAL';
+    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find|google|gogle|googl|goolge|calender|calandar/i;
+    const forceTools = toolKeywords.test(lastUserText2);
+    const messageNeedsTools = routedDomain !== 'GENERAL' || forceTools;
     const useTools = !!(hasToolApis || uid) && messageNeedsTools;
     // Filter master tools array to only include domain-relevant tools
     const domainTools = filterToolsForDomain(tools, routedDomain);
@@ -981,6 +985,12 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
             })}\n\n`));
             controller.close();
             console.log(`[PERF] Native stream completed in ${Date.now() - t0}ms | ${fullResponse.length} chars`);
+            
+            // Detect failed tool invocation in streaming response
+            if (fullResponse.match(/<invoke|<tool_call|<function_call|```json\s*\{[\s\S]*?"name":/)) {
+              console.warn('[STREAM] Detected tool invocation in streaming response — should have used tool path');
+              // The response already went out, but log this for debugging
+            }
           } catch (streamErr: any) {
             console.error('[STREAM] Native stream error:', streamErr?.message || streamErr);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`));

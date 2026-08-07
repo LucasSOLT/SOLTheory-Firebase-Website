@@ -23,6 +23,7 @@ export interface OrchestratorStep {
   domain: JarvisDomain;
   task: string;
   dependsOn: number[];
+  complexity?: 'simple' | 'creative';
 }
 
 export interface OrchestratorPlan {
@@ -77,13 +78,13 @@ const PREMIUM_DOMAINS = new Set(["WORKSPACE", "EMAIL"]);
 // Domains that are mechanical lookups → always use fast cheap Groq
 const FAST_DOMAINS = new Set(["CRM", "CALENDAR", "COMMS", "GENERAL", "GRANTS"]);
 
-/** Pick the right model for a step: premium model for creative work, fast Groq for mechanical tasks. */
-function pickModelForStep(domain: string, userSelectedModel: string): string {
-  if (FAST_DOMAINS.has(domain)) {
+/** Pick the right model for a step based on its complexity: premium model for creative work, fast Groq for simple tasks. */
+function pickModelForStep(step: OrchestratorStep, userSelectedModel: string): string {
+  if (step.complexity === "simple") {
     // Mechanical steps — use fast Groq to save cost
     return "llama-3.3-70b-versatile";
   }
-  // Creative/content steps (WORKSPACE, EMAIL) — use the user's selected premium model
+  // Creative/content steps — use the user's selected premium model
   return userSelectedModel;
 }
 
@@ -107,9 +108,12 @@ Rules:
 4. Use the "dependsOn" array to indicate which prior steps feed data into this step
 5. Maximum 6 steps total
 6. If a step needs to look up a contact's email/phone before emailing/texting, add a CRM step first
+7. For each step, output a "complexity" field with value "simple" or "creative":
+   - "simple": Lookups, searches, creating empty resources, scheduling, sending brief messages
+   - "creative": Writing essays, drafting professional emails, creating detailed content, analysis, research synthesis
 
 Respond with ONLY valid JSON (no markdown, no explanation):
-{"summary": "Brief plan description", "steps": [{"stepNumber": 1, "domain": "CRM", "task": "Search for...", "dependsOn": []}, {"stepNumber": 2, "domain": "EMAIL", "task": "Draft email to...", "dependsOn": [1]}]}`;
+{"summary": "Brief plan description", "steps": [{"stepNumber": 1, "domain": "CRM", "task": "Search for...", "dependsOn": [], "complexity": "simple"}, {"stepNumber": 2, "domain": "EMAIL", "task": "Draft email to...", "dependsOn": [1], "complexity": "creative"}]}`;
 
 /**
  * Decompose a multi-step user request into an ordered plan.
@@ -169,6 +173,7 @@ async function decomposePlan(
       if (!step.stepNumber || typeof step.stepNumber !== "number") step.stepNumber = i + 1;
       if (!Array.isArray(step.dependsOn)) step.dependsOn = [];
       if (!validDomains.includes(step.domain)) step.domain = "GENERAL";
+      if (step.complexity !== "creative") step.complexity = "simple";
     }
 
     // Cap at 6 steps
@@ -422,7 +427,7 @@ export async function orchestrateMultiStep(
     const stepT0 = Date.now();
     
     // Smart model routing: premium model for creative work, fast Groq for mechanical tasks
-    const stepModel = pickModelForStep(step.domain, groqModel);
+    const stepModel = pickModelForStep(step, groqModel);
     const isPremiumStep = stepModel !== "llama-3.3-70b-versatile";
     console.log(`[ORCHESTRATOR] Step ${step.stepNumber} model: ${stepModel} (${isPremiumStep ? 'PREMIUM' : 'FAST'})`);
     
