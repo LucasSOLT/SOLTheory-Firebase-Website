@@ -108,7 +108,19 @@ export default function ThinkingDisplay({ events, isDarkMode, sendTimestamp }: T
     }
   }, [isComplete]);
 
-  if (events.length === 0) return null;
+  // If no events yet but we have a sendTimestamp, show a minimal "Thinking..." with timer
+  if (events.length === 0) {
+    if (!sendTimestamp || sendTimestamp <= 0) return null;
+    const muted = isDarkMode ? 'text-slate-500' : 'text-slate-400';
+    return (
+      <div className={`flex items-center gap-1.5 mb-2 select-none ${muted}`}>
+        <Loader2 className="w-3 h-3 animate-spin" />
+        <span className="text-xs">
+          Thinking{elapsedMs > 0 ? `... ${elapsedStr}s` : '...'}
+        </span>
+      </div>
+    );
+  }
 
   const muted = isDarkMode ? 'text-slate-500' : 'text-slate-400';
   const subtle = isDarkMode ? 'text-slate-400' : 'text-slate-500';
