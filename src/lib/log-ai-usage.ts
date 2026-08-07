@@ -1,14 +1,17 @@
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 
-// Groq pricing per 1M tokens (as of 2024-2025)
+// Groq + OpenRouter pricing per 1M tokens (verified Aug 2026)
 const GROQ_PRICING: Record<string, { input: number; output: number }> = {
-  "llama-3.3-70b-versatile":  { input: 0.59,  output: 0.79  },
-  "llama-3.1-70b-versatile":  { input: 0.59,  output: 0.79  },
-  "llama-3.1-8b-instant":     { input: 0.05,  output: 0.08  },
-  "llama3-70b-8192":          { input: 0.59,  output: 0.79  },
-  "llama3-8b-8192":           { input: 0.05,  output: 0.08  },
-  "mixtral-8x7b-32768":       { input: 0.24,  output: 0.24  },
-  "gemma2-9b-it":             { input: 0.20,  output: 0.20  },
+  // Budget (Groq)
+  "llama-3.3-70b-versatile":  { input: 0.59,   output: 0.79   },
+  "llama-3.1-8b-instant":     { input: 0.05,   output: 0.08   },
+  "openai/gpt-oss-120b":      { input: 0.15,   output: 0.60   },
+  "openai/gpt-oss-20b":       { input: 0.075,  output: 0.30   },
+  "groq/compound":            { input: 0,      output: 0      },
+  // Premium (OpenRouter)
+  "anthropic/claude-opus-5":  { input: 5.00,   output: 25.00  },
+  "openai/gpt-5.6-sol":       { input: 5.00,   output: 30.00  },
+  "google/gemini-3.5-flash":  { input: 1.50,   output: 9.00   },
 };
 
 // ElevenLabs pricing per 1000 characters

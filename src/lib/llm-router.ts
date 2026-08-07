@@ -27,12 +27,12 @@ export interface ModelConfig {
 }
 
 export const MODEL_REGISTRY: Record<string, ModelConfig> = {
-  // ── Groq Models (Fast + Cheap) ──
+  // ── Budget Models (Groq — fast & cheap) ──
   "llama-3.1-8b-instant": {
     provider: "groq",
     modelId: "llama-3.1-8b-instant",
     displayName: "Llama 3.1 8B",
-    description: "Fastest responses",
+    description: "Cheapest & fastest Llama",
     tier: "fast",
     inputCostPer1M: 0.05,
     outputCostPer1M: 0.08,
@@ -43,7 +43,7 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     provider: "groq",
     modelId: "llama-3.3-70b-versatile",
     displayName: "Llama 3.3 70B",
-    description: "Best all-around model",
+    description: "Best all-around open model",
     tier: "smart",
     inputCostPer1M: 0.59,
     outputCostPer1M: 0.79,
@@ -53,80 +53,69 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
   "openai/gpt-oss-120b": {
     provider: "groq",
     modelId: "openai/gpt-oss-120b",
-    displayName: "GPT 120B",
-    description: "Most powerful open model",
+    displayName: "GPT OSS 120B",
+    description: "Most powerful open model — 500 t/s",
     tier: "premium",
-    inputCostPer1M: 0.90,
-    outputCostPer1M: 0.90,
+    inputCostPer1M: 0.15,
+    outputCostPer1M: 0.60,
     maxTokens: 4096,
     supportsTools: true,
   },
   "openai/gpt-oss-20b": {
     provider: "groq",
     modelId: "openai/gpt-oss-20b",
-    displayName: "GPT 20B",
-    description: "Lightweight & fast",
+    displayName: "GPT OSS 20B",
+    description: "Budget GPT — 1000 t/s blazing fast",
     tier: "fast",
-    inputCostPer1M: 0.20,
-    outputCostPer1M: 0.20,
-    maxTokens: 4096,
-    supportsTools: true,
-  },
-  "qwen/qwen3.6-27b": {
-    provider: "groq",
-    modelId: "qwen/qwen3.6-27b",
-    displayName: "Qwen 3",
-    description: "Advanced reasoning & math",
-    tier: "smart",
-    inputCostPer1M: 0.30,
+    inputCostPer1M: 0.075,
     outputCostPer1M: 0.30,
     maxTokens: 4096,
     supportsTools: true,
   },
-
-  // ── OpenRouter Models (Premium Intelligence) ──
-  "claude-sonnet": {
-    provider: "openrouter",
-    modelId: "anthropic/claude-sonnet-4-20250514",
-    displayName: "Claude Sonnet 4",
-    description: "Most intelligent — deep reasoning",
-    tier: "premium",
-    inputCostPer1M: 3.00,
-    outputCostPer1M: 15.00,
-    maxTokens: 8192,
-    supportsTools: true,
-  },
-  "claude-haiku": {
-    provider: "openrouter",
-    modelId: "anthropic/claude-3.5-haiku-20241022",
-    displayName: "Claude Haiku",
-    description: "Smart & fast — best value",
+  "groq/compound": {
+    provider: "groq",
+    modelId: "groq/compound",
+    displayName: "Compound",
+    description: "Multi-model pipeline — FREE",
     tier: "smart",
-    inputCostPer1M: 0.80,
-    outputCostPer1M: 4.00,
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    supportsTools: false,
+  },
+
+  // ── Premium Models (OpenRouter — frontier intelligence) ──
+  "claude-opus-5": {
+    provider: "openrouter",
+    modelId: "anthropic/claude-opus-5",
+    displayName: "Claude Opus 5",
+    description: "Anthropic flagship — deepest reasoning",
+    tier: "premium",
+    inputCostPer1M: 5.00,
+    outputCostPer1M: 25.00,
     maxTokens: 8192,
     supportsTools: true,
   },
-  "gpt-4o": {
+  "gpt-5.6-sol": {
     provider: "openrouter",
-    modelId: "openai/gpt-4o",
-    displayName: "GPT-4o",
-    description: "OpenAI flagship multimodal",
+    modelId: "openai/gpt-5.6-sol",
+    displayName: "GPT-5.6 Sol",
+    description: "OpenAI flagship — strongest overall",
     tier: "premium",
-    inputCostPer1M: 2.50,
-    outputCostPer1M: 10.00,
-    maxTokens: 4096,
+    inputCostPer1M: 5.00,
+    outputCostPer1M: 30.00,
+    maxTokens: 8192,
     supportsTools: true,
   },
-  "gpt-4o-mini": {
+  "gemini-3.5-flash": {
     provider: "openrouter",
-    modelId: "openai/gpt-4o-mini",
-    displayName: "GPT-4o Mini",
-    description: "Fast & affordable OpenAI",
-    tier: "fast",
-    inputCostPer1M: 0.15,
-    outputCostPer1M: 0.60,
-    maxTokens: 4096,
+    modelId: "google/gemini-3.5-flash",
+    displayName: "Gemini 3.5 Flash",
+    description: "Google — fast & smart, 1M context",
+    tier: "smart",
+    inputCostPer1M: 1.50,
+    outputCostPer1M: 9.00,
+    maxTokens: 8192,
     supportsTools: true,
   },
 };
@@ -149,30 +138,28 @@ export function autoSelectModel(userMessage: string, hasTools: boolean): string 
   const msg = userMessage.toLowerCase().trim();
   const len = msg.length;
 
-  // If no OpenRouter key, always use Groq
-  if (!process.env.OPENROUTER_API_KEY) {
-    return "llama-3.3-70b-versatile";
-  }
-
-  // Tool-heavy queries → Groq 70B (fast tool calling, still smart)
+  // Tool-heavy queries → Llama 70B (Groq, fast tool calling)
   if (hasTools) {
     return "llama-3.3-70b-versatile";
   }
 
-  // Complex analytical/creative/strategy queries → Claude
-  const complexPatterns = /\b(analyze|strategy|plan|compare|design|architect|explain why|deep dive|write me a|draft a|create a comprehensive|pros and cons|business plan|marketing strategy|investment|financial|legal|policy|research|thesis|essay|report)\b/i;
-  if (complexPatterns.test(msg) && len > 80) {
-    return "claude-sonnet";
+  // If OpenRouter is available, use premium models for complex queries
+  if (process.env.OPENROUTER_API_KEY) {
+    // Complex analytical/creative/strategy queries → GPT-5.6 Sol
+    const complexPatterns = /\b(analyze|strategy|plan|compare|design|architect|explain why|deep dive|write me a|draft a|create a comprehensive|pros and cons|business plan|marketing strategy|investment|financial|legal|policy|research|thesis|essay|report)\b/i;
+    if (complexPatterns.test(msg) && len > 80) {
+      return "gpt-5.6-sol";
+    }
+
+    // Medium complexity → Gemini Flash (smart but cheaper)
+    const mediumPatterns = /\b(summarize|explain|help me|what do you think|how should|advice|recommend|suggest|opinion|evaluate|review)\b/i;
+    if (mediumPatterns.test(msg) && len > 40) {
+      return "gemini-3.5-flash";
+    }
   }
 
-  // Medium complexity → Claude Haiku (smart but cheaper)
-  const mediumPatterns = /\b(summarize|explain|help me|what do you think|how should|advice|recommend|suggest|opinion|evaluate|review)\b/i;
-  if (mediumPatterns.test(msg) && len > 40) {
-    return "claude-haiku";
-  }
-
-  // Simple queries → Groq 70B (fast + good enough)
-  return "llama-3.3-70b-versatile";
+  // Default → GPT OSS 120B on Groq (powerful + fast + cheap)
+  return "openai/gpt-oss-120b";
 }
 
 // ── Unified Completion (Non-Streaming) ──

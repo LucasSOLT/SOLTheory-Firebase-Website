@@ -2427,28 +2427,74 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   <div className="flex-1 min-w-0">
                     <div className={`text-[10px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Model</div>
                     <div className={`text-sm font-semibold truncate mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                      {[{id:'llama-3.3-70b-versatile',name:'Llama 3.3'},{id:'auto',name:'Auto'},{id:'llama-3.1-8b-instant',name:'Llama 3.1 8B'},{id:'llama3-70b-8192',name:'Llama 3 70B'},{id:'mixtral-8x7b-32768',name:'Mixtral 8x7B'},{id:'gemma2-9b-it',name:'Gemma 2 9B'}].find(m => m.id === selectedModel)?.name || 'Llama 3.3'}
+                      {[
+                        {id:'llama-3.1-8b-instant',name:'Llama 3.1 8B'},
+                        {id:'llama-3.3-70b-versatile',name:'Llama 3.3 70B'},
+                        {id:'openai/gpt-oss-120b',name:'GPT OSS 120B'},
+                        {id:'openai/gpt-oss-20b',name:'GPT OSS 20B'},
+                        {id:'groq/compound',name:'Compound'},
+                        {id:'claude-opus-5',name:'Claude Opus 5'},
+                        {id:'gpt-5.6-sol',name:'GPT-5.6 Sol'},
+                        {id:'gemini-3.5-flash',name:'Gemini 3.5 Flash'},
+                      ].find(m => m.id === selectedModel)?.name || 'GPT OSS 120B'}
                     </div>
                   </div>
                   <svg className={`w-4 h-4 text-slate-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 {isModelDropdownOpen && (
-                  <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
+                  <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-[#faf8f3] border border-slate-200'}`}>
+                    {/* Budget Models Section */}
+                    <div className={`px-4 pt-3 pb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                      <span className="text-[9px] font-black uppercase tracking-widest">💰 Budget Models</span>
+                    </div>
                     {[
-                      { id: 'auto', name: 'Auto', desc: 'Smart routing — picks the best model', tag: '✨ Recommended', tagColor: 'bg-violet-50 text-violet-600' },
-                      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3', desc: 'Best open-source model', tag: 'Default', tagColor: 'bg-blue-50 text-blue-600' },
-                      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Fastest responses', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
-                      { id: 'llama3-70b-8192', name: 'Llama 3 70B', desc: 'Strong general reasoning', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
-                      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', desc: '32K context window', tag: 'Smart', tagColor: 'bg-amber-50 text-amber-600' },
-                      { id: 'gemma2-9b-it', name: 'Gemma 2 9B', desc: 'Compact & efficient', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
+                      { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', desc: '500 t/s — most powerful open model', tag: '🔥 Fastest', tagColor: 'bg-orange-50 text-orange-600' },
+                      { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', desc: '1000 t/s — budget powerhouse', tag: 'Cheap', tagColor: 'bg-emerald-50 text-emerald-600' },
+                      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', desc: 'Best open-source all-rounder', tag: 'Reliable', tagColor: 'bg-blue-50 text-blue-600' },
+                      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Cheapest — simple tasks', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
+                      { id: 'groq/compound', name: 'Compound', desc: 'Multi-model pipeline', tag: 'FREE', tagColor: 'bg-violet-50 text-violet-600' },
                     ].map(model => (
                       <button
                         key={model.id}
-                        onClick={() => { setSelectedModel(model.id); setIsModelDropdownOpen(false); }}
+                        onClick={() => {
+                          setSelectedModel(model.id);
+                          setIsModelDropdownOpen(false);
+                          if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
+                          setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**. Token rates vary.`, isSelf: false }]);
+                        }}
                         className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                          <div className="min-w-0">
+                            <span className={`text-sm font-medium block ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
+                            <span className={`text-[10px] block ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{model.desc}</span>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${model.tagColor}`}>{model.tag}</span>
+                      </button>
+                    ))}
+                    {/* Premium Models Section */}
+                    <div className={`px-4 pt-3 pb-1 border-t ${isDarkMode ? 'text-amber-400 border-slate-700' : 'text-amber-600 border-slate-200'}`}>
+                      <span className="text-[9px] font-black uppercase tracking-widest">👑 Premium Models</span>
+                    </div>
+                    {[
+                      { id: 'claude-opus-5', name: 'Claude Opus 5', desc: 'Anthropic flagship — deepest reasoning', tag: 'Elite', tagColor: 'bg-amber-50 text-amber-600' },
+                      { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', desc: 'OpenAI flagship — strongest overall', tag: 'Elite', tagColor: 'bg-amber-50 text-amber-600' },
+                      { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', desc: 'Google — fast & smart, 1M context', tag: 'Smart', tagColor: 'bg-sky-50 text-sky-600' },
+                    ].map(model => (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModel(model.id);
+                          setIsModelDropdownOpen(false);
+                          if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
+                          setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**. Token rates vary.`, isSelf: false }]);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
                           <div className="min-w-0">
                             <span className={`text-sm font-medium block ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
                             <span className={`text-[10px] block ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{model.desc}</span>

@@ -59,12 +59,10 @@ export type ToolExecutor = (
 // Models that the Groq SDK can execute (orchestrator always uses Groq for tool support)
 const GROQ_COMPATIBLE_MODELS = new Set([
   "llama-3.3-70b-versatile",
-  "llama-3.1-70b-versatile",
   "llama-3.1-8b-instant",
-  "llama3-70b-8192",
-  "llama3-8b-8192",
-  "mixtral-8x7b-32768",
-  "gemma2-9b-it",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "groq/compound",
 ]);
 
 /** Ensure the model is Groq-compatible; fall back to the 70B versatile model if not. */
