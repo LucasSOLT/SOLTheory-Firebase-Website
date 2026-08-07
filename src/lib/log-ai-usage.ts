@@ -1,6 +1,7 @@
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 
 // Groq + OpenRouter pricing per 1M tokens (verified Aug 2026)
+// Keys must match MODEL_REGISTRY keys (what selectedModel contains)
 const GROQ_PRICING: Record<string, { input: number; output: number }> = {
   // Budget (Groq)
   "llama-3.3-70b-versatile":  { input: 0.59,   output: 0.79   },
@@ -8,10 +9,10 @@ const GROQ_PRICING: Record<string, { input: number; output: number }> = {
   "openai/gpt-oss-120b":      { input: 0.15,   output: 0.60   },
   "openai/gpt-oss-20b":       { input: 0.075,  output: 0.30   },
   "groq/compound":            { input: 0,      output: 0      },
-  // Premium (OpenRouter)
-  "anthropic/claude-opus-5":  { input: 5.00,   output: 25.00  },
-  "openai/gpt-5.6-sol":       { input: 5.00,   output: 30.00  },
-  "google/gemini-3.5-flash":  { input: 1.50,   output: 9.00   },
+  // Premium (OpenRouter) — keyed by registry key, not provider model ID
+  "claude-opus-5":            { input: 5.00,   output: 25.00  },
+  "gpt-5.6-sol":              { input: 5.00,   output: 30.00  },
+  "gemini-3.5-flash":         { input: 1.50,   output: 9.00   },
 };
 
 // ElevenLabs pricing per 1000 characters

@@ -5,8 +5,8 @@
  * OpenRouter provides access to Claude, GPT-4o, Gemini, and other frontier models.
  * 
  * Architecture:
- * - Groq models (llama-*, qwen/*) → Groq SDK (fastest, cheapest)
- * - Premium models (claude-*, gpt-4o) → OpenRouter API (smartest)
+ * - Groq models (llama-*, openai/gpt-oss-*, groq/*) → Groq SDK (fastest, cheapest)
+ * - Premium models (claude-opus-5, gpt-5.6-sol, gemini-3.5-flash) → OpenRouter API (smartest)
  * - "auto" mode → Smart routing based on query complexity
  */
 

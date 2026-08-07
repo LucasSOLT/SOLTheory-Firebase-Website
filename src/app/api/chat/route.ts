@@ -11,7 +11,7 @@ import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
-import { createStreamingCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
+import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
 import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
@@ -557,8 +557,21 @@ export async function POST(req: Request) {
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+    // Unified completion function that routes to correct provider (Groq or OpenRouter)
     const createCompletionWithRetry = async (messagesArray: any[], useTools: boolean, maxRetries = 2) => {
       let attempts = 0;
+      const modelConfig = getModelConfig(selectedModel);
+      const isOpenRouterModel = modelConfig?.provider === 'openrouter';
+
+      // For OpenRouter models with tools, fall back to Groq for tool calling
+      const effectiveModel = (isOpenRouterModel && useTools) ? 'llama-3.3-70b-versatile' : selectedModel;
+      const effectiveConfig = getModelConfig(effectiveModel);
+
+      if (effectiveModel !== selectedModel) {
+        console.log(`[MODEL REROUTE] ${selectedModel} (OpenRouter) → ${effectiveModel} (Groq) for tool calling`);
+      }
+      console.log(`[COMPLETION] Using model: ${effectiveModel} | Provider: ${effectiveConfig?.provider || 'groq'} | Tools: ${useTools}`);
+
       while (attempts < maxRetries) {
         try {
           // Dynamic max_tokens based on query complexity
@@ -566,17 +579,35 @@ export async function POST(req: Request) {
           const queryLen = (lastMsg?.content || '').length;
           const isToolQuery = useTools && (lastMsg?.content || '').toLowerCase().match(/^(draft|send|delete|create|schedule|book|search|list)/);
           const dynamicMaxTokens = isToolQuery ? 4096 : queryLen > 200 ? 4096 : queryLen > 80 ? 2048 : 1024;
-          return await groq.chat.completions.create({
+
+          // Use the unified llm-router for correct provider dispatch
+          const result = await createCompletion({
             messages: messagesArray,
-            model: selectedModel,
+            model: effectiveModel,
             temperature: 0.7,
-            top_p: 0.9,
-            max_tokens: dynamicMaxTokens,
-            ...(useTools ? { tools: domainTools, tool_choice: "auto" } : {}),
+            topP: 0.9,
+            maxTokens: dynamicMaxTokens,
+            ...(useTools ? { tools: domainTools, toolChoice: "auto" } : {}),
           });
+
+          // Convert CompletionResult back to the format route.ts expects (Groq-like shape)
+          return {
+            choices: [{
+              message: {
+                content: result.content,
+                tool_calls: result.toolCalls,
+                role: 'assistant' as const,
+              }
+            }],
+            usage: {
+              prompt_tokens: result.usage.promptTokens,
+              completion_tokens: result.usage.completionTokens,
+              total_tokens: result.usage.totalTokens,
+            },
+          };
         } catch (err: any) {
           attempts++;
-          console.warn(`[DEBUG] Groq API Attempt ${attempts} failed: ${err?.message || err}`);
+          console.warn(`[DEBUG] Completion Attempt ${attempts} failed (model=${effectiveModel}): ${err?.message || err}`);
           if (err.response) {
             console.warn(`[DEBUG] Error data:`, JSON.stringify(err.response?.data));
           }
@@ -585,13 +616,27 @@ export async function POST(req: Request) {
             if (useTools && (errMsg.includes("tool_use_failed") || errMsg.includes("Failed to call a function") || errMsg.includes("tool_calls"))) {
               console.warn(`[DEBUG] Max retries reached for tools. Falling back to non-tool completion...`);
               const cleanMessages = messagesArray.filter((m: any) => m.role !== "tool" && !m.tool_calls);
-              return await groq.chat.completions.create({
+              const fallbackResult = await createCompletion({
                 messages: cleanMessages.length > 0 ? cleanMessages : messagesArray,
-                model: selectedModel,
+                model: effectiveModel,
                 temperature: 0.7,
-                top_p: 0.9,
-                max_tokens: 4096,
+                topP: 0.9,
+                maxTokens: 4096,
               });
+              return {
+                choices: [{
+                  message: {
+                    content: fallbackResult.content,
+                    tool_calls: fallbackResult.toolCalls,
+                    role: 'assistant' as const,
+                  }
+                }],
+                usage: {
+                  prompt_tokens: fallbackResult.usage.promptTokens,
+                  completion_tokens: fallbackResult.usage.completionTokens,
+                  total_tokens: fallbackResult.usage.totalTokens,
+                },
+              };
             }
             throw err;
           }
@@ -967,16 +1012,14 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       selectedModel = autoSelectModel(lastUserText, useTools);
       console.log(`[AUTO] Auto-selected model for sync path: ${selectedModel}`);
     }
-    // Tool calls require Groq (fastest tool support) — reroute premium models for tool paths
-    const syncModel = (useTools && getModelConfig(selectedModel)?.provider === 'openrouter')
-      ? 'llama-3.3-70b-versatile'
-      : selectedModel;
+    // Tool calls: OpenRouter models get rerouted to Groq for fast tool calling
+    // (this is handled inside createCompletionWithRetry now)
     const t0 = Date.now();
     // Skip Pass 1 LLM call for MULTI routes — the orchestrator handles everything
     let completion: any = null;
     if (routedDomain !== 'MULTI') {
       completion = await createCompletionWithRetry(groqMessages, useTools);
-      console.log(`[PERF] Groq completion took ${Date.now() - t0}ms | model=${selectedModel} useTools=${useTools}`);
+      console.log(`[PERF] Completion took ${Date.now() - t0}ms | model=${selectedModel} useTools=${useTools}`);
     }
 
     let responseMessage = completion?.choices?.[0]?.message;
