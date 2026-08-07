@@ -57,7 +57,7 @@ export type ToolExecutor = (
 
 // ── Constants ──
 
-// Models that the Groq SDK can execute (used ONLY for the planner step which needs to be fast & cheap)
+// Models that the Groq SDK can execute (used for planner + mechanical steps)
 const GROQ_COMPATIBLE_MODELS = new Set([
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
@@ -70,6 +70,21 @@ const GROQ_COMPATIBLE_MODELS = new Set([
 function ensureGroqModel(model: string): string {
   if (GROQ_COMPATIBLE_MODELS.has(model)) return model;
   return "llama-3.3-70b-versatile";
+}
+
+// Domains that require creative intelligence → use the user's premium model
+const PREMIUM_DOMAINS = new Set(["WORKSPACE", "EMAIL"]);
+// Domains that are mechanical lookups → always use fast cheap Groq
+const FAST_DOMAINS = new Set(["CRM", "CALENDAR", "COMMS", "GENERAL", "GRANTS"]);
+
+/** Pick the right model for a step: premium model for creative work, fast Groq for mechanical tasks. */
+function pickModelForStep(domain: string, userSelectedModel: string): string {
+  if (FAST_DOMAINS.has(domain)) {
+    // Mechanical steps — use fast Groq to save cost
+    return "llama-3.3-70b-versatile";
+  }
+  // Creative/content steps (WORKSPACE, EMAIL) — use the user's selected premium model
+  return userSelectedModel;
 }
 
 // ── Plan Decomposition ──
@@ -405,6 +420,12 @@ export async function orchestrateMultiStep(
 
     console.log(`[ORCHESTRATOR] Executing step ${step.stepNumber}/${plan.steps.length}: [${step.domain}] ${step.task}`);
     const stepT0 = Date.now();
+    
+    // Smart model routing: premium model for creative work, fast Groq for mechanical tasks
+    const stepModel = pickModelForStep(step.domain, groqModel);
+    const isPremiumStep = stepModel !== "llama-3.3-70b-versatile";
+    console.log(`[ORCHESTRATOR] Step ${step.stepNumber} model: ${stepModel} (${isPremiumStep ? 'PREMIUM' : 'FAST'})`);
+    
     await onEvent?.({ type: 'step_start', step: step.stepNumber, domain: step.domain, task: step.task, timestamp: Date.now() });
 
     try {
@@ -414,7 +435,7 @@ export async function orchestrateMultiStep(
         baseSystemPrompt,
         masterTools,
         toolExecutor,
-        groqModel, // User's selected model — routed by llm-router
+        stepModel, // Smart model per step — not always the premium model
         onEvent
       );
       stepResults.push(result);
@@ -461,6 +482,7 @@ export async function orchestrateMultiStep(
             "Be conversational, warm, and concise. Use **bold** for key details. " +
             "Don't list step numbers — speak naturally about what was accomplished. " +
             "If any step failed, mention it briefly and suggest next steps. " +
+            "Include any links to created documents, slides, or emails. " +
             "NEVER output JSON or code.",
         },
         {
@@ -468,7 +490,7 @@ export async function orchestrateMultiStep(
           content: `Original request: "${userMessage}"\n\nCompleted steps:\n${stepSummaries}`,
         },
       ],
-      model: groqModel, // User's selected model for synthesis too
+      model: "llama-3.3-70b-versatile", // Synthesis uses fast Groq to save cost
       temperature: 0.5,
       maxTokens: 2048,
     });

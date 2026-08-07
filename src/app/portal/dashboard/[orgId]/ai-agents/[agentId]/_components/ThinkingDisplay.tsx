@@ -232,6 +232,17 @@ export default function ThinkingDisplay({ events, isDarkMode }: ThinkingDisplayP
             </div>
           )}
         </div>
+      ) : isMulti && !planEvent ? (
+        /* ── Multi-agent plan pending — show loading state ── */
+        <div className={`space-y-1.5 animate-in fade-in duration-500 rounded-lg px-3 py-2 border ${borderSubtle} ${isDarkMode ? 'bg-slate-800/40' : 'bg-slate-50/60'}`}>
+          <div className={`text-[11px] font-medium ${subtle} flex items-center gap-1.5`}>
+            <Loader2 className={`w-3 h-3 animate-spin ${accent}`} />
+            <span>Planning multi-step task...</span>
+          </div>
+          <div className={`text-[10px] ${muted} pl-5`}>
+            Analyzing your request and breaking it into sub-tasks
+          </div>
+        </div>
       ) : (
         <>
           {/* ── Single-agent thinking view ── */}
