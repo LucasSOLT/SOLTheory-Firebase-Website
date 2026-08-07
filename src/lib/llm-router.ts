@@ -134,14 +134,9 @@ function getGroqClient(): Groq {
 // ── Smart Auto-Routing ──
 // Analyzes query complexity and picks the best model
 
-export function autoSelectModel(userMessage: string, hasTools: boolean): string {
+export function autoSelectModel(userMessage: string, _hasTools: boolean): string {
   const msg = userMessage.toLowerCase().trim();
   const len = msg.length;
-
-  // Tool-heavy queries → Llama 70B (Groq, fast tool calling)
-  if (hasTools) {
-    return "llama-3.3-70b-versatile";
-  }
 
   // If OpenRouter is available, use premium models for complex queries
   if (process.env.OPENROUTER_API_KEY) {

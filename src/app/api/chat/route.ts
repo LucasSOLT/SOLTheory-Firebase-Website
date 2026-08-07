@@ -558,19 +558,11 @@ export async function POST(req: Request) {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     // Unified completion function that routes to correct provider (Groq or OpenRouter)
+    // The selected model handles EVERYTHING — including tool calls.
     const createCompletionWithRetry = async (messagesArray: any[], useTools: boolean, maxRetries = 2) => {
       let attempts = 0;
       const modelConfig = getModelConfig(selectedModel);
-      const isOpenRouterModel = modelConfig?.provider === 'openrouter';
-
-      // For OpenRouter models with tools, fall back to Groq for tool calling
-      const effectiveModel = (isOpenRouterModel && useTools) ? 'llama-3.3-70b-versatile' : selectedModel;
-      const effectiveConfig = getModelConfig(effectiveModel);
-
-      if (effectiveModel !== selectedModel) {
-        console.log(`[MODEL REROUTE] ${selectedModel} (OpenRouter) → ${effectiveModel} (Groq) for tool calling`);
-      }
-      console.log(`[COMPLETION] Using model: ${effectiveModel} | Provider: ${effectiveConfig?.provider || 'groq'} | Tools: ${useTools}`);
+      console.log(`[COMPLETION] Using model: ${selectedModel} | Provider: ${modelConfig?.provider || 'groq'} | Tools: ${useTools}`);
 
       while (attempts < maxRetries) {
         try {
@@ -583,7 +575,7 @@ export async function POST(req: Request) {
           // Use the unified llm-router for correct provider dispatch
           const result = await createCompletion({
             messages: messagesArray,
-            model: effectiveModel,
+            model: selectedModel,
             temperature: 0.7,
             topP: 0.9,
             maxTokens: dynamicMaxTokens,
@@ -607,7 +599,7 @@ export async function POST(req: Request) {
           };
         } catch (err: any) {
           attempts++;
-          console.warn(`[DEBUG] Completion Attempt ${attempts} failed (model=${effectiveModel}): ${err?.message || err}`);
+          console.warn(`[DEBUG] Completion Attempt ${attempts} failed (model=${selectedModel}): ${err?.message || err}`);
           if (err.response) {
             console.warn(`[DEBUG] Error data:`, JSON.stringify(err.response?.data));
           }
@@ -618,7 +610,7 @@ export async function POST(req: Request) {
               const cleanMessages = messagesArray.filter((m: any) => m.role !== "tool" && !m.tool_calls);
               const fallbackResult = await createCompletion({
                 messages: cleanMessages.length > 0 ? cleanMessages : messagesArray,
-                model: effectiveModel,
+                model: selectedModel,
                 temperature: 0.7,
                 topP: 0.9,
                 maxTokens: 4096,
