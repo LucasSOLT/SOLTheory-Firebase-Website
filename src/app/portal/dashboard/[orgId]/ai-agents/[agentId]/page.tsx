@@ -1737,6 +1737,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             }
           }
         }
+        // If the stream ended with no text tokens (e.g., orchestration completed but synthesis was empty),
+        // ensure the user always sees a response
+        if (!fullText.trim()) {
+          fullText = `I completed the task but wasn't able to generate a summary. Please check your Google Drive or email for the results, or try asking me again.`;
+          setMessages(prev => prev.map(m =>
+            m.id === botMsgId ? { ...m, text: fullText } : m
+          ));
+        }
         // Push a 'done' event so ThinkingDisplay knows to stop its timer
         setMessages(prev => prev.map(m =>
           m.id === botMsgId 
