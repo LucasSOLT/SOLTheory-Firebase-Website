@@ -231,7 +231,7 @@ async function executeStep(
       model: groqModel,
       messages: stepMessages,
       temperature: 0.3,
-      max_tokens: 2048,
+      max_tokens: 8192, // Large to prevent truncating tool call JSON (doc/slide bodies can be 3000+ tokens)
       ...(domainTools.length > 0 ? { tools: domainTools, tool_choice: "auto" } : {}),
     });
 
@@ -248,8 +248,23 @@ async function executeStep(
         let toolArgs: Record<string, unknown> = {};
         try {
           toolArgs = JSON.parse(tc.function.arguments || "{}");
-        } catch {
-          toolArgs = {};
+        } catch (parseErr) {
+          console.error(`[ORCHESTRATOR] Failed to parse tool args for ${toolName}:`, tc.function.arguments?.substring(0, 500));
+          // Try to salvage by fixing common JSON issues (truncated strings, trailing commas)
+          try {
+            let fixedArgs = (tc.function.arguments || "{}").trim();
+            // If truncated mid-string, try to close it
+            if (!fixedArgs.endsWith('}')) {
+              fixedArgs = fixedArgs.replace(/,?\s*"[^"]*$/, '') + '}';
+            }
+            // Remove trailing commas before closing braces
+            fixedArgs = fixedArgs.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+            toolArgs = JSON.parse(fixedArgs);
+            console.log(`[ORCHESTRATOR] Salvaged tool args after JSON fix for ${toolName}`);
+          } catch {
+            toolArgs = {};
+            console.error(`[ORCHESTRATOR] Could not salvage tool args — using empty args`);
+          }
         }
 
         console.log(`[ORCHESTRATOR] Step ${step.stepNumber} tool call: ${toolName}`);
