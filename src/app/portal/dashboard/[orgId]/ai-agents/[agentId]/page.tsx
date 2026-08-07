@@ -1465,8 +1465,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   };
 
-  const handleSendMessage = async () => {
-    if ((!inputValue.trim() && pendingAttachments.length === 0) || isTyping) return;
+  const handleSendMessage = async (overrideText?: string) => {
+    const textToSend = overrideText ?? inputValue;
+    if ((!textToSend.trim() && pendingAttachments.length === 0) || isTyping) return;
 
     // Lazily create a new session on first message if no active session exists
     let currentSessionId = activeSessionId;
@@ -1530,7 +1531,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
 
     // Construct primary userMsg
-    const msgText = inputValue.trim() || (userMsgImageUrl ? "Attached image" : "Uploaded file");
+    const msgText = textToSend.trim() || (userMsgImageUrl ? "Attached image" : "Uploaded file");
     const userMsg: Message = { id: uid(), text: msgText, isSelf: true };
     if (userMsgImageUrl) {
       userMsg.imageUrl = userMsgImageUrl;
@@ -1551,7 +1552,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
     // Pre-compute citations client-side (instant — pure string matching) for thinking bubble
     try {
-      const previewCitations = retrieveRelevantSnippets(inputValue, {
+      const previewCitations = retrieveRelevantSnippets(textToSend, {
         pactText: pactText || "",
         knowledgeBaseText: "", // Don't send full KB text client-side for perf, server will do full search
         orgBrainText: orgBrain || "",
@@ -1561,7 +1562,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
     // ── IMMEDIATE Jarvis View animation ──
     // Trigger proactively for most questions BEFORE API returns
-    const lowerInput = inputValue.toLowerCase().trim();
+    const lowerInput = textToSend.toLowerCase().trim();
     const SKIP_PATTERNS = [
       /^what(?:'s| is) (?:my|your) name/,
       /^who am i/,
@@ -1585,7 +1586,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       jarvisNavCountRef.current++;
 
       // Pick topic-relevant URLs based on the user's question
-      const topicUrls = getTopicUrls(inputValue);
+      const topicUrls = getTopicUrls(textToSend);
       const mockNavs = topicUrls.slice(0, navCount);
 
       // Push first URL immediately
@@ -1753,7 +1754,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         });
       }
 
-      logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent AI chat message to ' + (agent?.name || params.agentId), { messagePreview: inputValue.substring(0, 200) });
+      logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent AI chat message to ' + (agent?.name || params.agentId), { messagePreview: textToSend.substring(0, 200) });
 
       // Generate AI title for new sessions after first exchange
       const activeSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
@@ -1764,7 +1765,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           body: JSON.stringify({
             messages: [
               { role: "system", content: "You are a title generator. Given a user message and AI response, output ONLY a short comma-separated list of 3-5 key topic words that summarize the conversation. No full sentences, no quotes, no explanation. Example output: US History, D-Day, Normandy Beaches" },
-              { role: "user", content: `User said: ${inputValue}\nAI replied: ${data.response.substring(0, 200)}` }
+              { role: "user", content: `User said: ${textToSend}\nAI replied: ${data.response.substring(0, 200)}` }
             ],
             agentId: `${orgId}_jarvis`,
             soul: "",
@@ -1779,7 +1780,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           }
         }).catch(() => {
           // Fallback: use first few words of user message
-          const fallback = inputValue.split(' ').slice(0, 6).join(' ');
+          const fallback = textToSend.split(' ').slice(0, 6).join(' ');
           setSessions(prev => prev.map(s =>
             s.id === currentSessionId ? { ...s, title: fallback } : s
           ));
@@ -1801,7 +1802,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           method: "POST",
           headers: await getAuthHeaders(),
           body: JSON.stringify({
-            userMessage: inputValue,
+            userMessage: textToSend,
             aiResponse: data.response,
             userName: user?.displayName || undefined,
             uid: user.uid,
@@ -2720,14 +2721,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           {/* Quick action suggestions */}
                           <div className="flex flex-wrap justify-center gap-2 max-w-lg px-4">
                             {[
-                              { label: '📧 Draft an email', action: 'Draft a professional email to ' },
-                              { label: '📅 Schedule a meeting', action: 'Schedule a meeting for ' },
-                              { label: '🔍 Research a topic', action: 'Research and summarize ' },
-                              { label: '📊 Create a survey', action: 'Create a survey about ' },
+                              { label: '📧 Draft an email', action: 'Draft an email' },
+                              { label: '📅 Schedule a meeting', action: 'Schedule a meeting' },
+                              { label: '🔍 Research a topic', action: 'Research a topic' },
+                              { label: '👤 Add a contact', action: 'Add a contact' },
+                              { label: '📇 Edit contact book', action: 'Edit contact book' },
                             ].map((suggestion) => (
                               <button
                                 key={suggestion.label}
-                                onClick={() => setInputValue(suggestion.action)}
+                                onClick={() => handleSendMessage(suggestion.action)}
                                 className={`px-3.5 py-2.5 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-[11px] font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer border min-h-[38px] flex items-center ${
                                   isDarkMode
                                     ? 'border-slate-700 bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:border-slate-600'
@@ -2876,7 +2878,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                         />
 
-                        <Button size="icon" onClick={handleSendMessage} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-11 h-11 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
+                        <Button size="icon" onClick={() => handleSendMessage()} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-11 h-11 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
                           {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
                         </Button>
                       </div>
