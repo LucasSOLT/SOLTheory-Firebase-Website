@@ -570,7 +570,7 @@ export async function POST(req: Request) {
           const lastMsg = messagesArray.filter((m: any) => m.role === 'user').pop();
           const queryLen = (lastMsg?.content || '').length;
           const isToolQuery = useTools && (lastMsg?.content || '').toLowerCase().match(/^(draft|send|delete|create|schedule|book|search|list)/);
-          const dynamicMaxTokens = isToolQuery ? 4096 : queryLen > 200 ? 4096 : queryLen > 80 ? 2048 : 1024;
+          const dynamicMaxTokens = isToolQuery ? 4096 : queryLen > 200 ? 4096 : queryLen > 80 ? 3072 : 2048;
 
           // Use the unified llm-router for correct provider dispatch
           const result = await createCompletion({
@@ -910,7 +910,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
       // Dynamic max_tokens based on query complexity
       const lastMsg = groqMessages.filter((m: any) => m.role === 'user').pop();
       const queryLen = (lastMsg?.content || '').length;
-      const dynamicMaxTokens = queryLen > 200 ? 8192 : queryLen > 80 ? 4096 : 2048;
+      const dynamicMaxTokens = queryLen > 200 ? 8192 : queryLen > 80 ? 4096 : 3072;
 
       const streamGenerator = createStreamingCompletion({
         messages: groqMessages,
@@ -1420,12 +1420,14 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
               htmlBody
             ];
             const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            await gmail.users.drafts.create({
+            const draftRes = await gmail.users.drafts.create({
               userId: 'me',
               requestBody: { message: { raw } }
             });
+            const draftId = draftRes.data.id;
+            const draftLink = draftId ? ` Open draft: https://mail.google.com/mail/u/0/#drafts?compose=${draftId}` : '';
             const meetNote = generatedMeetLink ? ` A Google Meet link (${generatedMeetLink}) was embedded.` : '';
-            functionResult = JSON.stringify({ result: `Draft to ${args.to} successfully created.${meetNote}` });
+            functionResult = JSON.stringify({ result: `Draft to ${args.to} successfully created.${meetNote}${draftLink}` });
           } else if (functionName === "create_google_document" && docsApi && driveApi) {
             // Create a blank Google Doc
             const createRes = await docsApi.documents.create({

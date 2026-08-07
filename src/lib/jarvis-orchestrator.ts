@@ -464,7 +464,7 @@ export async function orchestrateMultiStep(
           content: `Original request: "${userMessage}"\n\nCompleted steps:\n${stepSummaries}`,
         },
       ],
-      max_tokens: 1024,
+      max_tokens: 2048, // Raised from 1024 — multi-step summaries need room
       temperature: 0.5,
     });
 
