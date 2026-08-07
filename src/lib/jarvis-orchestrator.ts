@@ -11,6 +11,7 @@
  */
 
 import { Groq } from "groq-sdk";
+import { createCompletion } from "./llm-router";
 import { filterToolsForDomain, getDomainPrompt } from "./jarvis-agents";
 import type { JarvisDomain } from "./jarvis-router";
 import type { AgentEventEmitter } from "@/lib/agent-events";
@@ -56,7 +57,7 @@ export type ToolExecutor = (
 
 // ── Constants ──
 
-// Models that the Groq SDK can execute (orchestrator always uses Groq for tool support)
+// Models that the Groq SDK can execute (used ONLY for the planner step which needs to be fast & cheap)
 const GROQ_COMPATIBLE_MODELS = new Set([
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
@@ -65,10 +66,9 @@ const GROQ_COMPATIBLE_MODELS = new Set([
   "groq/compound",
 ]);
 
-/** Ensure the model is Groq-compatible; fall back to the 70B versatile model if not. */
+/** Ensure the model is Groq-compatible for the planner step only. */
 function ensureGroqModel(model: string): string {
   if (GROQ_COMPATIBLE_MODELS.has(model)) return model;
-  console.warn(`[ORCHESTRATOR] Model "${model}" is not Groq-compatible, falling back to llama-3.3-70b-versatile`);
   return "llama-3.3-70b-versatile";
 }
 
@@ -188,8 +188,7 @@ async function executeStep(
   baseSystemPrompt: string,
   masterTools: any[],
   toolExecutor: ToolExecutor,
-  groqClient: Groq,
-  groqModel: string,
+  selectedModel: string,
   onEvent?: AgentEventEmitter
 ): Promise<StepResult> {
   const domainTools = filterToolsForDomain(masterTools, step.domain);
@@ -227,16 +226,21 @@ async function executeStep(
   while (loopCount < MAX_STEP_LOOPS) {
     loopCount++;
 
-    const completion = await groqClient.chat.completions.create({
-      model: groqModel,
+    // Use unified llm-router so the user's selected model (including OpenRouter) is respected
+    const completion = await createCompletion({
       messages: stepMessages,
+      model: selectedModel,
       temperature: 0.3,
-      max_tokens: 8192, // Large to prevent truncating tool call JSON (doc/slide bodies can be 3000+ tokens)
-      ...(domainTools.length > 0 ? { tools: domainTools, tool_choice: "auto" } : {}),
+      maxTokens: 8192, // Large to prevent truncating tool call JSON (doc/slide bodies can be 3000+ tokens)
+      ...(domainTools.length > 0 ? { tools: domainTools, toolChoice: "auto" } : {}),
     });
 
-    const msg = completion.choices[0]?.message;
-    if (!msg) break;
+    const msg = {
+      role: 'assistant' as const,
+      content: completion.content,
+      tool_calls: completion.toolCalls,
+    };
+    if (!completion.content && !completion.toolCalls) break;
 
     // Add assistant message to step context
     stepMessages.push(msg);
@@ -302,15 +306,15 @@ async function executeStep(
     if (lastMsg?.content) {
       finalResult = lastMsg.content;
     } else {
-      // Force a synthesis
+      // Force a synthesis using the selected model
       stepMessages.push({ role: "user", content: "Summarize what was accomplished in this step." });
-      const synthCompletion = await groqClient.chat.completions.create({
-        model: groqModel,
+      const synthResult = await createCompletion({
         messages: stepMessages,
+        model: selectedModel,
         temperature: 0.3,
-        max_tokens: 512,
+        maxTokens: 512,
       });
-      finalResult = synthCompletion.choices[0]?.message?.content || "Step completed.";
+      finalResult = synthResult.content || "Step completed.";
     }
   }
 
@@ -356,14 +360,16 @@ export async function orchestrateMultiStep(
     throw new Error("GROQ_API_KEY is not set — orchestrator cannot function");
   }
 
-  // Ensure we use a Groq-compatible model (non-Groq models like Claude/GPT crash the SDK)
-  const safeModel = ensureGroqModel(groqModel);
+  // Planner always uses fast Groq model for speed (planning is simple JSON generation)
+  const plannerModel = ensureGroqModel(groqModel);
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  // Step execution uses the user's actual selected model via llm-router
+  console.log(`[ORCHESTRATOR] Planner model: ${plannerModel} | Step execution model: ${groqModel}`);
 
   // 1. Decompose into a plan
   let plan: OrchestratorPlan;
   try {
-    plan = await decomposePlan(userMessage, groq, safeModel, conversationContext);
+    plan = await decomposePlan(userMessage, groq, plannerModel, conversationContext);
   } catch (planErr) {
     console.error("[ORCHESTRATOR] Planning failed:", planErr);
     plan = {
@@ -408,8 +414,7 @@ export async function orchestrateMultiStep(
         baseSystemPrompt,
         masterTools,
         toolExecutor,
-        groq,
-        safeModel,
+        groqModel, // User's selected model — routed by llm-router
         onEvent
       );
       stepResults.push(result);
@@ -447,8 +452,7 @@ export async function orchestrateMultiStep(
       )
       .join("\n\n");
 
-    const synthesisResponse = await groq.chat.completions.create({
-      model: safeModel,
+    const synthesisResult = await createCompletion({
       messages: [
         {
           role: "system",
@@ -464,12 +468,13 @@ export async function orchestrateMultiStep(
           content: `Original request: "${userMessage}"\n\nCompleted steps:\n${stepSummaries}`,
         },
       ],
-      max_tokens: 2048, // Raised from 1024 — multi-step summaries need room
+      model: groqModel, // User's selected model for synthesis too
       temperature: 0.5,
+      maxTokens: 2048,
     });
 
     finalResponse =
-      synthesisResponse.choices[0]?.message?.content ||
+      synthesisResult.content ||
       stepResults.map((r) => `${r.task}: ${r.result}`).join("\n");
   } catch (synthErr) {
     console.error("[ORCHESTRATOR] Synthesis failed:", synthErr);
