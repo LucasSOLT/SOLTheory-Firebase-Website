@@ -1595,7 +1595,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     try {
       // Fetch refresh token and knowledge base in parallel for speed
       const getRefreshTokenAsync = async () => {
-        if (!user?.uid || !firestore || !isGmailConnected) return null;
+        if (!user?.uid || !firestore) return null;
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         let t = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
@@ -1938,7 +1938,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
     try {
       let rToken = null;
-      if (user?.uid && firestore && isGmailConnected) {
+      if (user?.uid && firestore) {
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         rToken = docData?.[`gmailOAuth_${params.agentId}`]?.refreshToken;
