@@ -340,11 +340,19 @@ async function* streamFromOpenRouter(config: ModelConfig, options: CompletionOpt
   });
 
   if (!response.ok || !response.body) {
-    console.error(`[LLM Router] OpenRouter streaming error: ${response.status}`);
+    // Read the actual error body to understand WHY OpenRouter rejected the request
+    let errorBody = '';
+    try {
+      errorBody = await response.text();
+    } catch { errorBody = 'Could not read error body'; }
+    console.error(`[LLM Router] OpenRouter streaming FAILED — status=${response.status} model=${config.modelId}`);
+    console.error(`[LLM Router] OpenRouter error body: ${errorBody.substring(0, 500)}`);
     // Fallback to Groq
     yield* createStreamingCompletion({ ...options, model: "llama-3.3-70b-versatile" });
     return;
   }
+
+  console.log(`[LLM Router] OpenRouter streaming SUCCESS — model=${config.modelId} status=${response.status}`);
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
