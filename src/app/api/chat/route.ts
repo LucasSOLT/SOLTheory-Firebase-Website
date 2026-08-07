@@ -432,6 +432,9 @@ const tools: any = [
   ...CRM_TOOL_DEFINITIONS,
 ];
 
+// Increase serverless function timeout for multi-step orchestration with premium models
+export const maxDuration = 60; // seconds (Pro plan supports up to 300s)
+
 export async function POST(req: Request) {
   // Clone request for body reading before auth (verifyOrgMember also reads headers)
   const body = await req.json();
@@ -2419,7 +2422,10 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             );
             
             // Stream final response as tokens
-            const words = orchResult.finalResponse.split(/(?<=\s)/);
+            const responseText = orchResult.finalResponse || 
+              orchResult.stepResults.map((r: any) => `${r.success ? '✅' : '❌'} ${r.task}: ${r.result}`).join('\n\n') ||
+              'I completed the orchestration but wasn\'t able to generate a summary. Please try again.';
+            const words = responseText.split(/(?<=\s)/);
             let wordBuffer = '';
             for (let i = 0; i < words.length; i++) {
               wordBuffer += words[i];
