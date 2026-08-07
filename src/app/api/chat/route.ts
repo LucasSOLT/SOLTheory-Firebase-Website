@@ -877,9 +877,60 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     // loads only that domain's tools — reducing token overhead by ~75%.
     const hasToolApis = !!(gmail || calendar || docsApi || youtubeApi);
     const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
-    const routedDomain: JarvisDomain = await routeIntent(lastUserText2);
+    let routedDomain: JarvisDomain = await routeIntent(lastUserText2);
     const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find|google|gogle|googl|goolge|calender|calandar/i;
-    const forceTools = toolKeywords.test(lastUserText2);
+    let forceTools = toolKeywords.test(lastUserText2);
+
+    // ── CONVERSATION-AWARE ROUTING FIX ──
+    // When the user is replying to a clarification question (e.g. picking a contact
+    // from a list), the reply won't contain domain keywords and routes to GENERAL.
+    // This causes tools to be unloaded mid-task ("tool isn't available in this session").
+    // Fix: If the last message routes to GENERAL, check the prior 2-3 user messages
+    // and the last assistant message for domain context. If a specific domain was
+    // active in the recent conversation, inherit it.
+    if (routedDomain === 'GENERAL' && !forceTools && messages.length >= 3) {
+      // Check prior user messages for domain hints
+      const userMsgs = messages.filter((m: any) => m.role === 'user');
+      const priorUserMsgs = userMsgs.slice(-3, -1); // 2nd-to-last and 3rd-to-last user messages
+      const lastAssistantMsg = [...messages].reverse().find((m: any) => m.role === 'assistant')?.content || '';
+
+      // Combine recent context for domain detection
+      const recentContext = [
+        ...priorUserMsgs.map((m: any) => m.content || ''),
+        lastAssistantMsg
+      ].join(' ');
+
+      // If the assistant just asked a clarification question (e.g. "which contact?"),
+      // the user's short reply should inherit the prior domain
+      const isShortReply = lastUserText2.length < 100;
+      const isClarificationResponse = isShortReply && (
+        lastAssistantMsg.includes('which one did you mean') ||
+        lastAssistantMsg.includes('which one do you mean') ||
+        lastAssistantMsg.includes('Could you clarify') ||
+        lastAssistantMsg.includes('multiple contacts') ||
+        lastAssistantMsg.includes('multiple matches') ||
+        lastAssistantMsg.includes('which one') ||
+        lastAssistantMsg.includes('which contact') ||
+        /\d+\.\s/.test(lastAssistantMsg) // numbered list in assistant message
+      );
+
+      if (isClarificationResponse || isShortReply) {
+        // Route the prior user message instead to recover the original domain
+        const priorRoute = priorUserMsgs.length > 0
+          ? await routeIntent(priorUserMsgs[priorUserMsgs.length - 1].content || '')
+          : 'GENERAL';
+
+        if (priorRoute !== 'GENERAL') {
+          console.log(`[ROUTER] Context recovery: \"${lastUserText2.substring(0, 50)}\" routed GENERAL → inheriting ${priorRoute} from prior message`);
+          routedDomain = priorRoute;
+        } else if (toolKeywords.test(recentContext)) {
+          // Fallback: if recent context contains tool keywords, force tools on
+          console.log(`[ROUTER] Context recovery: recent conversation has tool keywords, forcing tools`);
+          forceTools = true;
+        }
+      }
+    }
+
     const messageNeedsTools = routedDomain !== 'GENERAL' || forceTools;
     const useTools = !!(hasToolApis || uid) && messageNeedsTools;
     // Filter master tools array to only include domain-relevant tools

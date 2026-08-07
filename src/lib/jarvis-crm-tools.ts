@@ -503,7 +503,7 @@ When the user asks you to email, text, or call someone BY NAME:
    a) Ones returned by crm_resolve_contact
    b) Ones the user explicitly typed out in their message
 3. If crm_resolve_contact returns exactly ONE match → use THAT contact's exact email/phone. Mention which book they came from.
-4. If crm_resolve_contact returns MULTIPLE matches → you MUST list ALL matches showing name, email, company, and which book they're in, then ask: "I found multiple contacts matching that name — which one did you mean?" Do NOT pick one yourself.
+4. If crm_resolve_contact returns MULTIPLE matches → you MUST NUMBER each match (1, 2, 3...) and list them showing name, email, company, and which book they're in. Then ask: "Which one did you mean? (just reply with the number)" — this lets the user reply with just "1" or "2" instead of copy-pasting. Example format:\n   1. **Steve Huff** — steve@soltheory.com — All Contacts\n   2. **Steve Huff** — steve@thrivecoaching.ai — Self Improvement — All Contacts\n   Do NOT pick one yourself.
 5. If crm_resolve_contact returns NO match → tell the user: "I couldn't find [name] in any of your contact books. Could you provide their email directly?"
 6. EVEN IF the Contact Glossary above contains info about the person, you MUST still call crm_resolve_contact to get the VERIFIED email from the CRM database. The glossary may be stale or incomplete.
 7. Example flow: User says "email Steve Huff" → call crm_resolve_contact(name: "Steve Huff") → get back email: steve@soltheory.com → use EXACTLY that email for draft_outbound_email.
@@ -544,7 +544,7 @@ export function buildCrmVoicePrompt(
   return `\n\n[CRM TOOLS]
 You can create, update, delete, search, and analyze contacts across all books. Active book: "${activeName}". Available books: ${bookNames}.
 After every CRM action, confirm what you did and which contact book. Split full names into firstName + lastName. Map phone/email/company to correct fields.
-MANDATORY: When asked to email/text someone by name, you MUST ALWAYS call crm_resolve_contact first. NEVER guess or fabricate email addresses. Only use the exact email returned by crm_resolve_contact or explicitly provided by the user. If multiple matches found, list them and ask which one — do NOT pick yourself.
+MANDATORY: When asked to email/text someone by name, you MUST ALWAYS call crm_resolve_contact first. NEVER guess or fabricate email addresses. Only use the exact email returned by crm_resolve_contact or explicitly provided by the user. If multiple matches found, NUMBER them (1, 2, 3...) and ask which one — do NOT pick yourself.
 For analytics questions (how many contacts, revenue totals, lead breakdown), use crm_get_analytics.
 Use crm_evaluate_contacts for CRM health audits, stale lead alerts, and priority lists. Use crm_batch_update for bulk tagging/status changes (always preview first).
 After CRM tasks, you may suggest one relevant insight if genuinely helpful (e.g. stale leads, missing fields). Don't over-suggest.`;
