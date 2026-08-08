@@ -315,8 +315,8 @@ export default function AIKnowledgeBasePage() {
           {/* â•â•â• IDENTITY & RULES â•â•â• */}
           {activeSettingsTab === "identity" && (
             <div className="space-y-6 animate-in fade-in duration-300">
-              {/* Soul Section */}
-              <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
+              {/* Soul Section — Coming Soon */}
+              <div className={`border rounded-2xl overflow-hidden ${cardBg} relative`}>
                 <div className={`px-6 py-4 flex items-center justify-between ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center">
@@ -327,24 +327,18 @@ export default function AIKnowledgeBasePage() {
                       <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">{t.voiceAndPersonality || "Voice & Personality"}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">{t.step1 || "Step 1"}</span>
+                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold uppercase tracking-wider">Coming Soon</span>
                 </div>
-                <div className="p-6 pt-4">
-                  <p className={`text-xs ${textSecondary} mb-3 leading-relaxed`}>Describe the tone, personality, and communication style the agent should adopt.</p>
-                  <textarea
-                    className={`w-full h-40 p-4 border rounded-xl resize-none focus:ring-2 outline-none transition-all text-sm leading-relaxed ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200 focus:ring-slate-600 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:ring-slate-300 focus:border-slate-400 placeholder:text-slate-300'}`}
-                    placeholder="e.g., You are extremely professional but maintain a warm, welcoming tone. Use clear, concise language."
-                    value={agentConfig.soul}
-                    onChange={e => setAgentConfig({ ...agentConfig, soul: e.target.value })}
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-slate-300 font-mono">{agentConfig.soul?.length || 0} {t.characters || "characters"}</span>
+                <div className="p-6 pt-4 opacity-40 pointer-events-none select-none">
+                  <p className={`text-xs ${textSecondary} mb-3 leading-relaxed`}>Customize JARVIS&apos;s tone, personality, and communication style. Currently, JARVIS uses a built-in professional personality inspired by the classic executive AI assistant.</p>
+                  <div className={`w-full h-28 p-4 border rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                    <p className={`text-sm italic ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Custom personality configuration coming in a future update.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Brain Section */}
-              <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
+              {/* Brain Section — Coming Soon */}
+              <div className={`border rounded-2xl overflow-hidden ${cardBg} relative`}>
                 <div className={`px-6 py-4 flex items-center justify-between ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center">
@@ -355,21 +349,16 @@ export default function AIKnowledgeBasePage() {
                       <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">{t.strictWiringAndRules || "Strict Wiring & Rules"}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold uppercase tracking-wider">{t.step2 || "Step 2"}</span>
+                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold uppercase tracking-wider">Coming Soon</span>
                 </div>
-                <div className="p-6 pt-4">
-                  <p className={`text-xs ${textSecondary} mb-3 leading-relaxed`}>Define strict operational directives, hard constraints, and non-negotiable rules.</p>
-                  <textarea
-                    className={`w-full h-40 p-4 border rounded-xl resize-none focus:ring-2 outline-none transition-all text-sm leading-relaxed ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200 focus:ring-slate-600 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:ring-slate-300 focus:border-slate-400 placeholder:text-slate-300'}`}
-                    placeholder="e.g., Never disclose PII. Do not share API keys. Always verify user identity before sensitive actions."
-                    value={agentConfig.brain}
-                    onChange={e => setAgentConfig({ ...agentConfig, brain: e.target.value })}
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-slate-300 font-mono">{agentConfig.brain?.length || 0} {t.characters || "characters"}</span>
+                <div className="p-6 pt-4 opacity-40 pointer-events-none select-none">
+                  <p className={`text-xs ${textSecondary} mb-3 leading-relaxed`}>Define strict operational directives, hard constraints, and non-negotiable rules for JARVIS. This feature will allow per-agent behavioral customization.</p>
+                  <div className={`w-full h-28 p-4 border rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                    <p className={`text-sm italic ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Custom brain rules coming in a future update.</p>
                   </div>
                 </div>
               </div>
+
 
               {/* Heartbeat Section */}
               <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
