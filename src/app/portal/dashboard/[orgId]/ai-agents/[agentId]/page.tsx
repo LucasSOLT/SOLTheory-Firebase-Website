@@ -1593,6 +1593,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
     }
 
+    let rToken: string | null = null;
+    let kbText = "";
+
     try {
       // Fetch refresh token and knowledge base in parallel for speed
       const getRefreshTokenAsync = async () => {
@@ -1607,7 +1610,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         return t || null;
       };
 
-      const [rToken, kbText] = await Promise.all([
+      [rToken, kbText] = await Promise.all([
         getRefreshTokenAsync(),
         getKnowledgeBaseText(),
       ]);
@@ -1735,6 +1738,32 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             } catch (parseErr) {
               // Skip malformed SSE lines
             }
+          }
+        }
+
+        // Flush any remaining data in buffer after stream ends
+        if (buffer.trim()) {
+          const remainingLine = buffer.trim();
+          if (remainingLine.startsWith('data: ')) {
+            try {
+              const payload = JSON.parse(remainingLine.slice(6));
+              if (payload.token) {
+                fullText += payload.token;
+                setMessages(prev => prev.map(m =>
+                  m.id === botMsgId ? { ...m, text: fullText } : m
+                ));
+              }
+              if (payload.done) {
+                // Process done event from remaining buffer
+                if (payload.usage) data.usage = payload.usage;
+                if (payload.citations) {
+                  data.citations = payload.citations;
+                  setMessages(prev => prev.map(m =>
+                    m.id === botMsgId ? { ...m, citations: payload.citations } : m
+                  ));
+                }
+              }
+            } catch (e) { /* ignore parse errors in trailing buffer */ }
           }
         }
         // If the stream ended with no text tokens (e.g., orchestration completed but synthesis was empty),
@@ -1891,6 +1920,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               soul: agentConfig.soul,
               brain: agentConfig.brain,
               uid: user?.uid,
+              refreshToken: rToken,
+              contacts: agentContacts,
+              knowledgeBaseText: kbText,
+              orgBrainText: orgBrain,
               pactText,
               userName: user?.displayName || undefined,
               model: selectedModel,

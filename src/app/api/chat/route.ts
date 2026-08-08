@@ -878,7 +878,7 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
     const hasToolApis = !!(gmail || calendar || docsApi || youtubeApi);
     const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     let routedDomain: JarvisDomain = await routeIntent(lastUserText2);
-    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find|google|gogle|googl|goolge|calender|calandar/i;
+    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we/i;
     let forceTools = toolKeywords.test(lastUserText2);
 
     // ── CONVERSATION-AWARE ROUTING FIX ──
@@ -1030,6 +1030,12 @@ If the user asks about ANY of the above terms, respond IMMEDIATELY with NXT Chap
             }
             for await (const chunk of streamGenerator) {
               if (chunk.done) break;
+              if ((chunk as any).modelFallback) {
+                // OpenRouter failed — notify client that a fallback model is being used
+                const fb = (chunk as any).modelFallback;
+                console.warn(`[STREAM] ⚠️ Model fallback: ${fb.requested} → ${fb.actual}`);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'model_fallback', requested: fb.requested, actual: fb.actual, timestamp: Date.now() })}\n\n`));
+              }
               if (chunk.token) {
                 const sanitized = sanitizeChunk(chunk.token);
                 fullResponse += sanitized;
@@ -2617,7 +2623,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               groqMessages[0].content, // system prompt
               tools,                    // master tools array
               executeToolByName,        // tool executor callback
-              selectedModel === 'auto' ? 'llama-3.3-70b-versatile' : selectedModel,
+              selectedModel === 'auto' ? autoSelectModel(lastUserText2, true) : selectedModel,
               recentContext,
               async (event) => {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
@@ -2917,20 +2923,25 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
 
     // --- EMPTY RESPONSE SAFEGUARD ---
     // If the model returned absolutely nothing, do a clean re-generation
+    // IMPORTANT: Use the full groqMessages (which has soul, brain, PACT, KB, CRM context)
+    // instead of a stripped-down prompt, so JARVIS retains its full identity and knowledge.
     if (!finalResponseText.trim() && executedTools.length === 0) {
-      console.warn("[SAFEGUARD] Model returned empty response. Re-generating with clean prompt...");
+      console.warn("[SAFEGUARD] Model returned empty response. Re-generating with full context...");
       try {
-        const userQuestion = messages[messages.length - 1]?.content || "Hello";
-        const safeguardCompletion = await groq.chat.completions.create({
-          messages: [
-            { role: "system", content: "You are Jarvis, a helpful and intelligent AI assistant. Answer the user's question thoroughly in natural conversational text. Be warm and engaging. Never output JSON or code." },
-            { role: "user", content: userQuestion }
-          ],
+        // Use createCompletion with full context — strip only tool-related messages
+        const cleanMessages = groqMessages.filter((m: any) => m.role !== "tool" && !m.tool_calls);
+        // Append a nudge instruction so the model knows to actually respond
+        cleanMessages.push({
+          role: "system",
+          content: "IMPORTANT: Your previous response was empty. You MUST respond to the user's message with a helpful, natural language answer. Do not output JSON, code, or tool calls. Respond conversationally."
+        });
+        const safeguardResult = await createCompletion({
+          messages: cleanMessages,
           model: selectedModel,
           temperature: 0.7,
-          max_tokens: 2048,
+          maxTokens: 4096,
         });
-        finalResponseText = safeguardCompletion.choices[0]?.message?.content || "I'm here and ready to help! Could you try asking me that again?";
+        finalResponseText = safeguardResult.content || "I'm here and ready to help! Could you try asking me that again?";
       } catch (safeguardErr) {
         console.error("[SAFEGUARD] Re-generation also failed:", (safeguardErr as any)?.message);
         finalResponseText = "I'm here! I had a momentary hiccup processing that. Could you try asking me again?";
@@ -2995,26 +3006,32 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               content: JSON.stringify({ result: searchContext }),
             });
 
-            const recoveryCompletion = await groq.chat.completions.create({
+            // Use the unified LLM router (not raw Groq) so the user's selected model is always used
+            const recoveryResult = await createCompletion({
               messages: groqMessages,
               model: selectedModel,
+              temperature: 0.7,
+              maxTokens: 4096,
             });
-            finalResponseText = recoveryCompletion.choices[0]?.message?.content || finalResponseText;
+            finalResponseText = recoveryResult.content || finalResponseText;
           }
         }
       } catch (recoveryErr) {
         console.error("[RECOVERY] Web search recovery failed:", recoveryErr);
-        // If recovery fails entirely, re-generate without tools using a clean prompt
+        // If recovery fails entirely, re-generate using full context (not a stripped generic prompt)
         try {
-          const userQuestion = messages[messages.length - 1]?.content || "";
-          const fallbackCompletion = await groq.chat.completions.create({
-            messages: [
-              { role: "system", content: "You are a helpful, knowledgeable AI assistant. Answer the user's question thoroughly in natural conversational text. Never output JSON or code." },
-              { role: "user", content: userQuestion }
-            ],
-            model: selectedModel,
+          const cleanMessages = groqMessages.filter((m: any) => m.role !== "tool" && !m.tool_calls);
+          cleanMessages.push({
+            role: "system",
+            content: "IMPORTANT: Your previous response contained raw JSON instead of natural language. You MUST respond with a helpful, conversational answer. Never output JSON or code."
           });
-          finalResponseText = fallbackCompletion.choices[0]?.message?.content || "I wasn't able to process that. Could you try rephrasing?";
+          const fallbackResult = await createCompletion({
+            messages: cleanMessages,
+            model: selectedModel,
+            temperature: 0.7,
+            maxTokens: 4096,
+          });
+          finalResponseText = fallbackResult.content || "I wasn't able to process that. Could you try rephrasing?";
         } catch { /* use sanitized original */ }
       }
     }
