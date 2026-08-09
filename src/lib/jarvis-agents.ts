@@ -60,19 +60,6 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "search_past_conversations",
   ],
 
-  COMMS: [
-    "list_imessage_chats",
-    "get_imessage_thread",
-    "search_imessages",
-    "send_imessage",
-    "summarize_imessages",
-    // Shared: resolve contact names to phone numbers
-    "crm_resolve_contact",
-    "crm_search_contacts",
-    // Always available
-    "web_search",
-    "search_past_conversations",
-  ],
 
   WORKSPACE: [
     "create_google_document",
@@ -90,14 +77,6 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "search_past_conversations",
   ],
 
-  GRANTS: [
-    "spawn_grant_agent",
-    "list_grant_agents",
-    "delete_grant_agent",
-    // Always available
-    "web_search",
-    "search_past_conversations",
-  ],
 
   GENERAL: [
     "web_search",
@@ -155,14 +134,10 @@ You are currently focused on calendar operations. Use your Google Calendar tools
   CRM: `[ACTIVE DOMAIN: Contact Management]
 You are currently focused on CRM operations. Use your contact management tools to add, edit, search, delete, and analyze contacts. When the user says "add someone", use crm_create_contact. For bulk operations, use crm_batch_update with the confirmation step.`,
 
-  COMMS: `[ACTIVE DOMAIN: Text Messaging]
-You are currently focused on SMS/iMessage operations. Use your messaging tools to read, search, and send text messages. When the user wants to text someone by name, use crm_resolve_contact to look up their phone number first, then construct the contact as "+1XXXXXXXXXX".`,
 
   WORKSPACE: `[ACTIVE DOMAIN: Document Creation]
 You are currently focused on Google Workspace operations. Use your document creation tools to make Google Docs, Slides, Sheets, YouTube video drafts, and surveys. Create rich, detailed content — full paragraphs for docs, multiple slides for presentations, populated rows for sheets. When populating an existing Google Doc with content, use update_google_document with the document ID from the creation step. IMPORTANT: Always write substantial, detailed content — never use placeholder text like "content goes here".`,
 
-  GRANTS: `[ACTIVE DOMAIN: Grant Prospecting]
-You are currently focused on grant management. Use your grant tools to spawn, list, or delete grant scouting agents. Each agent runs in the background searching Grants.gov based on configured keywords and parameters.`,
 
   GENERAL: `[ACTIVE DOMAIN: General Assistant]
 You are in general conversation mode. Use web_search for real-time information and search_past_conversations to recall prior discussions. Provide rich, expert-level responses.

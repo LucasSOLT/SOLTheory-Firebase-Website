@@ -21,9 +21,7 @@ export type JarvisDomain =
   | "EMAIL"
   | "CALENDAR" 
   | "CRM"
-  | "COMMS"
   | "WORKSPACE"
-  | "GRANTS"
   | "GENERAL"
   | "MULTI";
 
@@ -45,20 +43,10 @@ const DOMAIN_PATTERNS: Array<{ domain: JarvisDomain; pattern: RegExp }> = [
     domain: "CRM",
     pattern: /\b(add\s*(a\s*)?(new\s*)?(contact|person|lead)|delete\s*(the\s*)?(contact|person)|contacts?\s*(book|list|database)|crm|lead\s*(status|score|source)|tag\s*(them|this|contacts?)|update\s*(the\s*)?(contact|person|lead)|search\s*(for\s*)?(contacts?|people|leads?)|find\s*(me\s*)?(contacts?|people|leads?)|contact\s*analytics|how\s*many\s*(contacts?|leads?|people)|stale\s*leads?|health\s*score|batch\s*update|evaluate\s*(contacts?|leads?))\b/i,
   },
-  // COMMS — SMS, iMessage, texting
-  {
-    domain: "COMMS",
-    pattern: /\b(text\s+(him|her|them|john|jane|\w+)|send\s*(a\s*)?(text|sms|imessage|message\s*to)|imessage|read\s*my\s*(texts?|messages?|sms)|who\s*(texted|messaged)\s*me|unread\s*(texts?|messages?)|check\s*my\s*(texts?|messages?)|text\s*messages?|sms\s*(from|to|messages?))\b/i,
-  },
   // WORKSPACE — Google Docs, Slides, Sheets, YouTube, Survey, Drive
   {
     domain: "WORKSPACE",
     pattern: /\b(create\s*(a\s*)?(google\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|make\s*(a\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|(draft|write|generate)\s*(a\s*)?(google\s*)?(doc|document|slide|presentation|sheet|spreadsheet)|word\s*(doc|document)|youtube\s*(video|draft|script)|draft\s*(a\s*)?video|create\s*(a\s*)?(survey|questionnaire|feedback\s*form)|search\s*(google\s*)?drive|read\s*(the\s*)?doc|google\s*drive)\b/i,
-  },
-  // GRANTS — grant scouting, agents
-  {
-    domain: "GRANTS",
-    pattern: /\b(grant|grants\.gov|funding\s*(opportunity|search)|grant\s*(scout|agent|search|prospecting)|find\s*(me\s*)?(grants?|funding)|spawn\s*(a\s*)?grant|list\s*(my\s*)?grant\s*agents?|stop\s*(the\s*)?grant\s*agent|delete\s*(the\s*)?grant\s*agent)\b/i,
   },
   // GENERAL — catch-all with specific triggers for web search + memory
   {
@@ -94,7 +82,7 @@ function regexClassify(message: string): JarvisDomain | null {
 
   // Multiple matches but not multi-step → return the most specific one
   // Priority: CRM > EMAIL > CALENDAR > COMMS > WORKSPACE > GRANTS > GENERAL
-  const priority: JarvisDomain[] = ["CRM", "EMAIL", "CALENDAR", "COMMS", "WORKSPACE", "GRANTS", "GENERAL"];
+  const priority: JarvisDomain[] = ["CRM", "EMAIL", "CALENDAR", "WORKSPACE", "GENERAL"];
   for (const domain of priority) {
     if (matches.includes(domain)) return domain;
   }
@@ -110,13 +98,11 @@ Domains:
 - EMAIL: managing inbox, drafting emails, deleting/blocking emails, creating folders
 - CALENDAR: scheduling meetings, checking calendar, booking events, rescheduling
 - CRM: managing contacts, adding/editing/deleting people, lead management, tags, analytics
-- COMMS: texting, SMS, iMessage, reading text messages
 - WORKSPACE: creating Google Docs/Slides/Sheets, YouTube videos, surveys, Google Drive
-- GRANTS: grant scouting, funding opportunities, grant agents
 - GENERAL: general questions, web search, casual conversation, advice, remembering past chats
 - MULTI: complex requests that clearly need 2+ of the above domains together
 
-Respond with exactly one word: EMAIL, CALENDAR, CRM, COMMS, WORKSPACE, GRANTS, GENERAL, or MULTI.`;
+Respond with exactly one word: EMAIL, CALENDAR, CRM, WORKSPACE, GENERAL, or MULTI.`;
 
 /**
  * LLM-based intent classification fallback.
@@ -136,7 +122,7 @@ async function llmClassify(message: string): Promise<JarvisDomain> {
     });
 
     const response = result.choices[0]?.message?.content?.trim().toUpperCase() || "GENERAL";
-    const validDomains: JarvisDomain[] = ["EMAIL", "CALENDAR", "CRM", "COMMS", "WORKSPACE", "GRANTS", "GENERAL", "MULTI"];
+    const validDomains: JarvisDomain[] = ["EMAIL", "CALENDAR", "CRM", "WORKSPACE", "GENERAL", "MULTI"];
     
     if (validDomains.includes(response as JarvisDomain)) {
       return response as JarvisDomain;

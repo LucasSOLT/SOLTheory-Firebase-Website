@@ -76,7 +76,7 @@ function ensureGroqModel(model: string): string {
 // Domains that require creative intelligence → use the user's premium model
 const PREMIUM_DOMAINS = new Set(["WORKSPACE", "EMAIL"]);
 // Domains that are mechanical lookups → always use fast cheap Groq
-const FAST_DOMAINS = new Set(["CRM", "CALENDAR", "COMMS", "GENERAL", "GRANTS"]);
+const FAST_DOMAINS = new Set(["CRM", "CALENDAR", "GENERAL"]);
 
 /** Pick the right model for a step based on its complexity: premium model for creative work, fast Groq for simple tasks. */
 function pickModelForStep(step: OrchestratorStep, userSelectedModel: string): string {
@@ -96,9 +96,7 @@ Available domains and their capabilities:
 - EMAIL: Search emails, draft/send emails, delete emails, block senders, create folders
 - CALENDAR: List/create/update/delete calendar events, check availability, create Google Meet links
 - CRM: Create/update/delete/search contacts, analytics, batch updates, evaluate contacts, resolve names to emails/phones
-- COMMS: Send/read iMessages/SMS, search message threads, summarize conversations
 - WORKSPACE: Create Google Docs/Slides/Sheets, search Drive, draft YouTube videos, create surveys
-- GRANTS: Manage grant prospecting agents (spawn, list, delete)
 - GENERAL: Web search, recall past conversations
 
 Rules:
@@ -167,7 +165,7 @@ async function decomposePlan(
     }
 
     // Validate and sanitize each step
-    const validDomains: JarvisDomain[] = ["EMAIL", "CALENDAR", "CRM", "COMMS", "WORKSPACE", "GRANTS", "GENERAL"];
+    const validDomains: JarvisDomain[] = ["EMAIL", "CALENDAR", "CRM", "WORKSPACE", "GENERAL"];
     for (let i = 0; i < parsed.steps.length; i++) {
       const step = parsed.steps[i];
       // Ensure required fields exist
@@ -485,12 +483,7 @@ export async function orchestrateMultiStep(
         {
           role: "system",
           content:
-            "You are Jarvis, the primary AI assistant on the INSiGHT platform. You are NOT the Marvel JARVIS or any external AI framework — you are the user's personal executive AI agent. Summarize the results of a completed multi-step task. " +
-            "Be conversational, warm, and concise. Use **bold** for key details. " +
-            "Don't list step numbers — speak naturally about what was accomplished. " +
-            "If any step failed, mention it briefly and suggest next steps. " +
-            "Include any links to created documents, slides, or emails. " +
-            "NEVER output JSON or code.",
+            'You are JARVIS. Summarize what you just accomplished for the user. Speak in first person — never say "Jarvis" when you mean "I." Be conversational, warm, and concise. Use **bold** for key details. Don't list step numbers — speak naturally about what was done. If any step failed, mention it briefly and suggest next steps. Include links to created documents/emails. NEVER output JSON or code.',
         },
         {
           role: "user",

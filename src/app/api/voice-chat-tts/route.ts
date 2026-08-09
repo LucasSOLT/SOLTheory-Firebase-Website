@@ -1,12 +1,8 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { logAIUsage, calculateGroqCost, calculateElevenLabsCost } from "@/lib/log-ai-usage";
-import { nxtChapterKnowledge } from "@/lib/jarvis-knowledge";
-import { buildOrgContext } from "@/lib/jarvis-knowledge";
-import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
-import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { verifyRequest } from "@/lib/api-auth";
 import { CRM_TOOL_DEFINITIONS, buildCrmVoicePrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
 
@@ -30,25 +26,10 @@ export async function POST(req: Request) {
     const isSol = (agentId || "").includes("soltheory");
 
     let systemPrompt = isNxt
-      ? "You are Jarvis, the AI voice assistant for NXT Chapter — a youth mentorship and community empowerment organization. You are in a live voice conversation. Keep every response to 1-3 sentences. Be direct, helpful, warm, and natural. Never use markdown, bullet points, numbered lists, or code blocks. Speak as if talking out loud to a person.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'"
-      : "You are Jarvis, the AI voice assistant for SOL Theory. You are in a live voice conversation. Keep every response to 1-3 sentences. Be direct, helpful, and natural. Never use markdown, bullet points, numbered lists, or code blocks. Speak as if talking out loud to a person.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
+      ? "You are JARVIS — modeled after J.A.R.V.I.S. from Iron Man. First person always. You ARE the AI the user is speaking with. Never refer to yourself in third person. You work for NXT Chapter, a 501(c)(3) nonprofit in Denver reducing recidivism. You are in a live voice conversation. Keep responses to 1-3 sentences. Be direct, warm, and natural — speak as if talking to a person. Never use markdown, bullet points, or code blocks. When asked to create documents/emails, use the tool and say 'Done, go take a look.'"
+      : "You are JARVIS — modeled after J.A.R.V.I.S. from Iron Man. First person always. You ARE the AI the user is speaking with. Never refer to yourself in third person. You work for SOL Theory. You are in a live voice conversation. Keep responses to 1-3 sentences. Be direct, warm, and natural — speak as if talking to a person. Never use markdown, bullet points, or code blocks. When asked to create documents/emails, use the tool and say 'Done, go take a look.'";
 
-    if (isNxt) systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + nxtChapterKnowledge;
-    if (isSol) systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
 
-    // Inject dynamic org profile context
-    try {
-      await initAdmin();
-      const adminDb = getAdminFirestore();
-      const orgId = isNxt ? "nxtchapter" : "soltheory";
-      const orgSnap = await adminDb.collection("org_profiles").doc(orgId).get();
-      if (orgSnap.exists) {
-        const orgContext = buildOrgContext(orgSnap.data() as any, orgId);
-        if (orgContext) systemPrompt += "\n\n[DYNAMIC ORG PROFILE]\n" + orgContext;
-      }
-    } catch (e) {
-      console.warn("[voice-chat-tts] Could not load org profile:", e);
-    }
 
     if (systemInstructions) systemPrompt += "\n\n[SESSION INSTRUCTIONS]\n" + systemInstructions;
 
@@ -80,7 +61,7 @@ export async function POST(req: Request) {
     }
 
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      systemPrompt += "\n\n[ACTIVE MEMORY — User Context]\nYou remember these facts about the user. WEAVE THEM IN naturally when relevant — don't interrogate, but do personalize. Example: If they mention travel and you know their city, reference it naturally.\n\n" + pactText.substring(0, 6000);
+      systemPrompt += "\n\n[USER MEMORY]\nFacts about this user from past conversations. Weave in naturally when relevant. Never interrogate about these facts.\n\n" + pactText.substring(0, 5000);
     }
 
     // --- CRM TOOLS CONTEXT ---

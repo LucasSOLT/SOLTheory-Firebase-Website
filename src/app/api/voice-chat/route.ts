@@ -1,9 +1,7 @@
 import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
-import { nxtChapterKnowledge, buildOrgContext } from "@/lib/jarvis-knowledge";
-import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
-import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
+
 import { verifyRequest } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
@@ -21,40 +19,21 @@ export async function POST(req: Request) {
     const isSol = (agentId || "").includes("soltheory");
 
     let systemPrompt = isNxt
-      ? "You are Jarvis, the AI voice assistant for NXT Chapter — a youth mentorship and community empowerment organization. You are in a live voice conversation. Keep every response to 1-3 sentences. Be direct, helpful, warm, and natural. Never use markdown, bullet points, numbered lists, or code blocks. Speak as if talking out loud to a person.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'"
-      : "You are Jarvis, the AI voice assistant for SOL Theory. You are in a live voice conversation. Keep every response to 1-3 sentences. Be direct, helpful, and natural. Never use markdown, bullet points, numbered lists, or code blocks. Speak as if talking out loud to a person.\n\nCRITICAL DIRECTIVE: When asked to create, draft, or generate a document, email, spreadsheet, or similar item, do NOT output the drafted content in your chat response. Just execute the corresponding tool, and reply strictly with: 'I have generated that [insert the specific thing] for you, go take a look.'";
-
-    if (isNxt) {
-      systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + nxtChapterKnowledge;
-    }
-    if (isSol) {
-      systemPrompt += "\n\n[ORGANIZATIONAL KNOWLEDGE BASE]\n" + solTheoryKnowledge;
-    }
+      ? "You are JARVIS — modeled after J.A.R.V.I.S. from Iron Man. First person always. You ARE the AI the user is speaking with. Never refer to yourself in third person. You work for NXT Chapter, a 501(c)(3) nonprofit in Denver reducing recidivism. You are in a live voice conversation. Keep responses to 1-3 sentences. Be direct, warm, and natural — speak as if talking to a person. Never use markdown, bullet points, or code blocks. When asked to create documents/emails, use the tool and say 'Done, go take a look.'"
+      : "You are JARVIS — modeled after J.A.R.V.I.S. from Iron Man. First person always. You ARE the AI the user is speaking with. Never refer to yourself in third person. You work for SOL Theory. You are in a live voice conversation. Keep responses to 1-3 sentences. Be direct, warm, and natural — speak as if talking to a person. Never use markdown, bullet points, or code blocks. When asked to create documents/emails, use the tool and say 'Done, go take a look.'";
 
     if (systemInstructions) {
       systemPrompt += "\n\n[SESSION INSTRUCTIONS]\n" + systemInstructions;
     }
 
-    // Inject dynamic org profile context
-    try {
-      await initAdmin();
-      const adminDb = getAdminFirestore();
-      const orgId = isNxt ? "nxtchapter" : "soltheory";
-      const orgSnap = await adminDb.collection("org_profiles").doc(orgId).get();
-      if (orgSnap.exists) {
-        const orgContext = buildOrgContext(orgSnap.data() as any, orgId);
-        if (orgContext) systemPrompt += "\n\n[DYNAMIC ORG PROFILE]\n" + orgContext;
-      }
-    } catch (e) {
-      console.warn("[voice-chat] Could not load org profile:", e);
-    }
+
 
     if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
       systemPrompt += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + knowledgeBaseText.substring(0, 50000);
     }
 
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      systemPrompt += "\n\n[P.A.C.T. — PERSONALIZED USER CONTEXT]\nYou have learned the following facts about this specific user from previous conversations. RULES FOR USING THIS CONTEXT:\n1. NEVER proactively bring up, reference, or ask about any of these facts. Do NOT say things like \"How did X go?\" or \"Last time you mentioned Y.\"\n2. ONLY use this information if the user EXPLICITLY brings up the topic first in the CURRENT conversation.\n3. If the user mentions a topic that relates to a fact below, you may use it to give a more informed response.\n4. Treat this as passive background knowledge, NOT as a conversation starter or follow-up list.\n5. These facts may be outdated. Do not assume they are still current.\n\n" + pactText.substring(0, 5000);
+      systemPrompt += "\n\n[USER MEMORY]\nFacts about this user from past conversations. Weave in naturally when relevant. Never interrogate about these facts.\n\n" + pactText.substring(0, 5000);
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
