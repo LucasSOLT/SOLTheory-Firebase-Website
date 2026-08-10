@@ -205,6 +205,23 @@ const tools: any = [
   {
     type: "function",
     function: {
+      name: "update_google_sheet",
+      description: "Update cells in an existing Google Sheet. Use search_google_drive to find the spreadsheetId first.",
+      parameters: {
+        type: "object",
+        properties: {
+          spreadsheetId: { type: "string", description: "The spreadsheet ID" },
+          range: { type: "string", description: "Cell range, e.g. 'Sheet1!A1' or 'Sheet1!B2:D5'. Defaults to 'Sheet1!A1'." },
+          headers: { type: "array", description: "New column headers (optional)", items: { type: "string" } },
+          rows: { type: "array", description: "Rows of cell values", items: { type: "array", items: { type: "string" } } }
+        },
+        required: ["spreadsheetId"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "search_google_drive",
       description: "Search Google Drive for files by keyword.",
       parameters: {
@@ -1623,6 +1640,25 @@ The current date/time is: ${new Date().toISOString()}.`;
             });
 
             functionResult = JSON.stringify({ result: `Google Sheet '${args.title}' created successfully. Link: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
+
+          } else if (functionName === "update_google_sheet" && sheetsApi) {
+            const { spreadsheetId, range, headers, rows } = args;
+            const targetRange = range || 'Sheet1!A1';
+            const values: string[][] = [];
+            if (headers && Array.isArray(headers)) values.push(headers);
+            if (rows && Array.isArray(rows)) values.push(...rows);
+
+            if (values.length > 0) {
+              await sheetsApi.spreadsheets.values.update({
+                spreadsheetId,
+                range: targetRange,
+                valueInputOption: 'RAW',
+                requestBody: { values }
+              });
+              functionResult = JSON.stringify({ result: `Updated ${values.length} row(s) in range '${targetRange}'. Link: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
+            } else {
+              functionResult = JSON.stringify({ error: "No data provided. Pass headers and/or rows to update." });
+            }
 
           } else if (functionName === "search_google_drive" && driveApi) {
             const res = await driveApi.files.list({

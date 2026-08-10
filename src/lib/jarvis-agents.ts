@@ -65,6 +65,7 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "create_google_document",
     "update_google_document",
     "create_google_sheet",
+    "update_google_sheet",
     "search_google_drive",
     "read_drive_document",
     // Shared: resolve contact names
