@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { JarvisViewBrowser, type JarvisViewNavigation } from "@/components/ui/jarvis-view-browser";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope, ArrowUp} from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import AgentLibrary from "@/components/portal/AgentLibrary";
@@ -3027,38 +3027,41 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); setIsPlusMenuOpen(false); } }}
                         />
 
-                        <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                          {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                        <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                          {(!inputValue.trim() && pendingAttachments.length === 0 && !isTyping) ? (
+                            /* Voice pill — shown when input is empty */
                             <button
-                              onClick={toggleSpeechToText}
-                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
-                              title={isListening ? 'Stop listening' : 'Speech to text'}
+                              onClick={openVoiceSession}
+                              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full transition-all cursor-pointer hover:opacity-80 active:scale-95 ${isDarkMode ? 'bg-white text-black' : 'bg-slate-900 text-white'}`}
+                              title="Start Voice Session"
                             >
-                              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <AudioLines className="w-4 h-4" />
+                              <span className="text-sm font-medium">Voice</span>
                             </button>
+                          ) : (
+                            /* Mic + Send — shown when input has text */
+                            <>
+                              {!isTyping && typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                                <button
+                                  onClick={toggleSpeechToText}
+                                  className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                                  title={isListening ? 'Stop listening' : 'Speech to text'}
+                                >
+                                  <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                                </button>
+                              )}
+                              <Button size="icon" onClick={() => { handleSendMessage(); setIsPlusMenuOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+                                {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                              </Button>
+                            </>
                           )}
-                          <Button size="icon" onClick={() => { handleSendMessage(); setIsPlusMenuOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
-                            {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
-                          </Button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Voice-to-Voice button — always outside the text box */}
-                    <div className="relative shrink-0">
-                    <button
-                      onClick={openVoiceSession}
-                      className="w-11 h-11 sm:w-14 sm:h-14 rounded-full text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-purple-900/30 cursor-pointer"
-                      style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea, #6d28d9)' }}
-                      title="Start Voice Session"
-                    >
-                      <div className="relative flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5">
-                        <AudioLines className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 absolute -top-1 -right-1 text-purple-200" />
-                      </div>
-                    </button>
 
-                    {/* Heartbeat pulse indicator — absolutely positioned so it doesn't shift layout */}
+                    {/* Heartbeat pulse indicator */}
+                    <div className="relative shrink-0">
                     {heartbeatPulseVisible && heartbeatInterval !== "off" && (
                       <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 animate-in fade-in zoom-in-95 duration-300 pointer-events-none">
                         <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />
