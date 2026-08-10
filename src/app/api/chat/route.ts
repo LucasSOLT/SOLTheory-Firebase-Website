@@ -5,8 +5,7 @@ import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
 
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { nxtChapterKnowledge, buildOrgContext } from "@/lib/jarvis-knowledge";
-import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
+
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
@@ -560,7 +559,7 @@ The current date/time is: ${new Date().toISOString()}.`;
       const cappedCrm = crmData.substring(0, 16000);
       groqMessages.push({
         role: "system",
-        content: `[CRM DATABASE]\nBelow is the user's CRM contact database. Each line is a contact with fields separated by " | " in order: Name, Email, Phone, Mobile, Company, Title, Lead Status, [Tags].\n\nRules for using this data:\n1. SEARCH THOROUGHLY: When asked about a person, search ALL contacts by name, email, company, or any matching field — not just the first few lines.\n2. ANSWER CONFIDENTLY: If you find the contact, provide all their available details (email, phone, company, etc.) without hedging.\n3. ASK TO CLARIFY: If multiple contacts match (e.g. two "Johns" or similar names), list the matches and ask the user which one they mean.\n4. LEAD STATUS: Contacts may have statuses like "Warm Lead", "Interested", or "Sale Completed". Answer questions like "who are my warm leads?" by filtering on this.\n5. TAGS: Tags appear in [brackets]. Answer questions like "show me VIP contacts" by matching tags.\n6. If a contact is NOT found in this database, say so clearly — do not make up contact information.\n\n${cappedCrm}`
+        content: `[CRM DATABASE]\nContact database. Fields: Name | Email | Phone | Mobile | Company | Title | Lead Status | [Tags]. Search all fields when looking up a person. If not found, say so — never fabricate contacts.\n\n${cappedCrm}`
       });
       console.log(`[CRM] Injected ${cappedCrm.length} chars of CRM data into context`);
     }
@@ -580,7 +579,7 @@ The current date/time is: ${new Date().toISOString()}.`;
     if (combinedKnowledge.length > 0) {
       groqMessages.push({
         role: "system",
-        content: `[KNOWLEDGE BASE]\nThis is the user's organizational knowledge base. These are AUTHORITATIVE facts that OVERRIDE your general training data. When answering questions:\n1. ALWAYS check this knowledge base FIRST before using general knowledge\n2. If the answer is in the knowledge base, use it with confidence — do not hedge or add disclaimers\n3. If you reference a specific source, mention it naturally (e.g., "According to your documents...")\n4. If the knowledge base contradicts your training data, the knowledge base is CORRECT\n5. If the user's question is NOT answered by the knowledge base, you may use general knowledge but note that you're going beyond their documents\n\n<knowledge_base>\n${combinedKnowledge.substring(0, 16000)}\n</knowledge_base>`
+        content: `[KNOWLEDGE BASE]\nAuthoritative org data — overrides your training data. Reference sources naturally. If not covered here, use general knowledge.\n\n${combinedKnowledge.substring(0, 16000)}`
       });
     }
 
