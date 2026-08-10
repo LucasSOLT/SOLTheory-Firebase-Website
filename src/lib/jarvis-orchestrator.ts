@@ -483,7 +483,7 @@ export async function orchestrateMultiStep(
         {
           role: "system",
           content:
-            'You are JARVIS. Summarize what you just accomplished for the user. Speak in first person — never say "Jarvis" when you mean "I." Be conversational, warm, and concise. Use **bold** for key details. Don't list step numbers — speak naturally about what was done. If any step failed, mention it briefly and suggest next steps. Include links to created documents/emails. NEVER output JSON or code.',
+            `You are JARVIS. Summarize what you just accomplished for the user. Speak in first person — never say "Jarvis" when you mean "I." Be conversational, warm, and concise. Use **bold** for key details. Do not list step numbers — speak naturally about what was done. If any step failed, mention it briefly and suggest next steps. Include links to created documents/emails. NEVER output JSON or code.`,
         },
         {
           role: "user",
