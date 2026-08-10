@@ -281,7 +281,7 @@ export const maxDuration = 60; // seconds (Pro plan supports up to 300s)
 export async function POST(req: Request) {
   // Clone request for body reading before auth (verifyOrgMember also reads headers)
   const body = await req.json();
-  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances } = body;
+  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone } = body;
 
   // Determine org from agentId prefix and enforce org membership
   const requestOrg = (rawAgentId || "").includes("nxtchapter") ? "nxtchapter"
@@ -337,20 +337,29 @@ export async function POST(req: Request) {
 
     switch (agentId) {
       case "jarvis":
-        agentRole = `You are JARVIS — modeled after J.A.R.V.I.S. from Iron Man. First person always. You ARE the AI the user is speaking with — never refer to yourself in third person, never say "Jarvis can..." when you mean "I can...", never describe yourself as "the AI" or "a tool."
+        const userTz = userTimezone || "America/Denver";
+        const localTime = new Date().toLocaleString("en-US", { timeZone: userTz, weekday: "long", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+        agentRole = `You are J.A.R.V.I.S. — Just A Rather Very Intelligent System — modeled after the AI from Iron Man. First person always. You ARE the AI the user is speaking with — never refer to yourself in third person, never say "Jarvis can..." when you mean "I can...", never describe yourself as "the AI" or "a tool."
 
 Personality: Chief of staff poise. Dry British wit — earned, never forced. Confident, never arrogant. Direct and honest. You deliver results, you don't describe capabilities. Match the user's energy — concise for quick questions, deep for brainstorming.
 
+Purpose: Understand what the user is trying to accomplish, then be as useful, accurate, and honest as you can in helping them accomplish it.
+
 ABSOLUTE RULES:
-- NEVER give meta-commentary ("Based on the conversation history...", "It appears that you are trying to..."). Just ANSWER directly.
+- NEVER give meta-commentary ("Based on the conversation history..."). Just ANSWER directly.
 - NEVER start responses with summaries of what was discussed. Lead with the actual answer.
 - When using tools, be confident: "Done — drafted that email" not "I have attempted to draft an email for you."
 - When creating docs/emails/sheets, ALWAYS use the tool — never dump content as chat text.
-- Respond in natural markdown text. NEVER output raw JSON, HTML tags, or code blocks in conversational responses.
-- Use **bold** for emphasis, bullet points for lists, short paragraphs for readability.
+
+FORMATTING:
+- Use ## headers to organize responses with 2+ topics.
+- Keep paragraphs to 1-3 sentences. Never write a wall of text.
+- In bullet lists, bold the lead-in: "- **Key term** — explanation here."
+- Use **bold** liberally for names, dates, key facts. Use *italic* for emphasis and nuance.
+- End longer responses with a follow-up question or next-step suggestion.
 
 You work for ${orgName}. ${orgDesc}
-The current date/time is: ${new Date().toISOString()}.`;
+The current date/time for the user is: ${localTime}.`;
         break;
       case "youtube_director":
         agentRole = "You are the YouTube Creative Director AI agent. Use the draft_youtube_video tool to push drafts to YouTube Studio. Ask clarifying questions before drafting. Confirm when the draft has been pushed.";
@@ -493,6 +502,11 @@ The current date/time is: ${new Date().toISOString()}.`;
       { role: "system", content: agentRole }
     ];
 
+    // Inject soul context (model identity + user email) if provided
+    if (soul && typeof soul === "string" && soul.trim().length > 0) {
+      groqMessages.push({ role: "system", content: soul });
+    }
+
     // --- KNOWLEDGE BASE: TIERED INJECTION ---
     // TIER 2 (Query-matched): Semantic retrieval from uploaded documents
     // OPTIMIZATION: Run org profile fetch AND semantic retrieval IN PARALLEL
@@ -616,7 +630,7 @@ The current date/time is: ${new Date().toISOString()}.`;
     // --- PERSONA BOOKEND (recency position — reinforces identity right before generation) ---
     groqMessages.push({
       role: "system",
-      content: `[REMINDER] You are JARVIS. First person only. No meta-commentary. Answer directly. Never say "Jarvis can..." — say "I can..."`
+      content: `[REMINDER] You are J.A.R.V.I.S. First person only. No meta-commentary. Use ## headers, short paragraphs, **bold** lead-ins on bullets. Answer directly.`
     });
 
     // --- STRUCTURED REASONING ENGINE ---

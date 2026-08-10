@@ -1651,6 +1651,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           crmInstanceId: crmActiveInstanceId,
           crmInstances: crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }],
           stream: true,
+          userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
       console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${OPENROUTER_MODEL_IDS.includes(selectedModel) ? 'OpenRouter' : 'Groq'}`, 'color: #10b981; font-weight: bold; font-size: 12px');
