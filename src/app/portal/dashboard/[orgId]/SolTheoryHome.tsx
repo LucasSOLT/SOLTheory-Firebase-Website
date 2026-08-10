@@ -260,12 +260,12 @@ export function SolTheoryHome() {
         const res = await fetch("/api/campaigning/instagram/media", {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ orgId, limit: 9 }),
+          body: JSON.stringify({ orgId, limit: 12 }),
         });
         if (!cancelled && res.ok) {
           const json = await res.json();
           if (json.success && json.media?.length > 0) {
-            setIgPosts(json.media.slice(0, 9).map((m: any) => ({
+            setIgPosts(json.media.slice(0, 12).map((m: any) => ({
               id: m.id,
               imageUrl: m.mediaType === "VIDEO" ? (m.thumbnailUrl || m.mediaUrl) : m.mediaUrl,
               caption: m.caption || "",
@@ -582,10 +582,11 @@ export function SolTheoryHome() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
                   </div>
                 </div>
-                <div className="flex-1 grid grid-cols-3 grid-rows-3 gap-1.5 min-h-0">
+                <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
+                  <div className="grid grid-cols-3 gap-1.5">
                   {igConnected && igPosts.length > 0 ? (
                     <>
-                      {igPosts.slice(0, 9).map((post) => (
+                      {igPosts.slice(0, 12).map((post) => (
                         <a
                           key={post.id}
                           href={`https://www.instagram.com/p/${post.id}/`}
@@ -643,6 +644,7 @@ export function SolTheoryHome() {
                       ))}
                     </>
                   )}
+                </div>
                 </div>
                 {/* Gradient fade into button area */}
                 <div className="shrink-0 relative">

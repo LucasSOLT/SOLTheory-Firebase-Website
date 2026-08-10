@@ -31,6 +31,7 @@ interface CampaignSlide {
   timestamp: number;
   priority: 1 | 2 | 3;
   activeSince?: number;
+  imageUrl?: string;
 }
 
 interface AgenticCampaignCarouselProps {
@@ -197,12 +198,13 @@ export default function AgenticCampaignCarousel({ orgId, isDarkMode }: AgenticCa
     for (const p of igPosts) {
       const imageCount = p.mediaItemUrls?.length || 0;
       const payloadHint = imageCount > 1 ? `Carousel post \u2014 ${imageCount} images` : truncate(p.caption || "Instagram post", 40);
+      const thumb = p.mediaItemUrls?.[0] || p.imageUrl || "";
       if (p.status === "processing") {
-        active.push({ id: `ig-${p.id}`, tool: "instagram", toolName: "Auto Instagram", status: "active", payload: payloadHint, timestamp: tsToMs(p.updatedAt), priority: 1, activeSince: tsToMs(p.updatedAt) });
+        active.push({ id: `ig-${p.id}`, tool: "instagram", toolName: "Auto Instagram", status: "active", payload: payloadHint, timestamp: tsToMs(p.updatedAt), priority: 1, activeSince: tsToMs(p.updatedAt), imageUrl: thumb });
       } else if (p.status === "scheduled") {
-        scheduled.push({ id: `ig-${p.id}`, tool: "instagram", toolName: "Auto Instagram", status: "scheduled", payload: payloadHint, timestamp: tsToMs(p.scheduledTime), priority: 2 });
+        scheduled.push({ id: `ig-${p.id}`, tool: "instagram", toolName: "Auto Instagram", status: "scheduled", payload: payloadHint, timestamp: tsToMs(p.scheduledTime), priority: 2, imageUrl: thumb });
       } else if (p.status === "published") {
-        completed.push({ id: `ig-${p.id}`, tool: "instagram", toolName: "Auto Instagram", status: "completed", payload: payloadHint, timestamp: tsToMs(p.updatedAt), priority: 3 });
+        completed.push({ id: `ig-${p.id}`, tool: "instagram", toolName: "Auto Instagram", status: "completed", payload: payloadHint, timestamp: tsToMs(p.updatedAt), priority: 3, imageUrl: thumb });
       }
     }
 
@@ -337,6 +339,19 @@ export default function AgenticCampaignCarousel({ orgId, isDarkMode }: AgenticCa
                       {slide.payload}
                     </p>
                   </div>
+
+                  {/* Post thumbnail */}
+                  {slide.imageUrl && (
+                    <div className="mt-2 rounded-lg overflow-hidden flex-1 min-h-0">
+                      <img
+                        src={slide.imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover rounded-lg"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
 
                   {/* Bottom: timestamp */}
                   <div className={`mt-3 pt-2 border-t ${isDarkMode ? "border-slate-700/50" : "border-slate-200/60"}`}>
