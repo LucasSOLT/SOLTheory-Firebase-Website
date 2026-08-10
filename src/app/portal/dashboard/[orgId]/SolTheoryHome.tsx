@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter, useParams } from "next/navigation";
 
-import { doc, updateDoc, setDoc, onSnapshot, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, updateDoc, setDoc, onSnapshot, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
 import { Clock, ExternalLink, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
