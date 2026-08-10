@@ -171,7 +171,7 @@ export function SolTheoryHome() {
 
   // Instagram feed state
   const [igConnected, setIgConnected] = useState(false);
-  const [igPosts, setIgPosts] = useState<{id: string; imageUrl: string; caption: string; status: string}[]>([]);
+  const [igPosts, setIgPosts] = useState<{id: string; imageUrl: string; caption: string; status: string; permalink?: string}[]>([]);
   const [igUsername, setIgUsername] = useState("");
 
   // Fetch YouTube data
@@ -234,10 +234,9 @@ export function SolTheoryHome() {
     })();
   }, [user, firestore]);
 
-  // Fetch Instagram data
+  // 1. Check Instagram connection in Firestore
   useEffect(() => {
     if (!firestore) return;
-    // Check Instagram connection + get username
     const igDocRef = doc(firestore, "instagram_connections", orgId);
     const unsub = onSnapshot(igDocRef, (snap) => {
       if (snap.exists()) {
@@ -250,7 +249,51 @@ export function SolTheoryHome() {
     return () => unsub();
   }, [firestore, orgId]);
 
-  // Fetch published Instagram media from Graph API
+  // 2. Listen to Instagram posts in Firestore (scheduled_instagram_posts) so images display instantly
+  useEffect(() => {
+    if (!firestore || !orgId) return;
+
+    let activeSub: (() => void) | null = null;
+    const primaryQuery = query(
+      collection(firestore, "scheduled_instagram_posts"),
+      where("clientId", "==", orgId),
+      limit(20)
+    );
+
+    activeSub = onSnapshot(primaryQuery, (snap) => {
+      const fsPosts: {id: string; imageUrl: string; caption: string; status: string; permalink?: string; updatedAt: number}[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        const img = (data.mediaItemUrls && data.mediaItemUrls.length > 0) ? data.mediaItemUrls[0] : (data.imageUrl || data.mediaUrl || "");
+        if (img) {
+          fsPosts.push({
+            id: d.id,
+            imageUrl: img,
+            caption: data.caption || "",
+            status: data.status || "published",
+            permalink: data.permalink || "",
+            updatedAt: data.updatedAt?.seconds || data.createdAt?.seconds || 0,
+          });
+        }
+      });
+
+      fsPosts.sort((a, b) => b.updatedAt - a.updatedAt);
+
+      if (fsPosts.length > 0) {
+        setIgConnected(true);
+        setIgPosts((prev) => {
+          const existingUrls = new Set(prev.map((p) => p.imageUrl));
+          const newItems = fsPosts.filter((p) => !existingUrls.has(p.imageUrl));
+          if (prev.length === 0) return fsPosts.slice(0, 12);
+          return [...prev, ...newItems].slice(0, 12);
+        });
+      }
+    }, () => {});
+
+    return () => { if (activeSub) activeSub(); };
+  }, [firestore, orgId]);
+
+  // 3. Fetch published Instagram media from Graph API
   useEffect(() => {
     if (!igConnected) return;
     let cancelled = false;
@@ -265,12 +308,18 @@ export function SolTheoryHome() {
         if (!cancelled && res.ok) {
           const json = await res.json();
           if (json.success && json.media?.length > 0) {
-            setIgPosts(json.media.slice(0, 12).map((m: any) => ({
+            const apiPosts = json.media.slice(0, 12).map((m: any) => ({
               id: m.id,
               imageUrl: m.mediaType === "VIDEO" ? (m.thumbnailUrl || m.mediaUrl) : m.mediaUrl,
               caption: m.caption || "",
               status: "published",
-            })));
+              permalink: m.permalink || `https://www.instagram.com/p/${m.id}/`,
+            }));
+            setIgPosts((prev) => {
+              const apiUrls = new Set(apiPosts.map((p: any) => p.imageUrl));
+              const fsOnly = prev.filter((p) => p.imageUrl && !apiUrls.has(p.imageUrl));
+              return [...apiPosts, ...fsOnly].slice(0, 12);
+            });
           }
         }
       } catch (err) {
@@ -589,7 +638,7 @@ export function SolTheoryHome() {
                       {igPosts.slice(0, 12).map((post) => (
                         <a
                           key={post.id}
-                          href={`https://www.instagram.com/p/${post.id}/`}
+                          href={post.permalink || (post.id.length > 15 ? `https://www.instagram.com/p/${post.id}/` : "https://www.instagram.com/")}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={`rounded-lg overflow-hidden relative group/ig aspect-square cursor-pointer ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}
