@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { JarvisViewBrowser, type JarvisViewNavigation } from "@/components/ui/jarvis-view-browser";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope} from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import AgentLibrary from "@/components/portal/AgentLibrary";
@@ -201,6 +201,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [pendingAttachments, setPendingAttachments] = useState<{ file: File; preview: string }[]>([]);
   const [loadingPhraseIndex, setLoadingPhraseIndex] = useState(0);
   const [pendingCitations, setPendingCitations] = useState<{ text: string; source: string; type: string }[]>([]);
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const speechRecRef = useRef<any>(null);
+
+  // Close plus menu on outside click or Escape
+  useEffect(() => {
+    if (!isPlusMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-plus-menu]')) setIsPlusMenuOpen(false);
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsPlusMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isPlusMenuOpen]);
 
   // Rotate loading phrases while Jarvis is typing
   useEffect(() => {
@@ -1456,6 +1477,40 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       return "";
     }
   };
+  // Strip markdown from session titles for clean sidebar display
+  const stripMarkdown = (text: string) => text.replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]*)\*{1,2}/g, '$1').trim();
+
+  // Speech-to-text handler
+  const toggleSpeechToText = () => {
+    if (isListening) {
+      speechRecRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    let finalTranscript = inputValue;
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += (finalTranscript ? ' ' : '') + event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      setInputValue(finalTranscript + (interim ? ' ' + interim : ''));
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    speechRecRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
 
   const handleSendMessage = async (overrideText?: string) => {
     const textToSend = overrideText ?? inputValue;
@@ -2612,7 +2667,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
                 <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[40px] py-2 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? 'bg-slate-700/60 text-white border border-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? 'bg-slate-300/50 text-slate-900 border border-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')}`}>
                   <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
-                  <span className="text-sm font-medium flex-1 break-words leading-snug">{s.title}</span>
+                  <span className="text-sm font-medium flex-1 break-words leading-snug">{stripMarkdown(s.title)}</span>
                   <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-60 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -2699,7 +2754,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[44px] py-2.5 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? 'bg-slate-700/60 text-white border border-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? 'bg-slate-200/70 text-slate-900 border border-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100')}`}
                 >
                   <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
-                  <span className="text-sm font-medium flex-1 break-words leading-snug">{s.title}</span>
+                  <span className="text-sm font-medium flex-1 break-words leading-snug">{stripMarkdown(s.title)}</span>
                   <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-60 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -2894,7 +2949,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     </div>
 
                     <div className="flex items-center gap-2">
-                    <div className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-600 bg-slate-800/90' : 'border-[#ede8da] bg-[#faf8f3]/90'}`}>
+                    <div data-plus-menu className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-visible shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-600 bg-slate-800/90' : 'border-[#ede8da] bg-[#faf8f3]/90'}`}>
                       {pendingAttachments.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-[#ede8da]/60 bg-[#faf6ed]/50">
                           {pendingAttachments.map((att, idx) => (
@@ -2917,33 +2972,75 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
                       )}
 
-                      <div className="flex items-center w-full relative">
-                        <div className="flex items-center pl-2 sm:pl-4 gap-1 sm:gap-2 shrink-0">
-                          <button onClick={() => window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=${orgId}`} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center" title="Connect Google Drive">
-                            <Cloud className="w-5 h-5" />
-                          </button>
-                          <label className="p-2.5 sm:p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center" title="Upload File">
-                            <Paperclip className="w-5 h-5" />
-                            <input type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={(e) => {
-                              if (e.target.files?.length) {
-                                const file = e.target.files[0];
-                                const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
-                                setPendingAttachments(prev => [...prev, { file, preview: previewUrl }]);
-                                e.target.value = "";
-                              }
-                            }} />
-                          </label>
+                      {/* Plus Menu Drop-up */}
+                      {isPlusMenuOpen && (
+                        <div className={`absolute bottom-full left-0 right-0 mb-1 rounded-xl border shadow-xl z-50 animate-in slide-in-from-bottom-2 duration-200 overflow-hidden ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+                          {[
+                            { icon: <Paperclip className="w-4 h-4" />, label: 'Add photos & files', desc: 'Upload from computer', active: true, action: 'upload' },
+                            { icon: <Globe className="w-4 h-4" />, label: 'Web search', desc: 'Find real-time news and info', active: false },
+                            { icon: <Palette className="w-4 h-4" />, label: 'Create image', desc: 'Visualize anything', active: false },
+                            { icon: <Telescope className="w-4 h-4" />, label: 'Deep research', desc: 'Get a detailed report', active: false },
+                            { icon: <Cloud className="w-4 h-4" />, label: 'Google Re-auth', desc: 'Re-connect Google Suite', active: true, action: 'reauth' },
+                          ].map((item, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                if (item.action === 'upload') {
+                                  (document.getElementById('plus-menu-file-input') as HTMLInputElement)?.click();
+                                } else if (item.action === 'reauth') {
+                                  window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=${orgId}`;
+                                }
+                                setIsPlusMenuOpen(false);
+                              }}
+                              disabled={!item.active}
+                              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${item.active ? (isDarkMode ? 'hover:bg-slate-700 text-white' : 'hover:bg-slate-50 text-slate-800') : (isDarkMode ? 'text-slate-600 cursor-default' : 'text-slate-300 cursor-default')}`}
+                            >
+                              <span className={item.active ? (isDarkMode ? 'text-slate-300' : 'text-slate-500') : (isDarkMode ? 'text-slate-600' : 'text-slate-300')}>{item.icon}</span>
+                              <span className="text-sm font-medium">{item.label}</span>
+                              <span className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{item.desc}</span>
+                              {!item.active && <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Soon</span>}
+                            </button>
+                          ))}
+                          <input id="plus-menu-file-input" type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={(e) => {
+                            if (e.target.files?.length) {
+                              const file = e.target.files[0];
+                              const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+                              setPendingAttachments(prev => [...prev, { file, preview: previewUrl }]);
+                              e.target.value = "";
+                            }
+                          }} />
                         </div>
+                      )}
+
+                      <div className="flex items-center w-full relative">
+                        <button
+                          onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
+                          className={`ml-2 sm:ml-3 p-2 rounded-full transition-all shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer ${isPlusMenuOpen ? (isDarkMode ? 'bg-slate-600 text-white rotate-45' : 'bg-slate-200 text-slate-700 rotate-45') : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                          title="More options"
+                        >
+                          <Plus className="w-5 h-5 transition-transform" />
+                        </button>
 
                         <Input
-                          placeholder="Instruct the agent..."
-                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-1 sm:pl-2 pr-14 sm:pr-16 min-h-[44px] sm:min-h-[64px] bg-transparent placeholder:text-slate-500 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none !border-l-0 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
-                          value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                          placeholder="Ask anything..."
+                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 sm:pl-3 pr-24 sm:pr-28 min-h-[44px] sm:min-h-[64px] bg-transparent placeholder:text-slate-400 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                          value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); setIsPlusMenuOpen(false); } }}
                         />
 
-                        <Button size="icon" onClick={() => handleSendMessage()} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 rounded-full w-11 h-11 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
-                          {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
-                        </Button>
+                        <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                            <button
+                              onClick={toggleSpeechToText}
+                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                              title={isListening ? 'Stop listening' : 'Speech to text'}
+                            >
+                              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                          )}
+                          <Button size="icon" onClick={() => { handleSendMessage(); setIsPlusMenuOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-[#faf8f3] text-black hover:bg-slate-200'}`}>
+                            {isTyping ? <Loader2 className="w-5 h-5 ml-0.5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
