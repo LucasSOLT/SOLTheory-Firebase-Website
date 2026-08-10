@@ -64,13 +64,10 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
   WORKSPACE: [
     "create_google_document",
     "update_google_document",
-    "create_google_slide_deck",
     "create_google_sheet",
     "search_google_drive",
     "read_drive_document",
-    "draft_youtube_video",
-    "create_and_send_survey",
-    // Shared: resolve contact names for survey recipients
+    // Shared: resolve contact names
     "crm_resolve_contact",
     // Always available
     "web_search",

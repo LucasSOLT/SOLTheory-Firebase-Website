@@ -22,7 +22,7 @@ const tools: any = [
     type: "function",
     function: {
       name: "search_emails",
-      description: "Search the user's Gmail using standard Gmail search queries (e.g., 'from:john@example.com'). Returns a list of matching emails with their messageId, from, subject, and snippet. Use this BEFORE deleting to find the correct messageId.",
+      description: "Search Gmail. Returns messageId, from, subject, snippet. Use before deleting to find the messageId.",
       parameters: {
         type: "object",
         properties: { query: { type: "string" } },
@@ -70,16 +70,16 @@ const tools: any = [
     type: "function",
     function: {
       name: "draft_outbound_email",
-      description: "Draft an outbound email and place it in the user's Gmail Drafts folder. If the user wants a Google Meet link in the email, set includeGoogleMeetLink to true and the system will automatically create a calendar event, generate the Meet URL, and embed it into the email body for you.",
+      description: "Draft an email into Gmail Drafts. Set includeGoogleMeetLink=true to auto-attach a Google Meet link.",
       parameters: {
         type: "object",
         properties: {
           to: { type: "string", description: "Recipient email address" },
           subject: { type: "string", description: "Email subject line" },
-          body: { type: "string", description: "The full email body with STRICT formatting rules. Structure MUST be exactly: 'Hello [Name],\\n\\n[Body paragraph(s)]\\n\\nThanks,\\n[Sender Name]'. The greeting (e.g. 'Hello John,') MUST be on its own line. There MUST be exactly one blank line after the greeting before the body content. The body paragraphs go next. Then there MUST be one blank line before the closing. The closing (e.g. 'Thanks,' or 'Best regards,') MUST be on its own line, followed by the sender's name on the NEXT line. Use \\n for line breaks. Do NOT write any placeholder text for meeting links — the system handles that automatically when includeGoogleMeetLink is true." },
-          includeGoogleMeetLink: { type: "boolean", description: "Set to true if the user wants a Google Meet video call link in this email. The system will auto-generate a calendar event + Meet URL and append it to the email." },
-          meetingSummary: { type: "string", description: "Title for the auto-created calendar event (e.g. 'Catch-up with Steve'). Required when includeGoogleMeetLink is true." },
-          meetingDateTime: { type: "string", description: "ISO 8601 datetime for the meeting start (e.g. '2026-04-21T19:00:00-06:00'). Required when includeGoogleMeetLink is true." }
+          body: { type: "string", description: "Email body. Format: 'Hello [Name],\\n\\n[Body]\\n\\nThanks,\\n[Sender]'. Use \\n for line breaks." },
+          includeGoogleMeetLink: { type: "boolean", description: "True to auto-generate a Google Meet link." },
+          meetingSummary: { type: "string", description: "Calendar event title. Required with Meet link." },
+          meetingDateTime: { type: "string", description: "ISO 8601 datetime. Required with Meet link." }
         },
         required: ["to", "subject", "body"]
       }
@@ -90,7 +90,7 @@ const tools: any = [
     type: "function",
     function: {
       name: "list_calendar_events",
-      description: "List the user's Google Calendar events within a date range. Defaults to the next 7 days if no range is specified. Use this to check schedule availability, find conflicts, or answer questions about upcoming events.",
+      description: "List Google Calendar events in a date range. Defaults to next 7 days.",
       parameters: {
         type: "object",
         properties: {
@@ -155,12 +155,12 @@ const tools: any = [
     type: "function",
     function: {
       name: "create_google_document",
-      description: "Create a new Google Docs document in the user's Google Drive. Populates it with the provided text content. Use this when the user asks you to create a document, Word document, write a report, draft meeting notes, draft a doc, write a doc, etc. You MUST write the full document — do not truncate or summarize. Write long-form, professional prose with clear paragraph breaks.",
+      description: "Create a Google Doc. Write full content — never truncate.",
       parameters: {
         type: "object",
         properties: {
           title: { type: "string", description: "The title/name of the Google Doc" },
-          body: { type: "string", description: "The full text content to insert. Use newlines for paragraphs. Separate sections with headings prefixed by '## '. CRITICAL: If you need to paste an entire large uploaded document, DO NOT output the full document text here! Use '[INSERT_DOCUMENT_CONTEXT]' instead and the system will replace it." },
+          body: { type: "string", description: "Full text. Use \\n for paragraphs, '## ' for headings." },
           font: { type: "string", description: "The font family to apply (e.g. 'Arial', 'Times New Roman', 'Georgia'). If not specified, defaults to 'Arial'." },
           lineSpacing: { type: "string", enum: ["single", "double"], description: "Line spacing: 'single' (1.0) or 'double' (2.0). Defaults to 'double'." }
         },
@@ -172,12 +172,12 @@ const tools: any = [
     type: "function",
     function: {
       name: "update_google_document",
-      description: "Write or replace content in an existing Google Docs document. Use this when you need to populate a previously created Google Doc with content, or update/append text to an existing document. You MUST write the full content — do not truncate or summarize.",
+      description: "Replace content in an existing Google Doc by documentId. Write full content.",
       parameters: {
         type: "object",
         properties: {
           documentId: { type: "string", description: "The Google Docs document ID (from the URL or from a prior create_google_document result)" },
-          body: { type: "string", description: "The full text content to insert. Use newlines for paragraphs. Separate sections with headings prefixed by '## '. This REPLACES the existing document content." },
+          body: { type: "string", description: "Full replacement text. Use \\n for paragraphs, '## ' for headings." },
           font: { type: "string", description: "The font family to apply (e.g. 'Arial', 'Times New Roman', 'Georgia'). Defaults to 'Arial'." },
           lineSpacing: { type: "string", enum: ["single", "double"], description: "Line spacing: 'single' (1.0) or 'double' (2.0). Defaults to 'double'." }
         },
@@ -185,54 +185,18 @@ const tools: any = [
       }
     }
   },
-  {
-    type: "function",
-    function: {
-      name: "create_google_slide_deck",
-      description: "Create a new Google Slides presentation in the user's Google Drive. Each slide should have a title and body text. Use this when the user asks you to create a presentation, pitch deck, etc.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "The title/name of the presentation" },
-          slides: {
-            type: "array",
-            description: "Array of slide objects, each with a title and body",
-            items: {
-              type: "object",
-              properties: {
-                slideTitle: { type: "string" },
-                slideBody: { type: "string" }
-              },
-              required: ["slideTitle", "slideBody"]
-            }
-          }
-        },
-        required: ["title", "slides"]
-      }
-    }
-  },
+  // ── Google Slides (REMOVED — pruned to reduce token overhead) ──
   {
     type: "function",
     function: {
       name: "create_google_sheet",
-      description: "Create a new Google Sheets spreadsheet in the user's Google Drive with the given data. Use this when the user asks you to create a spreadsheet, tracker, data table, budget, etc.",
+      description: "Create a Google Sheets spreadsheet with optional headers and rows.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "The title/name of the spreadsheet" },
-          headers: {
-            type: "array",
-            description: "Column header labels for the first row",
-            items: { type: "string" }
-          },
-          rows: {
-            type: "array",
-            description: "Array of arrays, each inner array is a row of cell values",
-            items: {
-              type: "array",
-              items: { type: "string" }
-            }
-          }
+          title: { type: "string", description: "Spreadsheet title" },
+          headers: { type: "array", description: "Column headers", items: { type: "string" } },
+          rows: { type: "array", description: "Rows of cell values", items: { type: "array", items: { type: "string" } } }
         },
         required: ["title"]
       }
@@ -242,12 +206,10 @@ const tools: any = [
     type: "function",
     function: {
       name: "search_google_drive",
-      description: "Search the user's Google Drive for files matching a keyword. Use this when the user asks you to find a file on their drive.",
+      description: "Search Google Drive for files by keyword.",
       parameters: {
         type: "object",
-        properties: {
-          query: { type: "string", description: "The keyword to search for, e.g., 'marketing plan'" }
-        },
+        properties: { query: { type: "string", description: "Search keyword" } },
         required: ["query"]
       }
     }
@@ -256,72 +218,33 @@ const tools: any = [
     type: "function",
     function: {
       name: "read_drive_document",
-      description: "Read the text content of a Google Doc. You MUST use search_google_drive first to find the fileId.",
+      description: "Read a Google Doc's text content. Use search_google_drive first to get the fileId.",
       parameters: {
         type: "object",
-        properties: {
-          fileId: { type: "string", description: "The ID of the document to read." }
-        },
+        properties: { fileId: { type: "string" } },
         required: ["fileId"]
       }
     }
   },
-  {
-    type: "function",
-    function: {
-      name: "draft_youtube_video",
-      description: "Prepare and store a drafted YouTube video onto the user's YouTube Studio. This automatically creates a Google Doc script, generates a dummy private draft video to hold the data, and links the script in the YouTube description. Use this whenever the user wants to draft a video.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "The YouTube video title." },
-          description: { type: "string", description: "The YouTube description including hashtags." },
-          tags: { type: "array", items: { type: "string" }, description: "Array of comma-separated string tags" },
-          script: { type: "string", description: "The full script for the YouTube video. DO NOT output the script in your conversational reply, just pass it here." }
-        },
-        required: ["title", "description", "tags", "script"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_and_send_survey",
-      description: "Create an AI-generated survey and optionally email invitation links to specified recipients. The survey is saved to Firestore and a public link is generated. Use this when the user wants to create a survey, feedback form, or questionnaire and send it to people. You MUST look up recipient email addresses from the Contact Glossary when the user refers to people by name.",
-      parameters: {
-        type: "object",
-        properties: {
-          topic: { type: "string", description: "A detailed description of the survey topic/purpose. Be specific about what questions should cover." },
-          questionCount: { type: "number", description: "Number of questions to generate. Default 10 if not specified." },
-          recipientEmails: { type: "array", items: { type: "string" }, description: "Array of email addresses to send the survey invitation to. Look these up from the Contact Glossary." },
-          recipientNames: { type: "array", items: { type: "string" }, description: "Array of display names corresponding to each recipient email, for personalized email greetings." },
-          authorName: { type: "string", description: "The name of the survey creator/author to display on the survey. Use the user's name." }
-        },
-        required: ["topic", "recipientEmails"]
-      }
-    }
-  },
+  // ── YouTube (REMOVED — pruned to reduce token overhead) ──
+  // ── Surveys (REMOVED — pruned to reduce token overhead) ──
   {
     type: "function",
     function: {
       name: "search_past_conversations",
-      description: "Search the user's past Jarvis chat sessions for relevant context. Use this when the user references something from a previous conversation, asks 'remember when we talked about...', 'what did we discuss about...', or any time they need information from a past session. This searches all saved chat history across sessions.",
+      description: "Search past chat sessions for context. Use when user references a prior conversation.",
       parameters: {
         type: "object",
-        properties: {
-          query: { type: "string", description: "The search query to find relevant past conversations. Use keywords related to what the user is asking about." }
-        },
+        properties: { query: { type: "string" } },
         required: ["query"]
       }
     }
   },
-  // ── iMessage Tools (REMOVED — pruned to reduce token overhead) ──
-  // ── Web Search Tools ──
   {
     type: "function",
     function: {
       name: "web_search",
-      description: "Search the web using Tavily AI search engine. Use this when the user asks a question that requires real-time information, current events, recent data, facts you're unsure about, or anything that would benefit from a web search. Returns relevant snippets and source URLs.",
+      description: "Search the web for real-time info, current events, or facts you're unsure about.",
       parameters: {
         type: "object",
         properties: {
@@ -440,7 +363,7 @@ The current date/time is: ${new Date().toISOString()}.`;
     const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
 
     if (isEmailAgent) {
-      agentRole += `\n\nYou have active tools for: Gmail, Google Calendar, Google Docs/Slides/Sheets, Google Drive, YouTube Studio, Surveys, Web Search, CRM, and Past Conversation Memory. Use them when relevant — the domain router will load the right tools automatically. Use search_past_conversations when the user references prior chats.`;
+      agentRole += `\n\nYou have active tools for: Gmail, Google Calendar, Google Docs, Google Sheets, Google Drive, Web Search, CRM, and Past Conversation Memory. Use them when relevant — the domain router will load the right tools automatically. Use search_past_conversations when the user references prior chats.`;
     }
 
 
