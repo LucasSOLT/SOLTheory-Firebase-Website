@@ -1604,8 +1604,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
     }
 
-    // Construct primary userMsg
-    const msgText = textToSend.trim() || (userMsgImageUrl ? "Attached image" : "Uploaded file");
+    // Map internal action keys to user-facing display text
+    const irisButtonLabels: Record<string, string> = {
+      '__iris_followup__artwork': 'Generate artwork',
+      '__iris_followup__logo': 'Design a logo',
+      '__iris_followup__social': 'Create a social post',
+      '__iris_followup__scene': 'Illustrate a scene',
+      '__iris_followup__sketch': 'Sketch a concept',
+    };
+    const msgText = irisButtonLabels[textToSend.trim()] || textToSend.trim() || (userMsgImageUrl ? "Attached image" : "Uploaded file");
     const userMsg: Message = { id: uid(), text: msgText, isSelf: true };
     if (userMsgImageUrl) {
       userMsg.imageUrl = userMsgImageUrl;
