@@ -20,6 +20,8 @@ import RevenueForecastChart from "./RevenueForecastChart";
 import PipelineBreakdownChart from "./PipelineBreakdownChart";
 import RevenueByContactChart from "./RevenueByContactChart";
 import GrantPipelineChart from "./GrantPipelineChart";
+import GrantWinRateCard from "./GrantWinRateCard";
+import GrantScoreDistribution from "./GrantScoreDistribution";
 
 /* ── KPI Card ──────────────────────────────────────────── */
 
@@ -330,9 +332,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={grants.length === 0}
               emptyMessage="No grant data yet"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 3</p>
-              </div>
+              <GrantWinRateCard grants={grants} dk={dk} />
             </SectionCard>
 
             <SectionCard
@@ -342,9 +342,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={grants.length === 0}
               emptyMessage="No grant data yet"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 3</p>
-              </div>
+              <GrantScoreDistribution grants={grants} dk={dk} />
             </SectionCard>
 
             {/* Timesheet Charts (Step 4) */}
