@@ -25,6 +25,8 @@ import GrantScoreDistribution from "./GrantScoreDistribution";
 import TeamProductivityChart from "./TeamProductivityChart";
 import ServiceBreakdownChart from "./ServiceBreakdownChart";
 import BillableRevenueChart from "./BillableRevenueChart";
+import InstagramOverviewCard from "./InstagramOverviewCard";
+import PostActivityChart from "./PostActivityChart";
 
 /* ── KPI Card ──────────────────────────────────────────── */
 
@@ -379,7 +381,7 @@ export default function BusinessIntelligenceDashboard() {
               <BillableRevenueChart entries={timesheetEntries} dk={dk} />
             </SectionCard>
 
-            {/* Instagram Charts (Step 5) */}
+            {/* Instagram Charts */}
             <SectionCard
               title="Instagram Overview"
               icon={Camera}
@@ -387,9 +389,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={instagramPosts.length === 0}
               emptyMessage="No Instagram posts yet — connect your account to get started"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 5</p>
-              </div>
+              <InstagramOverviewCard posts={instagramPosts} dk={dk} />
             </SectionCard>
 
             <SectionCard
@@ -399,9 +399,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={instagramPosts.length === 0}
               emptyMessage="No Instagram posts yet"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 5</p>
-              </div>
+              <PostActivityChart posts={instagramPosts} dk={dk} />
             </SectionCard>
           </div>
         </>
