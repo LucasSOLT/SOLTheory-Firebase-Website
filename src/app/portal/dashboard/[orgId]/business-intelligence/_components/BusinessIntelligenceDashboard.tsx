@@ -19,6 +19,7 @@ import { useBIData, DateRange } from "../_hooks/useBIData";
 import RevenueForecastChart from "./RevenueForecastChart";
 import PipelineBreakdownChart from "./PipelineBreakdownChart";
 import RevenueByContactChart from "./RevenueByContactChart";
+import GrantPipelineChart from "./GrantPipelineChart";
 
 /* ── KPI Card ──────────────────────────────────────────── */
 
@@ -311,7 +312,7 @@ export default function BusinessIntelligenceDashboard() {
               <RevenueByContactChart contacts={crmContacts} dk={dk} />
             </SectionCard>
 
-            {/* Grant Charts (Step 3) */}
+            {/* Grant Charts */}
             <SectionCard
               title="Grant Pipeline"
               icon={Award}
@@ -319,9 +320,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={grants.length === 0}
               emptyMessage="No grant data yet — run your first grant search!"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 3</p>
-              </div>
+              <GrantPipelineChart grants={grants} dk={dk} />
             </SectionCard>
 
             <SectionCard
