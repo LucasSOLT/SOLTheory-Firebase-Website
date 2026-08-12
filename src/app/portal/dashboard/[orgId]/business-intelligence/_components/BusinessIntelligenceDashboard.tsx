@@ -232,19 +232,6 @@ export default function BusinessIntelligenceDashboard() {
             </button>
           ))}
         </div>
-
-        {/* Request Custom Panel Button */}
-        <button
-          onClick={() => setShowRequestModal(true)}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
-            dk
-              ? "bg-indigo-600/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/20 hover:border-indigo-500/50"
-              : "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Request Custom Panel
-        </button>
       </div>
 
       {/* Loading State */}
@@ -422,6 +409,38 @@ export default function BusinessIntelligenceDashboard() {
             >
               <PostActivityChart posts={instagramPosts} dk={dk} />
             </SectionCard>
+
+            {/* Request Custom Panel CTA */}
+            <button
+              onClick={() => setShowRequestModal(true)}
+              className={`col-span-full rounded-2xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group ${
+                dk
+                  ? "border-slate-600 hover:border-indigo-500/60 hover:bg-indigo-600/5"
+                  : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50"
+              }`}
+            >
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
+                dk
+                  ? "bg-indigo-600/10 group-hover:bg-indigo-600/20"
+                  : "bg-indigo-50 group-hover:bg-indigo-100"
+              }`}>
+                <Sparkles className={`w-5 h-5 transition-colors ${
+                  dk ? "text-indigo-400" : "text-indigo-600"
+                }`} />
+              </div>
+              <div className="text-center">
+                <p className={`text-sm font-bold ${
+                  dk ? "text-slate-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"
+                }`}>
+                  Request a Custom BI Panel
+                </p>
+                <p className={`text-xs mt-1 max-w-sm ${
+                  dk ? "text-slate-500 group-hover:text-slate-400" : "text-slate-400 group-hover:text-slate-500"
+                }`}>
+                  Need a specific metric or visualization? Tell us what you&apos;d like and we&apos;ll build it for you.
+                </p>
+              </div>
+            </button>
           </div>
         </>
       )}
