@@ -29,7 +29,7 @@ import type { AgentEvent } from '@/lib/agent-events';
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
-type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; sendTimestamp?: number; };
+type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; sendTimestamp?: number; isPendingImage?: boolean; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number; attachmentId?: string }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
@@ -1604,16 +1604,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
     }
 
-    // Map internal action keys to user-facing display text
-    const irisButtonLabels: Record<string, string> = {
-      '__iris_followup__artwork': 'Generate artwork',
-      '__iris_followup__logo': 'Design a logo',
-      '__iris_followup__social': 'Create a social post',
-      '__iris_followup__scene': 'Illustrate a scene',
-      '__iris_followup__sketch': 'Sketch a concept',
-    };
-    const msgText = irisButtonLabels[textToSend.trim()] || textToSend.trim() || (userMsgImageUrl ? "Attached image" : "Uploaded file");
-    const userMsg: Message = { id: uid(), text: msgText, isSelf: true };
+    // Filter out welcome greeting messages (bot-only messages that were never part of a real session)
+    const realMessages = messages.filter(m => m.isSelf || messages.some(um => um.isSelf));
+    const msgSendTimestamp = Date.now();
+    const userMsg: Message = { id: uid(), text: msgText, isSelf: true, sendTimestamp: msgSendTimestamp };
     if (userMsgImageUrl) {
       userMsg.imageUrl = userMsgImageUrl;
       const imageNote = `[System Note: The user has attached an image named "pasted-image.jpg" to this message.]`;
@@ -1626,15 +1620,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         : fileNote;
     }
 
-    // Filter out welcome greeting messages (bot-only messages that were never part of a real session)
-    const realMessages = messages.filter(m => m.isSelf || messages.some(um => um.isSelf));
     const newMessages = [...realMessages, userMsg, ...extraUserMessages];
-    const msgSendTimestamp = Date.now();
     setMessages(newMessages); setIsTyping(true); setInputValue("");
 
     // ── IRIS: Image Generation Path ──
     // Route to /api/generate-image instead of /api/chat when using Iris
     if (isImageAgent) {
+      // Map internal action keys to user-facing display text for conversational responses
+      const irisButtonLabels: Record<string, string> = {
+        '__iris_followup__artwork': 'Generate artwork',
+        '__iris_followup__logo': 'Design a logo',
+        '__iris_followup__social': 'Create a social post',
+        '__iris_followup__scene': 'Illustrate a scene',
+        '__iris_followup__sketch': 'Sketch a concept',
+      };
+
       // Handle conversational follow-up buttons (zero-token, client-side only)
       const irisFollowups: Record<string, string> = {
         '__iris_followup__artwork': 'What kind of artwork would you like me to generate? Describe the style, subject, and mood.',
@@ -1644,7 +1644,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         '__iris_followup__sketch': 'What concept would you like me to sketch? Give me the details and style.',
       };
 
-      const followupResponse = irisFollowups[textToSend.trim()];
+      const rawText = textToSend.trim();
+      const followupResponse = irisFollowups[rawText];
+      
       if (followupResponse) {
         // Instant client-side response — no API call, zero tokens
         const botMsg: Message = { id: uid(), text: followupResponse, isSelf: false };
@@ -1661,24 +1663,38 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
 
       // Real image generation — call the API
+      const pendingBotMsgId = uid();
+      const pendingBotMsg: Message = {
+        id: pendingBotMsgId,
+        text: '',
+        isSelf: false,
+        sendTimestamp: msgSendTimestamp,
+        agentEvents: [], // Empty events list starts the timer!
+        isPendingImage: true, // Show the skeleton loader
+      };
+
+      const messagesWithPending = [...newMessages, pendingBotMsg];
+      setMessages(messagesWithPending);
+      setIsTyping(false); // Disable standard generic loading indicator
+
       try {
         const headers = await getAuthHeaders();
         headers['Content-Type'] = 'application/json';
         const res = await fetch('/api/generate-image', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ prompt: textToSend.trim(), orgId }),
+          body: JSON.stringify({ prompt: rawText, orgId }),
         });
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
         const botMsg: Message = {
-          id: uid(),
+          id: pendingBotMsgId, // Replace the pending message by keeping the same ID
           text: '',
           isSelf: false,
-          sendTimestamp: msgSendTimestamp,
-          agentEvents: [{ type: 'done' as const }],
+          sendTimestamp: msgSendTimestamp, // Keep same timestamp so timer calculation is accurate
+          agentEvents: [{ type: 'done' as const }], // This stops the timer!
         };
 
         if (data.imageBase64) {
@@ -1688,11 +1704,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           botMsg.text = data.textContent || 'I wasn\'t able to generate that image. Please try a different description.';
         }
 
-        setMessages(prev => [...prev, botMsg]);
+        // Replace the pending message with the final generated result
+        setMessages(prev => prev.map(m => m.id === pendingBotMsgId ? botMsg : m));
 
         // Save session
-        const updatedMsgs = [...newMessages, botMsg];
-        const sessionTitle = textToSend.trim().slice(0, 40) || 'Image Generation';
+        const updatedMsgs = messagesWithPending.map(m => m.id === pendingBotMsgId ? botMsg : m);
+        const sessionTitle = rawText.slice(0, 40) || 'Image Generation';
         setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: updatedMsgs, updatedAt: Date.now(), title: s.title === 'New Chat' ? sessionTitle : s.title } : s));
 
         // Persist to Firestore
@@ -1702,15 +1719,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }
       } catch (err: any) {
         console.error('[Iris] Image generation error:', err);
-        setMessages(prev => [...prev, {
-          id: uid(),
+        const errorBotMsg: Message = {
+          id: pendingBotMsgId,
           text: `Image generation failed: ${err.message}`,
           isSelf: false,
           sendTimestamp: msgSendTimestamp,
-          agentEvents: [{ type: 'done' as const }],
-        }]);
-      } finally {
-        setIsTyping(false);
+          agentEvents: [{ type: 'done' as const }], // Stop the timer on error
+        };
+        setMessages(prev => prev.map(m => m.id === pendingBotMsgId ? errorBotMsg : m));
+
+        const updatedMsgs = messagesWithPending.map(m => m.id === pendingBotMsgId ? errorBotMsg : m);
+        const sessionTitle = rawText.slice(0, 40) || 'Image Generation';
+        setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: updatedMsgs, updatedAt: Date.now(), title: s.title === 'New Chat' ? sessionTitle : s.title } : s));
+
+        if (firestore && user?.uid && currentSessionId) {
+          const sessionRef = doc(firestore, 'users', user.uid, 'jarvis_sessions', currentSessionId);
+          setDoc(sessionRef, { title: sessionTitle, messages: updatedMsgs, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+        }
       }
       return; // Skip the normal chat flow
     }
@@ -2993,11 +3018,43 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           </div>
                         )}
                         {/* Message row — only show when there's actual content (text or image) to display */}
-                        {(msg.isSelf || msg.text || msg.imageUrl) && (
+                        {(msg.isSelf || msg.text || msg.imageUrl || msg.isPendingImage) && (
                         <div className={`flex gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-4 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-4 sm:pr-20'}`}>
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : (isImageAgent ? <Palette className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />)}</div>
                         <div className={`space-y-1 pt-1 min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : ''}`}>
                           <div className={`inline-block p-3 sm:p-4 text-left text-sm sm:text-base max-w-full break-words animate-in fade-in duration-300 ${msg.isSelf ? `rounded-2xl shadow-lg backdrop-blur-md ${isDarkMode ? 'bg-indigo-900/40 border border-indigo-800/50 text-slate-200 rounded-tr-sm' : 'bg-slate-300/50 text-slate-800 rounded-tr-sm'}` : `${isDarkMode ? 'text-slate-200' : 'text-slate-800'} [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold [&>h2]:text-lg [&>h2]:font-bold [&>h2]:mt-4 [&>h2]:mb-2`}`}>
+                            {msg.isPendingImage ? (
+                              <div className="flex flex-col mb-2">
+                                <style>{`
+                                  @keyframes shimmer {
+                                    0% { transform: translateX(-100%); }
+                                    100% { transform: translateX(100%); }
+                                  }
+                                `}</style>
+                                <div className={`relative overflow-hidden w-[260px] h-[260px] sm:w-[400px] sm:h-[400px] rounded-lg border animate-pulse ${
+                                  isDarkMode 
+                                    ? 'bg-slate-800/80 border-slate-700' 
+                                    : 'bg-slate-200/50 border-slate-300'
+                                }`}>
+                                  <div 
+                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full" 
+                                    style={{
+                                      animation: 'shimmer 1.5s infinite',
+                                      background: isDarkMode 
+                                        ? 'linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)' 
+                                        : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)'
+                                    }} 
+                                  />
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                    <Palette className={`w-8 h-8 animate-bounce ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
+                                    <span className={`text-xs font-medium tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                      Generating Image...
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+
                             {msg.imageUrl ? (
                               <div className="flex flex-col mb-2">
                                 {msg.isSelf && (
