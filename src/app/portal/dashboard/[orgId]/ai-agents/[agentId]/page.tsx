@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { JarvisViewBrowser, type JarvisViewNavigation } from "@/components/ui/jarvis-view-browser";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope, ArrowUp} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope, ArrowUp, Square} from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import AgentLibrary from "@/components/portal/AgentLibrary";
@@ -1137,11 +1137,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       heroDesc: "Describe any image \u2014 from creative illustrations and marketing graphics to concept art and social media visuals.",
       heroIcon: "palette",
       quickActions: [
-        { label: '\ud83c\udfa8 Generate artwork', action: 'Generate a beautiful piece of artwork' },
-        { label: '\ud83d\uddbc\ufe0f Design a logo', action: 'Design a modern minimalist logo' },
-        { label: '\ud83d\udcf8 Create a social post', action: 'Create an eye-catching social media post image' },
-        { label: '\ud83c\udf05 Illustrate a scene', action: 'Illustrate a dramatic sunset over mountains' },
-        { label: '\u270f\ufe0f Sketch a concept', action: 'Sketch a concept design for a mobile app' },
+        { label: '\ud83c\udfa8 Generate artwork', action: '__iris_followup__artwork' },
+        { label: '\ud83d\uddbc\ufe0f Design a logo', action: '__iris_followup__logo' },
+        { label: '\ud83d\udcf8 Create a social post', action: '__iris_followup__social' },
+        { label: '\ud83c\udf05 Illustrate a scene', action: '__iris_followup__scene' },
+        { label: '\u270f\ufe0f Sketch a concept', action: '__iris_followup__sketch' },
       ],
     },
   };
@@ -1628,6 +1628,32 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     // ── IRIS: Image Generation Path ──
     // Route to /api/generate-image instead of /api/chat when using Iris
     if (isImageAgent) {
+      // Handle conversational follow-up buttons (zero-token, client-side only)
+      const irisFollowups: Record<string, string> = {
+        '__iris_followup__artwork': 'What kind of artwork would you like me to generate? Describe the style, subject, and mood.',
+        '__iris_followup__logo': 'What kind of logo would you like? Tell me about the brand, colors, or concept.',
+        '__iris_followup__social': "What's the social media post about? Describe the vibe, message, and any text to include.",
+        '__iris_followup__scene': 'What scene would you like me to illustrate? Describe what you see in your mind.',
+        '__iris_followup__sketch': 'What concept would you like me to sketch? Give me the details and style.',
+      };
+
+      const followupResponse = irisFollowups[textToSend.trim()];
+      if (followupResponse) {
+        // Instant client-side response — no API call, zero tokens
+        const botMsg: Message = { id: uid(), text: followupResponse, isSelf: false };
+        const updatedMsgs = [...newMessages, botMsg];
+        setMessages(updatedMsgs);
+        setIsTyping(false);
+
+        // Save session
+        if (firestore && user?.uid && currentSessionId) {
+          const sessionRef = doc(firestore, 'users', user.uid, 'jarvis_sessions', currentSessionId);
+          setDoc(sessionRef, { title: 'Iris Chat', messages: updatedMsgs, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+        }
+        return;
+      }
+
+      // Real image generation — call the API
       try {
         const headers = await getAuthHeaders();
         headers['Content-Type'] = 'application/json';
@@ -1640,7 +1666,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-        const botMsg: Message = { id: uid(), text: '', isSelf: false, sendTimestamp: Date.now() };
+        const botMsg: Message = {
+          id: uid(),
+          text: '',
+          isSelf: false,
+          sendTimestamp: msgSendTimestamp,
+          agentEvents: [{ type: 'done' as const }],
+        };
 
         if (data.imageBase64) {
           botMsg.imageUrl = `data:${data.mimeType || 'image/png'};base64,${data.imageBase64}`;
@@ -1663,7 +1695,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }
       } catch (err: any) {
         console.error('[Iris] Image generation error:', err);
-        setMessages(prev => [...prev, { id: uid(), text: `Image generation failed: ${err.message}`, isSelf: false }]);
+        setMessages(prev => [...prev, {
+          id: uid(),
+          text: `Image generation failed: ${err.message}`,
+          isSelf: false,
+          sendTimestamp: msgSendTimestamp,
+          agentEvents: [{ type: 'done' as const }],
+        }]);
       } finally {
         setIsTyping(false);
       }
@@ -3155,14 +3193,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         />
 
                         <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                          {/* Mic (STT) — always visible */}
+                          {/* Mic (STT) — always visible; shows red stop square when recording */}
                           {!isTyping && typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
                             <button
                               onClick={toggleSpeechToText}
-                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-white bg-red-500 animate-pulse shadow-lg shadow-red-500/30' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
                               title={isListening ? 'Stop listening' : 'Speech to text'}
                             >
-                              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                              {isListening ? <Square className="w-3 h-3 fill-current" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
                             </button>
                           )}
                           {/* Voice pill OR Send button */}
