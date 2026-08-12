@@ -22,6 +22,8 @@ import RevenueByContactChart from "./RevenueByContactChart";
 import GrantPipelineChart from "./GrantPipelineChart";
 import GrantWinRateCard from "./GrantWinRateCard";
 import GrantScoreDistribution from "./GrantScoreDistribution";
+import TeamProductivityChart from "./TeamProductivityChart";
+import ServiceBreakdownChart from "./ServiceBreakdownChart";
 
 /* ── KPI Card ──────────────────────────────────────────── */
 
@@ -345,7 +347,7 @@ export default function BusinessIntelligenceDashboard() {
               <GrantScoreDistribution grants={grants} dk={dk} />
             </SectionCard>
 
-            {/* Timesheet Charts (Step 4) */}
+            {/* Timesheet Charts */}
             <SectionCard
               title="Team Productivity"
               icon={Users}
@@ -353,26 +355,22 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={timesheetEntries.length === 0}
               emptyMessage="No timesheet entries yet — log hours to see productivity data"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 4</p>
-              </div>
+              <TeamProductivityChart entries={timesheetEntries} dk={dk} />
+            </SectionCard>
+
+            <SectionCard
+              title="Service Breakdown"
+              icon={PieChartIcon}
+              dk={dk}
+              isEmpty={timesheetEntries.length === 0}
+              emptyMessage="No timesheet entries yet — log hours to see service breakdown"
+            >
+              <ServiceBreakdownChart entries={timesheetEntries} dk={dk} />
             </SectionCard>
 
             <SectionCard
               title="Billable Revenue"
               icon={DollarSign}
-              dk={dk}
-              isEmpty={timesheetEntries.length === 0}
-              emptyMessage="No timesheet entries yet"
-            >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 4</p>
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Service Breakdown"
-              icon={Clock}
               dk={dk}
               isEmpty={timesheetEntries.length === 0}
               emptyMessage="No timesheet entries yet"
