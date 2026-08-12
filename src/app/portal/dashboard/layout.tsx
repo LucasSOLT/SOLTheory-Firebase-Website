@@ -1560,12 +1560,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="text-sm font-medium">{t.email}</span>
                 </Link>
 
-                <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl text-slate-300 cursor-not-allowed font-semibold`}>
-                  <div className="w-6 h-6 rounded-md bg-transparent flex items-center justify-center">
+                <Link href={`${dashboardHome}/business-intelligence`} className={getSidebarLinkClass(pathname.includes('/business-intelligence'))}>
+                  <div className={getSidebarIconClass(pathname.includes('/business-intelligence'))}>
                     <BarChart3 className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">{t.businessIntelligence}</span>
-                </div>
+                </Link>
 
                 <Link href={`${dashboardHome}/action-board`} className={getSidebarLinkClass(pathname.endsWith('/action-board'))}>
                   <div className={getSidebarIconClass(pathname.endsWith('/action-board'))}>
