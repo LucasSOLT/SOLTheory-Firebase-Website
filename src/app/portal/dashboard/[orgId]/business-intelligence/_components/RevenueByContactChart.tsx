@@ -26,7 +26,7 @@ export default function RevenueByContactChart({
     return contacts
       .filter((c) => (c.totalRevenue || 0) > 0)
       .sort((a, b) => (b.totalRevenue || 0) - (a.totalRevenue || 0))
-      .slice(0, 10)
+      .slice(0, 8)
       .map((c) => ({
         name: `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Unknown",
         revenue: c.totalRevenue || 0,
@@ -35,11 +35,13 @@ export default function RevenueByContactChart({
 
   if (data.length === 0) return null;
 
-  // Gradient colors for bars (top -> bottom ranked)
+  // Green gradient for bar rankings
   const barColors = [
-    "#22c55e", "#34d399", "#4ade80", "#6ee7b7", "#86efac",
-    "#a7f3d0", "#bbf7d0", "#d1fae5", "#dcfce7", "#ecfdf5",
+    "#16a34a", "#22c55e", "#4ade80", "#86efac",
+    "#a7f3d0", "#bbf7d0", "#d1fae5", "#ecfdf5",
   ];
+
+  const maxRevenue = Math.max(...data.map((d) => d.revenue), 1);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
@@ -49,43 +51,46 @@ export default function RevenueByContactChart({
           dk ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
         }`}
       >
-        <p className="font-semibold">{label}</p>
-        <p className="text-green-500">${payload[0].value.toLocaleString()}</p>
+        <p className="font-semibold mb-0.5">{label}</p>
+        <p className="text-emerald-500 font-semibold">${payload[0].value.toLocaleString()}</p>
       </div>
     );
   };
 
   return (
-    <ResponsiveContainer width="100%" height={Math.max(180, data.length * 32 + 20)}>
+    <ResponsiveContainer width="100%" height={220}>
       <BarChart
         data={data}
         layout="vertical"
-        margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+        margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+        barCategoryGap="20%"
       >
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke={dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}
+          stroke={dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}
           horizontal={false}
         />
         <XAxis
           type="number"
-          tick={{ fontSize: 11, fill: dk ? "#94a3b8" : "#64748b" }}
+          tick={{ fontSize: 10, fill: dk ? "#94a3b8" : "#64748b" }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
+          domain={[0, Math.ceil(maxRevenue * 1.15)]}
         />
         <YAxis
           type="category"
           dataKey="name"
-          width={100}
-          tick={{ fontSize: 11, fill: dk ? "#cbd5e1" : "#475569" }}
+          width={80}
+          tick={{ fontSize: 10, fill: dk ? "#cbd5e1" : "#475569" }}
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip content={<CustomTooltip />} cursor={false} />
         <Bar
           dataKey="revenue"
-          radius={[0, 6, 6, 0]}
+          radius={[0, 4, 4, 0]}
+          barSize={18}
           animationDuration={800}
           animationBegin={100}
         >
