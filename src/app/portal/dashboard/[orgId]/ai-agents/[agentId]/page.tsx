@@ -192,6 +192,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const firestore = useFirestore();
   const { t } = useTranslation();
   const router = useRouter();
+  const [isAgentSwitcherOpen, setIsAgentSwitcherOpen] = useState(false);
   const [showAgentLibrary, setShowAgentLibrary] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -3096,15 +3097,76 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           <Plus className="w-5 h-5 transition-transform" />
                         </button>
 
+                        {/* Agent Switcher — drop-up caret next to plus */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setIsAgentSwitcherOpen(!isAgentSwitcherOpen)}
+                            className={`p-2 rounded-full transition-all shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer ${isAgentSwitcherOpen ? (isDarkMode ? 'bg-slate-600 text-white' : 'bg-slate-200 text-slate-700') : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                            title="Switch Agent"
+                          >
+                            <ChevronDown className={`w-4 h-4 transition-transform ${isAgentSwitcherOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isAgentSwitcherOpen && (
+                            <div className={`absolute bottom-full left-0 mb-2 rounded-xl shadow-xl border overflow-hidden z-50 min-w-[200px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                              {Object.entries(agents).map(([id, ag]) => (
+                                <button
+                                  key={id}
+                                  onClick={() => {
+                                    setIsAgentSwitcherOpen(false);
+                                    if (id !== params.agentId) {
+                                      router.push(`/portal/dashboard/${orgId}/ai-agents/${id}`);
+                                    }
+                                  }}
+                                  disabled={id === params.agentId}
+                                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                                    id === params.agentId
+                                      ? (isDarkMode ? 'bg-slate-700/50 text-slate-500 cursor-default' : 'bg-slate-50 text-slate-400 cursor-default')
+                                      : (isDarkMode ? 'hover:bg-slate-700 text-white cursor-pointer' : 'hover:bg-slate-50 text-slate-800 cursor-pointer')
+                                  }`}
+                                >
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                    id === 'iris'
+                                      ? (isDarkMode ? 'bg-purple-900/40 border border-purple-700' : 'bg-purple-50 border border-purple-200')
+                                      : (isDarkMode ? 'bg-slate-700 border border-slate-600' : 'bg-slate-100 border border-slate-200')
+                                  }`}>
+                                    {id === 'iris'
+                                      ? <Palette className={`w-4 h-4 ${id === params.agentId ? (isDarkMode ? 'text-slate-500' : 'text-slate-400') : (isDarkMode ? 'text-purple-400' : 'text-purple-500')}`} />
+                                      : <Bot className={`w-4 h-4 ${id === params.agentId ? (isDarkMode ? 'text-slate-500' : 'text-slate-400') : (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`} />}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{ag.name}</span>
+                                    <span className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                      {id === 'iris' ? 'Image Generation' : 'Executive Assistant'}
+                                    </span>
+                                  </div>
+                                  {id === params.agentId && (
+                                    <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-600 text-slate-400' : 'bg-slate-100 text-slate-400'}`}>Current</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         <Input
                           placeholder="Ask anything..."
                           className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 sm:pl-3 pr-24 sm:pr-28 min-h-[44px] sm:min-h-[64px] bg-transparent placeholder:text-slate-400 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
-                          value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); setIsPlusMenuOpen(false); } }}
+                          value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); } }}
                         />
 
                         <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                          {/* Mic (STT) — always visible */}
+                          {!isTyping && typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                            <button
+                              onClick={toggleSpeechToText}
+                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                              title={isListening ? 'Stop listening' : 'Speech to text'}
+                            >
+                              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                          )}
+                          {/* Voice pill OR Send button */}
                           {(!inputValue.trim() && pendingAttachments.length === 0 && !isTyping) ? (
-                            /* Voice pill — shown when input is empty */
                             <button
                               onClick={openVoiceSession}
                               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full transition-all cursor-pointer hover:opacity-80 active:scale-95 ${isDarkMode ? 'bg-white text-black' : 'bg-slate-900 text-white'}`}
@@ -3114,21 +3176,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               <span className="text-sm font-medium">Voice</span>
                             </button>
                           ) : (
-                            /* Mic + Send — shown when input has text */
-                            <>
-                              {!isTyping && typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
-                                <button
-                                  onClick={toggleSpeechToText}
-                                  className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
-                                  title={isListening ? 'Stop listening' : 'Speech to text'}
-                                >
-                                  <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
-                                </button>
-                              )}
-                              <Button size="icon" onClick={() => { handleSendMessage(); setIsPlusMenuOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
-                                {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
-                              </Button>
-                            </>
+                            <Button size="icon" onClick={() => { handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+                              {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                            </Button>
                           )}
                         </div>
                       </div>
