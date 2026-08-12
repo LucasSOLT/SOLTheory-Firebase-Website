@@ -1873,11 +1873,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none`} tabIndex={-1}>
 
           <OrgProvider orgId={currentOrgId}>
-            {isMemberReady ? children : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-              </div>
-            )}
+            {children}
           </OrgProvider>
 
 

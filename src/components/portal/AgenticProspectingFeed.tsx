@@ -252,9 +252,10 @@ function ToolRow({ tool, isDarkMode }: { tool: ProspectingTool; isDarkMode: bool
         aria-label={`${tool.name} findings`}
         style={{
           scrollSnapType: "x mandatory",
-          scrollbarWidth: "thin",
+          scrollbarWidth: "none",
           WebkitOverflowScrolling: "touch",
           overscrollBehavior: "contain",
+          msOverflowStyle: "none",
         }}
       >
         {tool.findings.map((finding) => (
