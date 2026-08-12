@@ -206,6 +206,21 @@ export default function AgenticProspectingFeed({ orgId }: AgenticProspectingFeed
           {tools.map((tool) => (
             <ToolRow key={tool.id} tool={tool} isDarkMode={isDarkMode} />
           ))}
+
+          {/* Blank placeholder rows — fill empty space for future prospecting tools */}
+          {Array.from({ length: 3 }).map((_, rowIdx) => (
+            <div key={`placeholder-row-${rowIdx}`} className="shrink-0">
+              <div className="flex gap-3 pb-2">
+                {Array.from({ length: 3 }).map((_, cardIdx) => (
+                  <div
+                    key={`ph-${rowIdx}-${cardIdx}`}
+                    className={`shrink-0 rounded-xl border ${isDarkMode ? "bg-slate-800/20 border-slate-700/30" : "bg-slate-50/40 border-slate-200/50"}`}
+                    style={{ width: CARD_W, minHeight: 160 }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

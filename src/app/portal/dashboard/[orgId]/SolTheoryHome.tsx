@@ -234,6 +234,15 @@ export function SolTheoryHome() {
     })();
   }, [user, firestore]);
 
+  // ╔══════════════════════════════════════════════════════════════════════════╗
+  // ║  ⚠️  FROZEN CODE — Instagram Feed Data Fetching (DO NOT MODIFY) ⚠️      ║
+  // ║                                                                        ║
+  // ║  The three useEffect hooks below (steps 1–3) power the Instagram Feed  ║
+  // ║  tile on the dashboard. They are PRODUCTION-STABLE as of Aug 2026.     ║
+  // ║  DO NOT refactor, rename, reorder, or restructure these hooks.         ║
+  // ║  See: .agents/AGENTS.md for the full frozen-code policy.               ║
+  // ╚══════════════════════════════════════════════════════════════════════════╝
+
   // 1. Check Instagram connection in Firestore
   useEffect(() => {
     if (!firestore) return;
@@ -328,6 +337,9 @@ export function SolTheoryHome() {
     })();
     return () => { cancelled = true; };
   }, [igConnected, orgId]);
+  // ╔══════════════════════════════════════════════════════════════════════════╗
+  // ║  END FROZEN CODE — Instagram Feed Data Fetching                        ║
+  // ╚══════════════════════════════════════════════════════════════════════════╝
   useEffect(() => {
     if (!firestore) return;
     const docRef = doc(firestore, "cms_config", "news_slideshow");
@@ -619,6 +631,10 @@ export function SolTheoryHome() {
               </div>
             </CmsTileWrapper>
 
+            {/* ╔══════════════════════════════════════════════════════════════╗
+                ║  ⚠️ FROZEN — Instagram Feed Tile JSX (DO NOT MODIFY) ⚠️       ║
+                ║  Production-stable as of Aug 2026. See .agents/AGENTS.md     ║
+                ╚══════════════════════════════════════════════════════════════╝ */}
             {/* Slot 5: Instagram Feed */}
             <CmsTileWrapper tileId="tile-instagram" tileName="Instagram Feed" className="flex-1 min-w-0">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
@@ -707,6 +723,9 @@ export function SolTheoryHome() {
                 </div>
               </div>
             </CmsTileWrapper>
+            {/* ╔══════════════════════════════════════════════════════════════╗
+                ║  END FROZEN — Instagram Feed Tile JSX                       ║
+                ╚══════════════════════════════════════════════════════════════╝ */}
           </div>
 
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
