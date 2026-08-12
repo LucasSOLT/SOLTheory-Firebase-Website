@@ -1604,9 +1604,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
     }
 
-    // Filter out welcome greeting messages (bot-only messages that were never part of a real session)
-    const realMessages = messages.filter(m => m.isSelf || messages.some(um => um.isSelf));
+    // Map internal action keys to user-facing display text
+    const irisButtonLabels: Record<string, string> = {
+      '__iris_followup__artwork': 'Generate artwork',
+      '__iris_followup__logo': 'Design a logo',
+      '__iris_followup__social': 'Create a social post',
+      '__iris_followup__scene': 'Illustrate a scene',
+      '__iris_followup__sketch': 'Sketch a concept',
+    };
     const msgSendTimestamp = Date.now();
+    const realMessages = messages.filter(m => m.isSelf || messages.some(um => um.isSelf));
+    const msgText = irisButtonLabels[textToSend.trim()] || textToSend.trim() || (userMsgImageUrl ? "Attached image" : "Uploaded file");
     const userMsg: Message = { id: uid(), text: msgText, isSelf: true, sendTimestamp: msgSendTimestamp };
     if (userMsgImageUrl) {
       userMsg.imageUrl = userMsgImageUrl;
