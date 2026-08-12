@@ -8,7 +8,7 @@ import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { Eye, EyeOff, Lock, Mail, ArrowRight, BarChart3, Loader2, ChevronLeft } from "lucide-react";
 import { useAuth, useFirestore } from "@/firebase";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
@@ -22,9 +22,35 @@ export default function InsightLoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showLoginCube, setShowLoginCube] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const auth = useAuth();
   const firestore = useFirestore();
+
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError("Please enter your email address first.");
+      return;
+    }
+    setResetLoading(true);
+    setError("");
+    try {
+      await sendPasswordResetEmail(auth, trimmedEmail);
+      setResetSent(true);
+    } catch (err: any) {
+      if (err.code === "auth/user-not-found") {
+        setError("No account found with that email address.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else {
+        setError("Failed to send reset email. Please try again.");
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   // Force dark mode on this page
   useEffect(() => {
@@ -362,7 +388,14 @@ export default function InsightLoginPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-medium text-slate-300">Password</label>
-                      <a href="#" className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        disabled={resetLoading}
+                        className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {resetLoading ? "Sending..." : resetSent ? "✓ Reset email sent!" : "Forgot password?"}
+                      </button>
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
