@@ -7,6 +7,7 @@ import {
   query,
   where,
   onSnapshot,
+  doc,
   orderBy,
   Timestamp,
 } from "firebase/firestore";
@@ -88,11 +89,25 @@ function afterCutoff(dateVal: any, cutoff: Date | null): boolean {
 
 /* ── Hook ──────────────────────────────────────────────── */
 
+export interface BIPipelineStage {
+  id: string;
+  name: string;
+  color: string;
+  probability: number;
+}
+
+export interface BIPipelineConfig {
+  id: string;
+  name: string;
+  stages: BIPipelineStage[];
+}
+
 export interface BIData {
   crmContacts: CRMContact[];
   grants: GrantSuggestion[];
   timesheetEntries: TimesheetEntry[];
   instagramPosts: InstagramPost[];
+  pipelineConfig: BIPipelineConfig | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -103,8 +118,25 @@ export function useBIData(orgId: string, dateRange: DateRange): BIData {
   const [grantsRaw, setGrantsRaw] = useState<GrantSuggestion[]>([]);
   const [timesheetsRaw, setTimesheetsRaw] = useState<TimesheetEntry[]>([]);
   const [instaRaw, setInstaRaw] = useState<InstagramPost[]>([]);
-  const [loadingFlags, setLoadingFlags] = useState({ crm: true, grants: true, ts: true, ig: true });
+  const [pipelineConfig, setPipelineConfig] = useState<BIPipelineConfig | null>(null);
+  const [loadingFlags, setLoadingFlags] = useState({ crm: true, grants: true, ts: true, ig: true, pipeline: true });
   const [error, setError] = useState<string | null>(null);
+
+  // ── Pipeline Config ──
+  useEffect(() => {
+    if (!firestore || !orgId) return;
+    const docRef = doc(firestore, "orgs", orgId, "crm-instances", "default", "settings", "pipelineConfig");
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        setPipelineConfig(snap.data() as BIPipelineConfig);
+      }
+      setLoadingFlags((f) => ({ ...f, pipeline: false }));
+    }, (err) => {
+      console.error("[BI] Pipeline config snapshot error:", err);
+      setLoadingFlags((f) => ({ ...f, pipeline: false }));
+    });
+    return unsub;
+  }, [firestore, orgId]);
 
   // ── CRM Contacts ──
   useEffect(() => {
@@ -198,5 +230,5 @@ export function useBIData(orgId: string, dateRange: DateRange): BIData {
 
   const isLoading = Object.values(loadingFlags).some(Boolean);
 
-  return { crmContacts, grants, timesheetEntries, instagramPosts, isLoading, error };
+  return { crmContacts, grants, timesheetEntries, instagramPosts, pipelineConfig, isLoading, error };
 }

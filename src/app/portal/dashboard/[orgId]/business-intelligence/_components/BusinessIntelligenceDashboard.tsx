@@ -139,7 +139,7 @@ export default function BusinessIntelligenceDashboard() {
   const dk = isDarkMode;
   const [dateRange, setDateRange] = useState<DateRange>("30d");
 
-  const { crmContacts, grants, timesheetEntries, instagramPosts, isLoading } = useBIData(
+  const { crmContacts, grants, timesheetEntries, instagramPosts, pipelineConfig, isLoading } = useBIData(
     orgId,
     dateRange
   );
@@ -298,7 +298,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={crmContacts.length === 0}
               emptyMessage="No CRM contacts yet — add contacts to see pipeline data"
             >
-              <PipelineBreakdownChart contacts={crmContacts} dk={dk} />
+              <PipelineBreakdownChart contacts={crmContacts} pipelineConfig={pipelineConfig} dk={dk} />
             </SectionCard>
 
             <SectionCard

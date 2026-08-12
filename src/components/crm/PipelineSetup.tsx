@@ -5,7 +5,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import {
   TrendingUp, Handshake, UserCheck, GraduationCap, FolderKanban,
   Plus, Trash2, GripVertical, X, Sparkles, Settings2, ChevronRight,
-  Palette, Wand2,
+  Palette, Wand2, Lock,
 } from "lucide-react";
 
 /* ─────────────── TYPES ─────────────── */
@@ -32,6 +32,7 @@ export const PIPELINE_PRESETS: (PipelineConfig & { description: string; iconName
     description: "Classic lead-to-close sales funnel",
     iconName: "TrendingUp",
     stages: [
+      { id: "un_tagged", name: "Un-Tagged", color: "#94A3B8", probability: 0 },
       { id: "cold_lead", name: "Cold Lead", color: "#3B82F6", probability: 10 },
       { id: "warm_lead", name: "Warm Lead", color: "#F97316", probability: 30 },
       { id: "interested", name: "Interested", color: "#8B5CF6", probability: 60 },
@@ -44,6 +45,7 @@ export const PIPELINE_PRESETS: (PipelineConfig & { description: string; iconName
     description: "Track deals from qualification to close",
     iconName: "Handshake",
     stages: [
+      { id: "un_tagged", name: "Un-Tagged", color: "#94A3B8", probability: 0 },
       { id: "qualified", name: "Qualified", color: "#06B6D4", probability: 20 },
       { id: "proposal", name: "Proposal Sent", color: "#8B5CF6", probability: 40 },
       { id: "negotiation", name: "Negotiation", color: "#F59E0B", probability: 70 },
@@ -57,6 +59,7 @@ export const PIPELINE_PRESETS: (PipelineConfig & { description: string; iconName
     description: "Guide new clients through setup",
     iconName: "UserCheck",
     stages: [
+      { id: "un_tagged", name: "Un-Tagged", color: "#94A3B8", probability: 0 },
       { id: "new", name: "New Client", color: "#3B82F6", probability: 0 },
       { id: "in_review", name: "In Review", color: "#F97316", probability: 0 },
       { id: "onboarding", name: "Onboarding", color: "#8B5CF6", probability: 0 },
@@ -69,6 +72,7 @@ export const PIPELINE_PRESETS: (PipelineConfig & { description: string; iconName
     description: "Hiring pipeline from application to offer",
     iconName: "GraduationCap",
     stages: [
+      { id: "un_tagged", name: "Un-Tagged", color: "#94A3B8", probability: 0 },
       { id: "applied", name: "Applied", color: "#06B6D4", probability: 10 },
       { id: "screening", name: "Screening", color: "#F97316", probability: 30 },
       { id: "interview", name: "Interview", color: "#8B5CF6", probability: 50 },
@@ -82,6 +86,7 @@ export const PIPELINE_PRESETS: (PipelineConfig & { description: string; iconName
     description: "Move projects from backlog to done",
     iconName: "FolderKanban",
     stages: [
+      { id: "un_tagged", name: "Un-Tagged", color: "#94A3B8", probability: 0 },
       { id: "backlog", name: "Backlog", color: "#94A3B8", probability: 0 },
       { id: "in_progress", name: "In Progress", color: "#3B82F6", probability: 0 },
       { id: "review", name: "In Review", color: "#F59E0B", probability: 0 },
@@ -162,10 +167,11 @@ export default function PipelineSetup({ isOpen, onClose, onApply, currentConfig 
 
   const handleApplyCustom = () => {
     if (!customName.trim() || customStages.length === 0) return;
+    const untaggedStage: PipelineStage = { id: "un_tagged", name: "Un-Tagged", color: "#94A3B8", probability: 0 };
     onApply({
       id: "custom",
       name: customName.trim(),
-      stages: customStages,
+      stages: [untaggedStage, ...customStages],
     });
   };
 
@@ -293,6 +299,27 @@ export default function PipelineSetup({ isOpen, onClose, onApply, currentConfig 
               {/* Stages */}
               <label className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-2 block`}>Stages</label>
               <div className="space-y-2 mb-4">
+                {/* Permanent Un-Tagged Stage */}
+                <div
+                  className={`flex items-center gap-3 p-3 rounded-xl border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/50 border-slate-200'}`}
+                >
+                  <div className="w-4 h-4 ml-1 flex items-center justify-center text-slate-400">
+                    <Lock className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="relative">
+                    <div className="w-8 h-8 rounded-lg border-0" style={{ backgroundColor: '#94A3B8' }} />
+                  </div>
+                  <div className={`flex-1 text-sm font-medium rounded-lg px-3 py-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Un-Tagged <span className="text-[10px] italic ml-1 font-normal opacity-70">— Permanent</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 w-24 shrink-0">
+                    <div className={`w-14 text-xs text-center font-semibold rounded-lg px-2 py-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      0
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold">%</span>
+                  </div>
+                  <div className="w-7 h-7" />
+                </div>
                 {customStages.map((stage, idx) => (
                   <div
                     key={stage.id}
@@ -358,6 +385,11 @@ export default function PipelineSetup({ isOpen, onClose, onApply, currentConfig 
               <div className="mt-6 mb-4">
                 <label className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-2 block`}>Preview</label>
                 <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ backgroundColor: '#94A3B815' }}>
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#94A3B8' }} />
+                    <span className="text-xs font-medium" style={{ color: '#94A3B8' }}>Un-Tagged</span>
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0" />
                   {customStages.map((stage, i) => (
                     <React.Fragment key={stage.id}>
                       <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ backgroundColor: stage.color + '15' }}>
