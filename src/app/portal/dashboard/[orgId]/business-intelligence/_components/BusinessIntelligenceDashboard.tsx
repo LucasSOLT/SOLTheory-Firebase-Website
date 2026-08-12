@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
+import { getOrgConfig } from "@/lib/org-config";
 import {
   BarChart3,
   TrendingUp,
@@ -15,6 +16,7 @@ import {
   Loader2,
   AlertCircle,
   PieChart as PieChartIcon,
+  Sparkles,
 } from "lucide-react";
 import { useBIData, DateRange } from "../_hooks/useBIData";
 import RevenueForecastChart from "./RevenueForecastChart";
@@ -28,6 +30,7 @@ import ServiceBreakdownChart from "./ServiceBreakdownChart";
 import BillableRevenueChart from "./BillableRevenueChart";
 import InstagramOverviewCard from "./InstagramOverviewCard";
 import PostActivityChart from "./PostActivityChart";
+import RequestBIPanelModal from "./RequestBIPanelModal";
 
 /* ── KPI Card ──────────────────────────────────────────── */
 
@@ -147,6 +150,9 @@ export default function BusinessIntelligenceDashboard() {
   const { isDarkMode } = useTheme();
   const dk = isDarkMode;
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const orgConfig = getOrgConfig(orgId);
+  const orgLabel = orgConfig?.label || orgId;
 
   const { crmContacts, allCrmContacts, grants, timesheetEntries, instagramPosts, pipelineConfig, isLoading } = useBIData(
     orgId,
@@ -189,6 +195,7 @@ export default function BusinessIntelligenceDashboard() {
   ];
 
   return (
+    <>
     <div className={`min-h-screen p-4 sm:p-6 lg:p-8 ${dk ? "text-white" : "text-slate-900"}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -225,6 +232,19 @@ export default function BusinessIntelligenceDashboard() {
             </button>
           ))}
         </div>
+
+        {/* Request Custom Panel Button */}
+        <button
+          onClick={() => setShowRequestModal(true)}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+            dk
+              ? "bg-indigo-600/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/20 hover:border-indigo-500/50"
+              : "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          Request Custom Panel
+        </button>
       </div>
 
       {/* Loading State */}
@@ -406,5 +426,14 @@ export default function BusinessIntelligenceDashboard() {
         </>
       )}
     </div>
+
+    <RequestBIPanelModal
+      isOpen={showRequestModal}
+      onClose={() => setShowRequestModal(false)}
+      orgId={orgId}
+      orgName={orgLabel}
+      dk={dk}
+    />
+    </>
   );
 }
