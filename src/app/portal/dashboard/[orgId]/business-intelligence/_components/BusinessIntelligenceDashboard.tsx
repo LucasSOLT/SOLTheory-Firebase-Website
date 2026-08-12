@@ -14,6 +14,7 @@ import {
   Award,
   Loader2,
   AlertCircle,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { useBIData, DateRange } from "../_hooks/useBIData";
 import RevenueForecastChart from "./RevenueForecastChart";
