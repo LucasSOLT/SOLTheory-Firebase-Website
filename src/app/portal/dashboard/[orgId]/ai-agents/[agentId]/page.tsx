@@ -1660,13 +1660,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const botMsg: Message = { id: uid(), text: followupResponse, isSelf: false };
         const updatedMsgs = [...newMessages, botMsg];
         setMessages(updatedMsgs);
+        setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: updatedMsgs, updatedAt: Date.now(), title: s.title === 'New Chat' ? 'Iris Chat' : s.title } : s));
         setIsTyping(false);
-
-        // Save session
-        if (firestore && user?.uid && currentSessionId) {
-          const sessionRef = doc(firestore, 'users', user.uid, 'jarvis_sessions', currentSessionId);
-          setDoc(sessionRef, { title: 'Iris Chat', messages: updatedMsgs, updatedAt: Date.now() }, { merge: true }).catch(() => {});
-        }
         return;
       }
 
@@ -1715,16 +1710,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         // Replace the pending message with the final generated result
         setMessages(prev => prev.map(m => m.id === pendingBotMsgId ? botMsg : m));
 
-        // Save session
+        // Save session in state (auto-saves to Firestore via useEffect)
         const updatedMsgs = messagesWithPending.map(m => m.id === pendingBotMsgId ? botMsg : m);
         const sessionTitle = rawText.slice(0, 40) || 'Image Generation';
         setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: updatedMsgs, updatedAt: Date.now(), title: s.title === 'New Chat' ? sessionTitle : s.title } : s));
-
-        // Persist to Firestore
-        if (firestore && user?.uid && currentSessionId) {
-          const sessionRef = doc(firestore, 'users', user.uid, 'jarvis_sessions', currentSessionId);
-          setDoc(sessionRef, { title: sessionTitle, messages: updatedMsgs, updatedAt: Date.now() }, { merge: true }).catch(() => {});
-        }
       } catch (err: any) {
         console.error('[Iris] Image generation error:', err);
         const errorBotMsg: Message = {
@@ -1739,11 +1728,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const updatedMsgs = messagesWithPending.map(m => m.id === pendingBotMsgId ? errorBotMsg : m);
         const sessionTitle = rawText.slice(0, 40) || 'Image Generation';
         setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: updatedMsgs, updatedAt: Date.now(), title: s.title === 'New Chat' ? sessionTitle : s.title } : s));
-
-        if (firestore && user?.uid && currentSessionId) {
-          const sessionRef = doc(firestore, 'users', user.uid, 'jarvis_sessions', currentSessionId);
-          setDoc(sessionRef, { title: sessionTitle, messages: updatedMsgs, updatedAt: Date.now() }, { merge: true }).catch(() => {});
-        }
       }
       return; // Skip the normal chat flow
     }
