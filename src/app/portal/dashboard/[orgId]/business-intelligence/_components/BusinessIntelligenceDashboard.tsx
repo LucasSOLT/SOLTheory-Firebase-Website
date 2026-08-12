@@ -16,6 +16,9 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useBIData, DateRange } from "../_hooks/useBIData";
+import RevenueForecastChart from "./RevenueForecastChart";
+import PipelineBreakdownChart from "./PipelineBreakdownChart";
+import RevenueByContactChart from "./RevenueByContactChart";
 
 /* ── KPI Card ──────────────────────────────────────────── */
 
@@ -275,9 +278,9 @@ export default function BusinessIntelligenceDashboard() {
             />
           </div>
 
-          {/* Chart Grid — placeholders for Steps 2–5 */}
+          {/* Chart Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {/* CRM Charts (Step 2) */}
+            {/* CRM Charts */}
             <SectionCard
               title="Revenue Forecast"
               icon={TrendingUp}
@@ -285,9 +288,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={crmContacts.length === 0}
               emptyMessage="No CRM contacts yet — add contacts to see revenue trends"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 2</p>
-              </div>
+              <RevenueForecastChart contacts={crmContacts} dk={dk} />
             </SectionCard>
 
             <SectionCard
@@ -297,9 +298,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={crmContacts.length === 0}
               emptyMessage="No CRM contacts yet — add contacts to see pipeline data"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 2</p>
-              </div>
+              <PipelineBreakdownChart contacts={crmContacts} dk={dk} />
             </SectionCard>
 
             <SectionCard
@@ -309,9 +308,7 @@ export default function BusinessIntelligenceDashboard() {
               isEmpty={crmContacts.length === 0}
               emptyMessage="No CRM contacts yet"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 2</p>
-              </div>
+              <RevenueByContactChart contacts={crmContacts} dk={dk} />
             </SectionCard>
 
             {/* Grant Charts (Step 3) */}
