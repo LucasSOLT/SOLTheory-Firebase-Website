@@ -1110,20 +1110,46 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     };
   }, [isModelDropdownOpen, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
 
-  const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string }> = {
+  const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string, heroDesc?: string, heroIcon?: string, quickActions?: { label: string, action: string }[] }> = {
     "jarvis": {
       name: "Jarvis (Executive Agent)",
       greeting: "Hello. I am Jarvis. How can I assist you today?",
       theme: "border-blue-200 text-blue-600 bg-blue-50",
       chatBg: isDarkMode ? "bg-slate-800/80 border-slate-700 shadow-lg" : "bg-[#faf8f3] border-slate-200 shadow-sm",
-      accent: "text-blue-600"
-    }
+      accent: "text-blue-600",
+      heroDesc: "Ask anything \u2014 from drafting emails and scheduling events to strategy advice and deep research.",
+      heroIcon: "bot",
+      quickActions: [
+        { label: '\ud83d\udce7 Draft an email', action: 'Draft an email' },
+        { label: '\ud83d\udcc5 Schedule a meeting', action: 'Schedule a meeting' },
+        { label: '\ud83d\udd0d Research a topic', action: 'Research a topic' },
+        { label: '\ud83d\udc64 Add a contact', action: 'Add a contact' },
+        { label: '\ud83d\udcc7 Edit contact book', action: 'Edit contact book' },
+      ],
+    },
+    "iris": {
+      name: "Iris (Illustrative Agent)",
+      greeting: "Hello! I'm Iris. Describe any image and I'll bring it to life.",
+      theme: "border-purple-200 text-purple-600 bg-purple-50",
+      chatBg: isDarkMode ? "bg-slate-800/80 border-slate-700 shadow-lg" : "bg-[#faf8f3] border-slate-200 shadow-sm",
+      accent: "text-purple-600",
+      heroDesc: "Describe any image \u2014 from creative illustrations and marketing graphics to concept art and social media visuals.",
+      heroIcon: "palette",
+      quickActions: [
+        { label: '\ud83c\udfa8 Generate artwork', action: 'Generate a beautiful piece of artwork' },
+        { label: '\ud83d\uddbc\ufe0f Design a logo', action: 'Design a modern minimalist logo' },
+        { label: '\ud83d\udcf8 Create a social post', action: 'Create an eye-catching social media post image' },
+        { label: '\ud83c\udf05 Illustrate a scene', action: 'Illustrate a dramatic sunset over mountains' },
+        { label: '\u270f\ufe0f Sketch a concept', action: 'Sketch a concept design for a mobile app' },
+      ],
+    },
   };
 
   const agent = agents[params.agentId as string];
   if (!agent) notFound();
 
   const isEmailAgent = params.agentId === "jarvis";
+  const isImageAgent = params.agentId === "iris";
 
   // Initialize – Load sessions from Firestore (with localStorage fallback migration)
   const sessionsLoadedRef = useRef(false);
@@ -1597,6 +1623,51 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const newMessages = [...realMessages, userMsg, ...extraUserMessages];
     const msgSendTimestamp = Date.now();
     setMessages(newMessages); setIsTyping(true); setInputValue("");
+
+    // ── IRIS: Image Generation Path ──
+    // Route to /api/generate-image instead of /api/chat when using Iris
+    if (isImageAgent) {
+      try {
+        const headers = await getAuthHeaders();
+        headers['Content-Type'] = 'application/json';
+        const res = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ prompt: textToSend.trim(), orgId }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        const botMsg: Message = { id: uid(), text: '', isSelf: false, sendTimestamp: Date.now() };
+
+        if (data.imageBase64) {
+          botMsg.imageUrl = `data:${data.mimeType || 'image/png'};base64,${data.imageBase64}`;
+          botMsg.text = data.textContent || '';
+        } else {
+          botMsg.text = data.textContent || 'I wasn\'t able to generate that image. Please try a different description.';
+        }
+
+        setMessages(prev => [...prev, botMsg]);
+
+        // Save session
+        const updatedMsgs = [...newMessages, botMsg];
+        const sessionTitle = textToSend.trim().slice(0, 40) || 'Image Generation';
+        setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: updatedMsgs, updatedAt: Date.now(), title: s.title === 'New Chat' ? sessionTitle : s.title } : s));
+
+        // Persist to Firestore
+        if (firestore && user?.uid && currentSessionId) {
+          const sessionRef = doc(firestore, 'users', user.uid, 'jarvis_sessions', currentSessionId);
+          setDoc(sessionRef, { title: sessionTitle, messages: updatedMsgs, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+        }
+      } catch (err: any) {
+        console.error('[Iris] Image generation error:', err);
+        setMessages(prev => [...prev, { id: uid(), text: `Image generation failed: ${err.message}`, isSelf: false }]);
+      } finally {
+        setIsTyping(false);
+      }
+      return; // Skip the normal chat flow
+    }
 
     // Pre-compute citations client-side (instant — pure string matching) for thinking bubble
     try {
@@ -2825,26 +2896,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           {/* Clean centered greeting */}
                           <div className="flex flex-col items-center gap-4 mb-8">
                             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'}`}>
-                              <Bot className={`w-8 h-8 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                              {agent.heroIcon === 'palette'
+                                ? <Palette className={`w-8 h-8 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
+                                : <Bot className={`w-8 h-8 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />}
                             </div>
                             <h2 className={`text-xl sm:text-3xl md:text-5xl font-light tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                               {agent.name}
                             </h2>
                             <p className={`text-center text-sm max-w-md ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              Ask anything — from drafting emails and scheduling events to strategy advice and deep research.
+                              {agent.heroDesc || 'Ask anything \u2014 from drafting emails and scheduling events to strategy advice and deep research.'}
                             </p>
 
                           </div>
                           
                           {/* Quick action suggestions */}
                           <div className="flex flex-wrap justify-center gap-2 max-w-lg px-4">
-                            {[
-                              { label: '📧 Draft an email', action: 'Draft an email' },
-                              { label: '📅 Schedule a meeting', action: 'Schedule a meeting' },
-                              { label: '🔍 Research a topic', action: 'Research a topic' },
-                              { label: '👤 Add a contact', action: 'Add a contact' },
-                              { label: '📇 Edit contact book', action: 'Edit contact book' },
-                            ].map((suggestion) => (
+                            {(agent.quickActions || [
+                              { label: '\ud83d\udce7 Draft an email', action: 'Draft an email' },
+                              { label: '\ud83d\udcc5 Schedule a meeting', action: 'Schedule a meeting' },
+                              { label: '\ud83d\udd0d Research a topic', action: 'Research a topic' },
+                              { label: '\ud83d\udc64 Add a contact', action: 'Add a contact' },
+                              { label: '\ud83d\udcc7 Edit contact book', action: 'Edit contact book' },
+                            ]).map((suggestion) => (
                               <button
                                 key={suggestion.label}
                                 onClick={() => handleSendMessage(suggestion.action)}
@@ -2876,19 +2949,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         {/* Message row — only show when there's actual content (text or image) to display */}
                         {(msg.isSelf || msg.text || msg.imageUrl) && (
                         <div className={`flex gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-4 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-4 sm:pr-20'}`}>
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />}</div>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : (isImageAgent ? <Palette className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />)}</div>
                         <div className={`space-y-1 pt-1 min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : ''}`}>
                           <div className={`inline-block p-3 sm:p-4 text-left text-sm sm:text-base max-w-full break-words animate-in fade-in duration-300 ${msg.isSelf ? `rounded-2xl shadow-lg backdrop-blur-md ${isDarkMode ? 'bg-indigo-900/40 border border-indigo-800/50 text-slate-200 rounded-tr-sm' : 'bg-slate-300/50 text-slate-800 rounded-tr-sm'}` : `${isDarkMode ? 'text-slate-200' : 'text-slate-800'} [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold [&>h2]:text-lg [&>h2]:font-bold [&>h2]:mt-4 [&>h2]:mb-2`}`}>
                             {msg.imageUrl ? (
                               <div className="flex flex-col mb-2">
-                                <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">
-                                  {msg.text.startsWith('Uploaded image:') ? msg.text.replace('Uploaded image: ', '') : (msg.text === 'Uploaded image' || msg.text === 'Attached image' ? 'pasted-image.jpg' : 'image.jpg')}
-                                </span>
+                                {msg.isSelf && (
+                                  <span className="text-xs font-semibold text-slate-500 mb-2 truncate max-w-[200px]">
+                                    {msg.text.startsWith('Uploaded image:') ? msg.text.replace('Uploaded image: ', '') : (msg.text === 'Uploaded image' || msg.text === 'Attached image' ? 'pasted-image.jpg' : 'image.jpg')}
+                                  </span>
+                                )}
                                 <img
                                   src={msg.imageUrl}
-                                  alt="Uploaded Preview"
-                                  className="max-w-[200px] max-h-[200px] object-cover rounded shadow-md cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.startsWith('Uploaded image:') ? msg.text.replace('Uploaded image: ', '') : 'pasted-image.jpg' })}
+                                  alt={msg.isSelf ? 'Uploaded Preview' : 'Generated Image'}
+                                  className={`${msg.isSelf ? 'max-w-[200px] max-h-[200px] object-cover' : 'max-w-full sm:max-w-[400px] max-h-[400px] object-contain'} rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity`}
+                                  onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.isSelf ? (msg.text.startsWith('Uploaded image:') ? msg.text.replace('Uploaded image: ', '') : 'pasted-image.jpg') : 'generated-image.png' })}
                                 />
                               </div>
                             ) : null}

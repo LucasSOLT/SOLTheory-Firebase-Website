@@ -49,7 +49,7 @@ const AGENTS: Agent[] = [
     id: 'iris',
     name: 'Iris',
     title: 'Image Generation',
-    status: 'Coming Soon',
+    status: 'Active' as const,
     category: 'Creative',
     description: 'Generate images and visual assets with AI',
     icon: ImageIcon
