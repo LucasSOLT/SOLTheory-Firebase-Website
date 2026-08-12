@@ -24,6 +24,7 @@ import GrantWinRateCard from "./GrantWinRateCard";
 import GrantScoreDistribution from "./GrantScoreDistribution";
 import TeamProductivityChart from "./TeamProductivityChart";
 import ServiceBreakdownChart from "./ServiceBreakdownChart";
+import BillableRevenueChart from "./BillableRevenueChart";
 
 /* ── KPI Card ──────────────────────────────────────────── */
 
@@ -373,11 +374,9 @@ export default function BusinessIntelligenceDashboard() {
               icon={DollarSign}
               dk={dk}
               isEmpty={timesheetEntries.length === 0}
-              emptyMessage="No timesheet entries yet"
+              emptyMessage="No timesheet entries yet — log hours to see revenue data"
             >
-              <div className={`h-48 rounded-lg flex items-center justify-center ${dk ? "bg-slate-700/30" : "bg-slate-50"}`}>
-                <p className={`text-sm ${dk ? "text-slate-500" : "text-slate-400"}`}>Chart coming in Step 4</p>
-              </div>
+              <BillableRevenueChart entries={timesheetEntries} dk={dk} />
             </SectionCard>
 
             {/* Instagram Charts (Step 5) */}
