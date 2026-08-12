@@ -124,7 +124,7 @@ export default function PipelineBreakdownChart({
     const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : "0";
     return (
       <div
-        className={`px-3 py-2 rounded-lg shadow-lg border text-xs ${
+        className={`px-3 py-2 rounded-lg shadow-lg border text-xs pointer-events-none select-none ${
           dk ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
         }`}
       >
@@ -221,7 +221,11 @@ export default function PipelineBreakdownChart({
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={<CustomTooltip />}
+                wrapperStyle={{ pointerEvents: "none", zIndex: 100 }}
+                isAnimationActive={false}
+              />
             </PieChart>
           </ResponsiveContainer>
           {/* Center label */}

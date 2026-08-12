@@ -104,6 +104,7 @@ export interface BIPipelineConfig {
 
 export interface BIData {
   crmContacts: CRMContact[];
+  allCrmContacts: CRMContact[];
   grants: GrantSuggestion[];
   timesheetEntries: TimesheetEntry[];
   instagramPosts: InstagramPost[];
@@ -230,5 +231,5 @@ export function useBIData(orgId: string, dateRange: DateRange): BIData {
 
   const isLoading = Object.values(loadingFlags).some(Boolean);
 
-  return { crmContacts, grants, timesheetEntries, instagramPosts, pipelineConfig, isLoading, error };
+  return { crmContacts, allCrmContacts: crmRaw, grants, timesheetEntries, instagramPosts, pipelineConfig, isLoading, error };
 }
