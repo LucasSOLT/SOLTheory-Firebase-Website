@@ -478,6 +478,20 @@ export default function AIKnowledgeBasePage() {
                           const docRef = fsDoc(collection(firestore, "users", user.uid, "agents", `${orgId}_${agentId}`, "knowledge_docs"));
                           await setDoc(docRef, { title: file.name.replace('.pdf', ''), type: 'pdf', size: fullText.length, content: fullText, fileUrl: '', createdAt: new Date().toISOString() });
                           logActivity(firestore, 'file_uploaded', { email: user?.email || '', displayName: user?.displayName }, `Uploaded PDF: ${file.name}`);
+                          
+                          try {
+                            const headers = await getAuthHeaders();
+                            const processRes = await fetch('/api/knowledge-base/process', {
+                              method: 'POST',
+                              headers: { ...headers, 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ orgId, docId: docRef.id, title: file.name.replace('.pdf', ''), content: fullText }),
+                            });
+                            const processData = await processRes.json();
+                            console.log(`[KB] Indexed ${processData.chunksCreated} chunks`);
+                          } catch (err) {
+                            console.warn('[KB] Auto-indexing failed:', err);
+                          }
+
                           fetchRAGDocs();
                         } catch (err) { console.error('PDF upload error:', err); alert('Failed to process PDF.'); }
                         finally { setPdfUploading(false); }
@@ -509,6 +523,20 @@ export default function AIKnowledgeBasePage() {
                         const docRef = fsDoc(collection(firestore, "users", user.uid, "agents", `${orgId}_${agentId}`, "knowledge_docs"));
                         await setDoc(docRef, { title: ragTitle, type: 'text', size: ragTextContent.length, content: ragTextContent, fileUrl: '', createdAt: new Date().toISOString() });
                         logActivity(firestore, 'file_uploaded', { email: user?.email || '', displayName: user?.displayName }, `Uploaded knowledge doc: ${ragTitle}`);
+                        
+                        try {
+                          const headers = await getAuthHeaders();
+                          const processRes = await fetch('/api/knowledge-base/process', {
+                            method: 'POST',
+                            headers: { ...headers, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orgId, docId: docRef.id, title: ragTitle, content: ragTextContent }),
+                          });
+                          const processData = await processRes.json();
+                          console.log(`[KB] Indexed ${processData.chunksCreated} chunks`);
+                        } catch (err) {
+                          console.warn('[KB] Auto-indexing failed:', err);
+                        }
+
                         setRagTitle(''); setRagTextContent(''); fetchRAGDocs();
                       } catch (err) { alert('Failed to save text.'); console.error(err); }
                       finally { setIsRAGUploading(false); }

@@ -12,6 +12,7 @@
  */
 
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
+import { retrieveVectorChunks } from "./kb-vector-retriever";
 
 /* ═══════════════════════════════════════════════════════════════
  * TYPES
@@ -420,6 +421,40 @@ export async function retrieveSemanticChunks(
 ): Promise<RetrievedChunk[]> {
   const maxResults = options.maxResults || 8;
   const allChunks: Chunk[] = [];
+
+  try {
+    const vectorChunks = await retrieveVectorChunks(userQuery, { orgId: options.orgId, maxResults });
+    if (vectorChunks.length > 0) {
+      console.log(`[KB] Vector retrieval returned ${vectorChunks.length} chunks`);
+      
+      const mappedResults: RetrievedChunk[] = vectorChunks.map(vc => ({
+        text: vc.text,
+        source: vc.source,
+        score: vc.score,
+        type: vc.type as any,
+      }));
+
+      // Add PACT and org brain chunks and score them with TF-IDF, then merge
+      // Or just return mappedResults and add PACT/org brain?
+      // "ALSO still include pact and orgBrain snippets from the keyword search"
+      const extraChunks: Chunk[] = [];
+      if (options.pactText) {
+        extraChunks.push(...chunkPACTText(options.pactText));
+      }
+      if (options.orgBrainText) {
+        extraChunks.push(...chunkOrgBrain(options.orgBrainText));
+      }
+
+      if (extraChunks.length > 0) {
+        const extraScored = scoreChunks(userQuery, extraChunks, maxResults);
+        mappedResults.push(...extraScored);
+      }
+
+      return mappedResults.slice(0, maxResults);
+    }
+  } catch (vecErr) {
+    console.warn('[KB] Vector retrieval failed, falling back to keyword:', vecErr);
+  }
 
   try {
     // 1. Fetch knowledge docs from Firestore (server-side)

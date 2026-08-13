@@ -18,6 +18,8 @@ import { initAdmin } from "@/firebase/admin";
 import { getAuth } from "firebase-admin/auth";
 import { isGlobalAdmin, DEVELOPER_EMAIL, getOrgByEmailDomain } from "@/lib/org-config";
 import { getFirestore } from "firebase-admin/firestore";
+import { OrgRole, hasPermission } from "./rbac";
+import { isDeveloper } from "./org-config";
 
 type AuthSuccess = { ok: true; uid: string; email: string };
 type AuthFailure = { ok: false; response: NextResponse };
@@ -198,4 +200,38 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
       ),
     };
   }
+}
+
+/**
+ * Verify the user has at least the required role in the specified org.
+ * Developers bypass all role checks.
+ */
+export async function verifyRole(
+  req: Request,
+  orgId: string,
+  requiredRole: OrgRole
+): Promise<{ authenticated: true; uid: string; email: string; role: OrgRole }> {
+  // 1. Verify the request (existing verifyRequest logic)
+  const auth = await verifyRequest(req);
+  if (!auth.ok) {
+    throw new Error("Unauthorized");
+  }
+  
+  // 2. Developer bypass
+  if (isDeveloper(auth.email)) {
+    return { authenticated: true, uid: auth.uid, email: auth.email, role: 'owner' as OrgRole };
+  }
+  
+  // 3. Fetch member doc from orgs/{orgId}/members/{uid}
+  await initAdmin();
+  const db = getFirestore();
+  const memberDoc = await db.doc(`orgs/${orgId}/members/${auth.uid}`).get();
+  const role = (memberDoc.exists ? memberDoc.data()?.role : 'read-only') as OrgRole;
+  
+  // 4. Check permission
+  if (!hasPermission(role, requiredRole)) {
+    throw new Error(`Insufficient permissions: requires ${requiredRole}, user has ${role}`);
+  }
+  
+  return { authenticated: true, uid: auth.uid, email: auth.email || '', role };
 }
