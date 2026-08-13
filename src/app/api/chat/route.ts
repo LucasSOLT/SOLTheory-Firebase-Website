@@ -549,7 +549,7 @@ The current date/time for the user is: ${localTime}.`;
 
     let combinedKnowledge = "";
     if (semanticResult && Array.isArray(semanticResult) && semanticResult.length > 0) {
-      const docChunks = semanticResult.filter((c: any) => c.type === "document" || c.type === "text_entry");
+      const docChunks = semanticResult.filter((c: any) => c.type === "document" || c.type === "text_entry" || c.type === "vector");
       if (docChunks.length > 0) {
         combinedKnowledge = docChunks.map((c: any) =>
           `[Source: ${c.source}]\n${c.text}`
