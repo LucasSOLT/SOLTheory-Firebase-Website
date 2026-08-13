@@ -1377,7 +1377,7 @@ function ActionBoardContent() {
             return (
               <div
                 key={col.id}
-                className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 min-w-[220px] ${isDragOver ? `${col.dropBorder} ${col.dropBg} border-dashed border-2` : isDarkMode ? "border-slate-700 bg-slate-800/80 shadow-sm" : "border-slate-200/50 bg-[#f8fafc]/80 shadow-sm"}`}
+                className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 min-w-[220px] ${isDragOver ? `${col.dropBorder} ${col.dropBg} border-dashed border-2` : isDarkMode ? "border-white/10 bg-slate-900/60 backdrop-blur-xl shadow-2xl" : "border-slate-200/80 bg-white/70 backdrop-blur-xl shadow-sm shadow-slate-200/50"}`}
                 onDragOver={e => onDragOver(e, col.id)}
                 onDragLeave={onDragLeave}
                 onDrop={e => onDrop(e, col.id)}
@@ -1425,7 +1425,7 @@ function ActionBoardContent() {
                             if (target.closest('button') || target.closest('a') || target.closest('[data-no-dblclick]')) return;
                             openEditTaskModal(task);
                           }}
-                          className={`group ${isDarkMode ? 'bg-slate-800' : 'bg-[#fefdfb]'} rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
+                          className={`group ${isDarkMode ? 'bg-slate-900/60 backdrop-blur-xl' : 'bg-white/70 backdrop-blur-xl'} rounded-xl p-3.5 pl-5 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing active:shadow-lg active:scale-[1.01] relative border border-l-4 ${
                             openMenuId === task.id ? "z-50" : "z-10 hover:z-20"
                           } ${
                             highlightedTaskId === task.id

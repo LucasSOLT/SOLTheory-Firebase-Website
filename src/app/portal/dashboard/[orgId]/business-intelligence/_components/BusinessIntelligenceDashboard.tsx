@@ -53,13 +53,15 @@ function KPICard({
     <div
       className={`relative overflow-hidden rounded-2xl border p-5 transition-all hover:scale-[1.02] ${
         dk
-          ? "bg-slate-800/60 border-slate-700/60 hover:border-slate-600"
-          : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
+          ? "bg-slate-900/60 backdrop-blur-xl border-white/10 hover:border-white/20 shadow-2xl"
+          : "bg-white/70 backdrop-blur-xl border-slate-200/80 hover:border-slate-300 shadow-sm shadow-slate-200/50"
       }`}
     >
+      {/* Rim light */}
+      {dk && <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />}
       {/* Accent glow */}
       <div
-        className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-10 blur-2xl"
+        className="absolute -top-8 -right-8 w-48 h-48 rounded-full opacity-[0.12] blur-3xl"
         style={{ background: accentColor }}
       />
       <div className="flex items-start justify-between">
@@ -104,12 +106,14 @@ function SectionCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-5 sm:p-6 transition-all ${
+      className={`relative rounded-2xl border p-5 sm:p-6 transition-all ${
         dk
-          ? "bg-slate-800/40 border-slate-700/50"
-          : "bg-white border-slate-200 shadow-sm"
+          ? "bg-slate-900/60 backdrop-blur-xl border-white/10 shadow-2xl"
+          : "bg-white/70 backdrop-blur-xl border-slate-200/80 shadow-sm shadow-slate-200/50"
       }`}
     >
+      {/* Rim light */}
+      {dk && <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent rounded-t-2xl" />}
       <div className="flex items-center gap-2 mb-4">
         <Icon className={`w-4 h-4 ${dk ? "text-slate-400" : "text-slate-500"}`} />
         <h3 className={`text-sm font-semibold uppercase tracking-wider ${dk ? "text-slate-300" : "text-slate-700"}`}>
@@ -134,7 +138,7 @@ function SkeletonCard({ dk }: { dk: boolean }) {
   return (
     <div
       className={`rounded-2xl border p-5 sm:p-6 animate-pulse ${
-        dk ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200"
+        dk ? "bg-slate-900/60 backdrop-blur-xl border-white/10 shadow-2xl" : "bg-white/70 backdrop-blur-xl border-slate-200/80 shadow-sm"
       }`}
     >
       <div className={`h-4 w-32 rounded mb-4 ${dk ? "bg-slate-700" : "bg-slate-200"}`} />
@@ -196,7 +200,17 @@ export default function BusinessIntelligenceDashboard() {
 
   return (
     <>
-    <div className={`min-h-screen p-4 sm:p-6 lg:p-8 ${dk ? "text-white" : "text-slate-900"}`}>
+    <div className={`relative min-h-screen p-4 sm:p-6 lg:p-8 ${dk ? "text-white" : "text-slate-900"}`}>
+      {/* Radial vignette overlay */}
+      <div className={`absolute inset-0 pointer-events-none z-0 ${dk ? "bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,6,23,0.4)_100%)]" : "bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.03)_100%)]"}`} />
+      {/* Ambient glow spotlights */}
+      {dk && (
+        <>
+          <div className="absolute top-12 left-[15%] w-64 h-64 rounded-full blur-3xl opacity-[0.07] pointer-events-none bg-sky-500 z-0" />
+          <div className="absolute top-8 left-[45%] w-72 h-72 rounded-full blur-3xl opacity-[0.06] pointer-events-none bg-indigo-500 z-0" />
+          <div className="absolute top-16 right-[15%] w-56 h-56 rounded-full blur-3xl opacity-[0.05] pointer-events-none bg-violet-500 z-0" />
+        </>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
@@ -211,7 +225,7 @@ export default function BusinessIntelligenceDashboard() {
         {/* Date Range Selector */}
         <div
           className={`flex gap-1 p-1 rounded-xl border w-fit ${
-            dk ? "bg-slate-800 border-slate-700" : "bg-slate-100 border-slate-200"
+            dk ? "bg-slate-900/60 backdrop-blur-xl border-white/10" : "bg-white/60 backdrop-blur-xl border-slate-200/80"
           }`}
         >
           {ranges.map((r) => (
@@ -242,7 +256,7 @@ export default function BusinessIntelligenceDashboard() {
               <div
                 key={i}
                 className={`rounded-2xl border p-5 animate-pulse ${
-                  dk ? "bg-slate-800/60 border-slate-700/60" : "bg-white border-slate-200"
+                  dk ? "bg-slate-900/60 backdrop-blur-xl border-white/10 shadow-2xl" : "bg-white/70 backdrop-blur-xl border-slate-200/80 shadow-sm"
                 }`}
               >
                 <div className={`h-3 w-20 rounded mb-3 ${dk ? "bg-slate-700" : "bg-slate-200"}`} />
@@ -258,7 +272,7 @@ export default function BusinessIntelligenceDashboard() {
         </div>
       ) : (
         <>
-          {/* KPI Strip */}
+          {/* KPI Strip — z-[1] to sit above ambient glow spotlights */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <KPICard
               icon={DollarSign}
@@ -413,10 +427,10 @@ export default function BusinessIntelligenceDashboard() {
             {/* Request Custom Panel CTA */}
             <button
               onClick={() => setShowRequestModal(true)}
-              className={`col-span-full rounded-2xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group ${
+              className={`col-span-full rounded-2xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group backdrop-blur-xl ${
                 dk
-                  ? "border-slate-600 hover:border-indigo-500/60 hover:bg-indigo-600/5"
-                  : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50"
+                  ? "border-white/10 hover:border-indigo-500/40 hover:bg-indigo-600/5"
+                  : "border-slate-300/80 hover:border-indigo-400 hover:bg-indigo-50/50"
               }`}
             >
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${

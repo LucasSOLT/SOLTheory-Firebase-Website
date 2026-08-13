@@ -1134,6 +1134,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>
+      {/* Radial vignette overlay — draws eye focus inward */}
+      <div className={`fixed inset-0 pointer-events-none z-0 ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,6,23,0.35)_100%)]' : 'bg-[radial-gradient(ellipse_at_center,transparent_50%,rgba(0,0,0,0.02)_100%)]'}`} />
 
       {/* ========== MOBILE TOP BAR ========== */}
       {isMobile && (
@@ -1866,7 +1868,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Dynamic Page Content */}
-        <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative w-full min-h-0 focus:outline-none`} tabIndex={-1}>
+        <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative z-[1] w-full min-h-0 focus:outline-none`} tabIndex={-1}>
 
           <OrgProvider orgId={currentOrgId}>
             {children}

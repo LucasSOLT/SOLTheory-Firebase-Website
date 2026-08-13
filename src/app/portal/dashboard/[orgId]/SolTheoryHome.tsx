@@ -407,8 +407,8 @@ export function SolTheoryHome() {
   }, [contentManagerActive]);
 
   const tileStyle = isDarkMode
-    ? 'bg-slate-900/80 border border-slate-700/60'
-    : 'bg-[#faf8f3] border border-[#ede8da]/80';
+    ? 'bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl'
+    : 'bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-sm shadow-slate-200/50';
 
   return (
     <>
