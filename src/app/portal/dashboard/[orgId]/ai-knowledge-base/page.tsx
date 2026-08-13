@@ -13,7 +13,6 @@ import {
   FileText, BookOpen, Plus
 } from "lucide-react";
 import { useUser, useFirestore } from "@/firebase";
-import { solTheoryKnowledge } from "@/lib/soltheory-knowledge";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from "@/lib/i18n";
 
@@ -43,6 +42,12 @@ export default function AIKnowledgeBasePage() {
   const [orgBrainLoaded, setOrgBrainLoaded] = useState(false);
   const [orgBrainSaving, setOrgBrainSaving] = useState(false);
   const orgBrainSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Default Knowledge (Org Profile)
+  const [defaultKnowledge, setDefaultKnowledge] = useState<string>("");
+  const [defaultKnowledgeLoaded, setDefaultKnowledgeLoaded] = useState(false);
+  const [defaultKnowledgeSaving, setDefaultKnowledgeSaving] = useState(false);
+  const defaultKnowledgeSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Knowledge Base
   const [pdfUploading, setPdfUploading] = useState(false);
@@ -112,9 +117,15 @@ export default function AIKnowledgeBasePage() {
       const snap = await getDoc(doc(firestore, "organizations", orgId));
       if (snap.exists()) {
         setOrgBrain(snap.data()?.orgBrain || "");
+        setDefaultKnowledge(snap.data()?.defaultKnowledge || "");
       }
       setOrgBrainLoaded(true);
-    } catch (err) { console.error("Failed to load org brain", err); setOrgBrainLoaded(true); }
+      setDefaultKnowledgeLoaded(true);
+    } catch (err) { 
+      console.error("Failed to load org data", err); 
+      setOrgBrainLoaded(true); 
+      setDefaultKnowledgeLoaded(true);
+    }
   };
 
   const saveOrgBrain = async () => {
@@ -132,6 +143,23 @@ export default function AIKnowledgeBasePage() {
     setOrgBrain(val);
     if (orgBrainSaveTimerRef.current) clearTimeout(orgBrainSaveTimerRef.current);
     orgBrainSaveTimerRef.current = setTimeout(() => { saveOrgBrain(); }, 1500);
+  };
+
+  const saveDefaultKnowledge = async () => {
+    if (!firestore) return;
+    setDefaultKnowledgeSaving(true);
+    try {
+      const { doc, setDoc } = await import("firebase/firestore");
+      await setDoc(doc(firestore, "organizations", orgId), { defaultKnowledge }, { merge: true });
+      logActivity(firestore, 'ai_agent_config_changed', { email: user?.email || '', displayName: user?.displayName }, `Updated default knowledge for ${orgId}`);
+    } catch (err) { console.error("Failed to save default knowledge", err); }
+    finally { setDefaultKnowledgeSaving(false); }
+  };
+
+  const handleDefaultKnowledgeChange = (val: string) => {
+    setDefaultKnowledge(val);
+    if (defaultKnowledgeSaveTimerRef.current) clearTimeout(defaultKnowledgeSaveTimerRef.current);
+    defaultKnowledgeSaveTimerRef.current = setTimeout(() => { saveDefaultKnowledge(); }, 1500);
   };
 
   // Heartbeat cleanup
@@ -535,6 +563,29 @@ export default function AIKnowledgeBasePage() {
                 )}
               </div>
 
+              {/* Default Knowledge / Org Profile */}
+              <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
+                <div className={`p-4 ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'} flex items-center justify-between`}>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Organization Profile</span>
+                    <span className="text-[10px] text-slate-400">Core identity, team, programs, and facts that JARVIS should always know</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {defaultKnowledgeSaving && <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium"><Loader2 className="w-3 h-3 animate-spin" />Saving...</div>}
+                    <span className="text-[10px] text-slate-400 font-mono">{defaultKnowledge.length.toLocaleString()} chars</span>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <textarea
+                    value={defaultKnowledge}
+                    onChange={(e) => handleDefaultKnowledgeChange(e.target.value)}
+                    placeholder="Enter core organizational knowledge..."
+                    className={`w-full min-h-[200px] p-4 text-sm font-sans leading-relaxed border rounded-xl focus:outline-none focus:ring-2 resize-y ${isDarkMode ? 'text-slate-200 border-slate-600 bg-slate-800 focus:ring-slate-500 focus:border-slate-500' : 'text-slate-700 border-slate-200 bg-slate-50 focus:ring-slate-300 focus:border-slate-400'}`}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-2 pl-1">Auto-saves as you type.</p>
+                </div>
+              </div>
+
               {/* Org Brain */}
               <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
                 <div className={`p-4 ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'} flex items-center justify-between`}>
@@ -557,19 +608,6 @@ export default function AIKnowledgeBasePage() {
                   <p className="text-[10px] text-slate-400 mt-2 pl-1">Auto-saves as you type. All agents share this knowledge.</p>
                 </div>
               </div>
-
-              {/* Default Knowledge */}
-              {getOrgConfig(orgId)?.knowledgeModule && (
-                <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
-                  <div className={`p-4 ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'} flex items-center justify-between`}>
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Default Knowledge (Built-in)</span>
-                    <span className="text-[10px] text-slate-400 font-mono">{solTheoryKnowledge.length.toLocaleString()} chars</span>
-                  </div>
-                  <div className="p-6 max-h-[200px] overflow-y-auto scrollbar-thin">
-                    <pre className={`text-sm whitespace-pre-wrap font-sans leading-relaxed ${textSecondary}`}>{solTheoryKnowledge}</pre>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

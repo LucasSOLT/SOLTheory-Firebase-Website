@@ -130,7 +130,8 @@ function buildSystemPrompt(
   dashboardId?: string,
   knowledgeBaseText?: string,
   pactText?: string,
-  orgBrainText?: string
+  orgBrainText?: string,
+  defaultKnowledge?: string
 ): string {
   let prompt = `You are a professional Gmail assistant AI. Your job is to help the user manage their email efficiently.
 
@@ -206,7 +207,9 @@ RULES:
     }
   }
   // Inject client knowledge base for specific dashboards
-  if (dashboardId === "nxtchapter") {
+  if (defaultKnowledge) {
+    prompt += "\n\n" + defaultKnowledge;
+  } else if (dashboardId === "nxtchapter") {
     prompt += "\n\n" + NXT_CHAPTER_KNOWLEDGE;
   }
 
@@ -921,7 +924,22 @@ ${emailList}`
     // Fetch email memory for contextual summaries
     const emailMemory = uid ? await getEmailMemory(uid) : [];
     const existingTags = uid ? await getExistingTags(uid) : [];
-    const systemPrompt = buildSystemPrompt(resolvedEmailContext, body.contacts, emailMemory, existingTags, body.dashboardId, kbText, pactTextVal, orgBrainVal);
+    
+    let defaultKnowledge = "";
+    if (body.dashboardId) {
+      try {
+        initAdmin();
+        const db = getFirestore();
+        const doc = await db.collection("organizations").doc(body.dashboardId).get();
+        if (doc.exists) {
+          defaultKnowledge = doc.data()?.defaultKnowledge || "";
+        }
+      } catch (err) {
+        console.warn("[Gmail AI] Failed to fetch defaultKnowledge", err);
+      }
+    }
+
+    const systemPrompt = buildSystemPrompt(resolvedEmailContext, body.contacts, emailMemory, existingTags, body.dashboardId, kbText, pactTextVal, orgBrainVal, defaultKnowledge);
 
     const completion = await groq.chat.completions.create({
       messages: [

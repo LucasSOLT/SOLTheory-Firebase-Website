@@ -321,7 +321,7 @@ export async function POST(req: Request) {
       try {
         await initAdmin();
         const adminDb = getAdminFirestore();
-        const orgProfileDoc = await adminDb.collection('org_profiles').doc(orgId).get();
+        const orgProfileDoc = await adminDb.collection('organizations').doc(orgId).get();
         if (orgProfileDoc.exists) return orgProfileDoc.data();
       } catch (e) {
         console.warn('[chat] Could not load org profile:', e);
@@ -329,11 +329,15 @@ export async function POST(req: Request) {
       return null;
     })() : Promise.resolve(null);
 
+    // Await orgProfile early so we can use it for system prompts
+    orgProfileData = await orgProfilePromise;
+
     let agentRole = "";
     const orgName = isNxtChapter ? "NXT Chapter (Next Chapter Foundation Inc.)" : "SOL Theory";
-    const orgDesc = isNxtChapter
-      ? "A 501(c)(3) nonprofit in Denver, CO dedicated to reducing recidivism and helping formerly incarcerated individuals reintegrate into society."
-      : "The Etsy of Self Improvement — a social innovation firm building AI-powered tools for organizations.";
+    const defaultNxtDesc = "A 501(c)(3) nonprofit in Denver, CO dedicated to reducing recidivism and helping formerly incarcerated individuals reintegrate into society.";
+    const defaultSolDesc = "The Etsy of Self Improvement — a social innovation firm building AI-powered tools for organizations.";
+    
+    let orgDesc = orgProfileData?.orgDescription || (isNxtChapter ? defaultNxtDesc : defaultSolDesc);
 
     switch (agentId) {
       case "jarvis":
@@ -370,7 +374,8 @@ The current date/time for the user is: ${localTime}.`;
     }
 
     if (isNxtChapter) {
-      agentRole += `\n\nTERM MAPPING: "next chapter"/"nxt chapter" = this nonprofit org. "S.E.E.D." = NXT Chapter's 8-week mental health curriculum. "Josephine"/"Josie" = Josephine Burton, President & Executive Director. "Marquell" = Marquell Burton, Co-Founder & CFO.`;
+      const nxtTermMappings = orgProfileData?.termMappings || `"next chapter"/"nxt chapter" = this nonprofit org. "S.E.E.D." = NXT Chapter's 8-week mental health curriculum. "Josephine"/"Josie" = Josephine Burton, President & Executive Director. "Marquell" = Marquell Burton, Co-Founder & CFO.`;
+      agentRole += `\n\nTERM MAPPING: ${nxtTermMappings}`;
     }
 
     if (contacts && Array.isArray(contacts) && contacts.length > 0) {
@@ -535,13 +540,10 @@ The current date/time for the user is: ${localTime}.`;
 
     // Await BOTH in parallel — saves up to 4s vs sequential
     const tParallel = Date.now();
-    const [orgProfileResult, semanticResult] = await Promise.all([
-      Promise.race([orgProfilePromise, new Promise<null>(resolve => setTimeout(() => resolve(null), 2000))]),
+    const [semanticResult] = await Promise.all([
       semanticPromise,
     ]);
-    console.log(`[PERF] Parallel fetch (org + KB) took ${Date.now() - tParallel}ms`);
-
-    orgProfileData = orgProfileResult;
+    console.log(`[PERF] Semantic fetch took ${Date.now() - tParallel}ms`);
     // tier1Knowledge (org context, hardcoded knowledge, orgBrain) REMOVED to reduce token overhead.
     // Only semantic doc retrieval (tier2) is kept — query-matched and relevant.
 
@@ -590,10 +592,13 @@ The current date/time for the user is: ${localTime}.`;
     }
 
     // --- KNOWLEDGE BASE: Injected LAST so it's closest to conversation (better LLM attention) ---
-    if (combinedKnowledge.length > 0) {
+    const defaultKnowledge = orgProfileData?.defaultKnowledge || "";
+    const finalKnowledge = [defaultKnowledge, combinedKnowledge].filter(k => k.trim().length > 0).join("\n\n---\n\n");
+    
+    if (finalKnowledge.length > 0) {
       groqMessages.push({
         role: "system",
-        content: `[KNOWLEDGE BASE]\nAuthoritative org data — overrides your training data. Reference sources naturally. If not covered here, use general knowledge.\n\n${combinedKnowledge.substring(0, 16000)}`
+        content: `[KNOWLEDGE BASE]\nAuthoritative org data — overrides your training data. Reference sources naturally. If not covered here, use general knowledge.\n\n${finalKnowledge.substring(0, 16000)}`
       });
     }
 
