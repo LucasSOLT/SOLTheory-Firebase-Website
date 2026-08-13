@@ -25,6 +25,7 @@ import {
   Loader2,
   UserPlus,
   Info,
+  Trash2,
 } from "lucide-react";
 import type { OrgRole, OrgMember } from "@/lib/rbac";
 import {
@@ -37,6 +38,7 @@ import {
 } from "@/lib/rbac";
 import { getOrgConfig, getOrgLabel } from "@/lib/org-config";
 import { useOrgId } from "@/contexts/OrgContext";
+import { getAuthHeaders } from "@/lib/api-auth-client";
 
 
 
@@ -395,6 +397,7 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
                 }
                 onRoleChange={handleRoleChange}
                 dropdownRef={openDropdownUid === member.uid ? dropdownRef : undefined}
+                orgId={orgId}
               />
             ))}
           </div>
@@ -466,6 +469,7 @@ interface MemberRowProps {
   onToggleDropdown: () => void;
   onRoleChange: (uid: string, newRole: OrgRole) => void;
   dropdownRef?: React.RefObject<HTMLDivElement | null>;
+  orgId: string;
 }
 
 function MemberRow({
@@ -478,6 +482,7 @@ function MemberRow({
   onToggleDropdown,
   onRoleChange,
   dropdownRef,
+  orgId,
 }: MemberRowProps) {
   // Normalize legacy roles (Oracle, Admin-Level, etc.) to valid OrgRole for display
   const safeRole: OrgRole = (member.role in ROLE_COLORS) ? member.role : "user";
@@ -485,6 +490,35 @@ function MemberRow({
   const initial = (member.displayName || member.email || "?").charAt(0).toUpperCase();
   const colors = ROLE_COLORS[safeRole];
   const isOwner = safeRole === "owner";
+  
+  const [isRemoving, setIsRemoving] = useState(false);
+  const { user } = useUser();
+  const isCurrentUser = user?.uid === member.uid;
+  const canRemove = canModify && !isOwner && !isCurrentUser;
+
+  const handleRemove = async () => {
+    const confirm = window.confirm(`Remove ${member.displayName || member.email} from this organization?`);
+    if (!confirm) return;
+    
+    setIsRemoving(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/org/members", {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ orgId, targetUid: member.uid }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to remove member");
+      }
+      // Success: Firestore listener will auto-remove the row
+    } catch (err: any) {
+      console.error("[OrgRBACPanel] Remove error:", err);
+      alert(err.message || "Failed to remove member");
+      setIsRemoving(false);
+    }
+  };
 
   return (
     <div
@@ -534,9 +568,9 @@ function MemberRow({
         )}
       </div>
 
-      {/* Role Badge / Dropdown Trigger */}
-      <div className="relative shrink-0" ref={dropdownRef}>
-        {isChanging ? (
+      {/* Role Badge / Dropdown Trigger & Remove Button */}
+      <div className="relative shrink-0 flex items-center gap-2" ref={dropdownRef}>
+        {isChanging || isRemoving ? (
           <div className="flex items-center gap-1.5 px-2.5 py-1">
             <Loader2
               className={`w-3 h-3 animate-spin ${
@@ -638,6 +672,21 @@ function MemberRow({
               );
             })}
           </div>
+        )}
+        
+        {/* Remove Button */}
+        {canRemove && (
+          <button
+            onClick={handleRemove}
+            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+              isDarkMode
+                ? "text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                : "text-slate-400 hover:bg-red-50 hover:text-red-500"
+            }`}
+            title="Remove member"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         )}
       </div>
     </div>
