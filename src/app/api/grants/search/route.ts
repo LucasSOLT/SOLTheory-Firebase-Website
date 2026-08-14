@@ -271,9 +271,11 @@ async function batchAIRelevanceScore(
       const grantsForPrompt = batch.map((g, idx) => ({
         id: g.id || `grant-${batchStart + idx}`,
         title: g.title,
-        description: (g.description || "").substring(0, 200),
+        description: (g.description || "").substring(0, 800),
         agency: g.agency || "Unknown",
         grantScope: g.grantScope || "unknown",
+        eligibleApplicants: (g.eligibleApplicants || []).slice(0, 5).join(", "),
+        closeDate: g.closeDate || "unspecified",
         sources: (g.sources || []).join(", "),
         awardAmountMax: g.awardAmountMax || null,
       }));
@@ -417,6 +419,14 @@ Respond with ONLY a valid JSON array, no markdown, no explanation:
 export async function POST(request: Request) {
   const auth = await verifyRequest(request);
   if (!auth.ok) return auth.response;
+
+  if (!process.env.SIMPLER_GRANTS_API_KEY) {
+    return NextResponse.json({
+      error: "Servers are currently online, please come back soon.",
+      grants: [],
+      sourceStats: {}
+    });
+  }
 
   try {
     const body = await request.json();

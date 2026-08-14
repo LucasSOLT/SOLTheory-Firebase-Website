@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 /**
- * Federal Grant Scout — Redirect
+ * Federal Grant Web Scraper — Redirect
  * 
  * This page previously hosted the Scout discovery UI.
  * All functionality has been merged into the Grant Command Center

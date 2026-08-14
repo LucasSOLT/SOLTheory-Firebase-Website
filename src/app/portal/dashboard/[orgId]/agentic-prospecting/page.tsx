@@ -78,13 +78,13 @@ export default function AgenticProspectingPage() {
   const agents: AgentScout[] = [
     {
       id: "federal-grants",
-      name: "Federal Grant Scout",
-      tagline: "Autonomous Grant Scouting & Matching",
-      description: "Scans federal repositories daily, matches eligibility with your organizational profile, and compiles comprehensive grant opportunity reports.",
+      name: "Federal Grant Web Scraper",
+      tagline: "Autonomous Grant Web Scraping & Matching",
+      description: "Scans federal repositories and live web sources daily, matches eligibility with your organizational profile, and compiles comprehensive grant opportunity reports.",
       orgCategory: "Health and Human Services",
       icon: <ClipboardList className="w-5 h-5" />,
       status: "active",
-      details: ["Region: XT Chapter Area", "Frequency: Daily", "Source: Grants.gov"],
+      details: ["Region: XT Chapter Area", "Frequency: Daily", "Source: Grants.gov & Web Sources"],
       actionLabel: "Open Dashboard",
       imageUrl: "/federal_grant_scout_demo.png",
       route: `${dash}/agentic-prospecting/federal-grant-scout`,

@@ -260,6 +260,9 @@ export function GrantManualSearch({ onClose, onSearchComplete }: Props) {
       }
 
       const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
       const grants: SearchResult[] = (data.grants || []).map(
         (g: any): SearchResult => ({
           id: g.id || `result-${Math.random().toString(36).slice(2)}`,
