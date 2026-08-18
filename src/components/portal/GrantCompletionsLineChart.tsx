@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import {
   LineChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -92,10 +93,16 @@ export function GrantCompletionsLineChart({ grants = [], loading }: Props) {
           {totalActioned} {t.total}
         </span>
       </div>
-      <div className="flex-1 min-h-0 w-full">
+      <div className={`flex-1 min-h-0 w-full relative rounded-lg ${isDarkMode ? 'bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]' : ''}`} style={isDarkMode ? { opacity: 1 } : {}}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} vertical={false} />
+            <defs>
+              <linearGradient id="completionsGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#818cf8" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#818cf8" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#1e293b' : '#f1f5f9'} strokeOpacity={0.6} vertical={false} />
             <XAxis
               dataKey="name"
               tick={{ fontSize: 8, fill: isDarkMode ? '#cbd5e1' : '#94a3b8', fontWeight: 600 }}
@@ -111,24 +118,29 @@ export function GrantCompletionsLineChart({ grants = [], loading }: Props) {
               minTickGap={1}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "#1e293b",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "10px",
-                color: "#f8fafc",
-                padding: "6px 10px",
+              cursor={{ stroke: isDarkMode ? '#6366f1' : '#818cf8', strokeWidth: 1, strokeDasharray: '4 4' }}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                return (
+                  <div className={`px-3 py-2 rounded-xl shadow-2xl border backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-700/80 text-white' : 'bg-white/90 border-slate-200 text-slate-800'}`}>
+                    <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                      <span className="text-xs font-bold tabular-nums">{payload[0].value}</span>
+                      <span className={`text-[9px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.completedLabel}</span>
+                    </div>
+                  </div>
+                );
               }}
-              itemStyle={{ color: "#818cf8" }}
-              labelStyle={{ color: "#94a3b8", fontWeight: 700, fontSize: "9px" }}
             />
+            <Area type="monotone" dataKey="count" stroke="none" fill="url(#completionsGrad)" />
             <Line
               type="monotone"
               dataKey="count"
               stroke="#818cf8"
-              strokeWidth={2}
-              dot={{ r: 3, fill: '#818cf8', stroke: isDarkMode ? '#1e293b' : '#fff', strokeWidth: 1.5 }}
-              activeDot={{ r: 4, fill: '#6366f1', stroke: isDarkMode ? '#1e293b' : '#fff', strokeWidth: 2 }}
+              strokeWidth={2.5}
+              dot={{ r: 3, fill: '#818cf8', stroke: isDarkMode ? '#0f172a' : '#fff', strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: '#6366f1', stroke: isDarkMode ? '#0f172a' : '#fff', strokeWidth: 2.5 }}
               name={t.completedLabel}
             />
           </LineChart>

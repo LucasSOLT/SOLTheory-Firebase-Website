@@ -55,8 +55,8 @@ export default function GrantPipelineChart({
     const d = payload[0].payload;
     return (
       <div
-        className={`px-3 py-2 rounded-lg shadow-lg border text-xs pointer-events-none select-none ${
-          dk ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+        className={`px-3 py-2 shadow-2xl rounded-xl border text-xs pointer-events-none select-none ${
+          dk ? "bg-slate-900/90 backdrop-blur-md border-slate-700/80 text-white" : "bg-white/90 backdrop-blur-md border-slate-200 text-slate-900"
         }`}
       >
         <p className="font-semibold flex items-center gap-1.5 mb-1">
@@ -75,7 +75,7 @@ export default function GrantPipelineChart({
       <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke={dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}
+          stroke={dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)"}
           vertical={false}
         />
         <XAxis
@@ -99,7 +99,7 @@ export default function GrantPipelineChart({
         />
         <Bar
           dataKey="count"
-          radius={[4, 4, 0, 0]}
+          radius={[6, 6, 0, 0]}
           barSize={24}
           animationDuration={800}
         >

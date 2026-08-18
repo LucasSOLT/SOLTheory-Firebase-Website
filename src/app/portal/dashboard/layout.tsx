@@ -19,6 +19,7 @@ import { OrgProvider } from "@/contexts/OrgContext";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
+import { InsightOmnibar } from "@/components/portal/InsightOmnibar";
 
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -64,6 +65,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [guidedTourSlide, setGuidedTourSlide] = useState(0);
   // Per-step interaction tracking (for greyed-out Next buttons)
   const [stepInteracted, setStepInteracted] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
+
+  // ── AI Omnibar / Command Palette ──
+  const [isOmnibarOpen, setIsOmnibarOpen] = useState(false);
+  useEffect(() => {
+    const handleOmnibarKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        // Don't intercept if user is in an editable field (e.g. document editor Ctrl+K for links)
+        const tag = (e.target as HTMLElement)?.tagName;
+        const isEditable = (e.target as HTMLElement)?.isContentEditable;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
+        e.preventDefault();
+        setIsOmnibarOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleOmnibarKey);
+    return () => window.removeEventListener('keydown', handleOmnibarKey);
+  }, []);
 
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
@@ -1648,7 +1666,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0 ${isMobile ? 'pt-14' : ''}`}>
         {/* Top Navbar — hidden on mobile */}
         <header className={`h-[72px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex ${isDarkMode ? 'bg-slate-900' : 'bg-[#f0e8d0]'}`}>
-          <div className="flex-grow max-w-[480px]"></div>
+          <button
+              onClick={() => setIsOmnibarOpen(true)}
+              className={`flex-grow max-w-[480px] flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-colors cursor-pointer group ${isDarkMode ? 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600 text-slate-400' : 'bg-white/60 border-slate-200/60 hover:bg-white hover:border-slate-300 text-slate-400'}`}
+            >
+              <Search className="w-4 h-4 shrink-0 opacity-60" />
+              <span className="text-sm font-medium flex-1 text-left">Search or ask Jarvis...</span>
+              <kbd className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md hidden sm:inline-block ${isDarkMode ? 'bg-slate-700 text-slate-500 border border-slate-600' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>⌘K</kbd>
+            </button>
           <div className="flex items-center gap-3">
               {/* Live Clock */}
               {currentTime && (
@@ -1880,6 +1905,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Persistent Floating Video Player — persists across all dashboard pages */}
       <WalkthroughPlayer />
+
+      {/* AI Omnibar / Command Palette — ⌘K activated */}
+      <InsightOmnibar
+        isOpen={isOmnibarOpen}
+        onClose={() => setIsOmnibarOpen(false)}
+        orgId={currentOrgId}
+        dashboardHome={dashboardHome}
+      />
 
       {/* Guided Tour Slideshow */}
       {showGuidedTour && (

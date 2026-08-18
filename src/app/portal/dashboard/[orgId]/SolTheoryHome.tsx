@@ -1,5 +1,7 @@
 "use client";
 
+import { motion } from "framer-motion";
+
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { useRouter, useParams } from "next/navigation";
@@ -407,64 +409,67 @@ export function SolTheoryHome() {
   }, [contentManagerActive]);
 
   const tileStyle = isDarkMode
-    ? 'bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl'
-    : 'bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-sm shadow-slate-200/50';
+    ? 'bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-slate-600'
+    : 'bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-sm shadow-slate-200/50 transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/5 hover:border-slate-300';
+
+  const staggerRow = (delay: number) => ({
+    initial: { opacity: 0, y: 14 } as const,
+    animate: { opacity: 1, y: 0 } as const,
+    transition: { duration: 0.4, ease: "easeOut" as const, delay },
+  });
 
   return (
     <>
       {/* ── Login-to-Dashboard Bridge Overlay ──
-          Always rendered until overlayGone. Opacity controlled by pageReady.
-          Uses a circle spinner (NOT cube) so the cube only plays once during SSO login.
-          White background matches the login cube overlay for a seamless handoff. */}
+          Shimmer skeleton preview while Firestore data loads.
+          Fades out after 3.5s, removed from DOM at 5s. */}
       {!overlayGone && (
         <div
           style={{
             position: "fixed",
             inset: 0,
             zIndex: 99999,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
             background: isDarkMode ? "#020617" : "#ffffff",
             opacity: pageReady ? 0 : 1,
             transition: "opacity 1.5s ease-in-out",
             pointerEvents: pageReady ? "none" : "auto",
           }}
+          className="pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 overflow-hidden"
         >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: "50%",
-              border: isDarkMode ? "3px solid rgba(99, 102, 241, 0.25)" : "3px solid rgba(99, 102, 241, 0.15)",
-              borderTopColor: "#6366f1",
-              animation: "dashSpinnerRotate 0.8s linear infinite",
-            }}
-          />
-          <p
-            style={{
-              fontSize: "13px",
-              fontWeight: 500,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase" as const,
-              marginTop: "24px",
-              color: isDarkMode ? "rgba(129, 140, 248, 0.7)" : "rgba(79, 70, 229, 0.6)",
-              animation: "dashSpinnerTextPulse 2s ease-in-out infinite",
-            }}
-          >
-            Loading
-          </p>
-          <style>{`
-            @keyframes dashSpinnerRotate {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-            @keyframes dashSpinnerTextPulse {
-              0%, 100% { opacity: 0.6; }
-              50% { opacity: 1; }
-            }
-          `}</style>
+          <div className="space-y-4 md:space-y-6 w-full">
+            {/* Skeleton header */}
+            <div className="flex flex-col gap-1 mb-2">
+              <div className={`h-7 w-72 rounded-lg animate-shimmer ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} />
+              <div className={`h-3 w-48 rounded-md animate-shimmer mt-3 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.1s' }} />
+            </div>
+
+            {/* Skeleton Row 1 */}
+            <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full lg:h-[420px] lg:min-h-[420px] h-auto">
+              <div className={`rounded-2xl animate-shimmer flex-[5] h-[320px] lg:h-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.15s' }} />
+              <div className={`rounded-2xl animate-shimmer flex-[6] h-[320px] lg:h-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.25s' }} />
+            </div>
+
+            {/* Skeleton Row 2 */}
+            <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full lg:h-[420px] h-auto">
+              <div className={`rounded-2xl animate-shimmer flex-1 h-[260px] lg:h-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.35s' }} />
+              <div className={`rounded-2xl animate-shimmer flex-1 h-[260px] lg:h-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.45s' }} />
+              <div className={`rounded-2xl animate-shimmer flex-1 h-[260px] lg:h-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.55s' }} />
+            </div>
+
+            {/* Skeleton Row 3 */}
+            <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full lg:h-[490px] h-auto">
+              {/* Left Column: Two cards */}
+              <div className="flex-[8] grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 h-[200px] lg:h-full">
+                <div className={`rounded-2xl animate-shimmer h-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.6s' }} />
+                <div className={`rounded-2xl animate-shimmer h-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.65s' }} />
+              </div>
+              {/* Right Column: Two stacked cards */}
+              <div className="flex-[3] flex flex-col gap-4 md:gap-5 h-[200px] lg:h-full">
+                <div className={`rounded-2xl animate-shimmer flex-1 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.7s' }} />
+                <div className={`rounded-2xl animate-shimmer flex-1 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ animationDelay: '0.75s' }} />
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {/* Dashboard content — always rendered at full opacity underneath the overlay
@@ -505,7 +510,7 @@ export function SolTheoryHome() {
           )}
           
           {/* Row 1: Top (Left: Focus tile, Right: News — balanced inline) */}
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full lg:h-[420px] lg:min-h-[420px] h-auto">
+          <motion.div {...staggerRow(0.05)} className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full lg:h-[420px] lg:min-h-[420px] h-auto">
             {/* Card: Here's what to focus on today */}
             <CmsTileWrapper tileId="tile-2" tileName="Needs Your Attention" className="flex-[5] min-h-0">
             <div className={`relative group h-full ${tileStyle} shadow-sm rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col hover:shadow-md transition-shadow min-h-0`}>
@@ -525,10 +530,10 @@ export function SolTheoryHome() {
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
             </div>
             </CmsTileWrapper>
-          </div>
+          </motion.div>
 
           {/* Row 2: Middle (Grant Analytics, YouTube, Instagram) */}
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch lg:max-h-[420px]">
+          <motion.div {...staggerRow(0.15)} className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch lg:max-h-[420px]">
             {/* Slot 3: Agentic Campaign Carousel */}
             <CmsTileWrapper tileId="tile-grants" tileName="Agentic Campaigns" className="flex-1 min-w-0 overflow-hidden">
             <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-shadow overflow-hidden p-5 flex flex-col`}>
@@ -726,10 +731,10 @@ export function SolTheoryHome() {
             {/* ╔══════════════════════════════════════════════════════════════╗
                 ║  END FROZEN — Instagram Feed Tile JSX                       ║
                 ╚══════════════════════════════════════════════════════════════╝ */}
-          </div>
+          </motion.div>
 
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
-          <div className="flex flex-col lg:flex-row gap-5 w-full">
+          <motion.div {...staggerRow(0.25)} className="flex flex-col lg:flex-row gap-5 w-full">
             {/* Slot 5: Aspect 16:9 (Wide, Large) -> Two-column grid of AI Agent Operations and CRM Funnel */}
             <div className="flex-[8] aspect-auto lg:aspect-[16/9] hidden md:grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
               {/* Tile 9: Agentic Prospecting Feed */}
@@ -769,7 +774,7 @@ export function SolTheoryHome() {
               </div>
               </CmsTileWrapper>
             </div>
-          </div>
+          </motion.div>
 
         </div>
       </div>

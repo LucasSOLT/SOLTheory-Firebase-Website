@@ -126,8 +126,8 @@ export default function RevenueForecastChart({
     if (!active || !payload?.length) return null;
     return (
       <div
-        className={`px-3 py-2 rounded-lg shadow-lg border text-xs ${
-          dk ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+        className={`px-3 py-2 shadow-2xl rounded-xl border text-xs ${
+          dk ? "bg-slate-900/90 backdrop-blur-md border-slate-700/80 text-white" : "bg-white/90 backdrop-blur-md border-slate-200 text-slate-900"
         }`}
       >
         <p className="font-semibold mb-1">{label}</p>
@@ -155,7 +155,7 @@ export default function RevenueForecastChart({
         </defs>
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke={dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}
+          stroke={dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)"}
           vertical={false}
         />
         <XAxis

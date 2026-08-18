@@ -273,8 +273,16 @@ export function NearestDueTasksWidget({ orgId: orgIdProp }: { orgId?: string }) 
 
   if (loading) {
     return (
-      <div className="h-full w-full flex items-center justify-center min-h-[140px]">
-        <Loader2 className={`w-5 h-5 animate-spin ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+      <div className="h-full w-full flex flex-col min-h-[140px] space-y-2 mt-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className={`flex items-center gap-3 p-2.5 rounded-xl border ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+            <div className={`w-8 h-8 rounded-full shrink-0 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+            <div className="flex-1 space-y-2">
+              <div className={`h-3 w-3/4 rounded-lg ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1 + 0.15}s` }} />
+              <div className={`h-2.5 w-1/2 rounded-lg ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1 + 0.3}s` }} />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

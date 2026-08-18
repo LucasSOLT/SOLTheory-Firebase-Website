@@ -3045,10 +3045,25 @@ export default function CRMPage() {
                     ) : (
                       <ResponsiveContainer width="100%" height={260}>
                         <BarChart data={revenueByStatus} barSize={40}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                          <XAxis dataKey="status" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={false} />
-                          <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
-                          <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, "Revenue"]} contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#1e293b' : '#f1f5f9'} strokeOpacity={0.6} vertical={false} />
+                          <XAxis dataKey="status" tick={{ fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                          <Tooltip
+                            cursor={{ fill: isDarkMode ? 'rgba(99, 102, 241, 0.06)' : 'rgba(99, 102, 241, 0.04)' }}
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null;
+                              const data = payload[0].payload;
+                              return (
+                                <div className={`px-3 py-2.5 rounded-xl shadow-2xl border backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-700/80' : 'bg-white/90 border-slate-200'}`}>
+                                  <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{data.status}</p>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusColorMap[data.status] || '#6366f1' }} />
+                                    <span className={`text-sm font-bold tabular-nums ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>${data.revenue.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              );
+                            }}
+                          />
                           <Bar dataKey="revenue" radius={[6, 6, 0, 0]} fill="#6366f1">
                             {revenueByStatus.map((entry) => (
                               <rect key={entry.status} fill={statusColorMap[entry.status] || "#6366f1"} />
@@ -3065,11 +3080,31 @@ export default function CRMPage() {
                     <p className="text-[10px] text-slate-400 mb-5">Monthly revenue trend from transactions</p>
                     <ResponsiveContainer width="100%" height={260}>
                       <LineChart data={revenueOverTime}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={false} />
-                        <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
-                        <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, "Revenue"]} contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }} />
-                        <Line type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 4, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                        <defs>
+                          <linearGradient id="crmRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#1e293b' : '#f1f5f9'} strokeOpacity={0.6} vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                        <Tooltip
+                          cursor={{ stroke: isDarkMode ? '#6366f1' : '#818cf8', strokeWidth: 1, strokeDasharray: '4 4' }}
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null;
+                            return (
+                              <div className={`px-3 py-2.5 rounded-xl shadow-2xl border backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-700/80' : 'bg-white/90 border-slate-200'}`}>
+                                <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                  <span className={`text-sm font-bold tabular-nums ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>${(payload[0].value as number).toFixed(2)}</span>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Line type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1', stroke: isDarkMode ? '#0f172a' : '#fff', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#4f46e5', stroke: isDarkMode ? '#0f172a' : '#fff', strokeWidth: 2.5 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>

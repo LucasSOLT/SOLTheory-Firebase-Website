@@ -3,8 +3,10 @@
  * Falls back to direct REST with API key
  */
 
-const API_KEY = "AIzaSyCAJWBLJ1GTXtELpKFubBlENBq0eroUyCM";
-const PROJECT_ID = "studio-5711990008-7ac2c";
+import { firebaseConfig } from "../firebase/config";
+
+const API_KEY = firebaseConfig.apiKey;
+const PROJECT_ID = firebaseConfig.projectId;
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const CUTOFF_NAME = "justin";
 

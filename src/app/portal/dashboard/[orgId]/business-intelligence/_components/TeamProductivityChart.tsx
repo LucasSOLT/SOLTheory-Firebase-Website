@@ -49,8 +49,8 @@ export default function TeamProductivityChart({
     const d = payload[0].payload;
     return (
       <div
-        className={`px-3 py-2 rounded-lg shadow-lg border text-xs pointer-events-none select-none ${
-          dk ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+        className={`px-3 py-2 shadow-2xl rounded-xl border text-xs pointer-events-none select-none ${
+          dk ? "bg-slate-900/90 backdrop-blur-md border-slate-700/80 text-white" : "bg-white/90 backdrop-blur-md border-slate-200 text-slate-900"
         }`}
       >
         <p className="font-semibold mb-0.5">{d.name}</p>
@@ -69,7 +69,7 @@ export default function TeamProductivityChart({
       >
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke={dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}
+          stroke={dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)"}
           horizontal={false}
         />
         <XAxis
@@ -95,7 +95,7 @@ export default function TeamProductivityChart({
         />
         <Bar
           dataKey="hours"
-          radius={[0, 4, 4, 0]}
+          radius={[0, 6, 6, 0]}
           barSize={18}
           animationDuration={800}
         >

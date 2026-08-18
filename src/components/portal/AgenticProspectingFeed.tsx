@@ -87,6 +87,7 @@ export default function AgenticProspectingFeed({ orgId }: AgenticProspectingFeed
   const isDarkMode = useDarkMode();
   const firestore = useFirestore();
   const [rawFindings, setRawFindings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   /* ── Subscribe to grant_suggestions ── */
   useEffect(() => {
@@ -103,6 +104,7 @@ export default function AgenticProspectingFeed({ orgId }: AgenticProspectingFeed
       const docs: any[] = [];
       snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
       setRawFindings(docs);
+      setLoading(false);
     }, () => {
       // Fallback without orderBy if composite index is missing
       const fallbackQuery = query(
@@ -114,7 +116,8 @@ export default function AgenticProspectingFeed({ orgId }: AgenticProspectingFeed
         const docs: any[] = [];
         snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
         setRawFindings(docs);
-      }, () => {});
+        setLoading(false);
+      }, () => { setLoading(false); });
     });
     return () => { if (activeSub) activeSub(); };
   }, [firestore, orgId]);
@@ -157,7 +160,38 @@ export default function AgenticProspectingFeed({ orgId }: AgenticProspectingFeed
     return result;
   }, [rawFindings]);
 
-  /* ── Empty state ── */
+  /* ── Loading / Empty state ── */
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full w-full min-h-0 select-none">
+        <div className="flex items-center justify-between shrink-0 mb-3">
+          <div className="space-y-1.5 w-1/3">
+            <div className={`h-3 w-3/4 rounded ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite' }} />
+            <div className={`h-2.5 w-1/2 rounded ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: '0.15s' }} />
+          </div>
+        </div>
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex gap-4 overflow-hidden w-full items-start pb-4">
+            {[1, 2].map((_, i) => (
+              <div key={i} className="flex-none flex flex-col gap-2 min-h-0 w-full" style={{ width: CARD_W }}>
+                <div className={`h-4 w-1/2 rounded mb-1 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+                {[1, 2, 3].map((_, j) => (
+                  <div key={j} className={`rounded-xl border p-3 ${isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50'}`}>
+                    <div className="space-y-2.5 w-full">
+                      <div className={`h-3.5 w-3/4 rounded-lg ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1 + j * 0.1}s` }} />
+                      <div className={`h-2.5 w-full rounded-lg ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1 + j * 0.1 + 0.15}s` }} />
+                      <div className={`h-2.5 w-5/6 rounded-lg ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1 + j * 0.1 + 0.3}s` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (tools.length === 0) {
     return (
       <div className="flex flex-col h-full w-full min-h-0 select-none">

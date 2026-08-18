@@ -65,13 +65,13 @@ function Sparkline({ data, months, color, width = 200, height = 36 }: { data: nu
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+            <stop offset="0%" stopColor={color} stopOpacity={0.35} />
             <stop offset="100%" stopColor={color} stopOpacity={0.02} />
           </linearGradient>
         </defs>
         <path d={areaPath} fill={`url(#${gradId})`} />
-        <polyline points={polyline} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r={2.5} fill={color} />
+        <polyline points={polyline} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r={3} fill={color} />
         {/* Tick marks at label positions */}
         {labelIndices.map(i => {
           if (i >= pts.length) return null;
@@ -191,6 +191,45 @@ export function CRMPipelineWidget() {
     if (n >= 1000) return `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
     return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full w-full min-h-0 select-none">
+        <div className="flex items-center justify-between shrink-0 mb-3">
+          <div className="space-y-1.5 w-1/3">
+            <div className={`h-3 w-3/4 rounded ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite' }} />
+            <div className={`h-2 w-1/2 rounded ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: '0.1s' }} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 shrink-0 mb-3">
+          {[1, 2, 3].map((_, i) => (
+            <div key={i} className={`p-2 rounded-lg border ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+              <div className={`h-2 w-1/2 rounded mb-1.5 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+              <div className={`h-3.5 w-3/4 rounded ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1 + 0.1}s` }} />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className={`h-2 w-1/4 rounded mb-2 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite' }} />
+          <div className="flex-1 min-h-0 flex flex-col gap-1.5">
+            {[1, 2, 3, 4].map((_, i) => (
+              <div key={i} className={`flex items-center gap-3 px-2.5 py-1.5 rounded-lg ${isDarkMode ? 'bg-slate-800/30' : 'bg-slate-50'}`}>
+                <div className="flex items-center gap-2 min-w-0 shrink-0" style={{ width: '28%' }}>
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} />
+                  <div className={`h-2 w-full rounded ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+                </div>
+                <div className="flex-1 min-w-0 flex items-center justify-between gap-1">
+                  <div className={`h-5 w-full rounded ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.1 + 0.1}s` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full w-full min-h-0 select-none">

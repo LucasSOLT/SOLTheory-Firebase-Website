@@ -272,8 +272,14 @@ export function WeeklyTimesheetChart() {
     return (
       <div className="h-full w-full flex flex-col min-h-[140px]">
         <div className="flex items-center justify-end mb-1 shrink-0">{sourceSelector}</div>
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+        <div className="flex-1 flex items-end justify-between gap-2 px-2 pb-6 mt-4 w-full">
+          {[40, 70, 45, 90, 65, 30, 50].map((height, i) => (
+            <div 
+              key={i} 
+              className={`w-full rounded-t-sm ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} 
+              style={{ height: `${height}%`, backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite', animationDelay: `${i * 0.15}s` }} 
+            />
+          ))}
         </div>
       </div>
     );
@@ -327,10 +333,10 @@ export function WeeklyTimesheetChart() {
   return (
     <div className="h-full w-full flex flex-col min-h-0">
       <div className="flex items-center justify-end mb-1 shrink-0">{sourceSelector}</div>
-      <div className="w-full h-full flex-1 min-h-0 pt-1">
+    <div className={`w-full h-full flex-1 min-h-0 pt-1 rounded-lg ${isDarkMode ? 'bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]' : ''}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 5, right: 5, left: -22, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#1e293b' : '#f1f5f9'} strokeOpacity={0.6} vertical={false} />
             <XAxis
               dataKey="name"
               tick={{ fontSize: 9, fill: isDarkMode ? '#cbd5e1' : '#94a3b8', fontWeight: 600 }}
@@ -344,19 +350,23 @@ export function WeeklyTimesheetChart() {
               tickFormatter={(v) => `${v}h`}
             />
             <Tooltip
-              cursor={{ fill: "rgba(59, 130, 246, 0.04)" }}
+              cursor={{ fill: isDarkMode ? 'rgba(99, 102, 241, 0.06)' : 'rgba(99, 102, 241, 0.04)' }}
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
                 const data = payload[0].payload;
                 return (
-                  <div className="bg-slate-900/95 backdrop-blur-sm text-white rounded-lg shadow-md border border-slate-800 p-2 text-[10px] font-bold">
-                    <p className="text-slate-300">{data.name}</p>
-                    <p className="text-blue-400 text-xs mt-0.5">{data.hours} {t.hours}</p>
+                  <div className={`px-3 py-2.5 rounded-xl shadow-2xl border backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-700/80' : 'bg-white/90 border-slate-200'}`}>
+                    <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{data.name}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: payload[0].color || '#60a5fa' }} />
+                      <span className={`text-sm font-bold tabular-nums ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{data.hours}</span>
+                      <span className={`text-[9px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.hours}</span>
+                    </div>
                   </div>
                 );
               }}
             />
-            <Bar dataKey="hours" radius={[4, 4, 0, 0]} maxBarSize={30}>
+            <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={30}>
               {chartData.map((_entry, index) => (
                 <Cell key={`cell-${index}`} fill={barColors[index] || "#60a5fa"} />
               ))}

@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Mic, MicOff, Pause, Play, MessageSquareText, X, Phone, Hand, Bot, User, Loader2, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { useOrgId } from "@/contexts/OrgContext";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface VoiceAgentModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [liveText, setLiveText] = useState("");
   const contextOrgId = useOrgId();
   const effectiveOrgPrefix = orgPrefix || contextOrgId;
+  const { isDarkMode } = useTheme();
 
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -62,9 +64,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
   const [responseDelay, setResponseDelay] = useState(1000);
   const responseDelayRef = useRef(1000);
   const [showTranscript, setShowTranscript] = useState(true);
-  const [groqTokens, setGroqTokens] = useState(0);
-  const [elevenLabsChars, setElevenLabsChars] = useState(0);
-  const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const finishUserTurnRef = useRef<() => Promise<void>>(async () => { });
   // Speculative pre-fetch: start LLM call while user is still in silence countdown
@@ -1147,90 +1146,39 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
 
     return (
-    <div className="fixed inset-0 z-[200] bg-[#0a0a18] flex flex-col animate-in fade-in duration-300 h-[100dvh] max-h-[100dvh]">
+    <div className={`fixed inset-0 z-[200] flex flex-col animate-in fade-in duration-300 h-[100dvh] max-h-[100dvh] ${isDarkMode ? 'bg-[#0a0a18]' : 'bg-slate-50'}`}>
       <div className={`h-1 w-full bg-gradient-to-r ${g.grad[ac]} shrink-0`} />
 
-      <div className="flex flex-col flex-1 relative bg-gradient-to-b from-[#0c0c1e] via-[#0a0a18] to-[#080814] overflow-hidden">
+      <div className={`flex flex-col flex-1 relative overflow-hidden ${isDarkMode ? 'bg-gradient-to-b from-[#0c0c1e] via-[#0a0a18] to-[#080814]' : 'bg-gradient-to-b from-slate-100 via-white to-slate-50'}`}>
         
         <div className="absolute top-6 left-4 right-4 sm:left-8 sm:right-8 flex items-center justify-between pointer-events-none z-[100]">
-          {/* Top Left: Cost */}
-          <button onClick={() => setShowCostBreakdown(!showCostBreakdown)} className="pointer-events-auto px-4 h-9 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-white/10 transition-colors z-50">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/40"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>
-            <span className="text-[11px] font-semibold tracking-wider text-white/50 whitespace-nowrap">
-              ${((groqTokens * 0.00000006) + (elevenLabsChars * 0.000167)).toFixed(4)}
-            </span>
-          </button>
+          {/* Top Left: Removed Cost */}
+          <div />
           
           {/* Top Right: Minimize & Close */}
           <div className="flex items-center gap-2 pointer-events-auto z-[101]">
-            <button onClick={() => setIsMinimized(true)} className="w-9 h-9 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 text-white/40 hover:text-white/80 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="Minimize">
+            <button onClick={() => setIsMinimized(true)} className={`w-9 h-9 rounded-full backdrop-blur-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isDarkMode ? 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/40 hover:text-white/80' : 'bg-slate-900/5 border border-slate-900/10 hover:bg-slate-900/10 text-slate-500 hover:text-slate-800'}`} title="Minimize">
               <Minimize2 className="w-4 h-4" />
             </button>
-            <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 text-white/40 hover:text-white/80 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm" title="End Call">
+            <button onClick={onClose} className={`w-9 h-9 rounded-full backdrop-blur-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isDarkMode ? 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/40 hover:text-white/80' : 'bg-slate-900/5 border border-slate-900/10 hover:bg-slate-900/10 text-slate-500 hover:text-slate-800'}`} title="End Call">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {showCostBreakdown && (
-          <div className="absolute top-20 left-6 z-[200] w-[340px] bg-[#16162a] border border-white/10 rounded-[12px] shadow-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-black text-slate-900 tracking-tight">Session Cost Breakdown</h3>
-              <button onClick={() => setShowCostBreakdown(false)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-[8px]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Groq — LLM Inference</span>
-                </div>
-                <div className="text-xs text-slate-500 space-y-1">
-                  <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Llama 3.1 8B Instant</span></div>
-                  <div className="flex justify-between"><span>Tokens Used</span><span className="font-bold text-slate-700">{groqTokens.toLocaleString()}</span></div>
-                  <div className="flex justify-between"><span>Rate</span><span className="font-bold text-slate-700">~$0.06 / 1M tokens</span></div>
-                  <div className="h-px bg-slate-200 my-1" />
-                  <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(groqTokens * 0.00000006).toFixed(6)}</span></div>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-[8px]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">ElevenLabs — Text-to-Speech</span>
-                </div>
-                <div className="text-xs text-slate-500 space-y-1">
-                  <div className="flex justify-between"><span>Model</span><span className="font-bold text-slate-700">Turbo v2.5</span></div>
-                  <div className="flex justify-between"><span>Characters Synthesized</span><span className="font-bold text-slate-700">{elevenLabsChars.toLocaleString()}</span></div>
-                  <div className="flex justify-between"><span>Rate (Starter Tier)</span><span className="font-bold text-slate-700">~$0.167 / 1K chars</span></div>
-                  <div className="h-px bg-slate-200 my-1" />
-                  <div className="flex justify-between text-slate-900 font-black"><span>Subtotal</span><span>${(elevenLabsChars * 0.000167).toFixed(6)}</span></div>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-900 rounded-[8px]">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Session Cost</span>
-                  <span className="text-lg font-black text-white">${((groqTokens * 0.00000006) + (elevenLabsChars * 0.000167)).toFixed(4)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ── Upper Section: Agent identity, waveform, controls ── */}
         <div className="flex flex-col items-center pt-16 sm:pt-28 pb-4 sm:pb-6 shrink-0">
 
-          {/* Speed Selector — dark glassmorphic design */}
-          <div className="inline-flex items-center bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-xl mb-8">
+          {/* Speed Selector */}
+          <div className={`inline-flex items-center border rounded-full p-1 backdrop-blur-xl mb-8 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-900/5 border-slate-900/10'}`}>
             {speedOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setResponseDelay(opt.value)}
                 className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-200 ${
                   responseDelay === opt.value
-                    ? 'bg-white/15 text-white shadow-sm shadow-white/5'
-                    : 'text-white/35 hover:text-white/60'
+                    ? (isDarkMode ? 'bg-white/15 text-white shadow-sm shadow-white/5' : 'bg-slate-900/10 text-slate-900 shadow-sm')
+                    : (isDarkMode ? 'text-white/35 hover:text-white/60' : 'text-slate-500 hover:text-slate-700')
                 }`}
               >
                 {opt.label}
@@ -1238,25 +1186,18 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             ))}
           </div>
 
-          {/* Agent Name — clean centered display with gradient cloud behind */}
+          {/* Agent Name */}
           <div className="relative w-full max-w-4xl px-6" style={{ minHeight: '140px', paddingTop: '30px', paddingBottom: '30px' }}>
-            {/* Faint animated cloud behind JARVIS text for mystique — dark theme */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
               <div className="absolute w-[340px] h-[160px] rounded-full opacity-[0.25]" style={{ background: 'radial-gradient(ellipse, rgba(99,102,241,0.3) 0%, transparent 70%)', animation: 'jarvisCloud1 12s ease-in-out infinite' }} />
               <div className="absolute w-[260px] h-[120px] rounded-full opacity-[0.20]" style={{ background: 'radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 70%)', animation: 'jarvisCloud2 16s ease-in-out infinite', animationDelay: '-4s' }} />
               <div className="absolute w-[400px] h-[140px] rounded-full opacity-[0.15]" style={{ background: 'radial-gradient(ellipse, rgba(79,70,229,0.2) 0%, transparent 70%)', animation: 'jarvisCloud3 20s ease-in-out infinite', animationDelay: '-8s' }} />
             </div>
-            <style>{`
-              @keyframes jarvisCloud1 { 0%, 100% { transform: translate(-15px, -5px) scale(1); } 33% { transform: translate(20px, 8px) scale(1.1); } 66% { transform: translate(-8px, -12px) scale(0.95); } }
-              @keyframes jarvisCloud2 { 0%, 100% { transform: translate(10px, 5px) scale(1); } 50% { transform: translate(-18px, -8px) scale(1.15); } }
-              @keyframes jarvisCloud3 { 0%, 100% { transform: translate(5px, 10px) scale(1.05); } 40% { transform: translate(-12px, -6px) scale(0.9); } 70% { transform: translate(15px, 3px) scale(1.1); } }
-            `}</style>
-            {/* Agent name — centered */}
             <div className="relative flex items-center justify-center z-10 pointer-events-none">
-              <h2 className="text-2xl sm:text-5xl md:text-6xl font-light text-white/60 tracking-[0.12em] text-center" style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
+              <h2 className={`text-2xl sm:text-5xl md:text-6xl font-light tracking-[0.12em] text-center ${isDarkMode ? 'text-white/60' : 'text-slate-800/80'}`} style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" }}>{agentName}</h2>
             </div>
           </div>
-          <p className="text-white/30 text-sm font-medium tabular-nums mt-2">{formatTime(elapsed)}</p>
+          <p className={`text-sm font-medium tabular-nums mt-2 ${isDarkMode ? 'text-white/30' : 'text-slate-500'}`}>{formatTime(elapsed)}</p>
 
           {/* Waveform */}
           <div className="w-full max-w-[300px] sm:max-w-2xl mt-10 mb-8 relative">
@@ -1286,12 +1227,12 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
             </div>
           </div>
 
-          <span className={`text-sm font-bold uppercase tracking-[0.2em] text-white/50 transition-colors duration-500 mb-6`}>{statusLabel}</span>
+          <span className={`text-sm font-bold uppercase tracking-[0.2em] transition-colors duration-500 mb-6 ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>{statusLabel}</span>
 
           {/* Controls */}
           <div className="flex items-center justify-center gap-4 sm:gap-5 px-4">
             <button onClick={() => setIsMicMuted(!isMicMuted)}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isMicMuted ? "bg-rose-500/20 text-rose-400 ring-2 ring-rose-500/30" : "bg-white/8 border border-white/10 text-white/50 hover:bg-white/12 hover:text-white/80"}`}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isMicMuted ? "bg-rose-500/20 text-rose-500 ring-2 ring-rose-500/30" : (isDarkMode ? "bg-white/8 border border-white/10 text-white/50 hover:bg-white/12 hover:text-white/80" : "bg-slate-900/5 border border-slate-900/10 text-slate-500 hover:bg-slate-900/10 hover:text-slate-800")}`}
             >
               {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
             </button>
@@ -1320,19 +1261,19 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${
                 phase === "speaking" ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20" :
                 phase === "listening" && !isMicMuted && !isPaused ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20" :
-                "bg-white/10 text-white/40"
+                (isDarkMode ? "bg-white/10 text-white/40" : "bg-slate-900/10 text-slate-500")
               }`}
             >
               {phase === "processing" ? <><Loader2 className="w-5 h-5 animate-spin" /> Thinking...</> : phase === "speaking" ? <><Mic className="w-5 h-5" /> Interrupt</> : <><Hand className="w-5 h-5" /> Send</>}
             </button>
 
             <button onClick={() => setIsPaused(!isPaused)}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isPaused ? "bg-amber-500/20 text-amber-400 ring-2 ring-amber-500/30" : "bg-white/8 border border-white/10 text-white/50 hover:bg-white/12 hover:text-white/80"}`}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${isPaused ? "bg-amber-500/20 text-amber-500 ring-2 ring-amber-500/30" : (isDarkMode ? "bg-white/8 border border-white/10 text-white/50 hover:bg-white/12 hover:text-white/80" : "bg-slate-900/5 border border-slate-900/10 text-slate-500 hover:bg-slate-900/10 hover:text-slate-800")}`}
             >
               {isPaused ? <Play className="w-6 h-6 ml-0.5" /> : <Pause className="w-6 h-6" />}
             </button>
 
-            <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-500/20 shadow-sm">
+            <button onClick={onClose} className={`w-14 h-14 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-rose-500/20 shadow-sm`}>
               <Phone className="w-6 h-6 rotate-[135deg]" />
             </button>
           </div>
@@ -1341,9 +1282,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         {/* ── Divider ── */}
         <div className="mx-auto w-full max-w-2xl px-8">
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Transcript</span>
-            <div className="flex-1 h-px bg-white/10" />
+            <div className={`flex-1 h-px ${isDarkMode ? 'bg-white/10' : 'bg-slate-900/10'}`} />
+            <span className={`text-[10px] font-semibold uppercase tracking-widest ${isDarkMode ? 'text-white/20' : 'text-slate-400'}`}>Transcript</span>
+            <div className={`flex-1 h-px ${isDarkMode ? 'bg-white/10' : 'bg-slate-900/10'}`} />
           </div>
         </div>
 
@@ -1351,10 +1292,9 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
         <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-5">
           <div className="max-w-2xl mx-auto space-y-3">
 
-            {/* Welcome hint — always shown as the first bubble */}
             {transcriptLines.length === 0 && !liveText && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-white/60 text-[14px] leading-relaxed">
+                <div className={`max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md border text-[14px] leading-relaxed ${isDarkMode ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
                   Start speaking, and you&apos;ll see your words transcribed here in real time. When {agentName} responds, the reply will appear below.
                 </div>
               </div>
@@ -1362,12 +1302,11 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
 
             {transcriptLines.map((line, idx) => (
               <div key={idx} className={`flex ${line.isUser ? 'justify-end' : 'justify-start'}`}>
-                {/* Citation bubbles — to the left of AI messages */}
                 {!line.isUser && line.citations && line.citations.length > 0 && (
                   <div className="flex flex-col gap-1 items-end justify-end max-w-[140px] shrink-0 mr-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
                     {line.citations.slice(0, 3).map((cite, ci) => (
-                      <div key={ci} className="border border-dashed border-slate-200 rounded-lg px-2 py-1 text-[9px] leading-tight text-slate-400 bg-white/50 backdrop-blur-sm max-w-full">
-                        <div className="font-bold text-[8px] uppercase tracking-wider text-slate-300 mb-0.5">{cite.source}</div>
+                      <div key={ci} className={`border border-dashed rounded-lg px-2 py-1 text-[9px] leading-tight max-w-full backdrop-blur-sm ${isDarkMode ? 'border-slate-700 bg-slate-800/50 text-slate-400' : 'border-slate-300 bg-white/50 text-slate-500'}`}>
+                        <div className={`font-bold text-[8px] uppercase tracking-wider mb-0.5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{cite.source}</div>
                         <div className="line-clamp-2">{cite.text}</div>
                       </div>
                     ))}
@@ -1375,8 +1314,8 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                 )}
                 <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
                   line.isUser
-                    ? 'bg-indigo-600/30 text-white rounded-br-md border border-indigo-500/20'
-                    : 'bg-white/8 border border-white/15 text-white/90 rounded-bl-md'
+                    ? (isDarkMode ? 'bg-indigo-600/30 text-white rounded-br-md border border-indigo-500/20' : 'bg-indigo-100 text-indigo-900 rounded-br-md border border-indigo-200')
+                    : (isDarkMode ? 'bg-white/8 border border-white/15 text-white/90 rounded-bl-md' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md shadow-sm')
                 }`}>
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -1384,7 +1323,7 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
                       p: ({ children }) => <span>{children}</span>,
                       strong: ({ children }) => <strong className="font-bold">{children}</strong>,
                       em: ({ children }) => <em className="italic">{children}</em>,
-                      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline hover:text-indigo-300">{children}</a>,
+                      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-500 underline hover:text-indigo-400">{children}</a>,
                     }}
                   >
                     {line.text}
@@ -1393,23 +1332,21 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
               </div>
             ))}
 
-            {/* Live transcription bubble — shows user's words appearing in real time */}
             {liveText && phase === "listening" && (
               <div className="flex justify-end">
-                <div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-br-md bg-slate-700 text-white/90 text-[14px] leading-relaxed">
+                <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-br-md text-[14px] leading-relaxed ${isDarkMode ? 'bg-slate-700 text-white/90' : 'bg-slate-200 text-slate-800'}`}>
                   {liveText}
-                  <span className="inline-block w-0.5 h-4 bg-white/50 ml-0.5 animate-pulse align-text-bottom" />
+                  <span className={`inline-block w-0.5 h-4 ml-0.5 animate-pulse align-text-bottom ${isDarkMode ? 'bg-white/50' : 'bg-slate-500'}`} />
                 </div>
               </div>
             )}
 
-            {/* AI thinking indicator — animated dots */}
             {phase === "processing" && (
               <div className="flex justify-start">
-                <div className="px-5 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
+                <div className={`px-5 py-3 rounded-2xl rounded-bl-md border flex items-center gap-1.5 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full animate-bounce ${isDarkMode ? 'bg-white/30' : 'bg-slate-400'}`} style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
+                  <span className={`w-1.5 h-1.5 rounded-full animate-bounce ${isDarkMode ? 'bg-white/30' : 'bg-slate-400'}`} style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
+                  <span className={`w-1.5 h-1.5 rounded-full animate-bounce ${isDarkMode ? 'bg-white/30' : 'bg-slate-400'}`} style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
                 </div>
               </div>
             )}

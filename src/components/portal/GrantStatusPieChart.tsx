@@ -94,6 +94,15 @@ export function GrantStatusPieChart({ grants = [], loading }: Props) {
         <div className="flex-1 min-h-0 h-full relative">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
+              <defs>
+                <filter id="pieGlow">
+                  <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
               <Pie
                 data={chartData}
                 cx="50%"
@@ -103,25 +112,30 @@ export function GrantStatusPieChart({ grants = [], loading }: Props) {
                 paddingAngle={total === 0 ? 0 : 2}
                 dataKey="value"
                 stroke="none"
+                filter="url(#pieGlow)"
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#1e293b",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontSize: "10px",
-                  color: "#f8fafc",
-                  padding: "6px 10px",
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const entry = payload[0].payload;
+                  const pct = total > 0 ? ((entry.actualValue / total) * 100).toFixed(0) : '0';
+                  return (
+                    <div className={`px-3 py-2.5 rounded-xl shadow-2xl border backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-700/80' : 'bg-white/90 border-slate-200'}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                        <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{entry.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold tabular-nums ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{entry.actualValue}</span>
+                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>{pct}%</span>
+                      </div>
+                    </div>
+                  );
                 }}
-                formatter={(value: number, name: string, props: any) => {
-                  const actual = props.payload.actualValue;
-                  return [`${actual}`, name];
-                }}
-                labelStyle={{ display: "none" }}
               />
             </PieChart>
           </ResponsiveContainer>
