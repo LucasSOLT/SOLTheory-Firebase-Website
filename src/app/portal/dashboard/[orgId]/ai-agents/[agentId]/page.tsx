@@ -2952,16 +2952,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
                       <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-xl mx-auto" style={{ fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}>
                         
-                        {/* Glassmorphic welcome container with radial gradient backdrop */}
+                        {/* Seamless ambient welcome container with soft diffuse glow */}
                         <div className="relative w-full">
                           {/* Radial gradient backdrop glow */}
-                          <div className={`absolute inset-0 rounded-3xl pointer-events-none ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08)_0%,rgba(139,92,246,0.04)_40%,transparent_70%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.06)_0%,rgba(139,92,246,0.03)_40%,transparent_70%)]'}`} style={{ transform: 'scale(1.3)' }} />
+                          <div className={`absolute inset-0 rounded-full pointer-events-none blur-3xl opacity-70 ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.12)_0%,rgba(139,92,246,0.06)_40%,transparent_75%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08)_0%,rgba(139,92,246,0.04)_40%,transparent_75%)]'}`} style={{ transform: 'scale(1.4)' }} />
                           
-                          <div className={`relative rounded-3xl p-8 sm:p-10 backdrop-blur-xl border ${isDarkMode ? 'bg-slate-900/40 border-white/10 shadow-2xl shadow-indigo-500/5' : 'bg-white/40 border-white/20 shadow-2xl shadow-indigo-500/5'}`}>
+                          <div className={`relative rounded-[2rem] p-8 sm:p-10 transition-all duration-300 ${
+                            isDarkMode
+                              ? 'bg-gradient-to-b from-white/[0.03] via-white/[0.015] to-transparent border border-white/[0.05] backdrop-blur-md'
+                              : 'bg-gradient-to-b from-white/30 via-white/10 to-transparent border border-white/30 backdrop-blur-md'
+                          }`}>
                             <div className="flex flex-col items-center justify-center">
                               {/* Clean centered greeting */}
                               <div className="flex flex-col items-center gap-4 mb-8">
-                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center backdrop-blur-sm ${isDarkMode ? 'bg-slate-800/80 border border-slate-700/60 shadow-lg shadow-indigo-500/10' : 'bg-white/60 border border-white/30 shadow-lg shadow-indigo-500/10'}`}>
+                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center backdrop-blur-md transition-all ${
+                                  isDarkMode
+                                    ? 'bg-white/[0.05] border border-white/[0.08] shadow-sm'
+                                    : 'bg-white/50 border border-white/60 shadow-sm'
+                                }`}>
                                   {agent.heroIcon === 'palette'
                                     ? <Palette className={`w-8 h-8 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
                                     : <Bot className={`w-8 h-8 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />}
@@ -2974,7 +2982,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                 </p>
                               </div>
                               
-                              {/* Quick action suggestions with micro-hover scaling & glow shadows */}
+                              {/* Quick action suggestions with micro-hover scaling & seamless glass blending */}
                               <div className="flex flex-wrap justify-center gap-2.5 max-w-lg px-2">
                                 {(agent.quickActions || [
                                   { label: '\ud83d\udce7 Draft an email', action: 'Draft an email' },
@@ -2986,16 +2994,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                   <button
                                     key={suggestion.label}
                                     onClick={() => handleSendMessage(suggestion.action)}
-                                    className={`px-4 py-2.5 sm:px-3.5 sm:py-2 rounded-full text-xs sm:text-[11px] font-medium cursor-pointer border min-h-[38px] flex items-center backdrop-blur-sm ${
+                                    className={`px-4 py-2.5 sm:px-3.5 sm:py-2 rounded-full text-xs sm:text-[11px] font-medium cursor-pointer border min-h-[38px] flex items-center backdrop-blur-md transition-all duration-300 ${
                                       isDarkMode
-                                        ? 'border-slate-700/60 bg-slate-800/50 text-slate-300 hover:bg-slate-700/70 hover:border-indigo-500/30 shadow-md shadow-indigo-500/5 hover:shadow-lg hover:shadow-indigo-500/10'
-                                        : 'border-white/30 bg-white/50 text-slate-600 hover:bg-white/70 hover:border-indigo-300/40 shadow-md shadow-indigo-500/5 hover:shadow-lg hover:shadow-violet-500/10'
+                                        ? 'border-white/[0.07] bg-white/[0.03] text-slate-300 hover:bg-white/[0.08] hover:border-indigo-400/30 hover:text-white shadow-sm hover:shadow-md hover:shadow-indigo-500/10'
+                                        : 'border-slate-900/[0.05] bg-white/40 text-slate-600 hover:bg-white/70 hover:border-indigo-300/40 hover:text-slate-800 shadow-sm hover:shadow-md hover:shadow-indigo-500/5'
                                     }`}
-                                    style={{ transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)', fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                                    style={{ fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
                                     onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-                                    onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
-                                    onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                                    onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.96)'; }}
+                                    onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
                                   >
                                     {suggestion.label}
                                   </button>
