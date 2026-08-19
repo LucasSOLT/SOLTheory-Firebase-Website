@@ -11,7 +11,7 @@ import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
-import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
+import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, executeCrmMergeContacts, executeCrmAddActivity, executeCrmCreateContactBook, executeCrmRenameContactBook, executeCrmDeleteContactBook, executeCrmMoveContact, executeCrmScheduleFollowup, executeCrmCompleteTask, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
 import { orchestrateMultiStep } from "@/lib/jarvis-orchestrator";
@@ -81,6 +81,26 @@ const tools: any = [
           meetingDateTime: { type: "string", description: "ISO 8601 datetime. Required with Meet link." }
         },
         required: ["to", "subject", "body"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_outbound_email",
+      description: "Send an email immediately via Gmail. ALWAYS call with confirmed=false FIRST to show the user a preview of the email. Only call with confirmed=true AFTER the user explicitly approves sending. Use this when the user says 'send an email', 'email Steve about X', etc. For drafts, use draft_outbound_email instead.",
+      parameters: {
+        type: "object",
+        properties: {
+          to: { type: "string", description: "Recipient email address" },
+          subject: { type: "string", description: "Email subject line" },
+          body: { type: "string", description: "Email body. Format: 'Hello [Name],\\n\\n[Body]\\n\\nThanks,\\n[Sender]'. Use \\n for line breaks." },
+          confirmed: { type: "boolean", description: "false = preview the email for user approval, true = actually send the email. NEVER send without preview first." },
+          includeGoogleMeetLink: { type: "boolean", description: "True to auto-generate a Google Meet link." },
+          meetingSummary: { type: "string", description: "Calendar event title. Required with Meet link." },
+          meetingDateTime: { type: "string", description: "ISO 8601 datetime. Required with Meet link." }
+        },
+        required: ["to", "subject", "body", "confirmed"]
       }
     }
   },
@@ -590,6 +610,17 @@ The current date/time for the user is: ${localTime}.`;
       });
       console.log(`[CRM TOOLS] Injected CRM management context — active book: ${crmInstanceId}`);
     }
+
+    // Email behavior rules
+    groqMessages.push({
+      role: "system",
+      content: `[EMAIL BEHAVIOR RULES]
+- If the user says "draft an email" or "write me a draft" → use draft_outbound_email (saves to Gmail Drafts)
+- If the user says "send an email" or "send [person] a message about" → use send_outbound_email with confirmed=false first to preview
+- If ambiguous (e.g. "write me an email to Steve about Y"): compose the email using send_outbound_email with confirmed=false, show the preview, and ask: "Would you like me to send this now, or save it as a draft?"
+- For send_outbound_email, ALWAYS call with confirmed=false FIRST. Only use confirmed=true AFTER the user approves.
+- NEVER send an email without the user seeing a preview first.`
+    });
 
     // --- KNOWLEDGE BASE: Injected LAST so it's closest to conversation (better LLM attention) ---
     const defaultKnowledge = orgProfileData?.defaultKnowledge || "";
@@ -1320,6 +1351,46 @@ The current date/time for the user is: ${localTime}.`;
             const draftLink = draftId ? ` Open draft: https://mail.google.com/mail/u/0/#drafts?compose=${draftId}` : '';
             const meetNote = generatedMeetLink ? ` A Google Meet link (${generatedMeetLink}) was embedded.` : '';
             functionResult = JSON.stringify({ result: `Draft to ${args.to} successfully created.${meetNote}${draftLink}` });
+          } else if (functionName === "send_outbound_email") {
+            // ── Send email (or preview) ──
+            if (!args.confirmed) {
+              // Preview mode — show the user what will be sent
+              functionResult = JSON.stringify({
+                result: `📧 **Email Preview:**\n\n**To:** ${args.to}\n**Subject:** ${args.subject}\n\n${args.body.replace(/\\n/g, '\n')}\n\n---\n_Would you like me to send this email now, or save it as a draft?_`
+              });
+            } else if (gmail) {
+              // Confirmed — actually send the email
+              let finalBody = args.body;
+              finalBody = finalBody.replace(/\\n/g, '\n');
+
+              // Build HTML with proper paragraph spacing (reuse draft formatting)
+              let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+              const htmlBody = lines.map((line: string) => {
+                return `<p style="margin:0 0 12px 0;">${line}</p>`;
+              }).join('');
+
+              const emailLines = [
+                `To: ${args.to}`,
+                `Subject: ${args.subject}`,
+                `Content-Type: text/html; charset=utf-8`,
+                ``,
+                htmlBody
+              ];
+              const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+              try {
+                await gmail.users.messages.send({
+                  userId: 'me',
+                  requestBody: { raw }
+                });
+                functionResult = JSON.stringify({ result: `✅ Email sent successfully to ${args.to}!\n\n**Subject:** ${args.subject}` });
+              } catch (sendErr: any) {
+                console.error('[SEND EMAIL] Error:', sendErr.message);
+                functionResult = JSON.stringify({ error: `Failed to send email: ${sendErr.message}. The email was NOT sent.` });
+              }
+            } else {
+              functionResult = JSON.stringify({ error: "Gmail is not connected. Please connect your Google account in Settings to send emails." });
+            }
           } else if (functionName === "create_google_document" && docsApi && driveApi) {
             // Create a blank Google Doc
             const createRes = await docsApi.documents.create({
@@ -2402,6 +2473,38 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             } catch (crmErr: any) {
               functionResult = JSON.stringify({ error: "Failed to batch update contacts: " + crmErr.message });
             }
+          } else if (functionName === "crm_merge_contacts") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Merging contacts:", args.primaryQuery, "+", args.secondaryQuery);
+            functionResult = await executeCrmMergeContacts(orgId, crmInstanceId || "default", args, parsedInstances);
+          } else if (functionName === "crm_add_activity") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Adding activity for:", args.searchQuery);
+            functionResult = await executeCrmAddActivity(orgId, crmInstanceId || "default", args, parsedInstances);
+          } else if (functionName === "crm_create_contact_book") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Creating contact book:", args.name);
+            functionResult = await executeCrmCreateContactBook(orgId, crmInstanceId || "default", args, parsedInstances);
+          } else if (functionName === "crm_rename_contact_book") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Renaming contact book:", args.currentName, "→", args.newName);
+            functionResult = await executeCrmRenameContactBook(orgId, crmInstanceId || "default", args, parsedInstances);
+          } else if (functionName === "crm_delete_contact_book") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Deleting contact book:", args.bookName);
+            functionResult = await executeCrmDeleteContactBook(orgId, crmInstanceId || "default", args, parsedInstances);
+          } else if (functionName === "crm_move_contact") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Moving contact:", args.searchQuery, "→", args.targetBookName);
+            functionResult = await executeCrmMoveContact(orgId, crmInstanceId || "default", args, parsedInstances);
+          } else if (functionName === "crm_schedule_followup") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Scheduling follow-up for:", args.searchQuery);
+            functionResult = await executeCrmScheduleFollowup(orgId, crmInstanceId || "default", args, parsedInstances);
+          } else if (functionName === "crm_complete_task") {
+            const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+            console.log("[CRM] Completing task for:", args.searchQuery);
+            functionResult = await executeCrmCompleteTask(orgId, crmInstanceId || "default", args, parsedInstances);
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
           }

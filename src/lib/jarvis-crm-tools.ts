@@ -455,6 +455,139 @@ export const CRM_TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "crm_merge_contacts",
+      description: "Merge two duplicate contacts into one. Searches for both contacts, previews the merge, and on confirmation combines data from the secondary into the primary contact and deletes the secondary. ALWAYS call with confirmed=false FIRST to preview, then with confirmed=true after user approves.",
+      parameters: {
+        type: "object",
+        properties: {
+          primaryQuery: { type: "string", description: "Name or email of the contact to KEEP as the primary record" },
+          secondaryQuery: { type: "string", description: "Name or email of the duplicate contact to merge INTO the primary" },
+          fieldsToKeepFromPrimary: { type: "array", items: { type: "string" }, description: "Specific field names to always keep from the primary, even if secondary has data (e.g. ['email', 'phone'])" },
+          confirmed: { type: "boolean", description: "false = preview merge, true = execute merge" },
+          contactBookName: { type: "string", description: "Which contact book to search in" },
+        },
+        required: ["primaryQuery", "secondaryQuery", "confirmed"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crm_add_activity",
+      description: "Log an activity entry (note, call, meeting, email, task, status change) to a contact's activity timeline. Use when the user says 'log a note', 'add a note', 'record that I called', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          searchQuery: { type: "string", description: "Name or email of the contact to add the activity to" },
+          type: { type: "string", enum: ["note", "call", "meeting", "email", "task", "status_change", "insight"], description: "Type of activity" },
+          content: { type: "string", description: "The activity content/description" },
+          contactBookName: { type: "string" },
+        },
+        required: ["searchQuery", "type", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crm_create_contact_book",
+      description: "Create a new contact book (database). Use when user says 'create a new contact book' or 'make a new database called X'.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Name for the new contact book" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crm_rename_contact_book",
+      description: "Rename an existing contact book. Use when user says 'rename my contact book' or 'change the name of X to Y'.",
+      parameters: {
+        type: "object",
+        properties: {
+          currentName: { type: "string", description: "Current name of the contact book to rename" },
+          newName: { type: "string", description: "New name for the contact book" },
+        },
+        required: ["currentName", "newName"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crm_delete_contact_book",
+      description: "Delete a contact book. Cannot delete the default book. ALWAYS ask for confirmation before executing.",
+      parameters: {
+        type: "object",
+        properties: {
+          bookName: { type: "string", description: "Name of the contact book to delete" },
+          confirmed: { type: "boolean", description: "false = show warning, true = delete" },
+        },
+        required: ["bookName", "confirmed"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crm_move_contact",
+      description: "Move a contact from one contact book to another. Copies all data to the target book and deletes from the source. ALWAYS preview first (confirmed=false).",
+      parameters: {
+        type: "object",
+        properties: {
+          searchQuery: { type: "string", description: "Name or email of the contact to move" },
+          targetBookName: { type: "string", description: "Name of the destination contact book" },
+          confirmed: { type: "boolean" },
+          contactBookName: { type: "string", description: "Source book (defaults to active)" },
+        },
+        required: ["searchQuery", "targetBookName", "confirmed"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crm_schedule_followup",
+      description: "Schedule a follow-up task for a contact. Creates a task with type, due date, priority, and notes. Also logs the task creation to the contact's activity timeline.",
+      parameters: {
+        type: "object",
+        properties: {
+          searchQuery: { type: "string", description: "Name or email of the contact" },
+          taskType: { type: "string", enum: ["Call", "Email", "Meeting", "Send Proposal", "Check-in", "Message", "Onboard"], description: "Type of follow-up" },
+          title: { type: "string", description: "Task title/description" },
+          dueDate: { type: "string", description: "Due date in YYYY-MM-DD format" },
+          priority: { type: "string", enum: ["Low", "Normal", "High", "Urgent"], description: "Priority level" },
+          notes: { type: "string" },
+          contactBookName: { type: "string" },
+        },
+        required: ["searchQuery", "taskType", "title", "dueDate"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crm_complete_task",
+      description: "Mark a follow-up task as complete or delete it. Searches for the task by contact name and title. Logs completion to the contact's activity timeline.",
+      parameters: {
+        type: "object",
+        properties: {
+          searchQuery: { type: "string", description: "Name of the contact the task is for" },
+          taskTitle: { type: "string", description: "Title of the task to complete (if multiple tasks exist for this contact)" },
+          action: { type: "string", enum: ["complete", "delete"], description: "Whether to mark as complete or delete" },
+          contactBookName: { type: "string" },
+        },
+        required: ["searchQuery", "action"],
+      },
+    },
+  },
 ];
 
 /* ─────────────── SYSTEM PROMPT SNIPPET ─────────────── */
@@ -528,7 +661,29 @@ After completing any CRM-related task (analytics, search, create, update), you M
 - After analytics: "By the way, I noticed 8 warm leads haven't been contacted in over 2 weeks — want me to pull up a priority list?"
 - After creating a contact: "I see 15 other contacts at [same company] — want me to tag them all as a group?"
 - After searching: "3 of the contacts I found are missing email addresses — want me to flag all contacts with missing emails?"
-Do NOT suggest insights on every single message — only when it's natural and genuinely useful. Never more than once per conversation turn. If the user ignores or declines a suggestion, don't repeat it.`;
+Do NOT suggest insights on every single message — only when it's natural and genuinely useful. Never more than once per conversation turn. If the user ignores or declines a suggestion, don't repeat it.
+
+MERGE CONTACTS:
+- Use crm_merge_contacts when user wants to combine duplicates or merge records
+- ALWAYS preview first (confirmed=false), then confirm before executing
+- Default: keep primary's fields, fill gaps with secondary's data. Merge tags. Sum revenues.
+- If user specifies which fields to keep (e.g. "keep the soltheory email"), pass those in fieldsToKeepFromPrimary
+
+CONTACT BOOK MANAGEMENT:
+- crm_create_contact_book: Create new contact databases
+- crm_rename_contact_book: Rename existing books
+- crm_delete_contact_book: Delete books (cannot delete default, always confirm first)
+- crm_move_contact: Move a contact between books (preview first)
+
+ACTIVITY LOGGING:
+- Use crm_add_activity to log notes, calls, meetings, emails, or tasks to a contact's timeline
+- Types: note, call, meeting, email, task, status_change, insight
+
+FOLLOW-UP TASKS:
+- crm_schedule_followup: Create follow-up tasks with type, due date, priority
+- crm_complete_task: Mark tasks as complete or delete them
+- Task types: Call, Email, Meeting, Send Proposal, Check-in, Message, Onboard
+- Priorities: Low, Normal, High, Urgent`;
 }
 
 /**
@@ -547,7 +702,8 @@ After every CRM action, confirm what you did and which contact book. Split full 
 MANDATORY: When asked to email/text someone by name, you MUST ALWAYS call crm_resolve_contact first. NEVER guess or fabricate email addresses. Only use the exact email returned by crm_resolve_contact or explicitly provided by the user. If multiple matches found, NUMBER them (1, 2, 3...) and ask which one — do NOT pick yourself.
 For analytics questions (how many contacts, revenue totals, lead breakdown), use crm_get_analytics.
 Use crm_evaluate_contacts for CRM health audits, stale lead alerts, and priority lists. Use crm_batch_update for bulk tagging/status changes (always preview first).
-After CRM tasks, you may suggest one relevant insight if genuinely helpful (e.g. stale leads, missing fields). Don't over-suggest.`;
+After CRM tasks, you may suggest one relevant insight if genuinely helpful (e.g. stale leads, missing fields). Don't over-suggest.
+Merge duplicates with crm_merge_contacts (preview first). Manage contact books with create/rename/delete tools. Log notes with crm_add_activity. Schedule follow-ups with crm_schedule_followup.`;
 }
 
 /* ─────────────── HELPER FUNCTIONS ─────────────── */
@@ -1728,7 +1884,7 @@ export async function executeCrmBatchUpdate(
           updateData[action.field] = action.value;
         } else if (action.type === "add_tags" && Array.isArray(action.tags)) {
           const existingTags = Array.isArray(m.data.tags) ? m.data.tags : [];
-          const newTags = [...new Set([...existingTags, ...action.tags])];
+          const newTags = Array.from(new Set([...existingTags, ...action.tags]));
           updateData.tags = newTags;
         } else if (action.type === "remove_tags" && Array.isArray(action.tags)) {
           const existingTags = Array.isArray(m.data.tags) ? m.data.tags : [];
@@ -1759,5 +1915,351 @@ export async function executeCrmBatchUpdate(
   } catch (error: any) {
     console.error("[CRM] Batch update error:", error);
     return JSON.stringify({ success: false, error: `Failed to batch update contacts: ${error.message}` });
+  }
+}
+
+export async function executeCrmMergeContacts(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { primaryQuery, secondaryQuery, fieldsToKeepFromPrimary = [], confirmed, contactBookName } = args;
+
+    const targetBookId = contactBookName ? resolveContactBookByName(contactBookName, instances) : instanceId;
+    if (!targetBookId) return JSON.stringify({ success: false, error: `Contact book '${contactBookName}' not found.` });
+
+    const primaryResults = await searchContactsInFirestore(orgId, targetBookId, primaryQuery);
+    if (primaryResults.length === 0) return JSON.stringify({ success: false, error: `Primary contact '${primaryQuery}' not found.` });
+    const primary = primaryResults[0];
+
+    const secondaryResults = await searchContactsInFirestore(orgId, targetBookId, secondaryQuery);
+    if (secondaryResults.length === 0) return JSON.stringify({ success: false, error: `Secondary contact '${secondaryQuery}' not found.` });
+    const secondary = secondaryResults[0];
+
+    if (primary.id === secondary.id) {
+      return JSON.stringify({ success: false, error: `Primary and secondary contacts are the same record.` });
+    }
+
+    const primaryData = primary.data;
+    const secondaryData = secondary.data;
+    const mergedData: any = { ...primaryData };
+    const fieldsCopied: string[] = [];
+
+    // Fields to copy from secondary if primary is empty (except fields to keep)
+    for (const [key, value] of Object.entries(secondaryData)) {
+      if (key === "id" || key === "createdAt" || key === "updatedAt") continue;
+      
+      // Handle tags — union merge
+      if (key === "tags" && Array.isArray(value)) {
+        mergedData.tags = Array.from(new Set([...(Array.isArray(primaryData.tags) ? primaryData.tags : []), ...value]));
+        continue;
+      }
+      
+      // Handle revenue — sum
+      if (["totalRevenue", "outstandingBalance", "lifetimeValue", "dealValue"].includes(key)) {
+        mergedData[key] = (Number(primaryData[key]) || 0) + (Number(value) || 0);
+        continue;
+      }
+
+      // Copy if primary empty and not in keep list
+      if (!fieldsToKeepFromPrimary.includes(key) && value !== undefined && value !== null && value !== "") {
+        if (primaryData[key] === undefined || primaryData[key] === null || primaryData[key] === "") {
+          mergedData[key] = value;
+          fieldsCopied.push(key);
+        }
+      }
+    }
+
+    if (!confirmed) {
+      return JSON.stringify({
+        success: true,
+        preview: true,
+        message: "Merge preview. Call again with confirmed=true to execute.",
+        primaryContact: { id: primary.id, name: (primaryData.firstName || "") + " " + (primaryData.lastName || ""), email: primaryData.email },
+        secondaryContact: { id: secondary.id, name: (secondaryData.firstName || "") + " " + (secondaryData.lastName || ""), email: secondaryData.email },
+        fieldsToBeCopied: fieldsCopied,
+        mergedResultPreview: mergedData
+      });
+    }
+
+    const batch = db.batch();
+    const primaryRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/contacts`).doc(primary.id);
+    const secondaryRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/contacts`).doc(secondary.id);
+
+    mergedData.updatedAt = Date.now();
+    batch.set(primaryRef, mergedData, { merge: true });
+    batch.delete(secondaryRef);
+
+    // Log activity
+    const activityRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/activities`).doc();
+    batch.set(activityRef, {
+      id: activityRef.id,
+      contactId: primary.id,
+      type: "note",
+      content: `Merged duplicate record for ${secondaryData.firstName || ''} ${secondaryData.lastName || ''} (${secondaryData.email || 'no email'}) into this contact.`,
+      createdAt: Date.now(),
+      source: "jarvis"
+    });
+
+    await batch.commit();
+
+    return JSON.stringify({
+      success: true,
+      message: `Successfully merged contacts. Kept ${primaryData.firstName || ''} ${primaryData.lastName || ''} (${primaryData.email || primary.id}) as primary. Deleted duplicate.`,
+      primaryContactId: primary.id,
+      deletedContactId: secondary.id
+    });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Merge failed: ${error.message}` });
+  }
+}
+
+export async function executeCrmAddActivity(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { searchQuery, type, content, contactBookName } = args;
+
+    const targetBookId = contactBookName ? resolveContactBookByName(contactBookName, instances) : instanceId;
+    if (!targetBookId) return JSON.stringify({ success: false, error: `Contact book '${contactBookName}' not found.` });
+
+    const results = await searchContactsInFirestore(orgId, targetBookId, searchQuery);
+    if (results.length === 0) return JSON.stringify({ success: false, error: `Contact not found.` });
+    const contact = results[0];
+
+    const activityRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/activities`).doc();
+    await activityRef.set({
+      id: activityRef.id,
+      contactId: contact.id,
+      type,
+      content,
+      createdAt: Date.now(),
+      source: "jarvis"
+    });
+
+    return JSON.stringify({ success: true, message: `Activity logged to ${contact.data.firstName || 'contact'}.`, activityId: activityRef.id });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Failed to add activity: ${error.message}` });
+  }
+}
+
+export async function executeCrmCreateContactBook(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { name } = args;
+
+    const newId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    
+    if (instances.some(i => i.id === newId)) {
+      return JSON.stringify({ success: false, error: `A contact book with ID ${newId} already exists.` });
+    }
+
+    const newInstance = { id: newId, name, icon: "Database" };
+    
+    const registryRef = db.doc(`orgs/${orgId}/crm-instances-meta/registry`);
+    const doc = await registryRef.get();
+    
+    if (!doc.exists) {
+      await registryRef.set({ instances: [newInstance] });
+    } else {
+      const data = doc.data() || { instances: [] };
+      await registryRef.update({ instances: [...data.instances, newInstance] });
+    }
+
+    return JSON.stringify({ success: true, message: `Contact book '${name}' created.`, newBookId: newId });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Failed to create book: ${error.message}` });
+  }
+}
+
+export async function executeCrmRenameContactBook(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { currentName, newName } = args;
+
+    const targetId = resolveContactBookByName(currentName, instances);
+    if (!targetId) return JSON.stringify({ success: false, error: `Contact book '${currentName}' not found.` });
+
+    const registryRef = db.doc(`orgs/${orgId}/crm-instances-meta/registry`);
+    const doc = await registryRef.get();
+    
+    if (doc.exists) {
+      const data = doc.data() || { instances: [] };
+      const updated = data.instances.map((i: any) => i.id === targetId ? { ...i, name: newName } : i);
+      await registryRef.update({ instances: updated });
+    }
+
+    return JSON.stringify({ success: true, message: `Contact book renamed to '${newName}'.` });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Failed to rename book: ${error.message}` });
+  }
+}
+
+export async function executeCrmDeleteContactBook(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { bookName, confirmed } = args;
+
+    const targetId = resolveContactBookByName(bookName, instances);
+    if (!targetId) return JSON.stringify({ success: false, error: `Contact book '${bookName}' not found.` });
+    
+    if (targetId === "default") return JSON.stringify({ success: false, error: `Cannot delete the default contact book.` });
+    if (instances.length <= 1) return JSON.stringify({ success: false, error: `Cannot delete the only contact book.` });
+
+    if (!confirmed) {
+      return JSON.stringify({ success: true, preview: true, message: `WARNING: This will delete the book '${bookName}' and ALL its contacts. Call again with confirmed=true to execute.` });
+    }
+
+    const registryRef = db.doc(`orgs/${orgId}/crm-instances-meta/registry`);
+    const doc = await registryRef.get();
+    
+    if (doc.exists) {
+      const data = doc.data() || { instances: [] };
+      const updated = data.instances.filter((i: any) => i.id !== targetId);
+      await registryRef.update({ instances: updated });
+    }
+
+    return JSON.stringify({ success: true, message: `Contact book '${bookName}' deleted.` });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Failed to delete book: ${error.message}` });
+  }
+}
+
+export async function executeCrmMoveContact(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { searchQuery, targetBookName, confirmed, contactBookName } = args;
+
+    const sourceBookId = contactBookName ? resolveContactBookByName(contactBookName, instances) : instanceId;
+    if (!sourceBookId) return JSON.stringify({ success: false, error: `Source contact book not found.` });
+
+    const targetBookId = resolveContactBookByName(targetBookName, instances);
+    if (!targetBookId) return JSON.stringify({ success: false, error: `Target contact book '${targetBookName}' not found.` });
+
+    if (sourceBookId === targetBookId) return JSON.stringify({ success: false, error: `Source and target books are the same.` });
+
+    const results = await searchContactsInFirestore(orgId, sourceBookId, searchQuery);
+    if (results.length === 0) return JSON.stringify({ success: false, error: `Contact not found.` });
+    const contact = results[0];
+
+    if (!confirmed) {
+      return JSON.stringify({ success: true, preview: true, message: `Ready to move ${contact.data.firstName || 'contact'} to '${targetBookName}'. Call with confirmed=true.` });
+    }
+
+    const batch = db.batch();
+    const targetRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/contacts`).doc(contact.id);
+    const sourceRef = db.collection(`orgs/${orgId}/crm-instances/${sourceBookId}/contacts`).doc(contact.id);
+
+    batch.set(targetRef, contact.data);
+    batch.delete(sourceRef);
+
+    await batch.commit();
+
+    return JSON.stringify({ success: true, message: `Moved ${contact.data.firstName || 'contact'} to ${targetBookName}.` });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Failed to move contact: ${error.message}` });
+  }
+}
+
+export async function executeCrmScheduleFollowup(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { searchQuery, taskType, title, dueDate, priority = "Normal", notes, contactBookName } = args;
+
+    const targetBookId = contactBookName ? resolveContactBookByName(contactBookName, instances) : instanceId;
+    if (!targetBookId) return JSON.stringify({ success: false, error: `Contact book not found.` });
+
+    const results = await searchContactsInFirestore(orgId, targetBookId, searchQuery);
+    if (results.length === 0) return JSON.stringify({ success: false, error: `Contact not found.` });
+    const contact = results[0];
+
+    const taskRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/tasks`).doc();
+    const taskData = {
+      id: taskRef.id,
+      contactId: contact.id,
+      contactName: `${contact.data.firstName || ''} ${contact.data.lastName || ""}`.trim(),
+      type: taskType,
+      title,
+      dueDate,
+      priority,
+      notes: notes || "",
+      status: "open",
+      createdAt: Date.now()
+    };
+    
+    const batch = db.batch();
+    batch.set(taskRef, taskData);
+
+    const activityRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/activities`).doc();
+    batch.set(activityRef, {
+      id: activityRef.id,
+      contactId: contact.id,
+      type: "task",
+      content: `Scheduled ${taskType} follow-up: ${title} (Due: ${dueDate})`,
+      createdAt: Date.now(),
+      source: "jarvis"
+    });
+
+    await batch.commit();
+
+    return JSON.stringify({ success: true, message: `Scheduled follow-up for ${contact.data.firstName || 'contact'}.`, taskId: taskRef.id });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Failed to schedule follow-up: ${error.message}` });
+  }
+}
+
+export async function executeCrmCompleteTask(orgId: string, instanceId: string, args: any, instances: CrmInstance[]): Promise<string> {
+  try {
+    await initAdmin();
+    const db = getAdminFirestore();
+    const { searchQuery, taskTitle, action, contactBookName } = args;
+
+    const targetBookId = contactBookName ? resolveContactBookByName(contactBookName, instances) : instanceId;
+    if (!targetBookId) return JSON.stringify({ success: false, error: `Contact book not found.` });
+
+    const results = await searchContactsInFirestore(orgId, targetBookId, searchQuery);
+    if (results.length === 0) return JSON.stringify({ success: false, error: `Contact not found.` });
+    const contact = results[0];
+
+    const tasksSnapshot = await db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/tasks`)
+      .where("contactId", "==", contact.id)
+      .where("status", "==", "open")
+      .get();
+
+    if (tasksSnapshot.empty) return JSON.stringify({ success: false, error: `No open tasks found for this contact.` });
+
+    let taskDoc = tasksSnapshot.docs[0];
+    if (taskTitle) {
+      const match = tasksSnapshot.docs.find(d => d.data().title.toLowerCase().includes(taskTitle.toLowerCase()));
+      if (match) taskDoc = match;
+    }
+
+    const batch = db.batch();
+    
+    if (action === "complete") {
+      batch.update(taskDoc.ref, { status: "completed", completedAt: Date.now() });
+      
+      const activityRef = db.collection(`orgs/${orgId}/crm-instances/${targetBookId}/activities`).doc();
+      batch.set(activityRef, {
+        id: activityRef.id,
+        contactId: contact.id,
+        type: "task",
+        content: `Completed task: ${taskDoc.data().title}`,
+        createdAt: Date.now(),
+        source: "jarvis"
+      });
+    } else if (action === "delete") {
+      batch.delete(taskDoc.ref);
+    }
+
+    await batch.commit();
+
+    return JSON.stringify({ success: true, message: `Task ${action}d.` });
+  } catch (error: any) {
+    return JSON.stringify({ success: false, error: `Failed to ${args.action} task: ${error.message}` });
   }
 }
