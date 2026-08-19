@@ -60,8 +60,8 @@ export type ToolExecutor = (
 
 // Models that the Groq SDK can execute (used for planner + mechanical steps)
 const GROQ_COMPATIBLE_MODELS = new Set([
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
   "groq/compound",
@@ -70,7 +70,7 @@ const GROQ_COMPATIBLE_MODELS = new Set([
 /** Ensure the model is Groq-compatible for the planner step only. */
 function ensureGroqModel(model: string): string {
   if (GROQ_COMPATIBLE_MODELS.has(model)) return model;
-  return "llama-3.3-70b-versatile";
+  return "openai/gpt-oss-120b";
 }
 
 // Domains that require creative intelligence → use the user's premium model
@@ -82,7 +82,7 @@ const FAST_DOMAINS = new Set(["CRM", "CALENDAR", "GENERAL"]);
 function pickModelForStep(step: OrchestratorStep, userSelectedModel: string): string {
   if (step.complexity === "simple") {
     // Mechanical steps — use fast Groq to save cost
-    return "llama-3.3-70b-versatile";
+    return "openai/gpt-oss-120b";
   }
   // Creative/content steps — use the user's selected premium model
   return userSelectedModel;
@@ -359,7 +359,7 @@ async function executeStep(
  * @param baseSystemPrompt - The full system prompt (role + knowledge + CRM context)
  * @param masterTools - The complete tools array from chat/route.ts
  * @param toolExecutor - Callback that executes a tool by name (wraps the route's switch statement)
- * @param groqModel - The model to use for step execution (e.g., 'llama-3.3-70b-versatile')
+ * @param groqModel - The model to use for step execution (e.g., 'openai/gpt-oss-120b')
  * @param conversationContext - Optional recent conversation context for the planner
  * @returns OrchestratorResult with plan, step results, and final synthesized response
  */
@@ -368,7 +368,7 @@ export async function orchestrateMultiStep(
   baseSystemPrompt: string,
   masterTools: any[],
   toolExecutor: ToolExecutor,
-  groqModel: string = "llama-3.3-70b-versatile",
+  groqModel: string = "openai/gpt-oss-120b",
   conversationContext?: string,
   onEvent?: AgentEventEmitter
 ): Promise<OrchestratorResult> {
@@ -428,7 +428,7 @@ export async function orchestrateMultiStep(
     
     // Smart model routing: premium model for creative work, fast Groq for mechanical tasks
     const stepModel = pickModelForStep(step, groqModel);
-    const isPremiumStep = stepModel !== "llama-3.3-70b-versatile";
+    const isPremiumStep = stepModel !== "openai/gpt-oss-120b";
     console.log(`[ORCHESTRATOR] Step ${step.stepNumber} model: ${stepModel} (${isPremiumStep ? 'PREMIUM' : 'FAST'})`);
     
     await onEvent?.({ type: 'step_start', step: step.stepNumber, domain: step.domain, task: step.task, timestamp: Date.now() });
@@ -490,7 +490,7 @@ export async function orchestrateMultiStep(
           content: `Original request: "${userMessage}"\n\nCompleted steps:\n${stepSummaries}`,
         },
       ],
-      model: "llama-3.3-70b-versatile", // Synthesis uses fast Groq to save cost
+      model: "openai/gpt-oss-120b", // Synthesis uses fast Groq to save cost
       temperature: 0.5,
       maxTokens: 2048,
     });

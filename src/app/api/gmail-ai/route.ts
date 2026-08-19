@@ -826,7 +826,7 @@ export async function POST(req: Request) {
     // ─── Mode 4: Batch reply to selected emails ─────────────────
     if (action === "batch_reply" && body.selectedEmails && body.selectedEmails.length > 0) {
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const model = "llama-3.3-70b-versatile";
+      const model = "openai/gpt-oss-120b";
 
       const emailList = body.selectedEmails
         .map((e) => `- EmailID: ${e.id} | From: ${e.from} | Subject: ${e.subject} | Snippet: ${e.snippet}`)
@@ -910,7 +910,7 @@ ${emailList}`
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const model = "llama-3.3-70b-versatile";
+    const model = "openai/gpt-oss-120b";
 
     // If frontend passed empty/missing email context, fetch real emails server-side
     // This is the critical fix: prevents AI from hallucinating fake emails

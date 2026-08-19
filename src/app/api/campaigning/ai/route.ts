@@ -5,7 +5,7 @@ import { verifyRequest } from "@/lib/api-auth";
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Use fast model for inline assists, powerful model for campaign strategy
-const FAST_MODEL = "llama-3.3-70b-versatile";
+const FAST_MODEL = "openai/gpt-oss-120b";
 
 interface AIRequest {
   action: "subject_lines" | "draft_body" | "rewrite" | "smart_reply" | "campaign_suggest";

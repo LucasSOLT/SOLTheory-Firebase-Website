@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
             { role: "system", content: dynamicRole },
             { role: "user", content: prompt }
           ],
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
         });
 
         const replyText = completion.choices[0]?.message?.content || "Thank you for reaching out. We will get back to you shortly.";

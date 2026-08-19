@@ -79,7 +79,7 @@ async function chatWithGroq(messages: { role: string; content: string }[]): Prom
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages,
       temperature: 0.7,
       max_tokens: 2048,

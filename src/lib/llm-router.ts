@@ -28,21 +28,21 @@ export interface ModelConfig {
 
 export const MODEL_REGISTRY: Record<string, ModelConfig> = {
   // ── Budget Models (Groq — fast & cheap) ──
-  "llama-3.1-8b-instant": {
+  "openai/gpt-oss-20b": {
     provider: "groq",
-    modelId: "llama-3.1-8b-instant",
-    displayName: "Llama 3.1 8B",
-    description: "Cheapest & fastest Llama",
+    modelId: "openai/gpt-oss-20b",
+    displayName: "GPT OSS 20B",
+    description: "Cheapest & fastest GPT OSS",
     tier: "fast",
     inputCostPer1M: 0.05,
     outputCostPer1M: 0.08,
     maxTokens: 4096,
     supportsTools: true,
   },
-  "llama-3.3-70b-versatile": {
+  "openai/gpt-oss-120b": {
     provider: "groq",
-    modelId: "llama-3.3-70b-versatile",
-    displayName: "Llama 3.3 70B",
+    modelId: "openai/gpt-oss-120b",
+    displayName: "GPT OSS 120B",
     description: "Best all-around open model",
     tier: "smart",
     inputCostPer1M: 0.59,
@@ -82,6 +82,17 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     outputCostPer1M: 0,
     maxTokens: 8192,
     supportsTools: false,
+  },
+  "qwen/qwen3.6-27b": {
+    provider: "groq",
+    modelId: "qwen/qwen3.6-27b",
+    displayName: "Qwen 3.6 27B",
+    description: "Strong reasoning — mid-size model",
+    tier: "smart",
+    inputCostPer1M: 0.18,
+    outputCostPer1M: 0.50,
+    maxTokens: 4096,
+    supportsTools: true,
   },
 
   // ── Premium Models (OpenRouter — frontier intelligence) ──
@@ -186,8 +197,8 @@ export async function createCompletion(options: CompletionOptions & { _originalM
   const config = MODEL_REGISTRY[options.model];
   if (!config) {
     // Fallback to Groq 70B if unknown model
-    console.warn(`[LLM Router] ⚠️ FALLBACK: Unknown model "${options.model}", falling back to llama-3.3-70b-versatile`);
-    const result = await createCompletion({ ...options, model: "llama-3.3-70b-versatile", _originalModel: originalRequestedModel });
+    console.warn(`[LLM Router] ⚠️ FALLBACK: Unknown model "${options.model}", falling back to openai/gpt-oss-120b`);
+    const result = await createCompletion({ ...options, model: "openai/gpt-oss-120b", _originalModel: originalRequestedModel });
     result.requestedModel = originalRequestedModel;
     result.wasModelFallback = true;
     return result;
@@ -234,7 +245,7 @@ async function createOpenRouterCompletion(config: ModelConfig, options: Completi
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.warn("[LLM Router] ⚠️ FALLBACK: No OPENROUTER_API_KEY set — falling back to Groq. User requested:", originalRequestedModel);
-    const result = await createCompletion({ ...options, model: "llama-3.3-70b-versatile", _originalModel: originalRequestedModel });
+    const result = await createCompletion({ ...options, model: "openai/gpt-oss-120b", _originalModel: originalRequestedModel });
     result.requestedModel = originalRequestedModel;
     result.wasModelFallback = true;
     return result;
@@ -267,8 +278,8 @@ async function createOpenRouterCompletion(config: ModelConfig, options: Completi
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[LLM Router] ⚠️ FALLBACK: OpenRouter error ${response.status} for model ${config.modelId}:`, errorText.substring(0, 300));
-    console.warn(`[LLM Router] ⚠️ User requested ${originalRequestedModel} but OpenRouter failed — falling back to Groq llama-3.3-70b-versatile`);
-    const result = await createCompletion({ ...options, model: "llama-3.3-70b-versatile", _originalModel: originalRequestedModel });
+    console.warn(`[LLM Router] ⚠️ User requested ${originalRequestedModel} but OpenRouter failed — falling back to Groq openai/gpt-oss-120b`);
+    const result = await createCompletion({ ...options, model: "openai/gpt-oss-120b", _originalModel: originalRequestedModel });
     result.requestedModel = originalRequestedModel;
     result.wasModelFallback = true;
     return result;
@@ -295,8 +306,8 @@ async function createOpenRouterCompletion(config: ModelConfig, options: Completi
 export async function* createStreamingCompletion(options: CompletionOptions): AsyncGenerator<{ token?: string; done?: boolean; usage?: number }> {
   const config = MODEL_REGISTRY[options.model];
   if (!config) {
-    console.warn(`[LLM Router] Unknown model "${options.model}", falling back to llama-3.3-70b-versatile`);
-    yield* createStreamingCompletion({ ...options, model: "llama-3.3-70b-versatile" });
+    console.warn(`[LLM Router] Unknown model "${options.model}", falling back to openai/gpt-oss-120b`);
+    yield* createStreamingCompletion({ ...options, model: "openai/gpt-oss-120b" });
     return;
   }
 
@@ -331,8 +342,8 @@ async function* streamFromOpenRouter(config: ModelConfig, options: CompletionOpt
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.warn(`[LLM Router] ⚠️ STREAM FALLBACK: No OPENROUTER_API_KEY — user requested ${options.model}, falling back to Groq`);
-    yield { modelFallback: { requested: options.model, actual: 'llama-3.3-70b-versatile' } };
-    yield* createStreamingCompletion({ ...options, model: "llama-3.3-70b-versatile" });
+    yield { modelFallback: { requested: options.model, actual: 'openai/gpt-oss-120b' } };
+    yield* createStreamingCompletion({ ...options, model: "openai/gpt-oss-120b" });
     return;
   }
 
@@ -363,8 +374,8 @@ async function* streamFromOpenRouter(config: ModelConfig, options: CompletionOpt
     console.error(`[LLM Router] ⚠️ STREAM FALLBACK: OpenRouter failed — status=${response.status} model=${config.modelId}`);
     console.error(`[LLM Router] OpenRouter error body: ${errorBody.substring(0, 500)}`);
     // Emit fallback notification before switching to Groq
-    yield { modelFallback: { requested: options.model, actual: 'llama-3.3-70b-versatile' } };
-    yield* createStreamingCompletion({ ...options, model: "llama-3.3-70b-versatile" });
+    yield { modelFallback: { requested: options.model, actual: 'openai/gpt-oss-120b' } };
+    yield* createStreamingCompletion({ ...options, model: "openai/gpt-oss-120b" });
     return;
   }
 

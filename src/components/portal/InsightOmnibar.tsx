@@ -479,7 +479,7 @@ Keep it concise and professional. Write ONLY the email body text (no subject lin
             brain: "",
             uid: user?.uid,
             userName: user?.displayName || undefined,
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             stream: true,
             userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),

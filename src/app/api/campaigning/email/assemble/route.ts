@@ -4,7 +4,7 @@ import { SKELETON_REGISTRY, renderSkeleton } from "@/lib/email-skeletons";
 import { verifyRequest } from "@/lib/api-auth";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "openai/gpt-oss-120b";
 
 interface BrandSettings {
   primaryColor?: string;
@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
       // Check if any images are attached to the latest message
       const latestImages: string[] = (body as any).imageUrls || [];
       const hasImages = latestImages.length > 0;
-      const visionModel = "llama-3.2-90b-vision-preview";
+      const visionModel = "openai/gpt-oss-120b"; // Note: vision-specific models removed from Groq; using text fallback
 
       // Truncate HTML for context window (keep first 12k chars — most emails are 5-20KB)
       const truncatedHtml = currentHtml.length > 12000 ? currentHtml.substring(0, 12000) + '\n<!-- ... truncated ... -->' : currentHtml;

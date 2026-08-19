@@ -83,7 +83,7 @@ export async function POST(req: Request) {
         { role: "system", content: systemPrompt },
         ...messages,
       ],
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
       temperature: 0.5,
       max_tokens: voiceMaxTokens,
       tools: CRM_TOOL_DEFINITIONS,
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
 
       const followUp = await groq.chat.completions.create({
         messages: followUpMessages,
-        model: "llama-3.1-8b-instant",
+        model: "openai/gpt-oss-20b",
         temperature: 0.5,
         max_tokens: 150,
         tools: CRM_TOOL_DEFINITIONS,
@@ -170,13 +170,13 @@ export async function POST(req: Request) {
     logAIUsage({
       userId: uid || "anonymous",
       orgId: isNxt ? "nxtchapter" : "soltheory",
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
       provider: "groq",
       endpoint: "/api/voice-chat-tts",
       inputTokens,
       outputTokens,
       totalTokens,
-      costUsd: calculateGroqCost("llama-3.1-8b-instant", inputTokens, outputTokens),
+      costUsd: calculateGroqCost("openai/gpt-oss-20b", inputTokens, outputTokens),
       timestamp: new Date(),
     });
 

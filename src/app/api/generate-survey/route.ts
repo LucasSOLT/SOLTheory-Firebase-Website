@@ -58,7 +58,7 @@ Make the survey professional and perfectly tailored to their request.`
           content: description
         }
       ],
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       temperature: 0.7,
       response_format: { type: "json_object" }
     });
@@ -81,7 +81,7 @@ Make the survey professional and perfectly tailored to their request.`
 
     const surveyData = JSON.parse(jsonString);
 
-    const surveyModel = "llama-3.3-70b-versatile";
+    const surveyModel = "openai/gpt-oss-120b";
     const inputTokens = completion.usage?.prompt_tokens || 0;
     const outputTokens = completion.usage?.completion_tokens || 0;
     logAIUsage({

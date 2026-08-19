@@ -611,9 +611,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(`${orgId}_selectedModel`) || 'llama-3.3-70b-versatile';
+      return localStorage.getItem(`${orgId}_selectedModel`) || 'openai/gpt-oss-120b';
     }
-    return 'llama-3.3-70b-versatile';
+    return 'openai/gpt-oss-120b';
   });
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [emailSearchQuery, setEmailSearchQuery] = useState('');
@@ -1826,7 +1826,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `${orgId}_${params.agentId}`,
-          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'llama-3.1-8b-instant': 'Llama 3.1 8B (Groq)', 'llama-3.3-70b-versatile': 'Llama 3.3 70B (Groq)', 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'openai/gpt-oss-20b': 'GPT OSS 20B (Groq)', 'groq/compound': 'Compound (Groq)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'openai/gpt-oss-20b': 'GPT OSS 20B (Groq)', 'qwen/qwen3.6-27b': 'Qwen 3.6 27B (Groq)', 'groq/compound': 'Compound (Groq)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
@@ -2683,10 +2683,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     <div className={`text-[10px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Model</div>
                     <div className={`text-sm font-semibold truncate mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
                       {[
-                        {id:'llama-3.1-8b-instant',name:'Llama 3.1 8B'},
-                        {id:'llama-3.3-70b-versatile',name:'Llama 3.3 70B'},
                         {id:'openai/gpt-oss-120b',name:'GPT OSS 120B'},
                         {id:'openai/gpt-oss-20b',name:'GPT OSS 20B'},
+                        {id:'qwen/qwen3.6-27b',name:'Qwen 3.6 27B'},
                         {id:'groq/compound',name:'Compound'},
                         {id:'claude-opus-5',name:'Claude Opus 5'},
                         {id:'gpt-5.6-sol',name:'GPT-5.6 Sol'},
@@ -2705,8 +2704,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     {[
                       { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', desc: '500 t/s — most powerful open model', tag: '🔥 Fastest', tagColor: 'bg-orange-50 text-orange-600' },
                       { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', desc: '1000 t/s — budget powerhouse', tag: 'Cheap', tagColor: 'bg-emerald-50 text-emerald-600' },
-                      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', desc: 'Best open-source all-rounder', tag: 'Reliable', tagColor: 'bg-blue-50 text-blue-600' },
-                      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', desc: 'Cheapest — simple tasks', tag: 'Fast', tagColor: 'bg-emerald-50 text-emerald-600' },
+                      { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B', desc: 'Strong reasoning model', tag: 'Reliable', tagColor: 'bg-blue-50 text-blue-600' },
                       { id: 'groq/compound', name: 'Compound', desc: 'Multi-model pipeline', tag: 'FREE', tagColor: 'bg-violet-50 text-violet-600' },
                     ].map(model => (
                       <button

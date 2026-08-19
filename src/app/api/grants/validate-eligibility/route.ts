@@ -78,7 +78,7 @@ You MUST respond with ONLY valid JSON in this exact format, nothing else:
         { role: "system", content: "You are a precise JSON-only responder. Output ONLY valid JSON with no markdown, no explanation, no code blocks." },
         { role: "user", content: prompt }
       ],
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       temperature: 0.1,
       max_tokens: 512,
     });

@@ -298,9 +298,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Validate model against registry, default to llama-3.3-70b
+    // Validate model against registry, default to openai/gpt-oss-120b
     const ALLOWED_MODELS = [...Object.keys(MODEL_REGISTRY), 'auto'];
-    let selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'llama-3.3-70b-versatile';
+    let selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'openai/gpt-oss-120b';
     console.log(`[MODEL] Requested: "${requestedModel}" → Using: "${selectedModel}" | Stream: ${wantStream}`);
 
     // Parse out scope prefixes for logic, but keep raw for database
@@ -746,7 +746,7 @@ The current date/time for the user is: ${localTime}.`;
     if (useTools && wantStream && routedDomain !== 'MULTI') {
       try {
         const planningCompletion = await groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
+          model: 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: `You are a concise task planner. Given the user's request, respond with EXACTLY this format (no extra text):\n\nINTENT: [One sentence describing what the user is requesting]\n\nDELIVERABLES:\n1. [First step/action to take]\n2. [Second step/action if applicable]\n3. [Third step if applicable]\n\nKeep it brief. Max 3-4 deliverables. If the request is simple (single action), just list 1 deliverable.` },
             { role: 'user', content: lastUserText2 }
@@ -2852,7 +2852,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
 
     let finalResponse = sanitizeResponse(finalResponseText);
 
-    // Quality guardrail removed for speed — llama-3.1-8b-instant is fast enough
+    // Quality guardrail removed for speed — openai/gpt-oss-20b is fast enough
     // that a single LLM call is preferable to the latency of a retry.
 
     // Self-refinement pass removed for speed — the primary LLM call with
