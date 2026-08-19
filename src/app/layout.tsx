@@ -5,7 +5,7 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import RouteProgressBar from '@/components/RouteProgressBar';
 
-import { Playfair_Display, PT_Sans, Nunito, Sora, Cormorant_Garamond } from 'next/font/google';
+import { Playfair_Display, PT_Sans, Nunito, Sora, Cormorant_Garamond, Outfit } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
 const iconUrl = "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440";
@@ -70,6 +70,13 @@ const cormorant = Cormorant_Garamond({
   variable: '--font-cormorant',
 });
 
+const outfit = Outfit({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-outfit',
+});
+
 // Inline script to prevent flash-of-unstyled-content (FOUC) on page load.
 // Runs before React hydrates so the correct theme class is on <html> immediately.
 const themeInitScript = `
@@ -91,7 +98,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn(playfair.variable, ptSans.variable, nunito.variable, jakarta.variable, cormorant.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn(playfair.variable, ptSans.variable, nunito.variable, jakarta.variable, cormorant.variable, outfit.variable)}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

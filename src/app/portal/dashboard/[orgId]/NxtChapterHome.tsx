@@ -129,7 +129,7 @@ export function NxtChapterHome() {
   }, [contentManagerActive]);
 
   const { t, lang } = useTranslation();
-  const tileStyle = isDarkMode ? 'bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl' : 'bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-sm shadow-slate-200/50';
+  const tileStyle = isDarkMode ? 'bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-slate-600' : 'bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-sm shadow-slate-200/50 transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/5 hover:border-slate-300';
   const [currentTime, setCurrentTime] = useState('');
   const [userTimezone, setUserTimezone] = useState('');
 

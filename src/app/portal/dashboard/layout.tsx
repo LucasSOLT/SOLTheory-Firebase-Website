@@ -236,6 +236,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('soltheory-sidebar-toggle', handleCollapse);
   }, [isSidebarCollapsed, sidebarWidth]);
 
+  // Lock sidebar toggle while homepage loading overlay is active
+  const [isSidebarLocked, setIsSidebarLocked] = useState(true);
+  useEffect(() => {
+    const handleLock = (e: Event) => {
+      const locked = (e as CustomEvent).detail?.locked;
+      setIsSidebarLocked(!!locked);
+    };
+    window.addEventListener('soltheory-sidebar-lock', handleLock);
+    // Unlock after 6s safety fallback in case event never fires (e.g. navigating away)
+    const safety = setTimeout(() => setIsSidebarLocked(false), 6000);
+    return () => { window.removeEventListener('soltheory-sidebar-lock', handleLock); clearTimeout(safety); };
+  }, []);
+
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>([]);
   const [latestNotifId, setLatestNotifId] = useState<string | null>(null);
@@ -1063,11 +1076,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const getSidebarLinkClass = (isActive: boolean) => {
-    return `flex items-center ${isSidebarCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl transition-colors cursor-pointer font-semibold ${
+    const activeGlow = isActive && !isSidebarCollapsed
+      ? isDarkMode
+        ? 'relative before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-full before:bg-indigo-400 before:shadow-[0_0_8px_rgba(99,102,241,0.4)]'
+        : 'relative before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-full before:bg-indigo-500 before:shadow-[0_0_6px_rgba(99,102,241,0.25)]'
+      : '';
+    return `flex items-center ${isSidebarCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl transition-colors cursor-pointer font-semibold overflow-visible ${
       isActive 
         ? (isDarkMode ? (isSidebarCollapsed ? 'bg-slate-700 text-white' : 'bg-slate-200 text-black shadow-sm') : 'bg-[#f0ede4] text-black shadow-sm') 
         : (isDarkMode ? 'hover:bg-slate-800 text-slate-300 hover:text-white' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900')
-    }`;
+    } ${activeGlow}`;
   };
 
   const getSidebarIconClass = (isActive: boolean) => {
@@ -1204,8 +1222,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0]'}`}
                   >
-                    <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
-                      <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-6 h-6 object-contain" />
+                    <div className={`p-1 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10'}`}>
+                      <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                     </div>
                     <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                     <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
@@ -1225,8 +1243,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             }}
                             className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-indigo-50') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2ece0]')}`}
                           >
-                            <div className="bg-[#8b7355] p-1 rounded-lg flex items-center justify-center">
-                              <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-6 h-6 object-contain" />
+                            <div className={`p-1 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10'}`}>
+                              <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                             </div>
                             <span className={`text-sm font-semibold flex-1 text-left ${isCurrent ? (isDarkMode ? 'text-white' : 'text-indigo-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
                             {isCurrent && <Check className="w-4 h-4 text-indigo-600" />}
@@ -1239,7 +1257,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ) : (
                 <Link href={dashboardHome} className={`p-6 pt-6 pb-6 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2ece0]'}`} onClick={() => setIsMobileMenuOpen(false)}>
                   <>
-                    <img src={getOrgConfig(currentOrgId)?.theme.icon || "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440"} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-9 h-9 object-contain" />
+                    <img src={getOrgConfig(currentOrgId)?.theme.icon || "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440"} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-12 h-12 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                     <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                   </>
                 </Link>
@@ -1411,29 +1429,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         <aside className={`w-full flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-          {/* Collapse/Expand Toggle */}
-          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-end'} px-2 pt-3 pb-1 shrink-0`}>
-            <button
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
-              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {isSidebarCollapsed ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" /></svg>
-              )}
-            </button>
-          </div>
           <div style={{ width: isSidebarCollapsed ? 64 : sidebarWidth, minWidth: isSidebarCollapsed ? 64 : 230 }} className={`flex flex-col h-full overflow-hidden ${isSidebarCollapsed ? 'items-center [&_span]:hidden' : ''}`}> {/* Inner container matches outer width */}
-            {!isSidebarCollapsed && (isDualOrgUser ? (
-              <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5">
+            {isSidebarCollapsed ? (
+              /* ── Collapsed: centered expand button at top ── */
+              <div className="flex items-center justify-center pt-4 pb-2 shrink-0">
+                <button
+                  onClick={() => { if (!isSidebarLocked) setIsSidebarCollapsed(!isSidebarCollapsed); }}
+                  disabled={isSidebarLocked}
+                  className={`p-1.5 rounded-lg transition-colors ${isSidebarLocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
+                  title={isSidebarLocked ? 'Loading...' : 'Expand sidebar'}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            ) : (isDualOrgUser ? (
+              /* ── Expanded + Dual-org: org switcher with collapse button overlay ── */
+              <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5 shrink-0">
+                {/* Collapse button — floating top-right */}
+                <button
+                  onClick={() => { if (!isSidebarLocked) setIsSidebarCollapsed(!isSidebarCollapsed); }}
+                  disabled={isSidebarLocked}
+                  className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors ${isSidebarLocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
+                  title={isSidebarLocked ? 'Loading...' : 'Collapse sidebar'}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" /></svg>
+                </button>
                 <button
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}
                 >
-                  <div className="bg-[#8b7355]/10 p-1 rounded-xl flex items-center justify-center border border-[#8b7355]/20">
-                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-8 h-8 object-contain" />
+                  <div className={`p-1 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
+                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-9 h-9 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                   </div>
                   <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                   <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
@@ -1452,8 +1478,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           }}
                           className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
                         >
-                          <div className="bg-[#8b7355]/10 p-1 rounded-xl flex items-center justify-center border border-[#8b7355]/20">
-                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-8 h-8 object-contain" />
+                          <div className={`p-1 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
+                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-8 h-8 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                           </div>
                           <span className={`text-sm font-semibold flex-1 text-left ${isCurrent ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
                           {isCurrent && <Check className="w-4 h-4 text-indigo-600" />}
@@ -1464,10 +1490,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
             ) : (
-              <Link href={dashboardHome} className={`p-6 pt-8 pb-8 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}>
-                <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-9 h-9 object-contain" />
-                <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
-              </Link>
+              /* ── Expanded + Single-org: logo with collapse button overlay ── */
+              <div className="relative shrink-0">
+                {/* Collapse button — floating top-right */}
+                <button
+                  onClick={() => { if (!isSidebarLocked) setIsSidebarCollapsed(!isSidebarCollapsed); }}
+                  disabled={isSidebarLocked}
+                  className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg transition-colors ${isSidebarLocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
+                  title={isSidebarLocked ? 'Loading...' : 'Collapse sidebar'}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" /></svg>
+                </button>
+                <Link href={dashboardHome} className={`p-6 pt-8 pb-8 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}>
+                  <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-14 h-14 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                  <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
+                </Link>
+              </div>
             ))}
 
         <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onClick={(e) => {

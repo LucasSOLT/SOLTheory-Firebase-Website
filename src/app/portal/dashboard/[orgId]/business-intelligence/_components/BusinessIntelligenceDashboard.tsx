@@ -51,7 +51,7 @@ function KPICard({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border p-5 transition-all hover:scale-[1.02] ${
+      className={`relative overflow-hidden rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/8 ${
         dk
           ? "bg-slate-900/60 backdrop-blur-xl border-white/10 hover:border-white/20 shadow-2xl"
           : "bg-white/70 backdrop-blur-xl border-slate-200/80 hover:border-slate-300 shadow-sm shadow-slate-200/50"
@@ -66,10 +66,10 @@ function KPICard({
       />
       <div className="flex items-start justify-between">
         <div>
-          <p className={`text-xs font-medium uppercase tracking-wider mb-1 ${dk ? "text-slate-400" : "text-slate-500"}`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${dk ? "text-slate-400" : "text-slate-500"}`}>
             {label}
           </p>
-          <p className={`text-2xl sm:text-3xl font-bold tracking-tight ${dk ? "text-white" : "text-slate-900"}`}>
+          <p className={`text-[28px] font-semibold tracking-tight font-mono ${dk ? "text-white" : "text-slate-900"}`}>
             {value}
           </p>
           {subtext && (
@@ -106,7 +106,7 @@ function SectionCard({
 }) {
   return (
     <div
-      className={`relative rounded-2xl border p-5 sm:p-6 transition-all ${
+      className={`relative rounded-2xl border p-5 sm:p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
         dk
           ? "bg-slate-900/60 backdrop-blur-xl border-white/10 shadow-2xl"
           : "bg-white/70 backdrop-blur-xl border-slate-200/80 shadow-sm shadow-slate-200/50"
@@ -121,9 +121,9 @@ function SectionCard({
         </h3>
       </div>
       {isEmpty ? (
-        <div className={`flex flex-col items-center justify-center py-12 gap-2 ${dk ? "text-slate-500" : "text-slate-400"}`}>
-          <AlertCircle className="w-8 h-8 opacity-40" />
-          <p className="text-sm">{emptyMessage || "No data yet"}</p>
+        <div className="flex flex-col items-center justify-center py-12 gap-2">
+          <AlertCircle className={`w-8 h-8 opacity-30 ${dk ? "text-slate-500" : "text-slate-400"}`} />
+          <span className={`text-[11px] font-medium ${dk ? "text-slate-500" : "text-slate-400"}`}>{emptyMessage || "No data available"}</span>
         </div>
       ) : (
         children
@@ -214,10 +214,10 @@ export default function BusinessIntelligenceDashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${dk ? "text-white" : "text-slate-900"}`}>
+          <h1 className={`text-2xl font-semibold tracking-tight ${dk ? "text-white" : "text-slate-900"}`}>
             Business Intelligence
           </h1>
-          <p className={`text-sm mt-1 ${dk ? "text-slate-400" : "text-slate-500"}`}>
+          <p className={`text-[13px] leading-relaxed mt-1 ${dk ? "text-slate-400" : "text-slate-500"}`}>
             Real-time insights across your entire organization
           </p>
         </div>

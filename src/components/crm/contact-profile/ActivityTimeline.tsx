@@ -18,16 +18,16 @@ interface ActivityTimelineProps {
 
 const ACTIVITY_ICON_MAP: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
   note: { icon: MessageSquare, color: "text-slate-500", bg: "bg-slate-50 dark:bg-slate-800" },
-  email: { icon: Mail, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/40" },
+  email: { icon: Mail, color: "text-slate-500", bg: "bg-slate-50 dark:bg-slate-800" },
   call: { icon: Phone, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/40" },
-  meeting: { icon: CalendarIcon, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-950/40" },
-  status_change: { icon: ArrowRightLeft, color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-950/40" },
+  meeting: { icon: CalendarIcon, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/40" },
+  status_change: { icon: ArrowRightLeft, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/40" },
   insight: { icon: Brain, color: "text-indigo-500", bg: "bg-indigo-50 dark:bg-indigo-950/40" },
-  task: { icon: CheckSquare, color: "text-cyan-500", bg: "bg-cyan-50 dark:bg-cyan-950/40" },
+  task: { icon: CheckSquare, color: "text-slate-500", bg: "bg-slate-50 dark:bg-slate-800" },
   field_update: { icon: FileText, color: "text-slate-500", bg: "bg-slate-50 dark:bg-slate-800" },
-  tag_change: { icon: Tag, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950/40" },
+  tag_change: { icon: Tag, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/40" },
   deal_update: { icon: TrendingUp, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/40" },
-  file_upload: { icon: Upload, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950/40" },
+  file_upload: { icon: Upload, color: "text-slate-500", bg: "bg-slate-50 dark:bg-slate-800" },
 };
 
 function getDateGroupLabel(date: Date): string {

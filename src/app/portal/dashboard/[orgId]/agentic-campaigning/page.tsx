@@ -1129,8 +1129,8 @@ export default function AgenticCampaigningPage() {
           ].map((stat) => (
             <div key={stat.label} className={`rounded-xl p-3 transition-shadow ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-[#fefdfb] border border-slate-200/80 shadow-sm'}`}>
               <p className={`text-[10px] font-semibold tracking-wider uppercase mb-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
-              <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-300'}`}>{stat.value}</p>
-              <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
+              <p className={`text-lg font-semibold animate-pulse ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>{stat.value}</p>
+              <p className={`text-[10px] mt-0.5 italic ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                 {lang === 'es' ? 'Se completa con el uso' : 'Populates with usage'}
               </p>
             </div>
@@ -1166,10 +1166,19 @@ export default function AgenticCampaigningPage() {
                 disabled={!platform.available}
                 className={`group relative text-left border rounded-xl p-4 transition-colors duration-200 ${
                   platform.available
-                    ? `${isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-lg' : 'bg-[#fefdfb] border-slate-200/80 hover:border-indigo-200 hover:shadow-md'} cursor-pointer`
+                    ? `${isDarkMode ? 'bg-slate-900/50 backdrop-blur-xl border-slate-700/40 hover:shadow-lg' : 'bg-white/50 backdrop-blur-xl border-white/30 hover:shadow-lg'} cursor-pointer ${
+                        platform.id === 'instagram' ? (isDarkMode ? 'hover:border-pink-500/30' : 'hover:border-pink-300/40') :
+                        platform.id === 'youtube' ? (isDarkMode ? 'hover:border-red-500/30' : 'hover:border-red-300/40') :
+                        platform.id === 'gmail' ? (isDarkMode ? 'hover:border-red-400/30' : 'hover:border-red-200/50') :
+                        platform.id === 'sms' ? (isDarkMode ? 'hover:border-emerald-500/30' : 'hover:border-emerald-300/40') : ''
+                      }`
                     : `${isDarkMode ? 'bg-slate-900/50 border-slate-800/50' : 'bg-white/60 border-slate-100'} cursor-not-allowed`
                 }`}
               >
+                {platform.id === 'instagram' && <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,rgba(225,48,108,0.12)_0%,rgba(252,175,69,0.06)_50%,transparent_70%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(225,48,108,0.08)_0%,rgba(252,175,69,0.04)_50%,transparent_70%)]'}`} />}
+                {platform.id === 'youtube' && <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,rgba(255,0,0,0.12)_0%,rgba(255,0,0,0.06)_50%,transparent_70%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(255,0,0,0.07)_0%,rgba(255,0,0,0.03)_50%,transparent_70%)]'}`} />}
+                {platform.id === 'gmail' && <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,rgba(234,67,53,0.12)_0%,rgba(66,133,244,0.06)_50%,transparent_70%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(234,67,53,0.06)_0%,rgba(66,133,244,0.03)_50%,transparent_70%)]'}`} />}
+                {platform.id === 'sms' && <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.12)_0%,rgba(16,185,129,0.06)_50%,transparent_70%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.07)_0%,rgba(16,185,129,0.03)_50%,transparent_70%)]'}`} />}
                 {/* Badge — "New" / "Beta" / "Coming Soon" */}
                 {platform.badge ? (
                   <div className="absolute top-3 right-3">
@@ -1385,8 +1394,8 @@ export default function AgenticCampaigningPage() {
         </div>
 
         {/* Campaign Calendar */}
-        <div className={`rounded-xl max-w-[1575px] mx-auto ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-[#fefdfb] border border-slate-200 shadow-sm'}`}>
-          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+        <div className={`rounded-xl max-w-[1575px] mx-auto backdrop-blur-sm ${isDarkMode ? 'bg-slate-900/80 border border-white/10 shadow-lg' : 'bg-white/60 border border-white/20 shadow-lg shadow-slate-200/50'}`}>
+          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${isDarkMode ? 'border-white/10' : 'border-slate-200/60'}`}>
             {/* Left: arrows + month name */}
             <div className="flex items-center gap-1">
               <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); setZoomMode('off'); setZoomStart(null); setZoomEnd(null); }}
@@ -1518,7 +1527,7 @@ export default function AgenticCampaigningPage() {
                       return false;
                     };
                     const cells: React.ReactElement[] = [];
-                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[80px] md:h-[210px] border-r border-b border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`} />);
+                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className={`h-[80px] md:h-[210px] border-r border-b border-t ${isDarkMode ? 'border-white/[0.06]' : 'border-slate-200/60'}`} />);
 
                     // Get campaign events for a given day
                     const getEventsForDay = (day: number): { campaign: Campaign; isMultiDay: boolean; isStart: boolean; isEnd: boolean; isMiddle: boolean }[] => {
@@ -1576,16 +1585,20 @@ export default function AgenticCampaigningPage() {
                           onMouseEnter={() => { if (zoomMode === 'picking-end') setHoverDay(day); }}
                           onMouseLeave={() => { if (zoomMode === 'picking-end') setHoverDay(null); }}
                           className={`h-[80px] md:h-[210px] p-1 border-r border-b ${(firstDay + day - 1) < 7 ? 'border-t' : ''} relative transition-colors ${
-                            isDarkMode ? 'border-slate-700' : 'border-slate-200'
+                            isDarkMode ? 'border-white/[0.06]' : 'border-slate-200/60'
                           } ${
                             clickable ? 'cursor-pointer ' + (isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-indigo-50') : ''
                           } ${
                             isInRange(day) ? (isDarkMode ? 'bg-indigo-900/20' : 'bg-indigo-50') : ''
                           } ${
                             zoomStart === day ? (isDarkMode ? 'bg-indigo-900/30' : 'bg-indigo-100') : ''
+                          } ${
+                            dayEvents.length > 0 || getIGPostsForDay(day).length > 0
+                              ? (isDarkMode ? 'shadow-[inset_0_0_12px_rgba(99,102,241,0.04)]' : 'shadow-[inset_0_0_12px_rgba(99,102,241,0.03)]')
+                              : (isDarkMode ? 'border-dashed border-slate-700/30' : 'border-dashed border-slate-200/50')
                           }`}>
                           <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                            isToday(day) ? 'bg-indigo-600 text-white' : isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                            isToday(day) ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30' : isDarkMode ? 'text-slate-300' : 'text-slate-700'
                           }`}>{day}</span>
                           {/* Campaign events */}
                           <div className="mt-0.5 space-y-px overflow-hidden" style={{ maxHeight: '149px' }}>

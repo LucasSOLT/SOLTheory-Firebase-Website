@@ -2952,47 +2952,58 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 <div className={`flex-1 overflow-y-auto p-0 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'flex items-center justify-center' : ''}`} style={{ scrollbarGutter: 'stable' }}>
                   <div className={`${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'flex flex-col items-center justify-center w-full px-4' : 'mx-auto px-6 sm:px-8 md:px-12 pt-4 sm:pt-6 pb-4 sm:pb-8 max-w-4xl space-y-8'}`}>
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
-                      <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-lg mx-auto">
+                      <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-xl mx-auto" style={{ fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}>
                         
-                        
-                        <div className="flex flex-col items-center justify-center">
-                          {/* Clean centered greeting */}
-                          <div className="flex flex-col items-center gap-4 mb-8">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'}`}>
-                              {agent.heroIcon === 'palette'
-                                ? <Palette className={`w-8 h-8 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
-                                : <Bot className={`w-8 h-8 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />}
-                            </div>
-                            <h2 className={`text-xl sm:text-3xl md:text-5xl font-light tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                              {agent.name}
-                            </h2>
-                            <p className={`text-center text-sm max-w-md ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              {agent.heroDesc || 'Ask anything \u2014 from drafting emails and scheduling events to strategy advice and deep research.'}
-                            </p>
-
-                          </div>
+                        {/* Glassmorphic welcome container with radial gradient backdrop */}
+                        <div className="relative w-full">
+                          {/* Radial gradient backdrop glow */}
+                          <div className={`absolute inset-0 rounded-3xl pointer-events-none ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08)_0%,rgba(139,92,246,0.04)_40%,transparent_70%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.06)_0%,rgba(139,92,246,0.03)_40%,transparent_70%)]'}`} style={{ transform: 'scale(1.3)' }} />
                           
-                          {/* Quick action suggestions */}
-                          <div className="flex flex-wrap justify-center gap-2 max-w-lg px-4">
-                            {(agent.quickActions || [
-                              { label: '\ud83d\udce7 Draft an email', action: 'Draft an email' },
-                              { label: '\ud83d\udcc5 Schedule a meeting', action: 'Schedule a meeting' },
-                              { label: '\ud83d\udd0d Research a topic', action: 'Research a topic' },
-                              { label: '\ud83d\udc64 Add a contact', action: 'Add a contact' },
-                              { label: '\ud83d\udcc7 Edit contact book', action: 'Edit contact book' },
-                            ]).map((suggestion) => (
-                              <button
-                                key={suggestion.label}
-                                onClick={() => handleSendMessage(suggestion.action)}
-                                className={`px-3.5 py-2.5 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-[11px] font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer border min-h-[38px] flex items-center ${
-                                  isDarkMode
-                                    ? 'border-slate-700 bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:border-slate-600'
-                                    : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white hover:border-slate-300 shadow-sm'
-                                }`}
-                              >
-                                {suggestion.label}
-                              </button>
-                            ))}
+                          <div className={`relative rounded-3xl p-8 sm:p-10 backdrop-blur-xl border ${isDarkMode ? 'bg-slate-900/40 border-white/10 shadow-2xl shadow-indigo-500/5' : 'bg-white/40 border-white/20 shadow-2xl shadow-indigo-500/5'}`}>
+                            <div className="flex flex-col items-center justify-center">
+                              {/* Clean centered greeting */}
+                              <div className="flex flex-col items-center gap-4 mb-8">
+                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center backdrop-blur-sm ${isDarkMode ? 'bg-slate-800/80 border border-slate-700/60 shadow-lg shadow-indigo-500/10' : 'bg-white/60 border border-white/30 shadow-lg shadow-indigo-500/10'}`}>
+                                  {agent.heroIcon === 'palette'
+                                    ? <Palette className={`w-8 h-8 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
+                                    : <Bot className={`w-8 h-8 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />}
+                                </div>
+                                <h2 className={`text-xl sm:text-3xl md:text-5xl font-light ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`} style={{ letterSpacing: '-0.03em', fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}>
+                                  {agent.name}
+                                </h2>
+                                <p className={`text-center text-sm max-w-md leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} style={{ letterSpacing: '-0.01em', fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}>
+                                  {agent.heroDesc || 'Ask anything \u2014 from drafting emails and scheduling events to strategy advice and deep research.'}
+                                </p>
+                              </div>
+                              
+                              {/* Quick action suggestions with micro-hover scaling & glow shadows */}
+                              <div className="flex flex-wrap justify-center gap-2.5 max-w-lg px-2">
+                                {(agent.quickActions || [
+                                  { label: '\ud83d\udce7 Draft an email', action: 'Draft an email' },
+                                  { label: '\ud83d\udcc5 Schedule a meeting', action: 'Schedule a meeting' },
+                                  { label: '\ud83d\udd0d Research a topic', action: 'Research a topic' },
+                                  { label: '\ud83d\udc64 Add a contact', action: 'Add a contact' },
+                                  { label: '\ud83d\udcc7 Edit contact book', action: 'Edit contact book' },
+                                ]).map((suggestion) => (
+                                  <button
+                                    key={suggestion.label}
+                                    onClick={() => handleSendMessage(suggestion.action)}
+                                    className={`px-4 py-2.5 sm:px-3.5 sm:py-2 rounded-full text-xs sm:text-[11px] font-medium cursor-pointer border min-h-[38px] flex items-center backdrop-blur-sm ${
+                                      isDarkMode
+                                        ? 'border-slate-700/60 bg-slate-800/50 text-slate-300 hover:bg-slate-700/70 hover:border-indigo-500/30 shadow-md shadow-indigo-500/5 hover:shadow-lg hover:shadow-indigo-500/10'
+                                        : 'border-white/30 bg-white/50 text-slate-600 hover:bg-white/70 hover:border-indigo-300/40 shadow-md shadow-indigo-500/5 hover:shadow-lg hover:shadow-violet-500/10'
+                                    }`}
+                                    style={{ transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)', fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                    onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+                                    onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                                  >
+                                    {suggestion.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>

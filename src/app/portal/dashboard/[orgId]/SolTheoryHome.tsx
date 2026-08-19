@@ -133,6 +133,11 @@ export function SolTheoryHome() {
     return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
   }, []);
 
+  // Lock sidebar toggle while overlay is active to prevent gap reveal
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('soltheory-sidebar-lock', { detail: { locked: !overlayGone } }));
+  }, [overlayGone]);
+
   // Ctrl+Alt+6 confetti easter egg
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -423,18 +428,30 @@ export function SolTheoryHome() {
       {/* ── Login-to-Dashboard Bridge Overlay ──
           Shimmer skeleton preview while Firestore data loads.
           Fades out after 3.5s, removed from DOM at 5s. */}
-      {!overlayGone && (
+      {!overlayGone && (() => {
+        // Determine sidebar left offset (evaluated once at mount)
+        const sidebarLeft = (() => {
+          if (typeof window === 'undefined') return 0;
+          if (window.innerWidth < 768) return 0;
+          // isSidebarCollapsed is not persisted in localStorage — default is expanded (256px)
+          return 256;
+        })();
+
+        return (
         <div
           style={{
             position: "fixed",
-            inset: 0,
+            top: 72,
+            right: 0,
+            bottom: 0,
+            left: sidebarLeft,
             zIndex: 99999,
             background: isDarkMode ? "#020617" : "#ffffff",
             opacity: pageReady ? 0 : 1,
             transition: "opacity 1.5s ease-in-out",
             pointerEvents: pageReady ? "none" : "auto",
           }}
-          className="pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 overflow-hidden"
+          className="pt-4 md:pt-6 pb-10 px-4 md:px-10 overflow-hidden"
         >
           <div className="space-y-4 md:space-y-6 w-full">
             {/* Skeleton header */}
@@ -471,7 +488,7 @@ export function SolTheoryHome() {
             </div>
           </div>
         </div>
-      )}
+      )})()}
       {/* Dashboard content — always rendered at full opacity underneath the overlay
           so all widgets, images, and Firestore data load while the user sees the cube */}
       <div className={`w-full mx-auto h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
@@ -490,7 +507,7 @@ export function SolTheoryHome() {
 
         {/* Dashboard Header */}
         <div className="flex flex-col gap-1">
-          <h1 className={`text-xl sm:text-3xl font-light italic font-cormorant tracking-wide ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+          <h1 className={`text-xl sm:text-3xl font-light italic font-cormorant tracking-wide leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             {t.welcomeBack} <span className="not-italic font-semibold">{(user?.displayName || "Lucas").replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke')}</span>.
           </h1>
           <p className={`text-xs sm:text-sm font-medium hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>

@@ -2314,7 +2314,7 @@ export default function CRMPage() {
         </header>
 
         {/* ———— Scrollable Content ———— */}
-        <main className={`flex-1 overflow-y-auto p-4 md:p-5 ${isDarkMode ? '' : 'bg-[#fefdfb]'}`}>
+        <main className={`flex-1 overflow-y-auto p-4 md:p-5 ${isDarkMode ? '' : 'bg-[#fefdfb]'}`} style={{ backgroundImage: isDarkMode ? 'radial-gradient(circle, rgba(148,163,184,0.07) 1px, transparent 1px)' : 'radial-gradient(circle, rgba(148,163,184,0.12) 1px, transparent 1px)', backgroundSize: '16px 16px' }}>
           {/* Skeleton Loading */}
           {isLoading ? (
             activeView === "campaigns" ? <DashboardSkeleton /> :
@@ -2648,11 +2648,11 @@ export default function CRMPage() {
               ) : (
                 <>
                 <div className={`rounded-xl border shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E5E7EB]'}`} style={{ display: tableViewMode === 'contacts' ? 'none' : undefined }}>
-                  <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                  <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100dvh - 220px)' }}>
                     <table ref={tableRef} className="w-full text-[13px] border-collapse min-w-[1200px]" style={{ tableLayout: Object.keys(columnWidths).length > 0 ? 'fixed' : undefined }}>
                       <thead className="sticky top-0 z-20">
-                        <tr className={isDarkMode ? 'bg-slate-800/70' : 'bg-[#F8F9FB]'}>
-                          <th className={`sticky left-0 top-0 z-30 w-10 px-3 py-3 border-b border-r ${isDarkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-[#F8F9FB] border-[#E5E7EB]'}`}>
+                        <tr className={isDarkMode ? 'bg-slate-900/60 backdrop-blur-md border-b border-white/10' : 'bg-white/60 backdrop-blur-md border-b border-slate-200/80'} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+                          <th className={`sticky left-0 top-0 z-30 w-10 px-3 py-3 border-r ${isDarkMode ? 'bg-slate-900/80 backdrop-blur-md border-slate-700/60' : 'bg-white/80 backdrop-blur-md border-slate-200/60'}`}>
                             <input type="checkbox" checked={filteredSortedCustomers.length > 0 && filteredSortedCustomers.every(c => selectedIds.has(c.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                           </th>
                           {(isSimplifiedView ? getVisibleFieldDefs().filter(f => ['firstName', 'lastName', 'email', 'phone', 'company', 'leadStatus'].includes(f.id)) : getVisibleFieldDefs()).map((field, fieldIdx) => {
@@ -2663,7 +2663,7 @@ export default function CRMPage() {
                                 key={field.id}
                                 onClick={() => toggleColumnSort(field.id)}
                                 style={colWidth ? { width: colWidth, minWidth: colWidth, maxWidth: colWidth } : undefined}
-                                className={`${!colWidth ? (field.width || 'w-[130px]') : ''} text-left text-[11px] font-semibold px-3 py-3 border-b border-r select-none relative cursor-pointer hover:text-indigo-600 ${isDarkMode ? 'text-slate-400 border-slate-700 bg-slate-800/95' : 'text-slate-500 border-[#E5E7EB] bg-[#F8F9FB]'}`}
+                                className={`${!colWidth ? (field.width || 'w-[130px]') : ''} text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-3 border-r select-none relative cursor-pointer hover:text-indigo-600 transition-colors duration-150 ${isDarkMode ? 'text-slate-400 border-slate-700/60 bg-slate-900/80 backdrop-blur-md' : 'text-slate-500 border-slate-200/60 bg-white/80 backdrop-blur-md'}`}
                               >
                                 <span className="inline-flex items-center gap-1">
                                   {field.label}
@@ -2692,11 +2692,11 @@ export default function CRMPage() {
                           <tr
                             key={c.id}
                             onClick={() => setSelectedContactId(selectedContactId === c.id ? null : c.id)}
-                            style={{ height: `${rowHeight}px`, maxHeight: `${rowHeight}px` }}
-                            className={`group border-b transition-colors cursor-pointer relative ${
+                            style={{ height: `${rowHeight}px`, maxHeight: `${rowHeight}px`, transition: 'background-color 150ms ease-in-out, transform 150ms ease-in-out' }}
+                            className={`group border-b cursor-pointer relative ${
                               isDarkMode
-                                ? `border-slate-800 ${idx % 2 === 1 ? 'bg-slate-800/20' : ''} hover:bg-slate-800/50`
-                                : `border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''} hover:bg-indigo-50/30`
+                                ? `border-slate-800/60 ${idx % 2 === 0 ? 'bg-slate-900/20' : ''} hover:bg-indigo-400/[0.06]`
+                                : `border-slate-100/80 ${idx % 2 === 0 ? 'bg-slate-50/50' : ''} hover:bg-indigo-500/[0.04]`
                             } ${selectedIds.has(c.id) ? (isDarkMode ? 'bg-indigo-950/20' : 'bg-indigo-50/40') : ''} ${getRowTint(c.tags)}`}
                           >
                             <td className={`sticky left-0 z-10 px-3 py-3 border-r ${isDarkMode ? (idx % 2 === 1 ? 'bg-slate-800/20' : 'bg-slate-900') + ' border-slate-700' : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white') + ' border-slate-200'} group-hover:${isDarkMode ? 'bg-slate-800/50' : 'bg-indigo-50/30'}`} onClick={(e) => e.stopPropagation()}>
@@ -2796,10 +2796,10 @@ export default function CRMPage() {
                                           {c.tags && c.tags.length > 0 && (
                                             <div className="flex flex-nowrap gap-1 max-w-full overflow-hidden shrink-0 mt-0.5">
                                               {c.tags.slice(0, 3).map((tag: string) => (
-                                                <span key={tag} className={`text-[8px] font-bold px-1.5 py-0.5 rounded border leading-none shrink-0 truncate whitespace-nowrap ${getTagStyles(tag)}`}>{tag}</span>
+                                                <span key={tag} className={`text-[10px] font-bold px-1.5 py-0.5 rounded border leading-none shrink-0 truncate whitespace-nowrap ${getTagStyles(tag)}`}>{tag}</span>
                                               ))}
                                               {c.tags.length > 3 && (
-                                                <span className="text-[8px] font-medium text-slate-400 shrink-0">+{c.tags.length - 3}</span>
+                                                <span className="text-[10px] font-medium text-slate-400 shrink-0">+{c.tags.length - 3}</span>
                                               )}
                                             </div>
                                           )}
@@ -2870,7 +2870,7 @@ export default function CRMPage() {
                 {/* ── Contact View (iOS-style card grid) ── */}
                 {tableViewMode === "contacts" && (
                   <div className="flex flex-col h-full">
-                    <div className="overflow-y-auto pr-1" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                    <div className="overflow-y-auto pr-1" style={{ maxHeight: 'calc(100dvh - 220px)' }}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-1">
                         {filteredSortedCustomers.map(c => (
                           <button
