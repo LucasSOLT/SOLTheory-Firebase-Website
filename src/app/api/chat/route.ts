@@ -704,7 +704,7 @@ The current date/time for the user is: ${localTime}.`;
     const hasToolApis = !!(gmail || calendar || docsApi || youtubeApi);
     const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     let routedDomain: JarvisDomain = await routeIntent(lastUserText2);
-    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we/i;
+    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we|merge|move\s+(the\s+)?contact|follow[\s-]?up|log\s+(a\s+)?(note|call|activity)|schedule\s+(a\s+)?follow|complete\s+(the\s+)?task|contact\s*book/i;
     let forceTools = toolKeywords.test(lastUserText2);
 
     // ── CONVERSATION-AWARE ROUTING FIX ──

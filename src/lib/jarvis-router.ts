@@ -41,7 +41,7 @@ const DOMAIN_PATTERNS: Array<{ domain: JarvisDomain; pattern: RegExp }> = [
   // CRM — contact management, leads, tags, analytics
   {
     domain: "CRM",
-    pattern: /\b(add\s*(a\s*)?(new\s*)?(contact|person|lead)|delete\s*(the\s*)?(contact|person)|contacts?\s*(book|list|database)|crm|lead\s*(status|score|source)|tag\s*(them|this|contacts?)|update\s*(the\s*)?(contact|person|lead)|search\s*(for\s*)?(contacts?|people|leads?)|find\s*(me\s*)?(contacts?|people|leads?)|contact\s*analytics|how\s*many\s*(contacts?|leads?|people)|stale\s*leads?|health\s*score|batch\s*update|evaluate\s*(contacts?|leads?))\b/i,
+    pattern: /\b(add\s*(a\s*)?(new\s*)?(contact|person|lead)|delete\s*(the\s*)?(contact|person)|contacts?\s*(book|list|database)|crm|lead\s*(status|score|source)|tag\s*(them|this|contacts?)|update\s*(the\s*)?(contact|person|lead)|search\s*(for\s*)?(contacts?|people|leads?)|find\s*(me\s*)?(contacts?|people|leads?)|contact\s*analytics|how\s*many\s*(contacts?|leads?|people)|stale\s*leads?|health\s*score|batch\s*update|evaluate\s*(contacts?|leads?)|merge\s*(the\s*)?(contacts?|duplicates?|records?)|move\s*(the\s*)?(contact|person)|follow[\s-]?up|log\s*(a\s*)?(note|call|activity|meeting)|schedule\s*(a\s*)?(follow|call|check)|create\s*(a\s*)?(new\s*)?contact\s*book|rename\s*(the\s*)?(contact\s*)?book|delete\s*(the\s*)?(contact\s*)?book|complete\s*(the\s*)?(task|follow))\b/i,
   },
   // WORKSPACE — Google Docs, Slides, Sheets, YouTube, Survey, Drive
   {

@@ -25,6 +25,7 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "create_folder",
     "block_sender",
     "draft_outbound_email",
+    "send_outbound_email",
     // Shared: resolve contact names to emails
     "crm_resolve_contact",
     "crm_search_contacts",
@@ -55,6 +56,15 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "crm_resolve_contact",
     "crm_evaluate_contacts",
     "crm_batch_update",
+    // New CRM parity tools
+    "crm_merge_contacts",
+    "crm_add_activity",
+    "crm_create_contact_book",
+    "crm_rename_contact_book",
+    "crm_delete_contact_book",
+    "crm_move_contact",
+    "crm_schedule_followup",
+    "crm_complete_task",
     // Always available
     "web_search",
     "search_past_conversations",
