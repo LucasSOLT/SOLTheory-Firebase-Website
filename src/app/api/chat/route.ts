@@ -600,10 +600,15 @@ The current date/time for the user is: ${localTime}.`;
       role: "system",
       content: `[EMAIL BEHAVIOR RULES]
 - Use the "email" tool for ALL email tasks (sending, drafting, previewing).
-- ALWAYS call with action='preview' FIRST to show the user the email. NEVER send without preview.
-- After user says "send it" / "yes" / "go ahead" → call again with action='send'.
-- After user says "save as draft" → call again with action='draft'.
-- If ambiguous (e.g. "write me an email to Steve about Y"): preview first, then ask: "Would you like me to send this now, or save it as a draft?"
+- ALWAYS call with action='preview' FIRST to show the user the email before executing. NEVER send or draft without showing a preview first.
+- After previewing, you MUST display the FULL email to the user using this EXACT format — never skip showing the email content:
+  "Here is the email I've prepared:"
+  Then show the email in a blockquote (> lines) with To, Subject, and the full body. The user needs to SEE the email before confirming.
+- DETECT USER INTENT from their original request to determine what to ask after preview:
+  • DRAFT intent (user said "draft", "save a draft", "write a draft", "draft an email", "prepare a draft") → after preview, ask: "Ready to save as draft?" Do NOT mention sending.
+  • SEND intent (user said "send", "fire off", "email them", "shoot an email", "send an email", "message them") → after preview, ask: "Ready to send?" Do NOT mention drafting.
+  • AMBIGUOUS (user said "write me an email", "compose an email", or intent is unclear) → after preview, ask: "Would you like me to send this now, or save it as a draft?"
+- After user confirms → call with action='send' or action='draft' matching the detected intent.
 - IMPORTANT: Email body text must be PLAIN TEXT only. Do NOT use markdown (**bold**, *italic*, ## headers, - bullets) because Gmail renders these as literal characters. For emphasis, use CAPS or plain wording instead.
 - When showing email search results, ALWAYS include the gmailUrl as a clickable link so the user can open it: [Subject](gmailUrl). Format like: "**Subject** — From sender — [Open in Gmail](url)"
 
@@ -1230,8 +1235,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
             // ── Unified email tool: preview / send / draft ──
             if (args.action === "preview") {
               // Preview mode — show the user what will be sent (no API call)
+              // The result MUST contain the full email so the LLM shows it to the user
+              const cleanBody = args.body.replace(/\\n/g, '\n');
               functionResult = JSON.stringify({
-                result: `📧 **Email Preview:**\n\n**To:** ${args.to}\n**Subject:** ${args.subject}\n\n${args.body.replace(/\\n/g, '\n')}\n\n---\n_Would you like me to send this email now, or save it as a draft?_`
+                result: `EMAIL_PREVIEW_START\nTo: ${args.to}\nSubject: ${args.subject}\n\n${cleanBody}\nEMAIL_PREVIEW_END\n\nIMPORTANT: You MUST show the user the COMPLETE email above. Display it exactly like this format:\n\nHere is the email I've prepared:\n\n> **To:** ${args.to}\n> **Subject:** ${args.subject}\n>\n> ${cleanBody.split('\n').join('\n> ')}\n\nThen ask the appropriate follow-up question based on the user's original intent (draft vs send vs ambiguous).`,
+                preview: true,
+                emailData: { to: args.to, subject: args.subject, body: cleanBody }
               });
             } else if (args.action === "send") {
               // ── Actually send via Gmail ──
@@ -1305,12 +1314,15 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                 const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
                 try {
-                  await gmail.users.messages.send({
+                  const sendRes = await gmail.users.messages.send({
                     userId: 'me',
                     requestBody: { raw }
                   });
+                  const sentMessageId = sendRes.data.id;
+                  const sentUrl = sentMessageId ? `https://mail.google.com/mail/u/0/#sent/${sentMessageId}` : '';
+                  const sentLink = sentUrl ? `\n\n📬 [View sent email](${sentUrl})` : '';
                   const meetSuffix = generatedMeetLink ? `\n\n🔗 **Google Meet:** ${generatedMeetLink}` : '';
-                  functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}${meetSuffix}`, sent: true });
+                  functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}${meetSuffix}${sentLink}`, sent: true });
                 } catch (sendErr: any) {
                   console.error('[SEND EMAIL] Error:', sendErr.message);
                   functionResult = JSON.stringify({ error: `FAILED to send email: ${sendErr.message}. The email was NOT sent.`, sent: false });
@@ -1442,10 +1454,8 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                     userId: 'me',
                     requestBody: { message: { raw } }
                   });
-                  const draftId = draftRes.data.id;
-                  const draftLink = draftId ? `\n\n📂 **Open draft:** https://mail.google.com/mail/u/0/#drafts?compose=${draftId}` : '';
                   const meetNote = generatedMeetLink ? `\n\n🔗 **Google Meet:** ${generatedMeetLink}` : '';
-                  functionResult = JSON.stringify({ result: `📋 Draft to ${args.to} saved successfully.${meetNote}${draftLink}`, drafted: true });
+                  functionResult = JSON.stringify({ result: `📋 Draft saved — you'll find it at the top of your Gmail Drafts folder.${meetNote}`, drafted: true });
                 } catch (draftErr: any) {
                   console.error('[DRAFT EMAIL] Error:', draftErr.message);
                   functionResult = JSON.stringify({ error: `FAILED to save draft: ${draftErr.message}`, drafted: false });

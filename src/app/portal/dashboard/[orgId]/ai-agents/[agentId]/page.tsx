@@ -7,9 +7,8 @@ import { useState, useRef, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
-import { JarvisViewBrowser, type JarvisViewNavigation } from "@/components/ui/jarvis-view-browser";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, Eye, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Smartphone, Monitor, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope, ArrowUp, Square} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope, ArrowUp, Square, CornerDownLeft} from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import AgentLibrary from "@/components/portal/AgentLibrary";
@@ -29,7 +28,8 @@ import type { AgentEvent } from '@/lib/agent-events';
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
 
-type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; sendTimestamp?: number; isPendingImage?: boolean; };
+type EmailPreviewData = { to: string; subject: string; body: string; intent: 'send' | 'draft' | 'ambiguous' };
+type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; sendTimestamp?: number; isPendingImage?: boolean; emailPreview?: EmailPreviewData; };
 type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number; attachmentId?: string }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
@@ -154,34 +154,7 @@ const LOADING_PHRASES = [
   "Finalizing output...",
 ];
 
-function GmailViewTypingBody({ text }: { text: string }) {
-  const [displayed, setDisplayed] = useState('');
-  const [done, setDone] = useState(false);
-  
-  useEffect(() => {
-    setDisplayed('');
-    setDone(false);
-    let i = 0;
-    const interval = setInterval(() => {
-      i++;
-      if (i >= text.length) {
-        setDisplayed(text);
-        setDone(true);
-        clearInterval(interval);
-      } else {
-        setDisplayed(text.slice(0, i));
-      }
-    }, 12);
-    return () => clearInterval(interval);
-  }, [text]);
 
-  return (
-    <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-sans">
-      {displayed}
-      {!done && <span className="inline-block w-0.5 h-4 bg-slate-800 animate-pulse ml-0.5 align-text-bottom" />}
-    </div>
-  );
-}
 
 export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ agentId: string }> }) {
   const orgId = useOrgId();
@@ -260,154 +233,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   const [isDeletingEmail, setIsDeletingEmail] = useState<string | null>(null);
 
-  // Agent Eye States
-  const [agentEyeTab, setAgentEyeTab] = useState<'gmail' | 'outlook' | 'sms' | 'jarvis-view'>('gmail');
-  const [agentEyeDropdownOpen, setAgentEyeDropdownOpen] = useState(false);
   const [lastDraftedEmail, setLastDraftedEmail] = useState<{ to: string; subject: string; body: string; timestamp: number } | null>(null);
-  const [gmailFilterMenuOpen, setGmailFilterMenuOpen] = useState(false);
-  const [gmailActiveFilters, setGmailActiveFilters] = useState<Set<string>>(new Set());
-  const [isAgentEyeOpen, setIsAgentEyeOpen] = useState(false);
-  const [agentEyePos, setAgentEyePos] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return { x: 8, y: 40 };
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return { x: 16, y: 60 };
-    // Center in the visible area (after the ~240px sidebar)
-    const sidebarW = 240;
-    const defaultW = 780, defaultH = 620;
-    const availableW = typeof window !== 'undefined' ? window.innerWidth - sidebarW : 800;
-    const availableH = typeof window !== 'undefined' ? window.innerHeight : 700;
-    const x = sidebarW + Math.max(20, (availableW - defaultW) / 2);
-    const y = Math.max(40, (availableH - defaultH) / 2);
-    return { x, y };
-  });
-  const [agentEyeSize, setAgentEyeSize] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return { w: Math.min(window.innerWidth - 16, 380), h: 400 };
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return { w: Math.min(420, window.innerWidth - 32), h: 480 };
-    return { w: 780, h: 620 };
-  });
-  const [agentEyeExpanded, setAgentEyeExpanded] = useState(false);
-  const [jarvisNavQueue, setJarvisNavQueue] = useState<JarvisViewNavigation[]>([]);
-  const jarvisNavCountRef = useRef(0);
-
-  // Topic-aware mock URL picker — analyzes the user's message and returns relevant URLs
-  const getTopicUrls = useCallback((userInput: string): JarvisViewNavigation[] => {
-    const q = userInput.toLowerCase();
-
-    // Topic → URL pool mapping (each topic has 4-6 believable sources)
-    const topicMap: Record<string, JarvisViewNavigation[]> = {
-      entertainment: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.imdb.com/find?q=" + encodeURIComponent(userInput), title: "IMDb" },
-        { url: "https://www.rottentomatoes.com/search?search=" + encodeURIComponent(userInput), title: "Rotten Tomatoes" },
-        { url: "https://variety.com/results/?q=" + encodeURIComponent(userInput), title: "Variety" },
-        { url: "https://www.hollywoodreporter.com/search/" + encodeURIComponent(userInput), title: "Hollywood Reporter" },
-        { url: "https://www.rollingstone.com/results/" + encodeURIComponent(userInput), title: "Rolling Stone" },
-      ],
-      science: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.nature.com/search?q=" + encodeURIComponent(userInput), title: "Nature" },
-        { url: "https://scholar.google.com/scholar?q=" + encodeURIComponent(userInput), title: "Google Scholar" },
-        { url: "https://www.sciencedirect.com/search?qs=" + encodeURIComponent(userInput), title: "ScienceDirect" },
-        { url: "https://www.nationalgeographic.com/search?q=" + encodeURIComponent(userInput), title: "National Geographic" },
-      ],
-      history: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.britannica.com/search?query=" + encodeURIComponent(userInput), title: "Britannica" },
-        { url: "https://www.history.com/search?q=" + encodeURIComponent(userInput), title: "History.com" },
-        { url: "https://www.smithsonianmag.com/search/?q=" + encodeURIComponent(userInput), title: "Smithsonian" },
-        { url: "https://www.bbc.com/news/topics/" + encodeURIComponent(userInput.split(' ').slice(0, 3).join('-')), title: "BBC" },
-      ],
-      tech: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://stackoverflow.com/search?q=" + encodeURIComponent(userInput), title: "Stack Overflow" },
-        { url: "https://www.theverge.com/search?q=" + encodeURIComponent(userInput), title: "The Verge" },
-        { url: "https://techcrunch.com/search/" + encodeURIComponent(userInput), title: "TechCrunch" },
-        { url: "https://arstechnica.com/search/?q=" + encodeURIComponent(userInput), title: "Ars Technica" },
-      ],
-      finance: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.investopedia.com/search?q=" + encodeURIComponent(userInput), title: "Investopedia" },
-        { url: "https://finance.yahoo.com/quote/" + encodeURIComponent(userInput), title: "Yahoo Finance" },
-        { url: "https://www.bloomberg.com/search?query=" + encodeURIComponent(userInput), title: "Bloomberg" },
-        { url: "https://www.wsj.com/search?query=" + encodeURIComponent(userInput), title: "Wall Street Journal" },
-      ],
-      health: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.mayoclinic.org/search/search-results?q=" + encodeURIComponent(userInput), title: "Mayo Clinic" },
-        { url: "https://www.webmd.com/search/search_results/default.aspx?query=" + encodeURIComponent(userInput), title: "WebMD" },
-        { url: "https://www.nih.gov/search-results?q=" + encodeURIComponent(userInput), title: "NIH" },
-        { url: "https://medlineplus.gov/search/?query=" + encodeURIComponent(userInput), title: "MedlinePlus" },
-      ],
-      sports: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.espn.com/search/_/q/" + encodeURIComponent(userInput), title: "ESPN" },
-        { url: "https://www.si.com/search?query=" + encodeURIComponent(userInput), title: "Sports Illustrated" },
-        { url: "https://bleacherreport.com/search?q=" + encodeURIComponent(userInput), title: "Bleacher Report" },
-      ],
-      food: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.allrecipes.com/search?q=" + encodeURIComponent(userInput), title: "Allrecipes" },
-        { url: "https://www.foodnetwork.com/search/" + encodeURIComponent(userInput), title: "Food Network" },
-        { url: "https://www.seriouseats.com/search?q=" + encodeURIComponent(userInput), title: "Serious Eats" },
-      ],
-      travel: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.lonelyplanet.com/search?q=" + encodeURIComponent(userInput), title: "Lonely Planet" },
-        { url: "https://www.tripadvisor.com/Search?q=" + encodeURIComponent(userInput), title: "TripAdvisor" },
-        { url: "https://www.nationalgeographic.com/travel/search?q=" + encodeURIComponent(userInput), title: "Nat Geo Travel" },
-      ],
-      news: [
-        { url: "https://www.reuters.com/search/news?query=" + encodeURIComponent(userInput), title: "Reuters" },
-        { url: "https://www.bbc.com/search?q=" + encodeURIComponent(userInput), title: "BBC News" },
-        { url: "https://www.nytimes.com/search?query=" + encodeURIComponent(userInput), title: "NY Times" },
-        { url: "https://apnews.com/search?q=" + encodeURIComponent(userInput), title: "AP News" },
-      ],
-      general: [
-        { url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(userInput.split(' ').slice(0, 4).join('_')), title: "Wikipedia" },
-        { url: "https://www.britannica.com/search?query=" + encodeURIComponent(userInput), title: "Britannica" },
-        { url: "https://www.google.com/search?q=" + encodeURIComponent(userInput), title: "Google" },
-        { url: "https://www.bbc.com/search?q=" + encodeURIComponent(userInput), title: "BBC" },
-        { url: "https://www.reuters.com/search/news?query=" + encodeURIComponent(userInput), title: "Reuters" },
-      ],
-    };
-
-    // Keyword → topic detection
-    const topicKeywords: Record<string, string[]> = {
-      entertainment: ['movie', 'film', 'show', 'tv', 'series', 'actor', 'actress', 'netflix', 'comedy', 'comedian', 'stand-up', 'standup', 'joke', 'funny', 'humor', 'festival', 'concert', 'music', 'song', 'album', 'band', 'singer', 'rapper', 'hip hop', 'hiphop', 'rap', 'rock', 'pop', 'jazz', 'celebrity', 'hollywood', 'broadway', 'theater', 'theatre', 'anime', 'manga', 'video game', 'gaming', 'disney', 'marvel', 'dc comics', 'hulu', 'hbo', 'amazon prime', 'youtube', 'podcast', 'streaming'],
-      science: ['science', 'physics', 'chemistry', 'biology', 'quantum', 'atom', 'molecule', 'dna', 'gene', 'evolution', 'space', 'planet', 'star', 'galaxy', 'nasa', 'experiment', 'theory', 'hypothesis', 'research', 'discovery', 'element', 'periodic', 'cell', 'organism', 'ecosystem', 'climate', 'environment', 'geology', 'astronomy', 'math', 'equation', 'formula'],
-      history: ['history', 'war', 'battle', 'ancient', 'empire', 'civilization', 'revolution', 'century', 'medieval', 'renaissance', 'dynasty', 'pharaoh', 'rome', 'roman', 'greek', 'egypt', 'viking', 'colonial', 'independence', 'civil war', 'world war', 'wwi', 'wwii', 'cold war', 'president', 'king', 'queen', 'historical'],
-      tech: ['tech', 'technology', 'software', 'hardware', 'computer', 'programming', 'code', 'coding', 'ai', 'artificial intelligence', 'machine learning', 'robot', 'internet', 'website', 'app', 'startup', 'silicon valley', 'apple', 'google', 'microsoft', 'tesla', 'elon musk', 'crypto', 'bitcoin', 'blockchain', 'cybersecurity', 'cloud', 'data', 'algorithm', 'python', 'javascript'],
-      finance: ['stock', 'market', 'invest', 'investing', 'finance', 'financial', 'money', 'economy', 'economic', 'bank', 'banking', 'tax', 'budget', 'credit', 'debt', 'loan', 'mortgage', 'interest rate', 'inflation', 'gdp', 'recession', 'portfolio', 'dividend', 'bond', 'forex', 'trading', 'wall street', 'nasdaq', 'dow jones', 's&p'],
-      health: ['health', 'medical', 'doctor', 'hospital', 'disease', 'symptom', 'treatment', 'medicine', 'drug', 'therapy', 'mental health', 'anxiety', 'depression', 'nutrition', 'diet', 'exercise', 'fitness', 'workout', 'vitamin', 'supplement', 'vaccine', 'virus', 'cancer', 'diabetes', 'heart', 'surgery', 'diagnosis'],
-      sports: ['sport', 'sports', 'football', 'basketball', 'baseball', 'soccer', 'tennis', 'golf', 'nba', 'nfl', 'mlb', 'fifa', 'olympics', 'athlete', 'team', 'championship', 'tournament', 'playoff', 'super bowl', 'world cup', 'boxing', 'mma', 'ufc', 'wrestling', 'hockey', 'nhl', 'cricket'],
-      food: ['recipe', 'cook', 'cooking', 'food', 'cuisine', 'restaurant', 'chef', 'bake', 'baking', 'ingredient', 'meal', 'dinner', 'lunch', 'breakfast', 'dessert', 'cake', 'pizza', 'pasta', 'sushi', 'vegan', 'vegetarian', 'nutrition', 'kitchen'],
-      travel: ['travel', 'trip', 'vacation', 'hotel', 'flight', 'airline', 'destination', 'tourism', 'tourist', 'beach', 'mountain', 'country', 'city', 'visit', 'explore', 'backpack', 'cruise', 'resort', 'passport', 'visa'],
-      news: ['news', 'breaking', 'headline', 'current events', 'politics', 'election', 'congress', 'senate', 'government', 'policy', 'legislation', 'protest', 'crisis'],
-    };
-
-    // Find best matching topic
-    let bestTopic = 'general';
-    let bestScore = 0;
-    for (const [topic, keywords] of Object.entries(topicKeywords)) {
-      let score = 0;
-      for (const kw of keywords) {
-        if (q.includes(kw)) score += kw.length; // longer matches = higher confidence
-      }
-      if (score > bestScore) { bestScore = score; bestTopic = topic; }
-    }
-
-    const pool = topicMap[bestTopic];
-    // Always include Wikipedia as first pick, then shuffle the rest
-    const wiki = pool.find(u => u.url.includes('wikipedia'));
-    const rest = pool.filter(u => !u.url.includes('wikipedia')).sort(() => Math.random() - 0.5);
-    return wiki ? [wiki, ...rest] : rest;
-  }, []);
-  const agentEyeDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const agentEyeResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
-
-  // Agent Eye Minimize state
-  const [isAgentEyeMinimized, setIsAgentEyeMinimized] = useState(false);
-  const [agentEyeMinRight, setAgentEyeMinRight] = useState(16);
-  const agentEyeMinDragRef = useRef<{ startX: number; origRight: number } | null>(null);
 
   // Chat sidebar resizable state
   const [chatSidebarWidth, setChatSidebarWidth] = useState(300);
@@ -415,147 +241,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const sidebarResizeRef = useRef<{ startX: number; startW: number } | null>(null);
 
-  // Keep a ref of current size so drag handler can access it without re-creating
-  const agentEyeSizeRef = useRef(agentEyeSize);
-  agentEyeSizeRef.current = agentEyeSize;
-
-  // Agent Eye drag handlers
-  const onAgentEyeDragStart = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    agentEyeDragRef.current = { startX: e.clientX, startY: e.clientY, origX: agentEyePos.x, origY: agentEyePos.y };
-  }, [agentEyePos]);
-
-  const onAgentEyeDragMove = useCallback((e: React.PointerEvent) => {
-    if (!agentEyeDragRef.current) return;
-    const dx = e.clientX - agentEyeDragRef.current.startX;
-    const dy = e.clientY - agentEyeDragRef.current.startY;
-    const maxX = window.innerWidth - agentEyeSizeRef.current.w;
-    const maxY = window.innerHeight - agentEyeSizeRef.current.h;
-    setAgentEyePos({
-      x: Math.max(0, Math.min(maxX, agentEyeDragRef.current.origX + dx)),
-      y: Math.max(0, Math.min(maxY, agentEyeDragRef.current.origY + dy))
-    });
-  }, []);
-
-  const onAgentEyeDragEnd = useCallback(() => {
-    agentEyeDragRef.current = null;
-  }, []);
-
-  // Keep a ref of current position so resize handler can access it
-  const agentEyePosRef = useRef(agentEyePos);
-  agentEyePosRef.current = agentEyePos;
-
-  // Agent Eye resize handlers — supports all edges and corners
-  const onAgentEyeEdgeResizeStart = useCallback((edge: string) => (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    agentEyeResizeRef.current = {
-      startX: e.clientX, startY: e.clientY,
-      origW: agentEyeSize.w, origH: agentEyeSize.h,
-      origX: agentEyePos.x, origY: agentEyePos.y,
-      edge
-    };
-  }, [agentEyeSize, agentEyePos]);
-
-  const onAgentEyeResizeMove = useCallback((e: React.PointerEvent) => {
-    if (!agentEyeResizeRef.current) return;
-    const { startX, startY, origW, origH, origX, origY, edge } = agentEyeResizeRef.current;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    let newW = origW, newH = origH, newX = origX, newY = origY;
-
-    if (edge.includes('r')) { newW = Math.max(280, Math.min(window.innerWidth - origX, origW + dx)); }
-    if (edge.includes('b')) { newH = Math.max(280, Math.min(window.innerHeight - origY, origH + dy)); }
-    if (edge.includes('l')) {
-      const dw = Math.min(dx, origW - 280);
-      newW = origW - dw;
-      newX = Math.max(0, origX + dw);
-    }
-    if (edge.includes('t')) {
-      const dh = Math.min(dy, origH - 280);
-      newH = origH - dh;
-      newY = Math.max(0, origY + dh);
-    }
-
-    setAgentEyeSize({ w: newW, h: newH });
-    if (edge.includes('l') || edge.includes('t')) setAgentEyePos({ x: newX, y: newY });
-  }, []);
-
-  const onAgentEyeResizeEnd = useCallback(() => {
-    agentEyeResizeRef.current = null;
-  }, []);
-
-  // Double-click header to toggle 2x expanded size
-  const onAgentEyeDoubleClick = useCallback(() => {
-    if (agentEyeExpanded) {
-      const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 780;
-      const defaultH = window.innerWidth < 640 ? 400 : 620;
-      setAgentEyeSize({ w: defaultW, h: defaultH });
-      setAgentEyeExpanded(false);
-    } else {
-      const targetW = Math.min(window.innerWidth - 80, 1400);
-      const targetH = Math.min(window.innerHeight - 80, 900);
-      const x = Math.max(40, (window.innerWidth - targetW) / 2);
-      const y = Math.max(40, (window.innerHeight - targetH) / 2);
-      setAgentEyeSize({ w: targetW, h: targetH });
-      setAgentEyePos({ x, y });
-      setAgentEyeExpanded(true);
-    }
-  }, [agentEyeExpanded, agentEyePos]);
-
-  // SMS Sound Effects
-  const playSmsSound = useCallback((type: 'sent' | 'received') => {
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (type === 'sent') {
-        // Swoosh — ascending tone
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(400, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.25);
-      } else {
-        // Ding — two-tone chime
-        [600, 800].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.value = freq;
-          const t = ctx.currentTime + i * 0.12;
-          gain.gain.setValueAtTime(0, t);
-          gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-          osc.start(t);
-          osc.stop(t + 0.3);
-        });
-      }
-      setTimeout(() => ctx.close(), 500);
-    } catch { /* audio not available */ }
-  }, []);
   const [isPolling, setIsPolling] = useState(false);
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-
-  // SMS Observer States
-  const [smsConversations, setSmsConversations] = useState<{contact: string; lastMessage: string; lastTime: string; direction: string; unreadCount: number; messageCount: number}[]>([]);
-  const [smsMessages, setSmsMessages] = useState<{id: string; from: string; to: string; body: string; direction: string; createdAt: string}[]>([]);
-  const [smsActiveContact, setSmsActiveContact] = useState<string | null>(null);
-  const [smsNewMessage, setSmsNewMessage] = useState('');
-  const [smsSending, setSmsSending] = useState(false);
-  const [smsLoading, setSmsLoading] = useState(false);
-  const [smsTwilioNumber, setSmsTwilioNumber] = useState<string | null>(null);
-  const smsEndRef = useRef<HTMLDivElement>(null);
-
   const openVoiceSession = () => {
     if (typeof window !== "undefined") {
       // 1. Initialize and play a brief silent sound to unlock the audio element on mobile
@@ -1753,45 +1441,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (previewCitations.length > 0) setPendingCitations(previewCitations);
     } catch { /* non-critical */ }
 
-    // ── IMMEDIATE Jarvis View animation ──
-    // Trigger proactively for most questions BEFORE API returns
-    const lowerInput = textToSend.toLowerCase().trim();
-    const SKIP_PATTERNS = [
-      /^what(?:'s| is) (?:my|your) name/,
-      /^who am i/,
-      /^who are you/,
-      /^what are you/,
-      /^are you (?:a |an )?(?:ai|bot|human|real)/,
-      /^(?:hi|hello|hey|yo|sup|what's up|howdy|greetings)\b[.!?]?$/,
-      /^(?:thanks|thank you|thx|ty)[.!?]?$/,
-      /^(?:ok|okay|sure|yes|no|yep|nope|yeah|nah)[.!?]?$/,
-      /^(?:goodbye|bye|see ya|later|gn|good night)[.!?]?$/,
-      /^(?:help|menu|commands)[.!?]?$/,
-      /^(?:lol|lmao|haha|hehe)[.!?]?$/,
-    ];
-    const shouldSkipAnimation = SKIP_PATTERNS.some(p => p.test(lowerInput)) || lowerInput.length < 4;
-    let didStartAnimation = false;
 
-    if (!shouldSkipAnimation && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
-      didStartAnimation = true;
-      // Alternate between 1 and 2 mock URLs
-      const navCount = jarvisNavCountRef.current % 2 === 0 ? 2 : 1;
-      jarvisNavCountRef.current++;
-
-      // Pick topic-relevant URLs based on the user's question
-      const topicUrls = getTopicUrls(textToSend);
-      const mockNavs = topicUrls.slice(0, navCount);
-
-      // Push first URL immediately
-      setJarvisNavQueue(prev => [...prev, mockNavs[0]]);
-
-      // If 2 URLs, push the second after a delay
-      if (navCount > 1) {
-        setTimeout(() => {
-          setJarvisNavQueue(prev => [...prev, mockNavs[1]]);
-        }, 4500);
-      }
-    }
 
     let rToken: string | null = null;
     let kbText = "";
@@ -1984,6 +1634,38 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             ? { ...m, agentEvents: [...(m.agentEvents || []), { type: 'done' as const, timestamp: Date.now() }] } 
             : m
         ));
+        // Detect email preview in executedTools and attach structured data to message
+        if (data.executedTools && Array.isArray(data.executedTools)) {
+          const previewTool = data.executedTools.find((t: any) => t.name === 'email' && t.args?.action === 'preview');
+          if (previewTool?.args) {
+            const userMsg = textToSend.toLowerCase();
+            let intent: 'send' | 'draft' | 'ambiguous' = 'ambiguous';
+            if (/\b(draft|save.?a?.?draft|prepare.?a?.?draft)\b/i.test(userMsg)) intent = 'draft';
+            else if (/\b(send|fire.?off|shoot|email\s+them|message\s+them)\b/i.test(userMsg)) intent = 'send';
+            const emailPreview: EmailPreviewData = {
+              to: previewTool.args.to || '',
+              subject: previewTool.args.subject || '',
+              body: (previewTool.args.body || '').replace(/\\n/g, '\n'),
+              intent,
+            };
+            // Strip the raw preview text from LLM response — the card component will handle display
+            setMessages(prev => prev.map(m => {
+              if (m.id !== botMsgId) return m;
+              let cleanText = m.text;
+              // Remove EMAIL_PREVIEW_START...END block if present
+              cleanText = cleanText.replace(/EMAIL_PREVIEW_START[\s\S]*?EMAIL_PREVIEW_END\s*/g, '');
+              // Remove blockquoted email preview lines (> **To:**... > body lines)
+              cleanText = cleanText.replace(/(?:Here is the email I'?v?e? prepared:?\s*\n?)?((?:\s*>.*\n?)+)/g, '');
+              // Remove common LLM preview headers
+              cleanText = cleanText.replace(/📧\s*\*?\*?Email Preview:?\*?\*?\s*/gi, '');
+              // Remove To:/Subject: lines that aren't in blockquotes
+              cleanText = cleanText.replace(/\*?\*?To:\*?\*?\s*\S+@\S+\s*\*?\*?Subject:\*?\*?\s*[^\n]+\n?/g, '');
+              // Clean up excess whitespace
+              cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
+              return { ...m, text: cleanText, emailPreview };
+            }));
+          }
+        }
         setPendingCitations([]);
       } else {
         // Fallback: non-streaming JSON response (shouldn't happen in normal flow)
@@ -1997,31 +1679,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         setPendingCitations([]);
       }
 
-      // Capture email drafts for Gmail View (works for both streaming and JSON paths)
-      if (data.executedTools && Array.isArray(data.executedTools)) {
-        const emailTool = data.executedTools.find((t: any) => t.name === 'email' && (t.args?.action === 'draft' || t.args?.action === 'send'));
-        if (emailTool?.args) {
-          setLastDraftedEmail({
-            to: emailTool.args.to || '',
-            subject: emailTool.args.subject || '',
-            body: (emailTool.args.body || '').replace(/\\n/g, '\n'),
-            timestamp: Date.now(),
-          });
-          if (isAgentEyeOpen || isAgentEyeMinimized) {
-            setAgentEyeTab('gmail');
-          }
-        }
-      }
 
-      // Push real enrichment URLs to Jarvis View
-      if (data.enrichmentUrls && Array.isArray(data.enrichmentUrls) && data.enrichmentUrls.length > 0
-          && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
-        data.enrichmentUrls.slice(0, 2).forEach((eu: { url: string; title: string }, idx: number) => {
-          setTimeout(() => {
-            setJarvisNavQueue(prev => [...prev, { url: eu.url, title: eu.title }]);
-          }, idx * 3500);
-        });
-      }
 
       logActivity(firestore, 'ai_chat_sent', { email: user?.email || '', displayName: user?.displayName }, 'Sent AI chat message to ' + (agent?.name || params.agentId), { messagePreview: textToSend.substring(0, 200) });
 
@@ -2562,104 +2220,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   };
 
-  useEffect(() => {
-    if (isAgentEyeOpen && agentEyeTab === 'gmail' && isGmailConnected) {
-      fetchPulse();
-      const interval = setInterval(() => {
-        fetchPulse();
-      }, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [isAgentEyeOpen, agentEyeTab, isGmailConnected]);
-
-  // SMS fetch helpers
-  const fetchSmsConversations = useCallback(async () => {
-    if (!user?.uid || !firestore) return;
-    setSmsLoading(true);
-    try {
-      // check twilio number
-      const uDoc = await getDoc(doc(firestore, 'users', user.uid));
-      const twNum = uDoc.data()?.twilioPhoneNumber;
-      setSmsTwilioNumber(twNum || null);
-      if (!twNum) { setSmsLoading(false); return; }
-
-      const snap = await getDocs(query(collection(firestore, 'users', user.uid, 'sms_messages'), orderBy('createdAt', 'desc'), firestoreLimit(500)));
-      const convMap = new Map<string, any>();
-      snap.docs.forEach(d => {
-        const data = d.data();
-        const contact = data.direction === 'inbound' ? data.from : data.to;
-        if (!convMap.has(contact)) convMap.set(contact, { contact, lastMessage: data.body || '', lastTime: data.createdAt, direction: data.direction, unreadCount: 0, messageCount: 0 });
-        const c = convMap.get(contact)!;
-        c.messageCount++;
-        if (data.direction === 'inbound' && !data.read) c.unreadCount++;
-      });
-      const newConvos = Array.from(convMap.values()).sort((a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime());
-      // Detect new inbound messages and play sound
-      if (smsConversations.length > 0 && newConvos.length > 0) {
-        const oldTotal = smsConversations.reduce((sum, c) => sum + c.messageCount, 0);
-        const newTotal = newConvos.reduce((sum: number, c: any) => sum + c.messageCount, 0);
-        const hasNewInbound = newConvos.some((nc: any) => {
-          const oc = smsConversations.find(c => c.contact === nc.contact);
-          return oc && nc.messageCount > oc.messageCount && nc.direction === 'inbound';
-        });
-        if (newTotal > oldTotal && hasNewInbound) playSmsSound('received');
-      }
-      setSmsConversations(newConvos);
-    } catch (e) { console.error('[SMS] fetch error', e); }
-    finally { setSmsLoading(false); }
-  }, [user?.uid, firestore, smsConversations, playSmsSound]);
-
-  const fetchSmsThread = useCallback(async (contact: string) => {
-    if (!user?.uid || !firestore) return;
-    try {
-      const snap = await getDocs(query(collection(firestore, 'users', user.uid, 'sms_messages'), orderBy('createdAt', 'desc'), firestoreLimit(200)));
-      const normalized = contact.replace(/[^+\d]/g, '');
-      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any))
-        .filter((m: any) => (m.from || '').includes(normalized) || (m.to || '').includes(normalized))
-        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      setSmsMessages(msgs);
-      setTimeout(() => smsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch (e) { console.error('[SMS] thread error', e); }
-  }, [user?.uid, firestore]);
-
-  const sendSms = useCallback(async () => {
-    if (!smsNewMessage.trim() || !smsActiveContact || !smsTwilioNumber || !user?.uid || !firestore) return;
-    setSmsSending(true);
-    try {
-      const res = await fetch('/api/sms/send', {
-        method: 'POST',
-        headers: await getAuthHeaders(),
-        body: JSON.stringify({ from: smsTwilioNumber, to: smsActiveContact, message: smsNewMessage })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      // Save to Firestore
-      await addDoc(collection(firestore, 'users', user.uid, 'sms_messages'), {
-        sid: data.sid, from: smsTwilioNumber, to: data.to || smsActiveContact,
-        body: smsNewMessage, direction: 'outbound', status: 'sent', createdAt: new Date().toISOString()
-      });
-      playSmsSound('sent');
-      setSmsNewMessage('');
-      await fetchSmsThread(smsActiveContact);
-      await fetchSmsConversations();
-    } catch (e: any) { console.error('[SMS] send error', e); }
-    finally { setSmsSending(false); }
-  }, [smsNewMessage, smsActiveContact, smsTwilioNumber, user?.uid, firestore, fetchSmsThread, fetchSmsConversations, playSmsSound]);
-
-  // SMS polling
-  useEffect(() => {
-    if (isAgentEyeOpen && agentEyeTab === 'sms') {
-      fetchSmsConversations();
-      const interval = setInterval(fetchSmsConversations, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [isAgentEyeOpen, agentEyeTab, fetchSmsConversations]);
-
-  // Refetch thread when active contact changes
-  useEffect(() => {
-    if (smsActiveContact && isAgentEyeOpen && agentEyeTab === 'sms') fetchSmsThread(smsActiveContact);
-  }, [smsActiveContact, isAgentEyeOpen, agentEyeTab, fetchSmsThread]);
-
   return (
     <>
     <style>{`
@@ -2944,15 +2504,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Agent Eye */}
-            <button
-              onClick={() => setIsAgentEyeOpen(!isAgentEyeOpen)}
-              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all border ${isAgentEyeOpen ? (isDarkMode ? 'bg-amber-900/30 text-amber-400 border-amber-700' : 'bg-amber-50 text-amber-600 border-amber-300') : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-600 hover:text-amber-400 hover:border-amber-700 hover:bg-amber-900/20' : 'bg-[#faf8f3] text-slate-500 border-slate-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50')}`}
-              title="Agent Eye"
-            >
-              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Agent Eye</span>
-            </button>
 
           </div>
         </div>
@@ -3107,6 +2658,52 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => (<a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline underline-offset-2 break-all">{children}</a>) }}>
                                       {msg.text}
                                     </ReactMarkdown>
+                                  </div>
+                                )}
+                                {/* Inline Email Preview Card */}
+                                {msg.emailPreview && (
+                                  <div className={`mt-3 rounded-xl border overflow-hidden ${isDarkMode ? 'border-slate-600/50 bg-slate-800/30' : 'border-slate-200 bg-white/60'}`}>
+                                    {/* Card Header */}
+                                    <div className={`px-4 py-2.5 text-xs font-medium ${isDarkMode ? 'bg-slate-700/40 text-slate-300 border-b border-slate-600/50' : 'bg-slate-50 text-slate-500 border-b border-slate-200'}`}>
+                                      📧 Email Preview
+                                    </div>
+                                    {/* Email Content */}
+                                    <div className={`px-4 py-3 space-y-1.5 text-sm ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                                      <div><span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>To:</span> {msg.emailPreview.to}</div>
+                                      <div><span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Subject:</span> {msg.emailPreview.subject}</div>
+                                      <div className={`mt-3 pt-3 whitespace-pre-wrap leading-relaxed ${isDarkMode ? 'border-t border-slate-600/40' : 'border-t border-slate-200/80'}`}>
+                                        {msg.emailPreview.body}
+                                      </div>
+                                    </div>
+                                    {/* Card Footer with Actions */}
+                                    <div className={`px-4 py-3 flex items-center justify-between ${isDarkMode ? 'bg-slate-700/30 border-t border-slate-600/50' : 'bg-slate-50/80 border-t border-slate-200'}`}>
+                                      <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        {msg.emailPreview.intent === 'draft' ? 'Ready to save as draft?' : msg.emailPreview.intent === 'send' ? 'Ready to send?' : 'Send it now, or save as a draft?'}
+                                      </span>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => {
+                                            const confirmMsg = msg.emailPreview!.intent === 'draft' ? 'Yes, save as draft' : msg.emailPreview!.intent === 'send' ? 'Yes, send it' : 'Yes, send it';
+                                            handleSendMessage(confirmMsg);
+                                            // Remove the preview card after action
+                                            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, emailPreview: undefined } : m));
+                                          }}
+                                          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                                        >
+                                          <CornerDownLeft className="w-3.5 h-3.5" />
+                                          Run
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            handleSendMessage("Cancel, don't do it");
+                                            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, emailPreview: undefined } : m));
+                                          }}
+                                          className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-slate-600 hover:bg-slate-500 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600'}`}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
                               </>
@@ -3534,25 +3131,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 }
               }
             }).catch(console.error);
-          }
-
-          // ── Voice-triggered Jarvis View animation ──
-          const voiceLower = userText.toLowerCase().trim();
-          const VOICE_SKIP = [/^(?:hi|hello|hey|yo|sup)/, /^(?:thanks|thank you)/, /^(?:ok|okay|sure|yes|no)/, /^(?:goodbye|bye)/];
-          const shouldSkipVoiceAnim = VOICE_SKIP.some(p => p.test(voiceLower)) || voiceLower.length < 4;
-          if (!shouldSkipVoiceAnim && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
-            const navCount = jarvisNavCountRef.current % 2 === 0 ? 2 : 1;
-            jarvisNavCountRef.current++;
-            const topicUrls = getTopicUrls(userText);
-            const mockNavs = topicUrls.slice(0, navCount);
-            setJarvisNavQueue(prev => [...prev, mockNavs[0]]);
-            if (navCount > 1 && mockNavs[1]) {
-              setTimeout(() => {
-                setJarvisNavQueue(prev => [...prev, mockNavs[1]]);
-              }, 4500);
-            }
-          }
-        }}
+          }        }}
         onUsageUpdate={(groqUsage, elevenLabsUsage) => {
           if ((groqUsage > 0 || elevenLabsUsage > 0) && user?.uid && firestore) {
             import("firebase/firestore").then(({ doc, updateDoc, increment }) => {
@@ -3600,36 +3179,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
-
-          // ── Capture email drafts from voice commands ──
-          if (data.executedTools && Array.isArray(data.executedTools)) {
-            const emailTool = data.executedTools.find((t: any) => t.name === 'email' && (t.args?.action === 'draft' || t.args?.action === 'send'));
-            if (emailTool?.args) {
-              setLastDraftedEmail({
-                to: emailTool.args.to || '',
-                subject: emailTool.args.subject || '',
-                body: (emailTool.args.body || '').replace(/\\n/g, '\n'),
-                timestamp: Date.now(),
-              });
-              if (isAgentEyeOpen || isAgentEyeMinimized) {
-                setAgentEyeTab('gmail');
-                if (isAgentEyeMinimized) setIsAgentEyeMinimized(false);
-              } else {
-                setIsAgentEyeOpen(true);
-                setAgentEyeTab('gmail');
-              }
-            }
-          }
-
-          // If the server returned enrichment URLs, push them to Jarvis View
-          if (data.enrichmentUrls && Array.isArray(data.enrichmentUrls) && data.enrichmentUrls.length > 0
-              && agentEyeTab === 'jarvis-view' && isAgentEyeOpen && !isAgentEyeMinimized) {
-            data.enrichmentUrls.slice(0, 2).forEach((eu: { url: string; title: string }, idx: number) => {
-              setTimeout(() => {
-                setJarvisNavQueue(prev => [...prev, { url: eu.url, title: eu.title }]);
-              }, idx * 3500);
-            });
-          }
 
           return data;
         }}
@@ -3696,486 +3245,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </div>
       )}
 
-      {/* Agent Eye rendered outside flex container for z-index */}
     </div>
-
-      {/* Agent Eye Floating Popup */}
-      {(isAgentEyeOpen || isAgentEyeMinimized) && (
-        <div
-          style={isAgentEyeMinimized ? {
-            position: 'fixed' as const,
-            bottom: typeof window !== 'undefined' && window.innerWidth < 640 ? 96 : 16,
-            right: agentEyeMinRight,
-            width: typeof window !== 'undefined' && window.innerWidth < 640 ? 180 : 260,
-            height: 44,
-            zIndex: 9999,
-          } : {
-            position: 'fixed' as const,
-            left: agentEyePos.x,
-            top: agentEyePos.y,
-            width: agentEyeSize.w,
-            height: agentEyeSize.h,
-            zIndex: 9999,
-            display: 'flex',
-            flexDirection: 'column' as const,
-          }}
-          className="rounded-2xl shadow-2xl border border-amber-200/60 bg-[#fefdfb]/95 backdrop-blur-xl overflow-hidden"
-        >
-          {/* Title Bar — draggable, double-click to expand */}
-          <div
-            onPointerDown={isAgentEyeMinimized ? (e: React.PointerEvent) => {
-              e.preventDefault();
-              agentEyeMinDragRef.current = { startX: e.clientX, origRight: agentEyeMinRight };
-              const el = e.currentTarget;
-              el.setPointerCapture(e.pointerId);
-            } : onAgentEyeDragStart}
-            onPointerMove={isAgentEyeMinimized ? (e: React.PointerEvent) => {
-              if (!agentEyeMinDragRef.current) return;
-              const delta = e.clientX - agentEyeMinDragRef.current.startX;
-              const newRight = Math.max(0, Math.min(window.innerWidth - 260, agentEyeMinDragRef.current.origRight - delta));
-              setAgentEyeMinRight(newRight);
-            } : onAgentEyeDragMove}
-            onPointerUp={isAgentEyeMinimized ? (e: React.PointerEvent) => {
-              const wasDrag = agentEyeMinDragRef.current && Math.abs(e.clientX - agentEyeMinDragRef.current.startX) > 5;
-              agentEyeMinDragRef.current = null;
-              (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-              // If it was a click (not a drag), restore and expand
-              if (!wasDrag) {
-                setIsAgentEyeMinimized(false);
-                setIsAgentEyeOpen(true);
-                const targetW = Math.min(window.innerWidth - 80, 1400);
-                const targetH = Math.min(window.innerHeight - 80, 900);
-                const x = Math.max(40, (window.innerWidth - targetW) / 2);
-                const y = Math.max(40, (window.innerHeight - targetH) / 2);
-                setAgentEyeSize({ w: targetW, h: targetH });
-                setAgentEyePos({ x, y });
-                setAgentEyeExpanded(true);
-              }
-            } : onAgentEyeDragEnd}
-            onDoubleClick={isAgentEyeMinimized ? () => {
-              // Single click on bar handles restore; double-click also works
-              setIsAgentEyeMinimized(false);
-              setIsAgentEyeOpen(true);
-              const targetW = Math.min(window.innerWidth - 80, 1400);
-              const targetH = Math.min(window.innerHeight - 80, 900);
-              const x = Math.max(40, (window.innerWidth - targetW) / 2);
-              const y = Math.max(40, (window.innerHeight - targetH) / 2);
-              setAgentEyeSize({ w: targetW, h: targetH });
-              setAgentEyePos({ x, y });
-              setAgentEyeExpanded(true);
-            } : onAgentEyeDoubleClick}
-            className={`flex items-center justify-between h-11 px-4 shrink-0 select-none ${isAgentEyeMinimized ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
-            style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
-          >
-            <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4 text-white/90" />
-              <span className="text-xs font-bold uppercase tracking-widest text-white/95">Agent Eye</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {/* Minimize to tray */}
-              {!isAgentEyeMinimized && (
-                <button
-                  onClick={() => {
-                    setIsAgentEyeMinimized(true);
-                    setIsAgentEyeOpen(false);
-                  }}
-                  className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
-                  title="Minimize to tray"
-                >
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14H5" /></svg>
-                </button>
-              )}
-              {/* Expand / Restore toggle */}
-              <button
-                onClick={() => {
-                  if (isAgentEyeMinimized) {
-                    // Restore from minimized to near-fullscreen
-                    setIsAgentEyeMinimized(false);
-                    setIsAgentEyeOpen(true);
-                    const targetW = Math.min(window.innerWidth - 80, 1400);
-                    const targetH = Math.min(window.innerHeight - 80, 900);
-                    const x = Math.max(40, (window.innerWidth - targetW) / 2);
-                    const y = Math.max(40, (window.innerHeight - targetH) / 2);
-                    setAgentEyeSize({ w: targetW, h: targetH });
-                    setAgentEyePos({ x, y });
-                    setAgentEyeExpanded(true);
-                  } else if (agentEyeExpanded) {
-                    // Shrink back to default
-                    const defaultW = window.innerWidth < 640 ? Math.min(window.innerWidth - 16, 380) : 780;
-                    const defaultH = window.innerWidth < 640 ? 400 : 620;
-                    setAgentEyeSize({ w: defaultW, h: defaultH });
-                    setAgentEyeExpanded(false);
-                  } else {
-                    // Expand to near-fullscreen
-                    const targetW = Math.min(window.innerWidth - 80, 1400);
-                    const targetH = Math.min(window.innerHeight - 80, 900);
-                    const x = Math.max(40, (window.innerWidth - targetW) / 2);
-                    const y = Math.max(40, (window.innerHeight - targetH) / 2);
-                    setAgentEyeSize({ w: targetW, h: targetH });
-                    setAgentEyePos({ x, y });
-                    setAgentEyeExpanded(true);
-                  }
-                }}
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
-                title={isAgentEyeMinimized ? 'Restore & Expand' : agentEyeExpanded ? 'Restore size' : 'Expand'}
-              >
-                {(isAgentEyeMinimized || !agentEyeExpanded) ? (
-                  <Maximize2 className="w-3 h-3 text-white" />
-                ) : (
-                  <Minimize2 className="w-3 h-3 text-white" />
-                )}
-              </button>
-              {/* Close button */}
-              <button
-                onClick={() => { setIsAgentEyeOpen(false); setIsAgentEyeMinimized(false); setAgentEyeExpanded(false); }}
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors"
-              >
-                <X className="w-3.5 h-3.5 text-white" />
-              </button>
-            </div>
-          </div>
-
-          {!isAgentEyeMinimized && (<>
-          {/* Observer Dropdown Selector */}
-          <div className="relative shrink-0 border-b border-slate-200 bg-[#faf6ed]/80">
-            <button
-              onClick={() => setAgentEyeDropdownOpen(!agentEyeDropdownOpen)}
-              className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                {agentEyeTab === 'gmail' && <Mail className="w-4 h-4 text-red-500" />}
-                {agentEyeTab === 'outlook' && <Mail className="w-4 h-4 text-blue-500" />}
-                {agentEyeTab === 'sms' && <Smartphone className="w-4 h-4 text-purple-500" />}
-                {agentEyeTab === 'jarvis-view' && <Monitor className="w-4 h-4 text-amber-500" />}
-                <span>
-                  {agentEyeTab === 'gmail' && 'Gmail View'}
-                  {agentEyeTab === 'outlook' && 'Outlook'}
-                  {agentEyeTab === 'sms' && 'SMS'}
-                  {agentEyeTab === 'jarvis-view' && 'Jarvis View'}
-                </span>
-                {agentEyeTab === 'gmail' && (() => {
-                  const unreadCount = incomingEmails.filter(e => !readEmails.has(e.id)).length;
-                  return unreadCount > 0 ? (
-                    <span className="ml-1 px-1.5 py-0.5 text-[9px] font-bold bg-red-500 text-white rounded-full min-w-[18px] text-center">{unreadCount > 99 ? '99+' : unreadCount}</span>
-                  ) : null;
-                })()}
-              </div>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${agentEyeDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {agentEyeDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setAgentEyeDropdownOpen(false)} />
-                <div className="absolute top-full left-0 right-0 z-50 bg-[#faf8f3] border border-slate-200 rounded-b-xl shadow-xl overflow-hidden">
-                {[
-                  { id: 'gmail' as const, label: 'Gmail View', icon: <Mail className="w-4 h-4 text-red-500" />, ready: true },
-                  { id: 'outlook' as const, label: 'Outlook', icon: <Mail className="w-4 h-4 text-blue-500" />, ready: false },
-                  { id: 'sms' as const, label: 'SMS', icon: <Smartphone className="w-4 h-4 text-purple-500" />, ready: true },
-                  { id: 'jarvis-view' as const, label: 'Jarvis View', icon: <Monitor className="w-4 h-4 text-amber-500" />, ready: true },
-                ].map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => { setAgentEyeTab(item.id); setAgentEyeDropdownOpen(false); }}
-                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-[#f2ece0] transition-colors ${
-                      agentEyeTab === item.id ? 'bg-amber-50 font-semibold text-amber-700' : 'text-slate-600'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      {item.icon}
-                      <span>{item.label}</span>
-                    </div>
-                    {!item.ready && <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Soon</span>}
-                    {agentEyeTab === item.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                  </button>
-                ))}
-              </div>
-              </>
-            )}
-          </div>
-
-          {/* Observer Body */}
-          <div className="flex-1 overflow-auto flex flex-col">
-
-            {/* ──── Gmail View ──── */}
-            {agentEyeTab === 'gmail' && (
-              <div className="flex-1 flex flex-col h-full">
-                {!lastDraftedEmail ? (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 border border-red-100 flex items-center justify-center">
-                      <Mail className="w-8 h-8 text-red-400" />
-                    </div>
-                    <div className="text-center max-w-xs">
-                      <p className="text-sm font-semibold text-slate-700">No emails drafted yet</p>
-                      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">Ask Jarvis to write or send an email to someone, and you&apos;ll see it composed here in real time.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col h-full overflow-hidden">
-                    {/* Compose Header */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#ede8da] bg-[#faf8f3] shrink-0">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drafted by Jarvis</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400">
-                          {new Date(lastDraftedEmail.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <button
-                          onClick={() => setLastDraftedEmail(null)}
-                          className="text-[10px] text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Email Compose Area */}
-                    <div className="flex-1 overflow-auto p-4">
-                      <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#fefdfb] border-slate-200'} rounded-xl border shadow-sm overflow-hidden max-w-full`}>
-                        {/* To Field */}
-                        <div className={`flex items-center gap-3 px-4 py-2.5 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                          <span className="text-xs font-semibold text-slate-400 w-12 shrink-0">To</span>
-                          <div className="flex items-center gap-1.5">
-                            <div className="px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-full text-xs font-medium text-blue-700">
-                              {lastDraftedEmail.to}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Subject Field */}
-                        <div className={`flex items-center gap-3 px-4 py-2.5 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                          <span className="text-xs font-semibold text-slate-400 w-12 shrink-0">Subject</span>
-                          <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{lastDraftedEmail.subject}</span>
-                        </div>
-
-                        {/* Email Body with typing effect */}
-                        <div className="px-4 py-4 min-h-[200px]">
-                          <GmailViewTypingBody text={lastDraftedEmail.body} key={lastDraftedEmail.timestamp} />
-                        </div>
-
-                        {/* Footer */}
-                        <div className={`px-4 py-3 border-t ${isDarkMode ? 'border-slate-700 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'} flex items-center justify-between`}>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-                              <span className="text-[8px] font-bold text-white">J</span>
-                            </div>
-                            <span className="text-[10px] text-slate-400">Saved to Gmail Drafts</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                            <span className="text-[10px] font-medium text-emerald-600">Draft Ready</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ──── Coming Soon Screens ──── */}
-            {agentEyeTab === 'outlook' && (
-              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
-                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center">
-                  <Mail className="w-8 h-8 text-blue-400" />
-                </div>
-                <div className="text-center">
-                  <p className="text-base font-bold text-slate-700">Outlook</p>
-                  <p className="text-xs text-slate-400 mt-1.5 max-w-[200px]">Outlook inbox observer is coming soon</p>
-                </div>
-                <div className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-500 text-[10px] font-bold uppercase tracking-widest">Coming Soon</div>
-              </div>
-            )}
-
-
-
-            {agentEyeTab === 'sms' && (
-              <div className="flex-1 flex flex-col h-full">
-                {!smsTwilioNumber ? (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-                    <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center">
-                      <Smartphone className="w-7 h-7 text-purple-400" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-slate-700">SMS not connected</p>
-                      <p className="text-xs text-slate-400 mt-1">Set up your Twilio number in Messages</p>
-                    </div>
-                  </div>
-                ) : !smsActiveContact ? (
-                  /* ── Conversation List ── */
-                  <div className="flex-1 flex flex-col h-full">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-[#faf8f3] shrink-0">
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="w-4 h-4 text-purple-500" />
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Messages</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button onClick={fetchSmsConversations} className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition-colors">
-                          <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${smsLoading ? 'animate-spin' : ''}`} />
-                        </button>
-                        <span className="text-[10px] text-slate-400 tabular-nums">{smsConversations.length}</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto">
-                      {smsConversations.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full py-10 text-center">
-                          <MessageCircle className="w-10 h-10 text-slate-200 mb-2" />
-                          <p className="text-sm text-slate-400">No conversations yet</p>
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-slate-100">
-                          {smsConversations.map(conv => {
-                            const digits = conv.contact.replace(/\D/g, '');
-                            const display = digits.length === 11 && digits.startsWith('1')
-                              ? `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`
-                              : digits.length === 10 ? `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}` : conv.contact;
-                            const timeStr = (() => { try { const d = new Date(conv.lastTime); const now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : d.toLocaleDateString([], {month:'short',day:'numeric'}); } catch { return ''; } })();
-                            return (
-                              <button key={conv.contact} onClick={() => setSmsActiveContact(conv.contact)}
-                                className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-[#f2ece0] transition-colors text-left">
-                                <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
-                                  <span className="text-[11px] font-bold text-purple-600">{conv.contact.slice(-2)}</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[13px] font-semibold text-slate-800 truncate">{display}</span>
-                                    <span className="text-[10px] text-slate-400 shrink-0">{timeStr}</span>
-                                  </div>
-                                  <p className="text-[11.5px] text-slate-400 truncate mt-0.5">
-                                    {conv.direction === 'outbound' ? 'You: ' : ''}{conv.lastMessage || 'No messages'}
-                                  </p>
-                                </div>
-                                {conv.unreadCount > 0 && (
-                                  <span className="bg-purple-500 text-white text-[9px] font-bold rounded-full w-4.5 h-4.5 px-1.5 py-0.5 flex items-center justify-center shrink-0 mt-1">{conv.unreadCount}</span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  /* ── Thread View ── */
-                  <div className="flex-1 flex flex-col h-full">
-                    {/* Thread Header */}
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-[#faf8f3] shrink-0">
-                      <button onClick={() => { setSmsActiveContact(null); setSmsMessages([]); }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition-colors">
-                        <ArrowLeft className="w-4 h-4 text-slate-400" />
-                      </button>
-                      <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
-                        <span className="text-[10px] font-bold text-purple-600">{smsActiveContact.slice(-2)}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-slate-800 truncate">
-                          {(() => { const d = smsActiveContact.replace(/\D/g,''); return d.length===11&&d.startsWith('1') ? `(${d.slice(1,4)}) ${d.slice(4,7)}-${d.slice(7)}` : d.length===10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : smsActiveContact; })()}
-                        </p>
-                        <p className="text-[9px] text-slate-400">SMS</p>
-                      </div>
-                      <button onClick={() => fetchSmsThread(smsActiveContact)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100">
-                        <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                      </button>
-                    </div>
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5" style={{ backgroundColor: '#f8f7f4' }}>
-                      {smsMessages.length === 0 ? (
-                        <div className="flex items-center justify-center h-full text-slate-400 text-xs">No messages</div>
-                      ) : smsMessages.map((msg, i) => {
-                        const isMe = msg.direction === 'outbound';
-                        return (
-                          <div key={msg.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[80%] px-3 py-1.5 rounded-2xl text-[12px] leading-relaxed shadow-sm ${
-                              isMe ? 'bg-purple-500 text-white rounded-br-md' : 'bg-[#faf8f3] text-slate-800 border border-slate-200 rounded-bl-md'
-                            }`}>
-                              {msg.body || '📎 Media'}
-                              <div className={`text-[8px] mt-0.5 ${isMe ? 'text-purple-200 text-right' : 'text-slate-400'}`}>
-                                {(() => { try { return new Date(msg.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); } catch { return ''; } })()}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={smsEndRef} className="h-1" />
-                    </div>
-                    {/* Send Bar */}
-                    <div className="border-t border-slate-200 p-2 bg-[#faf8f3] shrink-0">
-                      <form onSubmit={(e) => { e.preventDefault(); sendSms(); }} className="flex gap-1.5">
-                        <input
-                          value={smsNewMessage}
-                          onChange={e => setSmsNewMessage(e.target.value)}
-                          placeholder="Type a message..."
-                          className="flex-1 h-9 px-3 text-base sm:text-[12px] bg-[#faf6ed] border border-slate-200 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-300 text-slate-800 placeholder:text-slate-400"
-                          disabled={smsSending}
-                        />
-                        <button type="submit" disabled={!smsNewMessage.trim() || smsSending}
-                          className="w-9 h-9 flex items-center justify-center rounded-full bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-40 transition-colors">
-                          {smsSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {agentEyeTab === 'jarvis-view' && (
-              <JarvisViewBrowser
-                navigationQueue={jarvisNavQueue}
-                onNavigationComplete={() => {}}
-              />
-            )}
-
-          </div>
-
-          {/* Resize Handle — bottom-right corner */}
-          <div
-            onPointerDown={onAgentEyeEdgeResizeStart('br')}
-            onPointerMove={onAgentEyeResizeMove}
-            onPointerUp={onAgentEyeResizeEnd}
-            className="absolute bottom-0 right-0 w-5 h-5 cursor-nwse-resize z-10"
-            style={{ touchAction: 'none' }}
-          >
-            <svg viewBox="0 0 20 20" className="w-full h-full text-amber-400/60">
-              <line x1="14" y1="20" x2="20" y2="14" stroke="currentColor" strokeWidth="1.5" />
-              <line x1="10" y1="20" x2="20" y2="10" stroke="currentColor" strokeWidth="1.5" />
-              <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
-          </div>
-          {/* Resize Handle — bottom-left corner */}
-          <div
-            onPointerDown={onAgentEyeEdgeResizeStart('bl')}
-            onPointerMove={onAgentEyeResizeMove}
-            onPointerUp={onAgentEyeResizeEnd}
-            className="absolute bottom-0 left-0 w-5 h-5 cursor-nesw-resize z-10"
-            style={{ touchAction: 'none', transform: 'scaleX(-1)' }}
-          >
-            <svg viewBox="0 0 20 20" className="w-full h-full text-amber-400/60">
-              <line x1="14" y1="20" x2="20" y2="14" stroke="currentColor" strokeWidth="1.5" />
-              <line x1="10" y1="20" x2="20" y2="10" stroke="currentColor" strokeWidth="1.5" />
-              <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
-          </div>
-          {/* Edge resize — right */}
-          <div onPointerDown={onAgentEyeEdgeResizeStart('r')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
-            className="absolute top-11 right-0 w-1.5 bottom-5 cursor-ew-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
-          {/* Edge resize — left */}
-          <div onPointerDown={onAgentEyeEdgeResizeStart('l')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
-            className="absolute top-11 left-0 w-1.5 bottom-5 cursor-ew-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
-          {/* Edge resize — bottom */}
-          <div onPointerDown={onAgentEyeEdgeResizeStart('b')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
-            className="absolute bottom-0 left-5 right-5 h-1.5 cursor-ns-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
-          {/* Edge resize — top */}
-          <div onPointerDown={onAgentEyeEdgeResizeStart('t')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
-            className="absolute top-0 left-5 right-5 h-1.5 cursor-ns-resize z-10 hover:bg-amber-300/20 transition-colors" style={{ touchAction: 'none' }} />
-          {/* Resize Handle — top-right corner */}
-          <div onPointerDown={onAgentEyeEdgeResizeStart('tr')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
-            className="absolute top-0 right-0 w-5 h-5 cursor-nesw-resize z-10" style={{ touchAction: 'none' }} />
-          {/* Resize Handle — top-left corner */}
-          <div onPointerDown={onAgentEyeEdgeResizeStart('tl')} onPointerMove={onAgentEyeResizeMove} onPointerUp={onAgentEyeResizeEnd}
-            className="absolute top-0 left-0 w-5 h-5 cursor-nwse-resize z-10" style={{ touchAction: 'none' }} />
-      </>)}
-        </div>
-      )}
 
       <AgentLibrary 
         isOpen={showAgentLibrary}
