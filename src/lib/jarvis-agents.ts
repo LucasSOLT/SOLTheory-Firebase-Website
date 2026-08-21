@@ -24,8 +24,7 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "delete_email",
     "create_folder",
     "block_sender",
-    "draft_outbound_email",
-    "send_outbound_email",
+    "email",
     // Shared: resolve contact names to emails
     "crm_resolve_contact",
     "crm_search_contacts",

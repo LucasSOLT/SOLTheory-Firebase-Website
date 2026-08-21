@@ -68,39 +68,20 @@ const tools: any = [
   {
     type: "function",
     function: {
-      name: "draft_outbound_email",
-      description: "Draft an email into Gmail Drafts. Set includeGoogleMeetLink=true to auto-attach a Google Meet link.",
+      name: "email",
+      description: "Compose and send or draft an email via Gmail. WORKFLOW: 1) Always call with action='preview' FIRST to show the user the email. 2) Wait for user to say 'send it' or 'save as draft'. 3) Then call again with action='send' or action='draft'.",
       parameters: {
         type: "object",
         properties: {
+          action: { type: "string", enum: ["preview", "send", "draft"], description: "preview = show email to user for approval. send = actually send via Gmail. draft = save to Gmail Drafts." },
           to: { type: "string", description: "Recipient email address" },
           subject: { type: "string", description: "Email subject line" },
-          body: { type: "string", description: "Email body. Format: 'Hello [Name],\\n\\n[Body]\\n\\nThanks,\\n[Sender]'. Use \\n for line breaks." },
+          body: { type: "string", description: "Email body text. Use \\n for line breaks." },
           includeGoogleMeetLink: { type: "boolean", description: "True to auto-generate a Google Meet link." },
           meetingSummary: { type: "string", description: "Calendar event title. Required with Meet link." },
           meetingDateTime: { type: "string", description: "ISO 8601 datetime. Required with Meet link." }
         },
-        required: ["to", "subject", "body"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "send_outbound_email",
-      description: "Send an email immediately via Gmail. ALWAYS call with confirmed=false FIRST to show the user a preview of the email. Only call with confirmed=true AFTER the user explicitly approves sending. Use this when the user says 'send an email', 'email Steve about X', etc. For drafts, use draft_outbound_email instead.",
-      parameters: {
-        type: "object",
-        properties: {
-          to: { type: "string", description: "Recipient email address" },
-          subject: { type: "string", description: "Email subject line" },
-          body: { type: "string", description: "Email body. Format: 'Hello [Name],\\n\\n[Body]\\n\\nThanks,\\n[Sender]'. Use \\n for line breaks." },
-          confirmed: { type: "boolean", description: "false = preview the email for user approval, true = actually send the email. NEVER send without preview first." },
-          includeGoogleMeetLink: { type: "boolean", description: "True to auto-generate a Google Meet link." },
-          meetingSummary: { type: "string", description: "Calendar event title. Required with Meet link." },
-          meetingDateTime: { type: "string", description: "ISO 8601 datetime. Required with Meet link." }
-        },
-        required: ["to", "subject", "body", "confirmed"]
+        required: ["action", "to", "subject", "body"]
       }
     }
   },
@@ -321,7 +302,10 @@ export async function POST(req: Request) {
     // Validate model against registry, default to openai/gpt-oss-120b
     const ALLOWED_MODELS = [...Object.keys(MODEL_REGISTRY), 'auto'];
     let selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'openai/gpt-oss-120b';
-    console.log(`[MODEL] Requested: "${requestedModel}" → Using: "${selectedModel}" | Stream: ${wantStream}`);
+    // Budget models run in lite mode — Google Suite tools only, no CRM, no planner, minimal context
+    const LITE_MODELS = new Set(['nemotron-3-ultra', 'qwen/qwen3.6-27b']);
+    const isLiteMode = LITE_MODELS.has(selectedModel);
+    console.log(`[MODEL] Requested: "${requestedModel}" → Using: "${selectedModel}" | Stream: ${wantStream} | Lite: ${isLiteMode}`);
 
     // Parse out scope prefixes for logic, but keep raw for database
     const agentId = (rawAgentId || "").replace("soltheory_", "").replace("nxtchapter_", "");
@@ -615,11 +599,18 @@ The current date/time for the user is: ${localTime}.`;
     groqMessages.push({
       role: "system",
       content: `[EMAIL BEHAVIOR RULES]
-- If the user says "draft an email" or "write me a draft" → use draft_outbound_email (saves to Gmail Drafts)
-- If the user says "send an email" or "send [person] a message about" → use send_outbound_email with confirmed=false first to preview
-- If ambiguous (e.g. "write me an email to Steve about Y"): compose the email using send_outbound_email with confirmed=false, show the preview, and ask: "Would you like me to send this now, or save it as a draft?"
-- For send_outbound_email, ALWAYS call with confirmed=false FIRST. Only use confirmed=true AFTER the user approves.
-- NEVER send an email without the user seeing a preview first.`
+- Use the "email" tool for ALL email tasks (sending, drafting, previewing).
+- ALWAYS call with action='preview' FIRST to show the user the email. NEVER send without preview.
+- After user says "send it" / "yes" / "go ahead" → call again with action='send'.
+- After user says "save as draft" → call again with action='draft'.
+- If ambiguous (e.g. "write me an email to Steve about Y"): preview first, then ask: "Would you like me to send this now, or save it as a draft?"
+
+[CONTACT DISAMBIGUATION — MANDATORY]
+When a CRM tool returns multiple matching contacts, you MUST:
+1. Show the pre-formatted numbered list from the tool result EXACTLY as-is (it will have "1) email — Name, Company" format)
+2. Ask: "Reply with a number to confirm."
+3. When the user replies with "1", "2", "the first one", "second", etc., map that to the corresponding contact and proceed.
+NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbered format so the user can reply with just a number.`
     });
 
     // --- KNOWLEDGE BASE: Injected LAST so it's closest to conversation (better LLM attention) ---
@@ -760,8 +751,20 @@ The current date/time for the user is: ${localTime}.`;
     const messageNeedsTools = routedDomain !== 'GENERAL' || forceTools;
     const useTools = !!(hasToolApis || uid) && messageNeedsTools;
     // Filter master tools array to only include domain-relevant tools
-    const domainTools = filterToolsForDomain(tools, routedDomain);
-    console.log(`[ROUTER] Domain: ${routedDomain} | Tools loaded: ${domainTools.length}/${tools.length} | useTools: ${useTools}`);
+    // In lite mode, restrict to Google Suite tools only (no CRM, no search_past_conversations)
+    const LITE_TOOL_NAMES = new Set([
+      'search_emails', 'delete_email', 'create_folder', 'block_sender',
+      'email',
+      'list_calendar_events', 'create_calendar_event', 'delete_calendar_event', 'update_calendar_event',
+      'create_google_document', 'update_google_document',
+      'create_google_sheet', 'update_google_sheet',
+      'search_google_drive', 'read_drive_document',
+      'web_search',
+    ]);
+    const domainTools = isLiteMode
+      ? tools.filter((t: any) => LITE_TOOL_NAMES.has(t.function?.name))
+      : filterToolsForDomain(tools, routedDomain);
+    console.log(`[ROUTER] Domain: ${routedDomain} | Tools loaded: ${domainTools.length}/${tools.length} | useTools: ${useTools} | Lite: ${isLiteMode}`);
 
     // Inject domain-specific system prompt supplement
     if (useTools) {
@@ -773,11 +776,12 @@ The current date/time for the user is: ${localTime}.`;
     }
 
     // ── Agentic Planning Step: Generate intent understanding + deliverables ──
+    // Skipped for lite mode models to reduce latency
     let planningText = '';
-    if (useTools && wantStream && routedDomain !== 'MULTI') {
+    if (useTools && wantStream && routedDomain !== 'MULTI' && !isLiteMode) {
       try {
         const planningCompletion = await groq.chat.completions.create({
-          model: 'openai/gpt-oss-20b',
+          model: 'openai/gpt-oss-120b',
           messages: [
             { role: 'system', content: `You are a concise task planner. Given the user's request, respond with EXACTLY this format (no extra text):\n\nINTENT: [One sentence describing what the user is requesting]\n\nDELIVERABLES:\n1. [First step/action to take]\n2. [Second step/action if applicable]\n3. [Third step if applicable]\n\nKeep it brief. Max 3-4 deliverables. If the request is simple (single action), just list 1 deliverable.` },
             { role: 'user', content: lastUserText2 }
@@ -1219,177 +1223,218 @@ The current date/time for the user is: ${localTime}.`;
               requestBody: updateBody
             });
             functionResult = JSON.stringify({ result: `Event updated successfully. Link: ${res.data.htmlLink}` });
-          } else if (functionName === "draft_outbound_email") {
-            let finalBody = args.body;
-            if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
-              const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
-              if (lastContextMsg) {
-                const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
-                finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
-              }
-            }
-
-            // ── AUTO-CREATE Google Meet link if requested ──
-            let generatedMeetLink: string | null = lastMeetLink; // Use one from earlier in this batch if available
-            if (args.includeGoogleMeetLink && calendar && !generatedMeetLink) {
-              try {
-                const meetStart = args.meetingDateTime || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-                const meetEnd = new Date(new Date(meetStart).getTime() + 60 * 60 * 1000).toISOString();
-                const calRes = await calendar.events.insert({
-                  calendarId: 'primary',
-                  conferenceDataVersion: 1,
-                  requestBody: {
-                    summary: args.meetingSummary || `Meeting with ${args.to}`,
-                    start: { dateTime: meetStart },
-                    end: { dateTime: meetEnd },
-                    conferenceData: {
-                      createRequest: {
-                        requestId: `meet_auto_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-                        conferenceSolutionKey: { type: "hangoutsMeet" }
-                      }
-                    }
-                  }
-                });
-                generatedMeetLink = calRes.data.hangoutLink || null;
-                console.log('[MEET LINK AUTO-GENERATED]', generatedMeetLink);
-              } catch (meetErr: any) {
-                console.error('[MEET LINK AUTO-CREATE FAILED]', meetErr.message);
-              }
-            }
-
-            // Replace any placeholder the LLM might have written (catch-all patterns)
-            if (generatedMeetLink) {
-              // Specific known patterns
-              finalBody = finalBody.replace(/\[MEET_LINK\]/gi, generatedMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, generatedMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, generatedMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
-              finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, generatedMeetLink);
-              finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
-              // Catch-all: any [...] or {...} containing 'meet' or 'link' (case insensitive)
-              finalBody = finalBody.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, generatedMeetLink);
-            }
-
-            // If includeGoogleMeetLink was requested and we got a link, append it to the body if no placeholder was replaced
-            if (args.includeGoogleMeetLink && generatedMeetLink && !finalBody.includes(generatedMeetLink)) {
-              finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
-            }
-
-            // ── SERVER-SIDE EMAIL FORMATTING ──
-            // First: normalize literal escaped newlines that LLM sometimes outputs as two chars
-            finalBody = finalBody.replace(/\\n/g, '\n');
-
-            // Split body into lines (by real newlines)
-            let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
-
-            // If still just one big block (LLM didn't use newlines), try to smart-split
-            if (lines.length === 1) {
-              const text = lines[0];
-              // Detect greeting pattern at start: "Hello Steve," or "Hi Steve," or "Dear Steve,"
-              const greetingMatch = text.match(/^((?:Hello|Hi|Hey|Dear|Good\s+(?:morning|afternoon|evening))[^.!?\n]*?[,.])\s*/i);
-              // Detect sign-off pattern at end: "Best, Lucas" or "Cheers, Lucas" or "Thanks, Lucas"
-              const signoffMatch = text.match(/\s*((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.]?\s*.{1,30})$/i);
-
-              if (greetingMatch || signoffMatch) {
-                let bodyMiddle = text;
-                let greeting = '';
-                let signoff = '';
-
-                if (greetingMatch) {
-                  greeting = greetingMatch[1];
-                  bodyMiddle = bodyMiddle.slice(greetingMatch[0].length).trim();
-                }
-                if (signoffMatch) {
-                  signoff = signoffMatch[1];
-                  bodyMiddle = bodyMiddle.slice(0, bodyMiddle.length - signoffMatch[0].length).trim();
-                }
-
-                lines = [];
-                if (greeting) lines.push(greeting);
-                if (bodyMiddle) lines.push(bodyMiddle);
-                if (signoff) {
-                  // Split sign-off into "Cheers," and "Lucas" on separate lines
-                  const signoffParts = signoff.split(/,\s*/);
-                  if (signoffParts.length === 2) {
-                    lines.push(signoffParts[0] + ',');
-                    lines.push(signoffParts[1]);
-                  } else {
-                    lines.push(signoff);
-                  }
-                }
-              }
-            } else {
-              // LLM used newlines — still enforce sign-off splitting
-              const lastLine = lines[lines.length - 1];
-              const signoffSplitMatch = lastLine.match(/^((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.])\s+(.+)$/i);
-              if (signoffSplitMatch) {
-                lines[lines.length - 1] = signoffSplitMatch[1];
-                lines.push(signoffSplitMatch[2]);
-              }
-            }
-
-            // Build HTML with proper paragraph spacing
-            const htmlBody = lines.map((line: string, idx: number) => {
-              // First line (greeting) and last two lines (sign-off) get single breaks
-              // Body paragraphs get double breaks (paragraph spacing)
-              return `<p style="margin:0 0 12px 0;">${line}</p>`;
-            }).join('');
-
-            const emailLines = [
-              `To: ${args.to}`,
-              `Subject: ${args.subject}`,
-              `Content-Type: text/html; charset=utf-8`,
-              ``,
-              htmlBody
-            ];
-            const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            const draftRes = await gmail.users.drafts.create({
-              userId: 'me',
-              requestBody: { message: { raw } }
-            });
-            const draftId = draftRes.data.id;
-            const draftLink = draftId ? ` Open draft: https://mail.google.com/mail/u/0/#drafts?compose=${draftId}` : '';
-            const meetNote = generatedMeetLink ? ` A Google Meet link (${generatedMeetLink}) was embedded.` : '';
-            functionResult = JSON.stringify({ result: `Draft to ${args.to} successfully created.${meetNote}${draftLink}` });
-          } else if (functionName === "send_outbound_email") {
-            // ── Send email (or preview) ──
-            if (!args.confirmed) {
-              // Preview mode — show the user what will be sent
+          } else if (functionName === "email") {
+            // ── Unified email tool: preview / send / draft ──
+            if (args.action === "preview") {
+              // Preview mode — show the user what will be sent (no API call)
               functionResult = JSON.stringify({
                 result: `📧 **Email Preview:**\n\n**To:** ${args.to}\n**Subject:** ${args.subject}\n\n${args.body.replace(/\\n/g, '\n')}\n\n---\n_Would you like me to send this email now, or save it as a draft?_`
               });
-            } else if (gmail) {
-              // Confirmed — actually send the email
-              let finalBody = args.body;
-              finalBody = finalBody.replace(/\\n/g, '\n');
+            } else if (args.action === "send") {
+              // ── Actually send via Gmail ──
+              if (!gmail) {
+                functionResult = JSON.stringify({ error: "Gmail is not connected. Please connect your Google account in Settings to send emails.", sent: false });
+              } else {
+                let finalBody = args.body;
+                finalBody = finalBody.replace(/\\n/g, '\n');
 
-              // Build HTML with proper paragraph spacing (reuse draft formatting)
-              let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
-              const htmlBody = lines.map((line: string) => {
-                return `<p style="margin:0 0 12px 0;">${line}</p>`;
-              }).join('');
+                // ── AUTO-CREATE Google Meet link if requested ──
+                let generatedMeetLink: string | null = lastMeetLink;
+                if (args.includeGoogleMeetLink && calendar && !generatedMeetLink) {
+                  try {
+                    const meetStart = args.meetingDateTime || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                    const meetEnd = new Date(new Date(meetStart).getTime() + 60 * 60 * 1000).toISOString();
+                    const calRes = await calendar.events.insert({
+                      calendarId: 'primary',
+                      conferenceDataVersion: 1,
+                      requestBody: {
+                        summary: args.meetingSummary || `Meeting with ${args.to}`,
+                        start: { dateTime: meetStart },
+                        end: { dateTime: meetEnd },
+                        conferenceData: {
+                          createRequest: {
+                            requestId: `meet_auto_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                            conferenceSolutionKey: { type: "hangoutsMeet" }
+                          }
+                        }
+                      }
+                    });
+                    generatedMeetLink = calRes.data.hangoutLink || null;
+                    console.log('[MEET LINK AUTO-GENERATED]', generatedMeetLink);
+                  } catch (meetErr: any) {
+                    console.error('[MEET LINK AUTO-CREATE FAILED]', meetErr.message);
+                  }
+                }
 
-              const emailLines = [
-                `To: ${args.to}`,
-                `Subject: ${args.subject}`,
-                `Content-Type: text/html; charset=utf-8`,
-                ``,
-                htmlBody
-              ];
-              const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                // Replace any placeholder the LLM might have written (catch-all patterns)
+                if (generatedMeetLink) {
+                  finalBody = finalBody.replace(/\[MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, generatedMeetLink);
+                }
+                if (args.includeGoogleMeetLink && generatedMeetLink && !finalBody.includes(generatedMeetLink)) {
+                  finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
+                }
 
-              try {
-                await gmail.users.messages.send({
-                  userId: 'me',
-                  requestBody: { raw }
-                });
-                functionResult = JSON.stringify({ result: `✅ Email sent successfully to ${args.to}!\n\n**Subject:** ${args.subject}` });
-              } catch (sendErr: any) {
-                console.error('[SEND EMAIL] Error:', sendErr.message);
-                functionResult = JSON.stringify({ error: `Failed to send email: ${sendErr.message}. The email was NOT sent.` });
+                // Build HTML with proper paragraph spacing
+                let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+                const htmlBody = lines.map((line: string) => {
+                  return `<p style="margin:0 0 12px 0;">${line}</p>`;
+                }).join('');
+
+                const emailLines = [
+                  `To: ${args.to}`,
+                  `Subject: ${args.subject}`,
+                  `Content-Type: text/html; charset=utf-8`,
+                  ``,
+                  htmlBody
+                ];
+                const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+                try {
+                  await gmail.users.messages.send({
+                    userId: 'me',
+                    requestBody: { raw }
+                  });
+                  functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}`, sent: true });
+                } catch (sendErr: any) {
+                  console.error('[SEND EMAIL] Error:', sendErr.message);
+                  functionResult = JSON.stringify({ error: `FAILED to send email: ${sendErr.message}. The email was NOT sent.`, sent: false });
+                }
               }
-            } else {
-              functionResult = JSON.stringify({ error: "Gmail is not connected. Please connect your Google account in Settings to send emails." });
+            } else if (args.action === "draft") {
+              // ── Save as Gmail Draft ──
+              if (!gmail) {
+                functionResult = JSON.stringify({ error: "Gmail is not connected. Please connect your Google account in Settings to save drafts.", drafted: false });
+              } else {
+                let finalBody = args.body;
+                if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
+                  const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
+                  if (lastContextMsg) {
+                    const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
+                    finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
+                  }
+                }
+
+                // ── AUTO-CREATE Google Meet link if requested ──
+                let generatedMeetLink: string | null = lastMeetLink;
+                if (args.includeGoogleMeetLink && calendar && !generatedMeetLink) {
+                  try {
+                    const meetStart = args.meetingDateTime || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                    const meetEnd = new Date(new Date(meetStart).getTime() + 60 * 60 * 1000).toISOString();
+                    const calRes = await calendar.events.insert({
+                      calendarId: 'primary',
+                      conferenceDataVersion: 1,
+                      requestBody: {
+                        summary: args.meetingSummary || `Meeting with ${args.to}`,
+                        start: { dateTime: meetStart },
+                        end: { dateTime: meetEnd },
+                        conferenceData: {
+                          createRequest: {
+                            requestId: `meet_auto_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                            conferenceSolutionKey: { type: "hangoutsMeet" }
+                          }
+                        }
+                      }
+                    });
+                    generatedMeetLink = calRes.data.hangoutLink || null;
+                    console.log('[MEET LINK AUTO-GENERATED]', generatedMeetLink);
+                  } catch (meetErr: any) {
+                    console.error('[MEET LINK AUTO-CREATE FAILED]', meetErr.message);
+                  }
+                }
+
+                // Replace any placeholder the LLM might have written (catch-all patterns)
+                if (generatedMeetLink) {
+                  finalBody = finalBody.replace(/\[MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
+                  finalBody = finalBody.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, generatedMeetLink);
+                }
+                if (args.includeGoogleMeetLink && generatedMeetLink && !finalBody.includes(generatedMeetLink)) {
+                  finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
+                }
+
+                // ── SERVER-SIDE EMAIL FORMATTING ──
+                finalBody = finalBody.replace(/\\n/g, '\n');
+                let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+
+                // If still just one big block (LLM didn't use newlines), try to smart-split
+                if (lines.length === 1) {
+                  const text = lines[0];
+                  const greetingMatch = text.match(/^((?:Hello|Hi|Hey|Dear|Good\s+(?:morning|afternoon|evening))[^.!?\n]*?[,.])\\s*/i);
+                  const signoffMatch = text.match(/\s*((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.]?\s*.{1,30})$/i);
+
+                  if (greetingMatch || signoffMatch) {
+                    let bodyMiddle = text;
+                    let greeting = '';
+                    let signoff = '';
+
+                    if (greetingMatch) {
+                      greeting = greetingMatch[1];
+                      bodyMiddle = bodyMiddle.slice(greetingMatch[0].length).trim();
+                    }
+                    if (signoffMatch) {
+                      signoff = signoffMatch[1];
+                      bodyMiddle = bodyMiddle.slice(0, bodyMiddle.length - signoffMatch[0].length).trim();
+                    }
+
+                    lines = [];
+                    if (greeting) lines.push(greeting);
+                    if (bodyMiddle) lines.push(bodyMiddle);
+                    if (signoff) {
+                      const signoffParts = signoff.split(/,\s*/);
+                      if (signoffParts.length === 2) {
+                        lines.push(signoffParts[0] + ',');
+                        lines.push(signoffParts[1]);
+                      } else {
+                        lines.push(signoff);
+                      }
+                    }
+                  }
+                } else {
+                  const lastLine = lines[lines.length - 1];
+                  const signoffSplitMatch = lastLine.match(/^((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.])\\s+(.+)$/i);
+                  if (signoffSplitMatch) {
+                    lines[lines.length - 1] = signoffSplitMatch[1];
+                    lines.push(signoffSplitMatch[2]);
+                  }
+                }
+
+                // Build HTML with proper paragraph spacing
+                const htmlBody = lines.map((line: string, idx: number) => {
+                  return `<p style="margin:0 0 12px 0;">${line}</p>`;
+                }).join('');
+
+                const emailLines = [
+                  `To: ${args.to}`,
+                  `Subject: ${args.subject}`,
+                  `Content-Type: text/html; charset=utf-8`,
+                  ``,
+                  htmlBody
+                ];
+                const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                try {
+                  const draftRes = await gmail.users.drafts.create({
+                    userId: 'me',
+                    requestBody: { message: { raw } }
+                  });
+                  const draftId = draftRes.data.id;
+                  const draftLink = draftId ? ` Open draft: https://mail.google.com/mail/u/0/#drafts?compose=${draftId}` : '';
+                  const meetNote = generatedMeetLink ? ` A Google Meet link (${generatedMeetLink}) was embedded.` : '';
+                  functionResult = JSON.stringify({ result: `📋 Draft to ${args.to} saved successfully.${meetNote}${draftLink}`, drafted: true });
+                } catch (draftErr: any) {
+                  console.error('[DRAFT EMAIL] Error:', draftErr.message);
+                  functionResult = JSON.stringify({ error: `FAILED to save draft: ${draftErr.message}`, drafted: false });
+                }
+              }
             }
           } else if (functionName === "create_google_document" && docsApi && driveApi) {
             // Create a blank Google Doc
@@ -2638,7 +2683,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               groqMessages.push(localResponseMessage);
               
               const sortedToolCalls = [...localResponseMessage.tool_calls].sort((a: any, b: any) => {
-                const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'draft_outbound_email' ? 2 : 1;
+                const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'email' ? 2 : 1;
                 return order(a.function.name) - order(b.function.name);
               });
               
@@ -2750,7 +2795,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
 
       // Sort tool calls: process calendar events BEFORE email drafts so Meet links are available
       const sortedToolCalls = [...responseMessage.tool_calls].sort((a: any, b: any) => {
-        const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'draft_outbound_email' ? 2 : 1;
+        const order = (name: string) => name === 'create_calendar_event' ? 0 : name === 'email' ? 2 : 1;
         return order(a.function.name) - order(b.function.name);
       });
       for (const toolCall of sortedToolCalls) {
@@ -2955,7 +3000,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
 
     let finalResponse = sanitizeResponse(finalResponseText);
 
-    // Quality guardrail removed for speed — openai/gpt-oss-20b is fast enough
+    // Quality guardrail removed for speed — openai/gpt-oss-120b is fast enough
     // that a single LLM call is preferable to the latency of a retry.
 
     // Self-refinement pass removed for speed — the primary LLM call with

@@ -56,7 +56,7 @@ Do NOT include any text outside the JSON array. No markdown, no explanation.`;
         { role: "system", content: systemPrompt },
         { role: "user", content: `Evaluate these ${entries.length} memory entries:\n\n${entriesList}` },
       ],
-      model: "openai/gpt-oss-20b",
+      model: "openai/gpt-oss-120b",
       temperature: 0.1,
       max_tokens: 2000,
     });

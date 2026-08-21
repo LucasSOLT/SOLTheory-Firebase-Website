@@ -112,7 +112,7 @@ async function llmClassify(message: string): Promise<JarvisDomain> {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const result = await groq.chat.completions.create({
-      model: "openai/gpt-oss-20b",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: ROUTER_SYSTEM_PROMPT },
         { role: "user", content: message },

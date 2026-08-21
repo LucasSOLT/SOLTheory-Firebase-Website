@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         { role: "system", content: systemPrompt },
         ...messages,
       ],
-      model: "openai/gpt-oss-20b",
+      model: "openai/gpt-oss-120b",
       temperature: 0.5,
       max_tokens: 150,
     });
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     const inputTokens = completion.usage?.prompt_tokens || 0;
     const outputTokens = completion.usage?.completion_tokens || 0;
     const totalTokens = completion.usage?.total_tokens || 0;
-    const voiceModel = "openai/gpt-oss-20b";
+    const voiceModel = "openai/gpt-oss-120b";
     logAIUsage({
       userId: uid || "anonymous",
       orgId: isNxt ? "nxtchapter" : "soltheory",

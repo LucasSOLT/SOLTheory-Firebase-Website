@@ -61,10 +61,7 @@ export type ToolExecutor = (
 // Models that the Groq SDK can execute (used for planner + mechanical steps)
 const GROQ_COMPATIBLE_MODELS = new Set([
   "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b",
-  "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b",
-  "groq/compound",
+  "qwen/qwen3.6-27b",
 ]);
 
 /** Ensure the model is Groq-compatible for the planner step only. */

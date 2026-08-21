@@ -4,7 +4,7 @@ import { Groq } from "groq-sdk";
  * P.A.C.T. — Personalized AI Conversation Training
  * 
  * Extracts personal facts from user↔AI exchanges as Q&A pairs.
- * Uses a cheap, fast model (openai/gpt-oss-20b) to avoid latency.
+ * Uses openai/gpt-oss-120b for reliable extraction.
  *
  * Enhanced v2: Richer extraction with confidence scores, categories,
  * implicit fact detection, and multi-turn context analysis.
@@ -111,7 +111,7 @@ export async function extractPACTFacts(
           content: conversationContext,
         },
       ],
-      model: "openai/gpt-oss-20b",
+      model: "openai/gpt-oss-120b",
       temperature: 0.1,
       max_tokens: 1200, // Increased from 800 to capture more facts with richer schema
     });

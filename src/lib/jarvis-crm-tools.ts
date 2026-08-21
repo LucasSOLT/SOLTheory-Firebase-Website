@@ -386,7 +386,7 @@ export const CRM_TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "crm_resolve_contact",
-      description: "Quickly look up a contact's email address and/or phone number from the CRM, searching ALL contact books. Use this BEFORE drafting an email (draft_outbound_email) or sending a text (send_imessage) when the user refers to someone by name and you don't have their email/phone from the Contact Glossary. Returns the best match with email, phone, company, and which book they're in. If multiple matches are found, returns all so you can ask which one.",
+      description: "Quickly look up a contact's email address and/or phone number from the CRM, searching ALL contact books. Use this BEFORE composing an email (email tool) or sending a text (send_imessage) when the user refers to someone by name and you don't have their email/phone from the Contact Glossary. Returns the best match with email, phone, company, and which book they're in. If multiple matches are found, returns all so you can ask which one.",
       parameters: {
         type: "object",
         properties: {
@@ -639,7 +639,7 @@ When the user asks you to email, text, or call someone BY NAME:
 4. If crm_resolve_contact returns MULTIPLE matches → you MUST NUMBER each match (1, 2, 3...) and list them showing name, email, company, and which book they're in. Then ask: "Which one did you mean? (just reply with the number)" — this lets the user reply with just "1" or "2" instead of copy-pasting. Example format:\n   1. **Steve Huff** — steve@soltheory.com — All Contacts\n   2. **Steve Huff** — steve@thrivecoaching.ai — Self Improvement — All Contacts\n   Do NOT pick one yourself.
 5. If crm_resolve_contact returns NO match → tell the user: "I couldn't find [name] in any of your contact books. Could you provide their email directly?"
 6. EVEN IF the Contact Glossary above contains info about the person, you MUST still call crm_resolve_contact to get the VERIFIED email from the CRM database. The glossary may be stale or incomplete.
-7. Example flow: User says "email Steve Huff" → call crm_resolve_contact(name: "Steve Huff") → get back email: steve@soltheory.com → use EXACTLY that email for draft_outbound_email.
+7. Example flow: User says "email Steve Huff" → call crm_resolve_contact(name: "Steve Huff") → get back email: steve@soltheory.com → use EXACTLY that email for the email tool with action='preview'.
 
 CRM ANALYTICS:
 You can analyze CRM data when users ask questions like:
@@ -1023,10 +1023,16 @@ export async function executeCrmUpdateContact(
 
     if (results.length > 1) {
       const matches = results.slice(0, 5).map(r => formatContactSummary(r.data, r.id));
+      const numberedList = results.slice(0, 5).map((r, i) => {
+        const name = [r.data.firstName, r.data.lastName].filter(Boolean).join(" ") || "Unnamed";
+        const email = r.data.email || 'no email';
+        const company = r.data.company ? `, ${r.data.company}` : '';
+        return `${i + 1}) ${email} — ${name}${company}`;
+      }).join('\n');
       return JSON.stringify({
         success: false,
         multipleMatches: true,
-        error: `Multiple contacts match "${args.searchQuery}". Please clarify which one:`,
+        error: `Multiple contacts match "${args.searchQuery}". Show the user this EXACT numbered list and ask them to reply with a number:\n${numberedList}`,
         matches,
       });
     }
@@ -1104,10 +1110,16 @@ export async function executeCrmDeleteContact(
 
       if (results.length > 1) {
         const matches = results.slice(0, 5).map(r => formatContactSummary(r.data, r.id));
+        const numberedList = results.slice(0, 5).map((r, i) => {
+          const name = [r.data.firstName, r.data.lastName].filter(Boolean).join(" ") || "Unnamed";
+          const email = r.data.email || 'no email';
+          const company = r.data.company ? `, ${r.data.company}` : '';
+          return `${i + 1}) ${email} — ${name}${company}`;
+        }).join('\n');
         return JSON.stringify({
           success: false,
           multipleMatches: true,
-          error: `Multiple contacts match "${args.searchQuery}". Please clarify which one to delete:`,
+          error: `Multiple contacts match "${args.searchQuery}". Show the user this EXACT numbered list and ask them to reply with a number:\n${numberedList}`,
           matches,
         });
       }
@@ -1469,11 +1481,21 @@ export async function executeCrmResolveContact(
       };
     });
 
+    // Build a pre-formatted numbered list for the LLM to show the user
+    const numberedList = matches.map((m: any, i: number) => {
+      const parts = [`${i + 1}) ${m.email || 'no email'}`];
+      if (m.name) parts.push(`— ${m.name}`);
+      if (m.company) parts.push(`, ${m.company}`);
+      if (m.phone) parts.push(` (${m.phone})`);
+      if (m.book) parts.push(` [${m.book}]`);
+      return parts.join('');
+    }).join('\n');
+
     return JSON.stringify({
       found: true,
       count: allResults.length,
       matches,
-      message: `Multiple contacts match "${nameQuery}". Please clarify which one.`,
+      message: `Multiple contacts match "${nameQuery}". Show the user this EXACT numbered list and ask them to reply with a number:\n${numberedList}`,
     });
   } catch (error: any) {
     console.error("[CRM] Resolve contact error:", error);

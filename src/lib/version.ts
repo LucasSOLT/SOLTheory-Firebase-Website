@@ -62,7 +62,7 @@ export const PLATFORM_VERSION = "2.7.0";
  *     2. delete_email
  *     3. create_folder
  *     4. block_sender
- *     5. draft_outbound_email
+ *     5. email (unified: preview/send/draft)
  * 
  *   Calendar (4):
  *     6. list_calendar_events

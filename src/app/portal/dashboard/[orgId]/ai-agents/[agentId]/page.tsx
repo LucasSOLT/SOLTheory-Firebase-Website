@@ -611,11 +611,19 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(`${orgId}_selectedModel`) || 'openai/gpt-oss-120b';
+      const stored = localStorage.getItem(`${orgId}_selectedModel`) || 'openai/gpt-oss-120b';
+      // Reset to default if stored model was removed
+      const validModels = ['openai/gpt-oss-120b', 'qwen/qwen3.6-27b', 'nemotron-3-ultra', 'claude-opus-5', 'gpt-5.6-sol', 'gemini-3.5-flash', 'auto'];
+      if (!validModels.includes(stored)) {
+        localStorage.setItem(`${orgId}_selectedModel`, 'openai/gpt-oss-120b');
+        return 'openai/gpt-oss-120b';
+      }
+      return stored;
     }
     return 'openai/gpt-oss-120b';
   });
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const isLiteModel = selectedModel === 'nemotron-3-ultra' || selectedModel === 'qwen/qwen3.6-27b';
   const [emailSearchQuery, setEmailSearchQuery] = useState('');
   const [tagFilterOpen, setTagFilterOpen] = useState(false);
 
@@ -1629,7 +1637,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
 
     const newMessages = [...realMessages, userMsg, ...extraUserMessages];
-    setMessages(newMessages); setIsTyping(true); setInputValue("");
+    // Create bot placeholder immediately so the ThinkingDisplay timer starts from 0s
+    const botMsgIdEarly = uid();
+    const botPlaceholder: Message = { id: botMsgIdEarly, text: '', isSelf: false, sendTimestamp: msgSendTimestamp, agentEvents: [] };
+    setMessages([...newMessages, botPlaceholder]); setIsTyping(false); setInputValue("");
 
     // ── IRIS: Image Generation Path ──
     // Route to /api/generate-image instead of /api/chat when using Iris
@@ -1801,10 +1812,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       [rToken, kbText] = await Promise.all([
         getRefreshTokenAsync(),
-        getKnowledgeBaseText(),
+        isLiteModel ? Promise.resolve('') : getKnowledgeBaseText(),
       ]);
 
-      const OPENROUTER_MODEL_IDS = ['claude-opus-5', 'gpt-5.6-sol', 'gemini-3.5-flash'];
+      const OPENROUTER_MODEL_IDS = ['claude-opus-5', 'gpt-5.6-sol', 'gemini-3.5-flash', 'nemotron-3-ultra'];
       const apiMessages = newMessages.map(m => {
         const role = m.isSelf ? "user" : "assistant";
         const textContent = m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text;
@@ -1826,24 +1837,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `${orgId}_${params.agentId}`,
-          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'openai/gpt-oss-20b': 'GPT OSS 20B (Groq)', 'qwen/qwen3.6-27b': 'Qwen 3.6 27B (Groq)', 'groq/compound': 'Compound (Groq)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'qwen/qwen3.6-27b': 'Qwen 3.6 27B (Groq)', 'nemotron-3-ultra': 'Nemotron 3 Ultra (NVIDIA via OpenRouter)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
           contacts: agentContacts,
-          knowledgeBaseText: kbText,
-          orgBrainText: orgBrain,
-          pactText,
+          // Budget models skip heavy context for speed — Google Suite only
+          ...(isLiteModel ? {} : {
+            knowledgeBaseText: kbText,
+            orgBrainText: orgBrain,
+            pactText,
+            crmData: crmContacts || undefined,
+            crmInstanceId: crmActiveInstanceId,
+            crmInstances: crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }],
+          }),
           userName: user?.displayName || undefined,
           model: selectedModel,
-          crmData: crmContacts || undefined,
-          crmInstanceId: crmActiveInstanceId,
-          crmInstances: crmAvailableInstances.length > 0 ? crmAvailableInstances : [{ id: "default", name: "All Contacts" }],
           stream: true,
           userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
-      console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${OPENROUTER_MODEL_IDS.includes(selectedModel) ? 'OpenRouter' : 'Groq'}`, 'color: #10b981; font-weight: bold; font-size: 12px');
+      console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${OPENROUTER_MODEL_IDS.includes(selectedModel) ? 'OpenRouter' : 'Groq'} | Lite: ${isLiteModel}`, 'color: #10b981; font-weight: bold; font-size: 12px');
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(errData.error || `HTTP ${res.status}`);
@@ -1856,9 +1870,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       if (contentType.includes('text/event-stream') && res.body) {
         // Streaming mode — render tokens as they arrive
-        const botMsgId = uid();
+        const botMsgId = botMsgIdEarly; // Reuse the placeholder created before the fetch
         let fullText = '';
-        setMessages(prev => [...prev, { id: botMsgId, text: '', isSelf: false, sendTimestamp: msgSendTimestamp }]);
+        // Bot placeholder already in messages — just ensure isTyping is off
         setIsTyping(false); // Hide spinner immediately — text is arriving
 
         const reader = res.body.getReader();
@@ -1975,13 +1989,17 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         // Fallback: non-streaming JSON response (shouldn't happen in normal flow)
         data = await res.json();
         const botCitations = data.citations && Array.isArray(data.citations) ? data.citations : [];
-        setMessages(prev => [...prev, { id: uid(), text: data.response, isSelf: false, citations: botCitations.length > 0 ? botCitations : undefined }]);
+        setMessages(prev => prev.map(m =>
+          m.id === botMsgIdEarly
+            ? { ...m, text: data.response, agentEvents: [{ type: 'done' as const }], citations: botCitations.length > 0 ? botCitations : undefined }
+            : m
+        ));
         setPendingCitations([]);
       }
 
       // Capture email drafts for Gmail View (works for both streaming and JSON paths)
       if (data.executedTools && Array.isArray(data.executedTools)) {
-        const emailTool = data.executedTools.find((t: any) => t.name === 'draft_outbound_email');
+        const emailTool = data.executedTools.find((t: any) => t.name === 'email' && (t.args?.action === 'draft' || t.args?.action === 'send'));
         if (emailTool?.args) {
           setLastDraftedEmail({
             to: emailTool.args.to || '',
@@ -2124,7 +2142,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           });
           const retryData = await retryRes.json();
           if (retryData.response && retryData.response.length > 5) {
-            setMessages(prev => [...prev, { id: uid(), text: retryData.response, isSelf: false }]);
+            setMessages(prev => prev.map(m => m.id === botMsgIdEarly ? { ...m, text: retryData.response, agentEvents: [{ type: 'done' as const }] } : m));
             setIsTyping(false);
             return;
           }
@@ -2133,7 +2151,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }
       }
 
-      setMessages(prev => [...prev, { id: uid(), text: friendlyError, isSelf: false }]);
+      setMessages(prev => prev.map(m => m.id === botMsgIdEarly ? { ...m, text: friendlyError, agentEvents: [{ type: 'done' as const }] } : m));
     } finally {
       setIsTyping(false);
       setPendingCitations([]);
@@ -2684,9 +2702,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     <div className={`text-sm font-semibold truncate mt-0.5 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
                       {[
                         {id:'openai/gpt-oss-120b',name:'GPT OSS 120B'},
-                        {id:'openai/gpt-oss-20b',name:'GPT OSS 20B'},
                         {id:'qwen/qwen3.6-27b',name:'Qwen 3.6 27B'},
-                        {id:'groq/compound',name:'Compound'},
+                        {id:'nemotron-3-ultra',name:'Nemotron 3 Ultra'},
                         {id:'claude-opus-5',name:'Claude Opus 5'},
                         {id:'gpt-5.6-sol',name:'GPT-5.6 Sol'},
                         {id:'gemini-3.5-flash',name:'Gemini 3.5 Flash'},
@@ -2702,10 +2719,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       <span className="text-[9px] font-black uppercase tracking-widest">💰 Budget Models</span>
                     </div>
                     {[
-                      { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', desc: '500 t/s — most powerful open model', tag: '🔥 Fastest', tagColor: 'bg-orange-50 text-orange-600' },
-                      { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', desc: '1000 t/s — budget powerhouse', tag: 'Cheap', tagColor: 'bg-emerald-50 text-emerald-600' },
+                      { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', desc: '500 t/s — most powerful open model', tag: '🔥 Default', tagColor: 'bg-orange-50 text-orange-600' },
                       { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B', desc: 'Strong reasoning model', tag: 'Reliable', tagColor: 'bg-blue-50 text-blue-600' },
-                      { id: 'groq/compound', name: 'Compound', desc: 'Multi-model pipeline', tag: 'FREE', tagColor: 'bg-violet-50 text-violet-600' },
+                      { id: 'nemotron-3-ultra', name: 'Nemotron 3 Ultra', desc: 'NVIDIA 550B MoE — 1M context', tag: 'FREE', tagColor: 'bg-violet-50 text-violet-600' },
                     ].map(model => (
                       <button
                         key={model.id}
@@ -3587,7 +3603,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
           // ── Capture email drafts from voice commands ──
           if (data.executedTools && Array.isArray(data.executedTools)) {
-            const emailTool = data.executedTools.find((t: any) => t.name === 'draft_outbound_email');
+            const emailTool = data.executedTools.find((t: any) => t.name === 'email' && (t.args?.action === 'draft' || t.args?.action === 'send'));
             if (emailTool?.args) {
               setLastDraftedEmail({
                 to: emailTool.args.to || '',

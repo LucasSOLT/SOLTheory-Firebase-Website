@@ -5,10 +5,8 @@ import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 const GROQ_PRICING: Record<string, { input: number; output: number }> = {
   // Budget (Groq)
   "openai/gpt-oss-120b":  { input: 0.59,   output: 0.79   },
-  "openai/gpt-oss-20b":     { input: 0.05,   output: 0.08   },
-  "openai/gpt-oss-120b":      { input: 0.15,   output: 0.60   },
-  "openai/gpt-oss-20b":       { input: 0.075,  output: 0.30   },
-  "groq/compound":            { input: 0,      output: 0      },
+  "qwen/qwen3.6-27b":       { input: 0.18,   output: 0.50   },
+  "nemotron-3-ultra":         { input: 0,      output: 0      },
   // Premium (OpenRouter) — keyed by registry key, not provider model ID
   "claude-opus-5":            { input: 5.00,   output: 25.00  },
   "gpt-5.6-sol":              { input: 5.00,   output: 30.00  },
