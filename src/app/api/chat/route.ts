@@ -604,6 +604,8 @@ The current date/time for the user is: ${localTime}.`;
 - After user says "send it" / "yes" / "go ahead" → call again with action='send'.
 - After user says "save as draft" → call again with action='draft'.
 - If ambiguous (e.g. "write me an email to Steve about Y"): preview first, then ask: "Would you like me to send this now, or save it as a draft?"
+- IMPORTANT: Email body text must be PLAIN TEXT only. Do NOT use markdown (**bold**, *italic*, ## headers, - bullets) because Gmail renders these as literal characters. For emphasis, use CAPS or plain wording instead.
+- When showing email search results, ALWAYS include the gmailUrl as a clickable link so the user can open it: [Subject](gmailUrl). Format like: "**Subject** — From sender — [Open in Gmail](url)"
 
 [CONTACT DISAMBIGUATION — MANDATORY]
 When a CRM tool returns multiple matching contacts, you MUST:
@@ -1131,7 +1133,8 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   messageId: d.data.id,
                   subject: h.find((x: any) => x.name === 'Subject')?.value,
                   from: h.find((x: any) => x.name === 'From')?.value,
-                  snippet: d.data.snippet
+                  snippet: d.data.snippet,
+                  gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${d.data.id}`
                 };
               });
               functionResult = JSON.stringify({ result: formatted });
@@ -1237,6 +1240,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
               } else {
                 let finalBody = args.body;
                 finalBody = finalBody.replace(/\\n/g, '\n');
+                // Strip markdown formatting — emails render asterisks/underscores literally
+                finalBody = finalBody.replace(/\*\*\*(.*?)\*\*\*/g, '$1');
+                finalBody = finalBody.replace(/\*\*(.*?)\*\*/g, '$1');
+                finalBody = finalBody.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1');
+                finalBody = finalBody.replace(/__(.*?)__/g, '$1');
+                finalBody = finalBody.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '$1');
 
                 // ── AUTO-CREATE Google Meet link if requested ──
                 let generatedMeetLink: string | null = lastMeetLink;
@@ -1300,7 +1309,8 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                     userId: 'me',
                     requestBody: { raw }
                   });
-                  functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}`, sent: true });
+                  const meetSuffix = generatedMeetLink ? `\n\n🔗 **Google Meet:** ${generatedMeetLink}` : '';
+                  functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}${meetSuffix}`, sent: true });
                 } catch (sendErr: any) {
                   console.error('[SEND EMAIL] Error:', sendErr.message);
                   functionResult = JSON.stringify({ error: `FAILED to send email: ${sendErr.message}. The email was NOT sent.`, sent: false });
@@ -1364,6 +1374,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
 
                 // ── SERVER-SIDE EMAIL FORMATTING ──
                 finalBody = finalBody.replace(/\\n/g, '\n');
+                // Strip markdown formatting — emails render asterisks/underscores literally
+                finalBody = finalBody.replace(/\*\*\*(.*?)\*\*\*/g, '$1');
+                finalBody = finalBody.replace(/\*\*(.*?)\*\*/g, '$1');
+                finalBody = finalBody.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1');
+                finalBody = finalBody.replace(/__(.*?)__/g, '$1');
+                finalBody = finalBody.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '$1');
                 let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
 
                 // If still just one big block (LLM didn't use newlines), try to smart-split
@@ -1427,8 +1443,8 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                     requestBody: { message: { raw } }
                   });
                   const draftId = draftRes.data.id;
-                  const draftLink = draftId ? ` Open draft: https://mail.google.com/mail/u/0/#drafts?compose=${draftId}` : '';
-                  const meetNote = generatedMeetLink ? ` A Google Meet link (${generatedMeetLink}) was embedded.` : '';
+                  const draftLink = draftId ? `\n\n📂 **Open draft:** https://mail.google.com/mail/u/0/#drafts?compose=${draftId}` : '';
+                  const meetNote = generatedMeetLink ? `\n\n🔗 **Google Meet:** ${generatedMeetLink}` : '';
                   functionResult = JSON.stringify({ result: `📋 Draft to ${args.to} saved successfully.${meetNote}${draftLink}`, drafted: true });
                 } catch (draftErr: any) {
                   console.error('[DRAFT EMAIL] Error:', draftErr.message);
