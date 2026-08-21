@@ -1654,14 +1654,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               let cleanText = m.text;
               // Remove EMAIL_PREVIEW_START...END block if present
               cleanText = cleanText.replace(/EMAIL_PREVIEW_START[\s\S]*?EMAIL_PREVIEW_END\s*/g, '');
-              // Remove blockquoted email preview lines (> **To:**... > body lines)
-              cleanText = cleanText.replace(/(?:Here is the email I'?v?e? prepared:?\s*\n?)?((?:\s*>.*\n?)+)/g, '');
-              // Remove common LLM preview headers
-              cleanText = cleanText.replace(/📧\s*\*?\*?Email Preview:?\*?\*?\s*/gi, '');
-              // Remove To:/Subject: lines that aren't in blockquotes
-              cleanText = cleanText.replace(/\*?\*?To:\*?\*?\s*\S+@\S+\s*\*?\*?Subject:\*?\*?\s*[^\n]+\n?/g, '');
-              // Clean up excess whitespace
-              cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
+              // Since executedTools confirms this is a preview, aggressively strip everything
+              // and keep only a trailing follow-up question if present
+              const questionMatch = cleanText.match(/(Ready to (?:send|save as draft)\??|Would you like me to (?:send|save).*?\??|Send it now.*?\??|Shall I (?:send|save).*?\??)/i);
+              cleanText = questionMatch ? questionMatch[0] : '';
               return { ...m, text: cleanText, emailPreview };
             }));
           }

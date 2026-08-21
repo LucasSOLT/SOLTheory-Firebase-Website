@@ -610,6 +610,8 @@ The current date/time for the user is: ${localTime}.`;
   • AMBIGUOUS (user said "write me an email", "compose an email", or intent is unclear) → after preview, ask: "Would you like me to send this now, or save it as a draft?"
 - After user confirms → call with action='send' or action='draft' matching the detected intent.
 - IMPORTANT: Email body text must be PLAIN TEXT only. Do NOT use markdown (**bold**, *italic*, ## headers, - bullets) because Gmail renders these as literal characters. For emphasis, use CAPS or plain wording instead.
+- After sending an email, ALWAYS include the 📬 View sent email link from the tool result in your response. Never omit it.
+- When the user asks to include a Google Meet link but does NOT specify a specific time (e.g. "tomorrow" without a clock time, or "next week"), ASK: "What time should I schedule the meeting for?" Do NOT guess or use a default time. You need a full date and time to create the calendar event.
 - When showing email search results, ALWAYS include the gmailUrl as a clickable link so the user can open it: [Subject](gmailUrl). Format like: "**Subject** — From sender — [Open in Gmail](url)"
 
 [CONTACT DISAMBIGUATION — MANDATORY]
@@ -1116,6 +1118,13 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
 
     let lastMeetLink: string | null = null;
 
+    // RFC 2047 encode non-ASCII Subject headers to prevent garbled characters (e.g. — → Ã¢Â€Â")
+    const encodeSubject = (subject: string): string => {
+      // eslint-disable-next-line no-control-regex
+      if (/^[\x00-\x7F]*$/.test(subject)) return subject; // Pure ASCII — no encoding needed
+      return `=?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`;
+    };
+
     // ── Tool Executor (extracted for reuse by orchestrator) ──
     // This function wraps the entire tool dispatch switch statement.
     // It captures closure variables (gmail, calendar, docsApi, youtubeApi, orgId, uid, etc.)
@@ -1306,7 +1315,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
 
                 const emailLines = [
                   `To: ${args.to}`,
-                  `Subject: ${args.subject}`,
+                  `Subject: ${encodeSubject(args.subject)}`,
                   `Content-Type: text/html; charset=utf-8`,
                   ``,
                   htmlBody
@@ -1443,7 +1452,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
 
                 const emailLines = [
                   `To: ${args.to}`,
-                  `Subject: ${args.subject}`,
+                  `Subject: ${encodeSubject(args.subject)}`,
                   `Content-Type: text/html; charset=utf-8`,
                   ``,
                   htmlBody
