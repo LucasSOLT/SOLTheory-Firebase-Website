@@ -610,9 +610,10 @@ The current date/time for the user is: ${localTime}.`;
   • AMBIGUOUS (user said "write me an email", "compose an email", or intent is unclear) → after preview, ask: "Would you like me to send this now, or save it as a draft?"
 - After user confirms → call with action='send' or action='draft' matching the detected intent.
 - IMPORTANT: Email body text must be PLAIN TEXT only. Do NOT use markdown (**bold**, *italic*, ## headers, - bullets) because Gmail renders these as literal characters. For emphasis, use CAPS or plain wording instead.
-- After sending an email, ALWAYS include the 📬 View sent email link from the tool result in your response. Never omit it.
+- After sending an email, the tool result will contain a "📬 [View sent email](...)" link. You MUST copy that EXACT link into your response to the user. If the tool result contains a link, relay it verbatim. NEVER say you don't have a link or tell the user to check their Sent folder when the link is in the tool result.
 - When the user asks to include a Google Meet link but does NOT specify a specific time (e.g. "tomorrow" without a clock time, or "next week"), ASK: "What time should I schedule the meeting for?" Do NOT guess or use a default time. You need a full date and time to create the calendar event.
 - When showing email search results, ALWAYS include the gmailUrl as a clickable link so the user can open it: [Subject](gmailUrl). Format like: "**Subject** — From sender — [Open in Gmail](url)"
+- NEVER offer to "log this as an activity" on a CRM record, "add a note to their CRM record", or suggest any CRM write operations. The CRM is read-only — you can ONLY look up contacts, never write to CRM records.
 
 [CONTACT DISAMBIGUATION — MANDATORY]
 When a CRM tool returns multiple matching contacts, you MUST:
@@ -2642,11 +2643,11 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               }
             }
             
-            // Collect executed tools for done event
-            const allExecutedTools: { name: string; args: object }[] = [];
+            // Collect executed tools (with args) for done event
+            const allExecutedTools: { name: string; args: any }[] = [];
             for (const sr of orchResult.stepResults) {
-              for (const toolName of sr.toolsExecuted) {
-                allExecutedTools.push({ name: toolName, args: {} });
+              for (const tool of sr.toolsWithArgs) {
+                allExecutedTools.push(tool);
               }
             }
             

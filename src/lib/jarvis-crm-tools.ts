@@ -1495,7 +1495,7 @@ export async function executeCrmResolveContact(
       found: true,
       count: allResults.length,
       matches,
-      message: `Multiple contacts match "${nameQuery}". Show the user this EXACT numbered list and ask them to reply with a number:\n${numberedList}`,
+      message: `MULTIPLE CONTACTS FOUND for "${nameQuery}". You MUST show the user this EXACT numbered list — do NOT reformat or remove the numbers:\n\n${numberedList}\n\nThen ask: "Which one? (reply with the number)"`,
     });
   } catch (error: any) {
     console.error("[CRM] Resolve contact error:", error);

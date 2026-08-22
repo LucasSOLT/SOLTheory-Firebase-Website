@@ -37,6 +37,7 @@ export interface StepResult {
   task: string;
   result: string;
   toolsExecuted: string[];
+  toolsWithArgs: { name: string; args: any }[];
   success: boolean;
 }
 
@@ -234,6 +235,7 @@ async function executeStep(
   ];
 
   const toolsExecuted: string[] = [];
+  const toolsWithArgs: { name: string; args: any }[] = [];
   let finalResult = "";
   let loopCount = 0;
   const MAX_STEP_LOOPS = 3;
@@ -290,6 +292,7 @@ async function executeStep(
 
         console.log(`[ORCHESTRATOR] Step ${step.stepNumber} tool call: ${toolName}`);
         toolsExecuted.push(toolName);
+        toolsWithArgs.push({ name: toolName, args: toolArgs });
         await onEvent?.({ type: 'tool_call', step: step.stepNumber, tool: toolName, timestamp: Date.now() });
 
         let toolResult: string;
@@ -341,6 +344,7 @@ async function executeStep(
     task: step.task,
     result: finalResult,
     toolsExecuted,
+    toolsWithArgs,
     success: !hadToolFailure,
   };
 }
@@ -414,6 +418,7 @@ export async function orchestrateMultiStep(
         task: step.task,
         result: `Skipped: dependency step(s) ${step.dependsOn.filter((d) => failedSteps.has(d)).join(", ")} failed`,
         toolsExecuted: [],
+        toolsWithArgs: [],
         success: false,
       });
       failedSteps.add(step.stepNumber);
@@ -456,6 +461,7 @@ export async function orchestrateMultiStep(
         task: step.task,
         result: `Error: ${stepErr?.message || "Step execution failed"}`,
         toolsExecuted: [],
+        toolsWithArgs: [],
         success: false,
       });
       await onEvent?.({ type: 'step_complete', step: step.stepNumber, result: `Error: ${stepErr?.message || "Step execution failed"}`, success: false, toolsUsed: [], durationMs: Date.now() - stepT0, timestamp: Date.now() });

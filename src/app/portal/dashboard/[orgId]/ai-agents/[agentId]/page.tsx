@@ -2672,7 +2672,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                       </div>
                                     </div>
                                     {/* Card Footer with Actions */}
-                                    <div className={`px-4 py-3 flex items-center justify-between ${isDarkMode ? 'bg-slate-700/30 border-t border-slate-600/50' : 'bg-slate-50/80 border-t border-slate-200'}`}>
+                                    <div className={`px-4 py-3 flex flex-col gap-3 ${isDarkMode ? 'bg-slate-700/30 border-t border-slate-600/50' : 'bg-slate-50/80 border-t border-slate-200'}`}>
                                       <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                         {msg.emailPreview.intent === 'draft' ? 'Ready to save as draft?' : msg.emailPreview.intent === 'send' ? 'Ready to send?' : 'Send it now, or save as a draft?'}
                                       </span>
