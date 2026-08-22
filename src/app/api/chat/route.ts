@@ -773,7 +773,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
     ]);
     const domainTools = isLiteMode
       ? tools.filter((t: any) => LITE_TOOL_NAMES.has(t.function?.name))
-      : filterToolsForDomain(tools, routedDomain);
+      : forceTools ? tools : filterToolsForDomain(tools, routedDomain);
     console.log(`[ROUTER] Domain: ${routedDomain} | Tools loaded: ${domainTools.length}/${tools.length} | useTools: ${useTools} | Lite: ${isLiteMode}`);
 
     // Inject domain-specific system prompt supplement
