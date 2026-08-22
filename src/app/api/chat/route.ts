@@ -1127,6 +1127,33 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
       return `=?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`;
     };
 
+    // RFC 2047 encode non-ASCII display names in address headers (e.g. "René Dupont" <rene@example.com>)
+    const encodeAddressHeader = (address: string): string => {
+      if (!address) return '';
+      const match = address.match(/^(.*?)\s*<([^>]+)>$/);
+      if (match) {
+        const name = match[1].replace(/^["']|["']$/g, '').trim();
+        const email = match[2].trim();
+        // eslint-disable-next-line no-control-regex
+        if (/^[\x00-\x7F]*$/.test(name)) {
+          return `"${name}" <${email}>`;
+        }
+        const encodedName = Buffer.from(name, 'utf-8').toString('base64');
+        return `=?UTF-8?B?${encodedName}?= <${email}>`;
+      }
+      return address.trim();
+    };
+
+    // HTML entity escaping for email body lines to prevent swallowed angle brackets, math symbols, and broken formatting
+    const escapeHtml = (text: string): string => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
     // ── Tool Executor (extracted for reuse by orchestrator) ──
     // This function wraps the entire tool dispatch switch statement.
     // It captures closure variables (gmail, calendar, docsApi, youtubeApi, orgId, uid, etc.)
@@ -1309,20 +1336,20 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
                 }
 
-                // Build HTML with proper paragraph spacing
+                // Build HTML with proper paragraph spacing and HTML entity escaping
                 let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
                 const htmlBody = lines.map((line: string) => {
-                  return `<p style="margin:0 0 12px 0;">${line}</p>`;
+                  return `<p style="margin:0 0 12px 0;">${escapeHtml(line)}</p>`;
                 }).join('');
 
                 const emailLines = [
-                  `To: ${args.to}`,
+                  `To: ${encodeAddressHeader(args.to)}`,
                   `Subject: ${encodeSubject(args.subject)}`,
                   `Content-Type: text/html; charset=utf-8`,
                   ``,
                   htmlBody
                 ];
-                const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                const raw = Buffer.from(emailLines.join('\r\n'), 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
                 try {
                   const sendRes = await gmail.users.messages.send({
@@ -1447,19 +1474,19 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   }
                 }
 
-                // Build HTML with proper paragraph spacing
-                const htmlBody = lines.map((line: string, idx: number) => {
-                  return `<p style="margin:0 0 12px 0;">${line}</p>`;
+                // Build HTML with proper paragraph spacing and HTML entity escaping
+                const htmlBody = lines.map((line: string) => {
+                  return `<p style="margin:0 0 12px 0;">${escapeHtml(line)}</p>`;
                 }).join('');
 
                 const emailLines = [
-                  `To: ${args.to}`,
+                  `To: ${encodeAddressHeader(args.to)}`,
                   `Subject: ${encodeSubject(args.subject)}`,
                   `Content-Type: text/html; charset=utf-8`,
                   ``,
                   htmlBody
                 ];
-                const raw = Buffer.from(emailLines.join('\n')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                const raw = Buffer.from(emailLines.join('\r\n'), 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
                 try {
                   const draftRes = await gmail.users.drafts.create({
                     userId: 'me',
