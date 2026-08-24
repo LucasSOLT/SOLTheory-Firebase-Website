@@ -3036,7 +3036,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <textarea
                           ref={textareaRef}
                           placeholder="Ask anything..."
-                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 sm:pl-3 pr-14 sm:pr-16 min-h-[44px] sm:min-h-[52px] bg-transparent placeholder:text-slate-400 text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 sm:pl-3 pr-20 sm:pr-24 min-h-[44px] sm:min-h-[52px] bg-transparent placeholder:text-slate-400 text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
                           value={inputValue}
                           onChange={e => setInputValue(e.target.value)}
                           onKeyDown={e => {
@@ -3054,62 +3054,48 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           rows={1}
                         />
 
-                        {/* Send button — inside the input box, always visible */}
-                        <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3 flex items-center gap-1.5">
+                        {/* Mic & Send buttons — inside the input box on the right side */}
+                        <div className="absolute right-2 sm:right-3 bottom-1.5 sm:bottom-2 flex items-center gap-1">
+                          {/* STT Mic button — inside the text entry box, to the LEFT of the send arrow */}
+                          {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                            <button
+                              onClick={toggleSpeechToText}
+                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-white bg-red-500 animate-pulse shadow-lg shadow-red-500/30' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                              title={isListening ? 'Stop listening' : 'Speech to text'}
+                            >
+                              {isListening ? <Square className="w-3.5 h-3.5 fill-current" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
+                            </button>
+                          )}
+
+                          {/* Send button — inside the text entry box */}
                           <Button size="icon" onClick={() => { if (isListening) { speechRecRef.current?.stop(); setIsListening(false); } handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
                             {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
                           </Button>
                         </div>
                       </div>
-
-                      {/* ── External controls row (below input box) ── */}
-                      <div className="flex items-center gap-2 px-1">
-                        {/* STT Mic button — outside the input box */}
-                        {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
-                          <button
-                            onClick={toggleSpeechToText}
-                            className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-white bg-red-500 animate-pulse shadow-lg shadow-red-500/30' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
-                            title={isListening ? 'Stop listening' : 'Speech to text'}
-                          >
-                            {isListening ? <Square className="w-3 h-3 fill-current" /> : <Mic className="w-4 h-4" />}
-                          </button>
-                        )}
-
-                        {/* Voice-over toggle — outside the input box */}
-                        <button
-                          onClick={() => {
-                            const next = !voiceoverEnabled;
-                            setVoiceoverEnabled(next);
-                            // Stop any playing audio when turning off
-                            if (!next && voiceoverAudioRef.current) {
-                              voiceoverAudioRef.current.pause();
-                              voiceoverAudioRef.current = null;
-                            }
-                          }}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer ${
-                            voiceoverEnabled
-                              ? 'bg-red-500/15 text-red-500 border border-red-400/30 animate-[pulse_3s_ease-in-out_infinite]'
-                              : (isDarkMode ? 'text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-600' : 'text-slate-400 hover:text-slate-600 border border-slate-200 hover:border-slate-300')
-                          }`}
-                          title={voiceoverEnabled ? 'Turn off voice-over' : 'Turn on voice-over — JARVIS will read responses aloud'}
-                        >
-                          {voiceoverEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                          <span>{voiceoverEnabled ? 'Voice-over ON' : 'Voice-over OFF'}</span>
-                        </button>
-
-                        {/* Voice-to-Voice session (disabled via feature flag) */}
-                        {VOICE_CHAT_ENABLED && (
-                          <button
-                            onClick={openVoiceSession}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer hover:opacity-80 active:scale-95 ${isDarkMode ? 'bg-white text-black' : 'bg-slate-900 text-white'}`}
-                            title="Start Voice Session"
-                          >
-                            <AudioLines className="w-4 h-4" />
-                            <span className="text-sm font-medium">Voice</span>
-                          </button>
-                        )}
-                      </div>
                     </div>
+
+                    {/* Voice-over toggle — OUTSIDE of the text entry box to the RIGHT of the send arrow */}
+                    <button
+                      onClick={() => {
+                        const next = !voiceoverEnabled;
+                        setVoiceoverEnabled(next);
+                        // Stop any playing audio when turning off
+                        if (!next && voiceoverAudioRef.current) {
+                          voiceoverAudioRef.current.pause();
+                          voiceoverAudioRef.current = null;
+                        }
+                      }}
+                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl sm:rounded-2xl text-xs font-medium transition-all cursor-pointer shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] ${
+                        voiceoverEnabled
+                          ? 'bg-red-500/15 text-red-500 border border-red-400/40 animate-[pulse_3s_ease-in-out_infinite]'
+                          : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-600 bg-slate-800/90' : 'text-slate-500 hover:text-slate-700 border border-[#ede8da] hover:border-slate-300 bg-[#faf8f3]/90')
+                      }`}
+                      title={voiceoverEnabled ? 'Turn off voice-over' : 'Turn on voice-over — JARVIS will read responses aloud'}
+                    >
+                      {voiceoverEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                      <span className="hidden sm:inline">{voiceoverEnabled ? 'Voice-over ON' : 'Voice-over OFF'}</span>
+                    </button>
 
 
                     {/* Heartbeat pulse indicator */}
