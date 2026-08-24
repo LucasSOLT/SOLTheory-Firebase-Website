@@ -88,7 +88,7 @@ const platforms: Platform[] = [
     accentText: "text-orange-400",
     accentGlow: "from-orange-500/20 via-transparent to-amber-500/10",
     icon: <GraduationCap className="w-6 h-6 text-orange-400" />,
-    loginHref: "/portal/login/drive",
+    loginHref: "https://drive.solworld.ai/#home",
   },
 ];
 
@@ -229,18 +229,35 @@ export default function PortalChooserPage() {
                                 <UserPlus className="w-4 h-4" />
                                 Sign Up
                               </Link>
-                              <Link
-                                href={platform.loginHref}
-                                onClick={(e) => e.stopPropagation()}
-                                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 shadow-lg ${
-                                  platform.id === "insight"
-                                    ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20"
-                                    : "bg-orange-600 hover:bg-orange-700 shadow-orange-500/20"
-                                }`}
-                              >
-                                <LogIn className="w-4 h-4" />
-                                Log In
-                              </Link>
+                              {platform.loginHref.startsWith("http") ? (
+                                <a
+                                  href={platform.loginHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 shadow-lg ${
+                                    platform.id === "insight"
+                                      ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20"
+                                      : "bg-orange-600 hover:bg-orange-700 shadow-orange-500/20"
+                                  }`}
+                                >
+                                  <LogIn className="w-4 h-4" />
+                                  Log In
+                                </a>
+                              ) : (
+                                <Link
+                                  href={platform.loginHref}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 shadow-lg ${
+                                    platform.id === "insight"
+                                      ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20"
+                                      : "bg-orange-600 hover:bg-orange-700 shadow-orange-500/20"
+                                  }`}
+                                >
+                                  <LogIn className="w-4 h-4" />
+                                  Log In
+                                </Link>
+                              )}
                             </div>
                           </div>
                         </motion.div>

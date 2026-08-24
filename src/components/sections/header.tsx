@@ -138,8 +138,10 @@ export function Header() {
                             <p className="text-[10px] text-slate-500 mt-0.5">{t.pubAnalyticsOrgTools}</p>
                           </div>
                         </Link>
-                        <Link
-                          href="/portal/login/drive"
+                        <a
+                          href="https://drive.solworld.ai/#home"
+                          target="_blank"
+                          rel="noopener noreferrer"
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-white/[0.04] transition-colors"
                         >
@@ -148,7 +150,7 @@ export function Header() {
                             <p className="text-[13px] font-medium text-white leading-none">DRiVE</p>
                             <p className="text-[10px] text-slate-500 mt-0.5">{t.pubLearningManagement}</p>
                           </div>
-                        </Link>
+                        </a>
                       </div>
 
                       <div className="h-px bg-[#1e1e22] mx-3" />
