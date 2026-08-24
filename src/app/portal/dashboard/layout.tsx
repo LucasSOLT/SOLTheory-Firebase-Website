@@ -7,7 +7,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, Flame, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -1527,6 +1527,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {!collapsedSections['menu'] && <div className="animate-in fade-in duration-150">
               <div className="space-y-1 mb-4 pt-1">
               {/* Content Manager moved to Dev Tools dropdown in header */}
+              <div className="relative">
+                <Link href={`${dashboardHome}`} className={getSidebarLinkClass(false)} onClick={(e) => e.preventDefault()} style={{ opacity: 0.5, pointerEvents: 'none' }}>
+                  <div className={getSidebarIconClass(false)}>
+                    <Flame className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">CAMPFiRE</span>
+                  {!isSidebarCollapsed && (
+                    <span className={`ml-auto text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'text-slate-500 bg-slate-800' : 'text-slate-400 bg-slate-100'}`}>
+                      Coming Soon
+                    </span>
+                  )}
+                </Link>
+              </div>
               <Link href={`${dashboardHome}`} className={getSidebarLinkClass(pathname === dashboardHome)}>
                 <div className={getSidebarIconClass(pathname === dashboardHome)}>
                   <Home className="w-4 h-4" />

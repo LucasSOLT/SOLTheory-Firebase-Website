@@ -567,7 +567,10 @@ export default function CRMPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<string>("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [tableViewMode, setTableViewMode] = useState<"database" | "simplified" | "contacts">("database");
+  const [tableViewMode, setTableViewMode] = useState<"database" | "simplified" | "contacts">(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return "contacts";
+    return "database";
+  });
   const [showViewDropdown, setShowViewDropdown] = useState(false);
   const isSimplifiedView = tableViewMode === "simplified";
   const [mruPresetTag, setMruPresetTag] = useState<string | null>(null);
@@ -2871,19 +2874,19 @@ export default function CRMPage() {
                 {tableViewMode === "contacts" && (
                   <div className="flex flex-col h-full">
                     <div className="overflow-y-auto pr-1" style={{ maxHeight: 'calc(100dvh - 220px)' }}>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-1">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 p-0.5 sm:p-1">
                         {filteredSortedCustomers.map(c => (
                           <button
                             key={c.id}
                             onClick={() => setSelectedContactId(selectedContactId === c.id ? null : c.id)}
-                            className={`w-full text-left flex items-center gap-4 px-4 py-3.5 rounded-xl border transition-all cursor-pointer ${
+                            className={`w-full text-left flex items-center gap-4 px-3 py-2.5 sm:px-4 sm:py-3.5 rounded-xl border transition-all cursor-pointer ${
                               selectedContactId === c.id
                                 ? (isDarkMode ? 'bg-indigo-950/40 border-indigo-500/50 ring-1 ring-indigo-500/30' : 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-200')
                                 : (isDarkMode ? 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm')
                             }`}
                           >
                             {/* Avatar */}
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                               selectedContactId === c.id
                                 ? 'bg-indigo-500 text-white'
                                 : (isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600')
@@ -2897,7 +2900,7 @@ export default function CRMPage() {
                               </p>
                               <div className="flex items-center gap-3 mt-0.5">
                                 {c.email && (
-                                  <span className={`text-[11px] truncate max-w-[180px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                  <span className={`text-[11px] truncate max-w-[140px] sm:max-w-[180px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                     {c.email}
                                   </span>
                                 )}

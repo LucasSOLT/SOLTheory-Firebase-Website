@@ -2500,7 +2500,79 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             </div>
           </div>
           <div className="flex items-center gap-2">
-
+            {/* Mobile-only model selector */}
+            <div className="relative md:hidden" data-dropdown="model-mobile">
+              <button
+                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-white text-slate-600 border border-slate-200'}`}
+              >
+                <span className="max-w-[100px] truncate">
+                  {[
+                    {id:'openai/gpt-oss-120b',name:'GPT OSS 120B'},
+                    {id:'qwen/qwen3.6-27b',name:'Qwen 3.6 27B'},
+                    {id:'nemotron-3-ultra',name:'Nemotron 3 Ultra'},
+                    {id:'claude-opus-5',name:'Claude Opus 5'},
+                    {id:'gpt-5.6-sol',name:'GPT-5.6 Sol'},
+                    {id:'gemini-3.5-flash',name:'Gemini 3.5 Flash'},
+                  ].find(m => m.id === selectedModel)?.name || 'GPT OSS 120B'}
+                </span>
+                <svg className={`w-3 h-3 opacity-50 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {isModelDropdownOpen && (
+                <div className={`absolute top-full right-0 mt-1 w-64 rounded-xl shadow-xl z-[60] overflow-hidden max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-white border border-slate-200'}`}>
+                  <div className={`px-3 pt-2.5 pb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <span className="text-[9px] font-black uppercase tracking-widest">💰 Budget</span>
+                  </div>
+                  {[
+                    { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', tag: '🔥', tagColor: 'bg-orange-50 text-orange-600' },
+                    { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B', tag: '⚡', tagColor: 'bg-blue-50 text-blue-600' },
+                    { id: 'nemotron-3-ultra', name: 'Nemotron 3 Ultra', tag: 'FREE', tagColor: 'bg-violet-50 text-violet-600' },
+                  ].map(model => (
+                    <button
+                      key={model.id}
+                      onClick={() => {
+                        setSelectedModel(model.id);
+                        setIsModelDropdownOpen(false);
+                        if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
+                        setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**.`, isSelf: false }]);
+                      }}
+                      className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-slate-50 ${selectedModel === model.id ? 'bg-slate-50' : ''}`}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                        <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{model.name}</span>
+                      </div>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${model.tagColor}`}>{model.tag}</span>
+                    </button>
+                  ))}
+                  <div className={`px-3 pt-2 pb-1 border-t ${isDarkMode ? 'text-amber-400 border-slate-700' : 'text-amber-600 border-slate-200'}`}>
+                    <span className="text-[9px] font-black uppercase tracking-widest">👑 Premium</span>
+                  </div>
+                  {[
+                    { id: 'claude-opus-5', name: 'Claude Opus 5', tag: 'Elite', tagColor: 'bg-amber-50 text-amber-600' },
+                    { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', tag: 'Elite', tagColor: 'bg-amber-50 text-amber-600' },
+                    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Smart', tagColor: 'bg-sky-50 text-sky-600' },
+                  ].map(model => (
+                    <button
+                      key={model.id}
+                      onClick={() => {
+                        setSelectedModel(model.id);
+                        setIsModelDropdownOpen(false);
+                        if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
+                        setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**.`, isSelf: false }]);
+                      }}
+                      className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-slate-50 ${selectedModel === model.id ? 'bg-slate-50' : ''}`}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                        <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{model.name}</span>
+                      </div>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${model.tagColor}`}>{model.tag}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
