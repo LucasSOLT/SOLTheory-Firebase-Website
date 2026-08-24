@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentModal } from "@/components/communications/VoiceAgentModal";
 import { Input } from "@/components/ui/input";
-import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope, ArrowUp, Square, CornerDownLeft} from "lucide-react";
+import { Bot, User, Plus, Search, LogOut, MessageSquare, Send, Menu, Loader2, Mail, Brain, Trash2, X, Sparkles, ArrowLeft, RefreshCw, CheckCircle2, Settings, CheckSquare, Sun, Moon, Maximize2, Minimize2, Users, FileText, Presentation, Table, Paperclip, Cloud, Mic, BookOpen, Image as ImageIcon, Video, Music, Code , AudioLines, SquarePen, Edit, ChevronDown, MessageCircle, Inbox, Star, Archive, Clock, Filter, SlidersHorizontal, MailOpen, Reply, Zap, Tag, Hash, Globe, Palette, Telescope, ArrowUp, Square, CornerDownLeft, Copy, Pin, Check, Volume2, VolumeX} from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import AgentLibrary from "@/components/portal/AgentLibrary";
@@ -178,6 +178,59 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const speechRecRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const VOICE_CHAT_ENABLED = false; // Disabled: voice-to-voice JARVIS is too slow/clunky for now
+
+  // ── Voice-over (TTS on JARVIS responses) ──
+  const [voiceoverEnabled, setVoiceoverEnabled] = useState(false);
+  const voiceoverAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // ── Copy & Pin for bot messages ──
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
+
+  const handleCopyMessage = (msgId: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMessageId(msgId);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
+  const handleTogglePin = (msgId: string) => {
+    setPinnedMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(msgId)) next.delete(msgId);
+      else next.add(msgId);
+      return next;
+    });
+  };
+
+  const playTTS = async (text: string) => {
+    try {
+      // Stop any currently playing TTS audio
+      if (voiceoverAudioRef.current) {
+        voiceoverAudioRef.current.pause();
+        voiceoverAudioRef.current = null;
+      }
+      // Cap at 3000 chars to avoid ElevenLabs limits and cost
+      const cleanText = text.replace(/[#*_`~>\[\]()!|]/g, '').substring(0, 3000);
+      if (!cleanText.trim()) return;
+      const res = await fetch(`/api/tts?text=${encodeURIComponent(cleanText)}&uid=${user?.uid || 'anonymous'}&org=${orgId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      voiceoverAudioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        voiceoverAudioRef.current = null;
+      };
+      audio.play();
+    } catch (err) {
+      console.error('[TTS] Playback error:', err);
+    }
+  };
 
   // Close plus menu on outside click or Escape
   useEffect(() => {
@@ -196,6 +249,19 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isPlusMenuOpen]);
+
+  // Auto-resize textarea as user types (1-8 lines, then scrollable)
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto'; // Reset to recalculate scrollHeight
+    const lineHeight = 24; // ~leading-relaxed at text-base
+    const maxLines = 8;
+    const maxHeight = lineHeight * maxLines; // 192px
+    const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = `${newHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, [inputValue]);
 
   // Rotate loading phrases while Jarvis is typing
   useEffect(() => {
@@ -1634,6 +1700,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             ? { ...m, agentEvents: [...(m.agentEvents || []), { type: 'done' as const, timestamp: Date.now() }] } 
             : m
         ));
+        // Voice-over: read JARVIS response aloud via ElevenLabs TTS
+        if (voiceoverEnabled && fullText.trim()) {
+          playTTS(fullText);
+        }
         // Detect email preview in executedTools and attach structured data to message
         if (data.executedTools && Array.isArray(data.executedTools)) {
           const previewTool = data.executedTools.find((t: any) => t.name === 'email' && t.args?.action === 'preview');
@@ -1673,6 +1743,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             : m
         ));
         setPendingCitations([]);
+        // Voice-over: read JARVIS response aloud via ElevenLabs TTS (non-streaming path)
+        if (voiceoverEnabled && data.response?.trim()) {
+          playTTS(data.response);
+        }
       }
 
 
@@ -2665,8 +2739,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         {(msg.isSelf || msg.text || msg.imageUrl || msg.isPendingImage) && (
                         <div className={`flex gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-4 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-4 sm:pr-20'}`}>
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : (isImageAgent ? <Palette className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />)}</div>
-                        <div className={`space-y-1 pt-1 min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : ''}`}>
-                          <div className={`inline-block p-3 sm:p-4 text-left text-sm sm:text-base max-w-full break-words animate-in fade-in duration-300 ${msg.isSelf ? `rounded-2xl shadow-lg backdrop-blur-md ${isDarkMode ? 'bg-indigo-900/40 border border-indigo-800/50 text-slate-200 rounded-tr-sm' : 'bg-slate-300/50 text-slate-800 rounded-tr-sm'}` : `${isDarkMode ? 'text-slate-200' : 'text-slate-800'} [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold [&>h2]:text-lg [&>h2]:font-bold [&>h2]:mt-4 [&>h2]:mb-2`}`}>
+                        <div className={`space-y-1 pt-1 min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : 'group/msg relative'}`}>
+                          {/* Copy & Pin action buttons — bot messages only, visible on hover */}
+                          {!msg.isSelf && msg.text && (
+                            <div className={`flex items-center gap-0.5 justify-end mb-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                              <button
+                                onClick={() => handleCopyMessage(msg.id, msg.text)}
+                                className={`p-1 rounded-md transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-700 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}
+                                title={copiedMessageId === msg.id ? 'Copied!' : 'Copy'}
+                              >
+                                {copiedMessageId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => handleTogglePin(msg.id)}
+                                className={`p-1 rounded-md transition-colors cursor-pointer ${pinnedMessages.has(msg.id) ? 'text-fuchsia-500' : ''} ${isDarkMode ? 'hover:bg-slate-700 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}
+                                title={pinnedMessages.has(msg.id) ? 'Unpin' : 'Pin'}
+                              >
+                                <Pin className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                          <div className={`inline-block p-3 sm:p-4 text-left text-sm sm:text-base max-w-full break-words animate-in fade-in duration-300 ${msg.isSelf ? `rounded-2xl shadow-lg backdrop-blur-md ${isDarkMode ? 'bg-indigo-900/40 border border-indigo-800/50 text-slate-200 rounded-tr-sm' : 'bg-slate-300/50 text-slate-800 rounded-tr-sm'}` : `${isDarkMode ? 'text-slate-200' : 'text-slate-800'} [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold [&>h2]:text-lg [&>h2]:font-bold [&>h2]:mt-4 [&>h2]:mb-2`} ${!msg.isSelf && pinnedMessages.has(msg.id) ? (isDarkMode ? 'border-l-2 border-fuchsia-500/50 pl-4' : 'border-l-2 border-fuchsia-400/50 pl-4') : ''}`}>
                             {msg.isPendingImage ? (
                               <div className="flex flex-col mb-2">
                                 <style>{`
@@ -2940,39 +3033,81 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           )}
                         </div>
 
-                        <Input
+                        <textarea
+                          ref={textareaRef}
                           placeholder="Ask anything..."
-                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 sm:pl-3 pr-24 sm:pr-28 min-h-[44px] sm:min-h-[64px] bg-transparent placeholder:text-slate-400 text-base focus-visible:ring-offset-0 focus-visible:outline-none focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
-                          value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); } }}
+                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 sm:pl-3 pr-14 sm:pr-16 min-h-[44px] sm:min-h-[52px] bg-transparent placeholder:text-slate-400 text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                          value={inputValue}
+                          onChange={e => setInputValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (inputValue.trim()) {
+                                // Stop STT if active when sending
+                                if (isListening) { speechRecRef.current?.stop(); setIsListening(false); }
+                                handleSendMessage();
+                                setIsPlusMenuOpen(false);
+                                setIsAgentSwitcherOpen(false);
+                              }
+                            }
+                          }}
+                          rows={1}
                         />
 
-                        <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                          {/* Mic (STT) — always visible; shows red stop square when recording */}
-                          {!isTyping && typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
-                            <button
-                              onClick={toggleSpeechToText}
-                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-white bg-red-500 animate-pulse shadow-lg shadow-red-500/30' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
-                              title={isListening ? 'Stop listening' : 'Speech to text'}
-                            >
-                              {isListening ? <Square className="w-3 h-3 fill-current" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
-                            </button>
-                          )}
-                          {/* Voice pill OR Send button */}
-                          {(!inputValue.trim() && pendingAttachments.length === 0 && !isTyping) ? (
-                            <button
-                              onClick={openVoiceSession}
-                              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full transition-all cursor-pointer hover:opacity-80 active:scale-95 ${isDarkMode ? 'bg-white text-black' : 'bg-slate-900 text-white'}`}
-                              title="Start Voice Session"
-                            >
-                              <AudioLines className="w-4 h-4" />
-                              <span className="text-sm font-medium">Voice</span>
-                            </button>
-                          ) : (
-                            <Button size="icon" onClick={() => { handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
-                              {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
-                            </Button>
-                          )}
+                        {/* Send button — inside the input box, always visible */}
+                        <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3 flex items-center gap-1.5">
+                          <Button size="icon" onClick={() => { if (isListening) { speechRecRef.current?.stop(); setIsListening(false); } handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+                            {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                          </Button>
                         </div>
+                      </div>
+
+                      {/* ── External controls row (below input box) ── */}
+                      <div className="flex items-center gap-2 px-1">
+                        {/* STT Mic button — outside the input box */}
+                        {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                          <button
+                            onClick={toggleSpeechToText}
+                            className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-white bg-red-500 animate-pulse shadow-lg shadow-red-500/30' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                            title={isListening ? 'Stop listening' : 'Speech to text'}
+                          >
+                            {isListening ? <Square className="w-3 h-3 fill-current" /> : <Mic className="w-4 h-4" />}
+                          </button>
+                        )}
+
+                        {/* Voice-over toggle — outside the input box */}
+                        <button
+                          onClick={() => {
+                            const next = !voiceoverEnabled;
+                            setVoiceoverEnabled(next);
+                            // Stop any playing audio when turning off
+                            if (!next && voiceoverAudioRef.current) {
+                              voiceoverAudioRef.current.pause();
+                              voiceoverAudioRef.current = null;
+                            }
+                          }}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer ${
+                            voiceoverEnabled
+                              ? 'bg-red-500/15 text-red-500 border border-red-400/30 animate-[pulse_3s_ease-in-out_infinite]'
+                              : (isDarkMode ? 'text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-600' : 'text-slate-400 hover:text-slate-600 border border-slate-200 hover:border-slate-300')
+                          }`}
+                          title={voiceoverEnabled ? 'Turn off voice-over' : 'Turn on voice-over — JARVIS will read responses aloud'}
+                        >
+                          {voiceoverEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                          <span>{voiceoverEnabled ? 'Voice-over ON' : 'Voice-over OFF'}</span>
+                        </button>
+
+                        {/* Voice-to-Voice session (disabled via feature flag) */}
+                        {VOICE_CHAT_ENABLED && (
+                          <button
+                            onClick={openVoiceSession}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer hover:opacity-80 active:scale-95 ${isDarkMode ? 'bg-white text-black' : 'bg-slate-900 text-white'}`}
+                            title="Start Voice Session"
+                          >
+                            <AudioLines className="w-4 h-4" />
+                            <span className="text-sm font-medium">Voice</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -3093,6 +3228,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </div>
       )}
 
+      {VOICE_CHAT_ENABLED && (
       <VoiceAgentModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
@@ -3251,6 +3387,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           return data;
         }}
       />
+      )}
       {lightboxImage && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={() => setLightboxImage(null)}>
           <div className="relative max-w-full max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
