@@ -7,7 +7,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, Flame, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, Flame, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass, Pin, PinOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -85,7 +85,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const pathname = usePathname();
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isHoverExpanded, setIsHoverExpanded] = useState(false);
+  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
+  const sidebarLeaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Effective collapsed state: collapsed unless hovered or pinned open
+  const isEffectiveCollapsed = !isSidebarPinned && !isHoverExpanded;
+
+  const handleSidebarMouseEnter = () => {
+    if (sidebarLeaveTimerRef.current) {
+      clearTimeout(sidebarLeaveTimerRef.current);
+      sidebarLeaveTimerRef.current = null;
+    }
+    setIsHoverExpanded(true);
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (isSidebarPinned) return;
+    if (sidebarLeaveTimerRef.current) {
+      clearTimeout(sidebarLeaveTimerRef.current);
+    }
+    sidebarLeaveTimerRef.current = setTimeout(() => {
+      setIsHoverExpanded(false);
+    }, 1500); // 1.5s grace period before animating closed
+  };
+
+  useEffect(() => {
+    return () => {
+      if (sidebarLeaveTimerRef.current) {
+        clearTimeout(sidebarLeaveTimerRef.current);
+      }
+    };
+  }, []);
+
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const sidebarResizeRef = React.useRef(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -220,21 +253,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [userTimezone, lang]);
 
   // Listen for sidebar collapse/expand requests from child components (e.g. document editor)
-  const sidebarBeforeEditorRef = React.useRef<{ collapsed: boolean; width: number } | null>(null);
+  const sidebarBeforeEditorRef = React.useRef<{ pinned: boolean; width: number } | null>(null);
   useEffect(() => {
     const handleCollapse = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail?.action === 'collapse') {
-        sidebarBeforeEditorRef.current = { collapsed: isSidebarCollapsed, width: sidebarWidth };
-        setIsSidebarCollapsed(true);
+        sidebarBeforeEditorRef.current = { pinned: isSidebarPinned, width: sidebarWidth };
+        setIsSidebarPinned(false);
+        setIsHoverExpanded(false);
       } else if (detail?.action === 'restore' && sidebarBeforeEditorRef.current) {
-        setIsSidebarCollapsed(sidebarBeforeEditorRef.current.collapsed);
+        setIsSidebarPinned(sidebarBeforeEditorRef.current.pinned);
         sidebarBeforeEditorRef.current = null;
       }
     };
     window.addEventListener('soltheory-sidebar-toggle', handleCollapse);
     return () => window.removeEventListener('soltheory-sidebar-toggle', handleCollapse);
-  }, [isSidebarCollapsed, sidebarWidth]);
+  }, [isSidebarPinned, sidebarWidth]);
 
   // Lock sidebar toggle while homepage loading overlay is active
   const [isSidebarLocked, setIsSidebarLocked] = useState(true);
@@ -1076,22 +1110,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const getSidebarLinkClass = (isActive: boolean) => {
-    const activeGlow = isActive && !isSidebarCollapsed
+    const activeGlow = isActive && !isEffectiveCollapsed
       ? isDarkMode
         ? 'relative before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-full before:bg-indigo-400 before:shadow-[0_0_8px_rgba(99,102,241,0.4)]'
         : 'relative before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-full before:bg-indigo-500 before:shadow-[0_0_6px_rgba(99,102,241,0.25)]'
       : '';
-    return `flex items-center ${isSidebarCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl transition-colors cursor-pointer font-semibold overflow-visible ${
+    return `flex items-center ${isEffectiveCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl transition-colors cursor-pointer font-semibold overflow-visible ${
       isActive 
-        ? (isDarkMode ? (isSidebarCollapsed ? 'bg-slate-700 text-white' : 'bg-slate-200 text-black shadow-sm') : 'bg-[#f0ede4] text-black shadow-sm') 
+        ? (isDarkMode ? (isEffectiveCollapsed ? 'bg-slate-700 text-white' : 'bg-slate-200 text-black shadow-sm') : 'bg-[#f0ede4] text-black shadow-sm') 
         : (isDarkMode ? 'hover:bg-slate-800 text-slate-300 hover:text-white' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900')
     } ${activeGlow}`;
   };
 
   const getSidebarIconClass = (isActive: boolean) => {
-    return `${isSidebarCollapsed ? 'w-8 h-8' : 'w-6 h-6'} rounded-md flex items-center justify-center transition-colors ${
+    return `${isEffectiveCollapsed ? 'w-8 h-8' : 'w-6 h-6'} rounded-md flex items-center justify-center transition-colors ${
       isActive 
-        ? (isDarkMode ? (isSidebarCollapsed ? 'bg-transparent text-white' : 'bg-black text-white') : 'bg-stone-800 text-white')
+        ? (isDarkMode ? (isEffectiveCollapsed ? 'bg-transparent text-white' : 'bg-black text-white') : 'bg-stone-800 text-white')
         : (isDarkMode ? 'bg-transparent text-slate-400 group-hover:text-slate-200' : 'bg-transparent text-slate-500 group-hover:text-stone-800')
     }`;
   };
@@ -1391,10 +1425,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
-      <div className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`} style={{ width: isSidebarCollapsed ? 64 : sidebarWidth, minWidth: isSidebarCollapsed ? 64 : 230, maxWidth: isSidebarCollapsed ? 64 : 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
+      <div
+        className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`}
+        style={{
+          width: isEffectiveCollapsed ? 64 : sidebarWidth,
+          minWidth: isEffectiveCollapsed ? 64 : 230,
+          maxWidth: isEffectiveCollapsed ? 64 : 500,
+          transition: sidebarResizeRef.current ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
+      >
 
         {/* Drag-to-resize right edge */}
-        {!isSidebarCollapsed && (
+        {!isEffectiveCollapsed && (
           <div
             className="absolute top-0 right-0 w-1 h-full z-50 cursor-col-resize group hover:bg-indigo-400/40 transition-colors"
             onPointerDown={(e) => {
@@ -1408,7 +1452,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const newW = Math.max(180, Math.min(500, startW + (ev.clientX - startX)));
                 setSidebarWidth(newW);
                 if (newW <= 180 && ev.clientX - startX < -40) {
-                  setIsSidebarCollapsed(true);
+                  setIsSidebarPinned(false);
+                  setIsHoverExpanded(false);
                   sidebarResizeRef.current = false;
                   el.releasePointerCapture(ev.pointerId);
                   el.removeEventListener('pointermove', onMove);
@@ -1429,30 +1474,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         <aside className={`w-full flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-          <div style={{ width: isSidebarCollapsed ? 64 : sidebarWidth, minWidth: isSidebarCollapsed ? 64 : 230 }} className={`flex flex-col h-full overflow-hidden ${isSidebarCollapsed ? 'items-center [&_span]:hidden' : ''}`}> {/* Inner container matches outer width */}
-            {isSidebarCollapsed ? (
-              /* ── Collapsed: centered expand button at top ── */
+          <div style={{ width: isEffectiveCollapsed ? 64 : sidebarWidth, minWidth: isEffectiveCollapsed ? 64 : 230 }} className={`flex flex-col h-full overflow-hidden ${isEffectiveCollapsed ? 'items-center [&_span]:hidden' : ''}`}> {/* Inner container matches outer width */}
+            {isEffectiveCollapsed ? (
+              /* ── Collapsed: centered expand / pin button at top ── */
               <div className="flex items-center justify-center pt-4 pb-2 shrink-0">
                 <button
-                  onClick={() => { if (!isSidebarLocked) setIsSidebarCollapsed(!isSidebarCollapsed); }}
-                  disabled={isSidebarLocked}
-                  className={`p-1.5 rounded-lg transition-colors ${isSidebarLocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
-                  title={isSidebarLocked ? 'Loading...' : 'Expand sidebar'}
+                  onClick={() => {
+                    setIsSidebarPinned(true);
+                    setIsHoverExpanded(true);
+                  }}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
+                  title="Expand & Pin sidebar"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                 </button>
               </div>
             ) : (isDualOrgUser ? (
-              /* ── Expanded + Dual-org: org switcher with collapse button overlay ── */
+              /* ── Expanded + Dual-org: org switcher with pin/collapse button overlay ── */
               <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5 shrink-0">
-                {/* Collapse button — floating top-right */}
+                {/* Pin / Collapse toggle button — floating top-right */}
                 <button
-                  onClick={() => { if (!isSidebarLocked) setIsSidebarCollapsed(!isSidebarCollapsed); }}
-                  disabled={isSidebarLocked}
-                  className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors ${isSidebarLocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
-                  title={isSidebarLocked ? 'Loading...' : 'Collapse sidebar'}
+                  onClick={() => {
+                    if (isSidebarPinned) {
+                      setIsSidebarPinned(false);
+                      setIsHoverExpanded(false);
+                    } else {
+                      setIsSidebarPinned(true);
+                    }
+                  }}
+                  className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                    isSidebarPinned
+                      ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
+                      : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
+                  }`}
+                  title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" /></svg>
+                  {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
@@ -1490,16 +1547,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
             ) : (
-              /* ── Expanded + Single-org: logo with collapse button overlay ── */
+              /* ── Expanded + Single-org: logo with pin/collapse button overlay ── */
               <div className="relative shrink-0">
-                {/* Collapse button — floating top-right */}
+                {/* Pin / Collapse toggle button — floating top-right */}
                 <button
-                  onClick={() => { if (!isSidebarLocked) setIsSidebarCollapsed(!isSidebarCollapsed); }}
-                  disabled={isSidebarLocked}
-                  className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg transition-colors ${isSidebarLocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
-                  title={isSidebarLocked ? 'Loading...' : 'Collapse sidebar'}
+                  onClick={() => {
+                    if (isSidebarPinned) {
+                      setIsSidebarPinned(false);
+                      setIsHoverExpanded(false);
+                    } else {
+                      setIsSidebarPinned(true);
+                    }
+                  }}
+                  className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                    isSidebarPinned
+                      ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
+                      : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
+                  }`}
+                  title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" /></svg>
+                  {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
                 </button>
                 <Link href={dashboardHome} className={`p-6 pt-8 pb-8 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}>
                   <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-14 h-14 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
@@ -1518,7 +1585,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}>
           {/* Section 1 */}
           <div>
-            {!isSidebarCollapsed && (
+            {!isEffectiveCollapsed && (
               <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
                 <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
                 <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.menu}</span>
@@ -1533,7 +1600,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Flame className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium">CAMPFiRE</span>
-                  {!isSidebarCollapsed && (
+                  {!isEffectiveCollapsed && (
                     <span className={`ml-auto text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'text-slate-500 bg-slate-800' : 'text-slate-400 bg-slate-100'}`}>
                       Coming Soon
                     </span>
@@ -1568,7 +1635,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             
             {/* @Messages Collapsible */}
             <div className="mt-2">
-              {!isSidebarCollapsed && (
+              {!isEffectiveCollapsed && (
                 <button 
                   onClick={() => setIsMessagesOpen(!isMessagesOpen)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 group ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}
@@ -1591,7 +1658,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </button>
               )}
               
-              {(isMessagesOpen && !isSidebarCollapsed) && (
+              {(isMessagesOpen && !isEffectiveCollapsed) && (
                 <div className="pl-12 pr-3 py-1 space-y-1 animate-in slide-in-from-top-1 fade-in duration-200">
                   <Link href={`${dashboardHome}/communications/dm`} className={getSidebarSubLinkClass(pathname.endsWith('/communications/dm'))}>
                     <UserSquare className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/dm') ? 'text-indigo-600' : ''}`} />
@@ -1609,7 +1676,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Section: Flagship Tools */}
           <div className="mb-2">
-            {!isSidebarCollapsed && (
+            {!isEffectiveCollapsed && (
               <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
                 <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['flagship'] ? '-rotate-90' : ''}`} />
                 <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.flagshipTools}</span>
@@ -1692,11 +1759,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* User Footer Profile */}
-        <div className={`p-4 mt-auto mb-4 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-2'}`}>
+        <div className={`p-4 mt-auto mb-4 flex items-center ${isEffectiveCollapsed ? 'justify-center' : 'gap-2'}`}>
           <Link href={`${dashboardHome}/settings?tab=general`} className={`p-2.5 rounded-xl transition-colors shrink-0 shadow-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700' : 'hover:bg-[#f0ede4] text-slate-400 hover:text-slate-900 bg-[#f2efe8] border border-[#e0ddd4]'}`}>
              <Settings className="w-5 h-5" />
           </Link>
-          {!isSidebarCollapsed && (
+          {!isEffectiveCollapsed && (
           <Link href={`${dashboardHome}/settings?tab=profile`} className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-xl shadow-sm overflow-hidden transition-colors cursor-pointer group ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}>
             <Avatar className="h-8 w-8 shrink-0 group-hover:scale-105 transition-transform">
               <AvatarImage src={guestAvatar} />
