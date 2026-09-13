@@ -15,6 +15,7 @@ import {
 import { useUser, useFirestore } from "@/firebase";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from "@/lib/i18n";
+import PactMemoryView from "@/components/media-library/PactMemoryView";
 
 export default function AIKnowledgeBasePage() {
   const orgId = useOrgId();
@@ -57,21 +58,30 @@ export default function AIKnowledgeBasePage() {
   const [ragTitle, setRagTitle] = useState("");
   const [ragTextContent, setRagTextContent] = useState("");
 
-  // P.A.C.T.
-  type PACTEntry = { id: string; question: string; answer: string; source: string; orgId: string; createdAt: number; updatedAt: number; markedForDeletion?: number; deletionReason?: string };
-  const [pactEntries, setPactEntries] = useState<PACTEntry[]>([]);
-  const [pactLoaded, setPactLoaded] = useState(false);
-  const [pactEnabled, setPactEnabled] = useState(true);
-
-  // Heartbeat
+  // Heartbeat settings
   const [heartbeatInterval, setHeartbeatInterval] = useState<string>("off");
   const [heartbeatRunning, setHeartbeatRunning] = useState(false);
   const [lastHeartbeatRun, setLastHeartbeatRun] = useState<number | null>(null);
-  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const heartbeatLockRef = useRef(false);
-  const [pactTickNow, setPactTickNow] = useState(Date.now());
 
-  // â”€â”€ Data Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  useEffect(() => {
+    const saved = localStorage.getItem(`st_heartbeat_interval_${agentId}`);
+    if (saved) setHeartbeatInterval(saved);
+    const savedLastRun = localStorage.getItem(`st_heartbeat_lastrun_${agentId}`);
+    if (savedLastRun) setLastHeartbeatRun(parseInt(savedLastRun));
+  }, [agentId]);
+
+  const runHeartbeatCleanup = async () => {
+    setHeartbeatRunning(true);
+    try {
+      const now = Date.now();
+      setLastHeartbeatRun(now);
+      localStorage.setItem(`st_heartbeat_lastrun_${agentId}`, String(now));
+    } finally {
+      setHeartbeatRunning(false);
+    }
+  };
+
+  // ── Data Loading ─────────────────────────────────────────────────────────────
   const fetchRAGDocs = async () => {
     if (!user?.uid || !firestore) return;
     try {
@@ -82,32 +92,6 @@ export default function AIKnowledgeBasePage() {
       querySnapshot.forEach((doc) => docs.push({ id: doc.id, ...doc.data() }));
       setRagDocs(docs);
     } catch (err) { console.error("Failed to fetch RAG docs", err); }
-  };
-
-  const fetchPACTEntries = async () => {
-    if (!user?.uid || !firestore) return;
-    try {
-      const { getDoc, doc } = await import("firebase/firestore");
-      const userDoc = await getDoc(doc(firestore, "users", user.uid));
-      const entries: PACTEntry[] = [];
-      const fieldData = userDoc.data()?.[`pact_entries_${orgId}`] || [];
-      fieldData.forEach((item: any, index: number) => {
-        entries.push({
-          id: `field-${index}`,
-          question: item.question,
-          answer: item.answer,
-          source: item.source || "server_background",
-          orgId: orgId,
-          createdAt: item.createdAt || Date.now(),
-          updatedAt: item.updatedAt || Date.now(),
-          markedForDeletion: item.markedForDeletion || undefined,
-          deletionReason: item.deletionReason || undefined
-        });
-      });
-      entries.sort((a, b) => b.createdAt - a.createdAt);
-      setPactEntries(entries);
-      setPactLoaded(true);
-    } catch (err) { console.error("Failed to load PACT entries", err); }
   };
 
   const fetchOrgBrain = async () => {
@@ -162,118 +146,11 @@ export default function AIKnowledgeBasePage() {
     defaultKnowledgeSaveTimerRef.current = setTimeout(() => { saveDefaultKnowledge(); }, 1500);
   };
 
-  // Heartbeat cleanup
-  const runHeartbeatCleanup = useCallback(async () => {
-    if (heartbeatLockRef.current || !user?.uid || !firestore) return;
-    heartbeatLockRef.current = true;
-    setHeartbeatRunning(true);
-    try {
-      const { getDoc, doc, updateDoc } = await import("firebase/firestore");
-      const userDocRef = doc(firestore, "users", user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      let currentEntries: any[] = userDocSnap.data()?.[`pact_entries_${orgId}`] || [];
-      const now = Date.now();
-      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-      const beforePurge = currentEntries.length;
-      currentEntries = currentEntries.filter((e: any) => {
-        if (e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS) return false;
-        return true;
-      });
-      if (currentEntries.length !== beforePurge) {
-        await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: currentEntries });
-      }
-      const activeEntries = currentEntries.filter((e: any) => !e.markedForDeletion);
-      if (activeEntries.length === 0) {
-        setLastHeartbeatRun(Date.now());
-        setHeartbeatRunning(false);
-        heartbeatLockRef.current = false;
-        await fetchPACTEntries();
-        return;
-      }
-      const res = await fetch("/api/pact-evaluate", {
-        method: "POST",
-        headers: await getAuthHeaders(),
-        body: JSON.stringify({
-          entries: activeEntries.map((e: any) => ({ question: e.question, answer: e.answer })),
-          userName: user?.displayName || undefined
-        })
-      });
-      const data = await res.json();
-      const decisions: any[] = data.decisions || [];
-      const discardIndices = new Set<number>();
-      const reasonMap = new Map<number, string>();
-      decisions.forEach((d: any) => {
-        if (!d.keep && typeof d.index === "number") {
-          discardIndices.add(d.index);
-          reasonMap.set(d.index, d.reason || "Low value");
-        }
-      });
-      if (discardIndices.size > 0) {
-        let activeIdx = 0;
-        const updated = currentEntries.map((e: any) => {
-          if (!e.markedForDeletion) {
-            if (discardIndices.has(activeIdx)) {
-              const reason = reasonMap.get(activeIdx) || "Low value";
-              activeIdx++;
-              return { ...e, markedForDeletion: Date.now(), deletionReason: reason };
-            }
-            activeIdx++;
-          }
-          return e;
-        });
-        await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: updated });
-      }
-      setLastHeartbeatRun(Date.now());
-      await fetchPACTEntries();
-    } catch (err) { console.error("[Heartbeat] Cleanup error:", err); }
-    finally { setHeartbeatRunning(false); heartbeatLockRef.current = false; }
-  }, [user?.uid, firestore, user?.displayName]);
-
-  // â”€â”€ Effects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { if (firestore) fetchOrgBrain(); }, [firestore]);
-  useEffect(() => { if (user?.uid && firestore) { fetchPACTEntries(); fetchRAGDocs(); } }, [user?.uid, firestore]);
+  useEffect(() => { if (user?.uid && firestore) { fetchRAGDocs(); } }, [user?.uid, firestore]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem(`st_heartbeat_interval_${agentId}`);
-    if (saved) setHeartbeatInterval(saved);
-    const savedPact = localStorage.getItem(`st_pact_enabled_${agentId}`);
-    if (savedPact !== null) setPactEnabled(savedPact === 'true');
-    const savedLastRun = localStorage.getItem(`st_heartbeat_lastrun_${agentId}`);
-    if (savedLastRun) setLastHeartbeatRun(parseInt(savedLastRun));
-  }, []);
-
-  useEffect(() => { localStorage.setItem(`st_heartbeat_interval_${agentId}`, heartbeatInterval); }, [heartbeatInterval]);
-  useEffect(() => { localStorage.setItem(`st_pact_enabled_${agentId}`, String(pactEnabled)); }, [pactEnabled]);
-  useEffect(() => { if (lastHeartbeatRun) localStorage.setItem(`st_heartbeat_lastrun_${agentId}`, String(lastHeartbeatRun)); }, [lastHeartbeatRun]);
-
-  useEffect(() => {
-    if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
-    if (heartbeatInterval === "off") return;
-    const intervalMs: Record<string, number> = { "5m": 5*60*1000, "10m": 10*60*1000, "15m": 15*60*1000, "30m": 30*60*1000, "1h": 60*60*1000, "2h": 2*60*60*1000, "4h": 4*60*60*1000 };
-    const ms = intervalMs[heartbeatInterval];
-    if (!ms) return;
-    heartbeatTimerRef.current = setInterval(() => { runHeartbeatCleanup(); }, ms);
-    return () => { if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current); };
-  }, [heartbeatInterval, runHeartbeatCleanup]);
-
-  useEffect(() => {
-    const tickInterval = setInterval(() => {
-      const now = Date.now();
-      setPactTickNow(now);
-      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-      const hasExpired = pactEntries.some(e => e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS);
-      if (hasExpired && firestore && user?.uid) {
-        const remaining = pactEntries.filter(e => !(e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS));
-        setPactEntries(remaining);
-        import("firebase/firestore").then(({ doc, updateDoc }) => {
-          updateDoc(doc(firestore, "users", user.uid), { [`pact_entries_${orgId}`]: remaining }).catch(console.error);
-        });
-      }
-    }, 60000);
-    return () => clearInterval(tickInterval);
-  }, [pactEntries, firestore, user?.uid]);
-
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Render ────────────────────────────────────────────────────────────────
   const bg = isDarkMode ? 'bg-slate-950' : 'bg-[#f5f1e8]';
   const cardBg = isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-[#fefdfb] border-slate-200';
   const textPrimary = isDarkMode ? 'text-white' : 'text-slate-900';
@@ -307,9 +184,9 @@ export default function AIKnowledgeBasePage() {
         <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
           <div className="flex items-stretch">
             {[
-              { key: "identity", label: t.identityAndRules || "Identity & Rules", onClick: () => setActiveSettingsTab("identity") },
-              { key: "data", label: t.knowledgeBase || "Knowledge Base", onClick: () => { setActiveSettingsTab("data"); fetchRAGDocs(); } },
-              { key: "pact", label: t.pact || "P.A.C.T.", onClick: () => { setActiveSettingsTab("pact"); fetchPACTEntries(); }, badge: pactEntries.length > 0 ? pactEntries.length : null },
+              { key: "identity" as const, label: t.identityAndRules || "Identity & Rules", onClick: () => setActiveSettingsTab("identity") },
+              { key: "data" as const, label: t.knowledgeBase || "Knowledge Base", onClick: () => { setActiveSettingsTab("data"); fetchRAGDocs(); } },
+              { key: "pact" as const, label: t.pact || "P.A.C.T.", onClick: () => setActiveSettingsTab("pact") },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -322,7 +199,6 @@ export default function AIKnowledgeBasePage() {
               >
                 {activeSettingsTab === tab.key && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />}
                 {tab.label}
-                {tab.badge && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ml-1 ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-900 text-white'}`}>{tab.badge}</span>}
               </button>
             ))}
           </div>
@@ -639,115 +515,9 @@ export default function AIKnowledgeBasePage() {
             </div>
           )}
 
-          {/* â•â•â• P.A.C.T. â•â•â• */}
+          {/* ═══ P.A.C.T. ═══ */}
           {activeSettingsTab === "pact" && (
-            <div className="space-y-5 animate-in fade-in duration-300">
-              <div className={`border rounded-2xl p-6 ${cardBg}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={`text-base font-extrabold ${textPrimary} mb-1.5 flex items-center gap-2.5`}>
-                      <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center"><BookOpen className="w-4 h-4 text-white" /></div>
-                      P.A.C.T. Memory
-                    </h3>
-                    <p className={`text-xs ${textSecondary} leading-relaxed max-w-2xl`}>Facts your AI has learned about you. The Heartbeat periodically reviews and cleans up low-value entries.</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-6">
-                    {heartbeatRunning && <div className="flex items-center gap-1.5 text-[10px] text-blue-500 font-bold"><Loader2 className="w-3 h-3 animate-spin" />Cleaning...</div>}
-                    <button onClick={() => setPactEnabled(!pactEnabled)} className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${pactEnabled ? 'bg-blue-50 border-blue-200 text-blue-600' : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-400')}`}>
-                      <div className={`w-2 h-2 rounded-full ${pactEnabled ? 'bg-blue-500' : 'bg-slate-400'}`} />
-                      {pactEnabled ? 'Active' : 'Disabled'}
-                    </button>
-                    {pactEntries.filter(e => e.markedForDeletion).length > 0 && (
-                      <div className={`border rounded-xl px-4 py-2 text-center ${isDarkMode ? 'border-red-800 bg-red-900/30' : 'border-red-200 bg-red-50'}`}>
-                        <div className="text-xl font-black text-red-500 tabular-nums">{pactEntries.filter(e => e.markedForDeletion).length}</div>
-                        <div className="text-[9px] text-red-400 uppercase tracking-wider font-bold">Expiring</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {pactEntries.length === 0 ? (
-                <div className={`h-48 rounded-2xl border border-dashed flex flex-col items-center justify-center text-center gap-3 p-8 ${isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-[#fefdfb]'}`}>
-                  <div className={`w-12 h-12 rounded-xl border flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                    <BookOpen className="w-5 h-5 text-slate-300" />
-                  </div>
-                  <p className={`text-sm font-medium max-w-sm ${textSecondary}`}>No learned facts yet. As you chat with your AI, personal details you share will appear here.</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Try sharing your name, role, or preferences</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {[...pactEntries].sort((a, b) => {
-                    if (a.markedForDeletion && !b.markedForDeletion) return 1;
-                    if (!a.markedForDeletion && b.markedForDeletion) return -1;
-                    return 0;
-                  }).map((entry, idx) => {
-                    const isMarked = !!entry.markedForDeletion;
-                    const msLeft = isMarked ? Math.max(0, 24 * 60 * 60 * 1000 - (pactTickNow - entry.markedForDeletion!)) : 0;
-                    const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
-                    return (
-                      <div key={entry.id} className={`border rounded-xl px-5 py-4 transition-all group ${
-                        isMarked ? (isDarkMode ? 'border-red-800 bg-red-900/20' : 'border-red-200 bg-red-50/30')
-                        : isDarkMode ? 'border-slate-700 bg-slate-900 hover:bg-slate-800/50 hover:border-slate-600' : 'border-slate-200 bg-[#fefdfb] hover:bg-slate-50/50 hover:border-slate-300'
-                      }`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`text-[10px] font-black w-5 h-5 rounded flex items-center justify-center shrink-0 ${isMarked ? 'bg-red-500 text-white' : 'bg-slate-900 text-white'}`}>{idx + 1}</span>
-                              <span className={`text-sm font-semibold leading-tight ${isMarked ? 'line-through text-slate-400' : textPrimary}`}>{entry.question}</span>
-                            </div>
-                            <p className={`text-sm pl-7 leading-relaxed ${isMarked ? 'line-through text-slate-400' : isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{entry.answer}</p>
-                            <div className="flex items-center gap-2 mt-2 pl-7 flex-wrap">
-                              <span className="text-[10px] text-slate-400 font-medium">{entry.source === "voice" ? "Voice" : "Text"}</span>
-                              <span className="text-[10px] text-slate-300">Â·</span>
-                              <span className="text-[10px] text-slate-400 font-medium">{new Date(entry.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                              {isMarked && (
-                                <>
-                                  <span className="text-[10px] text-slate-300">Â·</span>
-                                  <span className="text-[9px] font-bold text-red-500 bg-red-100 px-1.5 py-0.5 rounded">{entry.deletionReason || "Flagged"}</span>
-                                  <span className="text-[10px] text-red-400 font-medium">Auto-deletes in {hoursLeft}h</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          {isMarked ? (
-                            <Button variant="ghost" size="icon" className="text-red-400 hover:text-slate-900 hover:bg-slate-100 transition-all shrink-0 rounded-lg h-8 w-8" title="Cancel deletion" onClick={async () => {
-                              if (!user?.uid || !firestore) return;
-                              try {
-                                const { getDoc, doc, updateDoc } = await import("firebase/firestore");
-                                const userDocRef = doc(firestore, "users", user.uid);
-                                const userDocSnap = await getDoc(userDocRef);
-                                const currentEntries: any[] = userDocSnap.data()?.[`pact_entries_${orgId}`] || [];
-                                const updated = currentEntries.map((e: any) => (e.question === entry.question && e.answer === entry.answer) ? { ...e, markedForDeletion: undefined, deletionReason: undefined } : e);
-                                const cleaned = updated.map((e: any) => { const { markedForDeletion, deletionReason, ...rest } = e; if (markedForDeletion) return e; return rest; });
-                                await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: cleaned });
-                                setPactEntries(prev => prev.map(e => e.id === entry.id ? { ...e, markedForDeletion: undefined, deletionReason: undefined } : e));
-                              } catch (err) { console.error("Failed to restore PACT entry", err); }
-                            }}>
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                            </Button>
-                          ) : (
-                            <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 rounded-lg h-8 w-8" onClick={async () => {
-                              if (!user?.uid || !firestore) return;
-                              try {
-                                const { getDoc, doc, updateDoc } = await import("firebase/firestore");
-                                const userDocRef = doc(firestore, "users", user.uid);
-                                const userDocSnap = await getDoc(userDocRef);
-                                const currentEntries: any[] = userDocSnap.data()?.[`pact_entries_${orgId}`] || [];
-                                const filtered = currentEntries.filter((e: any) => !(e.question === entry.question && e.answer === entry.answer));
-                                await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: filtered });
-                                logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted PACT entry: ${entry.question}`);
-                                setPactEntries(prev => prev.filter(e => e.id !== entry.id));
-                              } catch (err) { console.error("Failed to delete PACT entry", err); }
-                            }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <PactMemoryView orgId={orgId} isDark={isDarkMode} />
           )}
         </div>
       </div>
