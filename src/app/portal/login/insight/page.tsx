@@ -14,8 +14,10 @@ import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
 import { getOrgByEmailDomain, isDeveloper } from "@/lib/org-config";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function InsightLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -57,6 +59,29 @@ export default function InsightLoginPage() {
     document.documentElement.classList.add("dark");
     return () => { document.documentElement.classList.remove("dark"); };
   }, []);
+
+  // Auto-redirect if already authenticated
+  useEffect(() => {
+    const unsubscribe = auth?.onAuthStateChanged?.((currentUser) => {
+      if (currentUser?.email) {
+        const emailLower = currentUser.email.toLowerCase();
+        const matched = getOrgByEmailDomain(emailLower);
+        const target = isDeveloper(emailLower) ? "/portal/dashboard/soltheory" : (matched ? `/portal/dashboard/${matched.id}` : "/portal/dashboard/soltheory");
+        router.push(target);
+      }
+    });
+    return () => { unsubscribe?.(); };
+  }, [auth, router]);
+
+  // Safety watchdog: if the loading cube is displayed for more than 4.5 seconds, force navigation
+  useEffect(() => {
+    if (!showLoginCube) return;
+    const watchdog = setTimeout(() => {
+      console.warn('[Login] Loading animation watchdog triggered, navigating to dashboard');
+      window.location.href = '/portal/dashboard/soltheory';
+    }, 4500);
+    return () => clearTimeout(watchdog);
+  }, [showLoginCube]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,24 +169,25 @@ export default function InsightLoginPage() {
       };
 
       const navigateTo = (path: string) => {
-        // Prefetch immediately so the dashboard loads during the cube animation
         prefetchDashboard(path);
-        // Timeline:
-        // 0-4s   = progress bar fills to 100%
-        // 4s     = progress bar fades out (bar only, not the whole overlay)
-        // 4s-5s  = cube keeps spinning on white background, bar is gone
-        // 5s     = navigate — overlay stays fully visible (no flash)
-        //          Dashboard side has a matching overlay that fades out when ready
 
-        // Fade out just the progress bar after it finishes filling
+        // Fade out progress bar smoothly
         setTimeout(() => {
           const bar = document.getElementById('login-progress-bar');
           if (bar) bar.style.opacity = '0';
-        }, 4000);
+        }, 1200);
 
-        // Navigate while the cube is still fully visible
-        // Do NOT fade the overlay — let it stay white so there's no flash
-        setTimeout(() => { window.location.href = path; }, 5000);
+        // Fast navigation with router.push + window.location fallback
+        setTimeout(() => {
+          try {
+            router.push(path);
+          } catch {}
+          setTimeout(() => {
+            if (typeof window !== "undefined" && window.location.pathname !== path) {
+              window.location.href = path;
+            }
+          }, 800);
+        }, 1600);
       };
 
       // ── Check Firestore for frozen account & org access ──
@@ -199,6 +225,8 @@ export default function InsightLoginPage() {
       }
     } catch (err: any) {
       console.error("[Login] Full error:", err?.code, err?.message);
+      setShowLoginCube(false);
+      setIsLoading(false);
       if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password" || err?.code === "auth/user-not-found") {
         setError("Invalid email or password.");
       } else if (err?.message === "Account frozen") {
@@ -206,11 +234,10 @@ export default function InsightLoginPage() {
       } else if (err?.message === "Unauthorized organization") {
         setError("Your account is not linked to an organization. Contact an admin.");
       } else {
-        setError("Invalid credentials or unauthorized organization.");
+        setError(err?.message || "Invalid credentials or unauthorized organization.");
       }
     } finally {
-      // Don't reset loading spinner if the cube is showing (we're navigating away)
-      if (!showLoginCube) setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
