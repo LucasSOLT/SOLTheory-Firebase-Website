@@ -2395,16 +2395,19 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           {/* Slide-in panel */}
           <div className={`absolute inset-y-0 left-0 w-[280px] max-w-[85vw] shadow-2xl flex flex-col animate-in slide-in-from-left duration-300 ${isDarkMode ? 'bg-slate-900' : 'bg-[#faf8f3]'}`}>
             <div className={`p-4 flex items-center justify-between ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-200'}`}>
-              <span className={`text-sm font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>Chat History</span>
+              <span className={`text-sm font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{chatScope === 'org' ? 'Team Chats' : 'Chat History'}</span>
               <button
                 onClick={() => setIsMobileSidebarOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-3">
-              
+            <div className="px-3 pt-3 pb-1 shrink-0">
+              {/* Scope Toggle — User vs Org context */}
+              <div className="mb-3">
+                <ScopeToggle isDarkMode={isDarkMode} orgName={getOrgConfig(orgId)?.label} orgId={orgId} />
+              </div>
               <button onClick={() => { startNewSession(); setIsMobileSidebarOpen(false); }} className={`w-full text-left p-3 rounded-xl border border-dashed transition-colors flex items-center gap-3 group ${isDarkMode ? 'border-slate-600/50 bg-slate-800 hover:bg-slate-700' : 'border-slate-300/50 bg-[#faf6ed] hover:bg-slate-100'}`}>
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400 group-hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'}`}>
                   <SquarePen className="w-4 h-4" />
@@ -2420,11 +2423,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 <div
                   key={s.id}
                   onClick={() => { loadSession(s.id); setIsMobileSidebarOpen(false); }}
-                  className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[44px] py-2.5 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? 'bg-slate-700/60 text-white border border-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? 'bg-slate-200/70 text-slate-900 border border-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100')}`}
+                  className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[44px] py-2.5 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-900/30 text-white border border-emerald-700' : 'bg-slate-700/60 text-white border border-slate-600') : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-50 text-slate-900 border border-emerald-200' : 'bg-slate-200/70 text-slate-900 border border-slate-200') : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100')}`}
                 >
-                  <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
+                  {s.scope === 'org' ? <Users className="w-4 h-4 mr-3 shrink-0 opacity-70 text-emerald-500" /> : <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />}
                   <span className="text-sm font-medium flex-1 break-words leading-snug">{stripMarkdown(s.title)}</span>
-                  <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-60 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
+                  <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-60 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
