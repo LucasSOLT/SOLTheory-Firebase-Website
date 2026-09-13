@@ -6,7 +6,7 @@ import { useUser, useFirestore, useStorage } from "@/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 const DocumentEditor = dynamic(() => import("@/components/media-library/DocumentEditor"), { ssr: false });
-import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { collection, getDoc, getDocs, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import {
   Folder,
   FolderOpen,
@@ -17,7 +17,6 @@ import {
   Music,
   Archive,
   Table,
-  Clock,
   Plus,
   ChevronRight,
   ChevronDown,
@@ -38,7 +37,19 @@ import {
   Eye,
   Download,
   Maximize2,
+  Brain,
+  Building2,
+  HardDrive,
+  BookOpen,
+  LayoutGrid,
+  List,
 } from "lucide-react";
+import { useOrgId } from "@/contexts/OrgContext";
+import MediaGridCard from "@/components/media-library/MediaGridCard";
+import type { MediaCardItem } from "@/components/media-library/MediaGridCard";
+import PactMemoryView from "@/components/media-library/PactMemoryView";
+import { getAuthHeaders } from "@/lib/api-auth-client";
+import { ADMIN_EMAILS } from "@/lib/admin";
 
 /* ═══════════════════════════════════════════════════════════════
    TYPES
@@ -76,14 +87,7 @@ interface FileItem {
   content: string;
   downloadUrl?: string;
   mimeType?: string;
-}
-
-interface RecentItem {
-  id: string;
-  name: string;
-  type: "folder" | "file";
-  extension?: string;
-  accessedAt: Date;
+  storagePath?: string;
 }
 
 interface OrgMember {
@@ -157,6 +161,19 @@ function isPreviewable(ext: string): boolean {
   return isImageFile(ext) || isVideoFile(ext) || isAudioFile(ext) || ext.toLowerCase() === 'pdf';
 }
 
+// Binary document formats that cannot be rendered in TipTap editor
+// These should download instead of opening the editor with an empty document
+const BINARY_DOC_EXTS = new Set(["doc", "docx", "odt", "rtf", "pages", "numbers", "key", "ppt", "pptx", "odp", "xls", "xlsx", "ods"]);
+
+function isEditableInEditor(file: { extension: string; content?: string }): boolean {
+  const ext = file.extension.toLowerCase();
+  // Binary doc formats can never be edited in TipTap
+  if (BINARY_DOC_EXTS.has(ext)) return false;
+  // Text/code/md files can be viewed but not really TipTap documents
+  // Only truly TipTap-created documents (type: "document") have HTML content
+  return true;
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -195,18 +212,6 @@ function getTypeBadgeColor(ext: string): string {
     case "txt": return "bg-slate-50 text-slate-700 border-slate-200";
     default: return "bg-slate-50 text-slate-700 border-slate-200";
   }
-}
-
-function getRelativeTime(date: Date): string {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
 }
 
 function formatDate(date: Date): string {
@@ -679,6 +684,503 @@ export default function MediaLibraryPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const orgId = useOrgId();
+
+  // ─── Tab State: AI Brain / Org AI Brain / General Storage / P.A.C.T. ───
+  type MediaTab = "ai-brain" | "org-brain" | "general-storage" | "pact";
+  const [mediaTab, setMediaTab] = useState<MediaTab>("general-storage");
+
+  // ─── View Mode: Grid / List ───
+  type ViewMode = "grid" | "list";
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+
+  // ─── Toast State (hoisted before AI Brain for dependency ordering) ───
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  // ─── AI Brain State ───
+  interface AiBrainDoc {
+    id: string;
+    name: string;
+    type: string;
+    extension: string;
+    size: string;
+    sizeBytes: number;
+    mimeType: string;
+    downloadUrl: string;
+    storagePath: string;
+    plaintext: string;
+    pageCount: number | null;
+    uploadedBy: string;
+    uploadedByEmail: string;
+    createdAt: Date;
+    status: "processing" | "ready" | "error";
+    vectorChunkCount?: number;
+  }
+  const [aiBrainDocs, setAiBrainDocs] = useState<AiBrainDoc[]>([]);
+  const [aiBrainLoaded, setAiBrainLoaded] = useState(false);
+  const [aiBrainUploading, setAiBrainUploading] = useState(false);
+  const [aiBrainUploadProgress, setAiBrainUploadProgress] = useState<string>("");
+  const [aiBrainDragOver, setAiBrainDragOver] = useState(false);
+  const [aiBrainPreview, setAiBrainPreview] = useState<AiBrainDoc | null>(null);
+  const aiBrainFileRef = useRef<HTMLInputElement>(null);
+
+  // ─── Load AI Brain Docs from Firestore ───
+  useEffect(() => {
+    if (!firestore || !user?.uid || mediaTab !== "ai-brain") return;
+    const docsCol = collection(firestore, `users/${user.uid}/ai_brain_docs`);
+    const unsub = onSnapshot(docsCol, (snap) => {
+      const loaded: AiBrainDoc[] = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name || "Untitled",
+          type: data.type || "txt",
+          extension: data.extension || "txt",
+          size: data.size || "0 KB",
+          sizeBytes: data.sizeBytes || 0,
+          mimeType: data.mimeType || "",
+          downloadUrl: data.downloadUrl || "",
+          storagePath: data.storagePath || "",
+          plaintext: data.plaintext || "",
+          pageCount: data.pageCount ?? null,
+          uploadedBy: data.uploadedBy || "",
+          uploadedByEmail: data.uploadedByEmail || "",
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt || Date.now()),
+          status: data.status || "ready",
+          vectorChunkCount: data.vectorChunkCount ?? undefined,
+        };
+      });
+      loaded.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      setAiBrainDocs(loaded);
+      setAiBrainLoaded(true);
+    });
+    return () => unsub();
+  }, [firestore, user?.uid, mediaTab]);
+
+  // ─── AI Brain Upload Handler ───
+  const handleAiBrainUpload = useCallback(async (fileList: FileList | File[]) => {
+    if (!user?.uid) {
+      showToast("Not authenticated");
+      return;
+    }
+    const filesArray = Array.from(fileList);
+    if (filesArray.length === 0) return;
+
+    for (const file of filesArray) {
+      if (file.size > 50 * 1024 * 1024) {
+        showToast(`File too large: ${file.name} (max 50MB)`);
+        continue;
+      }
+
+      setAiBrainUploading(true);
+      setAiBrainUploadProgress(`Uploading ${file.name}...`);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("scope", "personal");
+
+        const headers = await getAuthHeaders();
+        // Remove Content-Type — FormData sets its own boundary
+        delete (headers as Record<string, string>)["Content-Type"];
+
+        const res = await fetch("/api/ai-brain-upload", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
+          showToast(`Upload failed: ${errData.error || res.statusText}`);
+          continue;
+        }
+
+        const data = await res.json();
+        showToast(`Uploaded "${file.name}" — ${data.chunksCreated} vector chunks created`);
+      } catch (err: any) {
+        console.error("[AI Brain Upload]", err);
+        showToast(`Upload error: ${err?.message || "Unknown"}`);
+      }
+    }
+
+    setAiBrainUploading(false);
+    setAiBrainUploadProgress("");
+  }, [user?.uid, showToast]);
+
+  // ─── AI Brain Delete Handler ───
+  const handleAiBrainDelete = useCallback(async (docItem: AiBrainDoc) => {
+    if (!firestore || !user?.uid) return;
+    try {
+      // Delete the metadata doc
+      await deleteDoc(doc(firestore, `users/${user.uid}/ai_brain_docs`, docItem.id));
+
+      // Delete vector chunks (best-effort)
+      try {
+        const vectorsCol = collection(firestore, `users/${user.uid}/ai_brain_vectors`);
+        const vectorSnap = await getDocs(vectorsCol);
+        const batch: Promise<void>[] = [];
+        vectorSnap.docs.forEach((vDoc) => {
+          if (vDoc.data().docId === docItem.id) {
+            batch.push(deleteDoc(doc(firestore, `users/${user.uid}/ai_brain_vectors`, vDoc.id)));
+          }
+        });
+        await Promise.all(batch);
+      } catch (vecErr) {
+        console.warn("[AI Brain] Vector cleanup failed (non-fatal):", vecErr);
+      }
+
+      // Delete from storage (best-effort)
+      if (storage && docItem.storagePath) {
+        try {
+          const { deleteObject, ref } = await import("firebase/storage");
+          await deleteObject(ref(storage, docItem.storagePath));
+        } catch (storErr) {
+          console.warn("[AI Brain] Storage cleanup failed (non-fatal):", storErr);
+        }
+      }
+
+      showToast(`Deleted "${docItem.name}"`);
+    } catch (err: any) {
+      console.error("[AI Brain Delete]", err);
+      showToast(`Delete failed: ${err?.message || "Unknown"}`);
+    }
+  }, [firestore, user?.uid, storage, showToast]);
+
+  // ─── AI Brain Doc → MediaCardItem mapper ───
+  const mapAiBrainToCard = useCallback((d: AiBrainDoc): MediaCardItem => ({
+    id: d.id,
+    name: d.name,
+    type: d.type,
+    extension: d.extension,
+    size: d.size,
+    sizeBytes: d.sizeBytes,
+    modified: d.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    modifiedDate: d.createdAt,
+    downloadUrl: d.downloadUrl,
+    pageCount: d.pageCount ?? undefined,
+    content: d.plaintext,
+    status: d.status,
+    uploadedBy: d.uploadedBy,
+    uploadedByEmail: d.uploadedByEmail,
+  }), []);
+
+  // ─── Org AI Brain State ───
+  const [orgBrainDocs, setOrgBrainDocs] = useState<AiBrainDoc[]>([]);
+  const [orgBrainLoaded, setOrgBrainLoaded] = useState(false);
+  const [orgBrainUploading, setOrgBrainUploading] = useState(false);
+  const [orgBrainUploadProgress, setOrgBrainUploadProgress] = useState<string>("");
+  const [orgBrainDragOver, setOrgBrainDragOver] = useState(false);
+  const [orgBrainPreview, setOrgBrainPreview] = useState<AiBrainDoc | null>(null);
+  const orgBrainFileRef = useRef<HTMLInputElement>(null);
+
+  // ─── Admin Detection ───
+  const [currentUserRole, setCurrentUserRole] = useState<string>("member");
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const fetchRole = async () => {
+      try {
+        const userDoc = await getDoc(doc(firestore, "users", user.uid));
+        const data = userDoc.data();
+        setCurrentUserRole(data?.role || "member");
+      } catch { setCurrentUserRole("member"); }
+    };
+    fetchRole();
+  }, [firestore, user?.uid]);
+  const isOrgAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
+
+  // ─── Load Org AI Brain Docs from Firestore ───
+  useEffect(() => {
+    if (!firestore || !orgId || mediaTab !== "org-brain") return;
+    const docsCol = collection(firestore, `orgs/${orgId}/org_brain_docs`);
+    const unsub = onSnapshot(docsCol, (snap) => {
+      const loaded: AiBrainDoc[] = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name || "Untitled",
+          type: data.type || "txt",
+          extension: data.extension || "txt",
+          size: data.size || "0 KB",
+          sizeBytes: data.sizeBytes || 0,
+          mimeType: data.mimeType || "",
+          downloadUrl: data.downloadUrl || "",
+          storagePath: data.storagePath || "",
+          plaintext: data.plaintext || "",
+          pageCount: data.pageCount ?? null,
+          uploadedBy: data.uploadedBy || "",
+          uploadedByEmail: data.uploadedByEmail || "",
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt || Date.now()),
+          status: data.status || "ready",
+          vectorChunkCount: data.vectorChunkCount ?? undefined,
+        };
+      });
+      loaded.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      setOrgBrainDocs(loaded);
+      setOrgBrainLoaded(true);
+    });
+    return () => unsub();
+  }, [firestore, orgId, mediaTab]);
+
+  // ─── Org AI Brain Upload Handler (admin only) ───
+  const handleOrgBrainUpload = useCallback(async (fileList: FileList | File[]) => {
+    if (!user?.uid || !orgId) {
+      showToast("Not authenticated");
+      return;
+    }
+    if (!isOrgAdmin) {
+      showToast("Only admins can upload to the Organization AI Brain");
+      return;
+    }
+    const filesArray = Array.from(fileList);
+    if (filesArray.length === 0) return;
+
+    for (const file of filesArray) {
+      if (file.size > 50 * 1024 * 1024) {
+        showToast(`File too large: ${file.name} (max 50MB)`);
+        continue;
+      }
+
+      setOrgBrainUploading(true);
+      setOrgBrainUploadProgress(`Uploading ${file.name}...`);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("scope", "org");
+        formData.append("orgId", orgId);
+
+        const headers = await getAuthHeaders();
+        delete (headers as Record<string, string>)["Content-Type"];
+
+        const res = await fetch("/api/ai-brain-upload", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
+          showToast(`Upload failed: ${errData.error || res.statusText}`);
+          continue;
+        }
+
+        const data = await res.json();
+        showToast(`Uploaded "${file.name}" to Org Brain — ${data.chunksCreated} vector chunks created`);
+      } catch (err: any) {
+        console.error("[Org Brain Upload]", err);
+        showToast(`Upload error: ${err?.message || "Unknown"}`);
+      }
+    }
+
+    setOrgBrainUploading(false);
+    setOrgBrainUploadProgress("");
+  }, [user?.uid, orgId, isOrgAdmin, showToast]);
+
+  // ─── Org AI Brain Delete Handler (admin only) ───
+  const handleOrgBrainDelete = useCallback(async (docItem: AiBrainDoc) => {
+    if (!firestore || !orgId) return;
+    if (!isOrgAdmin) {
+      showToast("Only admins can delete from the Organization AI Brain");
+      return;
+    }
+    try {
+      await deleteDoc(doc(firestore, `orgs/${orgId}/org_brain_docs`, docItem.id));
+
+      // Delete vector chunks (best-effort)
+      try {
+        const vectorsCol = collection(firestore, `orgs/${orgId}/kb_vectors`);
+        const vectorSnap = await getDocs(vectorsCol);
+        const batch: Promise<void>[] = [];
+        vectorSnap.docs.forEach((vDoc) => {
+          if (vDoc.data().docId === docItem.id) {
+            batch.push(deleteDoc(doc(firestore, `orgs/${orgId}/kb_vectors`, vDoc.id)));
+          }
+        });
+        await Promise.all(batch);
+      } catch (vecErr) {
+        console.warn("[Org Brain] Vector cleanup failed (non-fatal):", vecErr);
+      }
+
+      // Delete from storage (best-effort)
+      if (storage && docItem.storagePath) {
+        try {
+          const { deleteObject, ref } = await import("firebase/storage");
+          await deleteObject(ref(storage, docItem.storagePath));
+        } catch (storErr) {
+          console.warn("[Org Brain] Storage cleanup failed (non-fatal):", storErr);
+        }
+      }
+
+      showToast(`Deleted "${docItem.name}" from Org Brain`);
+    } catch (err: any) {
+      console.error("[Org Brain Delete]", err);
+      showToast(`Delete failed: ${err?.message || "Unknown"}`);
+    }
+  }, [firestore, orgId, isOrgAdmin, storage, showToast]);
+
+  // ─── Cross-Tab Move Dialog State ───
+  type MoveSource = "ai-brain" | "org-brain" | "general-storage";
+  type MoveTarget = "ai-brain" | "org-brain" | "general-storage";
+  interface MoveDialogState {
+    source: MoveSource;
+    item: AiBrainDoc | FileItem;
+    x: number;
+    y: number;
+  }
+  const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
+  const [moveInProgress, setMoveInProgress] = useState(false);
+
+  // ─── Cross-Tab Move Handler ───
+  const handleCrossTabMove = useCallback(async (target: MoveTarget, sourceOverride?: MoveSource, itemOverride?: AiBrainDoc | FileItem) => {
+    const source = sourceOverride || moveDialog?.source;
+    const item = itemOverride || moveDialog?.item;
+    if (!source || !item || moveInProgress || !firestore || !user?.uid) return;
+
+    setMoveInProgress(true);
+    setMoveDialog(null);
+
+    try {
+      const sourceDoc = item as AiBrainDoc;
+      const sourceFile = item as FileItem;
+
+      if (target === "ai-brain" && source === "general-storage") {
+        // ── General Storage → AI Brain: Re-upload via API ──
+        if (!sourceFile.downloadUrl) { showToast("File has no download URL"); setMoveInProgress(false); return; }
+
+        showToast("Moving to AI Brain...");
+        const response = await fetch(sourceFile.downloadUrl);
+        const blob = await response.blob();
+
+        const formData = new FormData();
+        formData.append("file", blob, sourceFile.name);
+        formData.append("scope", "personal");
+
+        const headers = await getAuthHeaders();
+        delete (headers as Record<string, string>)["Content-Type"];
+
+        const res = await fetch("/api/ai-brain-upload", { method: "POST", headers, body: formData });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
+          showToast(`Move failed: ${errData.error || res.statusText}`);
+          setMoveInProgress(false);
+          return;
+        }
+
+        // Delete from General Storage
+        await deleteDoc(doc(firestore, `users/${user.uid}/media_library_files`, sourceFile.id));
+        if (storage && sourceFile.storagePath) {
+          try {
+            const { deleteObject, ref } = await import("firebase/storage");
+            await deleteObject(ref(storage, sourceFile.storagePath));
+          } catch { /* non-fatal */ }
+        }
+
+        showToast(`Moved "${sourceFile.name}" to AI Brain`);
+
+      } else if (target === "general-storage" && (source === "ai-brain" || source === "org-brain")) {
+        // ── AI Brain / Org Brain → General Storage: Copy file to General Storage ──
+        if (!sourceDoc.downloadUrl) { showToast("Document has no download URL"); setMoveInProgress(false); return; }
+
+        showToast("Moving to General Storage...");
+
+        // Download the file
+        const response = await fetch(sourceDoc.downloadUrl);
+        const blob = await response.blob();
+
+        // Upload to General Storage
+        const { ref: sRef, uploadBytesResumable: uploadFn, getDownloadURL: getUrl } = await import("firebase/storage");
+        const newPath = `media_library/${user.uid}/${Date.now()}_${sourceDoc.name}`;
+        const fileRef = sRef(storage!, newPath);
+        const snapshot = await new Promise<any>((resolve, reject) => {
+          const task = uploadFn(fileRef, blob);
+          task.on("state_changed", null, reject, () => resolve(task.snapshot));
+        });
+        const newDownloadUrl = await getUrl(snapshot.ref);
+
+        // Create Firestore entry in General Storage
+        const newFileDoc = doc(collection(firestore, `users/${user.uid}/media_library_files`));
+        await setDoc(newFileDoc, {
+          name: sourceDoc.name,
+          size: sourceDoc.sizeBytes || 0,
+          type: blob.type || "application/octet-stream",
+          downloadUrl: newDownloadUrl,
+          storagePath: newPath,
+          folderId: "my-files",
+          createdAt: serverTimestamp(),
+          modifiedAt: serverTimestamp(),
+          uploadedBy: user.uid,
+        });
+
+        // If source is personal AI Brain, delete it
+        if (source === "ai-brain") {
+          await handleAiBrainDelete(sourceDoc);
+        }
+        // If source is Org Brain and user is admin, they can choose — but for moves, we delete
+        if (source === "org-brain" && isOrgAdmin) {
+          await handleOrgBrainDelete(sourceDoc);
+        }
+
+        showToast(`Moved "${sourceDoc.name}" to General Storage`);
+
+      } else if (target === "org-brain" && (source === "ai-brain" || source === "general-storage")) {
+        // ── AI Brain / General Storage → Org Brain (admin only) ──
+        if (!isOrgAdmin) { showToast("Only admins can move to Org Brain"); setMoveInProgress(false); return; }
+
+        const downloadUrl = source === "ai-brain" ? (item as AiBrainDoc).downloadUrl : (item as FileItem).downloadUrl;
+        const fileName = source === "ai-brain" ? (item as AiBrainDoc).name : (item as FileItem).name;
+        if (!downloadUrl) { showToast("File has no download URL"); setMoveInProgress(false); return; }
+
+        showToast("Moving to Org Brain...");
+        const response = await fetch(downloadUrl);
+        const blob = await response.blob();
+
+        const formData = new FormData();
+        formData.append("file", blob, fileName);
+        formData.append("scope", "org");
+        formData.append("orgId", orgId);
+
+        const headers = await getAuthHeaders();
+        delete (headers as Record<string, string>)["Content-Type"];
+
+        const res = await fetch("/api/ai-brain-upload", { method: "POST", headers, body: formData });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
+          showToast(`Move failed: ${errData.error || res.statusText}`);
+          setMoveInProgress(false);
+          return;
+        }
+
+        // Delete from source
+        if (source === "ai-brain") {
+          await handleAiBrainDelete(item as AiBrainDoc);
+        } else if (source === "general-storage") {
+          await deleteDoc(doc(firestore, `users/${user.uid}/media_library_files`, (item as FileItem).id));
+          if (storage && (item as FileItem).storagePath) {
+            try {
+              const { deleteObject, ref } = await import("firebase/storage");
+              await deleteObject(ref(storage, (item as FileItem).storagePath));
+            } catch { /* non-fatal */ }
+          }
+        }
+
+        showToast(`Moved "${fileName}" to Org Brain`);
+      }
+    } catch (err: any) {
+      console.error("[Cross-Tab Move Error]:", err);
+      showToast(`Move failed: ${err?.message || "Unknown error"}`);
+    } finally {
+      setMoveInProgress(false);
+    }
+  }, [moveDialog, moveInProgress, firestore, user?.uid, storage, orgId, isOrgAdmin, showToast, handleAiBrainDelete, handleOrgBrainDelete]);
+
   // ─── Load files from Firestore on mount ───
   useEffect(() => {
     if (!firestore || !user?.uid) return;
@@ -801,9 +1303,6 @@ export default function MediaLibraryPage() {
     }
   }, [firestore, user?.uid]);
 
-  // ─── Recently Accessed State ───
-  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
-
   // ─── Share Modal State ───
   const [shareModalFile, setShareModalFile] = useState<FileItem | null>(null);
 
@@ -812,10 +1311,6 @@ export default function MediaLibraryPage() {
 
   // ─── Media Preview State ───
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
-
-  // ─── Toast State ───
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Rename State ───
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
@@ -826,20 +1321,6 @@ export default function MediaLibraryPage() {
 
   // ─── Editor Error State ───
   const [editorError, setEditorError] = useState<string | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 2500);
-  }, []);
-
-  // ─── Track recently accessed items ───
-  const trackAccess = useCallback((item: { id: string; name: string; type: "folder" | "file"; extension?: string }) => {
-    setRecentItems((prev) => {
-      const filtered = prev.filter((r) => r.id !== item.id);
-      return [{ ...item, accessedAt: new Date() }, ...filtered].slice(0, 8);
-    });
-  }, []);
 
   // ─── Close context menu & sidebar popup on click outside ───
   useEffect(() => {
@@ -905,7 +1386,6 @@ export default function MediaLibraryPage() {
       handleDeleteFolder(folder.id);
     } else if (action === "Open") {
       setSelectedFolder(contextMenu.targetId);
-      trackAccess({ id: contextMenu.targetId, name: folder?.name || "", type: "folder" });
     } else {
       showToast(`${action}: ${folder?.name}`);
     }
@@ -945,6 +1425,10 @@ export default function MediaLibraryPage() {
       setShareModalFile(file);
     } else if (action === "Move to...") {
       setMoveFileId(file.id);
+    } else if (action === "Move to AI Brain") {
+      handleCrossTabMove("ai-brain", "general-storage", file);
+    } else if (action === "Move to Org Brain") {
+      handleCrossTabMove("org-brain", "general-storage", file);
     } else if (action === "Delete") {
       handleDeleteFile(file.id);
     } else if (action === "Download" && file.downloadUrl) {
@@ -1047,7 +1531,6 @@ export default function MediaLibraryPage() {
     setCreatingFolder(false);
     setCreatingFolderInContent(false);
     showToast(`Created folder: ${newFolder.name}`);
-    trackAccess({ id, name: newFolder.name, type: "folder" });
   };
 
   const handleCreateDocument = () => {
@@ -1097,7 +1580,6 @@ export default function MediaLibraryPage() {
       return prev;
     });
     showToast(`Created: ${finalName}`);
-    trackAccess({ id, name: finalName, type: "file", extension: "txt" });
   };
 
   // ─── File Upload Handler ───
@@ -1178,7 +1660,6 @@ export default function MediaLibraryPage() {
             );
             await persistFile(completedFile);
             showToast(`Uploaded: ${file.name}`);
-            trackAccess({ id: fileId, name: file.name, type: "file", extension: ext });
           } catch (err) {
             console.error("Failed to get download URL:", err);
             showToast(`Upload failed: ${file.name}`);
@@ -1192,7 +1673,7 @@ export default function MediaLibraryPage() {
         }
       );
     }
-  }, [storage, firestore, user?.uid, selectedFolder, showToast, persistFile, trackAccess]);
+  }, [storage, firestore, user?.uid, selectedFolder, showToast, persistFile]);
 
   // ─── Drag and Drop Handlers ───
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1340,7 +1821,6 @@ export default function MediaLibraryPage() {
           <button
             onClick={() => {
               setSelectedFolder(folderId);
-              trackAccess({ id: folderId, name: folder.name, type: "folder" });
               if (hasChildren) toggleFolder(folderId);
             }}
             onContextMenu={(e) => handleContextMenu(e, "folder", folderId)}
@@ -1429,65 +1909,608 @@ export default function MediaLibraryPage() {
      ═══════════════════════════════════════════════════════════════ */
 
   return (
-    <div className={`-mx-4 -mb-4 md:-mx-10 md:-mb-10 flex h-full w-full ${bg} overflow-hidden rounded-xl border ${borderColor}`}>
-      {/* ───── LEFT PANEL: FOLDER TREE ───── */}
-      <aside className={`w-[240px] shrink-0 flex flex-col ${bgSidebar} border-r ${borderColor}`}>
-        <div className={`h-14 flex items-center justify-between px-4 border-b ${borderColor}`}>
-          <div className="flex items-center gap-2.5">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-slate-800"}`}>
-              <Folder className="w-3.5 h-3.5 text-white" />
+    <div className={`-mx-4 -mb-4 md:-mx-10 md:-mb-10 flex flex-col h-full w-full ${bg} overflow-hidden rounded-xl border ${borderColor}`}>
+      {/* ───── TAB SELECTOR BAR ───── */}
+      <div className={`flex items-center gap-1.5 px-4 pt-3 pb-0 shrink-0 overflow-x-auto`}>
+        {/* ── AI Intelligence Group (AI Brain, Org Brain, P.A.C.T.) ── */}
+        {([
+          { key: "ai-brain" as MediaTab, label: "AI Brain", icon: <Brain className="w-4 h-4" />, color: "indigo", desc: "Personal — Jarvis can read & quote" },
+          { key: "org-brain" as MediaTab, label: "Org AI Brain", icon: <Building2 className="w-4 h-4" />, color: "blue", desc: "Shared — all users" },
+          { key: "pact" as MediaTab, label: "P.A.C.T.", icon: <BookOpen className="w-4 h-4" />, color: "emerald", desc: "Learned memory from chats" },
+        ]).map((tab) => {
+          const isActive = mediaTab === tab.key;
+          const activeStyles = {
+            "indigo": isDark ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300" : "bg-indigo-50 border-indigo-300 text-indigo-700",
+            "blue": isDark ? "bg-blue-500/15 border-blue-500/40 text-blue-300" : "bg-blue-50 border-blue-300 text-blue-700",
+            "emerald": isDark ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-700",
+          }[tab.color];
+          const inactiveStyles = isDark
+            ? "bg-transparent border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
+            : "bg-transparent border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50";
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setMediaTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-[13px] font-semibold border border-b-0 transition-all cursor-pointer ${
+                isActive ? activeStyles : inactiveStyles
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {isActive && (
+                <span className={`text-[10px] font-medium ml-1 hidden lg:inline ${isDark ? "opacity-60" : "opacity-50"}`}>
+                  — {tab.desc}
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {/* ── Visual Divider ── */}
+        <div className={`h-5 w-px mx-1.5 self-center ${isDark ? "bg-slate-700/80" : "bg-stone-300/80"}`} />
+
+        {/* ── General Storage Tab (Visually Separate & Subtle Custom Tint) ── */}
+        {(() => {
+          const isGeneralActive = mediaTab === "general-storage";
+          const generalActiveStyle = isDark
+            ? "bg-slate-800/90 border-slate-600 text-slate-100 shadow-sm"
+            : "bg-[#f5f1e8] border-stone-300 text-stone-900 shadow-sm";
+          const generalInactiveStyle = isDark
+            ? "bg-slate-900/60 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+            : "bg-stone-100/70 border-stone-200 text-stone-600 hover:text-stone-900 hover:bg-stone-200/60";
+
+          return (
+            <button
+              onClick={() => setMediaTab("general-storage")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-[13px] font-semibold border border-b-0 transition-all cursor-pointer ${
+                isGeneralActive ? generalActiveStyle : generalInactiveStyle
+              }`}
+            >
+              <HardDrive className={`w-4 h-4 ${isGeneralActive ? (isDark ? "text-amber-400" : "text-amber-600") : (isDark ? "text-slate-500" : "text-stone-400")}`} />
+              <span>General Storage</span>
+              {isGeneralActive && (
+                <span className={`text-[10px] font-medium ml-1 hidden lg:inline ${isDark ? "text-slate-400" : "text-stone-500"}`}>
+                  — Files & standard storage
+                </span>
+              )}
+            </button>
+          );
+        })()}
+      </div>
+
+      {/* ───── TAB CONTENT AREA ───── */}
+      <div className={`flex flex-1 overflow-hidden border-t ${borderColor}`}>
+        {/* ───── LEFT PANEL: FOLDER TREE (General Storage only) ───── */}
+        {mediaTab === "general-storage" && (
+        <aside className={`w-[240px] shrink-0 flex flex-col ${bgSidebar} border-r ${borderColor}`}>
+          <div className={`h-14 flex items-center justify-between px-4 border-b ${borderColor}`}>
+            <div className="flex items-center gap-2.5">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-slate-800"}`}>
+                <Brain className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className={`text-[14px] font-bold tracking-tight ${textPrimary}`}>AI Brain</span>
             </div>
-            <span className={`text-[14px] font-bold tracking-tight ${textPrimary}`}>Media Library</span>
+            <button
+              onClick={() => { setCreatingFolder(true); setExpandedFolders((p) => new Set([...p, "my-files"])); }}
+              title="New Folder"
+              className={`w-7 h-7 rounded-md flex items-center justify-center ${hoverBg} ${textMuted} hover:text-slate-600 transition-colors cursor-pointer`}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={() => { setCreatingFolder(true); setExpandedFolders((p) => new Set([...p, "my-files"])); }}
-            title="New Folder"
-            className={`w-7 h-7 rounded-md flex items-center justify-center ${hoverBg} ${textMuted} hover:text-slate-600 transition-colors cursor-pointer`}
+
+          <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+            {renderFolderNode("my-files")}
+
+            {creatingFolder && (
+              <div className="flex items-center gap-2 px-3 py-1.5" style={{ paddingLeft: "44px" }}>
+                <Folder className="w-4 h-4 text-amber-500 shrink-0" />
+                <input
+                  ref={newFolderRef}
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateFolder();
+                    if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); }
+                  }}
+                  onBlur={() => handleCreateFolder()}
+                  placeholder="Folder name..."
+                  className={`flex-1 px-2 py-1 text-[12px] rounded border outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 ${inputBg}`}
+                />
+              </div>
+            )}
+
+            <div className={`my-3 mx-3 border-t ${borderColor}`} />
+            {renderFolderNode("shared")}
+            {renderFolderNode("trash")}
+          </nav>
+
+          <div className={`px-4 py-3 border-t ${borderColor}`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className={`text-[10px] font-semibold uppercase tracking-wider ${textMuted}`}>Storage Used</span>
+              <span className={`text-[10px] font-bold ${textTertiary}`}>{formatFileSize(files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0))} / 5 GB</span>
+            </div>
+            <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-slate-200"}`}>
+              <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(100, (files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0) / (5 * 1024 * 1024 * 1024)) * 100)}%` }} />
+            </div>
+          </div>
+        </aside>
+        )}
+
+        {/* ───── AI BRAIN TAB ───── */}
+        {mediaTab === "ai-brain" && (
+          <div
+            className={`flex-1 flex flex-col overflow-hidden transition-colors ${
+              aiBrainDragOver
+                ? isDark ? "bg-indigo-950/30" : "bg-indigo-50/60"
+                : ""
+            }`}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setAiBrainDragOver(true); }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setAiBrainDragOver(false); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setAiBrainDragOver(false);
+              if (e.dataTransfer.files?.length) handleAiBrainUpload(e.dataTransfer.files);
+            }}
           >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
+            {/* Hidden file input */}
+            <input
+              ref={aiBrainFileRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.doc,.txt,.md,.csv,.json,.xml,.html,.css,.js,.ts,.tsx,.jsx,.py,.rb,.go,.rs,.java,.c,.cpp,.h,.yaml,.yml,.jpg,.jpeg,.png,.webp,.gif"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) handleAiBrainUpload(e.target.files);
+                e.target.value = "";
+              }}
+            />
 
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-          {renderFolderNode("my-files")}
-
-          {creatingFolder && (
-            <div className="flex items-center gap-2 px-3 py-1.5" style={{ paddingLeft: "44px" }}>
-              <Folder className="w-4 h-4 text-amber-500 shrink-0" />
-              <input
-                ref={newFolderRef}
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateFolder();
-                  if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); }
-                }}
-                onBlur={() => handleCreateFolder()}
-                placeholder="Folder name..."
-                className={`flex-1 px-2 py-1 text-[12px] rounded border outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 ${inputBg}`}
-              />
+            {/* Header bar */}
+            <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-indigo-500/20" : "bg-indigo-50"}`}>
+                  <Brain className={`w-4 h-4 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                </div>
+                <div>
+                  <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Personal AI Brain</h3>
+                  <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    {aiBrainDocs.length} document{aiBrainDocs.length !== 1 ? "s" : ""}
+                    {aiBrainDocs.some((d) => d.status === "processing") && " · Processing..."}
+                  </p>
+                </div>
+              </div>
+              <button
+                disabled={aiBrainUploading}
+                onClick={() => aiBrainFileRef.current?.click()}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                  aiBrainUploading
+                    ? isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-500"
+                    : "bg-indigo-600 text-white hover:bg-indigo-700"
+                }`}
+              >
+                {aiBrainUploading ? (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Uploading...</>
+                ) : (
+                  <><Upload className="w-4 h-4" /> Upload</>
+                )}
+              </button>
             </div>
-          )}
 
-          <div className={`my-3 mx-3 border-t ${borderColor}`} />
-          {renderFolderNode("shared")}
-          {renderFolderNode("trash")}
-        </nav>
+            {/* Upload progress banner */}
+            {aiBrainUploading && aiBrainUploadProgress && (
+              <div className={`px-6 py-2.5 text-xs font-medium flex items-center gap-2 border-b ${
+                isDark ? "bg-indigo-950/30 border-indigo-900/50 text-indigo-300" : "bg-indigo-50 border-indigo-100 text-indigo-700"
+              }`}>
+                <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                {aiBrainUploadProgress}
+              </div>
+            )}
 
-        <div className={`px-4 py-3 border-t ${borderColor}`}>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className={`text-[10px] font-semibold uppercase tracking-wider ${textMuted}`}>Storage Used</span>
-            <span className={`text-[10px] font-bold ${textTertiary}`}>{formatFileSize(files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0))} / 5 GB</span>
+            {/* Drag overlay */}
+            {aiBrainDragOver && (
+              <div className={`mx-6 mt-4 mb-2 p-8 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center ${
+                isDark ? "border-indigo-500 bg-indigo-950/40" : "border-indigo-400 bg-indigo-50"
+              }`}>
+                <Upload className={`w-8 h-8 mb-2 ${isDark ? "text-indigo-400" : "text-indigo-500"}`} />
+                <p className={`text-sm font-semibold ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>Drop files to upload to AI Brain</p>
+                <p className={`text-[11px] mt-1 ${isDark ? "text-indigo-400/70" : "text-indigo-500"}`}>PDF, DOCX, TXT, images, code files</p>
+              </div>
+            )}
+
+            {/* Content area */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {!aiBrainLoaded ? (
+                <div className="flex items-center justify-center h-48">
+                  <span className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                </div>
+              ) : aiBrainDocs.length === 0 && !aiBrainDragOver ? (
+                /* Empty state */
+                <div className="flex-1 flex flex-col items-center justify-center py-20">
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDark ? "bg-indigo-500/15" : "bg-indigo-50"}`}>
+                    <Brain className={`w-10 h-10 ${isDark ? "text-indigo-400" : "text-indigo-500"}`} />
+                  </div>
+                  <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>Personal AI Brain</h2>
+                  <p className={`text-sm text-center max-w-md mb-1 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                    Upload documents, images, and files here for Jarvis to read, reference, and quote from.
+                  </p>
+                  <p className={`text-xs text-center max-w-md mb-6 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                    Jarvis will search these documents when you ask questions and cite specific sources in responses.
+                  </p>
+                  <button
+                    onClick={() => aiBrainFileRef.current?.click()}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload to AI Brain
+                  </button>
+                  <p className={`text-[11px] mt-3 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Supports PDF, DOCX, TXT, JPG, PNG, WebP, and code files</p>
+                </div>
+              ) : (
+                /* Document Grid */
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {aiBrainDocs.map((brainDoc) => (
+                    <MediaGridCard
+                      key={brainDoc.id}
+                      item={mapAiBrainToCard(brainDoc)}
+                      isDark={isDark}
+                      isSelected={selectedFileIds.has(brainDoc.id)}
+                      onSelect={(id) => {
+                        setSelectedFileIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return next;
+                        });
+                      }}
+                      onDoubleClick={(item) => {
+                        if (isPreviewable(brainDoc.extension) && brainDoc.downloadUrl) {
+                          setAiBrainPreview(brainDoc);
+                        } else if (brainDoc.downloadUrl) {
+                          window.open(brainDoc.downloadUrl, "_blank");
+                        }
+                      }}
+                      onDelete={() => handleAiBrainDelete(brainDoc)}
+                      onContextMenu={(item, e) => {
+                        e.preventDefault();
+                        setMoveDialog({ source: "ai-brain", item: brainDoc, x: e.clientX, y: e.clientY });
+                      }}
+                      onDownload={(item) => {
+                        if (item.downloadUrl) {
+                          const a = document.createElement("a");
+                          a.href = item.downloadUrl;
+                          a.download = item.name;
+                          a.target = "_blank";
+                          a.rel = "noopener noreferrer";
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }
+                      }}
+                      extraBadge={
+                        brainDoc.status === "processing" ? (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                            <span className="w-2 h-2 border border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                            Processing
+                          </span>
+                        ) : brainDoc.vectorChunkCount ? (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                            isDark ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          }`}>
+                            {brainDoc.vectorChunkCount} chunks
+                          </span>
+                        ) : null
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-slate-200"}`}>
-            <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(100, (files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0) / (5 * 1024 * 1024 * 1024)) * 100)}%` }} />
-          </div>
-        </div>
-      </aside>
+        )}
 
-      {/* ───── RIGHT PANEL ───── */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* ───── AI BRAIN PREVIEW MODAL ───── */}
+        {aiBrainPreview && aiBrainPreview.downloadUrl && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/80 z-[250] backdrop-blur-md cursor-pointer"
+              onClick={() => setAiBrainPreview(null)}
+            />
+            <div className="fixed inset-0 z-[260] flex items-center justify-center p-8 pointer-events-none">
+              <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex flex-col items-center justify-center pointer-events-auto">
+                {/* Top Bar */}
+                <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-10">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-white/10" : "bg-black/10"}`}>
+                      {isImageFile(aiBrainPreview.extension) ? <Image className="w-4 h-4 text-white" /> :
+                       isVideoFile(aiBrainPreview.extension) ? <Video className="w-4 h-4 text-white" /> :
+                       <FileText className="w-4 h-4 text-white" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold text-white truncate">{aiBrainPreview.name}</p>
+                      <p className="text-[11px] text-white/60">{aiBrainPreview.size} · {aiBrainPreview.extension.toUpperCase()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={aiBrainPreview.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={aiBrainPreview.name}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                      title="Download"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Download className="w-4 h-4 text-white" />
+                    </a>
+                    <button
+                      onClick={() => setAiBrainPreview(null)}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                      title="Close"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+                {/* Content */}
+                <div className="flex items-center justify-center w-full h-full pt-16 pb-4">
+                  {isVideoFile(aiBrainPreview.extension) ? (
+                    <video src={aiBrainPreview.downloadUrl} controls autoPlay className="max-w-full max-h-full rounded-xl shadow-2xl" />
+                  ) : isImageFile(aiBrainPreview.extension) ? (
+                    <img src={aiBrainPreview.downloadUrl} alt={aiBrainPreview.name} className="max-w-full max-h-full rounded-xl shadow-2xl object-contain" />
+                  ) : aiBrainPreview.extension === "pdf" ? (
+                    <iframe src={aiBrainPreview.downloadUrl} className="w-full h-full rounded-xl shadow-2xl bg-white" title={aiBrainPreview.name} />
+                  ) : (
+                    <div className={`max-w-2xl w-full max-h-full overflow-auto rounded-xl shadow-2xl p-8 ${isDark ? "bg-slate-900 text-slate-200" : "bg-white text-slate-800"}`}>
+                      <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">{aiBrainPreview.plaintext || "No text content extracted."}</pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ───── ORG AI BRAIN TAB ───── */}
+        {mediaTab === "org-brain" && (
+          <div
+            className={`flex-1 flex flex-col overflow-hidden transition-colors ${
+              orgBrainDragOver && isOrgAdmin
+                ? isDark ? "bg-blue-950/30" : "bg-blue-50/60"
+                : ""
+            }`}
+            onDragOver={(e) => { if (isOrgAdmin) { e.preventDefault(); e.stopPropagation(); setOrgBrainDragOver(true); } }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setOrgBrainDragOver(false); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOrgBrainDragOver(false);
+              if (isOrgAdmin && e.dataTransfer.files?.length) handleOrgBrainUpload(e.dataTransfer.files);
+            }}
+          >
+            {/* Hidden file input (admin only) */}
+            {isOrgAdmin && (
+              <input
+                ref={orgBrainFileRef}
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,.txt,.md,.csv,.json,.xml,.html,.css,.js,.ts,.tsx,.jsx,.py,.rb,.go,.rs,.java,.c,.cpp,.h,.yaml,.yml,.jpg,.jpeg,.png,.webp,.gif"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.length) handleOrgBrainUpload(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            )}
+
+            {/* Header bar */}
+            <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20" : "bg-blue-50"}`}>
+                  <Building2 className={`w-4 h-4 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+                </div>
+                <div>
+                  <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Organization AI Brain</h3>
+                  <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    {orgBrainDocs.length} document{orgBrainDocs.length !== 1 ? "s" : ""} · Shared with all members
+                    {orgBrainDocs.some((d) => d.status === "processing") && " · Processing..."}
+                  </p>
+                </div>
+              </div>
+              {isOrgAdmin && (
+                <button
+                  disabled={orgBrainUploading}
+                  onClick={() => orgBrainFileRef.current?.click()}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                    orgBrainUploading
+                      ? isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-500"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
+                  {orgBrainUploading ? (
+                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Uploading...</>
+                  ) : (
+                    <><Upload className="w-4 h-4" /> Upload</>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Upload progress banner */}
+            {orgBrainUploading && orgBrainUploadProgress && (
+              <div className={`px-6 py-2.5 text-xs font-medium flex items-center gap-2 border-b ${
+                isDark ? "bg-blue-950/30 border-blue-900/50 text-blue-300" : "bg-blue-50 border-blue-100 text-blue-700"
+              }`}>
+                <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                {orgBrainUploadProgress}
+              </div>
+            )}
+
+            {/* Drag overlay (admin only) */}
+            {orgBrainDragOver && isOrgAdmin && (
+              <div className={`mx-6 mt-4 mb-2 p-8 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center ${
+                isDark ? "border-blue-500 bg-blue-950/40" : "border-blue-400 bg-blue-50"
+              }`}>
+                <Upload className={`w-8 h-8 mb-2 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
+                <p className={`text-sm font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>Drop files to upload to Org Brain</p>
+                <p className={`text-[11px] mt-1 ${isDark ? "text-blue-400/70" : "text-blue-500"}`}>PDF, DOCX, TXT, images, code files</p>
+              </div>
+            )}
+
+            {/* Content area */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {!orgBrainLoaded ? (
+                <div className="flex items-center justify-center h-48">
+                  <span className="w-6 h-6 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                </div>
+              ) : orgBrainDocs.length === 0 && !orgBrainDragOver ? (
+                /* Empty state */
+                <div className="flex-1 flex flex-col items-center justify-center py-20">
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDark ? "bg-blue-500/15" : "bg-blue-50"}`}>
+                    <Building2 className={`w-10 h-10 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
+                  </div>
+                  <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>Organization AI Brain</h2>
+                  <p className={`text-sm text-center max-w-md mb-1 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                    Shared knowledge base for your organization. All team members&apos; Jarvis instances can read and reference these documents.
+                  </p>
+                  <p className={`text-xs text-center max-w-md mb-6 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                    {isOrgAdmin ? "Upload documents that all org members can search." : "Admins can upload documents. All org members can view and search."}
+                  </p>
+                  {isOrgAdmin && (
+                    <button
+                      onClick={() => orgBrainFileRef.current?.click()}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload to Org Brain
+                    </button>
+                  )}
+                  <p className={`text-[11px] mt-3 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Supports PDF, DOCX, TXT, JPG, PNG, WebP, and code files</p>
+                </div>
+              ) : (
+                /* Document Grid */
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {orgBrainDocs.map((brainDoc) => (
+                    <MediaGridCard
+                      key={brainDoc.id}
+                      item={mapAiBrainToCard(brainDoc)}
+                      isDark={isDark}
+                      isSelected={selectedFileIds.has(brainDoc.id)}
+                      onSelect={(id) => {
+                        setSelectedFileIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return next;
+                        });
+                      }}
+                      onDoubleClick={(item) => {
+                        if (isPreviewable(brainDoc.extension) && brainDoc.downloadUrl) {
+                          setOrgBrainPreview(brainDoc);
+                        } else if (brainDoc.downloadUrl) {
+                          window.open(brainDoc.downloadUrl, "_blank");
+                        }
+                      }}
+                      onDelete={isOrgAdmin ? () => handleOrgBrainDelete(brainDoc) : undefined}
+                      onContextMenu={(item, e) => {
+                        e.preventDefault();
+                        setMoveDialog({ source: "org-brain", item: brainDoc, x: e.clientX, y: e.clientY });
+                      }}
+                      onDownload={(item) => {
+                        if (item.downloadUrl) {
+                          const a = document.createElement("a");
+                          a.href = item.downloadUrl;
+                          a.download = item.name;
+                          a.target = "_blank";
+                          a.rel = "noopener noreferrer";
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }
+                      }}
+                      extraBadge={
+                        brainDoc.status === "processing" ? (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                            <span className="w-2 h-2 border border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                            Processing
+                          </span>
+                        ) : brainDoc.uploadedByEmail ? (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold truncate max-w-[120px] ${
+                            isDark ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"
+                          }`} title={`Uploaded by ${brainDoc.uploadedByEmail}`}>
+                            {brainDoc.uploadedByEmail.split("@")[0]}
+                          </span>
+                        ) : null
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ───── ORG BRAIN PREVIEW MODAL ───── */}
+        {orgBrainPreview && orgBrainPreview.downloadUrl && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/80 z-[250] backdrop-blur-md cursor-pointer"
+              onClick={() => setOrgBrainPreview(null)}
+            />
+            <div className="fixed inset-0 z-[260] flex items-center justify-center p-8 pointer-events-none">
+              <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex flex-col items-center justify-center pointer-events-auto">
+                <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-10">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-white/10" : "bg-black/10"}`}>
+                      {isImageFile(orgBrainPreview.extension) ? <Image className="w-4 h-4 text-white" /> :
+                       isVideoFile(orgBrainPreview.extension) ? <Video className="w-4 h-4 text-white" /> :
+                       <FileText className="w-4 h-4 text-white" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold text-white truncate">{orgBrainPreview.name}</p>
+                      <p className="text-[11px] text-white/60">
+                        {orgBrainPreview.size} · {orgBrainPreview.extension.toUpperCase()}
+                        {orgBrainPreview.uploadedByEmail && ` · Uploaded by ${orgBrainPreview.uploadedByEmail}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a href={orgBrainPreview.downloadUrl} target="_blank" rel="noopener noreferrer" download={orgBrainPreview.name} className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors cursor-pointer" title="Download" onClick={(e) => e.stopPropagation()}>
+                      <Download className="w-4 h-4 text-white" />
+                    </a>
+                    <button onClick={() => setOrgBrainPreview(null)} className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors cursor-pointer" title="Close">
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-center w-full h-full pt-16 pb-4">
+                  {isVideoFile(orgBrainPreview.extension) ? (
+                    <video src={orgBrainPreview.downloadUrl} controls autoPlay className="max-w-full max-h-full rounded-xl shadow-2xl" />
+                  ) : isImageFile(orgBrainPreview.extension) ? (
+                    <img src={orgBrainPreview.downloadUrl} alt={orgBrainPreview.name} className="max-w-full max-h-full rounded-xl shadow-2xl object-contain" />
+                  ) : orgBrainPreview.extension === "pdf" ? (
+                    <iframe src={orgBrainPreview.downloadUrl} className="w-full h-full rounded-xl shadow-2xl bg-white" title={orgBrainPreview.name} />
+                  ) : (
+                    <div className={`max-w-2xl w-full max-h-full overflow-auto rounded-xl shadow-2xl p-8 ${isDark ? "bg-slate-900 text-slate-200" : "bg-white text-slate-800"}`}>
+                      <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">{orgBrainPreview.plaintext || "No text content extracted."}</pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ───── P.A.C.T. MEMORY VIEW ───── */}
+        {mediaTab === "pact" && (
+          <PactMemoryView orgId={orgId} isDark={isDark} />
+        )}
+
+        {/* ───── GENERAL STORAGE: RIGHT PANEL ───── */}
+        {mediaTab === "general-storage" && (
+        <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
         <div className={`h-14 flex items-center justify-between px-6 border-b ${borderColor} shrink-0`}>
           <div className="flex items-center gap-2">
@@ -1534,6 +2557,42 @@ export default function MediaLibraryPage() {
                   <X className="w-3 h-3" />
                 </button>
               )}
+            </div>
+
+            {/* View Mode Toggle: Grid / List */}
+            <div className={`flex items-center p-0.5 rounded-lg border ${borderColor} ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                title="Grid View"
+                className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                  viewMode === "grid"
+                    ? isDark
+                      ? "bg-slate-700 text-white shadow-xs"
+                      : "bg-white text-slate-800 shadow-xs"
+                    : isDark
+                    ? "text-slate-400 hover:text-slate-200"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                title="List View"
+                className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                  viewMode === "list"
+                    ? isDark
+                      ? "bg-slate-700 text-white shadow-xs"
+                      : "bg-white text-slate-800 shadow-xs"
+                    : isDark
+                    ? "text-slate-400 hover:text-slate-200"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             <button
@@ -1616,82 +2675,6 @@ export default function MediaLibraryPage() {
             </div>
           )}
 
-          {/* ── RECENTLY ACCESSED ── */}
-          {selectedFolder === "my-files" && recentItems.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className={`w-4 h-4 ${textMuted}`} />
-                <h3 className={`text-[13px] font-bold uppercase tracking-wider ${textTertiary}`}>Recently Accessed</h3>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {recentItems.map((item) => (
-                  <div
-                    key={`recent-${item.id}`}
-                    onClick={() => {
-                      if (item.type === "folder" && folders[item.id]) {
-                        setSelectedFolder(item.id);
-                        setExpandedFolders((p) => new Set([...p, "my-files", item.id]));
-                      }
-                      trackAccess(item);
-                    }}
-                    onDoubleClick={() => {
-                      if (item.type === "file") {
-                        const file = files.find((f) => f.id === item.id);
-                        if (file) {
-                          if (isPreviewable(file.extension) && file.downloadUrl) {
-                            setPreviewFile(file);
-                          } else {
-                            setEditingFile(file);
-                          }
-                        }
-                      } else if (item.type === "folder" && folders[item.id]) {
-                        setSelectedFolder(item.id);
-                        setExpandedFolders((p) => new Set([...p, "my-files", item.id]));
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      if (item.type === "file") {
-                        handleContextMenu(e, "file", item.id);
-                      } else if (item.type === "folder") {
-                        handleContextMenu(e, "folder", item.id);
-                      }
-                    }}
-                    className={`group rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer ${cardBg} ${cardBorder} hover:border-indigo-300`}
-                  >
-                    <div className={`h-[84px] flex items-center justify-center overflow-hidden ${thumbnailBg}`}>
-                      {item.type === "folder" ? (
-                        <Folder className="w-8 h-8 text-amber-500" />
-                      ) : (() => {
-                        const matchedFile = files.find(f => f.id === item.id);
-                        const ext = (item.extension || "").toLowerCase();
-                        if (matchedFile?.downloadUrl && isImageFile(ext)) {
-                          return <img src={matchedFile.downloadUrl} alt={item.name} className="w-full h-full object-cover" />;
-                        }
-                        if (matchedFile?.downloadUrl && isVideoFile(ext)) {
-                          return (
-                            <div className="relative w-full h-full">
-                              <video src={matchedFile.downloadUrl} muted preload="metadata" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                <div className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
-                                  <Play className="w-3 h-3 text-white fill-white" />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return getFileIcon(ext, 8, isDark);
-                      })()}
-                    </div>
-                    <div className="px-2.5 py-2">
-                      <p className={`text-[11px] font-semibold truncate leading-tight ${textPrimary}`}>{item.name}</p>
-                      <p className={`text-[9px] mt-0.5 ${textMuted}`}>{getRelativeTime(item.accessedAt)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
           {/* ── NEW FOLDER INPUT (content area) ── */}
           {creatingFolderInContent && (
             <div className={`flex items-center gap-3 p-3 rounded-xl border ${cardBorder} ${cardBg}`}>
@@ -1740,7 +2723,6 @@ export default function MediaLibraryPage() {
                     onClick={() => {
                       setSelectedFolder(folder.id);
                       setExpandedFolders((p) => new Set([...p, folder.id]));
-                      trackAccess({ id: folder.id, name: folder.name, type: "folder" });
                     }}
                     onContextMenu={(e) => handleContextMenu(e, "folder", folder.id)}
                     className={`group rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer ${cardBg} ${cardBorder} hover:border-amber-300`}
@@ -1760,7 +2742,7 @@ export default function MediaLibraryPage() {
             </section>
           )}
 
-          {/* ── ALL FILES TABLE ── */}
+          {/* ── ALL FILES (GRID OR TABLE) ── */}
           {sortedFiles.length > 0 && (
             <section>
               <div className="flex items-center justify-between mb-3">
@@ -1769,134 +2751,200 @@ export default function MediaLibraryPage() {
                   <h3 className={`text-[13px] font-bold uppercase tracking-wider ${textTertiary}`}>All Files</h3>
                   <span className={`text-[11px] font-semibold ${textMuted}`}>({sortedFiles.length})</span>
                 </div>
-              </div>
-
-              <div className={`border rounded-xl overflow-hidden ${cardBorder}`}>
-                {/* Table Header */}
-                <div className={`grid grid-cols-[1fr_80px_90px_120px_100px_40px] ${tableHeaderBg} text-[11px] font-bold uppercase tracking-wider ${textTertiary}`}>
-                  <button onClick={() => toggleSort("name")} className={`px-4 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                    Name <SortIcon k="name" />
-                  </button>
-                  <button onClick={() => toggleSort("type")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                    Type <SortIcon k="type" />
-                  </button>
-                  <button onClick={() => toggleSort("size")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                    Size <SortIcon k="size" />
-                  </button>
-                  <button onClick={() => toggleSort("modified")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                    Modified <SortIcon k="modified" />
-                  </button>
-                  <div className="px-3 py-3 text-left">Shared</div>
-                  <div className="px-1 py-3" />
-                </div>
-
-                {/* Table Body */}
-                {sortedFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    onClick={() => {
-                      trackAccess({ id: file.id, name: file.name, type: "file", extension: file.extension });
-                    }}
-                    onDoubleClick={() => {
-                      if (isPreviewable(file.extension) && file.downloadUrl) {
-                        setPreviewFile(file);
-                      } else {
-                        setEditingFile(file);
-                      }
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, "file", file.id)}
-                    className={`grid grid-cols-[1fr_80px_90px_120px_100px_40px] text-[13px] border-t ${borderColor} ${rowHover} transition-colors cursor-pointer group`}
-                  >
-                    <div className="flex items-center gap-3 px-4 py-2.5">
-                      {file.downloadUrl && isImageFile(file.extension) ? (
-                        <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg}`}>
-                          <img src={file.downloadUrl} alt={file.name} className="w-full h-full object-cover" />
-                        </div>
-                      ) : file.downloadUrl && isVideoFile(file.extension) ? (
-                        <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg} relative`}>
-                          <video src={file.downloadUrl} muted className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                            <div className="w-3 h-3 border-l-[5px] border-t-[3px] border-b-[3px] border-l-white border-t-transparent border-b-transparent" />
-                          </div>
-                        </div>
-                      ) : (
-                        getFileIcon(file.extension, 4, isDark)
-                      )}
-                      {renamingFileId === file.id ? (
-                        <input
-                          ref={renameFileRef}
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleFileRename();
-                            if (e.key === "Escape") { setRenamingFileId(null); setRenameValue(""); }
-                          }}
-                          onBlur={handleFileRename}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`font-semibold text-[13px] px-1.5 py-0.5 rounded border outline-none focus:ring-2 focus:ring-indigo-300 w-full ${inputBg}`}
-                        />
-                      ) : (
-                        <span className={`font-semibold truncate ${textPrimary}`}>{file.name}</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center px-3">
-                      <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${
-                        isDark ? "bg-slate-800 text-slate-300 border-slate-600" : getTypeBadgeColor(file.extension)
-                      }`}>
-                        {file.type}
-                      </span>
-                    </div>
-
-                    <div className={`flex items-center px-3 text-[12px] ${textTertiary} tabular-nums`}>{file.size}</div>
-                    <div className={`flex items-center px-3 text-[12px] ${textTertiary}`}>{file.modified}</div>
-
-                    {/* Shared avatars */}
-                    <div className="flex items-center px-3">
-                      {file.sharedWith.length > 0 ? (
-                        <div className="flex -space-x-1.5">
-                          {file.sharedWith.slice(0, 3).map((entry, i) => (
-                            <div
-                              key={i}
-                              title={`${entry.displayName || entry.email}`}
-                              className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 ${
-                                isDark ? "bg-slate-700 text-slate-300 border-slate-900" : "bg-indigo-100 text-indigo-700 border-white"
-                              }`}
-                            >
-                              {entry.initials}
-                            </div>
-                          ))}
-                          {file.sharedWith.length > 3 && (
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 ${
-                              isDark ? "bg-slate-600 text-slate-400 border-slate-900" : "bg-slate-200 text-slate-500 border-white"
-                            }`}>
-                              +{file.sharedWith.length - 3}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className={`text-[12px] ${textMuted}`}>—</span>
-                      )}
-                    </div>
-
-                    {/* Share action */}
-                    <div className="flex items-center justify-center px-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShareModalFile(file);
-                        }}
-                        title="Share"
-                        className={`w-7 h-7 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer ${
-                          isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-100 text-slate-400"
-                        }`}
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                {selectedFileIds.size > 0 && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-600 dark:text-orange-400">
+                    <span>{selectedFileIds.size} selected</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFileIds(new Set())}
+                      className="text-[11px] underline opacity-75 hover:opacity-100 cursor-pointer"
+                    >
+                      Clear
+                    </button>
                   </div>
-                ))}
+                )}
               </div>
+
+              {viewMode === "grid" ? (
+                /* ── SINTRA-STYLE VISUAL GRID ── */
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {sortedFiles.map((file) => (
+                    <MediaGridCard
+                      key={file.id}
+                      item={file}
+                      isDark={isDark}
+                      isSelected={selectedFileIds.has(file.id)}
+                      onSelect={(id) => {
+                        setSelectedFileIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return next;
+                        });
+                      }}
+                      onDoubleClick={(item) => {
+                        const matchedFile = files.find((f) => f.id === item.id);
+                        if (matchedFile) {
+                          if (isPreviewable(matchedFile.extension) && matchedFile.downloadUrl) {
+                            setPreviewFile(matchedFile);
+                          } else if (isEditableInEditor(matchedFile)) {
+                            setEditingFile(matchedFile);
+                          } else if (matchedFile.downloadUrl) {
+                            window.open(matchedFile.downloadUrl, '_blank');
+                          }
+                        }
+                      }}
+                      onContextMenu={(item, e) => {
+                        handleContextMenu(e, "file", item.id);
+                      }}
+                      onDelete={(item) => handleDeleteFile(item.id)}
+                      onShare={(item) => {
+                        const matchedFile = files.find((f) => f.id === item.id);
+                        if (matchedFile) setShareModalFile(matchedFile);
+                      }}
+                      onDownload={(item) => {
+                        if (item.downloadUrl) {
+                          const a = document.createElement("a");
+                          a.href = item.downloadUrl;
+                          a.download = item.name;
+                          a.target = "_blank";
+                          a.rel = "noopener noreferrer";
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* ── TABLE VIEW ── */
+                <div className={`border rounded-xl overflow-hidden ${cardBorder}`}>
+                  {/* Table Header */}
+                  <div className={`grid grid-cols-[1fr_80px_90px_120px_100px_40px] ${tableHeaderBg} text-[11px] font-bold uppercase tracking-wider ${textTertiary}`}>
+                    <button onClick={() => toggleSort("name")} className={`px-4 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
+                      Name <SortIcon k="name" />
+                    </button>
+                    <button onClick={() => toggleSort("type")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
+                      Type <SortIcon k="type" />
+                    </button>
+                    <button onClick={() => toggleSort("size")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
+                      Size <SortIcon k="size" />
+                    </button>
+                    <button onClick={() => toggleSort("modified")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
+                      Modified <SortIcon k="modified" />
+                    </button>
+                    <div className="px-3 py-3 text-left">Shared</div>
+                    <div className="px-1 py-3" />
+                  </div>
+
+                  {/* Table Body */}
+                  {sortedFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      onDoubleClick={() => {
+                        if (isPreviewable(file.extension) && file.downloadUrl) {
+                          setPreviewFile(file);
+                        } else if (isEditableInEditor(file)) {
+                          setEditingFile(file);
+                        } else if (file.downloadUrl) {
+                          window.open(file.downloadUrl, '_blank');
+                        }
+                      }}
+                      onContextMenu={(e) => handleContextMenu(e, "file", file.id)}
+                      className={`grid grid-cols-[1fr_80px_90px_120px_100px_40px] text-[13px] border-t ${borderColor} ${rowHover} transition-colors cursor-pointer group`}
+                    >
+                      <div className="flex items-center gap-3 px-4 py-2.5">
+                        {file.downloadUrl && isImageFile(file.extension) ? (
+                          <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg}`}>
+                            <img src={file.downloadUrl} alt={file.name} className="w-full h-full object-cover" />
+                          </div>
+                        ) : file.downloadUrl && isVideoFile(file.extension) ? (
+                          <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg} relative`}>
+                            <video src={file.downloadUrl} muted className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <div className="w-3 h-3 border-l-[5px] border-t-[3px] border-b-[3px] border-l-white border-t-transparent border-b-transparent" />
+                            </div>
+                          </div>
+                        ) : (
+                          getFileIcon(file.extension, 4, isDark)
+                        )}
+                        {renamingFileId === file.id ? (
+                          <input
+                            ref={renameFileRef}
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleFileRename();
+                              if (e.key === "Escape") { setRenamingFileId(null); setRenameValue(""); }
+                            }}
+                            onBlur={handleFileRename}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`font-semibold text-[13px] px-1.5 py-0.5 rounded border outline-none focus:ring-2 focus:ring-indigo-300 w-full ${inputBg}`}
+                          />
+                        ) : (
+                          <span className={`font-semibold truncate ${textPrimary}`}>{file.name}</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center px-3">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${
+                          isDark ? "bg-slate-800 text-slate-300 border-slate-600" : getTypeBadgeColor(file.extension)
+                        }`}>
+                          {file.type}
+                        </span>
+                      </div>
+
+                      <div className={`flex items-center px-3 text-[12px] ${textTertiary} tabular-nums`}>{file.size}</div>
+                      <div className={`flex items-center px-3 text-[12px] ${textTertiary}`}>{file.modified}</div>
+
+                      {/* Shared avatars */}
+                      <div className="flex items-center px-3">
+                        {file.sharedWith.length > 0 ? (
+                          <div className="flex -space-x-1.5">
+                            {file.sharedWith.slice(0, 3).map((entry, i) => (
+                              <div
+                                key={i}
+                                title={`${entry.displayName || entry.email}`}
+                                className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 ${
+                                  isDark ? "bg-slate-700 text-slate-300 border-slate-900" : "bg-indigo-100 text-indigo-700 border-white"
+                                }`}
+                              >
+                                {entry.initials}
+                              </div>
+                            ))}
+                            {file.sharedWith.length > 3 && (
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 ${
+                                isDark ? "bg-slate-600 text-slate-400 border-slate-900" : "bg-slate-200 text-slate-500 border-white"
+                              }`}>
+                                +{file.sharedWith.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className={`text-[12px] ${textMuted}`}>—</span>
+                        )}
+                      </div>
+
+                      {/* Share action */}
+                      <div className="flex items-center justify-center px-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShareModalFile(file);
+                          }}
+                          title="Share"
+                          className={`w-7 h-7 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer ${
+                            isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
@@ -1951,6 +2999,8 @@ export default function MediaLibraryPage() {
           )}
         </div>
       </main>
+        )}
+      </div>{/* end TAB CONTENT AREA */}
 
       {/* ───── SIDEBAR POPUP ───── */}
       {sidebarPopup && (
@@ -2047,12 +3097,74 @@ export default function MediaLibraryPage() {
               </button>
             ))}
             <div className={`my-1 mx-3 border-t ${isDark ? "border-slate-600" : "border-slate-200"}`} />
+            {[
+              { label: "Move to AI Brain", icon: Brain, action: "Move to AI Brain" },
+              ...(isOrgAdmin ? [{ label: "Move to Org Brain", icon: Building2, action: "Move to Org Brain" }] : []),
+            ].map(({ label, icon: Icon, action }) => (
+              <button
+                key={action}
+                onClick={() => handleFileContextAction(action)}
+                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-indigo-400" : "text-indigo-600"} ${contextHover}`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
             <button
               onClick={() => handleFileContextAction("Delete")}
               className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer text-red-500 ${contextHover}`}
             >
               <Trash2 className="w-4 h-4" />
               Delete
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ───── CROSS-TAB MOVE DIALOG ───── */}
+      {moveDialog && (
+        <>
+          <div className="fixed inset-0 z-[90]" onClick={() => setMoveDialog(null)} />
+          <div
+            className={`fixed z-[100] border rounded-xl shadow-xl py-1.5 min-w-[200px] ${contextBg}`}
+            style={{ top: Math.min(moveDialog.y, window.innerHeight - 200), left: Math.min(moveDialog.x, window.innerWidth - 220) }}
+          >
+            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>
+              Move to...
+            </div>
+            {moveDialog.source !== "general-storage" && (
+              <button
+                onClick={() => handleCrossTabMove("general-storage", moveDialog.source, moveDialog.item)}
+                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textSecondary} ${contextHover}`}
+              >
+                <HardDrive className={`w-4 h-4 ${textMuted}`} />
+                General Storage
+              </button>
+            )}
+            {moveDialog.source !== "ai-brain" && (
+              <button
+                onClick={() => handleCrossTabMove("ai-brain", moveDialog.source, moveDialog.item)}
+                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-indigo-400" : "text-indigo-600"} ${contextHover}`}
+              >
+                <Brain className="w-4 h-4" />
+                Personal AI Brain
+              </button>
+            )}
+            {moveDialog.source !== "org-brain" && isOrgAdmin && (
+              <button
+                onClick={() => handleCrossTabMove("org-brain", moveDialog.source, moveDialog.item)}
+                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-blue-400" : "text-blue-600"} ${contextHover}`}
+              >
+                <Building2 className="w-4 h-4" />
+                Org AI Brain
+              </button>
+            )}
+            <div className={`my-1 mx-3 border-t ${isDark ? "border-slate-600" : "border-slate-200"}`} />
+            <button
+              onClick={() => setMoveDialog(null)}
+              className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textMuted} ${contextHover}`}
+            >
+              Cancel
             </button>
           </div>
         </>

@@ -182,8 +182,8 @@ export default function PipelineBreakdownChart({
                     {p.stages.slice(0, 4).map((s, i) => (
                       <div
                         key={i}
-                        className="w-2 h-2 rounded-full ring-1"
-                        style={{ backgroundColor: s.color, ringColor: dk ? "#1e293b" : "#fff" }}
+                        className={`w-2 h-2 rounded-full ring-1 ${dk ? "ring-slate-800" : "ring-white"}`}
+                        style={{ backgroundColor: s.color }}
                       />
                     ))}
                   </div>

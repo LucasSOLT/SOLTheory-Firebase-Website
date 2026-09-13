@@ -25,7 +25,7 @@ import OrgRBACPanel from "@/components/settings/OrgRBACPanel";
 import DevSettingsPanel from "@/components/settings/DevSettingsPanel";
 import AuditLogPanel from "@/components/settings/AuditLogPanel";
 import TwoFactorSetup from "@/components/settings/TwoFactorSetup";
-import { isDeveloper, DEVELOPER_COLORS, ROLE_COLORS, ROLE_LABELS, ORG_LABELS, OrgRole } from "@/lib/rbac";
+import { isDeveloper, isOracle, DEVELOPER_COLORS, ORACLE_COLORS, ROLE_COLORS, ROLE_LABELS, ORG_LABELS, OrgRole } from "@/lib/rbac";
 
 // Translation Dictionary
 const localDict = {
@@ -592,10 +592,10 @@ function SettingsContent() {
                             
                             {/* Role Badge */}
                             <div className="pt-1">
-                              {isDeveloper(user?.email) ? (
-                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isDarkMode ? `${DEVELOPER_COLORS.darkBg} ${DEVELOPER_COLORS.darkText} ${DEVELOPER_COLORS.darkBorder}` : `${DEVELOPER_COLORS.bg} ${DEVELOPER_COLORS.text} ${DEVELOPER_COLORS.border}`}`}>
+                              {isOracle(user?.email) ? (
+                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isDarkMode ? `${ORACLE_COLORS.darkBg} ${ORACLE_COLORS.darkText} ${ORACLE_COLORS.darkBorder}` : `${ORACLE_COLORS.bg} ${ORACLE_COLORS.text} ${ORACLE_COLORS.border}`}`}>
                                   <ShieldCheck className="w-3.5 h-3.5" />
-                                  Developer &middot; {getOrgLabel(orgId)}
+                                  Oracle &middot; {getOrgLabel(orgId)}
                                 </div>
                               ) : userRole ? (
                                 (() => {
@@ -1107,7 +1107,7 @@ function SettingsContent() {
                   </div>
 
                   {/* Account Menu - Section 3: Developer Settings */}
-                  {isDeveloper(user?.email) && (
+                  {isOracle(user?.email) && (
                     <div className={`${isDarkMode ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-indigo-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                       <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
                         <button onClick={() => setSubPage('dev-settings')} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-indigo-50/50'}`}>

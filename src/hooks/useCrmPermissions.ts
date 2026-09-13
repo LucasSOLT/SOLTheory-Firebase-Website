@@ -13,13 +13,13 @@ import type { OrgRole, CrmPermissions, OrgMember } from "@/lib/rbac";
 import { useOrgId } from "@/contexts/OrgContext";
 
 interface UseCrmPermissionsReturn extends CrmPermissions {
-  /** The current user's org role. */
+  /** The current user's org role (effective role, respects Oracle fake-demote). */
   role: OrgRole;
   /** True while the role is loading from Firestore. */
   isRoleLoading: boolean;
-  /** All org members (only populated for Admin/Owner). */
+  /** All org members (only populated for Admin/Oracle). */
   members: OrgMember[];
-  /** Update a member's role. Only Admins/Owners. */
+  /** Update a member's role. Only Admins/Oracle. */
   setMemberRole: (targetUid: string, newRole: OrgRole) => Promise<void>;
 }
 

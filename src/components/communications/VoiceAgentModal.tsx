@@ -833,8 +833,6 @@ export function VoiceAgentModal({ isOpen, onClose, agentName, agentId, orgPrefix
     conversationRef.current.push({ role: "user", content: userText });
     conversationRef.current.push({ role: "assistant", content: result.reply });
 
-    setGroqTokens(p => p + result.usage);
-    setElevenLabsChars(p => p + result.reply.length);
     if (onUsageUpdate) onUsageUpdate(result.usage, result.reply.length);
 
     return { reply: result.reply, pactFacts: result.pactFacts, audioBase64: result.audioBase64, citations: result.citations };

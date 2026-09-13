@@ -628,7 +628,7 @@ service cloud.firestore {
      * ════════════════════════════════════════════════════════════════
      * @description Stores which users belong to an org and their role.
      * Any signed-in user can read member docs (needed for RBAC checks).
-     * Only users with admin/owner role can write (promote/demote members).
+     * Only users with admin/oracle role can write (promote/demote members).
      * Auto-seeding of new members is allowed (create own doc).
      * @path /orgs/{orgId}/members/{uid}
      */
@@ -636,27 +636,33 @@ service cloud.firestore {
       // Any signed-in user can read membership info (needed for role checks)
       allow read: if isSignedIn();
       // Users can create their own membership doc (auto-seeding on first visit)
-      // OR admins/owners can create member docs for other users (add user to org)
+      // OR admins/oracles can create member docs for other users (add user to org)
       allow create: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
         request.auth.uid == uid ||
         (
           exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['admin', 'owner']
+          get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['admin', 'oracle']
         )
       );
-      // Only admins/owners can update member docs (role changes)
+      // Only admins/oracles can update member docs (role changes)
       // OR users can update their own doc (display name sync)
       allow update: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
         request.auth.uid == uid ||
         (
           exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['admin', 'owner']
+          get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['admin', 'oracle']
         )
       );
-      // Only owners can delete member docs
-      allow delete: if isSignedIn() &&
-        exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role == 'owner';
+      // Only admins/oracles can delete member docs
+      allow delete: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        (
+          exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['admin', 'oracle']
+        )
+      );
     }
 
     /**

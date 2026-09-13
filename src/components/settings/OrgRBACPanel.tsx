@@ -3,7 +3,7 @@
 /**
  * @file OrgRBACPanel.tsx
  * @description Settings panel for managing organizational Role-Based Access Control.
- * Shows all org members in a table with role badges and allows admins/owners
+ * Shows all org members in a table with role badges and allows admins/oracle
  * to change member roles via a dropdown. Also cross-references the global /users
  * collection to surface unassigned users that can be added to the org.
  * Intended to be embedded inside the Settings > Security page — the parent page
@@ -45,11 +45,10 @@ import { getAuthHeaders } from "@/lib/api-auth-client";
 /* ─── Role descriptions for guide ────────────────────────────────────────────── */
 
 const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
-  owner: "Full platform access. Manage all roles, fields, instances. Delete anything.",
-  admin: "Full CRM access. Manage fields, import/export. Cannot manage roles.",
-  "super-user": "View, edit, import/export contacts. Cannot delete or manage fields.",
-  user: "View and edit contacts. Basic CRM access.",
-  "read-only": "View contacts only. No modifications allowed.",
+  oracle: "Platform god-mode. Cross-org management. Can modify anyone's role. Reserved for lucas@soltheory.com.",
+  admin: "Full CRM management. Manage fields, instances, import/export. Can promote/demote members below admin.",
+  user: "View and edit contacts. Basic CRM access. Import and export.",
+  "read-only": "View contacts and dashboards only. No modifications allowed.",
 };
 
 /* ─── Props ──────────────────────────────────────────────────────────────────── */
@@ -304,7 +303,7 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
             }`}
           >
             <div className="space-y-2.5">
-              {(["owner", "admin", "super-user", "user", "read-only"] as OrgRole[]).map((role) => {
+              {(["oracle", "admin", "user", "read-only"] as OrgRole[]).map((role) => {
                 const colors = ROLE_COLORS[role];
                 return (
                   <div key={role} className="flex items-start gap-3">
@@ -489,12 +488,12 @@ function MemberRow({
   const canModify = canModifyMember(currentUserRole, safeRole);
   const initial = (member.displayName || member.email || "?").charAt(0).toUpperCase();
   const colors = ROLE_COLORS[safeRole];
-  const isOwner = safeRole === "owner";
+  const isOracleMember = safeRole === "oracle";
   
   const [isRemoving, setIsRemoving] = useState(false);
   const { user } = useUser();
   const isCurrentUser = user?.uid === member.uid;
-  const canRemove = canModify && !isOwner && !isCurrentUser;
+  const canRemove = canModify && !isOracleMember && !isCurrentUser;
 
   const handleRemove = async () => {
     const confirm = window.confirm(`Remove ${member.displayName || member.email} from this organization?`);
@@ -549,7 +548,7 @@ function MemberRow({
           >
             {member.displayName || member.email}
           </span>
-          {isOwner && (
+          {isOracleMember && (
             <Crown
               className={`w-3 h-3 shrink-0 ${
                 isDarkMode ? "text-amber-400" : "text-amber-500"

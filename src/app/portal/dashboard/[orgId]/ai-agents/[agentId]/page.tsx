@@ -22,7 +22,10 @@ import { useTranslation } from "@/lib/i18n";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { useCRMStore } from "@/stores/crm-store";
+import { useChatStore } from "@/stores/chat-store";
+import { FEATURE_FLAGS } from '@/lib/feature-flags';
 import ThinkingDisplay from './_components/ThinkingDisplay';
+import ScopeToggle from '@/components/chat/ScopeToggle';
 import type { AgentEvent } from '@/lib/agent-events';
 
 let _msgCounter = 0;
@@ -30,7 +33,7 @@ const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(3
 
 type EmailPreviewData = { to: string; subject: string; body: string; intent: 'send' | 'draft' | 'ambiguous' };
 type Message = { id: string; text: string; isSelf: boolean; hiddenContext?: string; imageUrl?: string; citations?: { text: string; source: string; type: string }[]; agentEvents?: AgentEvent[]; sendTimestamp?: number; isPendingImage?: boolean; emailPreview?: EmailPreviewData; };
-type Session = { id: string; title: string; updatedAt: number; messages: Message[]; };
+type Session = { id: string; title: string; updatedAt: number; scope?: 'user' | 'org'; messages: Message[]; };
 type EmailMeta = { id: string; subject: string; snippet: string; from: string; to?: string; cc?: string; replyTo?: string; date: string; internalDate?: number; labelIds?: string[]; body?: string; attachments?: { filename: string; mimeType: string; size: number; attachmentId?: string }[]; };
 type AgentContact = { id: string; email: string; phone?: string; aliases: string; ignore: boolean; };
 
@@ -167,9 +170,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const router = useRouter();
   const [isAgentSwitcherOpen, setIsAgentSwitcherOpen] = useState(false);
   const [showAgentLibrary, setShowAgentLibrary] = useState(false);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // ── Chat state from Zustand store (Supabase-backed) ──
+  const chatStore = useChatStore();
+  const { scope: chatScope } = chatStore;
+  const sessions = chatStore.sessions;
+  const activeSessionId = chatStore.activeSessionId;
+  const messages = chatStore.messages;
+  const setMessages = chatStore.setMessages;
+  const sessionsLoaded = chatStore.sessionsLoaded;
+  // Compatibility wrappers — delegate to store so existing setSessions/setActiveSessionId calls work
+  const setSessions: React.Dispatch<React.SetStateAction<Session[]>> = (action) => {
+    if (typeof action === 'function') {
+      const updated = action(chatStore.sessions);
+      useChatStore.setState({ sessions: updated });
+    } else {
+      useChatStore.setState({ sessions: action });
+    }
+  };
+  const setActiveSessionId = (id: string | null) => chatStore.setActiveSession(id);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<{ file: File; preview: string }[]>([]);
@@ -215,7 +233,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       const cleanText = text.replace(/[#*_`~>\[\]()!|]/g, '').substring(0, 3000);
       if (!cleanText.trim()) return;
       const res = await fetch(`/api/tts?text=${encodeURIComponent(cleanText)}&uid=${user?.uid || 'anonymous'}&org=${orgId}`, {
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       });
       if (!res.ok) return;
       const blob = await res.blob();
@@ -360,7 +378,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [newTagColor, setNewTagColor] = useState('#3b82f6');
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
-  const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionInstructions, setSessionInstructions] = useState("");
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(() => {
@@ -441,8 +458,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const crmAvailableInstances = useCRMStore((s) => s.availableInstances) || [];
 
   // Fetch CRM contacts for Jarvis context (so users can ask about their CRM data)
+  // Gated behind feature flag — when CRM is disabled, skip the 500-contact load
   useEffect(() => {
-    if (!firestore || !user?.uid || !orgId) return;
+    if (!FEATURE_FLAGS.crm || !firestore || !user?.uid || !orgId) return;
     const fetchCrm = async () => {
       try {
         const crmRef = collection(firestore, `orgs/${orgId}/crm-instances/${crmActiveInstanceId}/contacts`);
@@ -914,115 +932,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const isEmailAgent = params.agentId === "jarvis";
   const isImageAgent = params.agentId === "iris";
 
-  // Initialize – Load sessions from Firestore (with localStorage fallback migration)
+  // Initialize – Load sessions from Supabase via chat store
   const sessionsLoadedRef = useRef(false);
   const kbCacheRef = useRef<string | null>(null);
   useEffect(() => {
-    // Guard: don't wipe an active conversation if sessions were already loaded
     if (sessionsLoadedRef.current) return;
+    if (!user?.uid) return;
 
-    if (!firestore || !user?.uid) {
-      // Fallback for unauthenticated: use localStorage
-      const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
-      if (savedSessions) {
-        try {
-          const parsed: Session[] = JSON.parse(savedSessions);
-          const validParsed = parsed.filter(s => s.messages.filter(m => m.isSelf).length > 0);
-          setSessions(validParsed);
-        } catch { /* no-op */ }
-      }
-      // Start with a blank screen — no active session, no messages
-      setActiveSessionId(null);
-      setMessages([]);
-      setSessionsLoaded(true);
-      return;
-    }
+    chatStore.loadSessions(orgId);
+    sessionsLoadedRef.current = true;
 
-    // Load from Firestore
-    const loadSessions = async () => {
-      try {
-        const sessionsRef = collection(firestore, "users", user.uid, "jarvis_sessions");
-        const q = query(sessionsRef, orderBy("updatedAt", "desc"), firestoreLimit(50));
-        const snap = await getDocs(q);
-
-        if (!snap.empty) {
-          const loaded: Session[] = [];
-          snap.forEach(doc => {
-            const data = doc.data();
-            loaded.push({
-              id: doc.id,
-              title: data.title || "New Chat",
-              updatedAt: data.updatedAt || 0,
-              messages: data.messages || [],
-            });
-          });
-          // Filter out empty ghost sessions (no user messages and title is "New Chat")
-          const validSessions = loaded.filter(s =>
-            s.messages.filter((m: Message) => m.isSelf).length > 0 || s.title !== "New Chat"
-          );
-          // Clean up ghost sessions from Firestore
-          const ghostIds = loaded.filter(s =>
-            s.messages.filter((m: Message) => m.isSelf).length === 0 && s.title === "New Chat"
-          ).map(s => s.id);
-          for (const gid of ghostIds) {
-            deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", gid)).catch(() => { });
-          }
-          // Load only valid sessions — start with blank screen
-          setSessions(validSessions);
-          // Restore last active session if user was in one before refresh
-          const savedSessionId = sessionStorage.getItem(`st_active_session_${params.agentId}`);
-          if (savedSessionId) {
-            const restoredSession = validSessions.find(s => s.id === savedSessionId);
-            if (restoredSession) {
-              setActiveSessionId(restoredSession.id);
-              setMessages(restoredSession.messages);
-            } else {
-              setActiveSessionId(null);
-              setMessages([]);
-            }
-          } else {
-            setActiveSessionId(null);
-            setMessages([]);
-          }
-        } else {
-          // Check for localStorage sessions to migrate
-          const savedSessions = localStorage.getItem(`st_agent_sessions_${params.agentId}`);
-          if (savedSessions) {
-            try {
-              const parsed: Session[] = JSON.parse(savedSessions);
-              if (parsed.length > 0) {
-                // Migrate localStorage sessions to Firestore
-                for (const s of parsed) {
-                  if (s.messages.filter(m => m.isSelf).length > 0) {
-                    await setDoc(doc(firestore, "users", user.uid, "jarvis_sessions", s.id), {
-                      title: s.title,
-                      updatedAt: s.updatedAt,
-                      messages: s.messages,
-                      migratedFromLocalStorage: true,
-                    });
-                  }
-                }
-                const validParsed = parsed.filter(s => s.messages.filter(m => m.isSelf).length > 0);
-                setSessions(validParsed);
-                // Clear localStorage after migration
-                localStorage.removeItem(`st_agent_sessions_${params.agentId}`);
-              }
-            } catch { /* no-op */ }
-          }
-          // Blank screen — no active session
-          setActiveSessionId(null);
-          setMessages([]);
-        }
-      } catch (err) {
-        console.error("Failed to load sessions from Firestore", err);
-        setActiveSessionId(null);
-        setMessages([]);
-      }
-      setSessionsLoaded(true);
-      sessionsLoadedRef.current = true;
-    };
-
-    loadSessions();
 
     const savedConfig = localStorage.getItem(`st_agent_config_${params.agentId}`);
     if (savedConfig) {
@@ -1151,48 +1070,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   }, [activeSessionId, params.agentId]);
 
-  // Save active session to Firestore on message changes — ONLY if it has user messages
+  // Save active session to Supabase on message changes — ONLY if it has user messages
   useEffect(() => {
-    if (sessions.length > 0 && !isTyping && activeSessionId && sessionsLoaded && firestore && user?.uid) {
+    if (sessions.length > 0 && !isTyping && activeSessionId && sessionsLoaded) {
       const activeSession = sessions.find(s => s.id === activeSessionId);
       if (activeSession && activeSession.messages.filter(m => m.isSelf).length > 0) {
-        // Strip undefined values from messages — Firestore rejects undefined field values
-        const cleanMessages = activeSession.messages.map(m => {
-          const clean: Record<string, any> = { id: m.id, text: m.text, isSelf: m.isSelf };
-          if (m.hiddenContext !== undefined) clean.hiddenContext = m.hiddenContext;
-          if (m.imageUrl !== undefined) clean.imageUrl = m.imageUrl;
-          if (m.citations !== undefined) clean.citations = m.citations;
-          return clean;
-        });
-        const sessionData = {
-          title: activeSession.title || "",
-          updatedAt: activeSession.updatedAt || Date.now(),
-          messages: cleanMessages,
-          lastMessagePreview: activeSession.messages.length > 0
-            ? activeSession.messages[activeSession.messages.length - 1].text.substring(0, 100)
-            : "",
-        };
-        setDoc(
-          doc(firestore, "users", user.uid, "jarvis_sessions", activeSessionId),
-          sessionData,
-          { merge: true }
-        ).catch(console.error);
+        chatStore.saveMessages(activeSessionId, activeSession.title);
       }
     }
-  }, [sessions, isTyping, activeSessionId, sessionsLoaded, firestore, user?.uid]);
+  }, [sessions, isTyping, activeSessionId, sessionsLoaded]);
 
 
 
   const startNewSession = () => {
-    // Reset to blank screen — no session is created until the user sends a message
-    setActiveSessionId(null);
-    setMessages([]);
+    chatStore.startNewSession();
     setSelectedExploreItem(null);
   };
 
   const loadSession = (id: string) => {
-    const session = sessions.find(s => s.id === id);
-    if (session) { setActiveSessionId(session.id); setMessages(session.messages); setIsKnowledgeBaseOpen(false); setSelectedExploreItem(null); }
+    chatStore.setActiveSession(id);
+    setIsKnowledgeBaseOpen(false);
+    setSelectedExploreItem(null);
   };
 
   const deleteSession = (e: React.MouseEvent, id: string) => {
@@ -1202,17 +1100,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     // Empty "New Chat" sessions can be removed silently (no confirm)
     // Sessions with content require confirmation
     if (!isEmpty && !confirm('Delete this chat?')) return;
-    const updated = sessions.filter(s => s.id !== id);
-    setSessions(updated);
-    // Delete from Firestore if saved
-    if (firestore && user?.uid) {
-      deleteDoc(doc(firestore, "users", user.uid, "jarvis_sessions", id)).catch(() => { });
-      logActivity(firestore, 'item_deleted', { email: user?.email || '', displayName: user?.displayName }, `Deleted chat session: ${session?.title || id}`);
-    }
+    chatStore.deleteSession(id);
     if (activeSessionId === id) {
-      // Return to blank screen
-      setActiveSessionId(null);
-      setMessages([]);
       setSelectedExploreItem(null);
     }
   };
@@ -1308,15 +1197,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     // Lazily create a new session on first message if no active session exists
     let currentSessionId = activeSessionId;
     if (!currentSessionId) {
-      const newSession: Session = {
-        id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        title: "New Chat",
-        updatedAt: Date.now(),
-        messages: []
-      };
-      currentSessionId = newSession.id;
-      setSessions(prev => [newSession, ...prev]);
-      setActiveSessionId(currentSessionId);
+      try {
+        currentSessionId = await chatStore.createSession(orgId, "New Chat");
+      } catch {
+        // Fallback: create a local-only session ID if API fails
+        currentSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const newSession: Session = { id: currentSessionId, title: "New Chat", updatedAt: Date.now(), scope: chatScope, messages: [] };
+        setSessions(prev => [newSession, ...prev]);
+        setActiveSessionId(currentSessionId);
+      }
     }
 
     // Capture attachments and clear pending list
@@ -1462,7 +1351,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           text: '',
           isSelf: false,
           sendTimestamp: msgSendTimestamp, // Keep same timestamp so timer calculation is accurate
-          agentEvents: [{ type: 'done' as const }], // This stops the timer!
+          agentEvents: [{ type: 'done' as const, timestamp: Date.now() }], // This stops the timer!
         };
 
         if (data.imageBase64) {
@@ -1486,7 +1375,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           text: `Image generation failed: ${err.message}`,
           isSelf: false,
           sendTimestamp: msgSendTimestamp,
-          agentEvents: [{ type: 'done' as const }], // Stop the timer on error
+          agentEvents: [{ type: 'done' as const, timestamp: Date.now() }], // Stop the timer on error
         };
         setMessages(prev => prev.map(m => m.id === pendingBotMsgId ? errorBotMsg : m));
 
@@ -1571,6 +1460,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           model: selectedModel,
           stream: true,
           userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          chatScope,
         }),
       });
       console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${OPENROUTER_MODEL_IDS.includes(selectedModel) ? 'OpenRouter' : 'Groq'} | Lite: ${isLiteModel}`, 'color: #10b981; font-weight: bold; font-size: 12px');
@@ -1739,7 +1629,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const botCitations = data.citations && Array.isArray(data.citations) ? data.citations : [];
         setMessages(prev => prev.map(m =>
           m.id === botMsgIdEarly
-            ? { ...m, text: data.response, agentEvents: [{ type: 'done' as const }], citations: botCitations.length > 0 ? botCitations : undefined }
+            ? { ...m, text: data.response, agentEvents: [{ type: 'done' as const, timestamp: Date.now() }], citations: botCitations.length > 0 ? botCitations : undefined }
             : m
         ));
         setPendingCitations([]);
@@ -1771,9 +1661,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }).then(r => r.json()).then(titleData => {
           if (titleData.response) {
             const aiTitle = titleData.response.replace(/["']/g, '').trim().substring(0, 60);
-            setSessions(prev => prev.map(s =>
-              s.id === currentSessionId ? { ...s, title: aiTitle } : s
-            ));
+            chatStore.updateSessionTitle(currentSessionId!, aiTitle);
           }
         }).catch(() => {
           // Fallback: use first few words of user message
@@ -1870,7 +1758,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           });
           const retryData = await retryRes.json();
           if (retryData.response && retryData.response.length > 5) {
-            setMessages(prev => prev.map(m => m.id === botMsgIdEarly ? { ...m, text: retryData.response, agentEvents: [{ type: 'done' as const }] } : m));
+            setMessages(prev => prev.map(m => m.id === botMsgIdEarly ? { ...m, text: retryData.response, agentEvents: [{ type: 'done' as const, timestamp: Date.now() }] } : m));
             setIsTyping(false);
             return;
           }
@@ -1879,7 +1767,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }
       }
 
-      setMessages(prev => prev.map(m => m.id === botMsgIdEarly ? { ...m, text: friendlyError, agentEvents: [{ type: 'done' as const }] } : m));
+      setMessages(prev => prev.map(m => m.id === botMsgIdEarly ? { ...m, text: friendlyError, agentEvents: [{ type: 'done' as const, timestamp: Date.now() }] } : m));
     } finally {
       setIsTyping(false);
       setPendingCitations([]);
@@ -1897,14 +1785,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
     // Lazily create a new session on first message if no active session exists
     if (!activeSessionId) {
-      const newSession: Session = {
-        id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        title: "New Chat",
-        updatedAt: Date.now(),
-        messages: []
-      };
-      setSessions(prev => [newSession, ...prev]);
-      setActiveSessionId(newSession.id);
+      try {
+        await chatStore.createSession(orgId, "New Chat");
+      } catch {
+        const newSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), scope: chatScope, messages: [] };
+        setSessions(prev => [newSession, ...prev]);
+        setActiveSessionId(newSession.id);
+      }
     }
 
     // Add msg to main chat
@@ -2427,8 +2314,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-hide mt-2">
               {/* Agent Library Button */}
               
+                        {/* Scope Toggle — User vs Org context */}
+                        <div className="mb-3 px-1">
+                          <ScopeToggle isDarkMode={isDarkMode} orgName={getOrgConfig(orgId)?.label} orgId={orgId} />
+                        </div>
                         <div className="flex items-center justify-between mb-2 px-1">
-                          <span className={`text-xs font-semibold uppercase tracking-widest ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>Chat History</span>
+                          <span className={`text-xs font-semibold uppercase tracking-widest ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{chatScope === 'org' ? 'Team Chats' : 'Chat History'}</span>
                           <button onClick={() => setIsChatSidebarCollapsed(true)} className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/30' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`} title="Collapse sidebar">
                             <svg className="w-3 h-3 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                           </button>
@@ -2443,8 +2334,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
               )}
               {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
-                <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[40px] py-2 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? 'bg-slate-700/60 text-white border border-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? 'bg-slate-300/50 text-slate-900 border border-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')}`}>
-                  <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />
+                <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[40px] py-2 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-900/30 text-white border border-emerald-700' : 'bg-slate-700/60 text-white border border-slate-600') : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-50 text-slate-900 border border-emerald-200' : 'bg-slate-300/50 text-slate-900 border border-slate-200') : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')}`}>
+                  {s.scope === 'org' ? <Users className="w-4 h-4 mr-3 shrink-0 opacity-70 text-emerald-500" /> : <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />}
                   <span className="text-sm font-medium flex-1 break-words leading-snug">{stripMarkdown(s.title)}</span>
                   <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-60 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
                     <Trash2 className="w-3.5 h-3.5" />
@@ -2904,12 +2795,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
                 {/* Chat input — ALWAYS visible at bottom */}
                 <div className="shrink-0 px-3 sm:px-4 pb-1 sm:pb-2 pt-1 sm:pt-2 z-20">
-                  <div className="max-w-4xl mx-auto flex flex-col gap-2 relative">
+                  <div className="max-w-4xl mx-auto flex flex-col gap-2 relative overflow-visible">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                     <div data-plus-menu className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-visible shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-600 bg-slate-800/90' : 'border-[#ede8da] bg-[#faf8f3]/90'}`}>
                       {pendingAttachments.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-[#ede8da]/60 bg-[#faf6ed]/50">
@@ -3074,8 +2965,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         </div>
                       </div>
                     </div>
+                    </div>
 
-                    {/* Voice-over toggle — OUTSIDE of the text entry box to the RIGHT of the send arrow */}
+                    {/* Voice-over toggle — absolutely positioned so it doesn't affect input box centering */}
                     <button
                       onClick={() => {
                         const next = !voiceoverEnabled;
@@ -3086,28 +2978,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           voiceoverAudioRef.current = null;
                         }
                       }}
-                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl sm:rounded-2xl text-xs font-medium transition-all cursor-pointer shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] ${
+                      className={`absolute -right-11 bottom-2 w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
                         voiceoverEnabled
                           ? 'bg-red-500/15 text-red-500 border border-red-400/40 animate-[pulse_3s_ease-in-out_infinite]'
-                          : (isDarkMode ? 'text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-600 bg-slate-800/90' : 'text-slate-500 hover:text-slate-700 border border-[#ede8da] hover:border-slate-300 bg-[#faf8f3]/90')
+                          : (isDarkMode ? 'text-slate-500 hover:text-slate-300 border border-slate-700/50 hover:border-slate-600 bg-slate-800/40' : 'text-slate-400 hover:text-slate-600 border border-slate-200/60 hover:border-slate-300 bg-white/40')
                       }`}
                       title={voiceoverEnabled ? 'Turn off voice-over' : 'Turn on voice-over — JARVIS will read responses aloud'}
                     >
-                      {voiceoverEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                      <span className="hidden sm:inline">{voiceoverEnabled ? 'Voice-over ON' : 'Voice-over OFF'}</span>
+                      {voiceoverEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                     </button>
 
-
                     {/* Heartbeat pulse indicator */}
-                    <div className="relative shrink-0">
                     {heartbeatPulseVisible && heartbeatInterval !== "off" && (
-                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 animate-in fade-in zoom-in-95 duration-300 pointer-events-none">
+                      <div className="absolute -right-11 bottom-12 flex flex-col items-center gap-0 animate-in fade-in zoom-in-95 duration-300 pointer-events-none">
                         <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />
                         <span className="text-[6px] text-blue-400 uppercase tracking-widest font-bold">{t.heartbeat}</span>
                       </div>
                     )}
-                    </div>
-                  </div>
                 </div>
                 <div className="flex justify-center mt-1">
                   <button
@@ -3232,15 +3119,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           // Lazily create a session if none exists (voice started from blank screen)
           let currentSessionId = activeSessionId;
           if (!currentSessionId) {
-            const newSession: Session = {
-              id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              title: "New Chat",
-              updatedAt: Date.now(),
-              messages: []
-            };
-            currentSessionId = newSession.id;
-            setSessions(prev => [newSession, ...prev]);
-            setActiveSessionId(newSession.id);
+            try {
+              currentSessionId = await chatStore.createSession(orgId, "New Chat");
+            } catch {
+              const newSession: Session = { id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, title: "New Chat", updatedAt: Date.now(), scope: chatScope, messages: [] };
+              currentSessionId = newSession.id;
+              setSessions(prev => [newSession, ...prev]);
+              setActiveSessionId(newSession.id);
+            }
           }
 
           // Trigger AI Title generator if needed

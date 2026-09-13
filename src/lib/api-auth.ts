@@ -19,7 +19,7 @@ import { getAuth } from "firebase-admin/auth";
 import { isGlobalAdmin, DEVELOPER_EMAIL, getOrgByEmailDomain } from "@/lib/org-config";
 import { getFirestore } from "firebase-admin/firestore";
 import { OrgRole, hasPermission } from "./rbac";
-import { isDeveloper } from "./org-config";
+import { isDeveloper, isOracle } from "./org-config";
 
 type AuthSuccess = { ok: true; uid: string; email: string };
 type AuthFailure = { ok: false; response: NextResponse };
@@ -96,24 +96,33 @@ export async function verifyAdmin(req: Request | NextRequest): Promise<AuthResul
 }
 
 /**
- * Verify that the request is from the platform developer.
- * Use for God-mode endpoints like End-User Management, cross-org operations.
+ * Verify that the request is from the platform Oracle (god-mode).
+ * Use for cross-org operations, user management, and system administration.
  */
-export async function verifyDeveloper(req: Request | NextRequest): Promise<AuthResult> {
+export async function verifyOracle(req: Request | NextRequest): Promise<AuthResult> {
   const auth = await verifyRequest(req);
   if (!auth.ok) return auth;
 
-  if (auth.email.toLowerCase() !== DEVELOPER_EMAIL) {
+  if (!isOracle(auth.email)) {
     return {
       ok: false,
       response: NextResponse.json(
-        { error: "Forbidden — developer access required" },
+        { error: "Forbidden — Oracle access required" },
         { status: 403 }
       ),
     };
   }
 
   return { ok: true, uid: auth.uid, email: auth.email };
+}
+
+/**
+ * @deprecated Use verifyOracle instead. Kept for backward compatibility.
+ * Verify that the request is from the platform developer.
+ * Use for God-mode endpoints like End-User Management, cross-org operations.
+ */
+export async function verifyDeveloper(req: Request | NextRequest): Promise<AuthResult> {
+  return verifyOracle(req);
 }
 
 /**
@@ -217,9 +226,9 @@ export async function verifyRole(
     throw new Error("Unauthorized");
   }
   
-  // 2. Developer bypass
+  // 2. Developer/Oracle bypass
   if (isDeveloper(auth.email)) {
-    return { authenticated: true, uid: auth.uid, email: auth.email, role: 'owner' as OrgRole };
+    return { authenticated: true, uid: auth.uid, email: auth.email, role: 'oracle' as OrgRole };
   }
   
   // 3. Fetch member doc from orgs/{orgId}/members/{uid}

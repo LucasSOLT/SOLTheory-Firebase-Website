@@ -24,6 +24,7 @@ import {
   Sparkles,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
   CornerDownLeft,
   X,
   Lightbulb,
@@ -38,6 +39,7 @@ import { getAuthHeaders } from "@/lib/api-auth-client";
 import { useUser, useFirestore } from "@/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { useCRMStore, type Customer } from "@/stores/crm-store";
+import { JARVIS_KNOWLEDGE_BASE } from "@/lib/jarvis-knowledge-base";
 
 /* ─────────────── Types ─────────────── */
 
@@ -186,6 +188,45 @@ export function InsightOmnibar({ isOpen, onClose, orgId, dashboardHome }: Insigh
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
+
+  // ─── Go Back helper (reused by ESC, back button, etc.) ───
+  const goBack = useCallback(() => {
+    if (abortRef.current) abortRef.current.abort();
+    // Email flow: step back through the flow
+    if (commandState.type === "email_step") {
+      const { step } = commandState;
+      if (step === "ask_purpose" || step === "pick_contact" || step === "searching_crm") {
+        setCommandState({ type: "email_step", step: "ask_recipient", data: { ...commandState.data, recipientQuery: "", matchedContacts: [], selectedContact: null } });
+        setQuery("");
+        setTimeout(() => inputRef.current?.focus(), 50);
+        return;
+      }
+      // For generating/done/ask_recipient, go back to idle
+    }
+    if (commandState.type !== "idle") {
+      setCommandState({ type: "idle" });
+      setAiResponse("");
+      setIsAiLoading(false);
+      setQuery("");
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      onClose();
+    }
+  }, [commandState, onClose]);
+
+  // ─── Global ESC listener (works even when focus is not on input) ───
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        goBack();
+      }
+    };
+    document.addEventListener("keydown", handleGlobalEsc, true);
+    return () => document.removeEventListener("keydown", handleGlobalEsc, true);
+  }, [isOpen, goBack]);
 
   // Build navigation items registry
   const navItems: NavItem[] = useMemo(() => [
@@ -556,11 +597,11 @@ Keep it concise and professional. Write ONLY the email body text (no subject lin
           body: JSON.stringify({
             messages: [{ role: "user", content: text }],
             agentId: `${orgId}_jarvis`,
-            soul: "You are J.A.R.V.I.S. — the user's AI executive assistant inside the Insight dashboard. Be concise and helpful. Keep responses brief (2-4 sentences max) since you are answering inside a compact omnibar.",
+            soul: `You are J.A.R.V.I.S. — the user's AI executive assistant inside the Insight dashboard. Be concise and helpful. Keep responses brief (2-4 sentences max) since you are answering inside a compact omnibar. If the user asks about how to use the platform or its features, use the knowledge base below to answer accurately.\n\n${JARVIS_KNOWLEDGE_BASE}`,
             brain: "",
             uid: user?.uid,
             userName: user?.displayName || undefined,
-            model: "auto",
+            model: "nemotron-3-ultra",
             stream: true,
             userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
@@ -839,17 +880,7 @@ Keep it concise and professional. Write ONLY the email body text (no subject lin
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        // Always go back one step; only close if already idle
-        if (abortRef.current) abortRef.current.abort();
-        if (commandState.type !== "idle") {
-          setCommandState({ type: "idle" });
-          setAiResponse("");
-          setIsAiLoading(false);
-          setQuery("");
-          setTimeout(() => inputRef.current?.focus(), 50);
-        } else {
-          onClose();
-        }
+        goBack();
         return;
       }
 
@@ -889,7 +920,7 @@ Keep it concise and professional. Write ONLY the email body text (no subject lin
         return;
       }
     },
-    [results, selectedIndex, onClose, commandState, query_, sendToJarvis, executeInboxSearch]
+    [results, selectedIndex, onClose, commandState, query_, sendToJarvis, executeInboxSearch, goBack]
   );
 
   // Close on backdrop click
@@ -1157,6 +1188,16 @@ Keep it concise and professional. Write ONLY the email body text (no subject lin
       >
         {/* Input Row */}
         <div className={`flex items-center gap-3 px-5 py-4 border-b ${isDarkMode ? "border-slate-700/40" : "border-slate-200/60"}`}>
+          {/* Back button — visible when in a command/result flow */}
+          {commandState.type !== "idle" && (
+            <button
+              onClick={goBack}
+              className={`shrink-0 p-1 rounded-md transition-colors cursor-pointer ${isDarkMode ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"}`}
+              title="Back (Esc)"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
           <div className={`shrink-0 ${commandState.type === "loading" || commandState.type === "ai_streaming" ? "animate-pulse" : ""}`}>
             {isAiLoading || commandState.type === "loading" ? (
               <Loader2 className={`w-5 h-5 animate-spin ${isDarkMode ? "text-indigo-400" : "text-indigo-500"}`} />

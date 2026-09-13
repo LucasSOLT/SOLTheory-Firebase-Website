@@ -116,7 +116,7 @@ export default function InsightLoginPage() {
             accessLevel: getDefaultAccessLevel(emailLower),
             organization: defaultOrg,
             allowedOrgs: isDeveloper(emailLower) ? ["soltheory", "nxtchapter"] : [defaultOrg],
-            orgRoles: { [defaultOrg]: isDeveloper(emailLower) ? "owner" : "user" },
+            orgRoles: { [defaultOrg]: isDeveloper(emailLower) ? "oracle" : "user" },
             lastLogin: serverTimestamp(),
             createdAt: serverTimestamp(),
           });

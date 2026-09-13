@@ -138,3 +138,15 @@ export const DEVELOPER_EMAIL = "lucas@soltheory.com";
 export function isDeveloper(email: string | undefined | null): boolean {
   return !!email && email.toLowerCase() === DEVELOPER_EMAIL;
 }
+
+/**
+ * Oracle email — the platform god-mode identity.
+ * Oracle can manipulate ANY user across ALL organizations.
+ * Cannot be demoted except manually in Firebase Console.
+ * Same as DEVELOPER_EMAIL but semantically distinct for the new RBAC system.
+ */
+export const ORACLE_EMAIL = DEVELOPER_EMAIL;
+
+export function isOracle(email: string | undefined | null): boolean {
+  return !!email && email.toLowerCase() === ORACLE_EMAIL;
+}

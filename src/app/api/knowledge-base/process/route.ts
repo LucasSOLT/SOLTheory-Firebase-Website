@@ -49,14 +49,32 @@ function chunkDocument(content: string, chunkSize: number = CHUNK_SIZE, overlap:
 export async function POST(req: Request) {
   try {
     const authResult = await verifyRequest(req);
-    if (!authResult.isAuthenticated) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
 
-    const { orgId, docId, title, content } = await req.json();
+    const { orgId, docId, title, content, collectionPath } = await req.json();
     
-    if (!orgId || !docId || !content) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!docId || !content) {
+      return NextResponse.json({ error: "Missing required fields (docId, content)" }, { status: 400 });
+    }
+
+    // Determine target collection path for vectors
+    let targetCollection: string;
+    if (collectionPath) {
+      // Validate that the caller owns this path
+      if (collectionPath.startsWith(`users/${authResult.uid}/`)) {
+        targetCollection = collectionPath;
+      } else if (collectionPath.startsWith("orgs/") && orgId) {
+        targetCollection = collectionPath;
+      } else {
+        return NextResponse.json({ error: "Unauthorized collection path" }, { status: 403 });
+      }
+    } else if (orgId) {
+      // Legacy behavior: default to org kb_vectors
+      targetCollection = `orgs/${orgId}/kb_vectors`;
+    } else {
+      return NextResponse.json({ error: "Must provide orgId or collectionPath" }, { status: 400 });
     }
 
     const chunks = chunkDocument(content);
@@ -78,7 +96,7 @@ export async function POST(req: Request) {
         const result = await model.embedContent(chunkText);
         const embeddingArray = result.embedding.values;
 
-        await db.collection(`orgs/${orgId}/kb_vectors`).add({
+        await db.collection(targetCollection).add({
           docId,
           docTitle: title || "Untitled Document",
           chunkIndex,

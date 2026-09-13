@@ -423,7 +423,7 @@ export async function retrieveSemanticChunks(
   const allChunks: Chunk[] = [];
 
   try {
-    const vectorChunks = await retrieveVectorChunks(userQuery, { orgId: options.orgId, maxResults });
+    const vectorChunks = await retrieveVectorChunks(userQuery, { orgId: options.orgId, uid: options.uid, maxResults });
     if (vectorChunks.length > 0) {
       console.log(`[KB] Vector retrieval returned ${vectorChunks.length} chunks`);
       

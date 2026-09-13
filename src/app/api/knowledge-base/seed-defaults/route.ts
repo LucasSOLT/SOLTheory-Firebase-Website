@@ -40,8 +40,8 @@ PROGRAM PORTFOLIO:
 
 export async function POST(req: Request) {
   try {
-    const authError = await verifyRequest(req);
-    if (authError) return authError;
+    const auth = await verifyRequest(req);
+    if (!auth.ok) return auth.response;
 
     const { orgId } = await req.json();
 

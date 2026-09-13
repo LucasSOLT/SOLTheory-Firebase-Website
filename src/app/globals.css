@@ -132,6 +132,15 @@
   display: none;
 }
 
+/* Homepage — hide native scrollbar while keeping scroll functionality */
+.homepage-no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.homepage-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Mobile touch improvements */
 @media (max-width: 640px) {
   .touch-pan-x {

@@ -617,7 +617,7 @@ export default function DevSettingsPanel() {
                             >
                               {member.displayName || member.email}
                             </span>
-                            {member.role === "owner" && (
+                            {member.role === "oracle" && (
                               <Crown
                                 className={`w-3 h-3 shrink-0 ${
                                   isDarkMode

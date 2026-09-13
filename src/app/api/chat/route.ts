@@ -272,8 +272,8 @@ const tools: any = [
     }
   },
   // ── Grant Agent Management Tools (REMOVED — pruned to reduce token overhead) ──
-  // ── CRM / Contacts Tools ──
-  ...CRM_TOOL_DEFINITIONS,
+  // ── CRM / Contacts Tools (gated behind feature flag) ──
+  ...(process.env.NEXT_PUBLIC_ENABLE_CRM !== 'false' ? CRM_TOOL_DEFINITIONS : []),
 ];
 
 // Increase serverless function timeout for multi-step orchestration with premium models
@@ -282,7 +282,7 @@ export const maxDuration = 60; // seconds (Pro plan supports up to 300s)
 export async function POST(req: Request) {
   // Clone request for body reading before auth (verifyOrgMember also reads headers)
   const body = await req.json();
-  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone } = body;
+  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone, chatScope } = body;
 
   // Determine org from agentId prefix and enforce org membership
   const requestOrg = (rawAgentId || "").includes("nxtchapter") ? "nxtchapter"
@@ -516,7 +516,11 @@ The current date/time for the user is: ${localTime}.`;
       groqMessages.push({ role: "system", content: soul });
     }
 
-    // --- KNOWLEDGE BASE: TIERED INJECTION ---
+    // Inject chat scope context if org-scoped
+    if (chatScope === 'org') {
+      groqMessages.push({ role: "system", content: "[SCOPE CONTEXT]\nThis conversation is in ORGANIZATION mode. It is shared with and visible to all team members in this organization. Keep responses relevant to the team and avoid overly personal advice. When executing actions, consider that other team members may reference this conversation later." });
+    }
+
     // TIER 2 (Query-matched): Semantic retrieval from uploaded documents
     // OPTIMIZATION: Run org profile fetch AND semantic retrieval IN PARALLEL
     const userMsgsForKB = messages.filter((m: any) => m.role === "user");

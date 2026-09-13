@@ -14,7 +14,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslation, TIMEZONE_OPTIONS } from "@/lib/i18n";
 import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
-import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, DEVELOPER_EMAIL } from "@/lib/org-config";
+import { FEATURE_FLAGS } from '@/lib/feature-flags';
+import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, isOracle, DEVELOPER_EMAIL } from "@/lib/org-config";
 import { OrgProvider } from "@/contexts/OrgContext";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { getAuthHeaders } from "@/lib/api-auth-client";
@@ -105,10 +106,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (isSidebarPinned) return;
     if (sidebarLeaveTimerRef.current) {
       clearTimeout(sidebarLeaveTimerRef.current);
+      sidebarLeaveTimerRef.current = null;
     }
+    // Smooth collapse begins immediately without artificial waiting delay
     sidebarLeaveTimerRef.current = setTimeout(() => {
       setIsHoverExpanded(false);
-    }, 1500); // 1.5s grace period before animating closed
+    }, 40);
   };
 
   useEffect(() => {
@@ -317,7 +320,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         let defaultRole = "user";
         const orgConfig = ORG_REGISTRY[currentOrgId];
         if (email === "lucas@soltheory.com") {
-          defaultRole = "owner";
+          defaultRole = "oracle";
         } else if (orgConfig?.adminEmails?.includes(email)) {
           defaultRole = "admin";
         }
@@ -354,6 +357,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return count >= 2;
   })();
   const userIsAdmin = isAdmin(user?.email);
+  const userIsOracle = isOracle(user?.email);
+  /** Oracle always sees dev tools (at minimum End User Dashboard). Admins see all dev tools. */
+  const showDevTools = userIsOracle || userIsAdmin;
   const contentManagerActive = useContentManagerStore((s) => s.active);
   const setContentManagerActive = useContentManagerStore((s) => s.setActive);
 
@@ -735,7 +741,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (p.includes('/support-tickets')) return { icon: 'Mail', label: 'Support Tickets' };
       if (p.includes('/action-board')) return { icon: 'LayoutDashboard', label: 'Action Board' };
       if (p.includes('/timesheets')) return { icon: 'CalendarDays', label: 'Timesheets' };
-      if (p.includes('/media-library')) return { icon: 'HardDrive', label: 'Media Library' };
+      if (p.includes('/media-library')) return { icon: 'Brain', label: 'AI Brain' };
       if (p.includes('/google-ads')) return { icon: 'Globe', label: 'Google Ads' };
       return { icon: 'Globe', label: p.split('/').pop() || 'Page' };
     };
@@ -1109,23 +1115,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ));
   };
 
-  const getSidebarLinkClass = (isActive: boolean) => {
-    const activeGlow = isActive && !isEffectiveCollapsed
+  const getSidebarLinkClass = (isActive: boolean, collapsed?: boolean) => {
+    const activeGlow = isActive
       ? isDarkMode
         ? 'relative before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-full before:bg-indigo-400 before:shadow-[0_0_8px_rgba(99,102,241,0.4)]'
         : 'relative before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-full before:bg-indigo-500 before:shadow-[0_0_6px_rgba(99,102,241,0.25)]'
       : '';
-    return `flex items-center ${isEffectiveCollapsed ? 'justify-center w-full px-0' : 'gap-3 px-3'} py-2.5 rounded-xl transition-colors cursor-pointer font-semibold overflow-visible ${
+    const layout = collapsed
+      ? 'flex items-center justify-center px-0 py-1.5 rounded-xl transition-colors cursor-pointer font-semibold overflow-visible'
+      : 'flex items-center gap-3 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-semibold whitespace-nowrap overflow-visible';
+    return `${layout} ${
       isActive 
-        ? (isDarkMode ? (isEffectiveCollapsed ? 'bg-slate-700 text-white' : 'bg-slate-200 text-black shadow-sm') : 'bg-[#f0ede4] text-black shadow-sm') 
+        ? (isDarkMode ? 'bg-slate-200 text-black shadow-sm' : 'bg-[#f0ede4] text-black shadow-sm') 
         : (isDarkMode ? 'hover:bg-slate-800 text-slate-300 hover:text-white' : 'hover:bg-[#f2efe8] text-slate-700 hover:text-stone-900')
     } ${activeGlow}`;
   };
 
-  const getSidebarIconClass = (isActive: boolean) => {
-    return `${isEffectiveCollapsed ? 'w-8 h-8' : 'w-6 h-6'} rounded-md flex items-center justify-center transition-colors ${
+  const getSidebarIconClass = (isActive: boolean, collapsed?: boolean) => {
+    return `w-8 h-8 shrink-0 rounded-md flex items-center justify-center transition-colors ${
       isActive 
-        ? (isDarkMode ? (isEffectiveCollapsed ? 'bg-transparent text-white' : 'bg-black text-white') : 'bg-stone-800 text-white')
+        ? (isDarkMode ? 'bg-black text-white' : 'bg-stone-800 text-white')
         : (isDarkMode ? 'bg-transparent text-slate-400 group-hover:text-slate-200' : 'bg-transparent text-slate-500 group-hover:text-stone-800')
     }`;
   };
@@ -1308,9 +1317,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Users className="w-5 h-5" />
                     <span>{t.agentManager}</span>
                   </Link>
-                  <Link href={`${dashboardHome}/ai-knowledge-base`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/ai-knowledge-base') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                  <Link href={`${dashboardHome}/media-library`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/media-library') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Brain className="w-5 h-5" />
-                    <span>{t.aiKnowledgeBase}</span>
+                    <span>{t.aiBrain || t.mediaLibrary || 'AI Brain'}</span>
                   </Link>
                   <Link href={`${dashboardHome}/walkthroughs`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/walkthroughs') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                     <Lightbulb className="w-5 h-5" />
@@ -1326,14 +1335,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </button>
                   {!collapsedSections['mob_tools'] && (
                   <div className="space-y-0.5 mt-1">
-                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/crm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <Users className="w-5 h-5 text-slate-500" />
-                      <span>{t.crm}</span>
-                    </Link>
-                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <Mail className="w-5 h-5 text-slate-500" />
-                      <span>{t.email}</span>
-                    </Link>
                     <Link href={`${dashboardHome}/action-board`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/action-board') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <LayoutDashboard className="w-5 h-5 text-slate-500" />
                       <span>{t.actionBoard}</span>
@@ -1342,19 +1343,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <CalendarDays className="w-5 h-5 text-slate-500" />
                       <span>{t.timesheets}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/media-library`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/media-library') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <HardDrive className="w-5 h-5 text-slate-500" />
-                      <span>{t.mediaLibrary}</span>
-                    </Link>
-                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <Send className="w-5 h-5 text-slate-500" />
-                      <span>{t.agenticCampaigning}</span>
-                    </Link>
                     <Link href={`${dashboardHome}/agentic-prospecting`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/agentic-prospecting') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Compass className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
                     </Link>
-                    {user?.email && isDeveloper(user.email) && (
+                    <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />
+                    <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/crm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Users className="w-5 h-5 text-slate-500" />
+                      <span>{t.crm}</span>
+                      <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Mail className="w-5 h-5 text-slate-500" />
+                      <span>{t.email}</span>
+                      <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Send className="w-5 h-5 text-slate-500" />
+                      <span>{t.agenticCampaigning}</span>
+                      <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
+                    </Link>
+                    <Link href={`${dashboardHome}/business-intelligence`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/business-intelligence') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <BarChart3 className="w-5 h-5 text-slate-500" />
+                      <span>{t.businessIntelligence}</span>
+                      <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
+                    </Link>
+                    {user?.email && isOracle(user.email) && (
                     <Link href={`${dashboardHome}/system-health`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/system-health') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Activity className="w-5 h-5 text-amber-500" />
                       <span>System Health</span>
@@ -1431,7 +1445,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           width: isEffectiveCollapsed ? 64 : sidebarWidth,
           minWidth: isEffectiveCollapsed ? 64 : 230,
           maxWidth: isEffectiveCollapsed ? 64 : 500,
-          transition: sidebarResizeRef.current ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: sidebarResizeRef.current
+            ? 'none'
+            : isEffectiveCollapsed
+              ? 'width 0.7s cubic-bezier(0.25, 1, 0.5, 1), min-width 0.7s cubic-bezier(0.25, 1, 0.5, 1), max-width 0.7s cubic-bezier(0.25, 1, 0.5, 1)'
+              : 'width 0.45s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
+          willChange: 'width, min-width',
         }}
         onMouseEnter={handleSidebarMouseEnter}
         onMouseLeave={handleSidebarMouseLeave}
@@ -1474,56 +1493,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         <aside className={`w-full flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-          <div style={{ width: isEffectiveCollapsed ? 64 : sidebarWidth, minWidth: isEffectiveCollapsed ? 64 : 230 }} className={`flex flex-col h-full overflow-hidden ${isEffectiveCollapsed ? 'items-center [&_span]:hidden' : ''}`}> {/* Inner container matches outer width */}
-            {isEffectiveCollapsed ? (
-              /* ── Collapsed: centered expand / pin button at top ── */
-              <div className="flex items-center justify-center pt-4 pb-2 shrink-0">
-                <button
-                  onClick={() => {
-                    setIsSidebarPinned(true);
-                    setIsHoverExpanded(true);
-                  }}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]'}`}
-                  title="Expand & Pin sidebar"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-                </button>
-              </div>
-            ) : (isDualOrgUser ? (
-              /* ── Expanded + Dual-org: org switcher with pin/collapse button overlay ── */
-              <div ref={orgSwitcherRef} className="relative p-5 pt-7 pb-5 shrink-0">
-                {/* Pin / Collapse toggle button — floating top-right */}
-                <button
-                  onClick={() => {
-                    if (isSidebarPinned) {
-                      setIsSidebarPinned(false);
-                      setIsHoverExpanded(false);
-                    } else {
-                      setIsSidebarPinned(true);
-                    }
-                  }}
-                  className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    isSidebarPinned
-                      ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
-                      : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
-                  }`}
-                  title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
-                >
-                  {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
-                </button>
+          <div style={{ width: isEffectiveCollapsed ? 64 : sidebarWidth, minWidth: isEffectiveCollapsed ? 64 : sidebarWidth, transition: 'width 0.45s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.45s cubic-bezier(0.16, 1, 0.3, 1)' }} className="flex flex-col h-full overflow-hidden">
+            {isDualOrgUser ? (
+              /* ── Dual-org: org switcher with pin/collapse button overlay ── */
+              <div ref={orgSwitcherRef} className={`relative shrink-0 ${isEffectiveCollapsed ? 'p-2 pt-4 pb-2 flex justify-center' : 'p-4 pt-6 pb-4'}`}>
+                {/* Pin / Collapse toggle button — floating top-right, visible only when expanded */}
+                {!isEffectiveCollapsed && (
+                  <button
+                    onClick={() => {
+                      if (isSidebarPinned) {
+                        setIsSidebarPinned(false);
+                        setIsHoverExpanded(false);
+                      } else {
+                        setIsSidebarPinned(true);
+                      }
+                    }}
+                    className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      isSidebarPinned
+                        ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
+                        : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
+                    }`}
+                    title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
+                  >
+                    {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                  </button>
+                )}
                 <button
                   onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}
+                  className={`w-full flex items-center ${isEffectiveCollapsed ? 'justify-center p-1' : 'gap-3 px-2 py-2'} rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}
                 >
-                  <div className={`p-1 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
-                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-9 h-9 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                  <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
+                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-8 h-8 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                   </div>
-                  <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
+                  {!isEffectiveCollapsed && (
+                    <>
+                      <span className={`font-bold text-base tracking-tight flex-1 text-left whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
+                      <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
+                    </>
+                  )}
                 </button>
 
-                {isOrgSwitcherOpen && (
-                  <div className={`absolute left-5 right-5 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-[#e0ddd4]'}`}>
+                {isOrgSwitcherOpen && !isEffectiveCollapsed && (
+                  <div className={`absolute left-4 right-4 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-[#e0ddd4]'}`}>
                     {getAllOrgIds().map((orgId, idx) => {
                       const isCurrent = currentOrgId === orgId;
                       return (
@@ -1535,11 +1546,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           }}
                           className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
                         >
-                          <div className={`p-1 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
-                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-8 h-8 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                          <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
+                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                           </div>
-                          <span className={`text-sm font-semibold flex-1 text-left ${isCurrent ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
-                          {isCurrent && <Check className="w-4 h-4 text-indigo-600" />}
+                          <span className={`text-sm font-semibold flex-1 text-left whitespace-nowrap ${isCurrent ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
+                          {isCurrent && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
                         </button>
                       );
                     })}
@@ -1547,35 +1558,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
             ) : (
-              /* ── Expanded + Single-org: logo with pin/collapse button overlay ── */
+              /* ── Single-org: logo with pin/collapse button overlay ── */
               <div className="relative shrink-0">
-                {/* Pin / Collapse toggle button — floating top-right */}
-                <button
-                  onClick={() => {
-                    if (isSidebarPinned) {
-                      setIsSidebarPinned(false);
-                      setIsHoverExpanded(false);
-                    } else {
-                      setIsSidebarPinned(true);
-                    }
-                  }}
-                  className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    isSidebarPinned
-                      ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
-                      : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
-                  }`}
-                  title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
-                >
-                  {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
-                </button>
-                <Link href={dashboardHome} className={`p-6 pt-8 pb-8 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}>
-                  <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-14 h-14 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
-                  <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
+                {/* Pin / Collapse toggle button — floating top-right, visible only when expanded */}
+                {!isEffectiveCollapsed && (
+                  <button
+                    onClick={() => {
+                      if (isSidebarPinned) {
+                        setIsSidebarPinned(false);
+                        setIsHoverExpanded(false);
+                      } else {
+                        setIsSidebarPinned(true);
+                      }
+                    }}
+                    className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      isSidebarPinned
+                        ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
+                        : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
+                    }`}
+                    title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
+                  >
+                    {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                  </button>
+                )}
+                <Link href={dashboardHome} className={`${isEffectiveCollapsed ? 'p-2 pt-4 pb-2 justify-center' : 'px-4 pt-6 pb-4'} flex items-center gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}>
+                  <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
+                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-8 h-8 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                  </div>
+                  {!isEffectiveCollapsed && (
+                    <span className={`font-bold text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
+                  )}
                 </Link>
               </div>
-            ))}
+            )}
 
-        <div className="flex-grow overflow-y-auto px-4 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onClick={(e) => {
+        <div className={`flex-grow overflow-y-auto ${isEffectiveCollapsed ? 'px-2 space-y-2 pt-2' : 'px-4 space-y-6'} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`} onClick={(e) => {
           // Exit CMS mode when any sidebar link is clicked
           if (contentManagerActive) {
             const target = e.target as HTMLElement;
@@ -1586,89 +1603,94 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Section 1 */}
           <div>
             {!isEffectiveCollapsed && (
-              <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
-                <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.menu}</span>
-              </button>
+            <button onClick={() => toggleSection('menu')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr whitespace-nowrap">
+              <ChevronDown className={`w-3 h-3 shrink-0 text-slate-400 transition-transform duration-200 ${collapsedSections['menu'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700 whitespace-nowrap">{t.menu}</span>
+            </button>
             )}
-            {!collapsedSections['menu'] && <div className="animate-in fade-in duration-150">
-              <div className="space-y-1 mb-4 pt-1">
+            {(isEffectiveCollapsed || !collapsedSections['menu']) && <div className="animate-in fade-in duration-150">
+              <div className={`${isEffectiveCollapsed ? 'space-y-0.5' : 'space-y-1 mb-4 pt-1'}`}>
               {/* Content Manager moved to Dev Tools dropdown in header */}
+              {!isEffectiveCollapsed && (
               <div className="relative">
                 <Link href={`${dashboardHome}`} className={getSidebarLinkClass(false)} onClick={(e) => e.preventDefault()} style={{ opacity: 0.5, pointerEvents: 'none' }}>
                   <div className={getSidebarIconClass(false)}>
-                    <Flame className="w-4 h-4" />
+                    <Flame className="w-5 h-5" />
                   </div>
-                  <span className="text-sm font-medium">CAMPFiRE</span>
-                  {!isEffectiveCollapsed && (
-                    <span className={`ml-auto text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'text-slate-500 bg-slate-800' : 'text-slate-400 bg-slate-100'}`}>
-                      Coming Soon
-                    </span>
-                  )}
+                  <span className="text-sm font-medium whitespace-nowrap">CAMPFiRE</span>
+                  <span className={`ml-auto text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'text-slate-500 bg-slate-800' : 'text-slate-400 bg-slate-100'}`}>
+                    Coming Soon
+                  </span>
                 </Link>
               </div>
-              <Link href={`${dashboardHome}`} className={getSidebarLinkClass(pathname === dashboardHome)}>
-                <div className={getSidebarIconClass(pathname === dashboardHome)}>
-                  <Home className="w-4 h-4" />
+              )}
+              <Link href={`${dashboardHome}`} className={getSidebarLinkClass(pathname === dashboardHome, isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.homepage : undefined}>
+                <div className={getSidebarIconClass(pathname === dashboardHome, isEffectiveCollapsed)}>
+                  <Home className="w-5 h-5" />
                 </div>
-                <span className="text-sm font-medium">{t.homepage}</span>
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.homepage}</span>}
               </Link>
-              <Link href={`${dashboardHome}/ai-agents/jarvis`} className={getSidebarLinkClass(pathname.includes('/ai-agents'))}>
-                <div className={getSidebarIconClass(pathname.includes('/ai-agents'))}>
-                  <Users className="w-4 h-4" />
+              <Link href={`${dashboardHome}/ai-agents/jarvis`} className={getSidebarLinkClass(pathname.includes('/ai-agents'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.agentManager : undefined}>
+                <div className={getSidebarIconClass(pathname.includes('/ai-agents'), isEffectiveCollapsed)}>
+                  <Users className="w-5 h-5" />
                 </div>
-                <span className="text-sm font-medium">{t.agentManager}</span>
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agentManager}</span>}
               </Link>
-              <Link href={`${dashboardHome}/ai-knowledge-base`} className={getSidebarLinkClass(pathname.includes('/ai-knowledge-base'))}>
-                <div className={getSidebarIconClass(pathname.includes('/ai-knowledge-base'))}>
-                  <Brain className="w-4 h-4" />
+              <Link href={`${dashboardHome}/media-library`} className={getSidebarLinkClass(pathname.includes('/media-library'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? (t.aiBrain || t.mediaLibrary || 'AI Brain') : undefined}>
+                <div className={getSidebarIconClass(pathname.includes('/media-library'), isEffectiveCollapsed)}>
+                  <Brain className="w-5 h-5" />
                 </div>
-                <span className="text-sm font-medium">{t.aiKnowledgeBase}</span>
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.aiBrain || t.mediaLibrary || 'AI Brain'}</span>}
               </Link>
-              <Link href={`${dashboardHome}/walkthroughs`} className={getSidebarLinkClass(pathname.includes('/walkthroughs'))}>
-                <div className={getSidebarIconClass(pathname.includes('/walkthroughs'))}>
-                  <Lightbulb className="w-4 h-4" />
+              <Link href={`${dashboardHome}/walkthroughs`} className={getSidebarLinkClass(pathname.includes('/walkthroughs'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.insightWalkthroughs : undefined}>
+                <div className={getSidebarIconClass(pathname.includes('/walkthroughs'), isEffectiveCollapsed)}>
+                  <Lightbulb className="w-5 h-5" />
                 </div>
-                <span className="text-sm font-medium">{t.insightWalkthroughs}</span>
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.insightWalkthroughs}</span>}
               </Link>
             </div>
             
             {/* @Messages Collapsible */}
-            <div className="mt-2">
-              {!isEffectiveCollapsed && (
-                <button 
-                  onClick={() => setIsMessagesOpen(!isMessagesOpen)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer mb-1 group ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
-                      isDarkMode 
-                        ? 'bg-transparent text-slate-400 group-hover:bg-slate-700 group-hover:text-slate-200' 
-                        : 'bg-[#f0ede4] text-stone-700 group-hover:bg-stone-800 group-hover:text-white'
-                    }`}>
-                      <MessageSquare className="w-3.5 h-3.5" />
-                    </div>
-                    <span className={`text-sm font-semibold transition-colors ${
-                      isDarkMode 
-                        ? 'text-slate-300 group-hover:text-white' 
-                        : 'text-slate-700 group-hover:text-stone-900'
-                    }`}>{t.messages}</span>
+            <div className={isEffectiveCollapsed ? '' : 'mt-2'}>
+              {isEffectiveCollapsed ? (
+                /* Collapsed: just show a message icon link */
+                <Link href={`${dashboardHome}/communications/dm`} className={getSidebarLinkClass(pathname.includes('/communications'), true)} title={t.messages}>
+                  <div className={getSidebarIconClass(pathname.includes('/communications'), true)}>
+                    <MessageSquare className="w-5 h-5" />
                   </div>
-                  {isMessagesOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                </button>
-              )}
+                </Link>
+              ) : (
+              <>
+              <button 
+                onClick={() => setIsMessagesOpen(!isMessagesOpen)}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer mb-1 group whitespace-nowrap ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={getSidebarIconClass(pathname.includes('/communications'), false)}>
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <span className={`text-sm font-semibold whitespace-nowrap transition-colors ${
+                    isDarkMode 
+                      ? 'text-slate-300 group-hover:text-white' 
+                      : 'text-slate-700 group-hover:text-stone-900'
+                  }`}>{t.messages}</span>
+                </div>
+                {isMessagesOpen ? <ChevronDown className="w-4 h-4 shrink-0 text-slate-400" /> : <ChevronRight className="w-4 h-4 shrink-0 text-slate-400" />}
+              </button>
               
-              {(isMessagesOpen && !isEffectiveCollapsed) && (
+              {isMessagesOpen && (
                 <div className="pl-12 pr-3 py-1 space-y-1 animate-in slide-in-from-top-1 fade-in duration-200">
                   <Link href={`${dashboardHome}/communications/dm`} className={getSidebarSubLinkClass(pathname.endsWith('/communications/dm'))}>
-                    <UserSquare className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/dm') ? 'text-indigo-600' : ''}`} />
-                    <span className="text-xs font-medium">{t.dm}</span>
+                    <UserSquare className={`w-3.5 h-3.5 shrink-0 ${pathname.endsWith('/communications/dm') ? 'text-indigo-600' : ''}`} />
+                    <span className="text-xs font-medium whitespace-nowrap">{t.dm}</span>
                   </Link>
                   <Link href={`${dashboardHome}/communications/org-thread`} className={getSidebarSubLinkClass(pathname.endsWith('/communications/org-thread'))}>
-                    <Hash className={`w-3.5 h-3.5 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
-                    <span className="text-xs font-medium">{t.orgThread}</span>
+                    <Hash className={`w-3.5 h-3.5 shrink-0 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
+                    <span className="text-xs font-medium whitespace-nowrap">{t.orgThread}</span>
                   </Link>
                 </div>
+              )}
+              </>
               )}
             </div>
             </div>}
@@ -1677,76 +1699,76 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Section: Flagship Tools */}
           <div className="mb-2">
             {!isEffectiveCollapsed && (
-              <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr">
-                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${collapsedSections['flagship'] ? '-rotate-90' : ''}`} />
-                <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700">{t.flagshipTools}</span>
-              </button>
+            <button onClick={() => toggleSection('flagship')} className="w-full flex items-center gap-1.5 px-3 py-1 -ml-1 rounded-lg hover:bg-[#f2efe8] transition-colors mb-2 group/hdr whitespace-nowrap">
+              <ChevronDown className={`w-3 h-3 shrink-0 text-slate-400 transition-transform duration-200 ${collapsedSections['flagship'] ? '-rotate-90' : ''}`} />
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase group-hover:text-slate-700 whitespace-nowrap">{t.flagshipTools}</span>
+            </button>
             )}
-            {!collapsedSections['flagship'] && (
-              <div className="space-y-1 animate-in fade-in duration-150">
-                <Link href={`${dashboardHome}/crm`} className={getSidebarLinkClass(pathname.endsWith('/crm'))}>
-                  <div className={getSidebarIconClass(pathname.endsWith('/crm'))}>
-                    <Users className="w-4 h-4" />
+            {isEffectiveCollapsed && (
+              <div className={`my-2 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-300/40'}`} />
+            )}
+            {(isEffectiveCollapsed || !collapsedSections['flagship']) && (
+              <div className={`${isEffectiveCollapsed ? 'space-y-0.5' : 'space-y-1'} animate-in fade-in duration-150`}>
+                <Link href={`${dashboardHome}/action-board`} className={getSidebarLinkClass(pathname.endsWith('/action-board'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.actionBoard : undefined}>
+                  <div className={getSidebarIconClass(pathname.endsWith('/action-board'), isEffectiveCollapsed)}>
+                    <LayoutDashboard className="w-5 h-5" />
                   </div>
-                  <span className="text-sm font-medium">{t.crm}</span>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.actionBoard}</span>}
+                </Link>
+                <Link href={`${dashboardHome}/timesheets`} className={getSidebarLinkClass(pathname.includes('/timesheets'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.timesheets : undefined}>
+                  <div className={getSidebarIconClass(pathname.includes('/timesheets'), isEffectiveCollapsed)}>
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.timesheets}</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/gmail`} className={getSidebarLinkClass(pathname.endsWith('/gmail'))}>
-                  <div className={getSidebarIconClass(pathname.endsWith('/gmail'))}>
-                    <Mail className="w-4 h-4" />
+                <Link href={`${dashboardHome}/agentic-prospecting`} className={getSidebarLinkClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? (t.agenticProspecting || 'Agentic Prospecting') : undefined}>
+                  <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)}>
+                    <Compass className="w-5 h-5" />
                   </div>
-                  <span className="text-sm font-medium">{t.email}</span>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agenticProspecting || 'Agentic Prospecting'}</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/business-intelligence`} className={getSidebarLinkClass(pathname.includes('/business-intelligence'))}>
-                  <div className={getSidebarIconClass(pathname.includes('/business-intelligence'))}>
-                    <BarChart3 className="w-4 h-4" />
+                {!isEffectiveCollapsed && <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />}
+
+                <Link href={`${dashboardHome}/crm`} className={getSidebarLinkClass(pathname.endsWith('/crm'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.crm : undefined}>
+                  <div className={getSidebarIconClass(pathname.endsWith('/crm'), isEffectiveCollapsed)}>
+                    <Users className="w-5 h-5" />
                   </div>
-                  <span className="text-sm font-medium">{t.businessIntelligence}</span>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.crm}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/action-board`} className={getSidebarLinkClass(pathname.endsWith('/action-board'))}>
-                  <div className={getSidebarIconClass(pathname.endsWith('/action-board'))}>
-                    <LayoutDashboard className="w-4 h-4" />
+                <Link href={`${dashboardHome}/gmail`} className={getSidebarLinkClass(pathname.endsWith('/gmail'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.email : undefined}>
+                  <div className={getSidebarIconClass(pathname.endsWith('/gmail'), isEffectiveCollapsed)}>
+                    <Mail className="w-5 h-5" />
                   </div>
-                  <span className="text-sm font-medium">{t.actionBoard}</span>
-                </Link>
-                <Link href={`${dashboardHome}/timesheets`} className={getSidebarLinkClass(pathname.includes('/timesheets'))}>
-                  <div className={getSidebarIconClass(pathname.includes('/timesheets'))}>
-                    <CalendarDays className="w-4 h-4" />
-                  </div>
-                  <span className="text-sm font-medium">{t.timesheets}</span>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.email}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-
-
-                <Link href={`${dashboardHome}/media-library`} className={getSidebarLinkClass(pathname.endsWith('/media-library'))}>
-                  <div className={getSidebarIconClass(pathname.endsWith('/media-library'))}>
-                    <HardDrive className="w-4 h-4" />
+                <Link href={`${dashboardHome}/agentic-campaigning`} className={getSidebarLinkClass(pathname.endsWith('/agentic-campaigning'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.agenticCampaigning : undefined}>
+                  <div className={getSidebarIconClass(pathname.endsWith('/agentic-campaigning'), isEffectiveCollapsed)}>
+                    <Send className="w-5 h-5" />
                   </div>
-                  <span className="text-sm font-medium">{t.mediaLibrary}</span>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agenticCampaigning}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/agentic-campaigning`} className={getSidebarLinkClass(pathname.endsWith('/agentic-campaigning'))}>
-                  <div className={getSidebarIconClass(pathname.endsWith('/agentic-campaigning'))}>
-                    <Send className="w-4 h-4" />
+                <Link href={`${dashboardHome}/business-intelligence`} className={getSidebarLinkClass(pathname.includes('/business-intelligence'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.businessIntelligence : undefined}>
+                  <div className={getSidebarIconClass(pathname.includes('/business-intelligence'), isEffectiveCollapsed)}>
+                    <BarChart3 className="w-5 h-5" />
                   </div>
-                  <span className="text-sm font-medium">{t.agenticCampaigning}</span>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.businessIntelligence}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/agentic-prospecting`} className={getSidebarLinkClass(pathname.includes('/agentic-prospecting'))}>
-                  <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'))}>
-                    <Compass className="w-4 h-4" />
+                {user?.email && isOracle(user.email) && (
+                <Link href={`${dashboardHome}/system-health`} className={getSidebarLinkClass(pathname.includes('/system-health'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'System Health' : undefined}>
+                  <div className={getSidebarIconClass(pathname.includes('/system-health'), isEffectiveCollapsed)}>
+                    <Activity className="w-5 h-5 text-amber-500" />
                   </div>
-                  <span className="text-sm font-medium">{t.agenticProspecting || 'Agentic Prospecting'}</span>
-                </Link>
-
-                {user?.email && isDeveloper(user.email) && (
-                <Link href={`${dashboardHome}/system-health`} className={getSidebarLinkClass(pathname.includes('/system-health'))}>
-                  <div className={getSidebarIconClass(pathname.includes('/system-health'))}>
-                    <Activity className="w-4 h-4 text-amber-500" />
-                  </div>
-                  <span className="text-sm font-medium">System Health</span>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">System Health</span>}
                 </Link>
                 )}
               </div>
@@ -1759,12 +1781,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* User Footer Profile */}
-        <div className={`p-4 mt-auto mb-4 flex items-center ${isEffectiveCollapsed ? 'justify-center' : 'gap-2'}`}>
-          <Link href={`${dashboardHome}/settings?tab=general`} className={`p-2.5 rounded-xl transition-colors shrink-0 shadow-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700' : 'hover:bg-[#f0ede4] text-slate-400 hover:text-slate-900 bg-[#f2efe8] border border-[#e0ddd4]'}`}>
+        <div className={`${isEffectiveCollapsed ? 'p-2 flex flex-col items-center gap-2' : 'p-4 flex items-center gap-2'} mt-auto mb-4 shrink-0`}>
+          <Link href={`${dashboardHome}/settings?tab=general`} className={`p-2.5 rounded-xl transition-colors shrink-0 shadow-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700' : 'hover:bg-[#f0ede4] text-slate-400 hover:text-slate-900 bg-[#f2efe8] border border-[#e0ddd4]'}`} title="Settings">
              <Settings className="w-5 h-5" />
           </Link>
           {!isEffectiveCollapsed && (
-          <Link href={`${dashboardHome}/settings?tab=profile`} className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-xl shadow-sm overflow-hidden transition-colors cursor-pointer group ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}>
+          <Link href={`${dashboardHome}/settings?tab=profile`} className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-xl shadow-sm overflow-hidden transition-colors cursor-pointer group whitespace-nowrap ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}>
             <Avatar className="h-8 w-8 shrink-0 group-hover:scale-105 transition-transform">
               <AvatarImage src={guestAvatar} />
               <AvatarFallback className={`font-bold text-sm ${isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>{guestInitials?.[0] || 'G'}</AvatarFallback>
@@ -1946,8 +1968,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
 
-              {/* Developer Tools — Admin Only */}
-              {userIsAdmin && (
+              {/* Developer Tools — Oracle & Admin */}
+              {showDevTools && (
                 <div className="relative">
                   <button
                     onClick={() => setIsDevToolsOpen(!isDevToolsOpen)}

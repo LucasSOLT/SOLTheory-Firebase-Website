@@ -1,6 +1,46 @@
-import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
+
+/**
+ * P.A.C.T. Review Memory Items — Gemini Flash Evaluation API
+ *
+ * Full-sweep evaluation: processes ALL active entries on every call.
+ * Review history is injected into the prompt so the AI gets smarter each pass.
+ * User-restored items are auto-kept server-side (never re-flagged).
+ */
+
+const SYSTEM_PROMPT = (userName: string) => `You are a ruthlessly strict memory quality evaluator. Your job is to decide which facts about "${userName}" are worth keeping in long-term memory.
+
+REVIEW HISTORY CONTEXT:
+Each entry may include a review history tag:
+- [NEVER REVIEWED] — This is the first time seeing this entry. Evaluate with your default aggressive discard stance.
+- [PREVIOUSLY KEPT: N times — "reason"] — A prior review kept this entry N times. Give it the benefit of the doubt. Only flag if it is CLEARLY redundant with another entry in this batch or OBJECTIVELY ephemeral (temporary state, AI command). The prior reason tells you why it was kept before.
+- [USER PROTECTED] — The user manually restored this after it was flagged. Do NOT flag this entry. Always keep it.
+
+DISCARD aggressively (especially for [NEVER REVIEWED] entries) if the fact is:
+- About a momentary action ("user is sending an email", "user is checking inbox")
+- A temporary emotional/physical state ("user is tired", "user is frustrated right now")
+- A command or request to the AI ("user wants Jarvis to write…", "user asked the AI to…")
+- About what tool or service the AI should use ("user expects AI to use Gmail")
+- A duplicate of another fact in the list (keep the better-worded one, discard the rest)
+- Self-referential about the AI conversation itself ("user is chatting with Jarvis")
+- A yes/no answer with no real informational content
+- Something any person would obviously do ("user uses email", "user has had conversations")
+- A fact that refers to "${userName}" as a third party when "${userName}" IS the user (e.g. "Who is ${userName} in relation to the user?" — this is the user themselves)
+
+KEEP if the fact is:
+- A core identity detail (full name, age, location, nationality, pronouns)
+- A lasting preference (communication style, work habits, favorite tools)
+- A meaningful relationship (specific people: spouse, boss, colleague BY NAME)
+- A career/role detail (job title, company, industry, team)
+- A concrete goal or project with specifics
+- Contact information (email, phone, address)
+- A personality trait or enduring interest
+
+Respond with ONLY a JSON array. Each element:
+{"index": <number>, "keep": <boolean>, "reason": "<3-8 words>"}
+
+No markdown. No explanation. Just the raw JSON array.`;
 
 export async function POST(req: Request) {
   const auth = await verifyRequest(req);
@@ -10,75 +50,158 @@ export async function POST(req: Request) {
     const { entries, userName } = await req.json();
 
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
-      return NextResponse.json({ decisions: [] });
+      return NextResponse.json({ decisions: [], model: "none", evaluatedCount: 0 });
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-    const entriesList = entries
-      .map((e: any, i: number) => `${i}. Q: ${e.question}\n   A: ${e.answer}`)
-      .join("\n\n");
-
-    const systemPrompt = `You are a memory quality evaluator for an AI assistant. The user's name is "${userName || "the user"}".
-
-Given a numbered list of facts the AI has learned about this user, decide which ones are worth keeping as long-term memory and which should be discarded.
-
-DISCARD facts that are:
-- Redundant (e.g. "What is the user's name?" when name appears in other facts)
-- Too vague or contextless (e.g. "Is the user concerned about something?" → "Yes")
-- Conversational noise, not real facts (e.g. "Does the user want to start a story?" → "Yes")
-- Temporary states that have likely expired (e.g. "Is the user tired?" → "Yes")
-- Meta-questions about the AI itself (e.g. "Does the user want the AI to do X?")
-- Duplicate information already covered by another entry in the list
-- Trivially obvious (e.g. "Has the user had a conversation with Jarvis?" → "Yes")
-
-KEEP facts that are:
-- Biographical (name, location, family, job, age)
-- Preferences (language, communication style, interests, hobbies)
-- Important relationships (coworker names, family members)
-- Actionable context (phone number, email, goals, deadlines)
-- Persistent traits, habits, or interests
-- Specific events or achievements worth remembering
-- Contact information or organizational details
-
-You MUST respond with ONLY a valid JSON array. Each element must have:
-- "index": the entry number (integer)
-- "keep": true or false
-- "reason": a brief 3-8 word explanation
-
-Example response:
-[{"index": 0, "keep": false, "reason": "Redundant — name already known"}, {"index": 1, "keep": true, "reason": "Useful biographical detail"}]
-
-Do NOT include any text outside the JSON array. No markdown, no explanation.`;
-
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Evaluate these ${entries.length} memory entries:\n\n${entriesList}` },
-      ],
-      model: "openai/gpt-oss-120b",
-      temperature: 0.1,
-      max_tokens: 2000,
+    // ── Auto-keep user-restored items server-side ──
+    const autoKeptIndices = new Set<number>();
+    entries.forEach((e: any, i: number) => {
+      if (e.userRestored) autoKeptIndices.add(i);
     });
 
-    const raw = completion.choices[0]?.message?.content || "[]";
+    // Filter out user-restored items from AI evaluation
+    const entriesToEvaluate = entries.filter((_: any, i: number) => !autoKeptIndices.has(i));
 
-    // Parse JSON — handle potential markdown wrapping
-    let decisions: any[] = [];
-    try {
-      const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      decisions = JSON.parse(cleaned);
-    } catch {
-      console.error("[PACT Evaluate] Failed to parse LLM response:", raw.substring(0, 500));
-      // Fallback: keep everything
-      decisions = entries.map((_: any, i: number) => ({ index: i, keep: true, reason: "Parse error — keeping by default" }));
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("[PACT Evaluate] GEMINI_API_KEY not set");
+      return NextResponse.json({
+        decisions: entries.map((_: any, i: number) => ({ index: i, keep: true, reason: autoKeptIndices.has(i) ? "User protected" : "No API key — kept safely" })),
+        model: "none",
+        evaluatedCount: entries.length,
+        error: "GEMINI_API_KEY not configured",
+      });
     }
 
-    return NextResponse.json({ decisions });
+    const displayName = userName || "the user";
+    const prompt = SYSTEM_PROMPT(displayName);
+
+    // ── Build the entries list with review history context ──
+    // Map the filtered entries back to their original indices
+    const evalIndexMap: number[] = []; // evalIndexMap[evalIdx] = originalIdx
+    let evalIdx = 0;
+    entries.forEach((e: any, i: number) => {
+      if (!autoKeptIndices.has(i)) {
+        evalIndexMap[evalIdx] = i;
+        evalIdx++;
+      }
+    });
+
+    const entriesList = entriesToEvaluate
+      .map((e: any, i: number) => {
+        let historyTag = "[NEVER REVIEWED]";
+
+        if (e.reviewCount && e.reviewCount > 0) {
+          if (e.lastReviewResult === "kept") {
+            historyTag = `[PREVIOUSLY KEPT: ${e.reviewCount} time${e.reviewCount > 1 ? "s" : ""} — "${e.lastReviewReason || "Deemed valuable"}"]`;
+          } else if (e.lastReviewResult === "flagged") {
+            // Flagged but not restored (still active) — user may have let the deletion expire and re-extracted
+            historyTag = `[PREVIOUSLY FLAGGED — "${e.lastReviewReason || "Low value"}"]`;
+          }
+        }
+
+        return `${i}. Q: ${e.question}\n   A: ${e.answer}\n   ${historyTag}`;
+      })
+      .join("\n\n");
+
+    const userPrompt = `Evaluate these ${entriesToEvaluate.length} memory entries about "${displayName}". Remember: default to DISCARD for [NEVER REVIEWED] entries, but respect the review history for previously-reviewed entries.\n\n${entriesList}`;
+
+    // ── Call Gemini Flash ──
+    const models = ["gemini-2.5-flash-preview-05-20", "gemini-2.0-flash"];
+    let rawContent: string | null = null;
+    let modelUsed = "unknown";
+
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              { role: "user", parts: [{ text: prompt + "\n\n" + userPrompt }] },
+            ],
+            generationConfig: {
+              temperature: 0.05,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
+
+        if (!res.ok) {
+          const errBody = await res.text();
+          console.warn(`[PACT Evaluate] Gemini ${model} error ${res.status}:`, errBody.slice(0, 300));
+          continue;
+        }
+
+        const data = await res.json();
+        rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        modelUsed = model;
+
+        if (rawContent) break;
+      } catch (err: any) {
+        console.warn(`[PACT Evaluate] Gemini ${model} exception:`, err?.message);
+        continue;
+      }
+    }
+
+    // ── Parse JSON decisions ──
+    let aiDecisions: any[] = [];
+
+    if (rawContent) {
+      try {
+        const cleaned = rawContent
+          .replace(/```json\n?/gi, "")
+          .replace(/```\n?/g, "")
+          .trim();
+        aiDecisions = JSON.parse(cleaned);
+      } catch {
+        try {
+          const arrayMatch = rawContent.match(/\[[\s\S]*\]/);
+          if (arrayMatch) {
+            aiDecisions = JSON.parse(arrayMatch[0]);
+          }
+        } catch {
+          console.error("[PACT Evaluate] All JSON parse attempts failed:", rawContent.substring(0, 500));
+        }
+      }
+    }
+
+    // ── Build final decisions array mapped back to original indices ──
+    const aiDecisionsByEvalIndex = new Map(
+      (Array.isArray(aiDecisions) ? aiDecisions : []).map((d: any) => [d.index, d])
+    );
+
+    const fullDecisions = entries.map((_: any, i: number) => {
+      // User-restored items: always keep
+      if (autoKeptIndices.has(i)) {
+        return { index: i, keep: true, reason: "User protected" };
+      }
+
+      // Find this entry's eval index
+      const evalI = evalIndexMap.indexOf(i);
+      if (evalI === -1) {
+        return { index: i, keep: true, reason: "No decision — kept safely" };
+      }
+
+      const aiDecision = aiDecisionsByEvalIndex.get(evalI);
+      if (aiDecision && typeof aiDecision.keep === "boolean") {
+        return { index: i, keep: aiDecision.keep, reason: aiDecision.reason || (aiDecision.keep ? "Deemed valuable" : "Low value") };
+      }
+
+      return { index: i, keep: true, reason: "No AI decision — kept safely" };
+    });
+
+    return NextResponse.json({
+      decisions: fullDecisions,
+      model: modelUsed,
+      evaluatedCount: entries.length,
+    });
   } catch (error: any) {
     console.error("[PACT Evaluate Error]", error?.message);
     return NextResponse.json(
-      { decisions: [], error: error?.message },
+      { decisions: [], error: error?.message, model: "error" },
       { status: 200 }
     );
   }

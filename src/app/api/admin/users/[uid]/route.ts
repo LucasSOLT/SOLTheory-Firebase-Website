@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyDeveloper } from "@/lib/api-auth";
 import { initAdmin } from "@/firebase/admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { isDeveloper } from "@/lib/org-config";
+import { isOracle } from "@/lib/org-config";
 
 export async function POST(
   req: NextRequest,
@@ -39,10 +39,10 @@ export async function POST(
     }
 
     if (action === "freeze") {
-      // Safety: never allow freezing the developer account
+      // Safety: never allow freezing the Oracle account
       const userData = userDoc.data();
-      if (isDeveloper(userData?.email)) {
-        return NextResponse.json({ error: "Cannot freeze the developer account." }, { status: 403 });
+      if (isOracle(userData?.email)) {
+        return NextResponse.json({ error: "Cannot freeze or delete the Oracle account" }, { status: 403 });
       }
       await userRef.update({
         frozenAt: FieldValue.serverTimestamp(),
@@ -83,10 +83,10 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Safety: prevent deleting the developer's own account
+    // Safety: prevent deleting the Oracle's account
     const userData = userDoc.data();
-    if (isDeveloper(userData?.email)) {
-      return NextResponse.json({ error: "Cannot delete the developer account" }, { status: 403 });
+    if (isOracle(userData?.email)) {
+      return NextResponse.json({ error: "Cannot freeze or delete the Oracle account" }, { status: 403 });
     }
 
     await userRef.delete();

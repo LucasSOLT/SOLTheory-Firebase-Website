@@ -424,36 +424,24 @@ export function SolTheoryHome() {
   });
 
   return (
-    <>
+    <div className={`relative w-full mx-auto h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
       {/* ── Login-to-Dashboard Bridge Overlay ──
           Shimmer skeleton preview while Firestore data loads.
           Fades out after 3.5s, removed from DOM at 5s. */}
-      {!overlayGone && (() => {
-        // Determine sidebar left offset (evaluated once at mount)
-        const sidebarLeft = (() => {
-          if (typeof window === 'undefined') return 0;
-          if (window.innerWidth < 768) return 0;
-          // isSidebarCollapsed is not persisted in localStorage — default is expanded (256px)
-          return 256;
-        })();
-
-        return (
+      {!overlayGone && (
         <div
           style={{
-            position: "fixed",
-            top: 72,
-            right: 0,
-            bottom: 0,
-            left: sidebarLeft,
-            zIndex: 99999,
-            background: isDarkMode ? "#020617" : "#ffffff",
+            position: "absolute",
+            inset: 0,
+            zIndex: 50,
+            background: isDarkMode ? "#020617" : "#faf8f3",
             opacity: pageReady ? 0 : 1,
             transition: "opacity 1.5s ease-in-out",
             pointerEvents: pageReady ? "none" : "auto",
           }}
-          className="pt-4 md:pt-6 pb-10 px-4 md:px-10 overflow-hidden"
+          className="pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 overflow-hidden min-h-full"
         >
-          <div className="space-y-4 md:space-y-6 w-full">
+          <div className="space-y-4 md:space-y-6 min-w-0 w-full">
             {/* Skeleton header */}
             <div className="flex flex-col gap-1 mb-2">
               <div className={`h-7 w-72 rounded-lg animate-shimmer ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200'}`} />
@@ -488,10 +476,9 @@ export function SolTheoryHome() {
             </div>
           </div>
         </div>
-      )})()}
+      )}
       {/* Dashboard content — always rendered at full opacity underneath the overlay
           so all widgets, images, and Firestore data load while the user sees the cube */}
-      <div className={`w-full mx-auto h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
       {showConfetti && <ConfettiCanvas onDone={() => setShowConfetti(false)} />}
       <div className="space-y-4 md:space-y-6 min-w-0 w-full">
         {/* Content Manager Bar */}
@@ -845,6 +832,5 @@ export function SolTheoryHome() {
         />
       )}
     </div>
-    </>
   );
 }

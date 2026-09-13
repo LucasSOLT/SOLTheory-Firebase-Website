@@ -6,8 +6,8 @@ import sendgrid from "@sendgrid/mail";
 
 export async function POST(req: NextRequest) {
   const auth = await verifyRequest(req);
-  if (!auth.authenticated) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!auth.ok) {
+    return auth.response;
   }
 
   try {

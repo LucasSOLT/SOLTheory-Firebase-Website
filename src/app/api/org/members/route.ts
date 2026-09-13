@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyRole } from "@/lib/api-auth";
 import { initAdmin } from "@/firebase/admin";
 import { getFirestore } from "firebase-admin/firestore";
+import { isOracle } from "@/lib/org-config";
 
 export async function DELETE(req: Request) {
   try {
@@ -27,9 +28,16 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 });
     }
 
-    const targetRole = targetDoc.data()?.role;
-    if (targetRole === 'owner') {
-      return NextResponse.json({ error: "Cannot remove an owner" }, { status: 403 });
+    const targetData = targetDoc.data();
+    const targetRole = targetData?.role;
+    const targetEmail = targetData?.email;
+
+    if (targetEmail && isOracle(targetEmail)) {
+      return NextResponse.json({ error: "Cannot remove the Oracle account" }, { status: 403 });
+    }
+
+    if (targetRole === 'oracle') {
+      return NextResponse.json({ error: "Cannot remove an oracle" }, { status: 403 });
     }
 
     await db.doc(`orgs/${orgId}/members/${targetUid}`).delete();
