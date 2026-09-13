@@ -66,16 +66,19 @@ export function useKnowledgeBase(orgPrefix?: string): UserKnowledgeContext {
         }
         setKnowledgeBaseText(kbTexts.join("\n\n"));
 
-        // 2. Load P.A.C.T. facts
+        // 2. Load P.A.C.T. facts from Supabase API (defaults to user scope for backward compat)
         try {
-          const userDoc = await getDoc(doc(firestore, "users", user.uid));
-          const pactField = `pact_entries_${effectiveOrgPrefix}`;
-          const entries: any[] = userDoc.data()?.[pactField] || [];
-          const activeFacts = entries
-            .filter((e: any) => !e.markedForDeletion)
-            .map((e: any) => `Q: ${e.question}\nA: ${e.answer}`)
-            .join("\n\n");
-          setPactText(activeFacts);
+          const { getAuthHeaders } = await import("@/lib/api-auth-client");
+          const headers = await getAuthHeaders();
+          const pactRes = await fetch(`/api/pact/memories?scope=user&orgId=${effectiveOrgPrefix}`, { headers });
+          if (pactRes.ok) {
+            const entries: any[] = await pactRes.json();
+            const activeFacts = (entries || [])
+              .filter((e: any) => !e.marked_for_deletion)
+              .map((e: any) => `Q: ${e.question}\nA: ${e.answer}`)
+              .join("\n\n");
+            setPactText(activeFacts);
+          }
         } catch {
           // ignore
         }

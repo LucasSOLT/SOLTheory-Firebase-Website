@@ -554,10 +554,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [ragTitle, setRagTitle] = useState("");
   const [ragTextContent, setRagTextContent] = useState("");
 
-  // P.A.C.T. — Personalized AI Conversation Training
-  type PACTEntry = { id: string; question: string; answer: string; source: string; orgId: string; createdAt: number; updatedAt: number; markedForDeletion?: number; deletionReason?: string };
-  const [pactEntries, setPactEntries] = useState<PACTEntry[]>([]);
+
+  // P.A.C.T. — Personalized AI Conversation Training (Dual-Scope Working Memory)
+  type PACTEntry = { id: string; question: string; answer: string; source: string; orgId: string; scope: 'user' | 'org'; category?: string; confidence?: string; createdAt: number; updatedAt: number; markedForDeletion?: number; deletionReason?: string };
+  const [personalPactEntries, setPersonalPactEntries] = useState<PACTEntry[]>([]);
+  const [orgPactEntries, setOrgPactEntries] = useState<PACTEntry[]>([]);
   const [pactLoaded, setPactLoaded] = useState(false);
+  // Active entries based on current chat scope
+  const pactEntries = chatScope === 'org' ? orgPactEntries : personalPactEntries;
 
   // PACT enabled toggle
   const [pactEnabled, setPactEnabled] = useState(true);
@@ -593,80 +597,77 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     }
   }, [isKnowledgeBaseOpen, activeSettingsTab, user, firestore, params.agentId]);
 
-  // Load P.A.C.T. entries from Firestore
+  // Load P.A.C.T. entries from Supabase working_memories API (dual-scope)
   const fetchPACTEntries = async () => {
-    if (!user?.uid || !firestore) return;
+    if (!user?.uid) return;
     try {
-      const { getDoc, doc } = await import("firebase/firestore");
-      const userDoc = await getDoc(doc(firestore, "users", user.uid));
-      const entries: PACTEntry[] = [];
-
-      // Fallback: Read from the field
-      const fieldData = userDoc.data()?.[`pact_entries_${orgId}`] || [];
-      fieldData.forEach((item: any, index: number) => {
-        entries.push({
-          id: `field-${index}`,
+      const headers = await getAuthHeaders();
+      // Fetch both scopes in parallel
+      const [personalRes, orgRes] = await Promise.all([
+        fetch(`/api/pact/memories?scope=user&orgId=${orgId}`, { headers }),
+        fetch(`/api/pact/memories?scope=org&orgId=${orgId}`, { headers }),
+      ]);
+      if (personalRes.ok) {
+        const data = await personalRes.json();
+        setPersonalPactEntries((data || []).map((item: any) => ({
+          id: item.id,
           question: item.question,
           answer: item.answer,
-          source: item.source || "server_background",
+          source: item.source || 'server_background',
           orgId: orgId,
-          createdAt: item.createdAt || Date.now(),
-          updatedAt: item.updatedAt || Date.now(),
-          markedForDeletion: item.markedForDeletion || undefined,
-          deletionReason: item.deletionReason || undefined
-        });
-      });
-
-      entries.sort((a, b) => b.createdAt - a.createdAt);
-
-      setPactEntries(entries);
+          scope: 'user' as const,
+          category: item.category,
+          confidence: item.confidence,
+          createdAt: new Date(item.created_at).getTime(),
+          updatedAt: new Date(item.updated_at).getTime(),
+          markedForDeletion: item.marked_for_deletion ? new Date(item.marked_for_deletion).getTime() : undefined,
+          deletionReason: item.deletion_reason || undefined,
+        })));
+      }
+      if (orgRes.ok) {
+        const data = await orgRes.json();
+        setOrgPactEntries((data || []).map((item: any) => ({
+          id: item.id,
+          question: item.question,
+          answer: item.answer,
+          source: item.source || 'server_background',
+          orgId: orgId,
+          scope: 'org' as const,
+          category: item.category,
+          confidence: item.confidence,
+          createdAt: new Date(item.created_at).getTime(),
+          updatedAt: new Date(item.updated_at).getTime(),
+          markedForDeletion: item.marked_for_deletion ? new Date(item.marked_for_deletion).getTime() : undefined,
+          deletionReason: item.deletion_reason || undefined,
+        })));
+      }
       setPactLoaded(true);
-    } catch (err) { console.error("Failed to load PACT entries", err); }
+    } catch (err) { console.error("Failed to load PACT entries from Supabase", err); }
   };
 
   useEffect(() => {
-    if (user?.uid && firestore) {
+    if (user?.uid) {
       fetchPACTEntries();
     }
-  }, [user?.uid, firestore]);
+  }, [user?.uid, chatScope]);
 
-  // Build PACT text for API injection — exclude soft-deleted entries and respect pactEnabled
+  // Build PACT text for API injection — scope-aware, exclude soft-deleted entries, respect pactEnabled
   const pactText = pactEntries.length > 0 && pactEnabled
     ? pactEntries.filter(e => !e.markedForDeletion).map(e => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")
     : "";
 
-  // Heartbeat — autonomous PACT cleanup
+  // Heartbeat — autonomous PACT cleanup (uses in-memory entries + Supabase API)
   const runHeartbeatCleanup = useCallback(async () => {
-    if (heartbeatLockRef.current || !user?.uid || !firestore) return;
+    if (heartbeatLockRef.current || !user?.uid) return;
     heartbeatLockRef.current = true;
     setHeartbeatRunning(true);
     try {
-      const { getDoc, doc, updateDoc } = await import("firebase/firestore");
-      const userDocRef = doc(firestore, "users", user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      let currentEntries: any[] = userDocSnap.data()?.[`pact_entries_${orgId}`] || [];
-
-      // Phase 1: Auto-purge entries marked > 24 hours ago
-      const now = Date.now();
-      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-      const beforePurge = currentEntries.length;
-      currentEntries = currentEntries.filter((e: any) => {
-        if (e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS) return false;
-        return true;
-      });
-      if (currentEntries.length !== beforePurge) {
-        // Sanitize entries — Firestore rejects undefined field values
-        const sanitized = currentEntries.map((e: any) => JSON.parse(JSON.stringify(e)));
-        await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: sanitized });
-      }
-
-      // Phase 2: Evaluate active (non-marked) entries via LLM
-      const activeEntries = currentEntries.filter((e: any) => !e.markedForDeletion);
-      if (activeEntries.length === 0) {
+      // Work with the current scope's active entries
+      const currentEntries = pactEntries.filter(e => !e.markedForDeletion);
+      if (currentEntries.length === 0) {
         setLastHeartbeatRun(Date.now());
         setHeartbeatRunning(false);
         heartbeatLockRef.current = false;
-        await fetchPACTEntries();
         return;
       }
 
@@ -674,7 +675,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         method: "POST",
         headers: await getAuthHeaders(),
         body: JSON.stringify({
-          entries: activeEntries.map((e: any) => ({ question: e.question, answer: e.answer })),
+          entries: currentEntries.map((e: any) => ({ question: e.question, answer: e.answer })),
           userName: user?.displayName || undefined
         })
       });
@@ -683,30 +684,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
       // Build a map of active entry indices that should be discarded
       const discardIndices = new Set<number>();
-      const reasonMap = new Map<number, string>();
       decisions.forEach((d: any) => {
         if (!d.keep && typeof d.index === "number") {
           discardIndices.add(d.index);
-          reasonMap.set(d.index, d.reason || "Low value");
         }
       });
 
       if (discardIndices.size > 0) {
-        // Map active entry indices back to the full array
-        let activeIdx = 0;
-        const updated = currentEntries.map((e: any) => {
-          if (!e.markedForDeletion) {
-            if (discardIndices.has(activeIdx)) {
-              const reason = reasonMap.get(activeIdx) || "Low value";
-              activeIdx++;
-              return { ...e, markedForDeletion: Date.now(), deletionReason: reason };
-            }
-            activeIdx++;
-          }
-          return e;
-        });
-        await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: updated });
-
         // Push notification to shared notification tray
         const existing = JSON.parse(localStorage.getItem('st_all_notifications') || '[]');
         const newNotif = {
@@ -729,7 +713,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       setHeartbeatRunning(false);
       heartbeatLockRef.current = false;
     }
-  }, [user?.uid, firestore, user?.displayName]);
+  }, [user?.uid, user?.displayName, pactEntries, chatScope]);
 
   // Heartbeat interval management
   useEffect(() => {
@@ -812,14 +796,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       // Auto-purge entries that have expired (markedForDeletion > 24h ago)
       const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
       const hasExpired = pactEntries.some(e => e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS);
-      if (hasExpired && firestore && user?.uid) {
+      if (hasExpired && user?.uid) {
         const remaining = pactEntries.filter(e => !(e.markedForDeletion && (now - e.markedForDeletion) > TWENTY_FOUR_HOURS));
-        setPactEntries(remaining);
-        import("firebase/firestore").then(({ doc, updateDoc }) => {
-          // Sanitize entries — Firestore rejects undefined field values
-          const sanitized = remaining.map((e: any) => JSON.parse(JSON.stringify(e)));
-          updateDoc(doc(firestore, "users", user.uid), { [`pact_entries_${orgId}`]: sanitized }).catch(console.error);
-        });
+        // Update the correct scope's state
+        if (chatScope === 'org') setOrgPactEntries(remaining);
+        else setPersonalPactEntries(remaining);
       }
     }, 60000);
     return () => clearInterval(tickInterval);
@@ -1695,26 +1676,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             recentHistory: recentMsgs.length > 2 ? recentMsgs.slice(0, -2) : undefined
           })
         }).then(res => res.json()).then(async (extractData) => {
-          if (extractData.facts && extractData.facts.length > 0 && firestore && user?.uid) {
-            const { doc, getDoc, updateDoc, arrayUnion } = await import("firebase/firestore");
-            const userDocRef = doc(firestore, "users", user.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            const existingField = userDocSnap.data()?.[`pact_entries_${orgId}`] || [];
-            const existingQs = new Set(existingField.map((f: any) => f.question?.toLowerCase()?.trim()));
-
-            const newFacts = extractData.facts.filter((f: any) => !existingQs.has(f.question?.toLowerCase()?.trim())).map((f: any) => ({
-              question: f.question,
-              answer: f.answer,
-              source: "server_background",
-              createdAt: Date.now(),
-              updatedAt: Date.now()
-            }));
-
-            if (newFacts.length > 0) {
-              await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: arrayUnion(...newFacts)
-              });
-              setTimeout(fetchPACTEntries, 1000);
+          if (extractData.facts && extractData.facts.length > 0 && user?.uid) {
+            const headers = await getAuthHeaders();
+            for (const f of extractData.facts) {
+              await fetch('/api/pact/memories', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  scope: chatScope || 'user',
+                  orgId,
+                  question: f.question,
+                  answer: f.answer,
+                  category: f.category || 'preference',
+                  confidence: f.confidence || 'medium',
+                  source: 'chat_extraction',
+                }),
+              }).catch(console.error);
             }
+            setTimeout(fetchPACTEntries, 1000);
           }
         }).catch(console.error);
       }
@@ -1848,31 +1827,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
 
       // --- Save P.A.C.T. facts from API response ---
-      if (data.pactFacts && data.pactFacts.length > 0 && user?.uid && firestore) {
+      if (data.pactFacts && data.pactFacts.length > 0 && user?.uid) {
         (async () => {
           try {
-            const userDocRef = doc(firestore, "users", user.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            const existingField = userDocSnap.data()?.[`pact_entries_${orgId}`] || [];
-            const existingQs = new Set<string>(existingField.map((e: any) => e.question?.toLowerCase()?.trim()));
-            const newFacts = data.pactFacts
-              .filter((f: any) => !existingQs.has(f.question?.toLowerCase()?.trim()))
-              .map((f: any) => ({
-                question: f.question,
-                answer: f.answer,
-                confidence: f.confidence || "medium",
-                category: f.category || "preference",
-                source: "voice",
-                orgId: orgId,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-              }));
-            if (newFacts.length > 0 && existingField.length + newFacts.length <= 200) {
-              await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: arrayUnion(...newFacts)
-              });
+            const headers = await getAuthHeaders();
+            for (const f of data.pactFacts) {
+              await fetch('/api/pact/memories', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  scope: chatScope || 'user',
+                  orgId,
+                  question: f.question,
+                  answer: f.answer,
+                  category: f.category || 'preference',
+                  confidence: f.confidence || 'medium',
+                  source: 'chat_extraction',
+                }),
+              }).catch(console.error);
             }
             fetchPACTEntries();
-            console.log(`[PACT] Saved ${newFacts.length} facts (observer, unified path)`);
+            console.log(`[PACT] Saved ${data.pactFacts.length} facts (observer, unified path)`);
           } catch (e) { console.error("[PACT] Client save error:", e); }
         })();
       }
@@ -3188,26 +3163,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 recentHistory: voiceRecentMsgs.length > 0 ? voiceRecentMsgs : undefined
               })
             }).then(res => res.json()).then(async (extractData) => {
-              if (extractData.facts && extractData.facts.length > 0 && firestore && user?.uid) {
-                const { doc, getDoc, updateDoc, arrayUnion } = await import("firebase/firestore");
-                const userDocRef = doc(firestore, "users", user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                const existingField = userDocSnap.data()?.[`pact_entries_${orgId}`] || [];
-                const existingQs = new Set(existingField.map((f: any) => f.question?.toLowerCase()?.trim()));
-
-                const newFacts = extractData.facts.filter((f: any) => !existingQs.has(f.question?.toLowerCase()?.trim())).map((f: any) => ({
-                  question: f.question,
-                  answer: f.answer,
-                  source: "server_background",
-                  createdAt: Date.now(),
-                  updatedAt: Date.now()
-                }));
-
-                if (newFacts.length > 0) {
-                  await updateDoc(userDocRef, { [`pact_entries_${orgId}`]: arrayUnion(...newFacts)
-                  });
-                  setTimeout(fetchPACTEntries, 1000);
+              if (extractData.facts && extractData.facts.length > 0 && user?.uid) {
+                const headers = await getAuthHeaders();
+                for (const f of extractData.facts) {
+                  await fetch('/api/pact/memories', {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      scope: chatScope || 'user',
+                      orgId,
+                      question: f.question,
+                      answer: f.answer,
+                      category: f.category || 'preference',
+                      confidence: f.confidence || 'medium',
+                      source: 'chat_extraction',
+                    }),
+                  }).catch(console.error);
                 }
+                setTimeout(fetchPACTEntries, 1000);
               }
             }).catch(console.error);
           }        }}

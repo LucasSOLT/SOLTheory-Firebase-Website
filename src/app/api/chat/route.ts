@@ -5,6 +5,7 @@ import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
 
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { createServiceClient } from "@/lib/supabase/server";
 
 import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
@@ -569,12 +570,16 @@ The current date/time for the user is: ${localTime}.`;
         combinedKnowledge = knowledgeBaseText.substring(0, 8000);
       }
     }
-    // --- P.A.C.T.: Personalized AI Conversation Training (Tiered Proactive Memory) ---
+    // --- P.A.C.T.: Personalized AI Conversation Training (Scope-Aware Working Memory) ---
     // Injected BEFORE knowledge base so KB (query-matched content) is closest to conversation
+    // Personal memories (user scope) are NEVER injected in org scope, and vice versa
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
+      const memoryHeader = chatScope === 'org'
+        ? `[ORGANIZATIONAL SHARED MEMORY]\nFacts and knowledge shared by team members in this organization. This is collective team knowledge — use it to answer questions about the team, projects, processes, and shared context. Weave in naturally when relevant.`
+        : `[PERSONAL USER MEMORY (PRIVATE)]\nFacts about this specific user from their private conversations. This is personal context — use it naturally but NEVER share or reference these facts in organizational/team conversations.`;
       groqMessages.push({
         role: "system",
-        content: `[USER MEMORY]\nFacts about this user from past conversations. Weave in naturally when relevant. Never interrogate about these facts.\n\n${pactText.substring(0, 5000)}`
+        content: `${memoryHeader}\n\n${pactText.substring(0, 5000)}`
       });
     }
 
@@ -1057,55 +1062,64 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
         console.warn('[AI Usage] Logging failed (non-fatal):', (logErr as any)?.message);
       }
 
-      // Fire-and-forget server-side PACT extraction — runs in background, doesn't slow response
+      // Fire-and-forget server-side PACT extraction — writes to Supabase working_memories (scope-aware)
       if (uid && userName && responseText.length > 20) {
         const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
         if (lastUserMsg.length > 5) {
+          const effectiveScope = chatScope === 'org' ? 'org' : 'user';
           extractPACTFacts(lastUserMsg, responseText, userName, messages.slice(-6))
             .then(async (facts) => {
               if (facts.length === 0) return;
               try {
-                await initAdmin();
-                const db = getAdminFirestore();
-                const userRef = db.collection("users").doc(uid);
-                const userDoc = await userRef.get();
-                const existingEntries: any[] = userDoc.data()?.pact_entries_soltheory || [];
-                const existingQuestions = new Set(existingEntries.map((e: any) => e.question?.toLowerCase().trim()));
-                
-                // Deduplicate and format new entries
-                const newEntries = facts
+                const supabase = createServiceClient();
+                // Resolve Firebase UID → Supabase user UUID
+                const { data: userData } = await supabase
+                  .from('users').select('id').eq('firebase_uid', uid).single();
+                if (!userData) { console.warn('[PACT Server] User not found in Supabase:', uid); return; }
+                // Resolve org slug → Supabase org UUID
+                const cleanSlug = (orgId || 'soltheory').replace(/\.(com|org|net)$/i, '');
+                const { data: orgData } = await supabase
+                  .from('organizations').select('id').eq('slug', cleanSlug).single();
+                if (!orgData) { console.warn('[PACT Server] Org not found:', cleanSlug); return; }
+                // Deduplicate against existing memories in this scope
+                const { data: existing } = await supabase
+                  .from('working_memories')
+                  .select('question')
+                  .eq('scope', effectiveScope)
+                  .eq('org_id', orgData.id)
+                  .then(r => r);
+                // For user scope, also filter by user_id
+                let existingQuestions: Set<string>;
+                if (effectiveScope === 'user') {
+                  const { data: userMemories } = await supabase
+                    .from('working_memories')
+                    .select('question')
+                    .eq('scope', 'user')
+                    .eq('user_id', userData.id)
+                    .eq('org_id', orgData.id);
+                  existingQuestions = new Set((userMemories || []).map((e: any) => e.question?.toLowerCase().trim()));
+                } else {
+                  existingQuestions = new Set((existing || []).map((e: any) => e.question?.toLowerCase().trim()));
+                }
+                const newRows = facts
                   .filter(f => !existingQuestions.has(f.question?.toLowerCase().trim()))
                   .map(f => ({
+                    scope: effectiveScope,
+                    user_id: userData.id,
+                    org_id: orgData.id,
                     question: f.question,
                     answer: f.answer,
-                    confidence: f.confidence || "medium",
-                    category: f.category || "preference",
-                    source: "server_background",
-                    orgId,
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
+                    confidence: f.confidence || 'medium',
+                    category: f.category || 'preference',
+                    source: 'server_background' as const,
                   }));
-                
-                if (newEntries.length > 0) {
-                  // Cap total entries at 200 — if adding would exceed, trim oldest low-confidence first
-                  const totalAfter = existingEntries.length + newEntries.length;
-                  if (totalAfter > 200) {
-                    const sorted = [...existingEntries].sort((a, b) => {
-                      const confScore: Record<string, number> = { high: 3, medium: 2, low: 1 };
-                      return (confScore[a.confidence] || 2) - (confScore[b.confidence] || 2) || (a.createdAt || 0) - (b.createdAt || 0);
-                    });
-                    const toRemove = totalAfter - 200;
-                    const entriesToRemove = sorted.slice(0, toRemove);
-                    // Remove old entries and add new ones
-                    const remaining = existingEntries.filter((e: any) => !entriesToRemove.includes(e));
-                    await userRef.update({ pact_entries_soltheory: [...remaining, ...newEntries] });
-                  } else {
-                    await userRef.update({ pact_entries_soltheory: FieldValue.arrayUnion(...newEntries) });
-                  }
-                  console.log(`[PACT Server] Extracted ${newEntries.length} new facts for user ${uid}`);
+                if (newRows.length > 0) {
+                  const { error } = await supabase.from('working_memories').insert(newRows);
+                  if (error) console.warn('[PACT Server] Supabase write failed:', error.message);
+                  else console.log(`[PACT Server] Extracted ${newRows.length} ${effectiveScope}-scope facts for user ${uid}`);
                 }
               } catch (dbErr) {
-                console.warn("[PACT Server] Firestore write failed:", (dbErr as any)?.message);
+                console.warn("[PACT Server] Background write failed:", (dbErr as any)?.message);
               }
             })
             .catch(err => console.warn("[PACT Server] Background extraction failed:", (err as any)?.message));
@@ -3150,50 +3164,52 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
       });
     }
 
-    // Fire-and-forget server-side PACT extraction for non-streaming path (voice, fallback)
+    // Fire-and-forget server-side PACT extraction for non-streaming path (voice, fallback) — Supabase scope-aware
     const nonStreamResponseText = finalResponse || "";
     if (uid && userName && nonStreamResponseText.length > 20) {
       const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
       if (lastUserMsg.length > 5) {
+        const effectiveScope = chatScope === 'org' ? 'org' : 'user';
         extractPACTFacts(lastUserMsg, nonStreamResponseText, userName, messages.slice(-6))
           .then(async (facts) => {
             if (facts.length === 0) return;
             try {
-              await initAdmin();
-              const db = getAdminFirestore();
-              const userRef = db.collection("users").doc(uid);
-              const userDoc = await userRef.get();
-              const existingEntries: any[] = userDoc.data()?.pact_entries_soltheory || [];
-              const existingQuestions = new Set(existingEntries.map((e: any) => e.question?.toLowerCase().trim()));
-              const newEntries = facts
+              const supabase = createServiceClient();
+              const { data: userData } = await supabase
+                .from('users').select('id').eq('firebase_uid', uid).single();
+              if (!userData) return;
+              const cleanSlug = (orgId || 'soltheory').replace(/\.(com|org|net)$/i, '');
+              const { data: orgData } = await supabase
+                .from('organizations').select('id').eq('slug', cleanSlug).single();
+              if (!orgData) return;
+              // Deduplicate
+              const dedupeQuery = supabase
+                .from('working_memories')
+                .select('question')
+                .eq('scope', effectiveScope)
+                .eq('org_id', orgData.id);
+              if (effectiveScope === 'user') dedupeQuery.eq('user_id', userData.id);
+              const { data: existingMems } = await dedupeQuery;
+              const existingQuestions = new Set((existingMems || []).map((e: any) => e.question?.toLowerCase().trim()));
+              const newRows = facts
                 .filter(f => !existingQuestions.has(f.question?.toLowerCase().trim()))
                 .map(f => ({
+                  scope: effectiveScope,
+                  user_id: userData.id,
+                  org_id: orgData.id,
                   question: f.question,
                   answer: f.answer,
-                  confidence: f.confidence || "medium",
-                  category: f.category || "preference",
-                  source: "server_background",
-                  orgId,
-                  createdAt: Date.now(),
-                  updatedAt: Date.now(),
+                  confidence: f.confidence || 'medium',
+                  category: f.category || 'preference',
+                  source: 'server_background' as const,
                 }));
-              if (newEntries.length > 0) {
-                const totalAfter = existingEntries.length + newEntries.length;
-                if (totalAfter > 200) {
-                  const sorted = [...existingEntries].sort((a, b) => {
-                    const confScore: Record<string, number> = { high: 3, medium: 2, low: 1 };
-                    return (confScore[a.confidence] || 2) - (confScore[b.confidence] || 2) || (a.createdAt || 0) - (b.createdAt || 0);
-                  });
-                  const toRemove = totalAfter - 200;
-                  const remaining = existingEntries.filter((e: any) => !sorted.slice(0, toRemove).includes(e));
-                  await userRef.update({ pact_entries_soltheory: [...remaining, ...newEntries] });
-                } else {
-                  await userRef.update({ pact_entries_soltheory: FieldValue.arrayUnion(...newEntries) });
-                }
-                console.log(`[PACT Server] Extracted ${newEntries.length} new facts for user ${uid} (non-stream)`);
+              if (newRows.length > 0) {
+                const { error } = await supabase.from('working_memories').insert(newRows);
+                if (error) console.warn('[PACT Server] Supabase write failed (non-stream):', error.message);
+                else console.log(`[PACT Server] Extracted ${newRows.length} ${effectiveScope}-scope facts for user ${uid} (non-stream)`);
               }
             } catch (dbErr) {
-              console.warn("[PACT Server] Firestore write failed:", (dbErr as any)?.message);
+              console.warn("[PACT Server] Background write failed (non-stream):", (dbErr as any)?.message);
             }
           })
           .catch(err => console.warn("[PACT Server] Background extraction failed:", (err as any)?.message));
