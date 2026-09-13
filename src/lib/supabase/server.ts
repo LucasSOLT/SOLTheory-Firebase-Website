@@ -88,3 +88,33 @@ export function createServiceClient() {
     },
   });
 }
+
+/**
+ * Creates a Supabase service client with the current user's identity set
+ * via the `app.current_user_id` session variable. This allows RLS policies
+ * to identify the user even though we use Firebase Auth (not Supabase Auth).
+ *
+ * Usage:
+ *   const supabase = await createAuthenticatedClient(supabaseUserId);
+ *   // All subsequent queries on this client will respect RLS policies
+ *
+ * How it works:
+ *   1. Creates a service_role client (bypasses RLS by default)
+ *   2. Calls SET LOCAL app.current_user_id = '<uuid>' via rpc
+ *   3. Returns the client — RLS helper functions can now call current_user_id()
+ *
+ * ⚠️ Note: The service_role client still bypasses RLS enforcement.
+ *    This helper is primarily for future use when we switch query paths
+ *    to use RLS-aware clients (e.g., in Prompt 5 RAG pipeline).
+ *    For now, it enables the `current_user_id()` function in RPC calls.
+ *
+ * @param supabaseUserId - The Supabase `users.id` UUID (NOT the Firebase UID)
+ */
+export async function createAuthenticatedClient(supabaseUserId: string) {
+  const client = createServiceClient();
+
+  // Set the user context for RLS helper functions
+  await client.rpc('set_user_context', { user_id: supabaseUserId }).throwOnError();
+
+  return client;
+}
