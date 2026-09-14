@@ -6,6 +6,7 @@ import { useUser, useFirestore, useStorage } from "@/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 const DocumentEditor = dynamic(() => import("@/components/media-library/DocumentEditor"), { ssr: false });
+import BrainProfileForm from "@/components/media-library/BrainProfileForm";
 import { collection, getDoc, getDocs, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import {
   Folder,
@@ -689,6 +690,11 @@ export default function MediaLibraryPage() {
   // ─── Tab State: AI Brain / Org AI Brain / General Storage / P.A.C.T. ───
   type MediaTab = "ai-brain" | "org-brain" | "general-storage" | "pact";
   const [mediaTab, setMediaTab] = useState<MediaTab>("general-storage");
+
+  // ─── Sub-View State: Documents vs. Guided Profile within AI Brain / Org Brain ───
+  type BrainSubView = "documents" | "profile";
+  const [aiBrainSubView, setAiBrainSubView] = useState<BrainSubView>("documents");
+  const [orgBrainSubView, setOrgBrainSubView] = useState<BrainSubView>("documents");
 
   // ─── View Mode: Grid / List ───
   type ViewMode = "grid" | "list";
@@ -2055,6 +2061,37 @@ export default function MediaLibraryPage() {
               if (e.dataTransfer.files?.length) handleAiBrainUpload(e.dataTransfer.files);
             }}
           >
+            {/* Sub-view toggle: Documents vs. Guided Profile */}
+            <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+              <button
+                onClick={() => setAiBrainSubView("documents")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  aiBrainSubView === "documents"
+                    ? isDark ? "bg-indigo-600 text-white shadow-sm" : "bg-indigo-600 text-white shadow-sm"
+                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                📄 Documents
+              </button>
+              <button
+                onClick={() => setAiBrainSubView("profile")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  aiBrainSubView === "profile"
+                    ? isDark ? "bg-indigo-600 text-white shadow-sm" : "bg-indigo-600 text-white shadow-sm"
+                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                🧠 Guided Profile
+              </button>
+            </div>
+
+            {/* Guided Profile sub-view */}
+            {aiBrainSubView === "profile" ? (
+              <div className="flex-1 overflow-y-auto px-4 py-3">
+                <BrainProfileForm scope="personal" orgId={orgId} isDark={isDark} />
+              </div>
+            ) : (
+            <>
             {/* Hidden file input */}
             <input
               ref={aiBrainFileRef}
@@ -2208,6 +2245,8 @@ export default function MediaLibraryPage() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -2290,6 +2329,37 @@ export default function MediaLibraryPage() {
               if (isOrgAdmin && e.dataTransfer.files?.length) handleOrgBrainUpload(e.dataTransfer.files);
             }}
           >
+            {/* Sub-view toggle: Documents vs. Guided Profile */}
+            <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+              <button
+                onClick={() => setOrgBrainSubView("documents")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  orgBrainSubView === "documents"
+                    ? isDark ? "bg-blue-600 text-white shadow-sm" : "bg-blue-600 text-white shadow-sm"
+                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                📄 Documents
+              </button>
+              <button
+                onClick={() => setOrgBrainSubView("profile")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  orgBrainSubView === "profile"
+                    ? isDark ? "bg-blue-600 text-white shadow-sm" : "bg-blue-600 text-white shadow-sm"
+                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                🏢 Guided Profile
+              </button>
+            </div>
+
+            {/* Guided Profile sub-view */}
+            {orgBrainSubView === "profile" ? (
+              <div className="flex-1 overflow-y-auto px-4 py-3">
+                <BrainProfileForm scope="org" orgId={orgId} isDark={isDark} readOnly={!isOrgAdmin} />
+              </div>
+            ) : (
+            <>
             {/* Hidden file input (admin only) */}
             {isOrgAdmin && (
               <input
@@ -2449,6 +2519,8 @@ export default function MediaLibraryPage() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
         )}
 

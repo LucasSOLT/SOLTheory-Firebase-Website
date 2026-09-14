@@ -9,6 +9,7 @@ interface UserKnowledgeContext {
   knowledgeBaseText: string;
   pactText: string;
   orgBrainText: string;
+  personalBrainText: string;
   isLoading: boolean;
 }
 
@@ -28,6 +29,7 @@ export function useKnowledgeBase(orgPrefix?: string): UserKnowledgeContext {
   const [knowledgeBaseText, setKnowledgeBaseText] = useState("");
   const [pactText, setPactText] = useState("");
   const [orgBrainText, setOrgBrainText] = useState("");
+  const [personalBrainText, setPersonalBrainText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const fetchedRef = useRef(false);
 
@@ -90,6 +92,17 @@ export function useKnowledgeBase(orgPrefix?: string): UserKnowledgeContext {
         } catch {
           // ignore
         }
+
+        // 4. Load Personal AI Brain Profile (compiled briefing)
+        try {
+          const userDoc = await getDoc(doc(firestore, "users", user.uid));
+          const profile = userDoc.data()?.aiBrainProfile;
+          if (profile?.compiledBriefing) {
+            setPersonalBrainText(profile.compiledBriefing);
+          }
+        } catch {
+          // ignore
+        }
       } catch (err) {
         console.error("useKnowledgeBase: error loading context", err);
       } finally {
@@ -100,5 +113,5 @@ export function useKnowledgeBase(orgPrefix?: string): UserKnowledgeContext {
     loadAll();
   }, [user?.uid, firestore, effectiveOrgPrefix]);
 
-  return { knowledgeBaseText, pactText, orgBrainText, isLoading };
+  return { knowledgeBaseText, pactText, orgBrainText, personalBrainText, isLoading };
 }

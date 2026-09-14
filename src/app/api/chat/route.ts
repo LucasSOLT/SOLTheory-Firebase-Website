@@ -283,7 +283,7 @@ export const maxDuration = 60; // seconds (Pro plan supports up to 300s)
 export async function POST(req: Request) {
   // Clone request for body reading before auth (verifyOrgMember also reads headers)
   const body = await req.json();
-  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone, chatScope } = body;
+  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, personalBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone, chatScope } = body;
 
   // Determine org from agentId prefix and enforce org membership
   const requestOrg = (rawAgentId || "").includes("nxtchapter") ? "nxtchapter"
@@ -581,6 +581,16 @@ The current date/time for the user is: ${localTime}.`;
         role: "system",
         content: `${memoryHeader}\n\n${pactText.substring(0, 5000)}`
       });
+    }
+
+    // --- PERSONAL AI BRAIN PROFILE: Structured user preferences & work style ---
+    // Only injected in personal scope chats (not org scope)
+    if (personalBrainText && typeof personalBrainText === "string" && personalBrainText.trim().length > 0 && chatScope !== 'org') {
+      groqMessages.push({
+        role: "system",
+        content: `[PERSONAL AI BRAIN PROFILE]\nCore information the user provided about their role, work style, communication preferences, and guidelines. Use this to personalize every response — match their preferred communication style, respect their boundaries, and reference their priorities naturally.\n\n${personalBrainText.substring(0, 6000)}`
+      });
+      console.log(`[Brain Profile] Injected ${personalBrainText.length} chars of personal brain profile`);
     }
 
     // --- CRM DATABASE: Inject user's CRM contacts so Jarvis can answer questions about them ---

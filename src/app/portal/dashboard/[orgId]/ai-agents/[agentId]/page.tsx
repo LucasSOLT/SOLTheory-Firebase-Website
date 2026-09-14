@@ -529,6 +529,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [orgBrainLoaded, setOrgBrainLoaded] = useState(false);
   const [orgBrainSaving, setOrgBrainSaving] = useState(false);
   const orgBrainSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [personalBrainText, setPersonalBrainText] = useState<string>("");
   const [pdfUploading, setPdfUploading] = useState(false);
   const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"identity" | "data" | "pact">(() => {
@@ -843,6 +844,22 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   useEffect(() => {
     if (firestore) fetchOrgBrain();
   }, [firestore]);
+
+  // Fetch personal AI brain profile (compiled briefing) for injection into chat
+  useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    const loadPersonalBrain = async () => {
+      try {
+        const { doc, getDoc } = await import("firebase/firestore");
+        const snap = await getDoc(doc(firestore, "users", user.uid));
+        const profile = snap.data()?.aiBrainProfile;
+        if (profile?.compiledBriefing) {
+          setPersonalBrainText(profile.compiledBriefing);
+        }
+      } catch { /* non-critical */ }
+    };
+    loadPersonalBrain();
+  }, [firestore, user?.uid]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -1432,6 +1449,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           ...(isLiteModel ? {} : {
             knowledgeBaseText: kbText,
             orgBrainText: orgBrain,
+            personalBrainText,
             pactText,
             crmData: crmContacts || undefined,
             crmInstanceId: crmActiveInstanceId,
@@ -1727,6 +1745,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               contacts: agentContacts,
               knowledgeBaseText: kbText,
               orgBrainText: orgBrain,
+              personalBrainText,
               pactText,
               userName: user?.displayName || undefined,
               model: selectedModel,
@@ -1807,6 +1826,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           contacts: agentContacts,
           knowledgeBaseText: kbText,
           orgBrainText: orgBrain,
+          personalBrainText,
           pactText,
           userName: user?.displayName || undefined,
           model: selectedModel,
@@ -2130,6 +2150,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           contacts: agentContacts,
           knowledgeBaseText: kbText,
           orgBrainText: orgBrain,
+          personalBrainText,
           pactText,
           userName: user?.displayName || undefined
         }),
@@ -3221,6 +3242,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               contacts: agentContacts,
               knowledgeBaseText: kbText,
               orgBrainText: orgBrain,
+              personalBrainText,
               pactText,
               userName: user?.displayName || undefined,
               model: selectedModel,
