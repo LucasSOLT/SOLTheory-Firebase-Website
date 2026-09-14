@@ -1081,42 +1081,48 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                 const { data: orgData } = await supabase
                   .from('organizations').select('id').eq('slug', cleanSlug).single();
                 if (!orgData) { console.warn('[PACT Server] Org not found:', cleanSlug); return; }
-                // Deduplicate against existing memories in this scope
-                const { data: existing } = await supabase
+                // Fetch all existing memories in this scope for deduplication & upsert
+                let existingQuery = supabase
                   .from('working_memories')
-                  .select('question')
+                  .select('id, question, answer')
                   .eq('scope', effectiveScope)
-                  .eq('org_id', orgData.id)
-                  .then(r => r);
-                // For user scope, also filter by user_id
-                let existingQuestions: Set<string>;
+                  .eq('org_id', orgData.id);
                 if (effectiveScope === 'user') {
-                  const { data: userMemories } = await supabase
-                    .from('working_memories')
-                    .select('question')
-                    .eq('scope', 'user')
-                    .eq('user_id', userData.id)
-                    .eq('org_id', orgData.id);
-                  existingQuestions = new Set((userMemories || []).map((e: any) => e.question?.toLowerCase().trim()));
-                } else {
-                  existingQuestions = new Set((existing || []).map((e: any) => e.question?.toLowerCase().trim()));
+                  existingQuery = existingQuery.eq('user_id', userData.id);
                 }
-                const newRows = facts
-                  .filter(f => !existingQuestions.has(f.question?.toLowerCase().trim()))
-                  .map(f => ({
-                    scope: effectiveScope,
-                    user_id: userData.id,
-                    org_id: orgData.id,
-                    question: f.question,
-                    answer: f.answer,
-                    confidence: f.confidence || 'medium',
-                    category: f.category || 'preference',
-                    source: 'server_background' as const,
-                  }));
-                if (newRows.length > 0) {
-                  const { error } = await supabase.from('working_memories').insert(newRows);
-                  if (error) console.warn('[PACT Server] Supabase write failed:', error.message);
-                  else console.log(`[PACT Server] Extracted ${newRows.length} ${effectiveScope}-scope facts for user ${uid}`);
+                const { data: existingMems } = await existingQuery;
+                const existingMap = new Map((existingMems || []).map((e: any) => [e.question?.toLowerCase().trim(), e]));
+
+                for (const f of facts) {
+                  const qKey = f.question?.toLowerCase().trim();
+                  if (!qKey) continue;
+                  const existingMatch = existingMap.get(qKey);
+                  if (existingMatch) {
+                    // Update slot in place if answer changed (e.g. Samantha -> Justine)
+                    if (existingMatch.answer?.trim().toLowerCase() !== f.answer?.trim().toLowerCase()) {
+                      await supabase.from('working_memories').update({
+                        answer: f.answer.trim(),
+                        category: f.category || 'preference',
+                        confidence: f.confidence || 'medium',
+                        marked_for_deletion: null,
+                        deletion_reason: null,
+                        updated_at: new Date().toISOString()
+                      }).eq('id', existingMatch.id);
+                    }
+                  } else {
+                    // Insert new unique fact
+                    await supabase.from('working_memories').insert({
+                      scope: effectiveScope,
+                      user_id: userData.id,
+                      org_id: orgData.id,
+                      question: f.question.trim(),
+                      answer: f.answer.trim(),
+                      confidence: f.confidence || 'medium',
+                      category: f.category || 'preference',
+                      source: 'server_background' as const,
+                    });
+                    existingMap.set(qKey, { id: 'temp', question: f.question, answer: f.answer });
+                  }
                 }
               } catch (dbErr) {
                 console.warn("[PACT Server] Background write failed:", (dbErr as any)?.message);
@@ -3182,31 +3188,46 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
               const { data: orgData } = await supabase
                 .from('organizations').select('id').eq('slug', cleanSlug).single();
               if (!orgData) return;
-              // Deduplicate
-              const dedupeQuery = supabase
+              // Fetch all existing memories in this scope for deduplication & upsert
+              let dedupeQuery = supabase
                 .from('working_memories')
-                .select('question')
+                .select('id, question, answer')
                 .eq('scope', effectiveScope)
                 .eq('org_id', orgData.id);
-              if (effectiveScope === 'user') dedupeQuery.eq('user_id', userData.id);
+              if (effectiveScope === 'user') dedupeQuery = dedupeQuery.eq('user_id', userData.id);
               const { data: existingMems } = await dedupeQuery;
-              const existingQuestions = new Set((existingMems || []).map((e: any) => e.question?.toLowerCase().trim()));
-              const newRows = facts
-                .filter(f => !existingQuestions.has(f.question?.toLowerCase().trim()))
-                .map(f => ({
-                  scope: effectiveScope,
-                  user_id: userData.id,
-                  org_id: orgData.id,
-                  question: f.question,
-                  answer: f.answer,
-                  confidence: f.confidence || 'medium',
-                  category: f.category || 'preference',
-                  source: 'server_background' as const,
-                }));
-              if (newRows.length > 0) {
-                const { error } = await supabase.from('working_memories').insert(newRows);
-                if (error) console.warn('[PACT Server] Supabase write failed (non-stream):', error.message);
-                else console.log(`[PACT Server] Extracted ${newRows.length} ${effectiveScope}-scope facts for user ${uid} (non-stream)`);
+              const existingMap = new Map((existingMems || []).map((e: any) => [e.question?.toLowerCase().trim(), e]));
+
+              for (const f of facts) {
+                const qKey = f.question?.toLowerCase().trim();
+                if (!qKey) continue;
+                const existingMatch = existingMap.get(qKey);
+                if (existingMatch) {
+                  // Update slot in place if answer changed (e.g. Samantha -> Justine)
+                  if (existingMatch.answer?.trim().toLowerCase() !== f.answer?.trim().toLowerCase()) {
+                    await supabase.from('working_memories').update({
+                      answer: f.answer.trim(),
+                      category: f.category || 'preference',
+                      confidence: f.confidence || 'medium',
+                      marked_for_deletion: null,
+                      deletion_reason: null,
+                      updated_at: new Date().toISOString()
+                    }).eq('id', existingMatch.id);
+                  }
+                } else {
+                  // Insert new unique fact
+                  await supabase.from('working_memories').insert({
+                    scope: effectiveScope,
+                    user_id: userData.id,
+                    org_id: orgData.id,
+                    question: f.question.trim(),
+                    answer: f.answer.trim(),
+                    confidence: f.confidence || 'medium',
+                    category: f.category || 'preference',
+                    source: 'server_background' as const,
+                  });
+                  existingMap.set(qKey, { id: 'temp', question: f.question, answer: f.answer });
+                }
               }
             } catch (dbErr) {
               console.warn("[PACT Server] Background write failed (non-stream):", (dbErr as any)?.message);

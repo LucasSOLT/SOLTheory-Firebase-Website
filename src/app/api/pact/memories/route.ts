@@ -86,15 +86,64 @@ export async function POST(req: Request) {
     const supabase = createServiceClient();
     const { userUuid, orgUuid } = await resolveUserAndOrg(supabase, auth.uid, orgId);
 
+    // Normalize question for deduplication
+    const trimmedQuestion = question.trim();
+    const trimmedAnswer = answer.trim();
+
+    // Check for existing memory with the same question in this scope
+    let checkQuery = supabase
+      .from('working_memories')
+      .select('id, question, answer, category, confidence')
+      .eq('scope', scope)
+      .eq('org_id', orgUuid)
+      .ilike('question', trimmedQuestion);
+
+    if (scope === 'user') {
+      checkQuery = checkQuery.eq('user_id', userUuid);
+    }
+
+    const { data: existingMem } = await checkQuery.maybeSingle();
+
+    if (existingMem) {
+      // If exact same answer, return existing without creating duplicate
+      if (existingMem.answer.trim().toLowerCase() === trimmedAnswer.toLowerCase()) {
+        return NextResponse.json({ ...existingMem, deduplicated: true });
+      }
+
+      // If answer has updated (e.g., Samantha -> Justine), update the slot in place
+      const { data: updatedMem, error: updateErr } = await supabase
+        .from('working_memories')
+        .update({
+          answer: trimmedAnswer,
+          category: category || existingMem.category,
+          confidence: confidence || existingMem.confidence,
+          source: source || 'updated',
+          marked_for_deletion: null,
+          deletion_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingMem.id)
+        .select()
+        .single();
+
+      if (updateErr) {
+        console.error('[PACT API] Error updating existing memory slot:', updateErr);
+        return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      }
+
+      console.log(`[PACT API] Updated memory slot "${trimmedQuestion}": "${existingMem.answer}" -> "${trimmedAnswer}"`);
+      return NextResponse.json(updatedMem);
+    }
+
     const memoryData = {
       scope,
       user_id: userUuid,
       org_id: orgUuid,
-      question,
-      answer,
-      category,
-      confidence,
-      source
+      question: trimmedQuestion,
+      answer: trimmedAnswer,
+      category: category || 'preference',
+      confidence: confidence || 'medium',
+      source: source || 'chat_extraction',
     };
 
     const { data, error } = await supabase
@@ -121,16 +170,26 @@ export async function DELETE(req: Request) {
     if (!auth.ok) return auth.response;
 
     const body = await req.json();
-    const { id, scope, orgId } = body;
+    const { id, ids, scope, orgId, purgeFlagged } = body;
 
-    if (!id || !scope || !orgId) {
+    if (!scope || !orgId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const supabase = createServiceClient();
     const { userUuid, orgUuid } = await resolveUserAndOrg(supabase, auth.uid, orgId);
 
-    let query = supabase.from('working_memories').delete().eq('id', id).eq('org_id', orgUuid);
+    let query = supabase.from('working_memories').delete().eq('org_id', orgUuid);
+
+    if (purgeFlagged) {
+      query = query.not('marked_for_deletion', 'is', null);
+    } else {
+      const targetIds = Array.isArray(ids) ? ids : (id ? [id] : []);
+      if (targetIds.length === 0) {
+        return NextResponse.json({ error: 'Missing id or ids' }, { status: 400 });
+      }
+      query = query.in('id', targetIds);
+    }
 
     if (scope === 'user') {
       query = query.eq('user_id', userUuid);
@@ -254,6 +313,28 @@ export async function PATCH(req: Request) {
       if (flagErr) {
         console.error('[PACT API] Flag error:', flagErr);
         return NextResponse.json({ error: flagErr.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Review keep action
+    if (action === 'review_keep') {
+      const { error: keepErr } = await supabase
+        .from('working_memories')
+        .update({
+          review_count: updates.review_count !== undefined ? updates.review_count : 1,
+          last_reviewed_at: new Date().toISOString(),
+          last_review_result: 'kept',
+          last_review_reason: updates.last_review_reason || 'Deemed valuable',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('org_id', orgUuid);
+
+      if (keepErr) {
+        console.error('[PACT API] Keep error:', keepErr);
+        return NextResponse.json({ error: keepErr.message }, { status: 500 });
       }
 
       return NextResponse.json({ success: true });

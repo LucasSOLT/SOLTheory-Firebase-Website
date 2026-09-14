@@ -18,19 +18,21 @@ Each entry may include a review history tag:
 - [USER PROTECTED] — The user manually restored this after it was flagged. Do NOT flag this entry. Always keep it.
 
 DISCARD aggressively (especially for [NEVER REVIEWED] entries) if the fact is:
+- A duplicate of another fact in the list (keep ONLY the single best entry, discard all duplicate variants with reason: "Duplicate entry")
+- A contradiction with a newer/more specific fact (e.g. two conflicting names or locations — keep the newer one, discard the older one with reason: "Superceded by newer fact")
+- About the conversation history or meta-interaction ("user told AI earlier", "user claims to have told the AI", "user is chatting with Jarvis")
+- Weak inference from using a tool ("user uses SOL Theory AI assistant so user is affiliated with SOL Theory")
 - About a momentary action ("user is sending an email", "user is checking inbox")
 - A temporary emotional/physical state ("user is tired", "user is frustrated right now")
 - A command or request to the AI ("user wants Jarvis to write…", "user asked the AI to…")
 - About what tool or service the AI should use ("user expects AI to use Gmail")
-- A duplicate of another fact in the list (keep the better-worded one, discard the rest)
-- Self-referential about the AI conversation itself ("user is chatting with Jarvis")
-- A yes/no answer with no real informational content
+- A yes/no answer with no real informational content ("user has a restaurant though name is not recorded")
 - Something any person would obviously do ("user uses email", "user has had conversations")
 - A fact that refers to "${userName}" as a third party when "${userName}" IS the user (e.g. "Who is ${userName} in relation to the user?" — this is the user themselves)
 
 KEEP if the fact is:
 - A core identity detail (full name, age, location, nationality, pronouns)
-- A lasting preference (communication style, work habits, favorite tools)
+- A lasting preference (communication style, work habits, favorite tools, favorite restaurants)
 - A meaningful relationship (specific people: spouse, boss, colleague BY NAME)
 - A career/role detail (job title, company, industry, team)
 - A concrete goal or project with specifics
@@ -107,7 +109,7 @@ export async function POST(req: Request) {
     const userPrompt = `Evaluate these ${entriesToEvaluate.length} memory entries about "${displayName}". Remember: default to DISCARD for [NEVER REVIEWED] entries, but respect the review history for previously-reviewed entries.\n\n${entriesList}`;
 
     // ── Call Gemini Flash ──
-    const models = ["gemini-2.5-flash-preview-05-20", "gemini-2.0-flash"];
+    const models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-2.5-flash", "gemini-flash-latest"];
     let rawContent: string | null = null;
     let modelUsed = "unknown";
 

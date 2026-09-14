@@ -215,69 +215,179 @@ export default function PactMemoryView({ orgId, isDark = false }: { orgId: strin
     }
   };
 
+  const [purging, setPurging] = useState(false);
+
+  const handlePurgeFlagged = async () => {
+    if (purging || stats.expiring === 0) return;
+    setPurging(true);
+    try {
+      const res = await fetch(`/api/pact/memories`, {
+        method: "DELETE",
+        headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
+        body: JSON.stringify({ purgeFlagged: true, scope: activeScope, orgId })
+      });
+      if (res.ok) {
+        showToast(`Purged ${stats.expiring} flagged item${stats.expiring > 1 ? 's' : ''}`, "success");
+        await fetchEntries();
+      } else {
+        showToast("Failed to purge flagged items", "error");
+      }
+    } catch (e) {
+      showToast("Error purging flagged items", "error");
+    } finally {
+      setPurging(false);
+    }
+  };
+
   const handleReviewFacts = async () => {
     if (reviewing || stats.active === 0) return;
     setReviewing(true);
-    setReviewProgress("Scanning with deterministic filters...");
+    setReviewProgress("Checking for duplicates...");
     
     try {
+      const authHeaders = await getAuthHeaders();
+      const jsonHeaders = { ...authHeaders, "Content-Type": "application/json" };
+
+      // 1. Group active entries by normalized question to purge duplicate slots
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
       const activeEntries = entries.filter(e => !e.marked_for_deletion);
-      const toAI = [];
-      
+      const groups = new Map<string, PACTEntry[]>();
+
       for (const entry of activeEntries) {
+        const key = norm(entry.question);
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(entry);
+      }
+
+      const duplicateIdsToDelete: string[] = [];
+      const deduplicatedEntries: PACTEntry[] = [];
+
+      for (const group of groups.values()) {
+        if (group.length === 1) {
+          deduplicatedEntries.push(group[0]);
+        } else {
+          // Sort by updated_at or created_at descending (newest first)
+          group.sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime());
+          deduplicatedEntries.push(group[0]); // Keep newest
+          for (let i = 1; i < group.length; i++) {
+            duplicateIdsToDelete.push(group[i].id); // Delete older duplicates
+          }
+        }
+      }
+
+      let duplicatesPurgedCount = 0;
+      if (duplicateIdsToDelete.length > 0) {
+        setReviewProgress(`Purging ${duplicateIdsToDelete.length} duplicate entries...`);
+        const delRes = await fetch(`/api/pact/memories`, {
+          method: "DELETE",
+          headers: jsonHeaders,
+          body: JSON.stringify({ ids: duplicateIdsToDelete, scope: activeScope, orgId })
+        });
+        if (delRes.ok) {
+          duplicatesPurgedCount = duplicateIdsToDelete.length;
+        }
+      }
+
+      // 2. Deterministic filtering on unique entries
+      setReviewProgress("Scanning with deterministic filters...");
+      const toAI: PACTEntry[] = [];
+      const flagPromises: Promise<any>[] = [];
+      let flaggedCount = 0;
+
+      for (const entry of deduplicatedEntries) {
         if (entry.user_restored) {
           toAI.push(entry);
           continue;
         }
         const filterRes = applyDeterministicFilter(entry.question, entry.answer);
         if (filterRes.shouldDelete) {
-          await fetch(`/api/pact/memories`, {
-            method: "PATCH",
-            headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
-            body: JSON.stringify({ id: entry.id, orgId, action: 'flag', reason: filterRes.reason })
-          });
+          flaggedCount++;
+          flagPromises.push(
+            fetch(`/api/pact/memories`, {
+              method: "PATCH",
+              headers: jsonHeaders,
+              body: JSON.stringify({ id: entry.id, orgId, action: 'flag', reason: filterRes.reason })
+            })
+          );
         } else {
           toAI.push(entry);
         }
       }
-      
+
+      if (flagPromises.length > 0) {
+        await Promise.allSettled(flagPromises);
+      }
+
+      // 3. AI Evaluation with Gemini 3.8 Flash
+      let keptCount = 0;
       if (toAI.length > 0) {
-        setReviewProgress(`Evaluating ${toAI.length} items with AI...`);
+        setReviewProgress(`Evaluating ${toAI.length} items with Gemini 3.8 Flash...`);
         const res = await fetch("/api/pact-evaluate", {
           method: "POST",
-          headers: await getAuthHeaders(),
+          headers: authHeaders,
           body: JSON.stringify({
             entries: toAI.map(e => ({ question: e.question, answer: e.answer, reviewCount: e.review_count || 0 })),
             userName: user?.displayName
           })
         });
-        
+
         if (res.ok) {
           const data = await res.json();
           const decisions = data.decisions || [];
+          const patchPromises: Promise<any>[] = [];
+
           for (const d of decisions) {
             const entry = toAI[d.index];
             if (entry) {
               if (d.keep === false) {
-                await fetch(`/api/pact/memories`, {
-                  method: "PATCH",
-                  headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
-                  body: JSON.stringify({ id: entry.id, orgId, action: 'flag', reason: d.reason || "Low value" })
-                });
+                flaggedCount++;
+                patchPromises.push(
+                  fetch(`/api/pact/memories`, {
+                    method: "PATCH",
+                    headers: jsonHeaders,
+                    body: JSON.stringify({ id: entry.id, orgId, action: 'flag', reason: d.reason || "Low value" })
+                  })
+                );
               } else {
-                await fetch(`/api/pact/memories`, {
-                  method: "PATCH",
-                  headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
-                  body: JSON.stringify({ id: entry.id, orgId, action: 'review_keep', review_count: (entry.review_count || 0) + 1, last_review_reason: d.reason || "Deemed valuable" })
-                });
+                keptCount++;
+                patchPromises.push(
+                  fetch(`/api/pact/memories`, {
+                    method: "PATCH",
+                    headers: jsonHeaders,
+                    body: JSON.stringify({
+                      id: entry.id,
+                      orgId,
+                      action: 'review_keep',
+                      review_count: (entry.review_count || 0) + 1,
+                      last_review_reason: d.reason || "Deemed valuable"
+                    })
+                  })
+                );
               }
             }
           }
+
+          if (patchPromises.length > 0) {
+            await Promise.allSettled(patchPromises);
+          }
         }
       }
-      showToast("Review complete", "success");
-      fetchEntries();
+
+      const summaryParts: string[] = [];
+      if (duplicatesPurgedCount > 0) summaryParts.push(`${duplicatesPurgedCount} duplicate${duplicatesPurgedCount > 1 ? 's' : ''} purged`);
+      if (flaggedCount > 0) summaryParts.push(`${flaggedCount} flagged for removal`);
+      if (keptCount > 0) summaryParts.push(`${keptCount} kept`);
+
+      const summaryText = summaryParts.length > 0
+        ? `Review complete: ${summaryParts.join(', ')}`
+        : "Review complete: all items in order";
+
+      showToast(summaryText, "success");
+      await fetchEntries();
     } catch (err) {
+      console.error('[PACT Review error]', err);
       showToast("Review failed", "error");
     } finally {
       setReviewing(false);
@@ -313,7 +423,20 @@ export default function PactMemoryView({ orgId, isDark = false }: { orgId: strin
           </h2>
           <p className={`text-xs mt-1 ${textMuted}`}>Agent facts synced across personal & organization scopes</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {stats.expiring > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handlePurgeFlagged}
+              disabled={purging || reviewing}
+              className="bg-red-600 hover:bg-red-700 text-white shadow-sm"
+              title="Permanently remove all flagged facts"
+            >
+              {purging ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}
+              Purge Flagged ({stats.expiring})
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleReviewFacts} disabled={reviewing || stats.active === 0} className={isDark ? "bg-slate-800 text-white border-slate-700 hover:bg-slate-700" : ""}>
             {reviewing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
             Review Items
@@ -367,9 +490,14 @@ export default function PactMemoryView({ orgId, isDark = false }: { orgId: strin
                       </Button>
                     )}
                     {isMarked ? (
-                      <Button variant="ghost" size="icon" className={`h-8 w-8 ${isDark ? "text-emerald-400 hover:bg-emerald-900/50" : "text-emerald-500 hover:bg-emerald-50"}`} title="Restore Fact" onClick={() => handleRestore(entry.id)}>
-                        <RotateCcw className="w-4 h-4" />
-                      </Button>
+                      <>
+                        <Button variant="ghost" size="icon" className={`h-8 w-8 ${isDark ? "text-emerald-400 hover:bg-emerald-900/50" : "text-emerald-500 hover:bg-emerald-50"}`} title="Restore Fact" onClick={() => handleRestore(entry.id)}>
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className={`h-8 w-8 ${isDark ? "text-red-400 hover:bg-red-900/50" : "text-red-500 hover:bg-red-50"}`} title="Delete Permanently" onClick={() => handleDelete(entry.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
                     ) : (
                       <Button variant="ghost" size="icon" className={`h-8 w-8 ${isDark ? "text-red-400 hover:bg-red-900/50" : "text-red-500 hover:bg-red-50"}`} title="Delete Fact" onClick={() => handleDelete(entry.id)}>
                         <Trash2 className="w-4 h-4" />
