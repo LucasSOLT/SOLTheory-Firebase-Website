@@ -636,7 +636,7 @@ When the user asks you to email, text, or call someone BY NAME:
    a) Ones returned by crm_resolve_contact
    b) Ones the user explicitly typed out in their message
 3. If crm_resolve_contact returns exactly ONE match → use THAT contact's exact email/phone. Mention which book they came from.
-4. If crm_resolve_contact returns MULTIPLE matches → you MUST NUMBER each match (1, 2, 3...) and list them showing name, email, company, and which book they're in. Then ask: "Which one did you mean? (just reply with the number)" — this lets the user reply with just "1" or "2" instead of copy-pasting. Example format:\n   1. **Steve Huff** — steve@soltheory.com — All Contacts\n   2. **Steve Huff** — steve@thrivecoaching.ai — Self Improvement — All Contacts\n   Do NOT pick one yourself.
+4. If crm_resolve_contact returns MULTIPLE matches → show the EXACT numbered list from the tool result's message field. Do NOT reformat, remove the numbers, or rewrite the list. The list uses markdown format (1. **Name** — email, company [book]) so it renders correctly. After the list, ask which one they meant (reply with the number). Also offer to merge duplicates, delete one, or keep both. If the user just picks a number without mentioning duplicates, proceed with their choice — don't ask again about merging.
 5. If crm_resolve_contact returns NO match → tell the user: "I couldn't find [name] in any of your contact books. Could you provide their email directly?"
 6. EVEN IF the Contact Glossary above contains info about the person, you MUST still call crm_resolve_contact to get the VERIFIED email from the CRM database. The glossary may be stale or incomplete.
 7. Example flow: User says "email Steve Huff" → call crm_resolve_contact(name: "Steve Huff") → get back email: steve@soltheory.com → use EXACTLY that email for the email tool with action='preview'.
@@ -1481,10 +1481,10 @@ export async function executeCrmResolveContact(
       };
     });
 
-    // Build a pre-formatted numbered list for the LLM to show the user
+    // Build a pre-formatted numbered list for the LLM to show the user (markdown-compatible)
     const numberedList = matches.map((m: any, i: number) => {
-      const parts = [`${i + 1}) ${m.email || 'no email'}`];
-      if (m.name) parts.push(`— ${m.name}`);
+      const parts = [`${i + 1}. **${m.name || 'Unknown'}**`];
+      if (m.email) parts.push(` — ${m.email}`);
       if (m.company) parts.push(`, ${m.company}`);
       if (m.phone) parts.push(` (${m.phone})`);
       if (m.book) parts.push(` [${m.book}]`);
@@ -1495,7 +1495,7 @@ export async function executeCrmResolveContact(
       found: true,
       count: allResults.length,
       matches,
-      message: `MULTIPLE CONTACTS FOUND for "${nameQuery}". You MUST show the user this EXACT numbered list — do NOT reformat or remove the numbers:\n\n${numberedList}\n\nThen ask: "Which one? (reply with the number)"`,
+      message: `MULTIPLE CONTACTS FOUND for "${nameQuery}". Show the user this EXACT numbered list — do NOT reformat or remove the numbers:\n\n${numberedList}\n\nThen ask: "Which one did you mean? (reply with the number)"\n\nAlso, since there are duplicate contacts, offer these options:\n• **Merge** them into one contact\n• **Delete** one (tell me which number)\n• **Keep both** as-is\n\nIf the user just picks a number without addressing the duplicates, proceed normally and don't ask again about merging.`,
     });
   } catch (error: any) {
     console.error("[CRM] Resolve contact error:", error);

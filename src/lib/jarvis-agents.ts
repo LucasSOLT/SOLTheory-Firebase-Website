@@ -77,6 +77,9 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "update_google_sheet",
     "search_google_drive",
     "read_drive_document",
+    // General Storage (Media Library) — read-only
+    "list_storage_files",
+    "read_storage_file",
     // Shared: resolve contact names
     "crm_resolve_contact",
     // Always available
@@ -88,6 +91,9 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
   GENERAL: [
     "web_search",
     "search_past_conversations",
+    // General Storage (Media Library) — read-only
+    "list_storage_files",
+    "read_storage_file",
   ],
 
   // MULTI loads all tools (same as current behavior)

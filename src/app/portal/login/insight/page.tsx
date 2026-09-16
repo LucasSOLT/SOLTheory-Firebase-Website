@@ -60,18 +60,13 @@ export default function InsightLoginPage() {
     return () => { document.documentElement.classList.remove("dark"); };
   }, []);
 
-  // Auto-redirect if already authenticated
+  // Sign out any existing session so users always see the login form
+  // and can enter credentials for whichever organization they need
   useEffect(() => {
-    const unsubscribe = auth?.onAuthStateChanged?.((currentUser) => {
-      if (currentUser?.email) {
-        const emailLower = currentUser.email.toLowerCase();
-        const matched = getOrgByEmailDomain(emailLower);
-        const target = isDeveloper(emailLower) ? "/portal/dashboard/soltheory" : (matched ? `/portal/dashboard/${matched.id}` : "/portal/dashboard/soltheory");
-        router.push(target);
-      }
-    });
-    return () => { unsubscribe?.(); };
-  }, [auth, router]);
+    if (auth) {
+      signOut(auth).catch(() => {});
+    }
+  }, [auth]);
 
   // Safety watchdog: if the loading cube is displayed for more than 4.5 seconds, force navigation
   useEffect(() => {
