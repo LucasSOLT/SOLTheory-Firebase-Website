@@ -411,18 +411,23 @@ The current date/time for the user is: ${localTime}.`;
     let youtubeApi: any = null;
 
     if (isEmailAgent && refreshToken) {
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET
-      );
-      oauth2Client.setCredentials({ refresh_token: refreshToken });
-      gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-      calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-      docsApi = google.docs({ version: 'v1', auth: oauth2Client });
-      slidesApi = google.slides({ version: 'v1', auth: oauth2Client });
-      sheetsApi = google.sheets({ version: 'v4', auth: oauth2Client });
-      driveApi = google.drive({ version: 'v3', auth: oauth2Client });
-      youtubeApi = google.youtube({ version: 'v3', auth: oauth2Client });
+      try {
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET
+        );
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+        calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+        docsApi = google.docs({ version: 'v1', auth: oauth2Client });
+        slidesApi = google.slides({ version: 'v1', auth: oauth2Client });
+        sheetsApi = google.sheets({ version: 'v4', auth: oauth2Client });
+        driveApi = google.drive({ version: 'v3', auth: oauth2Client });
+        youtubeApi = google.youtube({ version: 'v3', auth: oauth2Client });
+      } catch (oauthErr: any) {
+        console.error('[OAUTH] Failed to initialize Google APIs:', oauthErr.message);
+        // All API clients stay null — tool null guards will handle gracefully
+      }
     }
 
 
@@ -1178,14 +1183,152 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
       return address.trim();
     };
 
-    // HTML entity escaping for email body lines to prevent swallowed angle brackets, math symbols, and broken formatting
+    // HTML entity escaping for email body lines — avoids double-encoding existing entities
     const escapeHtml = (text: string): string => {
       return text
-        .replace(/&/g, '&amp;')
+        .replace(/&(?!amp;|lt;|gt;|quot;|#39;)/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    };
+
+    // Convert markdown formatting to HTML for email bodies (LLMs love generating markdown)
+    const markdownToEmailHtml = (text: string): string => {
+      let html = escapeHtml(text);
+      // Bold: **text** or __text__
+      html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+      // Italic: *text* or _text_ (not inside words)
+      html = html.replace(/(?<!\w)\*(?!\*)(.+?)(?<!\*)\*(?!\w)/g, '<em>$1</em>');
+      html = html.replace(/(?<!\w)_(?!_)(.+?)(?<!_)_(?!\w)/g, '<em>$1</em>');
+      // Inline code: `code`
+      html = html.replace(/`([^`]+)`/g, '<code style="background:#f4f4f4;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:13px;">$1</code>');
+      // Links: [text](url)
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#1a73e8;">$1</a>');
+      return html;
+    };
+
+    // Unified email body preparation — used by both send and draft paths
+    // Handles: escape sequences, markdown stripping, Meet link injection, HTML formatting
+    const prepareEmailBody = (rawBody: string, meetLink: string | null, includeGoogleMeetLink: boolean): { htmlBody: string; cleanBody: string } => {
+      let body = rawBody;
+      // Unescape literal \n sequences from JSON
+      body = body.replace(/\\n/g, '\n');
+
+      // Replace Meet link placeholders
+      if (meetLink) {
+        body = body.replace(/\[MEET_LINK\]/gi, meetLink);
+        body = body.replace(/\[INSERT_MEET_LINK\]/gi, meetLink);
+        body = body.replace(/\[INSERT_MEETING_LINK\]/gi, meetLink);
+        body = body.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, meetLink);
+        body = body.replace(/\[INSERT_LINK\]/gi, meetLink);
+        body = body.replace(/\[GOOGLE_MEET_LINK\]/gi, meetLink);
+        body = body.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, meetLink);
+      }
+      if (includeGoogleMeetLink && meetLink && !body.includes(meetLink)) {
+        body += `\n\nGoogle Meet Link: ${meetLink}`;
+      }
+
+      // Handle document context injection
+      if (body.includes('[INSERT_DOCUMENT_CONTEXT]')) {
+        const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
+        if (lastContextMsg) {
+          const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
+          body = body.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
+        }
+      }
+
+      // Split into lines
+      let lines = body.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+
+      // Smart-split single-block bodies (LLM didn't use newlines)
+      if (lines.length === 1) {
+        const text = lines[0];
+        const greetingMatch = text.match(/^((?:Hello|Hi|Hey|Dear|Good\s+(?:morning|afternoon|evening))[^.!?\n]*?[,.])\s*/i);
+        const signoffMatch = text.match(/\s*((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.]?\s*.{1,30})$/i);
+
+        if (greetingMatch || signoffMatch) {
+          let bodyMiddle = text;
+          let greeting = '';
+          let signoff = '';
+
+          if (greetingMatch) {
+            greeting = greetingMatch[1];
+            bodyMiddle = bodyMiddle.slice(greetingMatch[0].length).trim();
+          }
+          if (signoffMatch) {
+            signoff = signoffMatch[1];
+            bodyMiddle = bodyMiddle.slice(0, bodyMiddle.length - signoffMatch[0].length).trim();
+          }
+
+          lines = [];
+          if (greeting) lines.push(greeting);
+          if (bodyMiddle) lines.push(bodyMiddle);
+          if (signoff) {
+            const signoffParts = signoff.split(/,\s*/);
+            if (signoffParts.length === 2) {
+              lines.push(signoffParts[0] + ',');
+              lines.push(signoffParts[1]);
+            } else {
+              lines.push(signoff);
+            }
+          }
+        }
+      } else {
+        // Multi-line: split sign-off from last line if needed
+        const lastLine = lines[lines.length - 1];
+        const signoffSplitMatch = lastLine.match(/^((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.])\s+(.+)$/i);
+        if (signoffSplitMatch) {
+          lines[lines.length - 1] = signoffSplitMatch[1];
+          lines.push(signoffSplitMatch[2]);
+        }
+      }
+
+      // Convert bullet points: lines starting with - or * become list items
+      const htmlParts: string[] = [];
+      let inList = false;
+      for (const line of lines) {
+        const bulletMatch = line.match(/^[-*•]\s+(.+)/);
+        if (bulletMatch) {
+          if (!inList) { htmlParts.push('<ul style="margin:0 0 12px 0;padding-left:20px;">'); inList = true; }
+          htmlParts.push(`<li style="margin:0 0 4px 0;">${markdownToEmailHtml(bulletMatch[1])}</li>`);
+        } else {
+          if (inList) { htmlParts.push('</ul>'); inList = false; }
+          // Convert heading lines: ### Heading → <h3>
+          const headingMatch = line.match(/^(#{1,3})\s+(.+)/);
+          if (headingMatch) {
+            const level = headingMatch[1].length;
+            const sizes: Record<number, string> = { 1: '20px', 2: '17px', 3: '15px' };
+            htmlParts.push(`<p style="margin:0 0 12px 0;font-weight:bold;font-size:${sizes[level] || '15px'};">${markdownToEmailHtml(headingMatch[2])}</p>`);
+          } else {
+            htmlParts.push(`<p style="margin:0 0 12px 0;">${markdownToEmailHtml(line)}</p>`);
+          }
+        }
+      }
+      if (inList) htmlParts.push('</ul>');
+
+      return { htmlBody: htmlParts.join(''), cleanBody: body };
+    };
+
+    // Build RFC 2822 email message with proper headers
+    const buildRawEmail = (to: string, subject: string, htmlBody: string): string => {
+      const emailLines = [
+        `MIME-Version: 1.0`,
+        `From: me`,
+        `To: ${encodeAddressHeader(to)}`,
+        `Subject: ${encodeSubject(subject)}`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        htmlBody
+      ];
+      return Buffer.from(emailLines.join('\r\n'), 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
+
+    // User-friendly error message for Gmail auth failures
+    const gmailAuthError = (action: string): string => {
+      return JSON.stringify({ error: `Gmail is not connected — cannot ${action}. Please ask the user to connect their Google account in Settings → Connected Accounts.` });
     };
 
     // ── Tool Executor (extracted for reuse by orchestrator) ──
@@ -1196,6 +1339,8 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
       let functionResult = "";
 
           if (functionName === "search_emails") {
+            if (!gmail) { functionResult = gmailAuthError("search emails"); }
+            else {
             const res = await gmail.users.messages.list({ userId: 'me', q: args.query, maxResults: 10 });
             if (!res.data.messages || res.data.messages.length === 0) {
               functionResult = JSON.stringify({ result: "No emails found matching query. Try broadening your 'query' (e.g. using just the domain, or name)." });
@@ -1216,16 +1361,25 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
               });
               functionResult = JSON.stringify({ result: formatted });
             }
+            }
           } else if (functionName === "delete_email") {
+            if (!gmail) { functionResult = gmailAuthError("delete emails"); }
+            else {
             await gmail.users.messages.trash({ userId: 'me', id: args.messageId });
             functionResult = JSON.stringify({ result: `Message successfully moved to trash.` });
+            }
           } else if (functionName === "create_folder") {
+            if (!gmail) { functionResult = gmailAuthError("create folders"); }
+            else {
             await gmail.users.labels.create({
               userId: 'me',
               requestBody: { name: args.folderName, labelListVisibility: 'labelShow', messageListVisibility: 'show' }
             });
             functionResult = JSON.stringify({ result: `Folder '${args.folderName}' successfully created.` });
+            }
           } else if (functionName === "block_sender") {
+            if (!gmail) { functionResult = gmailAuthError("block senders"); }
+            else {
             await gmail.users.settings.filters.create({
               userId: 'me',
               requestBody: {
@@ -1234,6 +1388,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
               }
             });
             functionResult = JSON.stringify({ result: `Sender '${args.senderEmail}' blocked.` });
+            }
           } else if (functionName === "list_calendar_events") {
             const timeMin = args.timeMin || new Date().toISOString();
             const timeMax = args.timeMax || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -1319,16 +1474,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
               if (!gmail) {
                 functionResult = JSON.stringify({ error: "Gmail is not connected. Please connect your Google account in Settings to send emails.", sent: false });
               } else {
-                let finalBody = args.body;
-                finalBody = finalBody.replace(/\\n/g, '\n');
-                // Strip markdown formatting — emails render asterisks/underscores literally
-                finalBody = finalBody.replace(/\*\*\*(.*?)\*\*\*/g, '$1');
-                finalBody = finalBody.replace(/\*\*(.*?)\*\*/g, '$1');
-                finalBody = finalBody.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1');
-                finalBody = finalBody.replace(/__(.*?)__/g, '$1');
-                finalBody = finalBody.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '$1');
-
-                // ── AUTO-CREATE Google Meet link if requested ──
+                // Auto-create Google Meet link if requested
                 let generatedMeetLink: string | null = lastMeetLink;
                 if (args.includeGoogleMeetLink && calendar && !generatedMeetLink) {
                   try {
@@ -1356,34 +1502,8 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   }
                 }
 
-                // Replace any placeholder the LLM might have written (catch-all patterns)
-                if (generatedMeetLink) {
-                  finalBody = finalBody.replace(/\[MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, generatedMeetLink);
-                }
-                if (args.includeGoogleMeetLink && generatedMeetLink && !finalBody.includes(generatedMeetLink)) {
-                  finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
-                }
-
-                // Build HTML with proper paragraph spacing and HTML entity escaping
-                let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
-                const htmlBody = lines.map((line: string) => {
-                  return `<p style="margin:0 0 12px 0;">${escapeHtml(line)}</p>`;
-                }).join('');
-
-                const emailLines = [
-                  `To: ${encodeAddressHeader(args.to)}`,
-                  `Subject: ${encodeSubject(args.subject)}`,
-                  `Content-Type: text/html; charset=utf-8`,
-                  ``,
-                  htmlBody
-                ];
-                const raw = Buffer.from(emailLines.join('\r\n'), 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                const { htmlBody } = prepareEmailBody(args.body, generatedMeetLink, !!args.includeGoogleMeetLink);
+                const raw = buildRawEmail(args.to, args.subject, htmlBody);
 
                 try {
                   const sendRes = await gmail.users.messages.send({
@@ -1397,7 +1517,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}${meetSuffix}${sentLink}`, sent: true });
                 } catch (sendErr: any) {
                   console.error('[SEND EMAIL] Error:', sendErr.message);
-                  functionResult = JSON.stringify({ error: `FAILED to send email: ${sendErr.message}. The email was NOT sent.`, sent: false });
+                  const isAuthError = sendErr.code === 401 || sendErr.code === 403 || sendErr.message?.includes('401') || sendErr.message?.includes('403');
+                  if (isAuthError) {
+                    functionResult = JSON.stringify({ error: "Your Google connection has expired or was revoked. Please reconnect in Settings → Connected Accounts.", sent: false });
+                  } else {
+                    functionResult = JSON.stringify({ error: `FAILED to send email: ${sendErr.message}. The email was NOT sent.`, sent: false });
+                  }
                 }
               }
             } else if (args.action === "draft") {
@@ -1405,16 +1530,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
               if (!gmail) {
                 functionResult = JSON.stringify({ error: "Gmail is not connected. Please connect your Google account in Settings to save drafts.", drafted: false });
               } else {
-                let finalBody = args.body;
-                if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
-                  const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
-                  if (lastContextMsg) {
-                    const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
-                    finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
-                  }
-                }
-
-                // ── AUTO-CREATE Google Meet link if requested ──
+                // Auto-create Google Meet link if requested
                 let generatedMeetLink: string | null = lastMeetLink;
                 if (args.includeGoogleMeetLink && calendar && !generatedMeetLink) {
                   try {
@@ -1442,85 +1558,9 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   }
                 }
 
-                // Replace any placeholder the LLM might have written (catch-all patterns)
-                if (generatedMeetLink) {
-                  finalBody = finalBody.replace(/\[MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_MEETING_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[INSERT_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/\[GOOGLE_MEET_LINK\]/gi, generatedMeetLink);
-                  finalBody = finalBody.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, generatedMeetLink);
-                }
-                if (args.includeGoogleMeetLink && generatedMeetLink && !finalBody.includes(generatedMeetLink)) {
-                  finalBody += `\n\nGoogle Meet Link: ${generatedMeetLink}`;
-                }
+                const { htmlBody } = prepareEmailBody(args.body, generatedMeetLink, !!args.includeGoogleMeetLink);
+                const raw = buildRawEmail(args.to, args.subject, htmlBody);
 
-                // ── SERVER-SIDE EMAIL FORMATTING ──
-                finalBody = finalBody.replace(/\\n/g, '\n');
-                // Strip markdown formatting — emails render asterisks/underscores literally
-                finalBody = finalBody.replace(/\*\*\*(.*?)\*\*\*/g, '$1');
-                finalBody = finalBody.replace(/\*\*(.*?)\*\*/g, '$1');
-                finalBody = finalBody.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1');
-                finalBody = finalBody.replace(/__(.*?)__/g, '$1');
-                finalBody = finalBody.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '$1');
-                let lines = finalBody.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
-
-                // If still just one big block (LLM didn't use newlines), try to smart-split
-                if (lines.length === 1) {
-                  const text = lines[0];
-                  const greetingMatch = text.match(/^((?:Hello|Hi|Hey|Dear|Good\s+(?:morning|afternoon|evening))[^.!?\n]*?[,.])\\s*/i);
-                  const signoffMatch = text.match(/\s*((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.]?\s*.{1,30})$/i);
-
-                  if (greetingMatch || signoffMatch) {
-                    let bodyMiddle = text;
-                    let greeting = '';
-                    let signoff = '';
-
-                    if (greetingMatch) {
-                      greeting = greetingMatch[1];
-                      bodyMiddle = bodyMiddle.slice(greetingMatch[0].length).trim();
-                    }
-                    if (signoffMatch) {
-                      signoff = signoffMatch[1];
-                      bodyMiddle = bodyMiddle.slice(0, bodyMiddle.length - signoffMatch[0].length).trim();
-                    }
-
-                    lines = [];
-                    if (greeting) lines.push(greeting);
-                    if (bodyMiddle) lines.push(bodyMiddle);
-                    if (signoff) {
-                      const signoffParts = signoff.split(/,\s*/);
-                      if (signoffParts.length === 2) {
-                        lines.push(signoffParts[0] + ',');
-                        lines.push(signoffParts[1]);
-                      } else {
-                        lines.push(signoff);
-                      }
-                    }
-                  }
-                } else {
-                  const lastLine = lines[lines.length - 1];
-                  const signoffSplitMatch = lastLine.match(/^((?:Best|Cheers|Thanks|Thank\s+you|Regards|Sincerely|Warm\s+regards|Best\s+regards|Kind\s+regards|All\s+the\s+best)[,.])\\s+(.+)$/i);
-                  if (signoffSplitMatch) {
-                    lines[lines.length - 1] = signoffSplitMatch[1];
-                    lines.push(signoffSplitMatch[2]);
-                  }
-                }
-
-                // Build HTML with proper paragraph spacing and HTML entity escaping
-                const htmlBody = lines.map((line: string) => {
-                  return `<p style="margin:0 0 12px 0;">${escapeHtml(line)}</p>`;
-                }).join('');
-
-                const emailLines = [
-                  `To: ${encodeAddressHeader(args.to)}`,
-                  `Subject: ${encodeSubject(args.subject)}`,
-                  `Content-Type: text/html; charset=utf-8`,
-                  ``,
-                  htmlBody
-                ];
-                const raw = Buffer.from(emailLines.join('\r\n'), 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
                 try {
                   const draftRes = await gmail.users.drafts.create({
                     userId: 'me',
@@ -1530,7 +1570,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   functionResult = JSON.stringify({ result: `📋 Draft saved — you'll find it at the top of your Gmail Drafts folder.${meetNote}`, drafted: true });
                 } catch (draftErr: any) {
                   console.error('[DRAFT EMAIL] Error:', draftErr.message);
-                  functionResult = JSON.stringify({ error: `FAILED to save draft: ${draftErr.message}`, drafted: false });
+                  const isAuthError = draftErr.code === 401 || draftErr.code === 403 || draftErr.message?.includes('401') || draftErr.message?.includes('403');
+                  if (isAuthError) {
+                    functionResult = JSON.stringify({ error: "Your Google connection has expired or was revoked. Please reconnect in Settings → Connected Accounts.", drafted: false });
+                  } else {
+                    functionResult = JSON.stringify({ error: `FAILED to save draft: ${draftErr.message}`, drafted: false });
+                  }
                 }
               }
             }
