@@ -1595,30 +1595,34 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         }
         // Detect email preview in executedTools and attach structured data to message
         if (data.executedTools && Array.isArray(data.executedTools)) {
-          const previewTool = data.executedTools.find((t: any) => t.name === 'email' && t.args?.action === 'preview');
-          if (previewTool?.args) {
-            const userMsg = textToSend.toLowerCase();
-            let intent: 'send' | 'draft' | 'ambiguous' = 'ambiguous';
-            if (/\b(draft|save.?a?.?draft|prepare.?a?.?draft)\b/i.test(userMsg)) intent = 'draft';
-            else if (/\b(send|fire.?off|shoot|email\s+them|message\s+them)\b/i.test(userMsg)) intent = 'send';
-            const emailPreview: EmailPreviewData = {
-              to: previewTool.args.to || '',
-              subject: previewTool.args.subject || '',
-              body: (previewTool.args.body || '').replace(/\\n/g, '\n'),
-              intent,
-            };
-            // Strip the raw preview text from LLM response — the card component will handle display
-            setMessages(prev => prev.map(m => {
-              if (m.id !== botMsgId) return m;
-              let cleanText = m.text;
-              // Remove EMAIL_PREVIEW_START...END block if present
-              cleanText = cleanText.replace(/EMAIL_PREVIEW_START[\s\S]*?EMAIL_PREVIEW_END\s*/g, '');
-              // Since executedTools confirms this is a preview, aggressively strip everything
-              // and keep only a trailing follow-up question if present
-              const questionMatch = cleanText.match(/(Ready to (?:send|save as draft)\??|Would you like me to (?:send|save).*?\??|Send it now.*?\??|Shall I (?:send|save).*?\??)/i);
-              cleanText = questionMatch ? questionMatch[0] : '';
-              return { ...m, text: cleanText, emailPreview };
-            }));
+          // If a send or draft action was executed, do NOT show a preview card — it's redundant
+          const sendOrDraftTool = data.executedTools.find((t: any) => t.name === 'email' && (t.args?.action === 'send' || t.args?.action === 'draft'));
+          if (!sendOrDraftTool) {
+            const previewTool = data.executedTools.find((t: any) => t.name === 'email' && t.args?.action === 'preview');
+            if (previewTool?.args) {
+              const userMsg = textToSend.toLowerCase();
+              let intent: 'send' | 'draft' | 'ambiguous' = 'ambiguous';
+              if (/\b(draft|save.?a?.?draft|prepare.?a?.?draft)\b/i.test(userMsg)) intent = 'draft';
+              else if (/\b(send|fire.?off|shoot|email\s+them|message\s+them)\b/i.test(userMsg)) intent = 'send';
+              const emailPreview: EmailPreviewData = {
+                to: previewTool.args.to || '',
+                subject: previewTool.args.subject || '',
+                body: (previewTool.args.body || '').replace(/\\n/g, '\n'),
+                intent,
+              };
+              // Strip the raw preview text from LLM response — the card component will handle display
+              setMessages(prev => prev.map(m => {
+                if (m.id !== botMsgId) return m;
+                let cleanText = m.text;
+                // Remove EMAIL_PREVIEW_START...END block if present
+                cleanText = cleanText.replace(/EMAIL_PREVIEW_START[\s\S]*?EMAIL_PREVIEW_END\s*/g, '');
+                // Since executedTools confirms this is a preview, aggressively strip everything
+                // and keep only a trailing follow-up question if present
+                const questionMatch = cleanText.match(/(Ready to (?:send|save as draft)\??|Would you like me to (?:send|save).*?\??|Send it now.*?\??|Shall I (?:send|save).*?\??)/i);
+                cleanText = questionMatch ? questionMatch[0] : '';
+                return { ...m, text: cleanText, emailPreview };
+              }));
+            }
           }
         }
         setPendingCitations([]);
@@ -2723,7 +2727,11 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                                       <div><span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>To:</span> {msg.emailPreview.to}</div>
                                       <div><span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Subject:</span> {msg.emailPreview.subject}</div>
                                       <div className={`mt-3 pt-3 whitespace-pre-wrap leading-relaxed ${isDarkMode ? 'border-t border-slate-600/40' : 'border-t border-slate-200/80'}`}>
-                                        {msg.emailPreview.body}
+                                        {msg.emailPreview.body.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+                                          /^https?:\/\//.test(part)
+                                            ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 underline break-all">{part}</a>
+                                            : part
+                                        )}
                                       </div>
                                     </div>
                                     {/* Card Footer with Actions */}

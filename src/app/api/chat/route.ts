@@ -1246,18 +1246,22 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
       // Unescape literal \n sequences from JSON
       body = body.replace(/\\n/g, '\n');
 
-      // Replace Meet link placeholders
+      // Replace Meet link placeholders with clickable markdown link
       if (meetLink) {
-        body = body.replace(/\[MEET_LINK\]/gi, meetLink);
-        body = body.replace(/\[INSERT_MEET_LINK\]/gi, meetLink);
-        body = body.replace(/\[INSERT_MEETING_LINK\]/gi, meetLink);
-        body = body.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, meetLink);
-        body = body.replace(/\[INSERT_LINK\]/gi, meetLink);
-        body = body.replace(/\[GOOGLE_MEET_LINK\]/gi, meetLink);
-        body = body.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, meetLink);
+        const meetMarkdownLink = `[Join Google Meet](${meetLink})`;
+        body = body.replace(/\[MEET_LINK\]/gi, meetMarkdownLink);
+        body = body.replace(/\[INSERT_MEET_LINK\]/gi, meetMarkdownLink);
+        body = body.replace(/\[INSERT_MEETING_LINK\]/gi, meetMarkdownLink);
+        body = body.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, meetMarkdownLink);
+        body = body.replace(/\[INSERT_LINK\]/gi, meetMarkdownLink);
+        body = body.replace(/\[GOOGLE_MEET_LINK\]/gi, meetMarkdownLink);
+        body = body.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, meetMarkdownLink);
+        // Replace any raw Meet URLs that aren't already in markdown link format
+        const meetUrlEscaped = meetLink.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        body = body.replace(new RegExp(`(?<!\\()${meetUrlEscaped}(?!\\))`, 'g'), meetMarkdownLink);
       }
       if (includeGoogleMeetLink && meetLink && !body.includes(meetLink)) {
-        body += `\n\nGoogle Meet Link: ${meetLink}`;
+        body += `\n\nGoogle Meet Link: [Join Google Meet](${meetLink})`;
       }
 
       // Handle document context injection
@@ -1492,7 +1496,51 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
             if (args.action === "preview") {
               // Preview mode — show the user what will be sent (no API call)
               // The result MUST contain the full email so the LLM shows it to the user
-              const cleanBody = args.body.replace(/\\n/g, '\n');
+              let cleanBody = args.body.replace(/\\n/g, '\n');
+
+              // Auto-generate Meet link during preview if requested
+              let previewMeetLink: string | null = lastMeetLink;
+              if (args.includeGoogleMeetLink && calendar && !previewMeetLink) {
+                try {
+                  const meetStart = args.meetingDateTime || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                  const meetEnd = new Date(new Date(meetStart).getTime() + 60 * 60 * 1000).toISOString();
+                  const calRes = await calendar.events.insert({
+                    calendarId: 'primary',
+                    conferenceDataVersion: 1,
+                    requestBody: {
+                      summary: args.meetingSummary || `Meeting with ${args.to}`,
+                      start: { dateTime: meetStart },
+                      end: { dateTime: meetEnd },
+                      conferenceData: {
+                        createRequest: {
+                          requestId: `meet_auto_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                          conferenceSolutionKey: { type: "hangoutsMeet" }
+                        }
+                      }
+                    }
+                  });
+                  previewMeetLink = calRes.data.hangoutLink || null;
+                  if (previewMeetLink) lastMeetLink = previewMeetLink; // Cache for subsequent send
+                  console.log('[MEET LINK AUTO-GENERATED IN PREVIEW]', previewMeetLink);
+                } catch (meetErr: any) {
+                  console.error('[MEET LINK PREVIEW CREATE FAILED]', meetErr.message);
+                }
+              }
+
+              // Replace Meet link placeholders with actual link
+              if (previewMeetLink) {
+                cleanBody = cleanBody.replace(/\[MEET_LINK\]/gi, previewMeetLink);
+                cleanBody = cleanBody.replace(/\[INSERT_MEET_LINK\]/gi, previewMeetLink);
+                cleanBody = cleanBody.replace(/\[INSERT_MEETING_LINK\]/gi, previewMeetLink);
+                cleanBody = cleanBody.replace(/\[INSERT_GOOGLE_MEET_LINK\]/gi, previewMeetLink);
+                cleanBody = cleanBody.replace(/\[INSERT_LINK\]/gi, previewMeetLink);
+                cleanBody = cleanBody.replace(/\[GOOGLE_MEET_LINK\]/gi, previewMeetLink);
+                cleanBody = cleanBody.replace(/[\[{][^\]}]*(?:meet|link)[^\]}]*[\]}]/gi, previewMeetLink);
+                if (args.includeGoogleMeetLink && !cleanBody.includes(previewMeetLink)) {
+                  cleanBody += `\n\nGoogle Meet Link: ${previewMeetLink}`;
+                }
+              }
+
               functionResult = JSON.stringify({
                 result: `EMAIL_PREVIEW_START\nTo: ${args.to}\nSubject: ${args.subject}\n\n${cleanBody}\nEMAIL_PREVIEW_END\n\nIMPORTANT: You MUST show the user the COMPLETE email above. Display it exactly like this format:\n\nHere is the email I've prepared:\n\n> **To:** ${args.to}\n> **Subject:** ${args.subject}\n>\n> ${cleanBody.split('\n').join('\n> ')}\n\nThen ask the appropriate follow-up question based on the user's original intent (draft vs send vs ambiguous).`,
                 preview: true,
@@ -1543,7 +1591,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                   const sentUrl = sentMessageId ? `https://mail.google.com/mail/u/0/#sent/${sentMessageId}` : '';
                   const sentLink = sentUrl ? `\n\n📬 [View sent email](${sentUrl})` : '';
                   const meetSuffix = generatedMeetLink ? `\n\n🔗 **Google Meet:** ${generatedMeetLink}` : '';
-                  functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}${meetSuffix}${sentLink}`, sent: true });
+                  functionResult = JSON.stringify({ result: `✅ Email SENT to ${args.to}!\n\n**Subject:** ${args.subject}${meetSuffix}${sentLink}\n\nDo NOT show another email preview or compose another email. Simply confirm the email was sent successfully.`, sent: true, action: 'send' });
                 } catch (sendErr: any) {
                   console.error('[SEND EMAIL] Error:', sendErr.message);
                   const isAuthError = sendErr.code === 401 || sendErr.code === 403 || sendErr.message?.includes('401') || sendErr.message?.includes('403');
@@ -1596,7 +1644,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                     requestBody: { message: { raw } }
                   });
                   const meetNote = generatedMeetLink ? `\n\n🔗 **Google Meet:** ${generatedMeetLink}` : '';
-                  functionResult = JSON.stringify({ result: `📋 Draft saved — you'll find it at the top of your Gmail Drafts folder.${meetNote}`, drafted: true });
+                  functionResult = JSON.stringify({ result: `📋 Draft saved — you'll find it at the top of your Gmail Drafts folder.${meetNote}\n\nDo NOT show another email preview. Simply confirm the draft was saved.`, drafted: true, action: 'draft' });
                 } catch (draftErr: any) {
                   console.error('[DRAFT EMAIL] Error:', draftErr.message);
                   const isAuthError = draftErr.code === 401 || draftErr.code === 403 || draftErr.message?.includes('401') || draftErr.message?.includes('403');
