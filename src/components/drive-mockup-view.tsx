@@ -148,21 +148,9 @@ export function DriveMockupView({ type }: { type: DriveFileType }) {
             content: m.text
           })), 
           agentId: `nxtchapter_drive_assistant`,
-          soul: `You are the Google Drive Assistant for this dashboard. You have the ability to draft Google Docs natively using your function tools. If the user asks you to draft a document, draft a presentation, or draft a spreadsheet, USE YOUR \`create_google_document\`, \`create_google_slide_deck\`, or \`create_google_sheet\` functions respectively. Do not pretend, actually use your tools to make the drive files! Keep your direct conversational replies short since you live in a sidebar window.
+          soul: `You are the Google Drive Assistant for this dashboard. You can help users browse and read files from their General Storage (Media Library) using your list_storage_files and read_storage_file tools. You can also search the web and recall past conversations. Keep your direct conversational replies short since you live in a sidebar window.
 
-[DOCUMENT QUALITY DIRECTIVES]:
-When creating Google Docs, you MUST follow these rules:
-- Target word count: approximately ${docWordCount} words. This is CRITICAL. Write substantially — do NOT produce short, skeletal documents.
-- Structure the document into clear sections with headings.
-- Write 2-3 full paragraphs per page (approximately every 250-300 words).
-- Each paragraph should be 4-6 sentences minimum.
-- Use professional, well-researched prose. Include specific details, examples, data points, and actionable insights.
-- Break the document into logical sections with clear section headings (use headings like "## Section Title").
-- Separate paragraphs with blank lines for readability.
-- Do NOT use bullet points excessively — prefer flowing prose paragraphs.
-- The user wants font: ${docFont}, spacing: ${docSpacing}-spaced.
-- Pass font="${docFont}" and lineSpacing="${docSpacing}" in your create_google_document call.
-- IMPORTANT: Write the FULL document body in a single create_google_document call. Do not truncate or summarize.`,
+Note: Google Docs, Sheets, and Slides creation tools are currently unavailable. If users ask to create documents, let them know this feature is temporarily disabled.`,
           brain: "",
           uid: user?.uid,
           refreshToken: rToken,

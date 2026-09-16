@@ -71,12 +71,7 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
 
 
   WORKSPACE: [
-    "create_google_document",
-    "update_google_document",
-    "create_google_sheet",
-    "update_google_sheet",
-    "search_google_drive",
-    "read_drive_document",
+    // Google Workspace tools (Docs, Sheets, Drive) soft-deleted 2026-09-16 — see archived_jarvis_tools.md
     // General Storage (Media Library) — read-only
     "list_storage_files",
     "read_storage_file",

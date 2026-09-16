@@ -152,100 +152,12 @@ const tools: any = [
       }
     }
   },
-  {
-    type: "function",
-    function: {
-      name: "create_google_document",
-      description: "Create a Google Doc. Write full content — never truncate.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "The title/name of the Google Doc" },
-          body: { type: "string", description: "Full text. Use \\n for paragraphs, '## ' for headings." },
-          font: { type: "string", description: "The font family to apply (e.g. 'Arial', 'Times New Roman', 'Georgia'). If not specified, defaults to 'Arial'." },
-          lineSpacing: { type: "string", enum: ["single", "double"], description: "Line spacing: 'single' (1.0) or 'double' (2.0). Defaults to 'double'." }
-        },
-        required: ["title", "body"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "update_google_document",
-      description: "Replace content in an existing Google Doc by documentId. Write full content.",
-      parameters: {
-        type: "object",
-        properties: {
-          documentId: { type: "string", description: "The Google Docs document ID (from the URL or from a prior create_google_document result)" },
-          body: { type: "string", description: "Full replacement text. Use \\n for paragraphs, '## ' for headings." },
-          font: { type: "string", description: "The font family to apply (e.g. 'Arial', 'Times New Roman', 'Georgia'). Defaults to 'Arial'." },
-          lineSpacing: { type: "string", enum: ["single", "double"], description: "Line spacing: 'single' (1.0) or 'double' (2.0). Defaults to 'double'." }
-        },
-        required: ["documentId", "body"]
-      }
-    }
-  },
-  // ── Google Slides (REMOVED — pruned to reduce token overhead) ──
-  {
-    type: "function",
-    function: {
-      name: "create_google_sheet",
-      description: "Create a Google Sheets spreadsheet with optional headers and rows.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Spreadsheet title" },
-          headers: { type: "array", description: "Column headers", items: { type: "string" } },
-          rows: { type: "array", description: "Rows of cell values", items: { type: "array", items: { type: "string" } } }
-        },
-        required: ["title"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "update_google_sheet",
-      description: "Update cells in an existing Google Sheet. Use search_google_drive to find the spreadsheetId first.",
-      parameters: {
-        type: "object",
-        properties: {
-          spreadsheetId: { type: "string", description: "The spreadsheet ID" },
-          range: { type: "string", description: "Cell range, e.g. 'Sheet1!A1' or 'Sheet1!B2:D5'. Defaults to 'Sheet1!A1'." },
-          headers: { type: "array", description: "New column headers (optional)", items: { type: "string" } },
-          rows: { type: "array", description: "Rows of cell values", items: { type: "array", items: { type: "string" } } }
-        },
-        required: ["spreadsheetId"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_google_drive",
-      description: "Search Google Drive for files by keyword.",
-      parameters: {
-        type: "object",
-        properties: { query: { type: "string", description: "Search keyword" } },
-        required: ["query"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_drive_document",
-      description: "Read a Google Doc's text content. Use search_google_drive first to get the fileId.",
-      parameters: {
-        type: "object",
-        properties: { fileId: { type: "string" } },
-        required: ["fileId"]
-      }
-    }
-  },
-  // ── YouTube (REMOVED — pruned to reduce token overhead) ──
-  // ── Surveys (REMOVED — pruned to reduce token overhead) ──
+  // ── Soft-deleted tools archived in archived_jarvis_tools.md (2026-09-16) ──
+  // Removed: create_google_document, update_google_document, create_google_sheet,
+  //          update_google_sheet, search_google_drive, read_drive_document,
+  //          create_google_slide_deck, draft_youtube_video, create_and_send_survey,
+  //          spawn_grant_agent, list_grant_agents, delete_grant_agent,
+  //          list_imessage_chats, get_imessage_thread, search_imessages, send_imessage, summarize_imessages
   {
     type: "function",
     function: {
@@ -301,7 +213,6 @@ const tools: any = [
       }
     }
   },
-  // ── Grant Agent Management Tools (REMOVED — pruned to reduce token overhead) ──
   // ── CRM / Contacts Tools (gated behind feature flag) ──
   ...(process.env.NEXT_PUBLIC_ENABLE_CRM !== 'false' ? CRM_TOOL_DEFINITIONS : []),
 ];
@@ -427,17 +338,13 @@ The current date/time for the user is: ${localTime}.`;
     const isEmailAgent = agentId === "jarvis" || agentId === "drive_assistant" || agentId === "calendar_assistant" || agentId.includes("youtube_director");
 
     if (isEmailAgent) {
-      agentRole += `\n\nYou have active tools for: Gmail, Google Calendar, Google Docs, Google Sheets, Google Drive, General Storage (Media Library), Web Search, CRM, and Past Conversation Memory. Use them when relevant — the domain router will load the right tools automatically. Use search_past_conversations when the user references prior chats. Use list_storage_files and read_storage_file when the user asks about files they've stored, uploaded documents, or references their General Storage/Media Library.`;
+      agentRole += `\n\nYou have active tools for: Gmail, Google Calendar, General Storage (Media Library), Web Search, CRM, and Past Conversation Memory. Use them when relevant — the domain router will load the right tools automatically. Use search_past_conversations when the user references prior chats. Use list_storage_files and read_storage_file when the user asks about files they've stored, uploaded documents, or references their General Storage/Media Library.`;
     }
 
 
     let gmail: any = null;
     let calendar: any = null;
-    let docsApi: any = null;
-    let slidesApi: any = null;
-    let sheetsApi: any = null;
-    let driveApi: any = null;
-    let youtubeApi: any = null;
+    // docsApi, slidesApi, sheetsApi, driveApi, youtubeApi removed — those tools are soft-deleted (see archived_jarvis_tools.md)
 
     if (isEmailAgent && refreshToken) {
       try {
@@ -448,11 +355,6 @@ The current date/time for the user is: ${localTime}.`;
         oauth2Client.setCredentials({ refresh_token: refreshToken });
         gmail = google.gmail({ version: 'v1', auth: oauth2Client });
         calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-        docsApi = google.docs({ version: 'v1', auth: oauth2Client });
-        slidesApi = google.slides({ version: 'v1', auth: oauth2Client });
-        sheetsApi = google.sheets({ version: 'v4', auth: oauth2Client });
-        driveApi = google.drive({ version: 'v3', auth: oauth2Client });
-        youtubeApi = google.youtube({ version: 'v3', auth: oauth2Client });
       } catch (oauthErr: any) {
         console.error('[OAUTH] Failed to initialize Google APIs:', oauthErr.message);
         // All API clients stay null — tool null guards will handle gracefully
@@ -756,7 +658,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
     // Replaces the old toolHintPatterns regex with an intelligent router
     // that selects the right domain (EMAIL, CALENDAR, CRM, etc.) and
     // loads only that domain's tools — reducing token overhead by ~75%.
-    const hasToolApis = !!(gmail || calendar || docsApi || youtubeApi);
+    const hasToolApis = !!(gmail || calendar);
     const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     let routedDomain: JarvisDomain = await routeIntent(lastUserText2);
     const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we|merge|move\s+(the\s+)?contact|follow[\s-]?up|log\s+(a\s+)?(note|call|activity)|schedule\s+(a\s+)?follow|complete\s+(the\s+)?task|contact\s*book/i;
@@ -820,9 +722,6 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
       'search_emails', 'delete_email', 'create_folder', 'block_sender',
       'email',
       'list_calendar_events', 'create_calendar_event', 'delete_calendar_event', 'update_calendar_event',
-      'create_google_document', 'update_google_document',
-      'create_google_sheet', 'update_google_sheet',
-      'search_google_drive', 'read_drive_document',
       'web_search',
     ]);
     const domainTools = isLiteMode
@@ -860,7 +759,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
     }
 
     console.log(`[DEBUG] agentId="${agentId}" rawAgentId="${rawAgentId}" isEmailAgent=${isEmailAgent} refreshToken=${refreshToken ? "YES" : "NO"}`);
-    console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} docs=${!!docsApi} youtube=${!!youtubeApi} useTools=${useTools} messageNeedsTools=${messageNeedsTools}`);
+    console.log(`[DEBUG] APIs: gmail=${!!gmail} calendar=${!!calendar} useTools=${useTools} messageNeedsTools=${messageNeedsTools}`);
 
     // ── NATIVE STREAMING FAST PATH ──
     // When client wants streaming AND no tools are needed, use the LLM router's
@@ -1366,7 +1265,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
 
     // ── Tool Executor (extracted for reuse by orchestrator) ──
     // This function wraps the entire tool dispatch switch statement.
-    // It captures closure variables (gmail, calendar, docsApi, youtubeApi, orgId, uid, etc.)
+    // It captures closure variables (gmail, calendar, orgId, uid, etc.)
     // and is used both by the normal tool loop and by the multi-step orchestrator.
     const executeToolByName = async (functionName: string, args: any): Promise<string> => {
       let functionResult = "";
@@ -1656,596 +1555,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
                 }
               }
             }
-          } else if (functionName === "create_google_document" && docsApi && driveApi) {
-            // Create a blank Google Doc
-            const createRes = await docsApi.documents.create({
-              requestBody: { title: args.title }
-            });
-            const docId = createRes.data.documentId;
-
-            // Insert the body text
-            if (args.body) {
-              let finalBody = args.body;
-              if (finalBody.includes('[INSERT_DOCUMENT_CONTEXT]')) {
-                const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
-                if (lastContextMsg) {
-                  const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
-                  finalBody = finalBody.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
-                }
-              }
-
-              // Insert all text first
-              await docsApi.documents.batchUpdate({
-                documentId: docId,
-                requestBody: {
-                  requests: [{
-                    insertText: {
-                      location: { index: 1 },
-                      text: finalBody
-                    }
-                  }]
-                }
-              });
-
-              // Now apply formatting (font + line spacing)
-              const fontFamily = args.font || "Arial";
-              const spacingMode = args.lineSpacing || "double";
-              const lineSpacingValue = spacingMode === "single" ? 100 : 200; // 100 = 1.0, 200 = 2.0 (in hundredths of a point-ratio)
-
-              const textLength = finalBody.length;
-              const formatRequests: any[] = [];
-
-              // Apply font family + size 12pt to the entire body
-              formatRequests.push({
-                updateTextStyle: {
-                  range: { startIndex: 1, endIndex: 1 + textLength },
-                  textStyle: {
-                    fontFamily: fontFamily,
-                    fontSize: { magnitude: 12, unit: "PT" }
-                  },
-                  fields: "fontFamily,fontSize"
-                }
-              });
-
-              // Apply line spacing to entire body
-              formatRequests.push({
-                updateParagraphStyle: {
-                  range: { startIndex: 1, endIndex: 1 + textLength },
-                  paragraphStyle: {
-                    lineSpacing: lineSpacingValue,
-                    spaceAbove: { magnitude: 0, unit: "PT" },
-                    spaceBelow: { magnitude: 0, unit: "PT" }
-                  },
-                  fields: "lineSpacing,spaceAbove,spaceBelow"
-                }
-              });
-
-              // Detect headings marked with "## " and apply HEADING_2 style
-              const lines = finalBody.split('\n');
-              let charIdx = 1; // Document starts at index 1
-              for (const line of lines) {
-                if (line.startsWith('## ')) {
-                  // Apply heading style to this line
-                  const headingStart = charIdx;
-                  const headingEnd = charIdx + line.length;
-                  formatRequests.push({
-                    updateParagraphStyle: {
-                      range: { startIndex: headingStart, endIndex: headingEnd },
-                      paragraphStyle: { namedStyleType: "HEADING_2" },
-                      fields: "namedStyleType"
-                    }
-                  });
-                  // Remove the "## " prefix from the text
-                  formatRequests.push({
-                    deleteContentRange: {
-                      range: { startIndex: headingStart, endIndex: headingStart + 3 }
-                    }
-                  });
-                }
-                charIdx += line.length + 1; // +1 for the newline
-              }
-
-              // Apply formatting requests (process in reverse order for heading deletions to maintain correct indices)
-              // Wrapped in try/catch — formatting is best-effort; the doc is already created and populated
-              try {
-              if (formatRequests.length > 0) {
-                // Separate delete requests (must be applied separately, in reverse order)
-                const deleteReqs = formatRequests.filter((r: any) => r.deleteContentRange);
-                const styleReqs = formatRequests.filter((r: any) => !r.deleteContentRange);
-
-                // Apply style requests first
-                if (styleReqs.length > 0) {
-                  await docsApi.documents.batchUpdate({
-                    documentId: docId,
-                    requestBody: { requests: styleReqs }
-                  });
-                }
-
-                // Apply delete requests in reverse order so indices stay correct
-                if (deleteReqs.length > 0) {
-                  deleteReqs.reverse();
-                  await docsApi.documents.batchUpdate({
-                    documentId: docId,
-                    requestBody: { requests: deleteReqs }
-                  });
-                }
-              }
-              } catch (fmtErr: any) {
-                console.warn(`[create_google_document] Formatting failed (doc still created): ${fmtErr?.message}`);
-              }
-            }
-
-            // Tag the file as AI-created so the dashboard can find it
-            await driveApi.files.update({
-              fileId: docId,
-              requestBody: { properties: { createdByAI: 'true' } }
-            });
-
-            functionResult = JSON.stringify({ result: `Google Doc '${args.title}' created successfully. Link: https://docs.google.com/document/d/${docId}/edit` });
-
-          } else if (functionName === "update_google_document" && docsApi) {
-            // Update an existing Google Doc with new content
-            const docId = args.documentId as string;
-            const body = args.body as string;
-            
-            if (!docId || !body) {
-              functionResult = JSON.stringify({ error: "documentId and body are required" });
-            } else {
-              // First, get the current document to find its content length
-              const docData = await docsApi.documents.get({ documentId: docId });
-              const endIndex = docData.data.body?.content?.reduce((max: number, el: any) => {
-                return Math.max(max, el.endIndex || 0);
-              }, 0) || 1;
-
-              // Clear existing content (if any beyond the initial newline)
-              if (endIndex > 2) {
-                await docsApi.documents.batchUpdate({
-                  documentId: docId,
-                  requestBody: {
-                    requests: [{
-                      deleteContentRange: {
-                        range: { startIndex: 1, endIndex: endIndex - 1 }
-                      }
-                    }]
-                  }
-                });
-              }
-
-              // Insert the new body text
-              await docsApi.documents.batchUpdate({
-                documentId: docId,
-                requestBody: {
-                  requests: [{
-                    insertText: {
-                      location: { index: 1 },
-                      text: body
-                    }
-                  }]
-                }
-              });
-
-              // Apply formatting (font + line spacing)
-              const fontFamily = (args.font as string) || "Arial";
-              const spacingMode = (args.lineSpacing as string) || "double";
-              const lineSpacingValue = spacingMode === "single" ? 100 : 200;
-              const textLength = body.length;
-              const formatRequests: any[] = [];
-
-              formatRequests.push({
-                updateTextStyle: {
-                  range: { startIndex: 1, endIndex: 1 + textLength },
-                  textStyle: {
-                    fontFamily: fontFamily,
-                    fontSize: { magnitude: 12, unit: "PT" }
-                  },
-                  fields: "fontFamily,fontSize"
-                }
-              });
-
-              formatRequests.push({
-                updateParagraphStyle: {
-                  range: { startIndex: 1, endIndex: 1 + textLength },
-                  paragraphStyle: {
-                    lineSpacing: lineSpacingValue,
-                    spaceAbove: { magnitude: 0, unit: "PT" },
-                    spaceBelow: { magnitude: 0, unit: "PT" }
-                  },
-                  fields: "lineSpacing,spaceAbove,spaceBelow"
-                }
-              });
-
-              // Detect headings marked with "## " and apply HEADING_2 style
-              const lines = body.split('\n');
-              let charIdx = 1;
-              for (const line of lines) {
-                if (line.startsWith('## ')) {
-                  const headingStart = charIdx;
-                  const headingEnd = charIdx + line.length;
-                  formatRequests.push({
-                    updateParagraphStyle: {
-                      range: { startIndex: headingStart, endIndex: headingEnd },
-                      paragraphStyle: { namedStyleType: "HEADING_2" },
-                      fields: "namedStyleType"
-                    }
-                  });
-                  formatRequests.push({
-                    deleteContentRange: {
-                      range: { startIndex: headingStart, endIndex: headingStart + 3 }
-                    }
-                  });
-                }
-                charIdx += line.length + 1;
-              }
-
-              // Wrapped in try/catch — formatting is best-effort; content is already written
-              try {
-              if (formatRequests.length > 0) {
-                const deleteReqs = formatRequests.filter((r: any) => r.deleteContentRange);
-                const styleReqs = formatRequests.filter((r: any) => !r.deleteContentRange);
-                if (styleReqs.length > 0) {
-                  await docsApi.documents.batchUpdate({
-                    documentId: docId,
-                    requestBody: { requests: styleReqs }
-                  });
-                }
-                if (deleteReqs.length > 0) {
-                  deleteReqs.reverse();
-                  await docsApi.documents.batchUpdate({
-                    documentId: docId,
-                    requestBody: { requests: deleteReqs }
-                  });
-                }
-              }
-              } catch (fmtErr: any) {
-                console.warn(`[update_google_document] Formatting failed (content still written): ${fmtErr?.message}`);
-              }
-
-              functionResult = JSON.stringify({ result: `Google Doc updated successfully. Link: https://docs.google.com/document/d/${docId}/edit` });
-            }
-
-          } else if (functionName === "create_google_slide_deck" && slidesApi && driveApi) {
-            // Create a blank presentation
-            const createRes = await slidesApi.presentations.create({
-              requestBody: { title: args.title }
-            });
-            const presentationId = createRes.data.presentationId;
-            const existingSlides = createRes.data.slides || [];
-
-            // Build requests: delete the default blank slide, then create user slides
-            const requests: any[] = [];
-
-            // Delete the default first slide
-            if (existingSlides.length > 0) {
-              requests.push({ deleteObject: { objectId: existingSlides[0].objectId } });
-            }
-
-            // Create each slide from the LLM's array
-            if (args.slides && Array.isArray(args.slides)) {
-              args.slides.forEach((slide: any, idx: number) => {
-                const slideId = `slide_${idx}`;
-                const titleId = `title_${idx}`;
-                const bodyId = `body_${idx}`;
-                requests.push({
-                  createSlide: {
-                    objectId: slideId,
-                    insertionIndex: idx,
-                    slideLayoutReference: { predefinedLayout: 'TITLE_AND_BODY' },
-                    placeholderIdMappings: [
-                      { layoutPlaceholder: { type: 'TITLE', index: 0 }, objectId: titleId },
-                      { layoutPlaceholder: { type: 'BODY', index: 0 }, objectId: bodyId }
-                    ]
-                  }
-                });
-                requests.push({
-                  insertText: { objectId: titleId, text: slide.slideTitle || `Slide ${idx + 1}` }
-                });
-                requests.push({
-                  insertText: { objectId: bodyId, text: slide.slideBody || '' }
-                });
-              });
-            }
-
-            if (requests.length > 0) {
-              await slidesApi.presentations.batchUpdate({
-                presentationId,
-                requestBody: { requests }
-              });
-            }
-
-            // Tag as AI-created
-            await driveApi.files.update({
-              fileId: presentationId,
-              requestBody: { properties: { createdByAI: 'true' } }
-            });
-
-            functionResult = JSON.stringify({ result: `Google Slides '${args.title}' created with ${(args.slides || []).length} slides. Link: https://docs.google.com/presentation/d/${presentationId}/edit` });
-
-          } else if (functionName === "create_google_sheet" && sheetsApi && driveApi) {
-            // Create a blank spreadsheet
-            const createRes = await sheetsApi.spreadsheets.create({
-              requestBody: {
-                properties: { title: args.title }
-              }
-            });
-            const spreadsheetId = createRes.data.spreadsheetId;
-
-            // Build data rows: headers first, then data
-            const values: string[][] = [];
-            if (args.headers && Array.isArray(args.headers)) {
-              values.push(args.headers);
-            }
-            if (args.rows && Array.isArray(args.rows)) {
-              values.push(...args.rows);
-            }
-
-            if (values.length > 0) {
-              await sheetsApi.spreadsheets.values.update({
-                spreadsheetId,
-                range: 'Sheet1!A1',
-                valueInputOption: 'RAW',
-                requestBody: { values }
-              });
-            }
-
-            // Tag as AI-created
-            await driveApi.files.update({
-              fileId: spreadsheetId,
-              requestBody: { properties: { createdByAI: 'true' } }
-            });
-
-            functionResult = JSON.stringify({ result: `Google Sheet '${args.title}' created successfully. Link: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
-
-          } else if (functionName === "update_google_sheet" && sheetsApi) {
-            const { spreadsheetId, range, headers, rows } = args;
-            const targetRange = range || 'Sheet1!A1';
-            const values: string[][] = [];
-            if (headers && Array.isArray(headers)) values.push(headers);
-            if (rows && Array.isArray(rows)) values.push(...rows);
-
-            if (values.length > 0) {
-              await sheetsApi.spreadsheets.values.update({
-                spreadsheetId,
-                range: targetRange,
-                valueInputOption: 'RAW',
-                requestBody: { values }
-              });
-              functionResult = JSON.stringify({ result: `Updated ${values.length} row(s) in range '${targetRange}'. Link: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
-            } else {
-              functionResult = JSON.stringify({ error: "No data provided. Pass headers and/or rows to update." });
-            }
-
-          } else if (functionName === "search_google_drive" && driveApi) {
-            const res = await driveApi.files.list({
-              q: `name contains '${args.query}' and trashed = false`,
-              fields: "files(id, name, mimeType, webViewLink)",
-              pageSize: 10
-            });
-            const files = res.data.files || [];
-            functionResult = JSON.stringify({ result: files.length > 0 ? files : "No files found." });
-
-          } else if (functionName === "read_drive_document" && docsApi) {
-            try {
-              const res = await docsApi.documents.get({ documentId: args.fileId });
-              const content = res.data.body?.content || [];
-              let text = "";
-              content.forEach((el: any) => {
-                if (el.paragraph && el.paragraph.elements) {
-                  el.paragraph.elements.forEach((elem: any) => {
-                    if (elem.textRun && elem.textRun.content) text += elem.textRun.content;
-                  });
-                }
-              });
-              functionResult = JSON.stringify({ result: text || "Document is empty or cannot be read as text." });
-            } catch (err: any) {
-              functionResult = JSON.stringify({ error: "Failed to read document. Make sure it is a Google Doc. " + err.message });
-            }
-          } else if (functionName === "draft_youtube_video" && docsApi && driveApi) {
-            console.log("[YOUTUBE TOOL] draft_youtube_video triggered! Args:", JSON.stringify(args));
-            console.log("[YOUTUBE TOOL] videoUrl available:", !!videoUrl);
-            try {
-              // 1. Create the Script Doc in Google Drive
-              console.log("[YOUTUBE TOOL] Creating Google Doc script...");
-              const docRes = await docsApi.documents.create({
-                requestBody: { title: `Script: ${args.title}` }
-              });
-              const docId = docRes.data.documentId;
-
-              const scriptContent = args.script || "Script content will be added here.";
-              await docsApi.documents.batchUpdate({
-                documentId: docId,
-                requestBody: { requests: [{ insertText: { location: { index: 1 }, text: scriptContent } }] }
-              });
-
-              await driveApi.files.update({
-                fileId: docId,
-                requestBody: { properties: { createdByAI: 'true' } }
-              });
-
-              const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
-              const tagsString = Array.isArray(args.tags) ? args.tags.join(', ') : (args.tags || '');
-              const fullDescription = `${args.description}\n\nTags: ${tagsString}\n\n🎥 Full Script: ${docUrl}`;
-              console.log("[YOUTUBE TOOL] Script doc created:", docUrl);
-
-              // 2. If user uploaded a video file, upload it to YouTube as a REAL video draft
-              if (videoUrl && youtubeApi) {
-                try {
-                  console.log("[YOUTUBE TOOL] Downloading video from Firebase Storage...");
-                  const videoFetchRes = await fetch(videoUrl);
-                  if (!videoFetchRes.ok) throw new Error(`Failed to download video: ${videoFetchRes.status}`);
-                  const videoBuffer = Buffer.from(await videoFetchRes.arrayBuffer());
-                  console.log(`[YOUTUBE TOOL] Video downloaded: ${videoBuffer.length} bytes`);
-
-                  const { Readable } = require('stream');
-                  const videoStream = new Readable();
-                  videoStream.push(videoBuffer);
-                  videoStream.push(null);
-
-                  console.log("[YOUTUBE TOOL] Uploading video to YouTube...");
-                  const ytRes = await youtubeApi.videos.insert({
-                    part: ['snippet', 'status'],
-                    requestBody: {
-                      snippet: {
-                        title: args.title,
-                        description: fullDescription,
-                        tags: args.tags || [],
-                        categoryId: '27'
-                      },
-                      status: {
-                        privacyStatus: 'private',
-                        selfDeclaredMadeForKids: false
-                      }
-                    },
-                    media: { body: videoStream }
-                  });
-
-                  const videoId = ytRes.data.id;
-                  console.log("[YOUTUBE TOOL] Video uploaded! ID:", videoId);
-                  functionResult = JSON.stringify({
-                    result: `Video draft uploaded to YouTube!\n- YouTube Video: https://studio.youtube.com/video/${videoId}/edit (Private)\n- Script Doc: ${docUrl}\n\nYour video "${args.title}" is now in YouTube Studio as a private draft. Review and publish when ready!\n\n[YOUTUBE_METADATA: ID=${videoId}, TYPE=video]`
-                  });
-                } catch (uploadErr: any) {
-                  console.error("[YOUTUBE TOOL] Video upload failed:", uploadErr.message);
-                  // Fall back to playlist if upload fails
-                  functionResult = JSON.stringify({
-                    result: `Video upload failed (${uploadErr.message}), but your Script Doc was created: ${docUrl}. Try re-uploading the video file.`
-                  });
-                }
-              } else {
-                // No video file — create a YouTube Playlist as the draft container
-                let playlistUrl = "";
-                let playlistIdStr = "";
-                if (youtubeApi) {
-                  try {
-                    console.log("[YOUTUBE TOOL] No video file — creating YouTube playlist...");
-                    const playlistRes = await youtubeApi.playlists.insert({
-                      part: ['snippet', 'status'],
-                      requestBody: {
-                        snippet: {
-                          title: `[DRAFT] ${args.title}`,
-                          description: fullDescription,
-                          tags: args.tags || []
-                        },
-                        status: { privacyStatus: 'private' }
-                      }
-                    });
-                    const playlistId = playlistRes.data.id;
-                    playlistIdStr = playlistId;
-                    playlistUrl = `https://www.youtube.com/playlist?list=${playlistId}`;
-                    console.log("[YOUTUBE TOOL] Playlist created:", playlistId);
-                  } catch (playlistErr: any) {
-                    console.error("[YOUTUBE TOOL] Playlist creation failed:", playlistErr.message);
-                  }
-                }
-                functionResult = JSON.stringify({
-                  result: `Video concept created (no video file attached)!\n- YouTube Draft Playlist: ${playlistUrl || "unavailable"}\n- Script Doc: ${docUrl}\n\nUpload a video file on the dashboard to create a full YouTube video draft next time.\n\n[YOUTUBE_METADATA: ID=${playlistIdStr}, TYPE=playlist]`
-                });
-              }
-            } catch (err: any) {
-              console.error("[YOUTUBE TOOL] Error:", err.message);
-              functionResult = JSON.stringify({ error: "Failed to create video concept: " + err.message });
-            }
-          } else if (functionName === "create_and_send_survey") {
-            try {
-              console.log("[SURVEY TOOL] Creating survey:", args.topic);
-
-              // Step 1: Generate survey questions using Groq
-              const surveyGroq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-              const surveyCompletion = await surveyGroq.chat.completions.create({
-                messages: [
-                  {
-                    role: "system",
-                    content: `You are an expert survey designer. The user will give you a description of what they want to survey. 
-You must return a valid JSON object representing the survey. DO NOT wrap it in markdown blockquotes like \`\`\`json. Just return raw JSON.
-The JSON must have this exact structure:
-{
-  "title": "Survey Title",
-  "description": "A brief description of the survey's purpose",
-  "questions": [
-    { "id": "q1", "type": "text", "prompt": "Question text" },
-    { "id": "q2", "type": "choice", "prompt": "Question text", "options": ["Option 1", "Option 2", "Option 3"] },
-    { "id": "q3", "type": "rating", "prompt": "Rate something from 1 to 5" }
-  ]
-}
-Allowed types for questions are: "text", "choice", "rating".
-Generate exactly ${args.questionCount || 10} questions. Make the survey professional and perfectly tailored to their request. Use a good mix of text, choice, and rating question types.`
-                  },
-                  { role: "user", content: args.topic }
-                ],
-                model: selectedModel,
-                temperature: 0.7,
-                response_format: { type: "json_object" }
-              });
-
-              let surveyJson = surveyCompletion.choices[0]?.message?.content || "";
-              surveyJson = surveyJson.trim().replace(/^```json/, "").replace(/^```/, "").replace(/```$/, "").trim();
-              const surveyData = JSON.parse(surveyJson);
-              console.log("[SURVEY TOOL] Generated survey:", surveyData.title, "with", surveyData.questions?.length, "questions");
-
-              // Step 2: Save to Firestore using Admin SDK
-              initAdmin();
-              const adminDb = getAdminFirestore();
-
-              // Extract user email from soul context
-              const userEmailMatch = soul?.match(/email address is: ([^\s.]+@[^\s.]+\.[^\s]+)/);
-              const userEmail = userEmailMatch?.[1] || "unknown@soltheory.com";
-              const userDomain = userEmail.split("@")[1] || "soltheory.com";
-
-              const surveyDoc = await adminDb.collection("custom_surveys").add({
-                ...surveyData,
-                userId: uid || "unknown",
-                creatorEmail: userEmail,
-                authorName: args.authorName || "",
-                visibility: "specific",
-                domain: userDomain,
-                invitedEmails: args.recipientEmails || [],
-                createdAt: new Date()
-              });
-
-              const surveyUrl = `https://soltheory.com/survey/${surveyDoc.id}`;
-              console.log("[SURVEY TOOL] Survey saved:", surveyDoc.id, "URL:", surveyUrl);
-
-              // Step 3: Send email invitations via Gmail API
-              let emailResults: string[] = [];
-              if (gmail && args.recipientEmails && args.recipientEmails.length > 0) {
-                for (let i = 0; i < args.recipientEmails.length; i++) {
-                  const recipientEmail = args.recipientEmails[i];
-                  const recipientName = args.recipientNames?.[i] || recipientEmail.split("@")[0];
-
-                  const emailBody = `Hello ${recipientName},\n\nYou've been invited to take a survey: "${surveyData.title}"\n\n${surveyData.description || ""}\n\nPlease click the link below to participate:\n${surveyUrl}\n\nThank you for your time and feedback!\n\nBest regards`;
-
-                  const emailSubject = `Survey Invitation: ${surveyData.title}`;
-
-                  const rawEmail = [
-                    `To: ${recipientEmail}`,
-                    `Subject: ${emailSubject}`,
-                    `Content-Type: text/plain; charset="UTF-8"`,
-                    "",
-                    emailBody
-                  ].join("\n");
-
-                  const encodedEmail = Buffer.from(rawEmail).toString("base64url");
-
-                  try {
-                    await gmail.users.messages.send({
-                      userId: "me",
-                      requestBody: { raw: encodedEmail }
-                    });
-                    emailResults.push(`✅ Sent to ${recipientName} (${recipientEmail})`);
-                    console.log("[SURVEY TOOL] Email sent to:", recipientEmail);
-                  } catch (emailErr: any) {
-                    emailResults.push(`❌ Failed to send to ${recipientEmail}: ${emailErr.message}`);
-                    console.error("[SURVEY TOOL] Email send error:", emailErr.message);
-                  }
-                }
-              }
-
-              functionResult = JSON.stringify({
-                result: `Survey "${surveyData.title}" created successfully with ${surveyData.questions?.length || 0} questions!\n\nSurvey Link: ${surveyUrl}\n\nEmail Status:\n${emailResults.length > 0 ? emailResults.join("\n") : "No emails sent (no recipients specified)"}`
-              });
-            } catch (surveyErr: any) {
-              console.error("[SURVEY TOOL] Error:", surveyErr.message);
-              functionResult = JSON.stringify({ error: "Failed to create survey: " + surveyErr.message });
-            }
+          // ── Workspace, YouTube, Survey tools soft-deleted (2026-09-16) — see archived_jarvis_tools.md ──
           } else if (functionName === "search_past_conversations") {
             try {
               if (!uid) throw new Error("User not authenticated");
@@ -2396,118 +1706,6 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             } catch (readErr: any) {
               functionResult = JSON.stringify({ error: "Failed to read storage file: " + readErr.message });
             }
-          } else if (functionName === "list_imessage_chats") {
-            try {
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const userDoc = await adminDb.collection("users").doc(uid).get();
-              const userData = userDoc.data();
-              if (!userData?.twilioPhoneNumber) {
-                functionResult = JSON.stringify({ result: "Messaging is not set up yet. Tell the user to go to the Messages page in the sidebar to activate their messaging number." });
-              } else {
-                const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(500).get();
-                const convMap = new Map<string, any>();
-                snapshot.docs.forEach((d: any) => {
-                  const data = d.data();
-                  const contact = data.direction === "inbound" ? data.from : data.to;
-                  if (!convMap.has(contact)) {
-                    convMap.set(contact, { contact, lastMessage: data.body || "", lastTime: data.createdAt, unreadCount: 0, messageCount: 0 });
-                  }
-                  const conv = convMap.get(contact)!;
-                  conv.messageCount++;
-                  if (data.direction === "inbound" && !data.read) conv.unreadCount++;
-                });
-                const convos = Array.from(convMap.values()).sort((a: any, b: any) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime());
-                functionResult = JSON.stringify({ result: convos.length > 0 ? convos : "No text conversations found." });
-              }
-            } catch (imErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to list conversations: " + imErr.message });
-            }
-          } else if (functionName === "get_imessage_thread") {
-            try {
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(100).get();
-              const normalizedContact = (args.contact || "").replace(/[^+\d]/g, "");
-              const msgs = snapshot.docs.map((d: any) => d.data()).filter((m: any) => (m.from || "").includes(normalizedContact) || (m.to || "").includes(normalizedContact)).map((m: any) => ({
-                from: m.direction === 'outbound' ? 'You' : m.from,
-                text: m.body || '[Media]',
-                time: m.createdAt,
-              }));
-              functionResult = JSON.stringify({ result: msgs.length > 0 ? msgs : "No messages found in this conversation." });
-            } catch (imErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to get message thread: " + imErr.message });
-            }
-          } else if (functionName === "search_imessages") {
-            try {
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(200).get();
-              const searchQuery = (args.query || "").toLowerCase();
-              const results = snapshot.docs.map((d: any) => d.data()).filter((m: any) => (m.body || "").toLowerCase().includes(searchQuery)).slice(0, 20).map((m: any) => ({
-                from: m.direction === 'outbound' ? 'You' : m.from,
-                to: m.to,
-                text: (m.body || "").substring(0, 200),
-                time: m.createdAt,
-              }));
-              functionResult = JSON.stringify({ result: results.length > 0 ? results : `No messages found matching "${args.query}".` });
-            } catch (imErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to search messages: " + imErr.message });
-            }
-          } else if (functionName === "send_imessage") {
-            try {
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const userDoc = await adminDb.collection("users").doc(uid).get();
-              const myNumber = userDoc.data()?.twilioPhoneNumber;
-              if (!myNumber) throw new Error("Messaging not set up. Tell user to go to Messages page first.");
-              const baseUrl = process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL !== 'http://localhost:3000'
-                ? process.env.NEXT_PUBLIC_APP_URL
-                : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-              const res = await fetch(`${baseUrl}/api/sms/send`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ from: myNumber, to: args.to, message: args.message }),
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error);
-              // Cache sent message
-              await adminDb.collection("users").doc(uid).collection("sms_messages").add({
-                sid: data.sid, from: myNumber, to: data.to || args.to, body: args.message,
-                direction: "outbound", status: "sent", createdAt: new Date().toISOString(),
-              });
-              functionResult = JSON.stringify({ result: `Text message sent successfully to ${args.to}.` });
-            } catch (imErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to send text: " + imErr.message });
-            }
-          } else if (functionName === "summarize_imessages") {
-            try {
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const userDoc = await adminDb.collection("users").doc(uid).get();
-              const myNumber = userDoc.data()?.twilioPhoneNumber;
-              if (!myNumber) {
-                functionResult = JSON.stringify({ result: "Messaging is not set up. Tell the user to go to the Messages page to get their messaging number." });
-              } else {
-                const snapshot = await adminDb.collection("users").doc(uid).collection("sms_messages").orderBy("createdAt", "desc").limit(500).get();
-                const convMap = new Map<string, any>();
-                snapshot.docs.forEach((d: any) => {
-                  const data = d.data();
-                  const contact = data.direction === "inbound" ? data.from : data.to;
-                  if (!convMap.has(contact)) convMap.set(contact, { contact, lastMessage: data.body || "", lastTime: data.createdAt, unreadCount: 0 });
-                  if (data.direction === "inbound" && !data.read) convMap.get(contact)!.unreadCount++;
-                });
-                const convos = Array.from(convMap.values());
-                const unread = convos.filter((c: any) => c.unreadCount > 0);
-                functionResult = JSON.stringify({ result: {
-                  myNumber, totalConversations: convos.length, unreadConversations: unread.length,
-                  totalUnreadMessages: unread.reduce((acc: number, c: any) => acc + c.unreadCount, 0),
-                  recentConversations: convos.slice(0, 10),
-                }});
-              }
-            } catch (imErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to summarize messages: " + imErr.message });
-            }
           } else if (functionName === "web_search") {
             try {
               const tavilyKey = process.env.TAVILY_API_KEY;
@@ -2543,221 +1741,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             } catch (searchErr: any) {
               functionResult = JSON.stringify({ error: "Web search failed: " + searchErr.message });
             }
-          } else if (functionName === "spawn_grant_agent") {
-            try {
-              await initAdmin();
-              const adminDb = getAdminFirestore();
-
-              // Query grant_sessions for this org to find an existing session or available slot
-              const sessionsSnap = await adminDb.collection("grant_sessions")
-                .where("orgId", "==", orgId)
-                .get();
-
-              // Collect all agents across all sessions to find an available slot
-              const slotIds = ["agent_1", "agent_2", "agent_3", "agent_4"];
-              const slotNames = ["Grant Scout Alpha", "Grant Scout Beta", "Grant Scout Gamma", "Grant Scout Delta"];
-
-              // Use the first session if one exists, otherwise we'll create a new one
-              let targetSessionRef: FirebaseFirestore.DocumentReference | null = null;
-              let existingAgents: Record<string, any> = {};
-              let targetSlot: string | null = null;
-              let targetIdx = -1;
-
-              if (!sessionsSnap.empty) {
-                // Use first existing session
-                const sessionDoc = sessionsSnap.docs[0];
-                targetSessionRef = sessionDoc.ref;
-                existingAgents = sessionDoc.data()?.agents || {};
-
-                // Find first available slot in this session
-                for (let i = 0; i < slotIds.length; i++) {
-                  const slot = existingAgents[slotIds[i]];
-                  if (!slot || !slot.active || !slot.config) {
-                    targetSlot = slotIds[i];
-                    targetIdx = i;
-                    break;
-                  }
-                }
-              } else {
-                // No sessions exist — we'll create one; slot 1 is open
-                targetSlot = "agent_1";
-                targetIdx = 0;
-              }
-
-              if (!targetSlot) {
-                functionResult = JSON.stringify({
-                  error: "All 4 subagent slots are currently full and active. The user must delete an existing agent before spawning a new one. Tell the user which agents are running and ask which one to replace.",
-                  activeAgents: slotIds.map((id, i) => ({
-                    slot: i + 1,
-                    name: existingAgents[id]?.name || slotNames[i],
-                    active: existingAgents[id]?.active ?? false,
-                    keywords: existingAgents[id]?.config?.welfareKeywords || [],
-                  }))
-                });
-              } else {
-                const newConfig = {
-                  grantTypes: args.grantTypes || ["housing_shelter", "health_human_services"],
-                  locationState: args.locationState || orgProfileData?.locationState || "Colorado",
-                  locationCity: args.locationCity || orgProfileData?.locationCity || "Denver",
-                  budgetMin: null,
-                  budgetMax: null,
-                  openDate: "",
-                  closeDate: "",
-                  intervalValue: args.intervalValue || 5,
-                  intervalUnit: args.intervalUnit || "minutes",
-                  companyDescription: args.companyDescription || orgProfileData?.companyDescription || "Nonprofit organization providing social services, housing support, workforce development, and community engagement programs.",
-                  welfareKeywords: args.welfareKeywords || ["501(c)(3) grants"],
-                  eligibilityType: "nonprofit_501c3",
-                  serviceAreas: args.serviceAreas || [],
-                  populationsServed: args.populationsServed || [],
-                  eligibilityTypes: args.eligibilityTypes || ["nonprofit_501c3"],
-                  fundingInstruments: args.fundingInstruments || [],
-                  fundingSources: args.fundingSources || ["federal"],
-                  geoScope: args.geoScope || "state",
-                  deadlineWindow: args.deadlineWindow || "any",
-                  orgBudget: null,
-                  orgStaffSize: null,
-                  orgEin: "",
-                  orgSamUei: "",
-                  orgYearFounded: null,
-                };
-
-                const agentName = args.agentName || slotNames[targetIdx];
-
-                const updatedAgents = { ...existingAgents };
-                updatedAgents[targetSlot] = {
-                  name: agentName,
-                  config: newConfig,
-                  active: true,
-                };
-
-                if (targetSessionRef) {
-                  // Update existing session — merge agents + reset timing gate
-                  await targetSessionRef.set({
-                    agents: updatedAgents,
-                    config: newConfig,
-                    updatedAt: FieldValue.serverTimestamp(),
-                    updatedBy: uid || "jarvis-chat",
-                    lastScanTimes: { [targetSlot]: null },
-                  }, { merge: true });
-                } else {
-                  // Create a brand-new session document
-                  const sessionId = `session_${Date.now()}`;
-                  targetSessionRef = adminDb.collection("grant_sessions").doc(sessionId);
-                  await targetSessionRef.set({
-                    orgId,
-                    name: `Chat Agent — ${agentName}`,
-                    color: "indigo",
-                    config: newConfig,
-                    agents: updatedAgents,
-                    lastScanTimes: {},
-                    searchMode: "federal",
-                    createdAt: FieldValue.serverTimestamp(),
-                    updatedAt: FieldValue.serverTimestamp(),
-                    updatedBy: uid || "jarvis-chat",
-                    active: true,
-                  });
-                }
-
-                functionResult = JSON.stringify({
-                  result: `Successfully spawned grant prospecting subagent in slot ${targetIdx + 1}.`,
-                  agentName,
-                  slotNumber: targetIdx + 1,
-                  slotId: targetSlot,
-                  config: {
-                    keywords: newConfig.welfareKeywords,
-                    grantTypes: newConfig.grantTypes,
-                    location: `${newConfig.locationCity}, ${newConfig.locationState}`,
-                    scanInterval: `${newConfig.intervalValue} ${newConfig.intervalUnit}`,
-                  }
-                });
-              }
-            } catch (spawnErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to spawn grant agent: " + spawnErr.message });
-            }
-          } else if (functionName === "list_grant_agents") {
-            try {
-              await initAdmin();
-              const adminDb = getAdminFirestore();
-              const sessionsSnap = await adminDb.collection("grant_sessions")
-                .where("orgId", "==", orgId)
-                .get();
-
-              const slotIds = ["agent_1", "agent_2", "agent_3", "agent_4"];
-              const slotNames = ["Grant Scout Alpha", "Grant Scout Beta", "Grant Scout Gamma", "Grant Scout Delta"];
-
-              // Aggregate agents from the first session (matches UI behavior)
-              const agents: Record<string, any> = !sessionsSnap.empty
-                ? (sessionsSnap.docs[0].data()?.agents || {})
-                : {};
-
-              const slots = slotIds.map((id, i) => {
-                const slot = agents[id];
-                return {
-                  slotNumber: i + 1,
-                  slotId: id,
-                  name: slot?.name || slotNames[i],
-                  active: slot?.active ?? false,
-                  hasConfig: !!slot?.config,
-                  keywords: slot?.config?.welfareKeywords || [],
-                  grantTypes: slot?.config?.grantTypes || [],
-                  location: slot?.config ? `${slot.config.locationCity || "Any"}, ${slot.config.locationState || "Any"}` : "Not configured",
-                  scanInterval: slot?.config ? `${slot.config.intervalValue || "?"} ${slot.config.intervalUnit || "?"}` : "Not configured",
-                };
-              });
-
-              const activeCount = slots.filter(s => s.active).length;
-              functionResult = JSON.stringify({
-                result: `${activeCount} of 4 agent slots are active.`,
-                slots,
-                availableSlots: 4 - activeCount,
-                sessionCount: sessionsSnap.size,
-              });
-            } catch (listErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to list grant agents: " + listErr.message });
-            }
-          } else if (functionName === "delete_grant_agent") {
-            try {
-              const slotNum = args.slotNumber;
-              if (!slotNum || slotNum < 1 || slotNum > 4) {
-                functionResult = JSON.stringify({ error: "Invalid slot number. Must be 1, 2, 3, or 4." });
-              } else {
-                await initAdmin();
-                const adminDb = getAdminFirestore();
-                const sessionsSnap = await adminDb.collection("grant_sessions")
-                  .where("orgId", "==", orgId)
-                  .get();
-
-                if (sessionsSnap.empty) {
-                  functionResult = JSON.stringify({ error: "No active grant sessions found for this organization." });
-                } else {
-                  const sessionDoc = sessionsSnap.docs[0];
-                  const agents = sessionDoc.data()?.agents || {};
-                  const slotId = `agent_${slotNum}`;
-                  const slotName = agents[slotId]?.name || `Agent ${slotNum}`;
-
-                  // Deactivate the slot
-                  const updatedAgents = { ...agents };
-                  updatedAgents[slotId] = {
-                    ...updatedAgents[slotId],
-                    active: false,
-                    config: null,
-                  };
-
-                  await sessionDoc.ref.set({
-                    agents: updatedAgents,
-                    updatedAt: FieldValue.serverTimestamp(),
-                    updatedBy: uid || "jarvis-chat",
-                  }, { merge: true });
-
-                  functionResult = JSON.stringify({
-                    result: `Successfully deactivated and cleared agent in slot ${slotNum} ("${slotName}"). The slot is now available for a new agent.`,
-                  });
-                }
-              }
-            } catch (delErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to delete grant agent: " + delErr.message });
-            }
+          // ── Grant Agent tools soft-deleted (2026-09-16) — see archived_jarvis_tools.md ──
           } else if (functionName === "crm_create_contact") {
             try {
               const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
@@ -2876,7 +1860,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     // ── MULTI-STEP ORCHESTRATOR ──
     // When the router detects a multi-domain request, go straight to the orchestrator.
     // Placed here because executeToolByName (defined above) must be in scope.
-    if (routedDomain === 'MULTI' && wantStream && (gmail || calendar || docsApi || youtubeApi || uid)) {
+    if (routedDomain === 'MULTI' && wantStream && (gmail || calendar || uid)) {
       console.log(`[ORCHESTRATOR] Multi-step request detected, invoking orchestrator...`);
       const recentContext = messages.slice(-4)
         .filter((m: any) => m.role === 'user' || m.role === 'assistant')
@@ -2965,14 +1949,14 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     }
 
     // If LLM generated tool_calls but no APIs are available, re-call without tools
-    if (responseMessage?.tool_calls && !gmail && !calendar && !docsApi && !youtubeApi && !uid) {
+    if (responseMessage?.tool_calls && !gmail && !calendar && !uid) {
       console.log(`[DEBUG] LLM called tools but no APIs available — re-calling without tools`);
       completion = await createCompletionWithRetry(groqMessages, false);
       responseMessage = completion.choices[0]?.message;
     }
 
     // When we have stream + tools, restructure to stream events during execution
-    if (wantStream && responseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid)) {
+    if (wantStream && responseMessage?.tool_calls && (gmail || calendar || uid)) {
       const encoder = new TextEncoder();
       const readableStream = new ReadableStream({
         async start(controller) {
@@ -2991,7 +1975,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
             let localResponseMessage = responseMessage;
             let localLoopCount = loopCount;
             
-            while (localResponseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid) && localLoopCount < MAX_LOOPS) {
+            while (localResponseMessage?.tool_calls && (gmail || calendar || uid) && localLoopCount < MAX_LOOPS) {
               groqMessages.push(localResponseMessage);
               
               const sortedToolCalls = [...localResponseMessage.tool_calls].sort((a: any, b: any) => {
@@ -3102,7 +2086,7 @@ Generate exactly ${args.questionCount || 10} questions. Make the survey professi
     }
 
     // Execute Tool Loop if Triggered
-    while (responseMessage?.tool_calls && (gmail || calendar || docsApi || youtubeApi || uid) && loopCount < MAX_LOOPS) {
+    while (responseMessage?.tool_calls && (gmail || calendar || uid) && loopCount < MAX_LOOPS) {
       groqMessages.push(responseMessage);
 
       // Sort tool calls: process calendar events BEFORE email drafts so Meet links are available
