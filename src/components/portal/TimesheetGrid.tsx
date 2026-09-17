@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronDown,
   Clock,
+  Download,
 } from "lucide-react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { TimesheetEntryModal } from "./TimesheetEntryModal";
@@ -289,6 +290,70 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
     else if (val === "") setCustomDays(1);
   };
 
+  // Export timesheet entries to standard CSV for payroll & grant reporting
+  const handleExportCSV = useCallback(() => {
+    const startStr = dateToString(startDate);
+    const endStr = dates.length > 0 ? dateToString(dates[dates.length - 1]) : startStr;
+    const targetEntries = entries.filter((e) => e.startDate >= startStr && e.startDate <= endStr);
+    const exportList = targetEntries.length > 0 ? targetEntries : entries;
+
+    if (exportList.length === 0) {
+      alert("No timesheet entries available to export.");
+      return;
+    }
+
+    const headers = [
+      "Member Name",
+      "Date",
+      "Customer",
+      "Service",
+      "Duration (Hours)",
+      "Duration (Minutes)",
+      "Billable Rate ($/hr)",
+      "Total Amount ($)",
+      "Notes",
+    ];
+
+    const escapeCSV = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const val = String(str);
+      return `"${val.replace(/"/g, '""')}"`;
+    };
+
+    const rows = exportList.map((e) => {
+      const hours = (e.durationMinutes / 60).toFixed(2);
+      const rate = e.billableRate !== null && e.billableRate !== undefined ? Number(e.billableRate).toFixed(2) : "0.00";
+      const totalAmount = e.billableRate ? ((e.durationMinutes / 60) * Number(e.billableRate)).toFixed(2) : "0.00";
+
+      return [
+        escapeCSV(e.userName || "Unknown"),
+        escapeCSV(e.startDate || ""),
+        escapeCSV(e.customerName || "General"),
+        escapeCSV(e.serviceName || "General"),
+        escapeCSV(hours),
+        escapeCSV(e.durationMinutes),
+        escapeCSV(`$${rate}`),
+        escapeCSV(`$${totalAmount}`),
+        escapeCSV(e.notes || ""),
+      ].join(",");
+    });
+
+    const csvData = [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const cleanDomain = orgDomain ? orgDomain.replace(/[^a-zA-Z0-9]/g, "_") : "timesheets";
+    link.setAttribute(
+      "download",
+      `timesheet_${cleanDomain}_${startStr}_to_${endStr}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [entries, startDate, dates, orgDomain]);
+
   // Compute summary data per user for visible date range
   const userSummaries = useMemo(() => {
     return users.map((user) => {
@@ -388,6 +453,23 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
 
             {/* Add Time + View Toggles */}
             <div className="flex items-center gap-2">
+              {/* Export CSV Button */}
+              <button
+                onClick={handleExportCSV}
+                disabled={entries.length === 0}
+                className={`h-9 px-3.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  entries.length === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : isDarkMode
+                    ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 shadow-sm"
+                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm"
+                }`}
+                title="Export timesheets to CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-blue-500" />
+                <span>Export CSV</span>
+              </button>
+
               {/* Add Time Button */}
               <div className="relative">
                 <button
