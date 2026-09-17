@@ -10,12 +10,34 @@ import { getOrgConfig } from "@/lib/org-config";
 import {
   Bot, User, Brain, Trash2, X, ArrowLeft, RefreshCw,
   CheckCircle2, Settings, CheckSquare, Loader2,
-  FileText, BookOpen, Plus
+  FileText, BookOpen, Plus, Sparkles, RotateCcw
 } from "lucide-react";
 import { useUser, useFirestore } from "@/firebase";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from "@/lib/i18n";
 import PactMemoryView from "@/components/media-library/PactMemoryView";
+
+// Nonprofit Voice Presets for JARVIS Soul
+const SOUL_PRESETS = [
+  {
+    id: "exec_director",
+    name: "Executive Director",
+    desc: "Strategic, mission-focused, and concise",
+    prompt: "You are the Executive AI Advisor to our organization. Speak with executive presence: strategic, high-leverage, focused on organizational mission and outcomes. Be decisive, succinct, and highlight risks and opportunities proactively.",
+  },
+  {
+    id: "donor_liaison",
+    name: "Empathetic Donor Liaison",
+    desc: "Warm, mission-driven, and appreciative",
+    prompt: "You are a warm, empathetic, and mission-aligned partner for our nonprofit team. Communicate with genuine appreciation, highlighting community impact, stewardship, and human connection in every draft and response.",
+  },
+  {
+    id: "technical_assistant",
+    name: "Concise Technical Assistant",
+    desc: "Direct, bullet-driven, and objective",
+    prompt: "You are a highly efficient, technical executive assistant. Provide direct, objective, and structured replies using bullets and clear action steps. Eliminate filler greetings and conversational pleasantries.",
+  },
+];
 
 export default function AIKnowledgeBasePage() {
   const orgId = useOrgId();
@@ -346,14 +368,14 @@ export default function AIKnowledgeBasePage() {
         {/* Tab Content */}
         <div className="space-y-6">
 
-          {/* â•â•â• IDENTITY & RULES â•â•â• */}
+          {/* â• â• â•  IDENTITY & RULES â• â• â•  */}
           {activeSettingsTab === "identity" && (
             <div className="space-y-6 animate-in fade-in duration-300">
-              {/* Soul Section — Coming Soon */}
-              <div className={`border rounded-2xl overflow-hidden ${cardBg} relative`}>
+              {/* Soul Section — Activated */}
+              <div className={`border rounded-2xl overflow-hidden ${cardBg} transition-all`}>
                 <div className={`px-6 py-4 flex items-center justify-between ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm">
                       <User className="w-4 h-4 text-white" />
                     </div>
                     <div>
@@ -361,12 +383,105 @@ export default function AIKnowledgeBasePage() {
                       <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">{t.voiceAndPersonality || "Voice & Personality"}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold uppercase tracking-wider">Coming Soon</span>
+                  <div className="flex items-center gap-2">
+                    {soulSaving && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
+                        <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
+                        <span>Saving...</span>
+                      </div>
+                    )}
+                    {soul.trim().length > 0 ? (
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold uppercase tracking-wider">
+                        Customized
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-semibold uppercase tracking-wider">
+                        Default Voice
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="p-6 pt-4 opacity-40 pointer-events-none select-none">
-                  <p className={`text-xs ${textSecondary} mb-3 leading-relaxed`}>Customize JARVIS&apos;s tone, personality, and communication style. Currently, JARVIS uses a built-in professional personality inspired by the classic executive AI assistant.</p>
-                  <div className={`w-full h-28 p-4 border rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                    <p className={`text-sm italic ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Custom personality configuration coming in a future update.</p>
+
+                <div className="p-6 pt-4 space-y-4">
+                  <p className={`text-xs ${textSecondary} leading-relaxed`}>
+                    Customize JARVIS&apos;s tone, personality, and communication style across your organization. When configured, all team members interact with an assistant that embodies your organization&apos;s unique voice.
+                  </p>
+
+                  {/* Preset Quick Selectors */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[10px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-indigo-500" />
+                        <span>Nonprofit Voice Presets</span>
+                      </label>
+                      {soul.trim().length > 0 && (
+                        <button
+                          onClick={() => handleSoulChange("")}
+                          className="text-[10px] font-semibold text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                          title="Reset to default personality"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>Reset to Default</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {SOUL_PRESETS.map((preset) => {
+                        const isSelected = soul.trim() === preset.prompt.trim();
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => handleSoulChange(preset.prompt)}
+                            className={`p-3 rounded-xl border text-left transition-all relative ${
+                              isSelected
+                                ? isDarkMode
+                                  ? "border-indigo-500 bg-indigo-950/40 shadow-sm"
+                                  : "border-indigo-500 bg-indigo-50/70 shadow-sm"
+                                : isDarkMode
+                                ? "border-slate-800 bg-slate-800/40 hover:border-slate-700 hover:bg-slate-800/70"
+                                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-xs font-bold ${isSelected ? (isDarkMode ? "text-indigo-300" : "text-indigo-700") : textPrimary}`}>
+                                {preset.name}
+                              </span>
+                              {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />}
+                            </div>
+                            <p className="text-[11px] text-slate-400 line-clamp-2 leading-snug">
+                              {preset.desc}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Soul Prompt Editor */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1.5">
+                      Voice & Personality Prompt
+                    </label>
+                    <textarea
+                      value={soul}
+                      onChange={(e) => handleSoulChange(e.target.value)}
+                      placeholder="Describe how JARVIS should speak, its persona, phrasing guidelines, and tone (e.g., 'You are a supportive, mission-focused advisor for our youth arts collective...')"
+                      rows={4}
+                      className={`w-full p-4 text-xs font-sans leading-relaxed border rounded-xl focus:outline-none focus:ring-2 resize-y transition-all ${
+                        isDarkMode
+                          ? "text-slate-200 border-slate-700 bg-slate-800/80 focus:ring-indigo-500 focus:border-indigo-500 placeholder:text-slate-500"
+                          : "text-slate-800 border-slate-200 bg-slate-50/70 focus:ring-indigo-300 focus:border-indigo-400 placeholder:text-slate-400"
+                      }`}
+                    />
+                    <div className="flex items-center justify-between mt-1.5 px-1">
+                      <p className="text-[10px] text-slate-400">
+                        Auto-saves changes directly to organization storage.
+                      </p>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {soul.length.toLocaleString()} characters
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
