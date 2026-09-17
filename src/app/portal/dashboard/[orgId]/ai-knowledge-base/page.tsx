@@ -10,7 +10,7 @@ import { getOrgConfig } from "@/lib/org-config";
 import {
   Bot, User, Brain, Trash2, X, ArrowLeft, RefreshCw,
   CheckCircle2, Settings, CheckSquare, Loader2,
-  FileText, BookOpen, Plus, Sparkles, RotateCcw
+  FileText, BookOpen, Plus, Sparkles, RotateCcw, Shield
 } from "lucide-react";
 import { useUser, useFirestore } from "@/firebase";
 import { logActivity } from '@/lib/activity-logger';
@@ -72,6 +72,7 @@ export default function AIKnowledgeBasePage() {
   const [brainLoaded, setBrainLoaded] = useState(false);
   const [brainSaving, setBrainSaving] = useState(false);
   const brainSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [newRuleText, setNewRuleText] = useState("");
 
   // Org Brain
   const [orgBrain, setOrgBrain] = useState<string>("");
@@ -486,25 +487,129 @@ export default function AIKnowledgeBasePage() {
                 </div>
               </div>
 
-              {/* Brain Section — Coming Soon */}
-              <div className={`border rounded-2xl overflow-hidden ${cardBg} relative`}>
+              {/* Brain Section — Activated */}
+              <div className={`border rounded-2xl overflow-hidden ${cardBg} transition-all`}>
                 <div className={`px-6 py-4 flex items-center justify-between ${isDarkMode ? 'border-b border-slate-700' : 'border-b border-slate-100'}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center">
-                      <Brain className="w-4 h-4 text-white" />
+                    <div className="w-9 h-9 rounded-lg bg-orange-600 flex items-center justify-center shadow-sm">
+                      <Shield className="w-4 h-4 text-white" />
                     </div>
                     <div>
                       <h4 className={`font-semibold text-sm ${textPrimary}`}>{t.brain || "Brain"}</h4>
                       <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">{t.strictWiringAndRules || "Strict Wiring & Rules"}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold uppercase tracking-wider">Coming Soon</span>
-                </div>
-                <div className="p-6 pt-4 opacity-40 pointer-events-none select-none">
-                  <p className={`text-xs ${textSecondary} mb-3 leading-relaxed`}>Define strict operational directives, hard constraints, and non-negotiable rules for JARVIS. This feature will allow per-agent behavioral customization.</p>
-                  <div className={`w-full h-28 p-4 border rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                    <p className={`text-sm italic ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Custom brain rules coming in a future update.</p>
+                  <div className="flex items-center gap-2">
+                    {brainSaving && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
+                        <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
+                        <span>Saving...</span>
+                      </div>
+                    )}
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                      brainRules.length > 0
+                        ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
+                        : isDarkMode ? "bg-slate-800 text-slate-500" : "bg-slate-100 text-slate-500"
+                    }`}>
+                      {brainRules.length > 0 ? `${brainRules.length} Rule${brainRules.length !== 1 ? "s" : ""} Active` : "No Rules Set"}
+                    </span>
                   </div>
+                </div>
+
+                <div className="p-6 pt-4 space-y-4">
+                  <p className={`text-xs ${textSecondary} leading-relaxed`}>
+                    Define strict operational rules and boundaries JARVIS must always follow. These are non-negotiable constraints that override personality settings. Examples: <em>&quot;Never share internal budget information externally&quot;</em>, <em>&quot;Always ask before creating action board tasks&quot;</em>.
+                  </p>
+
+                  {/* Add Rule Input */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newRuleText}
+                      onChange={(e) => setNewRuleText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newRuleText.trim()) {
+                          handleAddRule(newRuleText);
+                          setNewRuleText("");
+                        }
+                      }}
+                      placeholder="Type a rule and press Enter (e.g., 'Never disclose financial data to external parties')"
+                      className={`flex-1 px-4 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 transition-all ${
+                        isDarkMode
+                          ? "text-slate-200 border-slate-700 bg-slate-800/80 focus:ring-orange-500 focus:border-orange-500 placeholder:text-slate-500"
+                          : "text-slate-800 border-slate-200 bg-slate-50/70 focus:ring-orange-300 focus:border-orange-400 placeholder:text-slate-400"
+                      }`}
+                    />
+                    <button
+                      onClick={() => {
+                        if (newRuleText.trim()) {
+                          handleAddRule(newRuleText);
+                          setNewRuleText("");
+                        }
+                      }}
+                      disabled={!newRuleText.trim()}
+                      className={`h-[38px] px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                        !newRuleText.trim()
+                          ? "opacity-40 cursor-not-allowed"
+                          : isDarkMode
+                          ? "bg-orange-600 hover:bg-orange-500 text-white shadow-sm"
+                          : "bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
+                      }`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Rule
+                    </button>
+                  </div>
+
+                  {/* Active Rules List */}
+                  {brainRules.length > 0 ? (
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block">
+                        Active Rules
+                      </label>
+                      {brainRules.map((rule, i) => (
+                        <div
+                          key={i}
+                          className={`flex items-start gap-3 p-3 rounded-xl border transition-all group ${
+                            isDarkMode
+                              ? "border-slate-800 bg-slate-800/30 hover:border-slate-700"
+                              : "border-slate-200 bg-white hover:border-slate-300"
+                          }`}
+                        >
+                          <div className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                            isDarkMode ? "bg-orange-900/50 text-orange-400" : "bg-orange-50 text-orange-600"
+                          }`}>
+                            {i + 1}
+                          </div>
+                          <input
+                            type="text"
+                            value={rule}
+                            onChange={(e) => handleUpdateRule(i, e.target.value)}
+                            className={`flex-1 text-xs bg-transparent border-none outline-none ${
+                              isDarkMode ? "text-slate-200 placeholder:text-slate-500" : "text-slate-700 placeholder:text-slate-400"
+                            }`}
+                          />
+                          <button
+                            onClick={() => handleRemoveRule(i)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 shrink-0 mt-0.5"
+                            title="Remove rule"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={`h-20 rounded-xl border border-dashed flex items-center justify-center text-xs ${
+                      isDarkMode ? "border-slate-700 text-slate-500 bg-slate-800/30" : "border-slate-200 text-slate-400 bg-slate-50/50"
+                    }`}>
+                      No operational rules configured yet. Add your first rule above.
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-slate-400 px-1">
+                    Rules auto-save to your organization. All team members&apos; JARVIS sessions will follow these rules.
+                  </p>
                 </div>
               </div>
 
