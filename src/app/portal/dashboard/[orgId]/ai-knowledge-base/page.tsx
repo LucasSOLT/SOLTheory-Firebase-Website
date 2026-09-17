@@ -38,6 +38,19 @@ export default function AIKnowledgeBasePage() {
   // Agent Config (Soul + Brain)
   const [agentConfig, setAgentConfig] = useState({ soul: "", brain: "", heartbeat: "manual" });
 
+  // Soul (Voice, Tone & Personality)
+  const [soul, setSoul] = useState<string>("");
+  const [soulLoaded, setSoulLoaded] = useState(false);
+  const [soulSaving, setSoulSaving] = useState(false);
+  const soulSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Brain (Strict Operational Rules)
+  const [brain, setBrain] = useState<string>("");
+  const [brainRules, setBrainRules] = useState<string[]>([]);
+  const [brainLoaded, setBrainLoaded] = useState(false);
+  const [brainSaving, setBrainSaving] = useState(false);
+  const brainSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Org Brain
   const [orgBrain, setOrgBrain] = useState<string>("");
   const [orgBrainLoaded, setOrgBrainLoaded] = useState(false);
@@ -95,25 +108,53 @@ export default function AIKnowledgeBasePage() {
   };
 
   const fetchOrgBrain = async () => {
-    if (!firestore) return;
+    if (!firestore || !orgId) return;
     try {
       const { doc, getDoc } = await import("firebase/firestore");
       const snap = await getDoc(doc(firestore, "organizations", orgId));
       if (snap.exists()) {
-        setOrgBrain(snap.data()?.orgBrain || "");
-        setDefaultKnowledge(snap.data()?.defaultKnowledge || "");
+        const data = snap.data();
+        setOrgBrain(data?.orgBrain || "");
+        setDefaultKnowledge(data?.defaultKnowledge || "");
+
+        // Load Soul (Voice & Personality)
+        const loadedSoul = data?.soul || data?.orgSoul || "";
+        setSoul(loadedSoul);
+
+        // Load Brain (Operational Rules)
+        let loadedRules: string[] = [];
+        if (Array.isArray(data?.brainRules)) {
+          loadedRules = data.brainRules;
+        } else if (data?.brain && typeof data.brain === "string") {
+          loadedRules = data.brain
+            .split("\n")
+            .map((r: string) => r.replace(/^[-*•\d.]+\s*/, "").trim())
+            .filter(Boolean);
+        }
+        setBrainRules(loadedRules);
+        setBrain(data?.brain || loadedRules.join("\n"));
+
+        setAgentConfig(prev => ({
+          ...prev,
+          soul: loadedSoul,
+          brain: data?.brain || loadedRules.join("\n"),
+        }));
       }
       setOrgBrainLoaded(true);
       setDefaultKnowledgeLoaded(true);
+      setSoulLoaded(true);
+      setBrainLoaded(true);
     } catch (err) { 
       console.error("Failed to load org data", err); 
       setOrgBrainLoaded(true); 
       setDefaultKnowledgeLoaded(true);
+      setSoulLoaded(true);
+      setBrainLoaded(true);
     }
   };
 
   const saveOrgBrain = async () => {
-    if (!firestore) return;
+    if (!firestore || !orgId) return;
     setOrgBrainSaving(true);
     try {
       const { doc, setDoc } = await import("firebase/firestore");
@@ -130,7 +171,7 @@ export default function AIKnowledgeBasePage() {
   };
 
   const saveDefaultKnowledge = async () => {
-    if (!firestore) return;
+    if (!firestore || !orgId) return;
     setDefaultKnowledgeSaving(true);
     try {
       const { doc, setDoc } = await import("firebase/firestore");
@@ -146,9 +187,98 @@ export default function AIKnowledgeBasePage() {
     defaultKnowledgeSaveTimerRef.current = setTimeout(() => { saveDefaultKnowledge(); }, 1500);
   };
 
+  // Soul persistence (Voice & Personality)
+  const saveSoul = async (soulValue: string) => {
+    if (!firestore || !orgId) return;
+    setSoulSaving(true);
+    try {
+      const { doc, setDoc } = await import("firebase/firestore");
+      await setDoc(doc(firestore, "organizations", orgId), { 
+        soul: soulValue,
+        orgSoul: soulValue,
+        updatedAt: Date.now() 
+      }, { merge: true });
+      logActivity(firestore, 'ai_agent_config_changed', { email: user?.email || '', displayName: user?.displayName }, `Updated Soul voice/personality for ${orgId}`);
+    } catch (err) { 
+      console.error("Failed to save soul", err); 
+    } finally { 
+      setSoulSaving(false); 
+    }
+  };
+
+  const handleSoulChange = (val: string) => {
+    setSoul(val);
+    setAgentConfig(prev => ({ ...prev, soul: val }));
+    if (soulSaveTimerRef.current) clearTimeout(soulSaveTimerRef.current);
+    soulSaveTimerRef.current = setTimeout(() => { saveSoul(val); }, 1200);
+  };
+
+  // Brain persistence (Strict Operational Rules)
+  const saveBrain = async (rules: string[], rawBrain?: string) => {
+    if (!firestore || !orgId) return;
+    setBrainSaving(true);
+    const combinedBrain = rawBrain !== undefined ? rawBrain : rules.join("\n");
+    try {
+      const { doc, setDoc } = await import("firebase/firestore");
+      await setDoc(doc(firestore, "organizations", orgId), { 
+        brain: combinedBrain,
+        brainRules: rules,
+        updatedAt: Date.now() 
+      }, { merge: true });
+      logActivity(firestore, 'ai_agent_config_changed', { email: user?.email || '', displayName: user?.displayName }, `Updated Brain operational rules for ${orgId}`);
+    } catch (err) { 
+      console.error("Failed to save brain", err); 
+    } finally { 
+      setBrainSaving(false); 
+    }
+  };
+
+  const handleBrainChange = (rules: string[], rawBrain?: string) => {
+    setBrainRules(rules);
+    const combined = rawBrain !== undefined ? rawBrain : rules.join("\n");
+    setBrain(combined);
+    setAgentConfig(prev => ({ ...prev, brain: combined }));
+    if (brainSaveTimerRef.current) clearTimeout(brainSaveTimerRef.current);
+    brainSaveTimerRef.current = setTimeout(() => { saveBrain(rules, rawBrain); }, 1200);
+  };
+
+  // Rule management helpers
+  const handleAddRule = (ruleText: string) => {
+    const trimmed = ruleText.trim();
+    if (!trimmed) return;
+    const nextRules = [...brainRules, trimmed];
+    handleBrainChange(nextRules);
+  };
+
+  const handleRemoveRule = (index: number) => {
+    const nextRules = brainRules.filter((_, i) => i !== index);
+    handleBrainChange(nextRules);
+  };
+
+  const handleUpdateRule = (index: number, newText: string) => {
+    const nextRules = [...brainRules];
+    nextRules[index] = newText;
+    handleBrainChange(nextRules);
+  };
+
   // ─── Effects ───────────────────────────────────────────────────────────────
-  useEffect(() => { if (firestore) fetchOrgBrain(); }, [firestore]);
-  useEffect(() => { if (user?.uid && firestore) { fetchRAGDocs(); } }, [user?.uid, firestore]);
+  useEffect(() => { 
+    if (firestore && orgId) fetchOrgBrain(); 
+  }, [firestore, orgId]);
+
+  useEffect(() => { 
+    if (user?.uid && firestore) fetchRAGDocs(); 
+  }, [user?.uid, firestore]);
+
+  // Clean up debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      if (orgBrainSaveTimerRef.current) clearTimeout(orgBrainSaveTimerRef.current);
+      if (defaultKnowledgeSaveTimerRef.current) clearTimeout(defaultKnowledgeSaveTimerRef.current);
+      if (soulSaveTimerRef.current) clearTimeout(soulSaveTimerRef.current);
+      if (brainSaveTimerRef.current) clearTimeout(brainSaveTimerRef.current);
+    };
+  }, []);
 
   // ─── Render ────────────────────────────────────────────────────────────────
   const bg = isDarkMode ? 'bg-slate-950' : 'bg-[#f5f1e8]';
