@@ -20,7 +20,8 @@ import {
   Filter,
   Clock,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Download
 } from "lucide-react";
 
 type OrgUser = {
@@ -279,6 +280,61 @@ export default function AdminDashboardPage() {
   const auditUsersList = Array.from(
     new Set(auditEntries.map((e) => e.userEmail).filter(Boolean))
   );
+
+  // Export active filtered audit stream to standard CSV
+  const handleExportAuditCSV = () => {
+    if (filteredAudit.length === 0) {
+      alert("No audit events match your current filter to export.");
+      return;
+    }
+
+    const headers = [
+      "Timestamp",
+      "User Name",
+      "User Email",
+      "Category",
+      "Action Type",
+      "Description",
+      "Metadata",
+    ];
+
+    const escapeCSV = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const val = typeof str === "object" ? JSON.stringify(str) : String(str);
+      return `"${val.replace(/"/g, '""')}"`;
+    };
+
+    const rows = filteredAudit.map((entry) => {
+      const timeStr = entry.timestamp?.toDate
+        ? entry.timestamp.toDate().toISOString()
+        : new Date().toISOString();
+
+      return [
+        escapeCSV(timeStr),
+        escapeCSV(entry.userName || "Unknown"),
+        escapeCSV(entry.userEmail || ""),
+        escapeCSV(entry.category || ""),
+        escapeCSV(entry.type || ""),
+        escapeCSV(entry.description || ""),
+        escapeCSV(entry.metadata ? JSON.stringify(entry.metadata) : ""),
+      ].join(",");
+    });
+
+    const csvData = [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const dateStamp = new Date().toISOString().split("T")[0];
+    link.setAttribute(
+      "download",
+      `audit_trail_${orgId || "org"}_${dateStamp}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Loading state
   if (isUserLoading || isRoleLoading) {
@@ -778,6 +834,23 @@ export default function AdminDashboardPage() {
                   }`}
                 />
               </div>
+
+              {/* Export CSV Button */}
+              <button
+                onClick={handleExportAuditCSV}
+                disabled={filteredAudit.length === 0}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                  filteredAudit.length === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : isDarkMode
+                    ? "bg-slate-900 hover:bg-slate-800 border-slate-800 text-white shadow-sm"
+                    : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm"
+                }`}
+                title="Export filtered audit logs to CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Export CSV</span>
+              </button>
             </div>
           </div>
 
