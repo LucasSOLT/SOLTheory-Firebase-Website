@@ -680,11 +680,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const betaModalOpen = betaModalFeature !== null;
 
   const handleBetaFeatureClick = (e: React.MouseEvent, featureName: string, href: string) => {
-    const sessionKey = `beta_seen_${featureName.replace(/\s+/g, '_').toLowerCase()}`;
-    if (!sessionStorage.getItem(sessionKey)) {
+    try {
+      const sessionKey = `beta_seen_${featureName.replace(/\s+/g, '_').toLowerCase()}`;
+      if (typeof window !== 'undefined' && !sessionStorage.getItem(sessionKey)) {
+        e.preventDefault();
+        setBetaModalFeature(featureName);
+        sessionStorage.setItem(sessionKey, 'true');
+      }
+    } catch {
       e.preventDefault();
       setBetaModalFeature(featureName);
-      sessionStorage.setItem(sessionKey, 'true');
     }
   };
 
