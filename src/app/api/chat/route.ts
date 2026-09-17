@@ -448,9 +448,35 @@ The current date/time for the user is: ${localTime}.`;
       { role: "system", content: agentRole }
     ];
 
-    // Inject soul context (model identity + user email) if provided
+    // Inject soul context (voice, personality, model identity + user email)
+    const orgSoulFallback = orgProfileData?.soul || orgProfileData?.orgSoul;
     if (soul && typeof soul === "string" && soul.trim().length > 0) {
       groqMessages.push({ role: "system", content: soul });
+    } else if (orgSoulFallback && typeof orgSoulFallback === "string" && orgSoulFallback.trim().length > 0) {
+      groqMessages.push({
+        role: "system",
+        content: `[ORGANIZATION VOICE & PERSONALITY]\n${orgSoulFallback.trim()}`
+      });
+    }
+
+    // Inject strict operational directives & boundaries (Brain)
+    let effectiveBrainRules = "";
+    if (typeof brain === "string" && brain.trim().length > 0) {
+      effectiveBrainRules = brain.trim();
+    } else if (Array.isArray(brain) && brain.length > 0) {
+      effectiveBrainRules = brain.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n").trim();
+    } else if (Array.isArray(orgProfileData?.brainRules) && orgProfileData.brainRules.length > 0) {
+      effectiveBrainRules = orgProfileData.brainRules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n").trim();
+    } else if (typeof orgProfileData?.brain === "string" && orgProfileData.brain.trim().length > 0) {
+      effectiveBrainRules = orgProfileData.brain.trim();
+    }
+
+    if (effectiveBrainRules.length > 0) {
+      groqMessages.push({
+        role: "system",
+        content: `[OPERATIONAL RULES & BOUNDARIES — MANDATORY]\nYou MUST strictly adhere to the following organization rules and constraints at all times. These rules are non-negotiable and override default assistant behaviors:\n\n${effectiveBrainRules}`
+      });
+      console.log(`[Brain Rules] Injected ${effectiveBrainRules.length} chars of strict operational directives`);
     }
 
     // Inject chat scope context if org-scoped
@@ -623,7 +649,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
     // --- PERSONA BOOKEND (recency position — reinforces identity right before generation) ---
     groqMessages.push({
       role: "system",
-      content: `[REMINDER] You are J.A.R.V.I.S. First person only. No meta-commentary. Use ## headers, short paragraphs, **bold** lead-ins on bullets. Answer directly.`
+      content: `[REMINDER] You are J.A.R.V.I.S. First person only. No meta-commentary. Maintain your configured voice and strictly observe all operational rules. Use ## headers, short paragraphs, **bold** lead-ins on bullets. Answer directly.`
     });
 
     // --- STRUCTURED REASONING ENGINE ---

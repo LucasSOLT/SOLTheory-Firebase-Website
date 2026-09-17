@@ -810,19 +810,35 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   // Org Brain — editable organizational knowledge base stored in Firestore
   const fetchOrgBrain = async () => {
-    if (!firestore) return;
+    if (!firestore || !orgId) return;
     try {
       const { doc, getDoc } = await import("firebase/firestore");
       const snap = await getDoc(doc(firestore, "organizations", orgId));
       if (snap.exists()) {
-        setOrgBrain(snap.data()?.orgBrain || "");
+        const data = snap.data();
+        setOrgBrain(data?.orgBrain || "");
+
+        // Sync org-level Soul (Voice & Personality) & Brain (Rules) into agentConfig
+        const orgSoul = data?.soul || data?.orgSoul || "";
+        let orgBrainRules = "";
+        if (Array.isArray(data?.brainRules)) {
+          orgBrainRules = data.brainRules.join("\n");
+        } else if (data?.brain && typeof data.brain === "string") {
+          orgBrainRules = data.brain;
+        }
+
+        setAgentConfig(prev => ({
+          ...prev,
+          soul: orgSoul || prev.soul,
+          brain: orgBrainRules || prev.brain,
+        }));
       }
       setOrgBrainLoaded(true);
     } catch (err) { /* org brain read may fail due to Firestore security rules — non-critical */ setOrgBrainLoaded(true); }
   };
 
   const saveOrgBrain = async () => {
-    if (!firestore) return;
+    if (!firestore || !orgId) return;
     setOrgBrainSaving(true);
     try {
       const { doc, setDoc } = await import("firebase/firestore");
@@ -842,8 +858,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   };
 
   useEffect(() => {
-    if (firestore) fetchOrgBrain();
-  }, [firestore]);
+    if (firestore && orgId) fetchOrgBrain();
+  }, [firestore, orgId]);
 
   // Fetch personal AI brain profile (compiled briefing) for injection into chat
   useEffect(() => {
@@ -1440,7 +1456,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `${orgId}_${params.agentId}`,
-          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'qwen/qwen3.6-27b': 'Qwen 3.6 27B (Groq)', 'nemotron-3-ultra': 'Nemotron 3 Ultra (NVIDIA via OpenRouter)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul ? `[ORGANIZATION VOICE & PERSONALITY]\n${agentConfig.soul}\n\n` : ''}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'qwen/qwen3.6-27b': 'Qwen 3.6 27B (Groq)', 'nemotron-3-ultra': 'Nemotron 3 Ultra (NVIDIA via OpenRouter)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
@@ -1823,7 +1839,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `${orgId}_${params.agentId}`,
-          soul: `${agentConfig.soul}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul ? `[ORGANIZATION VOICE & PERSONALITY]\n${agentConfig.soul}\n\n` : ''}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
@@ -3243,7 +3259,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             body: JSON.stringify({
               messages: apiMessages,
               agentId: `${orgId}_${params.agentId}`,
-              soul: `${agentConfig.soul}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email. IMPORTANT: You are in a VOICE CONVERSATION. Keep spoken responses to 1-3 sentences. Be direct. Never use markdown, bullet points, or code blocks. HOWEVER, you MUST still use tools when the user requests actions like sending emails, checking calendar, spawning grant agents, etc. Always execute the tool first, then confirm verbally.`,
+              soul: `${agentConfig.soul ? `[ORGANIZATION VOICE & PERSONALITY]\n${agentConfig.soul}\n\n` : ''}[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email. IMPORTANT: You are in a VOICE CONVERSATION. Keep spoken responses to 1-3 sentences. Be direct. Never use markdown, bullet points, or code blocks. HOWEVER, you MUST still use tools when the user requests actions like sending emails, checking calendar, spawning grant agents, etc. Always execute the tool first, then confirm verbally.`,
               brain: agentConfig.brain,
               uid: user?.uid,
               refreshToken: rToken,
