@@ -98,6 +98,8 @@ export default function AIKnowledgeBasePage() {
   const [heartbeatInterval, setHeartbeatInterval] = useState<string>("off");
   const [heartbeatRunning, setHeartbeatRunning] = useState(false);
   const [lastHeartbeatRun, setLastHeartbeatRun] = useState<number | null>(null);
+  const [lastCleanupResult, setLastCleanupResult] = useState<{ scannedCount: number; prunedCount: number; retainedCount: number } | null>(null);
+  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(`st_heartbeat_interval_${agentId}`);
@@ -106,16 +108,63 @@ export default function AIKnowledgeBasePage() {
     if (savedLastRun) setLastHeartbeatRun(parseInt(savedLastRun));
   }, [agentId]);
 
-  const runHeartbeatCleanup = async () => {
+  // Persist heartbeat interval to localStorage
+  useEffect(() => {
+    localStorage.setItem(`st_heartbeat_interval_${agentId}`, heartbeatInterval);
+  }, [heartbeatInterval, agentId]);
+
+  const runHeartbeatCleanup = useCallback(async () => {
+    if (heartbeatRunning || !user?.uid) return;
     setHeartbeatRunning(true);
     try {
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/pact/cleanup", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          orgId,
+          scope: "all",
+          userName: user?.displayName || undefined,
+        }),
+      });
+      const data = await res.json();
       const now = Date.now();
       setLastHeartbeatRun(now);
       localStorage.setItem(`st_heartbeat_lastrun_${agentId}`, String(now));
+      if (data.success) {
+        setLastCleanupResult({
+          scannedCount: data.scannedCount || 0,
+          prunedCount: data.prunedCount || 0,
+          retainedCount: data.retainedCount || 0,
+        });
+      }
+    } catch (err) {
+      console.error("[Heartbeat Cleanup] Error:", err);
     } finally {
       setHeartbeatRunning(false);
     }
-  };
+  }, [heartbeatRunning, user?.uid, user?.displayName, orgId, agentId]);
+
+  // Heartbeat interval timer — calls cleanup on schedule
+  useEffect(() => {
+    if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+    if (heartbeatInterval === "off") return;
+
+    const intervalMs: Record<string, number> = {
+      "5m": 5 * 60 * 1000, "10m": 10 * 60 * 1000, "15m": 15 * 60 * 1000,
+      "30m": 30 * 60 * 1000, "1h": 60 * 60 * 1000, "2h": 2 * 60 * 60 * 1000, "4h": 4 * 60 * 60 * 1000,
+    };
+    const ms = intervalMs[heartbeatInterval];
+    if (!ms) return;
+
+    heartbeatTimerRef.current = setInterval(() => {
+      runHeartbeatCleanup();
+    }, ms);
+
+    return () => {
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+    };
+  }, [heartbeatInterval, runHeartbeatCleanup]);
 
   // ── Data Loading ─────────────────────────────────────────────────────────────
   const fetchRAGDocs = async () => {
@@ -658,6 +707,22 @@ export default function AIKnowledgeBasePage() {
                       {heartbeatRunning ? "Running..." : "Run Now"}
                     </Button>
                   </div>
+                  {lastCleanupResult && (
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
+                      lastCleanupResult.prunedCount > 0
+                        ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 border border-amber-800/50' : 'bg-amber-50 text-amber-700 border border-amber-200')
+                        : (isDarkMode ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-800/50' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
+                    }`}>
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        Scanned {lastCleanupResult.scannedCount} {lastCleanupResult.scannedCount === 1 ? 'memory' : 'memories'}
+                        {lastCleanupResult.prunedCount > 0
+                          ? ` — flagged ${lastCleanupResult.prunedCount} for cleanup, retained ${lastCleanupResult.retainedCount}`
+                          : ` — all ${lastCleanupResult.retainedCount} retained`
+                        }
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
