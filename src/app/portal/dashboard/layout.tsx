@@ -21,7 +21,7 @@ import { useContentManagerStore } from "@/stores/content-manager-store";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 import { InsightOmnibar } from "@/components/portal/InsightOmnibar";
-
+import { BetaDisclaimerModal } from "@/components/portal/BetaDisclaimerModal";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useTranslation();
@@ -669,6 +669,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Detect which org the user is in based on the current path
   const dashboardHome = `/portal/dashboard/${currentOrgId}`;
+
+  // Beta disclaimer popup state
+  const [betaModalFeature, setBetaModalFeature] = useState<string | null>(null);
+  const betaModalOpen = betaModalFeature !== null;
+
+  const handleBetaFeatureClick = (e: React.MouseEvent, featureName: string, href: string) => {
+    const sessionKey = `beta_seen_${featureName.replace(/\s+/g, '_').toLowerCase()}`;
+    if (!sessionStorage.getItem(sessionKey)) {
+      e.preventDefault();
+      setBetaModalFeature(featureName);
+      sessionStorage.setItem(sessionKey, 'true');
+    }
+  };
+
+  const handleBetaModalClose = () => {
+    const feature = betaModalFeature;
+    setBetaModalFeature(null);
+    if (feature) {
+      const betaRoutes: Record<string, string> = {
+        'Business Intelligence': `${dashboardHome}/business-intelligence`,
+        'Gmail': `${dashboardHome}/gmail`,
+        'Agentic Campaigning': `${dashboardHome}/agentic-campaigning`,
+        'Agentic Prospecting': `${dashboardHome}/agentic-prospecting`,
+      };
+      const route = betaRoutes[feature];
+      if (route) router.push(route);
+    }
+  };
 
   // All admin/dual-org users have full access to both orgs — no guest mode
   const isGuestMode = false;
@@ -1343,27 +1371,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <CalendarDays className="w-5 h-5 text-slate-500" />
                       <span>{t.timesheets}</span>
                     </Link>
-                    <Link href={`${dashboardHome}/agentic-prospecting`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/agentic-prospecting') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <Compass className="w-5 h-5 text-slate-500" />
-                      <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
-                    </Link>
-                    <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />
                     <Link href={`${dashboardHome}/crm`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/crm') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Users className="w-5 h-5 text-slate-500" />
                       <span>{t.crm}</span>
+                    </Link>
+                    <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />
+                    <Link href={`${dashboardHome}/agentic-prospecting`} onClick={(e) => { setIsMobileMenuOpen(false); handleBetaFeatureClick(e, 'Agentic Prospecting', `${dashboardHome}/agentic-prospecting`); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/agentic-prospecting') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Compass className="w-5 h-5 text-slate-500" />
+                      <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
                       <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
                     </Link>
-                    <Link href={`${dashboardHome}/gmail`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/gmail`} onClick={(e) => { setIsMobileMenuOpen(false); handleBetaFeatureClick(e, 'Gmail', `${dashboardHome}/gmail`); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/gmail') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Mail className="w-5 h-5 text-slate-500" />
                       <span>{t.email}</span>
                       <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
                     </Link>
-                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/agentic-campaigning`} onClick={(e) => { setIsMobileMenuOpen(false); handleBetaFeatureClick(e, 'Agentic Campaigning', `${dashboardHome}/agentic-campaigning`); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.endsWith('/agentic-campaigning') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Send className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticCampaigning}</span>
                       <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
                     </Link>
-                    <Link href={`${dashboardHome}/business-intelligence`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/business-intelligence') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <Link href={`${dashboardHome}/business-intelligence`} onClick={(e) => { setIsMobileMenuOpen(false); handleBetaFeatureClick(e, 'Business Intelligence', `${dashboardHome}/business-intelligence`); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/business-intelligence') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <BarChart3 className="w-5 h-5 text-slate-500" />
                       <span>{t.businessIntelligence}</span>
                       <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
@@ -1722,24 +1750,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.timesheets}</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/agentic-prospecting`} className={getSidebarLinkClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? (t.agenticProspecting || 'Agentic Prospecting') : undefined}>
-                  <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)}>
-                    <Compass className="w-5 h-5" />
-                  </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agenticProspecting || 'Agentic Prospecting'}</span>}
-                </Link>
-
-                {!isEffectiveCollapsed && <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />}
-
                 <Link href={`${dashboardHome}/crm`} className={getSidebarLinkClass(pathname.endsWith('/crm'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.crm : undefined}>
                   <div className={getSidebarIconClass(pathname.endsWith('/crm'), isEffectiveCollapsed)}>
                     <Users className="w-5 h-5" />
                   </div>
                   {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.crm}</span>}
+                </Link>
+
+                {!isEffectiveCollapsed && <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />}
+
+                <Link href={`${dashboardHome}/agentic-prospecting`} onClick={(e) => handleBetaFeatureClick(e, 'Agentic Prospecting', `${dashboardHome}/agentic-prospecting`)} className={getSidebarLinkClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? (t.agenticProspecting || 'Agentic Prospecting') : undefined}>
+                  <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)}>
+                    <Compass className="w-5 h-5" />
+                  </div>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agenticProspecting || 'Agentic Prospecting'}</span>}
                   {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/gmail`} className={getSidebarLinkClass(pathname.endsWith('/gmail'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.email : undefined}>
+                <Link href={`${dashboardHome}/gmail`} onClick={(e) => handleBetaFeatureClick(e, 'Gmail', `${dashboardHome}/gmail`)} className={getSidebarLinkClass(pathname.endsWith('/gmail'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.email : undefined}>
                   <div className={getSidebarIconClass(pathname.endsWith('/gmail'), isEffectiveCollapsed)}>
                     <Mail className="w-5 h-5" />
                   </div>
@@ -1747,7 +1775,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/agentic-campaigning`} className={getSidebarLinkClass(pathname.endsWith('/agentic-campaigning'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.agenticCampaigning : undefined}>
+                <Link href={`${dashboardHome}/agentic-campaigning`} onClick={(e) => handleBetaFeatureClick(e, 'Agentic Campaigning', `${dashboardHome}/agentic-campaigning`)} className={getSidebarLinkClass(pathname.endsWith('/agentic-campaigning'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.agenticCampaigning : undefined}>
                   <div className={getSidebarIconClass(pathname.endsWith('/agentic-campaigning'), isEffectiveCollapsed)}>
                     <Send className="w-5 h-5" />
                   </div>
@@ -1755,13 +1783,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-                <Link href={`${dashboardHome}/business-intelligence`} className={getSidebarLinkClass(pathname.includes('/business-intelligence'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.businessIntelligence : undefined}>
+                <Link href={`${dashboardHome}/business-intelligence`} onClick={(e) => handleBetaFeatureClick(e, 'Business Intelligence', `${dashboardHome}/business-intelligence`)} className={getSidebarLinkClass(pathname.includes('/business-intelligence'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.businessIntelligence : undefined}>
                   <div className={getSidebarIconClass(pathname.includes('/business-intelligence'), isEffectiveCollapsed)}>
                     <BarChart3 className="w-5 h-5" />
                   </div>
                   {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.businessIntelligence}</span>}
                   {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
+
+
+                {user?.email && isAdmin(user.email) && (
+                <Link href={`${dashboardHome}/admin`} className={getSidebarLinkClass(pathname.includes('/admin') && !pathname.includes('/admin/'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Admin Dashboard' : undefined}>
+                  <div className={getSidebarIconClass(pathname.endsWith('/admin'), isEffectiveCollapsed)}>
+                    <ShieldCheck className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Admin Dashboard</span>}
+                </Link>
+                )}
 
                 {user?.email && isOracle(user.email) && (
                 <Link href={`${dashboardHome}/system-health`} className={getSidebarLinkClass(pathname.includes('/system-health'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'System Health' : undefined}>
@@ -2660,6 +2698,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           `}</style>
         </div>
       )}
+      {/* Beta Disclaimer Modal */}
+      <BetaDisclaimerModal
+        isOpen={betaModalOpen}
+        onClose={handleBetaModalClose}
+        featureName={betaModalFeature || ''}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }

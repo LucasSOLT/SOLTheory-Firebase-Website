@@ -40,7 +40,7 @@ const AGENTS: Agent[] = [
     id: 'felix',
     name: 'Felix',
     title: 'Premium AI Models',
-    status: 'Active',
+    status: 'Coming Soon',
     category: 'Premium',
     description: 'Access to advanced AI models for complex tasks',
     icon: Sparkles

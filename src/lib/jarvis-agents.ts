@@ -147,8 +147,8 @@ Examples of CRM queries: "find John Smith's email in the CRM", "add a new contac
 Examples of NON-CRM queries (use web_search): "Who is Jason Statham?", "What is Tesla's stock price?", "Find me information about NASA"`,
 
 
-  WORKSPACE: `[ACTIVE DOMAIN: Document Creation]
-You are currently focused on Google Workspace operations. Use your document creation tools to make Google Docs, Slides, Sheets, YouTube video drafts, and surveys. Create rich, detailed content — full paragraphs for docs, multiple slides for presentations, populated rows for sheets. When populating an existing Google Doc with content, use update_google_document with the document ID from the creation step. IMPORTANT: Always write substantial, detailed content — never use placeholder text like "content goes here".`,
+  WORKSPACE: `[ACTIVE DOMAIN: Storage & Knowledge]
+You are currently focused on Workspace operations. Help the user browse their General Storage (Media Library) using list_storage_files and read_storage_file. You can also search the web and recall past conversations. Google Docs, Sheets, and Slides creation tools are currently unavailable.`,
 
 
   GENERAL: `[ACTIVE DOMAIN: General Assistant]
