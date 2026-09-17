@@ -5,6 +5,8 @@ import { X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from "@/lib/activity-logger";
 
+import { useDarkMode } from "@/lib/useDarkMode";
+
 interface TimesheetServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -55,6 +57,7 @@ export function TimesheetServiceModal({
   userEmail,
   onSaved,
 }: TimesheetServiceModalProps) {
+  const isDarkMode = useDarkMode();
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
   const [description, setDescription] = useState("");
@@ -107,19 +110,25 @@ export function TimesheetServiceModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={handleClose}
     >
       <div
-        className="bg-white w-full max-w-md rounded-2xl shadow-2xl"
+        className={`w-full max-w-md rounded-2xl shadow-2xl border transition-colors ${
+          isDarkMode ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-100 text-slate-800"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800">Add New Service</h2>
+        <div className={`flex items-center justify-between px-6 pt-5 pb-4 border-b ${
+          isDarkMode ? "border-slate-800" : "border-slate-100"
+        }`}>
+          <h2 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>Add New Service</h2>
           <button
             onClick={handleClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className={`p-1 rounded-lg transition-colors ${
+              isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            }`}
           >
             <X size={18} />
           </button>
@@ -129,7 +138,9 @@ export function TimesheetServiceModal({
         <div className="px-6 py-5 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+              isDarkMode ? "text-slate-400" : "text-slate-500"
+            }`}>
               Name *
             </label>
             <input
@@ -140,7 +151,11 @@ export function TimesheetServiceModal({
                 if (error) setError("");
               }}
               placeholder="Service name"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-shadow"
+              className={`w-full border rounded-lg px-3 py-2 text-sm outline-none transition-shadow ${
+                isDarkMode
+                  ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                  : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-green-200 focus:border-green-400"
+              }`}
             />
             {error && (
               <p className="text-xs text-red-500 mt-1">{error}</p>
@@ -149,13 +164,19 @@ export function TimesheetServiceModal({
 
           {/* Topic */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+              isDarkMode ? "text-slate-400" : "text-slate-500"
+            }`}>
               Topic
             </label>
             <select
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-shadow"
+              className={`w-full border rounded-lg px-3 py-2 text-sm outline-none transition-shadow ${
+                isDarkMode
+                  ? "bg-slate-800 border-slate-700 text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                  : "bg-white border-slate-200 text-slate-900 focus:ring-2 focus:ring-green-200 focus:border-green-400"
+              }`}
             >
               <option value="">Select a topic...</option>
               {TOPIC_OPTIONS.map((opt) => (
@@ -168,7 +189,9 @@ export function TimesheetServiceModal({
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+              isDarkMode ? "text-slate-400" : "text-slate-500"
+            }`}>
               Description
             </label>
             <textarea
@@ -176,7 +199,11 @@ export function TimesheetServiceModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description..."
               rows={3}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-shadow resize-none"
+              className={`w-full border rounded-lg px-3 py-2 text-sm outline-none transition-shadow resize-none ${
+                isDarkMode
+                  ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                  : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-green-200 focus:border-green-400"
+              }`}
             />
           </div>
         </div>
@@ -186,7 +213,9 @@ export function TimesheetServiceModal({
           <button
             onClick={handleClose}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-50 rounded-lg transition-colors"
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+            }`}
           >
             Cancel
           </button>

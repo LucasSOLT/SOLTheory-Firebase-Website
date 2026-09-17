@@ -6,6 +6,7 @@ import { collection, addDoc, onSnapshot, serverTimestamp, query, where, orderBy,
 import { TimesheetCustomerModal } from "./TimesheetCustomerModal";
 import { TimesheetServiceModal } from "./TimesheetServiceModal";
 import { logActivity } from "@/lib/activity-logger";
+import { useDarkMode } from "@/lib/useDarkMode";
 
 interface TimesheetUser {
   name: string;
@@ -81,6 +82,7 @@ export function TimesheetEntryModal({
   prefillUser,
   editingEntry,
 }: TimesheetEntryModalProps) {
+  const isDarkMode = useDarkMode();
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -259,22 +261,32 @@ export function TimesheetEntryModal({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto">
         <div
-          className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl my-8 mx-4 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300"
+          className={`w-full max-w-4xl rounded-2xl shadow-2xl my-8 mx-4 flex flex-col border animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+            isDarkMode ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-100 text-slate-800"
+          }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className={`flex items-center justify-between px-6 py-4 border-b ${
+            isDarkMode ? "border-slate-800" : "border-slate-100"
+          }`}>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-slate-500" />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                isDarkMode ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"
+              }`}>
+                <Clock className="w-4 h-4" />
               </div>
-              <h2 className="text-base font-bold text-slate-800">{editingEntry ? "Edit Time Entry" : "Single day entry"}</h2>
+              <h2 className={`text-base font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>
+                {editingEntry ? "Edit Time Entry" : "Single day entry"}
+              </h2>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              }`}
             >
               <X className="w-4 h-4" />
             </button>
@@ -283,21 +295,25 @@ export function TimesheetEntryModal({
           {/* Body */}
           <div className="flex flex-col md:flex-row flex-1 min-h-[420px]">
             {/* Left Column - Form Fields */}
-            <div className="w-full md:w-[260px] p-6 border-r border-slate-100 space-y-4 shrink-0">
+            <div className={`w-full md:w-[260px] p-6 border-r space-y-4 shrink-0 ${
+              isDarkMode ? "border-slate-800" : "border-slate-100"
+            }`}>
               {/* Name */}
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
+                  isDarkMode ? "text-slate-400" : "text-slate-500"
+                }`}>
                   Name <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => { setNameDropdownOpen(!nameDropdownOpen); setCustomerDropdownOpen(false); setServiceDropdownOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg text-sm bg-white transition-colors text-left ${
-                      errors.userName ? "border-red-300 focus:ring-red-200" : "border-slate-200 hover:border-slate-300"
+                    className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg text-sm transition-colors text-left ${
+                      errors.userName ? "border-red-300 focus:ring-red-200" : isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <span className={form.userName ? "text-slate-800 font-medium" : "text-slate-400"}>
+                    <span className={form.userName ? (isDarkMode ? "text-white font-medium" : "text-slate-800 font-medium") : "text-slate-400"}>
                       {form.userName || "Select name"}
                     </span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -305,13 +321,17 @@ export function TimesheetEntryModal({
                   {nameDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-30" onClick={() => setNameDropdownOpen(false)} />
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-1 max-h-48 overflow-y-auto">
+                      <div className={`absolute top-full left-0 right-0 mt-1 border rounded-xl shadow-xl z-40 py-1 max-h-48 overflow-y-auto ${
+                        isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                      }`}>
                         {users.map((u) => (
                           <button
                             key={u.name}
                             onClick={() => { updateField("userName", u.name); setNameDropdownOpen(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors flex items-center gap-2.5 ${
-                              form.userName === u.name ? "bg-green-50 text-green-700 font-semibold" : "text-slate-700"
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2.5 ${
+                              form.userName === u.name
+                                ? isDarkMode ? "bg-green-950/40 text-green-400 font-semibold" : "bg-green-50 text-green-700 font-semibold"
+                                : isDarkMode ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
                             }`}
                           >
                             <div
@@ -332,18 +352,20 @@ export function TimesheetEntryModal({
 
               {/* Customers */}
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
+                  isDarkMode ? "text-slate-400" : "text-slate-500"
+                }`}>
                   Customers <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => { setCustomerDropdownOpen(!customerDropdownOpen); setNameDropdownOpen(false); setServiceDropdownOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg text-sm bg-white transition-colors text-left ${
-                      errors.customerName ? "border-red-300" : "border-slate-200 hover:border-slate-300"
+                    className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg text-sm transition-colors text-left ${
+                      errors.customerName ? "border-red-300" : isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <span className={form.customerName ? "text-slate-800 font-medium" : "text-slate-400"}>
+                    <span className={form.customerName ? (isDarkMode ? "text-white font-medium" : "text-slate-800 font-medium") : "text-slate-400"}>
                       {form.customerName || "Select customer"}
                     </span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -351,7 +373,9 @@ export function TimesheetEntryModal({
                   {customerDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-30" onClick={() => setCustomerDropdownOpen(false)} />
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-1 max-h-48 overflow-y-auto">
+                      <div className={`absolute top-full left-0 right-0 mt-1 border rounded-xl shadow-xl z-40 py-1 max-h-48 overflow-y-auto ${
+                        isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                      }`}>
                         {customers.length === 0 && (
                           <div className="px-3 py-2 text-xs text-slate-400 italic">No customers yet</div>
                         )}
@@ -359,18 +383,22 @@ export function TimesheetEntryModal({
                           <button
                             key={c.id}
                             onClick={() => { updateField("customerName", c.name); setCustomerDropdownOpen(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors ${
-                              form.customerName === c.name ? "bg-green-50 text-green-700 font-semibold" : "text-slate-700"
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                              form.customerName === c.name
+                                ? isDarkMode ? "bg-green-950/40 text-green-400 font-semibold" : "bg-green-50 text-green-700 font-semibold"
+                                : isDarkMode ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
                             }`}
                           >
                             {c.name}
                             {c.topic && <span className="ml-2 text-[10px] text-slate-400">{c.topic}</span>}
                           </button>
                         ))}
-                        <div className="border-t border-slate-100 mt-1 pt-1">
+                        <div className={`border-t mt-1 pt-1 ${isDarkMode ? "border-slate-800" : "border-slate-100"}`}>
                           <button
                             onClick={() => { setCustomerDropdownOpen(false); setShowCustomerModal(true); }}
-                            className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors font-medium flex items-center gap-1.5"
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors font-medium flex items-center gap-1.5 ${
+                              isDarkMode ? "text-green-400 hover:bg-slate-800" : "text-green-600 hover:bg-green-50"
+                            }`}
                           >
                             <Plus className="w-3.5 h-3.5" /> Add new customer
                           </button>
@@ -384,18 +412,20 @@ export function TimesheetEntryModal({
 
               {/* Service */}
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
+                  isDarkMode ? "text-slate-400" : "text-slate-500"
+                }`}>
                   Service <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => { setServiceDropdownOpen(!serviceDropdownOpen); setNameDropdownOpen(false); setCustomerDropdownOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg text-sm bg-white transition-colors text-left ${
-                      errors.serviceName ? "border-red-300" : "border-slate-200 hover:border-slate-300"
+                    className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg text-sm transition-colors text-left ${
+                      errors.serviceName ? "border-red-300" : isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <span className={form.serviceName ? "text-slate-800 font-medium" : "text-slate-400"}>
+                    <span className={form.serviceName ? (isDarkMode ? "text-white font-medium" : "text-slate-800 font-medium") : "text-slate-400"}>
                       {form.serviceName || "Select service"}
                     </span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -403,7 +433,9 @@ export function TimesheetEntryModal({
                   {serviceDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-30" onClick={() => setServiceDropdownOpen(false)} />
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-1 max-h-48 overflow-y-auto">
+                      <div className={`absolute top-full left-0 right-0 mt-1 border rounded-xl shadow-xl z-40 py-1 max-h-48 overflow-y-auto ${
+                        isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                      }`}>
                         {services.length === 0 && (
                           <div className="px-3 py-2 text-xs text-slate-400 italic">No services yet</div>
                         )}
@@ -411,18 +443,22 @@ export function TimesheetEntryModal({
                           <button
                             key={s.id}
                             onClick={() => { updateField("serviceName", s.name); setServiceDropdownOpen(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors ${
-                              form.serviceName === s.name ? "bg-green-50 text-green-700 font-semibold" : "text-slate-700"
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                              form.serviceName === s.name
+                                ? isDarkMode ? "bg-green-950/40 text-green-400 font-semibold" : "bg-green-50 text-green-700 font-semibold"
+                                : isDarkMode ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
                             }`}
                           >
                             {s.name}
                             {s.topic && <span className="ml-2 text-[10px] text-slate-400">{s.topic}</span>}
                           </button>
                         ))}
-                        <div className="border-t border-slate-100 mt-1 pt-1">
+                        <div className={`border-t mt-1 pt-1 ${isDarkMode ? "border-slate-800" : "border-slate-100"}`}>
                           <button
                             onClick={() => { setServiceDropdownOpen(false); setShowServiceModal(true); }}
-                            className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors font-medium flex items-center gap-1.5"
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors font-medium flex items-center gap-1.5 ${
+                              isDarkMode ? "text-green-400 hover:bg-slate-800" : "text-green-600 hover:bg-green-50"
+                            }`}
                           >
                             <Plus className="w-3.5 h-3.5" /> Add new service
                           </button>
@@ -443,7 +479,9 @@ export function TimesheetEntryModal({
                     onChange={(e) => updateField("billableEnabled", e.target.checked)}
                     className="rounded text-green-600 focus:ring-green-200 border-slate-300 cursor-pointer"
                   />
-                  <span className="text-[12px] font-semibold text-slate-600">Billable (per hour)</span>
+                  <span className={`text-[12px] font-semibold ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>
+                    Billable (per hour)
+                  </span>
                 </label>
                 {form.billableEnabled && (
                   <div className="mt-2 flex items-center gap-1.5">
@@ -455,7 +493,11 @@ export function TimesheetEntryModal({
                       placeholder="0.00"
                       value={form.billableRate}
                       onChange={(e) => updateField("billableRate", e.target.value)}
-                      className="w-24 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-all"
+                      className={`w-24 px-2.5 py-1.5 border rounded-lg text-sm outline-none transition-all ${
+                        isDarkMode
+                          ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-green-500"
+                          : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-200"
+                      }`}
                     />
                     <span className="text-[11px] text-slate-400 font-medium">/ hr</span>
                   </div>
@@ -466,10 +508,12 @@ export function TimesheetEntryModal({
             {/* Right Column - Date, Duration, Notes */}
             <div className="flex-1 p-6 space-y-4">
               {/* Date and Duration Row */}
-              <div className="flex items-end gap-6">
+              <div className="flex items-end gap-6 flex-wrap">
                 {/* Start Date */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                  <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}>
                     Start date <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
@@ -477,8 +521,8 @@ export function TimesheetEntryModal({
                       type="date"
                       value={form.startDate}
                       onChange={(e) => updateField("startDate", e.target.value)}
-                      className={`px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-all pr-8 ${
-                        errors.startDate ? "border-red-300" : "border-slate-200"
+                      className={`px-3 py-2 border rounded-lg text-sm outline-none transition-all pr-8 ${
+                        errors.startDate ? "border-red-300" : isDarkMode ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" : "bg-white border-slate-200 focus:border-green-400 focus:ring-2 focus:ring-green-200"
                       }`}
                     />
                   </div>
@@ -487,7 +531,9 @@ export function TimesheetEntryModal({
 
                 {/* Duration */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                  <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}>
                     Duration (hh:mm)
                   </label>
                   <div className="flex items-center gap-1">
@@ -498,8 +544,8 @@ export function TimesheetEntryModal({
                       placeholder="hh"
                       value={form.durationHours}
                       onChange={(e) => updateField("durationHours", e.target.value)}
-                      className={`w-16 px-2.5 py-2 border rounded-lg text-sm bg-white text-center focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-all ${
-                        errors.duration ? "border-red-300" : "border-slate-200"
+                      className={`w-16 px-2.5 py-2 border rounded-lg text-sm text-center outline-none transition-all ${
+                        errors.duration ? "border-red-300" : isDarkMode ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" : "bg-white border-slate-200 focus:border-green-400 focus:ring-2 focus:ring-green-200"
                       }`}
                     />
                     <span className="text-slate-400 font-bold">:</span>
@@ -510,8 +556,8 @@ export function TimesheetEntryModal({
                       placeholder="mm"
                       value={form.durationMinutes}
                       onChange={(e) => updateField("durationMinutes", e.target.value)}
-                      className={`w-16 px-2.5 py-2 border rounded-lg text-sm bg-white text-center focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-all ${
-                        errors.duration ? "border-red-300" : "border-slate-200"
+                      className={`w-16 px-2.5 py-2 border rounded-lg text-sm text-center outline-none transition-all ${
+                        errors.duration ? "border-red-300" : isDarkMode ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" : "bg-white border-slate-200 focus:border-green-400 focus:ring-2 focus:ring-green-200"
                       }`}
                     />
                   </div>
@@ -521,7 +567,9 @@ export function TimesheetEntryModal({
 
               {/* Notes */}
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
+                  isDarkMode ? "text-slate-400" : "text-slate-500"
+                }`}>
                   Notes
                 </label>
                 <textarea
@@ -529,21 +577,29 @@ export function TimesheetEntryModal({
                   onChange={(e) => updateField("notes", e.target.value)}
                   placeholder="Add any notes about this time entry..."
                   rows={8}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-200 focus:border-green-400 outline-none transition-all resize-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm outline-none transition-all resize-none ${
+                    isDarkMode
+                      ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-green-500"
+                      : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-200"
+                  }`}
                 />
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
+          <div className={`flex items-center justify-between px-6 py-4 border-t rounded-b-2xl ${
+            isDarkMode ? "border-slate-800 bg-slate-950/60" : "border-slate-100 bg-slate-50/50"
+          }`}>
             <div className="flex items-center gap-3">
               {saveError && (
                 <p className="text-xs text-red-500 font-medium animate-in fade-in duration-200">{saveError}</p>
               )}
               <button
                 onClick={onClose}
-                className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                className={`text-sm font-medium transition-colors ${
+                  isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700"
+                }`}
               >
                 Cancel
               </button>
@@ -554,7 +610,9 @@ export function TimesheetEntryModal({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="h-9 px-4 rounded-lg border-2 border-green-600 text-green-700 text-sm font-semibold hover:bg-green-50 transition-colors disabled:opacity-50"
+                className={`h-9 px-4 rounded-lg border-2 border-green-600 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                  isDarkMode ? "text-green-400 hover:bg-green-950/30" : "text-green-700 hover:bg-green-50"
+                }`}
               >
                 Save
               </button>
@@ -578,22 +636,30 @@ export function TimesheetEntryModal({
                 {saveDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setSaveDropdownOpen(false)} />
-                    <div className="absolute bottom-full right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-1 w-44 overflow-hidden">
+                    <div className={`absolute bottom-full right-0 mb-1 border rounded-xl shadow-xl z-40 py-1 w-44 overflow-hidden ${
+                      isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                    }`}>
                       <button
                         onClick={handleSaveAndNew}
-                        className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                        className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors ${
+                          isDarkMode ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
+                        }`}
                       >
                         Save and new
                       </button>
                       <button
                         onClick={handleSaveAndCopy}
-                        className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                        className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors ${
+                          isDarkMode ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
+                        }`}
                       >
                         Save and Copy
                       </button>
                       <button
                         onClick={handleSaveAndClose}
-                        className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                        className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors ${
+                          isDarkMode ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
+                        }`}
                       >
                         Save and Close
                       </button>
