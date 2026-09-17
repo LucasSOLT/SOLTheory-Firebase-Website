@@ -382,16 +382,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(`${orgId}_selectedModel`) || 'openai/gpt-oss-120b';
+      const stored = localStorage.getItem(`${orgId}_selectedModel`) || 'gemini-3.5-flash';
       // Reset to default if stored model was removed
       const validModels = ['openai/gpt-oss-120b', 'qwen/qwen3.6-27b', 'nemotron-3-ultra', 'claude-opus-5', 'gpt-5.6-sol', 'gemini-3.5-flash', 'auto'];
       if (!validModels.includes(stored)) {
-        localStorage.setItem(`${orgId}_selectedModel`, 'openai/gpt-oss-120b');
-        return 'openai/gpt-oss-120b';
+        localStorage.setItem(`${orgId}_selectedModel`, 'gemini-3.5-flash');
+        return 'gemini-3.5-flash';
       }
       return stored;
     }
-    return 'openai/gpt-oss-120b';
+    return 'gemini-3.5-flash';
   });
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const isLiteModel = selectedModel === 'nemotron-3-ultra' || selectedModel === 'qwen/qwen3.6-27b';
