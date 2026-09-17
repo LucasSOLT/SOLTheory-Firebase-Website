@@ -310,6 +310,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // other org-scoped reads. Without this, users who never visited the RBAC settings
   // panel would have no member doc → permission errors → empty contacts.
   const [isMemberReady, setIsMemberReady] = useState(false);
+  const [userMemberRole, setUserMemberRole] = useState<string | null>(null);
   useEffect(() => {
     if (!firestore || !user?.uid || !currentOrgId) return;
     const memberDocRef = doc(firestore, `orgs/${currentOrgId}/members`, user.uid);
@@ -332,12 +333,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           joinedAt: new Date().toISOString(),
         }).then(() => {
           console.log(`[Dashboard] Auto-provisioned member doc for ${email} in ${currentOrgId}`);
+          setUserMemberRole(defaultRole);
           setIsMemberReady(true);
         }).catch((err) => {
           console.error("[Dashboard] Failed to auto-provision member doc:", err);
           setIsMemberReady(true); // proceed anyway so UI isn't blocked
         });
       } else {
+        const data = snap.data();
+        if (data?.role) setUserMemberRole(data.role);
         setIsMemberReady(true);
       }
     }).catch((err) => {
@@ -358,8 +362,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   })();
   const userIsAdmin = isAdmin(user?.email);
   const userIsOracle = isOracle(user?.email);
+  const isUserAdmin = userIsAdmin || userIsOracle || userMemberRole === 'admin' || userMemberRole === 'oracle';
   /** Oracle always sees dev tools (at minimum End User Dashboard). Admins see all dev tools. */
-  const showDevTools = userIsOracle || userIsAdmin;
+  const showDevTools = userIsOracle || isUserAdmin;
   const contentManagerActive = useContentManagerStore((s) => s.active);
   const setContentManagerActive = useContentManagerStore((s) => s.setActive);
 
@@ -1396,6 +1401,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <span>{t.businessIntelligence}</span>
                       <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
                     </Link>
+                    {user?.email && isUserAdmin && (
+                    <Link href={`${dashboardHome}/admin`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/admin') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <ShieldCheck className="w-5 h-5 text-indigo-500" />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                    )}
                     {user?.email && isOracle(user.email) && (
                     <Link href={`${dashboardHome}/system-health`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/system-health') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Activity className="w-5 h-5 text-amber-500" />
@@ -1792,7 +1803,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </Link>
 
 
-                {user?.email && isAdmin(user.email) && (
+                {user?.email && isUserAdmin && (
                 <Link href={`${dashboardHome}/admin`} className={getSidebarLinkClass(pathname.includes('/admin') && !pathname.includes('/admin/'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Admin Dashboard' : undefined}>
                   <div className={getSidebarIconClass(pathname.endsWith('/admin'), isEffectiveCollapsed)}>
                     <ShieldCheck className="w-5 h-5 text-indigo-500" />
