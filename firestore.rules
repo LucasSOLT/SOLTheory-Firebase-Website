@@ -717,5 +717,64 @@ service cloud.firestore {
       // Any authenticated user can write (create/update/delete) campaigns
       allow write: if isSignedIn();
     }
+
+    /**
+     * ════════════════════════════════════════════════════════════════
+     * ONBOARDING ENGINE — Roadmaps, Templates & Compliance Vault
+     * ════════════════════════════════════════════════════════════════
+     */
+
+    /**
+     * @description Onboarding Instances tracking active new hire onboarding roadmaps.
+     * @path /onboarding_instances/{instanceId}
+     */
+    match /onboarding_instances/{instanceId} {
+      allow read: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        request.auth.uid == resource.data.userId ||
+        isOrgMember(resource.data.orgId)
+      );
+      allow create, update: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        isOrgMember(request.resource.data.orgId)
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        isOrgMember(resource.data.orgId)
+      );
+    }
+
+    /**
+     * @description Compliance documents uploaded to the secure vault.
+     * @path /orgs/{orgId}/compliance_documents/{docId}
+     */
+    match /orgs/{orgId}/compliance_documents/{docId} {
+      allow read: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        request.auth.uid == resource.data.userId ||
+        isOrgMember(orgId)
+      );
+      allow create, update: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        request.auth.uid == request.resource.data.userId ||
+        isOrgMember(orgId)
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        isOrgMember(orgId)
+      );
+    }
+
+    /**
+     * @description Custom onboarding blueprints per organization.
+     * @path /orgs/{orgId}/onboarding_templates/{templateId}
+     */
+    match /orgs/{orgId}/onboarding_templates/{templateId} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow write: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        isOrgMember(orgId)
+      );
+    }
   }
 }

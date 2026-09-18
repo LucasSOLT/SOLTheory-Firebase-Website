@@ -777,6 +777,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (p.includes('/walkthroughs')) return { icon: 'Lightbulb', label: 'INSiGHT Walkthroughs' };
       if (p.includes('/surveys')) return { icon: 'FileText', label: 'Surveys' };
       if (p.includes('/support-tickets')) return { icon: 'Mail', label: 'Support Tickets' };
+      if (p.includes('/onboarding')) return { icon: 'GraduationCap', label: 'Onboarding' };
       if (p.includes('/action-board')) return { icon: 'LayoutDashboard', label: 'Action Board' };
       if (p.includes('/timesheets')) return { icon: 'CalendarDays', label: 'Timesheets' };
       if (p.includes('/media-library')) return { icon: 'Brain', label: 'AI Brain' };
@@ -1406,6 +1407,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <span>{t.businessIntelligence}</span>
                       <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
                     </Link>
+                    <Link href={`${dashboardHome}/onboarding`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/onboarding') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <GraduationCap className="w-5 h-5 text-slate-500" />
+                      <span>Onboarding</span>
+                    </Link>
                     {user?.email && isUserAdmin && (
                     <Link href={`${dashboardHome}/admin`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/admin') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <ShieldCheck className="w-5 h-5 text-indigo-500" />
@@ -1807,6 +1812,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
+
+                <Link href={`${dashboardHome}/onboarding`} className={getSidebarLinkClass(pathname.includes('/onboarding'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Onboarding' : undefined}>
+                  <div className={getSidebarIconClass(pathname.includes('/onboarding'), isEffectiveCollapsed)}>
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Onboarding</span>}
+                  {!isEffectiveCollapsed && isUserAdmin && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>}
+                </Link>
 
                 {user?.email && isUserAdmin && (
                 <Link href={`${dashboardHome}/admin`} className={getSidebarLinkClass(pathname.includes('/admin') && !pathname.includes('/admin/'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Admin Dashboard' : undefined}>

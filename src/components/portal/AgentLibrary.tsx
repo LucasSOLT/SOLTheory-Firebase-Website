@@ -13,6 +13,7 @@ import {
   MessageCircle, 
   Megaphone, 
   Wrench,
+  ShieldCheck,
   X
 } from 'lucide-react';
 
@@ -36,6 +37,8 @@ const AGENTS: Agent[] = [
     description: 'Email, calendar, drive, and executive task management',
     icon: Bot
   },
+  { id: 'bobby', name: 'Bobby', title: 'Workflow Maestro', status: 'Active', category: 'Productivity', description: 'Scheduling, task tracking, deadline reminders, and onboarding workflow management', icon: Wrench },
+  { id: 'monica', name: 'Monica', title: 'Compliance Controller', status: 'Active', category: 'Productivity', description: 'Regulatory compliance tracking, document verification, and audit-ready reporting', icon: ShieldCheck },
   {
     id: 'felix',
     name: 'Felix',
