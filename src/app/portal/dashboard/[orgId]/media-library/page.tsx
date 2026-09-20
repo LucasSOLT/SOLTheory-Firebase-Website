@@ -766,6 +766,9 @@ export default function MediaLibraryPage() {
       loaded.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setAiBrainDocs(loaded);
       setAiBrainLoaded(true);
+    }, (err) => {
+      console.error("[AI Brain] Failed to load personal AI brain docs:", err);
+      setAiBrainLoaded(true); // Still mark as loaded so UI doesn't spin forever
     });
     return () => unsub();
   }, [firestore, user?.uid, mediaTab]);
@@ -931,6 +934,9 @@ export default function MediaLibraryPage() {
       loaded.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setOrgBrainDocs(loaded);
       setOrgBrainLoaded(true);
+    }, (err) => {
+      console.error("[AI Brain] Failed to load org AI brain docs:", err);
+      setOrgBrainLoaded(true); // Still mark as loaded so UI doesn't spin forever
     });
     return () => unsub();
   }, [firestore, orgId, mediaTab]);

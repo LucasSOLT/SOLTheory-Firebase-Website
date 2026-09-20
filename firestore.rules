@@ -275,6 +275,24 @@ service cloud.firestore {
       match /instagram_media/{mediaId} {
         allow read, write: if isOwner(userId);
       }
+
+      /**
+       * @description AI Brain documents uploaded by the user for Jarvis to reference.
+       * @path /users/{userId}/ai_brain_docs/{docId}
+       * @allow (read, write) Owner can manage their own AI brain documents.
+       */
+      match /ai_brain_docs/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      /**
+       * @description Vector embeddings for AI Brain document chunks (semantic search).
+       * @path /users/{userId}/ai_brain_vectors/{vectorId}
+       * @allow (read, write) Owner can manage their own AI brain vectors.
+       */
+      match /ai_brain_vectors/{vectorId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     /**
@@ -696,6 +714,30 @@ service cloud.firestore {
         && request.resource.data.keys().size() < 100;
       // Org members can delete
       allow delete: if isSignedIn() && isOrgMember(orgId);
+    }
+
+    /**
+     * @description Organization AI Brain documents uploaded by admins for Jarvis
+     * to reference across the organization. Used by the Org AI Brain Documents tab.
+     * @path /orgs/{orgId}/org_brain_docs/{docId}
+     * @allow (read) Org members can read (Jarvis semantic search needs this).
+     * @allow (write) Org members can write (admin RBAC enforced in upload API route).
+     */
+    match /orgs/{orgId}/org_brain_docs/{docId} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow write: if isSignedIn() && isOrgMember(orgId);
+    }
+
+    /**
+     * @description Vector embeddings for org knowledge base and AI Brain docs.
+     * Used for semantic search by Jarvis across organization documents.
+     * @path /orgs/{orgId}/kb_vectors/{vectorId}
+     * @allow (read) Org members can read vectors for semantic search.
+     * @allow (write) Org members can write (upload API creates these via Admin SDK).
+     */
+    match /orgs/{orgId}/kb_vectors/{vectorId} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow write: if isSignedIn() && isOrgMember(orgId);
     }
 
     /**

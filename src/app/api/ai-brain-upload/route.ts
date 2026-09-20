@@ -50,7 +50,9 @@ async function extractTextFromPDF(buffer: Buffer): Promise<{ text: string; pageC
  * Extract raw text from a DOCX buffer using mammoth.
  */
 async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
-  const mammoth = await import("mammoth");
+  const mammothModule = await import("mammoth");
+  // mammoth is CommonJS — in ESM/Next.js bundler runtime, exports are under .default
+  const mammoth = (mammothModule as any).default || mammothModule;
   const result = await mammoth.extractRawText({ buffer });
   return result.value;
 }
