@@ -1410,17 +1410,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Link href={`${dashboardHome}/onboarding`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/onboarding') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <GraduationCap className="w-5 h-5 text-slate-500" />
                       <span>Onboarding</span>
+                      {isUserAdmin && (
+                        <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>
+                      )}
                     </Link>
                     {user?.email && isUserAdmin && (
                     <Link href={`${dashboardHome}/admin`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/admin') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <ShieldCheck className="w-5 h-5 text-indigo-500" />
                       <span>Admin Dashboard</span>
-                    </Link>
-                    )}
-                    {user?.email && isOracle(user.email) && (
-                    <Link href={`${dashboardHome}/system-health`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/system-health') ? (isDarkMode ? 'bg-amber-900/30 text-amber-300 shadow-sm' : 'bg-amber-50 text-amber-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
-                      <Activity className="w-5 h-5 text-amber-500" />
-                      <span>System Health</span>
                     </Link>
                     )}
                   </div>
@@ -1827,15 +1824,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <ShieldCheck className="w-5 h-5 text-indigo-500" />
                   </div>
                   {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Admin Dashboard</span>}
-                </Link>
-                )}
-
-                {user?.email && isOracle(user.email) && (
-                <Link href={`${dashboardHome}/system-health`} className={getSidebarLinkClass(pathname.includes('/system-health'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'System Health' : undefined}>
-                  <div className={getSidebarIconClass(pathname.includes('/system-health'), isEffectiveCollapsed)}>
-                    <Activity className="w-5 h-5 text-amber-500" />
-                  </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">System Health</span>}
                 </Link>
                 )}
               </div>

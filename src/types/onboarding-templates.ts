@@ -123,7 +123,9 @@ export interface OnboardingStep {
   sopUrl?: string;
 
   /** What type of onboarding item this is. Determines completion gating behavior. */
-  itemType?: 'document_upload' | 'video_watch' | 'reading' | 'shadowing_session' | 'action_item' | 'form_sign';
+  itemType?: 'document_upload' | 'video_watch' | 'reading' | 'shadowing_session' | 'action_item' | 'form_sign'
+    | 'quiz' | 'short_answer' | 'form' | 'checklist'
+    | 'policy_acknowledgment' | 'external_verification' | 'recorded_response';
 
   /** Rich instructions for the new hire (may contain line breaks). */
   instructions?: string;
@@ -144,7 +146,15 @@ export interface OnboardingStep {
   mediaType?: 'video' | 'image' | 'pdf' | null;
 
   /** How completion is gated for this item. */
-  completionGating?: 'self' | 'upload_required' | 'video_started';
+  completionGating?: 'self' | 'upload_required' | 'video_started'
+    | 'quiz_passed' | 'response_required' | 'response_reviewed'
+    | 'form_submitted' | 'checklist_complete' | 'acknowledgment_signed' | 'external_verified';
+
+  /**
+   * Interactive content configuration for quiz, form, checklist, etc.
+   * Stored as JSON and passed through to task metadata on instantiation.
+   */
+  interactiveContent?: InteractiveContent;
 }
 
 // ── Template Blueprint ──────────────────────────────────────────────────────
@@ -320,3 +330,189 @@ export interface ComplianceDocument {
   taskId?: string;
 }
 
+
+// ============================================================================
+// Interactive Content Types — Quiz, Form, Checklist, E-Signature, etc.
+//
+// Each interactive item type stores its admin-configured content as a typed
+// JSON blob on OnboardingStep.interactiveContent. When instantiated, this
+// blob is copied into the Action Board task's metadata for user rendering.
+// ============================================================================
+
+// ── Discriminated Union ─────────────────────────────────────────────────────
+
+export type InteractiveContent =
+  | QuizContent
+  | ShortAnswerContent
+  | FormContent
+  | ChecklistContent
+  | PolicyAcknowledgmentContent
+  | ExternalVerificationContent
+  | RecordedResponseContent;
+
+// ── 1. Quiz / Knowledge Check ───────────────────────────────────────────────
+
+export interface QuizContent {
+  type: 'quiz';
+  questions: QuizQuestion[];
+  /** Minimum percentage (0-100) to pass. Default: 80. */
+  passingScore: number;
+  /** Max attempts allowed. 0 = unlimited retries. */
+  maxAttempts: number;
+  /** Randomize question order each attempt. */
+  shuffleQuestions: boolean;
+  /** Randomize answer option order each attempt. */
+  shuffleAnswers: boolean;
+  /** Show which answers were correct after submission. */
+  showCorrectAnswers: boolean;
+}
+
+export interface QuizQuestion {
+  id: string;
+  text: string;
+  questionType: 'multiple_choice' | 'true_false' | 'select_all';
+  options: QuizOption[];
+  /** Optional image URL displayed with the question. */
+  imageUrl?: string;
+}
+
+export interface QuizOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+}
+
+// ── 2. Short Answer / Text Response ─────────────────────────────────────────
+
+export interface ShortAnswerContent {
+  type: 'short_answer';
+  prompts: ShortAnswerPrompt[];
+  /** 'auto_complete' marks task done on submit. 'admin_review' requires manager approval. */
+  reviewMode: 'auto_complete' | 'admin_review';
+}
+
+export interface ShortAnswerPrompt {
+  id: string;
+  question: string;
+  required: boolean;
+  minLength?: number;
+  maxLength?: number;
+  placeholder?: string;
+}
+
+// ── 3. Form / Data Collection ───────────────────────────────────────────────
+
+export interface FormContent {
+  type: 'form';
+  title: string;
+  description?: string;
+  fields: FormField[];
+}
+
+export interface FormField {
+  id: string;
+  label: string;
+  fieldType: 'text' | 'email' | 'phone' | 'number' | 'date' | 'dropdown' | 'checkbox' | 'textarea';
+  required: boolean;
+  placeholder?: string;
+  /** Options list for dropdown fields. */
+  options?: string[];
+  /** Optional regex validation pattern. */
+  validationPattern?: string;
+}
+
+// ── 4. Checklist (Multi-step Task) ──────────────────────────────────────────
+
+export interface ChecklistContent {
+  type: 'checklist';
+  items: ChecklistItem[];
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  required: boolean;
+  /** Optional URL link for reference material. */
+  linkUrl?: string;
+}
+
+// ── 5. Policy Acknowledgment / E-Signature ──────────────────────────────────
+
+export interface PolicyAcknowledgmentContent {
+  type: 'policy_acknowledgment';
+  /** Policy text (supports markdown formatting). */
+  policyText: string;
+  /** Require user to scroll to bottom before acknowledging. */
+  requireScrollToBottom: boolean;
+  /** Require user to type their full legal name. */
+  requireTypedName: boolean;
+  /** Require user to draw a signature on a canvas pad. */
+  requireDrawnSignature: boolean;
+  /** Checkbox label text (e.g. "I have read and agree to the above policy"). */
+  acknowledgmentText: string;
+  /** ESIGN Act consent disclosure text. */
+  consentDisclosure: string;
+}
+
+// ── 6. External Completion Verification ─────────────────────────────────────
+
+export interface ExternalVerificationContent {
+  type: 'external_verification';
+  /** URL to the external training/resource. */
+  externalUrl: string;
+  /** How completion is verified. */
+  verificationMethod: 'upload_certificate' | 'completion_code' | 'admin_verify';
+  /** Valid completion codes (for 'completion_code' method). */
+  validCodes?: string[];
+  /** Instructions for the user. */
+  instructions?: string;
+}
+
+// ── 7. Recorded Response (Video/Audio) ──────────────────────────────────────
+
+export interface RecordedResponseContent {
+  type: 'recorded_response';
+  /** Prompt/question for the user to respond to. */
+  prompt: string;
+  /** Maximum recording duration in seconds. Default: 120. */
+  maxDurationSeconds: number;
+  /** What media types are accepted. */
+  mediaType: 'video' | 'audio' | 'either';
+  /** 'auto_complete' marks done on submit. 'admin_review' requires manager approval. */
+  reviewMode: 'auto_complete' | 'admin_review';
+}
+
+// ── Human-readable labels for interactive item types ────────────────────────
+
+export const INTERACTIVE_ITEM_TYPE_LABELS: Record<string, string> = {
+  document_upload: 'Document Upload',
+  video_watch: 'Video Watch',
+  reading: 'Reading',
+  shadowing_session: 'Shadowing Session',
+  action_item: 'Action Item',
+  form_sign: 'Form Signature',
+  quiz: 'Quiz / Knowledge Check',
+  short_answer: 'Short Answer Response',
+  form: 'Form / Data Collection',
+  checklist: 'Checklist (Multi-step)',
+  policy_acknowledgment: 'Policy Acknowledgment / E-Signature',
+  external_verification: 'External Completion Verification',
+  recorded_response: 'Recorded Response (Video/Audio)',
+};
+
+/** Map from interactive itemType to its default completionGating value. */
+export const ITEM_TYPE_DEFAULT_GATING: Record<string, string> = {
+  document_upload: 'upload_required',
+  video_watch: 'video_started',
+  reading: 'self',
+  shadowing_session: 'self',
+  action_item: 'self',
+  form_sign: 'upload_required',
+  quiz: 'quiz_passed',
+  short_answer: 'response_required',
+  form: 'form_submitted',
+  checklist: 'checklist_complete',
+  policy_acknowledgment: 'acknowledgment_signed',
+  external_verification: 'external_verified',
+  recorded_response: 'response_required',
+};

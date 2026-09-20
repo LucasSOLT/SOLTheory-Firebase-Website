@@ -805,7 +805,7 @@ export default function MediaLibraryPage() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: "Upload failed" }));
-          showToast(`Upload failed: ${errData.error || res.statusText}`);
+          showToast(`Upload failed: ${errData.details || errData.error || res.statusText}`);
           continue;
         }
 
@@ -974,7 +974,7 @@ export default function MediaLibraryPage() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: "Upload failed" }));
-          showToast(`Upload failed: ${errData.error || res.statusText}`);
+          showToast(`Upload failed: ${errData.details || errData.error || res.statusText}`);
           continue;
         }
 

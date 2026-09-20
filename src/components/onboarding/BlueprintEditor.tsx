@@ -9,6 +9,8 @@ import {
   ChevronUp,
   Save,
 } from 'lucide-react';
+import { InteractiveContentBuilder } from './InteractiveBuilders';
+import { ITEM_TYPE_DEFAULT_GATING } from '@/types/onboarding-templates';
 
 interface BlueprintItem {
   id: string;
@@ -24,6 +26,7 @@ interface BlueprintItem {
   mediaType: string;
   requiresDocumentUpload: boolean;
   documentCategory: string;
+  interactiveContent?: any;
   isExpanded?: boolean;
 }
 
@@ -96,6 +99,7 @@ export default function BlueprintEditor({
               mediaType: step.mediaType || '',
               requiresDocumentUpload: step.requiresDocumentUpload || false,
               documentCategory: step.documentCategory || '',
+              interactiveContent: step.interactiveContent || undefined,
               isExpanded: false,
             })),
           };
@@ -253,7 +257,12 @@ export default function BlueprintEditor({
         ...(item.backgroundColor && item.backgroundColor !== '#ffffff' ? { backgroundColor: item.backgroundColor } : {}),
         ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
         ...(item.mediaType ? { mediaType: item.mediaType } : {}),
-        completionGating: item.requiresDocumentUpload ? 'upload_required' : item.itemType === 'video_watch' ? 'video_started' : 'self',
+        ...(item.interactiveContent ? { interactiveContent: item.interactiveContent } : {}),
+        completionGating: item.requiresDocumentUpload
+          ? 'upload_required'
+          : (item.itemType && ITEM_TYPE_DEFAULT_GATING[item.itemType])
+            ? ITEM_TYPE_DEFAULT_GATING[item.itemType]
+            : 'self',
       }))
     );
 
@@ -443,15 +452,34 @@ export default function BlueprintEditor({
                             />
                             <select
                               value={item.itemType}
-                              onChange={(e) => handleUpdateItem(phase.id, item.id, { itemType: e.target.value })}
+                              onChange={(e) => {
+                                const newType = e.target.value;
+                                const updates: Partial<BlueprintItem> = { itemType: newType };
+                                // Clear interactiveContent when switching types
+                                if (newType !== item.itemType) {
+                                  updates.interactiveContent = undefined;
+                                }
+                                handleUpdateItem(phase.id, item.id, updates);
+                              }}
                               className={inputClass() + ' w-auto'}
                             >
-                              <option value="action_item">Action Item</option>
-                              <option value="document_upload">Document Upload</option>
-                              <option value="video_watch">Video</option>
-                              <option value="reading">Reading / SOP</option>
-                              <option value="shadowing_session">Shadowing</option>
-                              <option value="form_sign">Form to Sign</option>
+                              <optgroup label="Standard">
+                                <option value="action_item">Action Item</option>
+                                <option value="document_upload">Document Upload</option>
+                                <option value="video_watch">Video</option>
+                                <option value="reading">Reading / SOP</option>
+                                <option value="shadowing_session">Shadowing</option>
+                                <option value="form_sign">Form to Sign</option>
+                              </optgroup>
+                              <optgroup label="Interactive">
+                                <option value="quiz">Quiz / Knowledge Check</option>
+                                <option value="short_answer">Short Answer Response</option>
+                                <option value="form">Form / Data Collection</option>
+                                <option value="checklist">Checklist (Multi-step)</option>
+                                <option value="policy_acknowledgment">Policy / E-Signature</option>
+                                <option value="external_verification">External Verification</option>
+                                <option value="recorded_response">Recorded Response</option>
+                              </optgroup>
                             </select>
                             <select
                               value={item.priority}
@@ -549,6 +577,21 @@ export default function BlueprintEditor({
                                   </div>
                                 </div>
                               </div>
+
+                              {/* Interactive Content Builder (for quiz, form, checklist, etc.) */}
+                              {['quiz', 'short_answer', 'form', 'checklist', 'policy_acknowledgment', 'external_verification', 'recorded_response'].includes(item.itemType) && (
+                                <div className={`p-4 rounded-lg border-2 border-dashed ${isDarkMode ? 'border-indigo-500/30 bg-indigo-950/20' : 'border-indigo-300/50 bg-indigo-50/30'}`}>
+                                  <h4 className={`text-sm font-bold mb-3 ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
+                                    ✨ Interactive Content Configuration
+                                  </h4>
+                                  <InteractiveContentBuilder
+                                    itemType={item.itemType}
+                                    content={item.interactiveContent}
+                                    onChange={(content) => handleUpdateItem(phase.id, item.id, { interactiveContent: content })}
+                                    isDarkMode={isDarkMode}
+                                  />
+                                </div>
+                              )}
 
                               <div className="flex flex-wrap items-center gap-6 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50">
                                 <label className="flex items-center gap-2 cursor-pointer">

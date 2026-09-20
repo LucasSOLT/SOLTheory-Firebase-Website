@@ -181,7 +181,7 @@ export function NewsSlideshow() {
           return (
           <div
             key={i}
-            className={`w-full h-full flex-shrink-0 bg-gradient-to-br ${slide.gradient} flex flex-col justify-end p-6 sm:p-8 relative`}
+            className={`w-full h-full flex-shrink-0 bg-gradient-to-br ${slide.gradient} flex flex-col justify-end p-4 sm:p-6 md:p-8 relative`}
             onClick={() => {
               if (slide.linkUrl) {
                 window.open(slide.linkUrl, '_blank', 'noopener,noreferrer');
@@ -228,10 +228,10 @@ export function NewsSlideshow() {
 
             {/* Content */}
             <div className="relative z-10 max-w-xl">
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-2 drop-shadow-lg">
+              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-1 sm:mb-2 drop-shadow-lg">
                 {slide.headline}
               </h2>
-              <p className="text-sm sm:text-base text-white/70 font-medium leading-relaxed line-clamp-3">
+              <p className="hidden sm:block text-sm sm:text-base text-white/70 font-medium leading-relaxed line-clamp-2 sm:line-clamp-3">
                 {slide.subtitle}
               </p>
             </div>

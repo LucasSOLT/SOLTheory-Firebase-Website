@@ -13,20 +13,33 @@ import {
   Upload,
   CheckCircle2,
   FileIcon,
+  HelpCircle,
+  MessageSquare,
+  ClipboardList,
+  ListChecks,
+  ShieldCheck,
+  Globe,
+  Mic,
+  AlertTriangle,
 } from 'lucide-react';
+import { InteractiveContentRenderer } from './InteractiveRenderers';
+import { getAuthHeaders } from '@/lib/api-auth-client';
 
 interface OnboardingItemPopupProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
+  orgId?: string;
   task: {
     id: string;
+    orgId?: string;
     title: string;
     description?: string;
     column: string;
     metadata?: {
       phase?: number;
       onboardingInstanceId?: string;
+      orgId?: string;
       requiresDocumentUpload?: boolean;
       documentCategory?: string;
       itemType?: string;
@@ -37,6 +50,10 @@ interface OnboardingItemPopupProps {
       mediaUrl?: string | null;
       mediaType?: string | null;
       completionGating?: string;
+      interactiveContent?: any;
+      userResponse?: any[];
+      reviewStatus?: string;
+      reviewNotes?: string;
     };
     attachments?: any[];
   };
@@ -48,6 +65,7 @@ export default function OnboardingItemPopup({
   isOpen,
   onClose,
   isDarkMode,
+  orgId,
   task,
   onComplete,
   onUploadClick,
@@ -74,6 +92,20 @@ export default function OnboardingItemPopup({
         return <CheckSquare className="w-5 h-5" />;
       case 'form_sign':
         return <PenTool className="w-5 h-5" />;
+      case 'quiz':
+        return <HelpCircle className="w-5 h-5" />;
+      case 'short_answer':
+        return <MessageSquare className="w-5 h-5" />;
+      case 'form':
+        return <ClipboardList className="w-5 h-5" />;
+      case 'checklist':
+        return <ListChecks className="w-5 h-5" />;
+      case 'policy_acknowledgment':
+        return <ShieldCheck className="w-5 h-5" />;
+      case 'external_verification':
+        return <Globe className="w-5 h-5" />;
+      case 'recorded_response':
+        return <Mic className="w-5 h-5" />;
       default:
         return <CheckSquare className="w-5 h-5" />;
     }
@@ -88,6 +120,30 @@ export default function OnboardingItemPopup({
           ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700/50'
           : 'bg-emerald-100 text-emerald-600 border-emerald-200',
         tooltip: 'This item is already completed',
+      };
+    }
+
+    // Pending admin review state
+    if (meta.reviewStatus === 'pending_review') {
+      return {
+        disabled: true,
+        text: 'Pending Review',
+        classes: isDarkMode
+          ? 'bg-amber-900/50 text-amber-400 border-amber-700/50'
+          : 'bg-amber-100 text-amber-600 border-amber-200',
+        tooltip: 'Your response is awaiting admin review',
+      };
+    }
+
+    // Rejected — allow resubmission
+    if (meta.reviewStatus === 'rejected') {
+      return {
+        disabled: true,
+        text: 'Revision Requested',
+        classes: isDarkMode
+          ? 'bg-rose-900/50 text-rose-400 border-rose-700/50'
+          : 'bg-rose-100 text-rose-600 border-rose-200',
+        tooltip: 'Your submission was returned for revision — see feedback below',
       };
     }
 
@@ -117,6 +173,19 @@ export default function OnboardingItemPopup({
       }
     }
 
+    // Interactive types: hide the standard Complete button — the renderer handles submission
+    const interactiveGating = ['quiz_passed', 'response_required', 'response_reviewed', 'form_submitted', 'checklist_complete', 'acknowledgment_signed', 'external_verified'];
+    if (meta.completionGating && interactiveGating.includes(meta.completionGating) && meta.interactiveContent) {
+      return {
+        disabled: true,
+        text: 'Complete via form below',
+        classes: isDarkMode
+          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+          : 'bg-slate-200 text-slate-400 cursor-not-allowed',
+        tooltip: 'Complete the interactive content below to mark this item done',
+      };
+    }
+
     return {
       disabled: false,
       text: 'Complete ✓',
@@ -126,11 +195,54 @@ export default function OnboardingItemPopup({
   };
 
   const buttonState = getButtonState();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{ passed: boolean; score?: number; message: string } | null>(null);
 
   const handleComplete = () => {
     if (!buttonState.disabled) {
       onComplete(task.id);
       onClose();
+    }
+  };
+
+  /** Submit an interactive response (quiz, form, checklist, etc.) to the API. */
+  const handleInteractiveSubmit = async (responseData: any) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitResult(null);
+
+    try {
+      const headers = await getAuthHeaders();
+      const effectiveOrgId = orgId || task.orgId || meta.orgId || '';
+      const res = await fetch('/api/onboarding/submit-response', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          orgId: effectiveOrgId,
+          taskId: task.id,
+          responseType: meta.itemType,
+          responseData,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        setSubmitResult({ passed: result.passed, score: result.score, message: result.message });
+        if (result.passed) {
+          // Auto-close after a brief success animation
+          setTimeout(() => {
+            onComplete(task.id);
+            onClose();
+          }, 1500);
+        }
+      } else {
+        setSubmitResult({ passed: false, message: result.error || 'Submission failed. Please try again.' });
+      }
+    } catch (err) {
+      setSubmitResult({ passed: false, message: 'Network error. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -289,6 +401,95 @@ export default function OnboardingItemPopup({
                   </div>
                 ) : null}
               </div>
+            </div>
+          )}
+
+          {/* Interactive Content Renderer */}
+          {meta.interactiveContent && (
+            <div className="space-y-3">
+              {/* Rejection feedback banner — shown when admin rejects a submission */}
+              {meta.reviewStatus === 'rejected' && (
+                <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-rose-950/30 border-rose-800/50' : 'bg-rose-50 border-rose-200'}`}>
+                  <div className={`text-sm font-bold mb-1 flex items-center gap-2 ${isDarkMode ? 'text-rose-300' : 'text-rose-700'}`}>
+                    <AlertTriangle className="w-4 h-4" />
+                    Revision Requested
+                  </div>
+                  {meta.reviewNotes ? (
+                    <p className={`text-sm ${isDarkMode ? 'text-rose-300/80' : 'text-rose-600'}`}>
+                      <span className="font-semibold">Admin feedback:</span> {meta.reviewNotes}
+                    </p>
+                  ) : (
+                    <p className={`text-sm ${isDarkMode ? 'text-rose-300/80' : 'text-rose-600'}`}>
+                      Your previous submission was returned for revision. Please review and resubmit below.
+                    </p>
+                  )}
+                </div>
+              )}
+              <InteractiveContentRenderer
+                content={meta.interactiveContent}
+                onSubmit={handleInteractiveSubmit}
+                isDarkMode={isDarkMode}
+                disabled={isCompleted || isSubmitting || meta.reviewStatus === 'pending_review'}
+                existingResponse={meta.userResponse?.[meta.userResponse.length - 1]}
+              />
+              {isSubmitting && (
+                <div className={`text-center py-3 text-sm font-semibold animate-pulse ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                  Submitting response...
+                </div>
+              )}
+              {submitResult && (
+                <div className={`p-4 rounded-xl text-sm font-semibold text-center ${
+                  submitResult.passed
+                    ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
+                    : (isDarkMode ? 'bg-rose-900/40 text-rose-300 border border-rose-700/50' : 'bg-rose-50 text-rose-700 border border-rose-200')
+                }`}>
+                  {submitResult.score !== undefined && (
+                    <div className="text-lg mb-1">Score: {submitResult.score}%</div>
+                  )}
+                  {submitResult.message}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Download certificate link for completed e-signatures */}
+          {isCompleted && meta.itemType === 'policy_acknowledgment' && meta.interactiveContent?.type === 'policy_acknowledgment' && (
+            <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+              isDarkMode ? 'bg-purple-950/20 border-purple-800/30' : 'bg-purple-50/50 border-purple-200/60'
+            }`}>
+              <ShieldCheck className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+              <div className="flex-1 min-w-0">
+                <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                  E-Signature Complete
+                </div>
+                <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Your signed acknowledgment is on file. You can download a PDF copy for your records.
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const headers = await getAuthHeaders();
+                    const res = await fetch('/api/onboarding/generate-certificate', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', ...headers },
+                      body: JSON.stringify({ orgId: orgId || task.orgId || meta.orgId, taskId: task.id }),
+                    });
+                    const result = await res.json();
+                    if (res.ok && result.downloadUrl) {
+                      window.open(result.downloadUrl, '_blank');
+                    }
+                  } catch { /* silent */ }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors shrink-0 ${
+                  isDarkMode
+                    ? 'bg-purple-900/40 text-purple-300 hover:bg-purple-900/60'
+                    : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Download PDF
+              </button>
             </div>
           )}
 

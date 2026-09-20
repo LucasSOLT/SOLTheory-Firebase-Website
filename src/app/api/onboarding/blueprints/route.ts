@@ -163,6 +163,7 @@ export async function PUT(req: NextRequest) {
                   ...(step.backgroundColor ? { backgroundColor: step.backgroundColor } : {}),
                   ...(step.mediaUrl ? { mediaUrl: step.mediaUrl } : {}),
                   ...(step.mediaType ? { mediaType: step.mediaType } : {}),
+                  ...(step.interactiveContent ? { interactiveContent: step.interactiveContent } : {}),
                 },
                 automations: {
                   emails: [auth.email],

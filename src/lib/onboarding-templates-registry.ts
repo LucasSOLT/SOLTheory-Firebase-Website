@@ -62,14 +62,29 @@ const PEER_RECOVERY_COACH_STEPS: OnboardingStep[] = [
     id: 'step_emergency_contacts',
     phase: 1,
     title: 'Submit Emergency Contact Information',
-    description: 'Provide at least two emergency contacts with names, phone numbers, and relationships. Upload the completed emergency contact form.',
+    description: 'Provide at least two emergency contacts with names, phone numbers, and relationships.',
     priority: 'High',
     dayOffset: 1,
     estimatedMinutes: 10,
-    itemType: 'document_upload',
-    completionGating: 'upload_required',
-    requiresDocumentUpload: true,
-    documentCategory: 'emergency_contacts',
+    itemType: 'form',
+    completionGating: 'form_submitted',
+    requiresDocumentUpload: false,
+    interactiveContent: {
+      type: 'form' as const,
+      title: 'Emergency Contact Information',
+      description: 'Please provide at least two emergency contacts. This information is kept confidential and used only in case of a workplace emergency.',
+      fields: [
+        { id: 'contact1_name', label: 'Primary Contact — Full Name', fieldType: 'text' as const, required: true, placeholder: 'Jane Doe' },
+        { id: 'contact1_relationship', label: 'Primary Contact — Relationship', fieldType: 'dropdown' as const, required: true, options: ['Spouse/Partner', 'Parent', 'Sibling', 'Child (Adult)', 'Other Family', 'Friend', 'Other'] },
+        { id: 'contact1_phone', label: 'Primary Contact — Phone Number', fieldType: 'phone' as const, required: true, placeholder: '(555) 123-4567' },
+        { id: 'contact1_email', label: 'Primary Contact — Email (optional)', fieldType: 'email' as const, required: false, placeholder: 'jane@example.com' },
+        { id: 'contact2_name', label: 'Secondary Contact — Full Name', fieldType: 'text' as const, required: true, placeholder: 'John Smith' },
+        { id: 'contact2_relationship', label: 'Secondary Contact — Relationship', fieldType: 'dropdown' as const, required: true, options: ['Spouse/Partner', 'Parent', 'Sibling', 'Child (Adult)', 'Other Family', 'Friend', 'Other'] },
+        { id: 'contact2_phone', label: 'Secondary Contact — Phone Number', fieldType: 'phone' as const, required: true, placeholder: '(555) 987-6543' },
+        { id: 'medical_conditions', label: 'Known Medical Conditions or Allergies (optional)', fieldType: 'textarea' as const, required: false, placeholder: 'List any conditions, allergies, or medications that first responders should know about...' },
+        { id: 'preferred_hospital', label: 'Preferred Hospital (optional)', fieldType: 'text' as const, required: false, placeholder: 'e.g. Memorial Hospital' },
+      ],
+    },
   },
   {
     id: 'step_background_check',
@@ -90,27 +105,203 @@ const PEER_RECOVERY_COACH_STEPS: OnboardingStep[] = [
     id: 'step_handbook',
     phase: 2,
     title: 'Read & Sign Employee Handbook Acknowledgment',
-    description: 'Review the full Employee Handbook and sign the acknowledgment form confirming you have read, understood, and agree to abide by all policies. Ask JARVIS if you have any questions about specific policies.',
+    description: 'Review the Employee Handbook and electronically sign the acknowledgment confirming you have read, understood, and agree to abide by all policies.',
     priority: 'High',
     dayOffset: 2,
     estimatedMinutes: 60,
-    itemType: 'document_upload',
-    completionGating: 'upload_required',
-    requiresDocumentUpload: true,
-    documentCategory: 'employee_handbook',
+    itemType: 'policy_acknowledgment',
+    completionGating: 'acknowledgment_signed',
+    requiresDocumentUpload: false,
+    interactiveContent: {
+      type: 'policy_acknowledgment' as const,
+      policyText: `# Employee Handbook Acknowledgment
+
+## Purpose
+This acknowledgment confirms that you have received, read, and understand the Employee Handbook provided by NXT Chapter Inc. The handbook outlines the organization's policies, procedures, and expectations for all employees.
+
+## Key Policies Covered
+By signing below, you acknowledge that you have reviewed and understand the following sections:
+
+1. **Employment Policies** — At-will employment, equal opportunity, anti-discrimination, and anti-harassment policies.
+2. **Code of Conduct** — Professional behavior, dress code, attendance, and workplace conduct expectations.
+3. **Compensation & Benefits** — Pay schedules, overtime, PTO accrual, health insurance, and retirement plan information.
+4. **Leave Policies** — FMLA, sick leave, bereavement, jury duty, and military leave.
+5. **Safety & Security** — Workplace safety, emergency procedures, drug-free workplace, and incident reporting.
+6. **Technology & Communications** — Acceptable use of computers, email, internet, social media, and company devices.
+7. **Confidentiality** — Protection of client data, proprietary information, and HIPAA/42 CFR Part 2 obligations.
+8. **Disciplinary Process** — Progressive discipline steps, grounds for immediate termination, and grievance procedures.
+
+## Agreement
+I understand that:
+- The handbook is not a contract of employment
+- Policies may be updated from time to time, and I will be notified of material changes
+- It is my responsibility to read, understand, and comply with all policies
+- I may ask my supervisor or HR for clarification on any policy
+- Violation of these policies may result in disciplinary action, up to and including termination
+
+*If you have questions about any handbook policy, ask JARVIS — your 24/7 AI assistant — or speak with your supervisor before signing.*`,
+      requireScrollToBottom: true,
+      requireTypedName: true,
+      requireDrawnSignature: true,
+      acknowledgmentText: 'I have read, understand, and agree to abide by all policies in the Employee Handbook.',
+      consentDisclosure: 'By typing your name and signing below, you are providing your electronic signature in accordance with the ESIGN Act (15 U.S.C. § 7001 et seq.). This electronic signature carries the same legal weight as a handwritten signature.',
+    },
   },
   {
     id: 'step_hipaa',
     phase: 2,
     title: 'Sign HIPAA & 42 CFR Part 2 Confidentiality Agreement',
-    description: 'Review and sign the HIPAA Privacy Notice and 42 CFR Part 2 Confidentiality Agreement. These protect client substance use disorder records. Violations carry federal penalties.',
+    description: 'Review the HIPAA Privacy Notice and 42 CFR Part 2 Confidentiality Agreement, then electronically sign to confirm your understanding. Violations carry federal penalties.',
     priority: 'High',
     dayOffset: 2,
     estimatedMinutes: 30,
-    itemType: 'document_upload',
-    completionGating: 'upload_required',
-    requiresDocumentUpload: true,
-    documentCategory: 'hipaa_42cfr',
+    itemType: 'policy_acknowledgment',
+    completionGating: 'acknowledgment_signed',
+    requiresDocumentUpload: false,
+    interactiveContent: {
+      type: 'policy_acknowledgment' as const,
+      policyText: `# HIPAA & 42 CFR Part 2 Confidentiality Agreement
+
+## Federal Confidentiality Protections
+As an employee of NXT Chapter Inc., you will have access to Protected Health Information (PHI) governed by two critical federal regulations:
+
+### HIPAA (Health Insurance Portability and Accountability Act)
+- Protects individually identifiable health information
+- Applies to all client records, treatment plans, progress notes, and communications
+- Violations can result in civil penalties up to **$50,000 per violation** and criminal penalties including imprisonment
+
+### 42 CFR Part 2 (Confidentiality of Substance Use Disorder Records)
+- Provides **additional, stricter protections** beyond HIPAA for substance use disorder (SUD) treatment records
+- SUD records **cannot be disclosed** without specific written patient consent — even to other healthcare providers, courts, or law enforcement
+- Re-disclosure is prohibited: recipients of SUD records cannot share them further
+- Violations carry federal criminal penalties including fines up to **$500 per first offense** and **$5,000 for subsequent offenses**
+
+## Your Obligations
+By signing below, you agree to:
+
+1. **Never disclose** client PHI or SUD records without proper written authorization
+2. **Access only** the minimum necessary information required for your job duties
+3. **Secure** all records — physical and electronic — against unauthorized access
+4. **Report immediately** any suspected breach or unauthorized disclosure to your supervisor
+5. **Not discuss** client information in public areas, social media, or with unauthorized persons
+6. **Complete** annual HIPAA refresher training as required
+7. **Return or destroy** all PHI upon separation from employment
+8. **Understand** that these obligations survive termination of employment
+
+## Acknowledgment
+I have read and understand the HIPAA Privacy Notice and 42 CFR Part 2 confidentiality requirements. I understand that violation of these regulations may result in disciplinary action up to and including termination, as well as civil and criminal penalties under federal law.`,
+      requireScrollToBottom: true,
+      requireTypedName: true,
+      requireDrawnSignature: true,
+      acknowledgmentText: 'I have read, understand, and agree to comply with all HIPAA and 42 CFR Part 2 confidentiality requirements.',
+      consentDisclosure: 'By typing your name and signing below, you are providing your electronic signature in accordance with the ESIGN Act (15 U.S.C. § 7001 et seq.). This electronic signature carries the same legal weight as a handwritten signature.',
+    },
+  },
+  {
+    id: 'step_hipaa_quiz',
+    phase: 2,
+    title: 'HIPAA & 42 CFR Part 2 Knowledge Assessment',
+    description: 'Complete this quiz to demonstrate your understanding of HIPAA and 42 CFR Part 2 confidentiality requirements. You must score 80% or higher to pass.',
+    priority: 'High',
+    dayOffset: 2,
+    estimatedMinutes: 15,
+    itemType: 'quiz',
+    completionGating: 'quiz_passed',
+    requiresDocumentUpload: false,
+    interactiveContent: {
+      type: 'quiz' as const,
+      passingScore: 80,
+      maxAttempts: 0,
+      shuffleQuestions: true,
+      shuffleAnswers: true,
+      showCorrectAnswers: true,
+      questions: [
+        {
+          id: 'hipaa_q1',
+          text: 'Which federal regulation provides ADDITIONAL protections beyond HIPAA specifically for substance use disorder (SUD) treatment records?',
+          questionType: 'multiple_choice' as const,
+          options: [
+            { id: 'h1a', text: 'FERPA', isCorrect: false },
+            { id: 'h1b', text: '42 CFR Part 2', isCorrect: true },
+            { id: 'h1c', text: 'ADA Title II', isCorrect: false },
+            { id: 'h1d', text: 'OSHA 29 CFR 1910', isCorrect: false },
+          ],
+        },
+        {
+          id: 'hipaa_q2',
+          text: 'Under 42 CFR Part 2, can you share a client\'s substance use disorder records with another healthcare provider without the client\'s specific written consent?',
+          questionType: 'true_false' as const,
+          options: [
+            { id: 'h2a', text: 'True — healthcare providers can always share records', isCorrect: false },
+            { id: 'h2b', text: 'False — specific written consent is required even for other providers', isCorrect: true },
+          ],
+        },
+        {
+          id: 'hipaa_q3',
+          text: 'What is the HIPAA "Minimum Necessary" standard?',
+          questionType: 'multiple_choice' as const,
+          options: [
+            { id: 'h3a', text: 'Only access the minimum PHI required to perform your job duties', isCorrect: true },
+            { id: 'h3b', text: 'Share records with the minimum number of coworkers', isCorrect: false },
+            { id: 'h3c', text: 'Keep physical records to a minimum number of pages', isCorrect: false },
+            { id: 'h3d', text: 'Use the minimum required security software', isCorrect: false },
+          ],
+        },
+        {
+          id: 'hipaa_q4',
+          text: 'You overhear a coworker discussing a client\'s treatment details in the break room with another employee who is not involved in that client\'s care. What should you do?',
+          questionType: 'multiple_choice' as const,
+          options: [
+            { id: 'h4a', text: 'Nothing — casual conversation between coworkers is fine', isCorrect: false },
+            { id: 'h4b', text: 'Join the conversation to learn more about the case', isCorrect: false },
+            { id: 'h4c', text: 'Politely remind them that client information should only be discussed with authorized care team members, and report the incident to your supervisor', isCorrect: true },
+            { id: 'h4d', text: 'Report them to the police', isCorrect: false },
+          ],
+        },
+        {
+          id: 'hipaa_q5',
+          text: 'What does "re-disclosure" mean under 42 CFR Part 2?',
+          questionType: 'multiple_choice' as const,
+          options: [
+            { id: 'h5a', text: 'Updating a client\'s records with new information', isCorrect: false },
+            { id: 'h5b', text: 'A recipient of SUD records sharing those records with a third party — which is prohibited', isCorrect: true },
+            { id: 'h5c', text: 'Re-reading a client\'s file before a session', isCorrect: false },
+            { id: 'h5d', text: 'Sending a copy of records to the client themselves', isCorrect: false },
+          ],
+        },
+        {
+          id: 'hipaa_q6',
+          text: 'Which of the following would be considered a HIPAA violation?',
+          questionType: 'multiple_choice' as const,
+          options: [
+            { id: 'h6a', text: 'Discussing a client\'s care plan with their assigned case manager', isCorrect: false },
+            { id: 'h6b', text: 'Locking your computer screen when stepping away from your desk', isCorrect: false },
+            { id: 'h6c', text: 'Posting a photo from a group session on your personal social media', isCorrect: true },
+            { id: 'h6d', text: 'Shredding old paper records according to the retention policy', isCorrect: false },
+          ],
+        },
+        {
+          id: 'hipaa_q7',
+          text: 'Your confidentiality obligations under HIPAA and 42 CFR Part 2 end when you leave the organization.',
+          questionType: 'true_false' as const,
+          options: [
+            { id: 'h7a', text: 'True', isCorrect: false },
+            { id: 'h7b', text: 'False — these obligations survive termination of employment', isCorrect: true },
+          ],
+        },
+        {
+          id: 'hipaa_q8',
+          text: 'If you suspect a breach of client data has occurred, what is the FIRST thing you should do?',
+          questionType: 'multiple_choice' as const,
+          options: [
+            { id: 'h8a', text: 'Wait and see if anyone notices', isCorrect: false },
+            { id: 'h8b', text: 'Report it to your supervisor immediately', isCorrect: true },
+            { id: 'h8c', text: 'Try to fix the breach yourself before telling anyone', isCorrect: false },
+            { id: 'h8d', text: 'Call the client to apologize', isCorrect: false },
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'step_media_release',

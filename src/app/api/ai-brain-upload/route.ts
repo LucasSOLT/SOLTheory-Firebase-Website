@@ -59,24 +59,34 @@ async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
  * Use Gemini Vision to describe/OCR an image for searchability.
  */
 async function extractTextFromImage(buffer: Buffer, mimeType: string): Promise<string> {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("[AI Brain Upload] GEMINI_API_KEY not found in environment for image OCR");
+      return "Uploaded image file (no text extracted - missing Gemini API key)";
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  const base64 = buffer.toString("base64");
-  const result = await model.generateContent([
-    {
-      inlineData: {
-        data: base64,
-        mimeType,
+    const base64 = buffer.toString("base64");
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: base64,
+          mimeType,
+        },
       },
-    },
-    "Describe this image in detail. If it contains text, extract all visible text content verbatim. " +
-    "If it's a diagram or chart, describe its structure, labels, and data. " +
-    "If it's a photo, describe what is shown including any notable details. " +
-    "Be thorough, factual, and organized.",
-  ]);
+      "Describe this image in detail. If it contains text, extract all visible text content verbatim. " +
+      "If it's a diagram or chart, describe its structure, labels, and data. " +
+      "If it's a photo, describe what is shown including any notable details. " +
+      "Be thorough, factual, and organized.",
+    ]);
 
-  return result.response.text();
+    return result.response.text();
+  } catch (err: any) {
+    console.error("[AI Brain Upload] extractTextFromImage failed:", err);
+    return `Uploaded image file. Visual extraction notice: ${err.message || "Could not extract visual details"}`;
+  }
 }
 
 // ─── Chunking (same algorithm as knowledge-base/process) ─────────────────
@@ -228,11 +238,22 @@ export async function POST(req: Request) {
       },
     });
 
-    // Generate a signed URL (long-lived for display in the app)
-    const [downloadUrl] = await fileRef.getSignedUrl({
-      action: "read",
-      expires: "03-01-2030", // Long-lived URL
-    });
+    // Generate a download URL — try signed URL first, fall back to public URL
+    // getSignedUrl requires a service account private key; local dev often uses
+    // Firebase CLI access tokens which lack the private key, causing a SigningError.
+    let downloadUrl: string;
+    try {
+      [downloadUrl] = await fileRef.getSignedUrl({
+        action: "read",
+        expires: "03-01-2030",
+      });
+    } catch (signErr: any) {
+      console.warn("[AI Brain Upload] getSignedUrl failed, using public URL fallback:", signErr.message);
+      try {
+        await fileRef.makePublic();
+      } catch { /* best effort — bucket may already allow public reads */ }
+      downloadUrl = `https://storage.googleapis.com/${firebaseConfig.storageBucket}/${encodeURIComponent(storagePath)}`;
+    }
 
     console.log(`[AI Brain Upload] File uploaded to Storage: ${storagePath}`);
 
@@ -275,39 +296,48 @@ export async function POST(req: Request) {
       const chunks = chunkDocument(plaintext);
 
       if (chunks.length > 0) {
-        console.log(`[AI Brain Upload] Generating embeddings for ${chunks.length} chunks...`);
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-        const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+        try {
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (!apiKey) {
+            console.warn("[AI Brain Upload] GEMINI_API_KEY missing; skipping vector embedding generation");
+          } else {
+            console.log(`[AI Brain Upload] Generating embeddings for ${chunks.length} chunks...`);
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
-        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-          const batchChunks = chunks.slice(i, i + BATCH_SIZE);
-          const promises = batchChunks.map(async (chunkText, batchIndex) => {
-            const chunkIndex = i + batchIndex;
-            const result = await embeddingModel.embedContent(chunkText);
-            const embeddingArray = result.embedding.values;
+            for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+              const batchChunks = chunks.slice(i, i + BATCH_SIZE);
+              const promises = batchChunks.map(async (chunkText, batchIndex) => {
+                const chunkIndex = i + batchIndex;
+                const result = await embeddingModel.embedContent(chunkText);
+                const embeddingArray = result.embedding.values;
 
-            await db.collection(vectorCollectionPath).add({
-              docId,
-              docTitle: fileName,
-              chunkIndex,
-              text: chunkText,
-              embedding: FieldValue.vector(embeddingArray),
-              tokenCount: chunkText.length,
-              createdAt: FieldValue.serverTimestamp(),
-              // Scope-specific metadata for cleanup/filtering
-              ...(scope === "personal" ? { userId: auth.uid } : { orgId }),
-            });
-          });
+                await db.collection(vectorCollectionPath).add({
+                  docId,
+                  docTitle: fileName,
+                  chunkIndex,
+                  text: chunkText,
+                  embedding: FieldValue.vector(embeddingArray),
+                  tokenCount: chunkText.length,
+                  createdAt: FieldValue.serverTimestamp(),
+                  // Scope-specific metadata for cleanup/filtering
+                  ...(scope === "personal" ? { userId: auth.uid } : { orgId }),
+                });
+              });
 
-          await Promise.all(promises);
-          chunksCreated += batchChunks.length;
+              await Promise.all(promises);
+              chunksCreated += batchChunks.length;
 
-          // Rate limiting: 100ms pause between batches
-          if (i + BATCH_SIZE < chunks.length) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
+              // Rate limiting: 100ms pause between batches
+              if (i + BATCH_SIZE < chunks.length) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+            }
+            console.log(`[AI Brain Upload] ${chunksCreated} vector chunks created in ${vectorCollectionPath}`);
           }
+        } catch (embedErr: any) {
+          console.warn("[AI Brain Upload] Vector embedding failed (non-fatal):", embedErr.message);
         }
-        console.log(`[AI Brain Upload] ${chunksCreated} vector chunks created in ${vectorCollectionPath}`);
       }
     }
 

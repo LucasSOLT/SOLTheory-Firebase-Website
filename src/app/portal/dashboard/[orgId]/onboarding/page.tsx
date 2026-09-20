@@ -31,12 +31,14 @@ import {
   Bell,
   Sparkles,
   Send,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import OnboardingPhaseCard from '@/components/onboarding/OnboardingPhaseCard';
 import DocumentUploadModal from '@/components/onboarding/DocumentUploadModal';
 import InviteMemberModal from '@/components/onboarding/InviteMemberModal';
 import OnboardingItemPopup from '@/components/onboarding/OnboardingItemPopup';
+import AdminSubmissionViewer from '@/components/onboarding/AdminSubmissionViewer';
 import ScheduleOrientationModal from '@/components/onboarding/ScheduleOrientationModal';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
@@ -88,6 +90,22 @@ interface TaskDoc {
     requiresDocumentUpload?: boolean;
     documentCategory?: string;
     sopUrl?: string;
+    itemType?: string;
+    completionGating?: string;
+    instructions?: string;
+    interactiveContent?: any;
+    userResponse?: any[];
+    reviewStatus?: string;
+    reviewNotes?: string;
+    reviewedBy?: string;
+    reviewedByEmail?: string;
+    reviewedAt?: any;
+    hyperlink?: string | null;
+    headerImageUrl?: string | null;
+    backgroundColor?: string | null;
+    mediaUrl?: string | null;
+    mediaType?: string | null;
+    orgId?: string;
   };
   attachments?: { url: string; name: string; type: string }[];
 }
@@ -135,9 +153,11 @@ export default function OnboardingPage() {
   });
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'roadmaps' | 'blueprints' | 'vault'>('roadmaps');
+  const [activeTab, setActiveTab] = useState<'roadmaps' | 'blueprints' | 'vault' | 'reviews'>('roadmaps');
   const [selectedTaskForPopup, setSelectedTaskForPopup] = useState<TaskDoc | null>(null);
   const [selectedInstanceForCalendar, setSelectedInstanceForCalendar] = useState<OnboardingInstanceDoc | null>(null);
+  const [selectedAdminInstance, setSelectedAdminInstance] = useState<OnboardingInstanceDoc | null>(null);
+  const [adminReviewTask, setAdminReviewTask] = useState<TaskDoc | null>(null);
   const [nudgeLoadingMap, setNudgeLoadingMap] = useState<Record<string, boolean>>({});
   const [nudgeStatusMap, setNudgeStatusMap] = useState<Record<string, string>>({});
   const [isGlobalNudging, setIsGlobalNudging] = useState(false);
@@ -528,12 +548,15 @@ export default function OnboardingPage() {
         )}
 
         {/* ── Tab Bar (Admin Only) ─────────────────────────────────────── */}
-        {isAdmin && (
+        {isAdmin && (() => {
+          const pendingReviewCount = tasks.filter(t => t.metadata?.reviewStatus === 'pending_review').length;
+          return (
           <div className={`flex items-center gap-1 mt-4 px-1 py-1 rounded-xl ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100/80'}`}>
             {([
               { key: 'roadmaps' as const, label: 'Active Roadmaps', icon: <Users className="w-4 h-4" /> },
               { key: 'blueprints' as const, label: 'Role Blueprints', icon: <GraduationCap className="w-4 h-4" /> },
               { key: 'vault' as const, label: 'Compliance Vault', icon: <ShieldCheck className="w-4 h-4" /> },
+              { key: 'reviews' as const, label: 'Review Queue', icon: <ClipboardCheck className="w-4 h-4" /> },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -544,6 +567,7 @@ export default function OnboardingPage() {
                     router.push(`/portal/dashboard/${orgId}/onboarding/vault`);
                   } else {
                     setActiveTab(tab.key);
+                    if (tab.key !== 'roadmaps') setSelectedAdminInstance(null);
                   }
                 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
@@ -554,10 +578,21 @@ export default function OnboardingPage() {
               >
                 {tab.icon}
                 <span className="hidden sm:inline">{tab.label}</span>
+                {/* Pending count badge for Review Queue */}
+                {tab.key === 'reviews' && pendingReviewCount > 0 && (
+                  <span className={`ml-0.5 min-w-[20px] h-5 flex items-center justify-center text-[10px] font-black rounded-full px-1.5 ${
+                    activeTab === 'reviews'
+                      ? 'bg-amber-500 text-white'
+                      : (isDarkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
+                  }`}>
+                    {pendingReviewCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* ── Main Content ──────────────────────────────────────────────────── */}
@@ -639,7 +674,7 @@ export default function OnboardingPage() {
         {/* ════════════════════════════════════════════════════════════════ */}
         {/* ADMIN / MANAGER VIEW — Organization Onboarding Overview        */}
         {/* ════════════════════════════════════════════════════════════════ */}
-        {isAdmin && (
+        {isAdmin && activeTab === 'roadmaps' && !selectedAdminInstance && (
           <div className="space-y-6">
 
             {/* Overdue documents alert — only shown when documents are actually past due */}
@@ -757,10 +792,11 @@ export default function OnboardingPage() {
                 {adminInstances.map(inst => (
                   <div
                     key={inst.id}
-                    className={`rounded-xl px-5 py-4 transition-all ${
+                    onClick={() => setSelectedAdminInstance(inst)}
+                    className={`rounded-xl px-5 py-4 transition-all cursor-pointer ${
                       isDarkMode
-                        ? 'bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800/80'
-                        : 'bg-white/70 border border-slate-200/80 shadow-sm hover:shadow-md'
+                        ? 'bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800/80 hover:border-slate-600/60'
+                        : 'bg-white/70 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300'
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -865,6 +901,263 @@ export default function OnboardingPage() {
         )}
 
         {/* ════════════════════════════════════════════════════════════════ */}
+        {/* ADMIN DRILL-DOWN — View an employee's tasks after clicking     */}
+        {/* their instance card in the roster above                        */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {isAdmin && activeTab === 'roadmaps' && selectedAdminInstance && (
+          <div className="space-y-4">
+            {/* Back bar */}
+            <button
+              onClick={() => setSelectedAdminInstance(null)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                isDarkMode
+                  ? 'bg-slate-800/60 border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-700'
+                  : 'bg-white/70 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
+              Back to All Tracks
+            </button>
+
+            {/* Employee header */}
+            <div className={`rounded-xl px-5 py-4 ${
+              isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/70 border border-slate-200/80 shadow-sm'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black uppercase ${
+                  isDarkMode ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-100 text-indigo-600'
+                }`}>
+                  {selectedAdminInstance.userName.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    {selectedAdminInstance.userName}
+                  </div>
+                  <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {selectedAdminInstance.userEmail} • {selectedAdminInstance.roleName}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-lg font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    {(() => {
+                      const instTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === selectedAdminInstance.id);
+                      const done = instTasks.filter(t => t.column === 'done').length;
+                      const total = instTasks.length;
+                      return total > 0 ? `${Math.round((done / total) * 100)}%` : '0%';
+                    })()}
+                  </div>
+                  <div className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Progress</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Employee tasks by phase */}
+            {(() => {
+              const instanceTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === selectedAdminInstance.id);
+              const phases = [1, 2, 3, 4];
+
+              if (instanceTasks.length === 0) {
+                return (
+                  <div className={`text-center py-8 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <p className="text-sm font-semibold">No tasks found for this employee.</p>
+                  </div>
+                );
+              }
+
+              return phases.map(phase => {
+                const phaseTasks = instanceTasks.filter(t => t.metadata?.phase === phase);
+                if (phaseTasks.length === 0) return null;
+                return (
+                  <OnboardingPhaseCard
+                    key={phase}
+                    phase={phase}
+                    tasks={phaseTasks}
+                    isDarkMode={isDarkMode}
+                    orgId={orgId}
+                    isAssignee={false}
+                    verificationMap={{}}
+                    isLocked={false}
+                    defaultOpen={true}
+                    onToggleComplete={handleToggleComplete}
+                    onUploadDocument={handleUploadDocument}
+                    onAskJarvis={handleAskJarvis}
+                    onTaskClick={(task) => setAdminReviewTask(task as any)}
+                  />
+                );
+              });
+            })()}
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* ADMIN REVIEW QUEUE — Consolidated pending approvals inbox     */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {isAdmin && activeTab === 'reviews' && (() => {
+          const pendingTasks = tasks.filter(t => t.metadata?.reviewStatus === 'pending_review');
+          const recentlyReviewedTasks = tasks.filter(t =>
+            t.metadata?.reviewStatus === 'approved' || t.metadata?.reviewStatus === 'rejected'
+          ).sort((a, b) => {
+            const aTime = a.metadata?.reviewedAt?.toDate?.() || new Date(a.metadata?.reviewedAt || 0);
+            const bTime = b.metadata?.reviewedAt?.toDate?.() || new Date(b.metadata?.reviewedAt || 0);
+            return bTime.getTime() - aTime.getTime();
+          }).slice(0, 10);
+
+          // Helper to find instance info for a task
+          const getInstanceForTask = (task: TaskDoc) => {
+            return instances.find(inst => inst.id === task.metadata?.onboardingInstanceId);
+          };
+
+          const typeLabels: Record<string, string> = {
+            quiz: 'Quiz', short_answer: 'Short Answer', form: 'Form', checklist: 'Checklist',
+            policy_acknowledgment: 'E-Signature', external_verification: 'External', recorded_response: 'Recording',
+          };
+
+          const typeBadgeColors: Record<string, string> = {
+            quiz: isDarkMode ? 'bg-indigo-950/60 text-indigo-300 border-indigo-800/60' : 'bg-indigo-50 text-indigo-700 border-indigo-200',
+            short_answer: isDarkMode ? 'bg-sky-950/60 text-sky-300 border-sky-800/60' : 'bg-sky-50 text-sky-700 border-sky-200',
+            form: isDarkMode ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            policy_acknowledgment: isDarkMode ? 'bg-purple-950/60 text-purple-300 border-purple-800/60' : 'bg-purple-50 text-purple-700 border-purple-200',
+            external_verification: isDarkMode ? 'bg-blue-950/60 text-blue-300 border-blue-800/60' : 'bg-blue-50 text-blue-700 border-blue-200',
+            recorded_response: isDarkMode ? 'bg-rose-950/60 text-rose-300 border-rose-800/60' : 'bg-rose-50 text-rose-700 border-rose-200',
+          };
+
+          return (
+            <div className="space-y-6">
+              {/* Pending review section */}
+              <div>
+                <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <ClipboardCheck className="w-4 h-4 text-amber-500" />
+                  Awaiting Your Review
+                  {pendingTasks.length > 0 && (
+                    <span className={`ml-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      isDarkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {pendingTasks.length}
+                    </span>
+                  )}
+                </h3>
+
+                {pendingTasks.length === 0 ? (
+                  <div className={`rounded-2xl border-2 border-dashed px-6 py-12 text-center ${
+                    isDarkMode ? 'border-slate-700/50 bg-slate-800/20' : 'border-slate-200/60 bg-white/30'
+                  }`}>
+                    <CheckCircle2 className={`w-10 h-10 mx-auto mb-3 ${isDarkMode ? 'text-emerald-500/40' : 'text-emerald-400/60'}`} />
+                    <h4 className={`text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      All caught up!
+                    </h4>
+                    <p className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                      No submissions are pending review right now.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingTasks.map(task => {
+                      const inst = getInstanceForTask(task);
+                      const itemType = task.metadata?.itemType || '';
+                      const latestResponse = task.metadata?.userResponse?.[task.metadata.userResponse.length - 1];
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={() => setAdminReviewTask(task)}
+                          className={`flex items-center gap-4 px-5 py-4 rounded-xl border cursor-pointer transition-all ${
+                            isDarkMode
+                              ? 'bg-slate-800/60 border-slate-700/50 hover:bg-slate-800/80 hover:border-amber-800/40'
+                              : 'bg-white/70 border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300'
+                          }`}
+                        >
+                          {/* Avatar */}
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 ${
+                            isDarkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-600'
+                          }`}>
+                            {(inst?.userName || task.assignedToEmail || '?').charAt(0)}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                              {task.title}
+                            </div>
+                            <div className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              {inst?.userName || task.assignedToEmail?.split('@')[0] || 'Unknown'}
+                              {inst?.roleName && <span> • {inst.roleName}</span>}
+                              {latestResponse?.submittedAt && (
+                                <span> • Submitted {formatDate(latestResponse.submittedAt)}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Type badge */}
+                          <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
+                            typeBadgeColors[itemType] || (isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200')
+                          }`}>
+                            {typeLabels[itemType] || itemType}
+                          </span>
+
+                          {/* Review arrow */}
+                          <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-amber-500/60' : 'text-amber-400'}`} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Recently reviewed section */}
+              {recentlyReviewedTasks.length > 0 && (
+                <div>
+                  <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    Recently Reviewed
+                  </h3>
+                  <div className="space-y-1.5">
+                    {recentlyReviewedTasks.map(task => {
+                      const inst = getInstanceForTask(task);
+                      const itemType = task.metadata?.itemType || '';
+                      const isApproved = task.metadata?.reviewStatus === 'approved';
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={() => setAdminReviewTask(task)}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all ${
+                            isDarkMode
+                              ? 'bg-slate-800/30 border-slate-700/30 hover:bg-slate-800/50'
+                              : 'bg-slate-50/50 border-slate-200/50 hover:bg-white/80'
+                          }`}
+                        >
+                          {/* Status icon */}
+                          {isApproved
+                            ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            : <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                          }
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-semibold truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                              {task.title}
+                            </div>
+                            <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                              {inst?.userName || task.assignedToEmail?.split('@')[0]} •{' '}
+                              {isApproved ? 'Approved' : 'Rejected'}
+                              {task.metadata?.reviewedByEmail && ` by ${task.metadata.reviewedByEmail.split('@')[0]}`}
+                            </div>
+                          </div>
+
+                          {/* Type badge */}
+                          <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
+                            typeBadgeColors[itemType] || (isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200')
+                          }`}>
+                            {typeLabels[itemType] || itemType}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ════════════════════════════════════════════════════════════════ */}
         {/* NO ACTIVE INSTANCE — New hire with no track, or non-admin       */}
         {/* ════════════════════════════════════════════════════════════════ */}
         {!myInstance && !isAdmin && (
@@ -919,6 +1212,7 @@ export default function OnboardingPage() {
           isOpen={!!selectedTaskForPopup}
           onClose={() => setSelectedTaskForPopup(null)}
           isDarkMode={isDarkMode}
+          orgId={orgId}
           task={selectedTaskForPopup}
           onComplete={(taskId) => {
             handleToggleComplete(taskId, selectedTaskForPopup.column);
@@ -945,6 +1239,25 @@ export default function OnboardingPage() {
           orgId={orgId}
           isDarkMode={isDarkMode}
           onSuccess={() => {
+            fetchServerData();
+          }}
+        />
+      )}
+
+      {/* ── Admin Submission Review Viewer ──────────────────────────────── */}
+      {adminReviewTask && (
+        <AdminSubmissionViewer
+          isOpen={!!adminReviewTask}
+          onClose={() => setAdminReviewTask(null)}
+          isDarkMode={isDarkMode}
+          orgId={orgId}
+          task={adminReviewTask}
+          employeeName={
+            selectedAdminInstance?.userName ||
+            adminReviewTask.assignedToEmail?.split('@')[0]
+          }
+          onReviewComplete={() => {
+            setAdminReviewTask(null);
             fetchServerData();
           }}
         />

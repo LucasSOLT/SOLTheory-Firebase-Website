@@ -143,6 +143,15 @@ export async function POST(req: Request) {
           requiresDocumentUpload: step.requiresDocumentUpload,
           ...(step.documentCategory ? { documentCategory: step.documentCategory } : {}),
           ...(step.sopUrl ? { sopUrl: step.sopUrl } : {}),
+          ...(step.itemType ? { itemType: step.itemType } : {}),
+          ...(step.completionGating ? { completionGating: step.completionGating } : {}),
+          ...(step.instructions ? { instructions: step.instructions } : {}),
+          ...(step.hyperlink ? { hyperlink: step.hyperlink } : {}),
+          ...(step.headerImageUrl ? { headerImageUrl: step.headerImageUrl } : {}),
+          ...(step.backgroundColor ? { backgroundColor: step.backgroundColor } : {}),
+          ...(step.mediaUrl ? { mediaUrl: step.mediaUrl } : {}),
+          ...(step.mediaType ? { mediaType: step.mediaType } : {}),
+          interactiveContent: step.interactiveContent || null,
         },
 
         // Automations — notify admin on completion

@@ -221,6 +221,7 @@ export default function OnboardingPhaseCard({
                   onToggleComplete={onToggleComplete}
                   onUploadDocument={onUploadDocument}
                   onAskJarvis={onAskJarvis}
+                  onTaskClick={onTaskClick}
                 />
               ))}
           </div>
