@@ -15,6 +15,7 @@ import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REG
 import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, executeCrmMergeContacts, executeCrmAddActivity, executeCrmCreateContactBook, executeCrmRenameContactBook, executeCrmDeleteContactBook, executeCrmMoveContact, executeCrmScheduleFollowup, executeCrmCompleteTask, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
+import { ORG_BRAIN_TOOL_DEFINITIONS, executeSearchOrgBrain } from "@/lib/jarvis-org-brain-tools";
 import { orchestrateMultiStep } from "@/lib/jarvis-orchestrator";
 import type { AgentEvent } from "@/lib/agent-events";
 const tools: any = [
@@ -215,6 +216,8 @@ const tools: any = [
   },
   // ── CRM / Contacts Tools (gated behind feature flag) ──
   ...(process.env.NEXT_PUBLIC_ENABLE_CRM !== 'false' ? CRM_TOOL_DEFINITIONS : []),
+  // ── Organization AI Brain — dynamic lookup for guided profile, values, escalation ──
+  ...ORG_BRAIN_TOOL_DEFINITIONS,
 ];
 
 // Increase serverless function timeout for multi-step orchestration with premium models
@@ -627,6 +630,23 @@ The current date/time for the user is: ${monicaTime}.`;
       console.log(`[CRM TOOLS] Injected CRM management context — active book: ${crmInstanceId}`);
     }
 
+    // --- ORG AI BRAIN: Lightweight hint so Jarvis knows to call search_org_brain ---
+    if (agentId === "jarvis") {
+      groqMessages.push({
+        role: "system",
+        content: `[ORGANIZATION AI BRAIN]
+You have access to the organization's AI Brain via the search_org_brain tool.
+Use it to look up:
+- Core organizational values
+- Escalation protocols (who to call for outages, security flags, client emergencies)
+- Mission statement, elevator pitch, leadership team
+- Compliance frameworks, confidential topics, approved tools
+- Uploaded org brain documents
+Do NOT guess or fabricate organizational policies — always call search_org_brain first.
+This is separate from CRM (which stores external contacts). The Org AI Brain stores internal company policies, values, and operational knowledge.`,
+      });
+    }
+
     // Email behavior rules
     groqMessages.push({
       role: "system",
@@ -649,11 +669,11 @@ The current date/time for the user is: ${monicaTime}.`;
 - NEVER offer to "log this as an activity" on a CRM record, "add a note to their CRM record", or suggest any CRM write operations. The CRM is read-only — you can ONLY look up contacts, never write to CRM records.
 
 [CONTACT DISAMBIGUATION — MANDATORY]
-When a CRM tool returns multiple matching contacts, you MUST:
-1. Show the pre-formatted numbered list from the tool result EXACTLY as-is (it will have "1) email — Name, Company" format)
-2. Ask: "Reply with a number to confirm."
+When a CRM tool returns contact results (search OR disambiguation), you MUST:
+1. Show the pre-formatted numbered list from the tool result EXACTLY as-is — do NOT reformat, re-order, or remove the numbers.
+2. If multiple contacts are returned, ask: "Reply with a number to select a contact."
 3. When the user replies with "1", "2", "the first one", "second", etc., map that to the corresponding contact and proceed.
-NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbered format so the user can reply with just a number.`
+NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the numbered format from the tool result so the user can reply with just a number.`
     });
 
     // --- KNOWLEDGE BASE: Injected LAST so it's closest to conversation (better LLM attention) ---
@@ -1923,6 +1943,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS use the numbere
             const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
             console.log("[CRM] Completing task for:", args.searchQuery);
             functionResult = await executeCrmCompleteTask(orgId, crmInstanceId || "default", args, parsedInstances);
+
+          // ── Organization AI Brain Tool ──
+          } else if (functionName === "search_org_brain") {
+            console.log("[ORG BRAIN] Searching org brain for:", args.query || "(full profile)", "section:", args.section || "all");
+            functionResult = await executeSearchOrgBrain(orgId, args);
+
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });
           }

@@ -113,6 +113,29 @@ export async function POST(req: Request) {
         },
         { merge: true }
       );
+
+      // Dual-write mirror to `orgs/{orgId}` — ensures search_org_brain can find
+      // data regardless of which collection path is queried. Best-effort; failure
+      // here is non-fatal since `organizations/{orgId}` is the primary source.
+      try {
+        await db.doc(`orgs/${orgId}`).set(
+          {
+            orgBrainProfile: {
+              answers,
+              completedCount,
+              totalCount: questions.length,
+              compiledBriefing,
+              updatedAt: new Date().toISOString(),
+              updatedBy: auth.uid,
+              updatedByEmail: auth.email,
+            },
+            orgBrain: compiledBriefing,
+          },
+          { merge: true }
+        );
+      } catch (mirrorErr) {
+        console.warn('[Brain Profile API] Mirror write to orgs/ failed (non-fatal):', mirrorErr);
+      }
     }
 
     return NextResponse.json({ success: true, compiledBriefing, completedCount });

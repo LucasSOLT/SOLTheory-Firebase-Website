@@ -28,6 +28,8 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     // Shared: resolve contact names to emails
     "crm_resolve_contact",
     "crm_search_contacts",
+    // Organization knowledge
+    "search_org_brain",
     // Always available
     "web_search",
     "search_past_conversations",
@@ -40,6 +42,8 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "update_calendar_event",
     // Shared: resolve contact names for meeting invites
     "crm_resolve_contact",
+    // Organization knowledge
+    "search_org_brain",
     // Always available
     "web_search",
     "search_past_conversations",
@@ -64,6 +68,8 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "crm_move_contact",
     "crm_schedule_followup",
     "crm_complete_task",
+    // Organization knowledge
+    "search_org_brain",
     // Always available
     "web_search",
     "search_past_conversations",
@@ -77,6 +83,8 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "read_storage_file",
     // Shared: resolve contact names
     "crm_resolve_contact",
+    // Organization knowledge
+    "search_org_brain",
     // Always available
     "web_search",
     "search_past_conversations",
@@ -89,6 +97,8 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     // General Storage (Media Library) — read-only
     "list_storage_files",
     "read_storage_file",
+    // Organization knowledge — core values, escalation, mission, etc.
+    "search_org_brain",
   ],
 
   // MULTI loads all tools (same as current behavior)

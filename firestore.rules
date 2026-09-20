@@ -445,6 +445,19 @@ service cloud.firestore {
     }
 
     /**
+     * @description Organization AI Brain data — stores guided profile answers,
+     * compiled briefing text, and org brain configuration. Used by
+     * search_org_brain tool and the AI Brain Guided Profile UI.
+     * @path /organizations/{orgId}
+     * @allow (read) Org members can read (Jarvis needs this for search_org_brain).
+     * @allow (write) Org members can write (admin RBAC enforced in brain-profile API).
+     */
+    match /organizations/{orgId} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow write: if isSignedIn() && isOrgMember(orgId);
+    }
+
+    /**
      * @description Multi-session grant search sessions.
      * @path /grant_sessions/{sessionId}
      * @allow (read, write) Any signed-in user can manage grant sessions.
