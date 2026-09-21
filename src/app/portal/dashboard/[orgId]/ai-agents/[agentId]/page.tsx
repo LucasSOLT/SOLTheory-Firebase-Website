@@ -2229,7 +2229,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     <>
     <style>{`
       /* Override dashboard layout padding for Agent Manager — fills edge-to-edge */
-      main.flex-1 { padding: 0 !important; }
+      main.flex-1 { padding: 0 !important; overflow: hidden !important; }
+      /* Prevent horizontal scroll caused by absolutely-positioned elements extending past viewport */
+      html, body { overflow-x: hidden !important; }
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     `}</style>
@@ -2683,12 +2685,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         )}
                         {/* Message row — only show when there's actual content (text or image) to display */}
                         {(msg.isSelf || msg.text || msg.imageUrl || msg.isPendingImage) && (
-                        <div className={`flex gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-4 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-4 sm:pr-20'}`}>
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : (isImageAgent ? <Palette className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : isBobbyAgent ? <span className="text-sm sm:text-base">🛠️</span> : isMonicaAgent ? <span className="text-sm sm:text-base">🐻</span> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />)}</div>
-                        <div className={`space-y-1 pt-1 min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : 'group/msg relative'}`}>
-                          {/* Copy & Pin action buttons — bot messages only, visible on hover */}
+                        <div className={`flex items-start gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-4 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-4 sm:pr-20'}`}>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border mt-0.5 ${msg.isSelf ? 'bg-indigo-600 border-indigo-500 order-last' : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-200/50 border-slate-300')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : (isImageAgent ? <Palette className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : isBobbyAgent ? <span className="text-sm sm:text-base">🛠️</span> : isMonicaAgent ? <span className="text-sm sm:text-base">🐻</span> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />)}</div>
+                        <div className={`min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : 'group/msg relative'}`}>
+                          {/* Copy & Pin action buttons — bot messages only, absolutely positioned to not affect layout */}
                           {!msg.isSelf && msg.text && (
-                            <div className={`flex items-center gap-0.5 justify-end mb-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            <div className={`absolute -top-5 right-0 flex items-center gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 z-10 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                               <button
                                 onClick={() => handleCopyMessage(msg.id, msg.text)}
                                 className={`p-1 rounded-md transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-700 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}
@@ -2705,7 +2707,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               </button>
                             </div>
                           )}
-                          <div className={`inline-block p-3 sm:p-4 text-left text-sm sm:text-base max-w-full break-words animate-in fade-in duration-300 ${msg.isSelf ? `rounded-2xl shadow-lg backdrop-blur-md ${isDarkMode ? 'bg-indigo-900/40 border border-indigo-800/50 text-slate-200 rounded-tr-sm' : 'bg-slate-300/50 text-slate-800 rounded-tr-sm'}` : `${isDarkMode ? 'text-slate-200' : 'text-slate-800'} [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold [&>h2]:text-lg [&>h2]:font-bold [&>h2]:mt-4 [&>h2]:mb-2`} ${!msg.isSelf && pinnedMessages.has(msg.id) ? (isDarkMode ? 'border-l-2 border-fuchsia-500/50 pl-4' : 'border-l-2 border-fuchsia-400/50 pl-4') : ''}`}>
+                          <div className={`inline-block text-left text-sm sm:text-base max-w-full break-words animate-in fade-in duration-300 ${msg.isSelf ? `p-3 sm:p-4 rounded-2xl shadow-lg backdrop-blur-md ${isDarkMode ? 'bg-indigo-900/40 border border-indigo-800/50 text-slate-200 rounded-tr-sm' : 'bg-slate-300/50 text-slate-800 rounded-tr-sm'}` : `pt-0.5 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'} [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>strong]:font-bold [&>h2]:text-lg [&>h2]:font-bold [&>h2]:mt-4 [&>h2]:mb-2`} ${!msg.isSelf && pinnedMessages.has(msg.id) ? (isDarkMode ? 'border-l-2 border-fuchsia-500/50 pl-4' : 'border-l-2 border-fuchsia-400/50 pl-4') : ''}`}>
                             {msg.isPendingImage ? (
                               <div className="flex flex-col mb-2">
                                 <style>{`
@@ -3047,7 +3049,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           voiceoverAudioRef.current = null;
                         }
                       }}
-                      className={`absolute -right-11 bottom-2 w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                      className={`absolute -right-11 bottom-2 w-8 h-8 rounded-lg hidden sm:flex items-center justify-center transition-all cursor-pointer ${
                         voiceoverEnabled
                           ? 'bg-red-500/15 text-red-500 border border-red-400/40 animate-[pulse_3s_ease-in-out_infinite]'
                           : (isDarkMode ? 'text-slate-500 hover:text-slate-300 border border-slate-700/50 hover:border-slate-600 bg-slate-800/40' : 'text-slate-400 hover:text-slate-600 border border-slate-200/60 hover:border-slate-300 bg-white/40')
@@ -3059,7 +3061,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
                     {/* Heartbeat pulse indicator */}
                     {heartbeatPulseVisible && heartbeatInterval !== "off" && (
-                      <div className="absolute -right-11 bottom-12 flex flex-col items-center gap-0 animate-in fade-in zoom-in-95 duration-300 pointer-events-none">
+                      <div className="absolute -right-11 bottom-12 hidden sm:flex flex-col items-center gap-0 animate-in fade-in zoom-in-95 duration-300 pointer-events-none">
                         <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />
                         <span className="text-[6px] text-blue-400 uppercase tracking-widest font-bold">{t.heartbeat}</span>
                       </div>
