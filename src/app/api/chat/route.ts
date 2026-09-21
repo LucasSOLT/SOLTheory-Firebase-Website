@@ -630,8 +630,8 @@ The current date/time for the user is: ${monicaTime}.`;
       console.log(`[CRM TOOLS] Injected CRM management context — active book: ${crmInstanceId}`);
     }
 
-    // --- ORG AI BRAIN: Lightweight hint so Jarvis knows to call search_org_brain ---
-    if (agentId === "jarvis") {
+    // --- ORG AI BRAIN: Lightweight hint so agents know to call search_org_brain ---
+    if (agentId === "jarvis" || agentId === "bobby" || agentId === "monica") {
       groqMessages.push({
         role: "system",
         content: `[ORGANIZATION AI BRAIN]
