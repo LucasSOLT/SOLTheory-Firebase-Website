@@ -7,6 +7,10 @@
     {
       "path": "/api/campaigning/email/cron",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/onboarding/cron/nudges",
+      "schedule": "0 14 * * *"
     }
   ]
 }

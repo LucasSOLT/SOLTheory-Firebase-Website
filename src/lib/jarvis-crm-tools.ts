@@ -1194,8 +1194,8 @@ export async function executeCrmSearchContacts(
         byBook[r.bookName].push(r);
       });
 
-      const formatted = allResults.slice(0, 15).map(r =>
-        `[${r.bookName}] ${formatContactSummary(r.data, r.id)}`
+      const formatted = allResults.slice(0, 15).map((r, i) =>
+        `${i + 1}. [${r.bookName}] ${formatContactSummary(r.data, r.id)}`
       );
 
       const bookBreakdown = Object.entries(byBook)
@@ -1208,7 +1208,7 @@ export async function executeCrmSearchContacts(
         searchedAllBooks: true,
         bookBreakdown,
         contacts: formatted,
-        message: `Found ${allResults.length} contact(s) matching "${args.query}" across all books (${bookBreakdown}).`,
+        message: `Found ${allResults.length} contact(s) matching "${args.query}" across all books (${bookBreakdown}). Present the numbered list exactly as provided and ask the user to reply with a number.`,
       });
     }
 
@@ -1235,14 +1235,14 @@ export async function executeCrmSearchContacts(
       });
     }
 
-    const formatted = results.slice(0, 10).map(r => formatContactSummary(r.data, r.id));
+    const formatted = results.slice(0, 10).map((r, i) => `${i + 1}. ${formatContactSummary(r.data, r.id)}`);
 
     return JSON.stringify({
       success: true,
       count: results.length,
       contactBookName: targetBookName,
       contacts: formatted,
-      message: `Found ${results.length} contact(s) matching "${args.query}" in the "${targetBookName}" contact book.`,
+      message: `Found ${results.length} contact(s) matching "${args.query}" in the "${targetBookName}" contact book. Present the numbered list exactly as provided and ask the user to reply with a number if multiple results.`,
     });
   } catch (error: any) {
     console.error("[CRM] Search contacts error:", error);
