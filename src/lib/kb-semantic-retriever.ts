@@ -417,13 +417,15 @@ export async function retrieveSemanticChunks(
     /** If provided, skip Firestore fetch and use this text directly (fallback) */
     knowledgeBaseText?: string;
     maxResults?: number;
+    /** Scope isolation: "personal" = only personal vectors, "org" = only org vectors */
+    scope?: "personal" | "org";
   }
 ): Promise<RetrievedChunk[]> {
   const maxResults = options.maxResults || 8;
   const allChunks: Chunk[] = [];
 
   try {
-    const vectorChunks = await retrieveVectorChunks(userQuery, { orgId: options.orgId, uid: options.uid, maxResults });
+    const vectorChunks = await retrieveVectorChunks(userQuery, { orgId: options.orgId, uid: options.uid, maxResults, scope: options.scope });
     if (vectorChunks.length > 0) {
       console.log(`[KB] Vector retrieval returned ${vectorChunks.length} chunks`);
       

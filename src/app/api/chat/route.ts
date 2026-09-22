@@ -15,7 +15,7 @@ import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REG
 import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, executeCrmMergeContacts, executeCrmAddActivity, executeCrmCreateContactBook, executeCrmRenameContactBook, executeCrmDeleteContactBook, executeCrmMoveContact, executeCrmScheduleFollowup, executeCrmCompleteTask, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
-import { ORG_BRAIN_TOOL_DEFINITIONS, executeSearchOrgBrain } from "@/lib/jarvis-org-brain-tools";
+import { ORG_BRAIN_TOOL_DEFINITIONS, PERSONAL_BRAIN_TOOL_DEFINITIONS, executeSearchOrgBrain, executeSearchPersonalBrain } from "@/lib/jarvis-org-brain-tools";
 import { orchestrateMultiStep } from "@/lib/jarvis-orchestrator";
 import type { AgentEvent } from "@/lib/agent-events";
 const tools: any = [
@@ -527,6 +527,7 @@ The current date/time for the user is: ${monicaTime}.`;
             orgBrainText: orgBrainText || "",
             knowledgeBaseText: knowledgeBaseText || "",
             maxResults: 12,
+            scope: chatScope === 'org' ? 'org' : 'personal',
           }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Semantic retrieval timeout')), 4000))
         ]).catch((kbErr) => {
@@ -613,9 +614,21 @@ Use it to look up:
 - Escalation protocols (who to call for outages, security flags, client emergencies)
 - Mission statement, elevator pitch, leadership team
 - Compliance frameworks, confidential topics, approved tools
-- Uploaded org brain documents
+- **READ uploaded org brain documents** — you can retrieve and read the full text content of documents uploaded to the Org AI Brain. Use section="documents" or include the document name in your query.
 Do NOT guess or fabricate organizational policies — always call search_org_brain first.
-This is separate from CRM (which stores external contacts). The Org AI Brain stores internal company policies, values, and operational knowledge.`,
+This is separate from CRM (which stores external contacts). The Org AI Brain stores internal company policies, values, operational knowledge, and uploaded reference documents.`,
+      });
+    }
+
+    // --- PERSONAL AI BRAIN: Only in personal scope — tells Jarvis it can read uploaded personal docs ---
+    if ((agentId === "jarvis" || agentId === "bobby" || agentId === "monica") && chatScope !== 'org') {
+      groqMessages.push({
+        role: "system",
+        content: `[PERSONAL AI BRAIN — DOCUMENTS]
+You have access to the user's Personal AI Brain documents via the search_personal_brain tool.
+Use it when the user asks about documents they uploaded to their AI Brain, or when they ask you to read, summarize, analyze, or quote from a personal document.
+You can search by document name or by content query. This searches ONLY the user's private documents — NEVER use this in organization scope conversations.
+If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer review"), call search_personal_brain with document_name set to that name.`,
       });
     }
 
@@ -793,10 +806,14 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       'list_calendar_events', 'create_calendar_event', 'delete_calendar_event', 'update_calendar_event',
       'web_search',
     ]);
+    // Build scope-aware master tools: personal brain only in personal scope
+    const scopedTools = chatScope !== 'org'
+      ? [...tools, ...PERSONAL_BRAIN_TOOL_DEFINITIONS]
+      : tools;
     const domainTools = isLiteMode
-      ? tools.filter((t: any) => LITE_TOOL_NAMES.has(t.function?.name))
-      : forceTools ? tools : filterToolsForDomain(tools, routedDomain);
-    console.log(`[ROUTER] Domain: ${routedDomain} | Tools loaded: ${domainTools.length}/${tools.length} | useTools: ${useTools} | Lite: ${isLiteMode}`);
+      ? scopedTools.filter((t: any) => LITE_TOOL_NAMES.has(t.function?.name))
+      : forceTools ? scopedTools : filterToolsForDomain(scopedTools, routedDomain);
+    console.log(`[ROUTER] Domain: ${routedDomain} | Tools loaded: ${domainTools.length}/${scopedTools.length} | useTools: ${useTools} | Lite: ${isLiteMode} | Scope: ${chatScope || 'personal'}`);
 
     // Inject domain-specific system prompt supplement
     if (useTools) {
@@ -1877,6 +1894,15 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
           } else if (functionName === "search_org_brain") {
             console.log("[ORG BRAIN] Searching org brain for:", args.query || "(full profile)", "section:", args.section || "all");
             functionResult = await executeSearchOrgBrain(orgId, args);
+
+          // ── Personal AI Brain Tool ──
+          } else if (functionName === "search_personal_brain") {
+            console.log("[PERSONAL BRAIN] Searching personal brain for:", args.query || args.document_name || "(all docs)", "uid:", uid);
+            if (!uid) {
+              functionResult = JSON.stringify({ error: "No authenticated user — cannot search personal AI brain." });
+            } else {
+              functionResult = await executeSearchPersonalBrain(uid, args);
+            }
 
           } else {
             functionResult = JSON.stringify({ error: "Unknown function or missing API access. Ensure Google account is connected with full workspace permissions." });

@@ -60,37 +60,44 @@ async function queryVectorCollection(
 }
 
 /**
- * Retrieves vector chunks from both:
- * 1. Org knowledge base: orgs/{orgId}/kb_vectors
- * 2. Personal AI Brain: users/{uid}/ai_brain_vectors (if uid provided)
+ * Retrieves vector chunks with scope isolation.
  *
- * Both queries run in parallel. Results are merged and sorted by score.
+ * Scope behavior:
+ *   - "personal": Only queries users/{uid}/ai_brain_vectors
+ *   - "org": Only queries orgs/{orgId}/kb_vectors
+ *   - undefined (legacy): Queries both (for backward compatibility)
+ *
+ * Results are merged and sorted by score.
  */
 export async function retrieveVectorChunks(
   query: string,
-  options: { orgId: string; uid?: string; maxResults?: number }
+  options: { orgId: string; uid?: string; maxResults?: number; scope?: "personal" | "org" }
 ): Promise<VectorRetrievedChunk[]> {
-  const { orgId, uid, maxResults = 8 } = options;
+  const { orgId, uid, maxResults = 8, scope } = options;
 
   await initAdmin();
   const db = getAdminFirestore();
 
   const queryEmbedding = await embedQuery(query);
 
-  // Run both queries in parallel — personal + org
+  // Run queries in parallel based on scope
   const queries: Promise<VectorRetrievedChunk[]>[] = [];
 
-  // Always query org vectors
-  queries.push(
-    queryVectorCollection(db, `orgs/${orgId}/kb_vectors`, queryEmbedding, maxResults, "Org Knowledge Base")
-  );
+  // Query org vectors (when scope is 'org' or unspecified)
+  if (scope !== "personal" && orgId) {
+    queries.push(
+      queryVectorCollection(db, `orgs/${orgId}/kb_vectors`, queryEmbedding, maxResults, "Org Knowledge Base")
+    );
+  }
 
-  // Query personal AI Brain vectors if uid provided
-  if (uid) {
+  // Query personal AI Brain vectors (when scope is 'personal' or unspecified, and uid provided)
+  if (scope !== "org" && uid) {
     queries.push(
       queryVectorCollection(db, `users/${uid}/ai_brain_vectors`, queryEmbedding, maxResults, "Personal AI Brain")
     );
   }
+
+  if (queries.length === 0) return [];
 
   const results = await Promise.all(queries);
   const merged = results.flat();
