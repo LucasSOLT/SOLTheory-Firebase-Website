@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Plus,
@@ -8,9 +8,16 @@ import {
   ChevronDown,
   ChevronUp,
   Save,
+  Upload,
+  Loader2,
+  Image as ImageIcon,
+  Video,
+  Link2,
 } from 'lucide-react';
 import { InteractiveContentBuilder } from './InteractiveBuilders';
 import { ITEM_TYPE_DEFAULT_GATING } from '@/types/onboarding-templates';
+import { useStorage } from '@/firebase';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 interface BlueprintItem {
   id: string;
@@ -61,6 +68,65 @@ export default function BlueprintEditor({
   const [description, setDescription] = useState('');
   const [phases, setPhases] = useState<BlueprintPhase[]>([]);
   const [applyToActive, setApplyToActive] = useState(false);
+
+  // ── Media Upload State ──
+  const storage = useStorage();
+  const [uploadingField, setUploadingField] = useState<string | null>(null); // "media_{itemId}" or "header_{itemId}"
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const mediaInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  /** Upload a file to Firebase Storage and return the download URL. */
+  const uploadMedia = async (
+    file: File,
+    itemId: string,
+    fieldType: 'media' | 'header',
+    phaseId: string,
+  ) => {
+    if (!storage) return;
+    const uploadKey = `${fieldType}_${itemId}`;
+    setUploadingField(uploadKey);
+    setUploadProgress(0);
+
+    try {
+      const fileId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const path = `onboarding_media/${orgId}/${itemId}/${fileId}_${file.name}`;
+      const sRef = storageRef(storage, path);
+      const uploadTask = uploadBytesResumable(sRef, file);
+
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            setUploadProgress(pct);
+          },
+          (error) => reject(error),
+          async () => {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+
+            // Determine media type from file
+            let mediaType = '';
+            if (file.type.startsWith('video/')) mediaType = 'video';
+            else if (file.type.startsWith('image/')) mediaType = 'image';
+            else if (file.type === 'application/pdf') mediaType = 'pdf';
+
+            if (fieldType === 'media') {
+              handleUpdateItem(phaseId, itemId, { mediaUrl: downloadUrl, mediaType });
+            } else {
+              handleUpdateItem(phaseId, itemId, { headerImageUrl: downloadUrl });
+            }
+            resolve();
+          },
+        );
+      });
+    } catch (err) {
+      console.error('[BlueprintEditor] Upload failed:', err);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setUploadingField(null);
+      setUploadProgress(0);
+    }
+  };
 
   useEffect(() => {
     if (existingBlueprint) {
@@ -521,37 +587,175 @@ export default function BlueprintEditor({
                                 />
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-4">
+                                {/* Hyperlink */}
                                 <div>
-                                  <label className="block text-xs font-bold mb-1">Hyperlink</label>
+                                  <label className="block text-xs font-bold mb-1 flex items-center gap-1.5">
+                                    <Link2 className="w-3.5 h-3.5" /> Hyperlink (external URL)
+                                  </label>
                                   <input
                                     type="url"
                                     value={item.hyperlink}
                                     onChange={(e) => handleUpdateItem(phase.id, item.id, { hyperlink: e.target.value })}
                                     className={inputClass()}
-                                    placeholder="https://..."
+                                    placeholder="https://... (training portal, Google Doc, SOP link)"
                                   />
                                 </div>
+
+                                {/* Header Image — Upload or URL */}
                                 <div>
-                                  <label className="block text-xs font-bold mb-1">Header Image URL</label>
-                                  <input
-                                    type="url"
-                                    value={item.headerImageUrl}
-                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { headerImageUrl: e.target.value })}
-                                    className={inputClass()}
-                                    placeholder="https://..."
-                                  />
+                                  <label className="block text-xs font-bold mb-1 flex items-center gap-1.5">
+                                    <ImageIcon className="w-3.5 h-3.5" /> Header Image
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="url"
+                                      value={item.headerImageUrl}
+                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { headerImageUrl: e.target.value })}
+                                      className={`${inputClass()} flex-1`}
+                                      placeholder="Paste image URL or upload from device..."
+                                    />
+                                    <input
+                                      ref={el => { mediaInputRefs.current[`header_${item.id}`] = el; }}
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) uploadMedia(file, item.id, 'header', phase.id);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => mediaInputRefs.current[`header_${item.id}`]?.click()}
+                                      disabled={uploadingField === `header_${item.id}`}
+                                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                        uploadingField === `header_${item.id}`
+                                          ? 'opacity-50 cursor-not-allowed'
+                                          : isDarkMode
+                                            ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                                      }`}
+                                    >
+                                      {uploadingField === `header_${item.id}` ? (
+                                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {uploadProgress}%</>
+                                      ) : (
+                                        <><Upload className="w-3.5 h-3.5" /> Upload</>
+                                      )}
+                                    </button>
+                                  </div>
+                                  {/* Preview */}
+                                  {item.headerImageUrl && (
+                                    <div className="mt-2 flex items-center gap-3">
+                                      <img
+                                        src={item.headerImageUrl}
+                                        alt="Header preview"
+                                        className={`h-16 rounded-lg object-cover border ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateItem(phase.id, item.id, { headerImageUrl: '' })}
+                                        className="text-xs text-rose-500 hover:underline"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
+
+                                {/* Media Content — Upload or URL */}
                                 <div>
-                                  <label className="block text-xs font-bold mb-1">Media URL</label>
-                                  <input
-                                    type="url"
-                                    value={item.mediaUrl}
-                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { mediaUrl: e.target.value })}
-                                    className={inputClass()}
-                                    placeholder="https://..."
-                                  />
+                                  <label className="block text-xs font-bold mb-1 flex items-center gap-1.5">
+                                    <Video className="w-3.5 h-3.5" /> Media Content (Video, Image, or PDF)
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="url"
+                                      value={item.mediaUrl}
+                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { mediaUrl: e.target.value })}
+                                      className={`${inputClass()} flex-1`}
+                                      placeholder="Paste URL (YouTube, video link, image URL) or upload..."
+                                    />
+                                    <input
+                                      ref={el => { mediaInputRefs.current[`media_${item.id}`] = el; }}
+                                      type="file"
+                                      accept="video/*,image/*,application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) uploadMedia(file, item.id, 'media', phase.id);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => mediaInputRefs.current[`media_${item.id}`]?.click()}
+                                      disabled={uploadingField === `media_${item.id}`}
+                                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                        uploadingField === `media_${item.id}`
+                                          ? 'opacity-50 cursor-not-allowed'
+                                          : isDarkMode
+                                            ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                                      }`}
+                                    >
+                                      {uploadingField === `media_${item.id}` ? (
+                                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {uploadProgress}%</>
+                                      ) : (
+                                        <><Upload className="w-3.5 h-3.5" /> Upload</>
+                                      )}
+                                    </button>
+                                  </div>
+                                  {/* Upload progress bar */}
+                                  {uploadingField === `media_${item.id}` && (
+                                    <div className={`mt-2 h-2 w-full rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                                      <div
+                                        className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                                        style={{ width: `${uploadProgress}%` }}
+                                      />
+                                    </div>
+                                  )}
+                                  {/* Media preview */}
+                                  {item.mediaUrl && (
+                                    <div className="mt-2">
+                                      {item.mediaType === 'image' || (!item.mediaType && /\.(jpg|jpeg|png|gif|webp|svg)/i.test(item.mediaUrl)) ? (
+                                        <div className="flex items-center gap-3">
+                                          <img
+                                            src={item.mediaUrl}
+                                            alt="Media preview"
+                                            className={`h-20 rounded-lg object-cover border ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateItem(phase.id, item.id, { mediaUrl: '', mediaType: '' })}
+                                            className="text-xs text-rose-500 hover:underline"
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs ${
+                                          isDarkMode ? 'bg-slate-800/50 text-slate-400' : 'bg-slate-100 text-slate-600'
+                                        }`}>
+                                          {item.mediaType === 'video' ? <Video className="w-4 h-4 text-indigo-500" /> : <ImageIcon className="w-4 h-4 text-indigo-500" />}
+                                          <span className="truncate flex-1">{item.mediaUrl.split('/').pop()?.split('?')[0] || item.mediaUrl}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateItem(phase.id, item.id, { mediaUrl: '', mediaType: '' })}
+                                            className="text-rose-500 hover:underline shrink-0"
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
+
+                                {/* Media Type + Bg Color row */}
                                 <div className="flex gap-4">
                                   <div className="flex-1">
                                     <label className="block text-xs font-bold mb-1">Media Type</label>
@@ -565,6 +769,9 @@ export default function BlueprintEditor({
                                       <option value="image">Image</option>
                                       <option value="pdf">PDF</option>
                                     </select>
+                                    <p className={`text-[10px] mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                      Auto-set when uploading. Set manually for pasted URLs.
+                                    </p>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1">Bg Color</label>
