@@ -121,6 +121,15 @@ export async function POST(req: Request) {
         );
       }
 
+      // Safety: ensure steps is a valid array (custom templates from Firestore may have undefined steps)
+      if (!template.steps || !Array.isArray(template.steps)) {
+        console.error(`${LOG_PREFIX} Template "${tplId}" has invalid steps:`, typeof template.steps, template.steps);
+        return NextResponse.json(
+          { error: `Template "${template.roleName || tplId}" has no steps defined. Please edit the blueprint and add at least one item.` },
+          { status: 400 },
+        );
+      }
+
       if (template.steps.length === 0) {
         return NextResponse.json(
           { error: `Template "${template.roleName}" has no steps defined. Cannot create empty onboarding track.` },
@@ -297,7 +306,7 @@ export async function POST(req: Request) {
 
     console.error(`${LOG_PREFIX} Fatal error:`, err.message, err.stack);
     return NextResponse.json(
-      { error: 'Failed to instantiate onboarding template', details: err.message },
+      { error: `Failed to instantiate onboarding template: ${err.message}` },
       { status: 500 },
     );
   }
