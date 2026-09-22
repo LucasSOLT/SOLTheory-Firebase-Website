@@ -687,9 +687,9 @@ export default function MediaLibraryPage() {
 
   const orgId = useOrgId();
 
-  // ─── Tab State: AI Brain / Org AI Brain / General Storage / P.A.C.T. ───
-  type MediaTab = "ai-brain" | "org-brain" | "general-storage" | "pact";
-  const [mediaTab, setMediaTab] = useState<MediaTab>("general-storage");
+  // ─── Tab State: AI Brain / Org AI Brain / P.A.C.T. ───
+  type MediaTab = "ai-brain" | "org-brain" | "pact";
+  const [mediaTab, setMediaTab] = useState<MediaTab>("ai-brain");
 
   // ─── Sub-View State: Documents vs. Guided Profile within AI Brain / Org Brain ───
   type BrainSubView = "documents" | "profile";
@@ -814,6 +814,27 @@ export default function MediaLibraryPage() {
 
         const data = await res.json();
         showToast(`Uploaded "${file.name}" — ${data.chunksCreated} vector chunks created`);
+        // Optimistic UI: immediately show the uploaded document
+        const ext = file.name.split(".").pop()?.toLowerCase() || "";
+        const newDoc: AiBrainDoc = {
+          id: data.docId,
+          name: file.name,
+          type: data.docType || ext,
+          extension: ext,
+          size: `${(file.size / 1024).toFixed(1)} KB`,
+          sizeBytes: file.size,
+          mimeType: file.type || "application/octet-stream",
+          downloadUrl: data.downloadUrl || "",
+          storagePath: "",
+          plaintext: "",
+          pageCount: null,
+          uploadedBy: user.uid,
+          uploadedByEmail: user.email || "",
+          createdAt: new Date(),
+          status: "ready",
+          vectorChunkCount: data.chunksCreated,
+        };
+        setAiBrainDocs(prev => [newDoc, ...prev.filter(d => d.id !== newDoc.id)]);
       } catch (err: any) {
         console.error("[AI Brain Upload]", err);
         showToast(`Upload error: ${err?.message || "Unknown"}`);
@@ -986,6 +1007,27 @@ export default function MediaLibraryPage() {
 
         const data = await res.json();
         showToast(`Uploaded "${file.name}" to Org Brain — ${data.chunksCreated} vector chunks created`);
+        // Optimistic UI: immediately show the uploaded document
+        const ext = file.name.split(".").pop()?.toLowerCase() || "";
+        const newDoc: AiBrainDoc = {
+          id: data.docId,
+          name: file.name,
+          type: data.docType || ext,
+          extension: ext,
+          size: `${(file.size / 1024).toFixed(1)} KB`,
+          sizeBytes: file.size,
+          mimeType: file.type || "application/octet-stream",
+          downloadUrl: data.downloadUrl || "",
+          storagePath: "",
+          plaintext: "",
+          pageCount: null,
+          uploadedBy: user.uid,
+          uploadedByEmail: user.email || "",
+          createdAt: new Date(),
+          status: "ready",
+          vectorChunkCount: data.chunksCreated,
+        };
+        setOrgBrainDocs(prev => [newDoc, ...prev.filter(d => d.id !== newDoc.id)]);
       } catch (err: any) {
         console.error("[Org Brain Upload]", err);
         showToast(`Upload error: ${err?.message || "Unknown"}`);
@@ -1039,19 +1081,19 @@ export default function MediaLibraryPage() {
   }, [firestore, orgId, isOrgAdmin, storage, showToast]);
 
   // ─── Cross-Tab Move Dialog State ───
-  type MoveSource = "ai-brain" | "org-brain" | "general-storage";
-  type MoveTarget = "ai-brain" | "org-brain" | "general-storage";
+  type MoveSource = "ai-brain" | "org-brain";
+  type MoveTarget = "ai-brain" | "org-brain";
   interface MoveDialogState {
     source: MoveSource;
-    item: AiBrainDoc | FileItem;
+    item: AiBrainDoc;
     x: number;
     y: number;
   }
   const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
   const [moveInProgress, setMoveInProgress] = useState(false);
 
-  // ─── Cross-Tab Move Handler ───
-  const handleCrossTabMove = useCallback(async (target: MoveTarget, sourceOverride?: MoveSource, itemOverride?: AiBrainDoc | FileItem) => {
+  // ─── Cross-Tab Move Handler (AI Brain ↔ Org Brain only) ───
+  const handleCrossTabMove = useCallback(async (target: MoveTarget, sourceOverride?: MoveSource, itemOverride?: AiBrainDoc) => {
     const source = sourceOverride || moveDialog?.source;
     const item = itemOverride || moveDialog?.item;
     if (!source || !item || moveInProgress || !firestore || !user?.uid) return;
@@ -1061,101 +1103,18 @@ export default function MediaLibraryPage() {
 
     try {
       const sourceDoc = item as AiBrainDoc;
-      const sourceFile = item as FileItem;
 
-      if (target === "ai-brain" && source === "general-storage") {
-        // ── General Storage → AI Brain: Re-upload via API ──
-        if (!sourceFile.downloadUrl) { showToast("File has no download URL"); setMoveInProgress(false); return; }
-
-        showToast("Moving to AI Brain...");
-        const response = await fetch(sourceFile.downloadUrl);
-        const blob = await response.blob();
-
-        const formData = new FormData();
-        formData.append("file", blob, sourceFile.name);
-        formData.append("scope", "personal");
-
-        const headers = await getAuthHeaders();
-        delete (headers as Record<string, string>)["Content-Type"];
-
-        const res = await fetch("/api/ai-brain-upload", { method: "POST", headers, body: formData });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
-          showToast(`Move failed: ${errData.error || res.statusText}`);
-          setMoveInProgress(false);
-          return;
-        }
-
-        // Delete from General Storage
-        await deleteDoc(doc(firestore, `users/${user.uid}/media_library_files`, sourceFile.id));
-        if (storage && sourceFile.storagePath) {
-          try {
-            const { deleteObject, ref } = await import("firebase/storage");
-            await deleteObject(ref(storage, sourceFile.storagePath));
-          } catch { /* non-fatal */ }
-        }
-
-        showToast(`Moved "${sourceFile.name}" to AI Brain`);
-
-      } else if (target === "general-storage" && (source === "ai-brain" || source === "org-brain")) {
-        // ── AI Brain / Org Brain → General Storage: Copy file to General Storage ──
+      if (target === "org-brain" && source === "ai-brain") {
+        // ── AI Brain → Org Brain (admin only) ──
+        if (!isOrgAdmin) { showToast("Only admins can move to Org Brain"); setMoveInProgress(false); return; }
         if (!sourceDoc.downloadUrl) { showToast("Document has no download URL"); setMoveInProgress(false); return; }
 
-        showToast("Moving to General Storage...");
-
-        // Download the file
+        showToast("Moving to Org Brain...");
         const response = await fetch(sourceDoc.downloadUrl);
         const blob = await response.blob();
 
-        // Upload to General Storage
-        const { ref: sRef, uploadBytesResumable: uploadFn, getDownloadURL: getUrl } = await import("firebase/storage");
-        const newPath = `media_library/${user.uid}/${Date.now()}_${sourceDoc.name}`;
-        const fileRef = sRef(storage!, newPath);
-        const snapshot = await new Promise<any>((resolve, reject) => {
-          const task = uploadFn(fileRef, blob);
-          task.on("state_changed", null, reject, () => resolve(task.snapshot));
-        });
-        const newDownloadUrl = await getUrl(snapshot.ref);
-
-        // Create Firestore entry in General Storage
-        const newFileDoc = doc(collection(firestore, `users/${user.uid}/media_library_files`));
-        await setDoc(newFileDoc, {
-          name: sourceDoc.name,
-          size: sourceDoc.sizeBytes || 0,
-          type: blob.type || "application/octet-stream",
-          downloadUrl: newDownloadUrl,
-          storagePath: newPath,
-          folderId: "my-files",
-          createdAt: serverTimestamp(),
-          modifiedAt: serverTimestamp(),
-          uploadedBy: user.uid,
-        });
-
-        // If source is personal AI Brain, delete it
-        if (source === "ai-brain") {
-          await handleAiBrainDelete(sourceDoc);
-        }
-        // If source is Org Brain and user is admin, they can choose — but for moves, we delete
-        if (source === "org-brain" && isOrgAdmin) {
-          await handleOrgBrainDelete(sourceDoc);
-        }
-
-        showToast(`Moved "${sourceDoc.name}" to General Storage`);
-
-      } else if (target === "org-brain" && (source === "ai-brain" || source === "general-storage")) {
-        // ── AI Brain / General Storage → Org Brain (admin only) ──
-        if (!isOrgAdmin) { showToast("Only admins can move to Org Brain"); setMoveInProgress(false); return; }
-
-        const downloadUrl = source === "ai-brain" ? (item as AiBrainDoc).downloadUrl : (item as FileItem).downloadUrl;
-        const fileName = source === "ai-brain" ? (item as AiBrainDoc).name : (item as FileItem).name;
-        if (!downloadUrl) { showToast("File has no download URL"); setMoveInProgress(false); return; }
-
-        showToast("Moving to Org Brain...");
-        const response = await fetch(downloadUrl);
-        const blob = await response.blob();
-
         const formData = new FormData();
-        formData.append("file", blob, fileName);
+        formData.append("file", blob, sourceDoc.name);
         formData.append("scope", "org");
         formData.append("orgId", orgId);
 
@@ -1170,20 +1129,36 @@ export default function MediaLibraryPage() {
           return;
         }
 
-        // Delete from source
-        if (source === "ai-brain") {
-          await handleAiBrainDelete(item as AiBrainDoc);
-        } else if (source === "general-storage") {
-          await deleteDoc(doc(firestore, `users/${user.uid}/media_library_files`, (item as FileItem).id));
-          if (storage && (item as FileItem).storagePath) {
-            try {
-              const { deleteObject, ref } = await import("firebase/storage");
-              await deleteObject(ref(storage, (item as FileItem).storagePath));
-            } catch { /* non-fatal */ }
-          }
+        await handleAiBrainDelete(sourceDoc);
+        showToast(`Moved "${sourceDoc.name}" to Org Brain`);
+
+      } else if (target === "ai-brain" && source === "org-brain") {
+        // ── Org Brain → AI Brain ──
+        if (!sourceDoc.downloadUrl) { showToast("Document has no download URL"); setMoveInProgress(false); return; }
+
+        showToast("Moving to AI Brain...");
+        const response = await fetch(sourceDoc.downloadUrl);
+        const blob = await response.blob();
+
+        const formData = new FormData();
+        formData.append("file", blob, sourceDoc.name);
+        formData.append("scope", "personal");
+
+        const headers = await getAuthHeaders();
+        delete (headers as Record<string, string>)["Content-Type"];
+
+        const res = await fetch("/api/ai-brain-upload", { method: "POST", headers, body: formData });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
+          showToast(`Move failed: ${errData.error || res.statusText}`);
+          setMoveInProgress(false);
+          return;
         }
 
-        showToast(`Moved "${fileName}" to Org Brain`);
+        if (isOrgAdmin) {
+          await handleOrgBrainDelete(sourceDoc);
+        }
+        showToast(`Moved "${sourceDoc.name}" to AI Brain`);
       }
     } catch (err: any) {
       console.error("[Cross-Tab Move Error]:", err);
@@ -1437,10 +1412,6 @@ export default function MediaLibraryPage() {
       setShareModalFile(file);
     } else if (action === "Move to...") {
       setMoveFileId(file.id);
-    } else if (action === "Move to AI Brain") {
-      handleCrossTabMove("ai-brain", "general-storage", file);
-    } else if (action === "Move to Org Brain") {
-      handleCrossTabMove("org-brain", "general-storage", file);
     } else if (action === "Delete") {
       handleDeleteFile(file.id);
     } else if (action === "Download" && file.downloadUrl) {
@@ -1958,97 +1929,10 @@ export default function MediaLibraryPage() {
           );
         })}
 
-        {/* ── Visual Divider ── */}
-        <div className={`h-5 w-px mx-1.5 self-center ${isDark ? "bg-slate-700/80" : "bg-stone-300/80"}`} />
-
-        {/* ── General Storage Tab (Visually Separate & Subtle Custom Tint) ── */}
-        {(() => {
-          const isGeneralActive = mediaTab === "general-storage";
-          const generalActiveStyle = isDark
-            ? "bg-slate-800/90 border-slate-600 text-slate-100 shadow-sm"
-            : "bg-[#f5f1e8] border-stone-300 text-stone-900 shadow-sm";
-          const generalInactiveStyle = isDark
-            ? "bg-slate-900/60 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-            : "bg-stone-100/70 border-stone-200 text-stone-600 hover:text-stone-900 hover:bg-stone-200/60";
-
-          return (
-            <button
-              onClick={() => setMediaTab("general-storage")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-[13px] font-semibold border border-b-0 transition-all cursor-pointer ${
-                isGeneralActive ? generalActiveStyle : generalInactiveStyle
-              }`}
-            >
-              <HardDrive className={`w-4 h-4 ${isGeneralActive ? (isDark ? "text-amber-400" : "text-amber-600") : (isDark ? "text-slate-500" : "text-stone-400")}`} />
-              <span>General Storage</span>
-              {isGeneralActive && (
-                <span className={`text-[10px] font-medium ml-1 hidden lg:inline ${isDark ? "text-slate-400" : "text-stone-500"}`}>
-                  — Files & standard storage
-                </span>
-              )}
-            </button>
-          );
-        })()}
       </div>
 
       {/* ───── TAB CONTENT AREA ───── */}
       <div className={`flex flex-1 overflow-hidden border-t ${borderColor}`}>
-        {/* ───── LEFT PANEL: FOLDER TREE (General Storage only) ───── */}
-        {mediaTab === "general-storage" && (
-        <aside className={`w-[240px] shrink-0 flex flex-col ${bgSidebar} border-r ${borderColor}`}>
-          <div className={`h-14 flex items-center justify-between px-4 border-b ${borderColor}`}>
-            <div className="flex items-center gap-2.5">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-slate-800"}`}>
-                <Brain className="w-3.5 h-3.5 text-white" />
-              </div>
-              <span className={`text-[14px] font-bold tracking-tight ${textPrimary}`}>AI Brain</span>
-            </div>
-            <button
-              onClick={() => { setCreatingFolder(true); setExpandedFolders((p) => new Set([...p, "my-files"])); }}
-              title="New Folder"
-              className={`w-7 h-7 rounded-md flex items-center justify-center ${hoverBg} ${textMuted} hover:text-slate-600 transition-colors cursor-pointer`}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-            {renderFolderNode("my-files")}
-
-            {creatingFolder && (
-              <div className="flex items-center gap-2 px-3 py-1.5" style={{ paddingLeft: "44px" }}>
-                <Folder className="w-4 h-4 text-amber-500 shrink-0" />
-                <input
-                  ref={newFolderRef}
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateFolder();
-                    if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); }
-                  }}
-                  onBlur={() => handleCreateFolder()}
-                  placeholder="Folder name..."
-                  className={`flex-1 px-2 py-1 text-[12px] rounded border outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 ${inputBg}`}
-                />
-              </div>
-            )}
-
-            <div className={`my-3 mx-3 border-t ${borderColor}`} />
-            {renderFolderNode("shared")}
-            {renderFolderNode("trash")}
-          </nav>
-
-          <div className={`px-4 py-3 border-t ${borderColor}`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className={`text-[10px] font-semibold uppercase tracking-wider ${textMuted}`}>Storage Used</span>
-              <span className={`text-[10px] font-bold ${textTertiary}`}>{formatFileSize(files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0))} / 5 GB</span>
-            </div>
-            <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-slate-200"}`}>
-              <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(100, (files.reduce((sum, f) => sum + (f.sizeBytes || 0), 0) / (5 * 1024 * 1024 * 1024)) * 100)}%` }} />
-            </div>
-          </div>
-        </aside>
-        )}
 
         {/* ───── AI BRAIN TAB ───── */}
         {mediaTab === "ai-brain" && (
@@ -2586,618 +2470,7 @@ export default function MediaLibraryPage() {
           <PactMemoryView orgId={orgId} isDark={isDark} />
         )}
 
-        {/* ───── GENERAL STORAGE: RIGHT PANEL ───── */}
-        {mediaTab === "general-storage" && (
-        <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <div className={`h-14 flex items-center justify-between px-6 border-b ${borderColor} shrink-0`}>
-          <div className="flex items-center gap-2">
-            <nav className="flex items-center gap-1 text-[13px]">
-              {(() => {
-                const crumbs: { id: string; name: string }[] = [];
-                let current = selectedFolder;
-                while (current && folders[current]) {
-                  crumbs.unshift({ id: current, name: folders[current].name });
-                  current = folders[current].parentId || '';
-                }
-                return crumbs.map((crumb, i) => (
-                  <span key={crumb.id} className="flex items-center gap-1">
-                    {i > 0 && <ChevronRight className={`w-3 h-3 ${textMuted}`} />}
-                    <button
-                      onClick={() => setSelectedFolder(crumb.id)}
-                      className={`font-semibold transition-colors cursor-pointer hover:underline ${
-                        i === crumbs.length - 1 ? textPrimary : textMuted + ' hover:' + textSecondary
-                      }`}
-                    >
-                      {crumb.name}
-                    </button>
-                  </span>
-                ));
-              })()}
-            </nav>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-slate-800 text-slate-400" : "bg-stone-200/80 text-slate-500"}`}>
-              {filteredFiles.length + childFolders.length} items
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${textMuted}`} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search files..."
-                className={`pl-8 pr-7 py-[7px] rounded-lg text-xs font-medium outline-none w-48 transition-all border focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 ${inputBg}`}
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className={`absolute right-2 top-1/2 -translate-y-1/2 ${textMuted} hover:text-slate-600 cursor-pointer`}>
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-
-            {/* View Mode Toggle: Grid / List */}
-            <div className={`flex items-center p-0.5 rounded-lg border ${borderColor} ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
-              <button
-                type="button"
-                onClick={() => setViewMode("grid")}
-                title="Grid View"
-                className={`p-1.5 rounded-md transition-all cursor-pointer ${
-                  viewMode === "grid"
-                    ? isDark
-                      ? "bg-slate-700 text-white shadow-xs"
-                      : "bg-white text-slate-800 shadow-xs"
-                    : isDark
-                    ? "text-slate-400 hover:text-slate-200"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                title="List View"
-                className={`p-1.5 rounded-md transition-all cursor-pointer ${
-                  viewMode === "list"
-                    ? isDark
-                      ? "bg-slate-700 text-white shadow-xs"
-                      : "bg-white text-slate-800 shadow-xs"
-                    : isDark
-                    ? "text-slate-400 hover:text-slate-200"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <button
-              onClick={() => setCreatingFolderInContent(true)}
-              className={`flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold transition-colors shadow-sm cursor-pointer border ${
-                isDark ? "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-              Add Folder
-            </button>
-
-            <button
-              onClick={handleCreateDocument}
-              className={`flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold transition-colors shadow-sm cursor-pointer border ${
-                isDark ? "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <FilePlus className="w-3.5 h-3.5" />
-              Add Document
-            </button>
-
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-[7px] rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Upload
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="*"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) handleFileUpload(e.target.files);
-                e.target.value = "";
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Scrollable Content */}
-        <div
-          className={`flex-1 overflow-y-auto px-6 py-5 space-y-6 transition-colors ${isDragOver ? (isDark ? 'bg-indigo-950/30 ring-2 ring-inset ring-indigo-500/50' : 'bg-indigo-50/50 ring-2 ring-inset ring-indigo-300') : ''}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          {/* ── DRAG OVERLAY ── */}
-          {isDragOver && (
-            <div className="flex flex-col items-center justify-center py-12 text-center pointer-events-none">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${isDark ? 'bg-indigo-500/20' : 'bg-indigo-100'}`}>
-                <Upload className={`w-8 h-8 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
-              </div>
-              <p className={`text-lg font-bold ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>Drop files to upload</p>
-              <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Images (JPG, PNG, WebP, SVG, GIF) and Videos (MP4, WebM, MOV)</p>
-            </div>
-          )}
-
-          {/* ── UPLOAD PROGRESS BARS ── */}
-          {Object.keys(uploadProgress).length > 0 && (
-            <div className="space-y-2">
-              {Object.entries(uploadProgress).map(([fileId, pct]) => {
-                const uploadingFile = files.find(f => f.id === fileId);
-                return (
-                  <div key={fileId} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${cardBorder} ${cardBg}`}>
-                    <Upload className={`w-4 h-4 shrink-0 ${isDark ? 'text-indigo-400' : 'text-indigo-600'} animate-pulse`} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[12px] font-semibold truncate ${textPrimary}`}>{uploadingFile?.name || 'Uploading...'}</p>
-                      <div className={`h-1.5 mt-1 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
-                        <div className="h-full rounded-full bg-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                    <span className={`text-[11px] font-bold tabular-nums shrink-0 ${textMuted}`}>{pct}%</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* ── NEW FOLDER INPUT (content area) ── */}
-          {creatingFolderInContent && (
-            <div className={`flex items-center gap-3 p-3 rounded-xl border ${cardBorder} ${cardBg}`}>
-              <FolderPlus className="w-5 h-5 text-amber-500 shrink-0" />
-              <input
-                ref={newFolderContentRef}
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateFolder(selectedFolder !== "shared" && selectedFolder !== "trash" ? selectedFolder : "my-files");
-                    setCreatingFolderInContent(false);
-                  }
-                  if (e.key === "Escape") { setCreatingFolderInContent(false); setNewFolderName(""); }
-                }}
-                onBlur={() => {
-                  if (newFolderName.trim()) {
-                    handleCreateFolder(selectedFolder !== "shared" && selectedFolder !== "trash" ? selectedFolder : "my-files");
-                  }
-                  setCreatingFolderInContent(false);
-                }}
-                placeholder="Enter folder name..."
-                className={`flex-1 px-3 py-1.5 text-[13px] rounded-lg border outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 ${inputBg}`}
-              />
-              <button onClick={() => { setCreatingFolderInContent(false); setNewFolderName(""); }} className={`${textMuted} hover:text-slate-600 cursor-pointer`}>
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-
-
-          {/* ── CHILD FOLDERS GRID ── */}
-          {childFolders.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Folder className={`w-4 h-4 ${textMuted}`} />
-                <h3 className={`text-[13px] font-bold uppercase tracking-wider ${textTertiary}`}>Folders</h3>
-                <span className={`text-[11px] font-semibold ${textMuted}`}>({childFolders.length})</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {childFolders.map((folder) => (
-                  <div
-                    key={folder.id}
-                    onClick={() => {
-                      setSelectedFolder(folder.id);
-                      setExpandedFolders((p) => new Set([...p, folder.id]));
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, "folder", folder.id)}
-                    className={`group rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer ${cardBg} ${cardBorder} hover:border-amber-300`}
-                  >
-                    <div className={`h-[72px] flex items-center justify-center ${thumbnailBg}`}>
-                      <Folder className="w-8 h-8 text-amber-500 group-hover:text-amber-600 transition-colors" />
-                    </div>
-                    <div className="px-3 py-2.5">
-                      <p className={`text-[12px] font-semibold truncate leading-tight ${textPrimary}`}>{folder.name}</p>
-                      <p className={`text-[10px] mt-0.5 ${textMuted}`}>
-                        {getFolderDisplayCount(folder.id)} items · {formatDate(folder.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ── ALL FILES (GRID OR TABLE) ── */}
-          {sortedFiles.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <File className={`w-4 h-4 ${textMuted}`} />
-                  <h3 className={`text-[13px] font-bold uppercase tracking-wider ${textTertiary}`}>All Files</h3>
-                  <span className={`text-[11px] font-semibold ${textMuted}`}>({sortedFiles.length})</span>
-                </div>
-                {selectedFileIds.size > 0 && (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-600 dark:text-orange-400">
-                    <span>{selectedFileIds.size} selected</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFileIds(new Set())}
-                      className="text-[11px] underline opacity-75 hover:opacity-100 cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {viewMode === "grid" ? (
-                /* ── SINTRA-STYLE VISUAL GRID ── */
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {sortedFiles.map((file) => (
-                    <MediaGridCard
-                      key={file.id}
-                      item={file}
-                      isDark={isDark}
-                      isSelected={selectedFileIds.has(file.id)}
-                      onSelect={(id) => {
-                        setSelectedFileIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(id)) next.delete(id);
-                          else next.add(id);
-                          return next;
-                        });
-                      }}
-                      onDoubleClick={(item) => {
-                        const matchedFile = files.find((f) => f.id === item.id);
-                        if (matchedFile) {
-                          if (isPreviewable(matchedFile.extension) && matchedFile.downloadUrl) {
-                            setPreviewFile(matchedFile);
-                          } else if (isEditableInEditor(matchedFile)) {
-                            setEditingFile(matchedFile);
-                          } else if (matchedFile.downloadUrl) {
-                            window.open(matchedFile.downloadUrl, '_blank');
-                          }
-                        }
-                      }}
-                      onContextMenu={(item, e) => {
-                        handleContextMenu(e, "file", item.id);
-                      }}
-                      onDelete={(item) => handleDeleteFile(item.id)}
-                      onShare={(item) => {
-                        const matchedFile = files.find((f) => f.id === item.id);
-                        if (matchedFile) setShareModalFile(matchedFile);
-                      }}
-                      onDownload={(item) => {
-                        if (item.downloadUrl) {
-                          const a = document.createElement("a");
-                          a.href = item.downloadUrl;
-                          a.download = item.name;
-                          a.target = "_blank";
-                          a.rel = "noopener noreferrer";
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                        }
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                /* ── TABLE VIEW ── */
-                <div className={`border rounded-xl overflow-hidden ${cardBorder}`}>
-                  {/* Table Header */}
-                  <div className={`grid grid-cols-[1fr_80px_90px_120px_100px_40px] ${tableHeaderBg} text-[11px] font-bold uppercase tracking-wider ${textTertiary}`}>
-                    <button onClick={() => toggleSort("name")} className={`px-4 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                      Name <SortIcon k="name" />
-                    </button>
-                    <button onClick={() => toggleSort("type")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                      Type <SortIcon k="type" />
-                    </button>
-                    <button onClick={() => toggleSort("size")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                      Size <SortIcon k="size" />
-                    </button>
-                    <button onClick={() => toggleSort("modified")} className={`px-3 py-3 text-left ${contextHover} transition-colors cursor-pointer flex items-center`}>
-                      Modified <SortIcon k="modified" />
-                    </button>
-                    <div className="px-3 py-3 text-left">Shared</div>
-                    <div className="px-1 py-3" />
-                  </div>
-
-                  {/* Table Body */}
-                  {sortedFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      onDoubleClick={() => {
-                        if (isPreviewable(file.extension) && file.downloadUrl) {
-                          setPreviewFile(file);
-                        } else if (isEditableInEditor(file)) {
-                          setEditingFile(file);
-                        } else if (file.downloadUrl) {
-                          window.open(file.downloadUrl, '_blank');
-                        }
-                      }}
-                      onContextMenu={(e) => handleContextMenu(e, "file", file.id)}
-                      className={`grid grid-cols-[1fr_80px_90px_120px_100px_40px] text-[13px] border-t ${borderColor} ${rowHover} transition-colors cursor-pointer group`}
-                    >
-                      <div className="flex items-center gap-3 px-4 py-2.5">
-                        {file.downloadUrl && isImageFile(file.extension) ? (
-                          <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg}`}>
-                            <img src={file.downloadUrl} alt={file.name} className="w-full h-full object-cover" />
-                          </div>
-                        ) : file.downloadUrl && isVideoFile(file.extension) ? (
-                          <div className={`w-8 h-8 rounded-md overflow-hidden shrink-0 ${thumbnailBg} relative`}>
-                            <video src={file.downloadUrl} muted className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                              <div className="w-3 h-3 border-l-[5px] border-t-[3px] border-b-[3px] border-l-white border-t-transparent border-b-transparent" />
-                            </div>
-                          </div>
-                        ) : (
-                          getFileIcon(file.extension, 4, isDark)
-                        )}
-                        {renamingFileId === file.id ? (
-                          <input
-                            ref={renameFileRef}
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleFileRename();
-                              if (e.key === "Escape") { setRenamingFileId(null); setRenameValue(""); }
-                            }}
-                            onBlur={handleFileRename}
-                            onClick={(e) => e.stopPropagation()}
-                            className={`font-semibold text-[13px] px-1.5 py-0.5 rounded border outline-none focus:ring-2 focus:ring-indigo-300 w-full ${inputBg}`}
-                          />
-                        ) : (
-                          <span className={`font-semibold truncate ${textPrimary}`}>{file.name}</span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center px-3">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${
-                          isDark ? "bg-slate-800 text-slate-300 border-slate-600" : getTypeBadgeColor(file.extension)
-                        }`}>
-                          {file.type}
-                        </span>
-                      </div>
-
-                      <div className={`flex items-center px-3 text-[12px] ${textTertiary} tabular-nums`}>{file.size}</div>
-                      <div className={`flex items-center px-3 text-[12px] ${textTertiary}`}>{file.modified}</div>
-
-                      {/* Shared avatars */}
-                      <div className="flex items-center px-3">
-                        {file.sharedWith.length > 0 ? (
-                          <div className="flex -space-x-1.5">
-                            {file.sharedWith.slice(0, 3).map((entry, i) => (
-                              <div
-                                key={i}
-                                title={`${entry.displayName || entry.email}`}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 ${
-                                  isDark ? "bg-slate-700 text-slate-300 border-slate-900" : "bg-indigo-100 text-indigo-700 border-white"
-                                }`}
-                              >
-                                {entry.initials}
-                              </div>
-                            ))}
-                            {file.sharedWith.length > 3 && (
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 ${
-                                isDark ? "bg-slate-600 text-slate-400 border-slate-900" : "bg-slate-200 text-slate-500 border-white"
-                              }`}>
-                                +{file.sharedWith.length - 3}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className={`text-[12px] ${textMuted}`}>—</span>
-                        )}
-                      </div>
-
-                      {/* Share action */}
-                      <div className="flex items-center justify-center px-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShareModalFile(file);
-                          }}
-                          title="Share"
-                          className={`w-7 h-7 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer ${
-                            isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-100 text-slate-400"
-                          }`}
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* ── EMPTY STATE ── */}
-          {isCurrentFolderEmpty && !creatingFolderInContent && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-5 ${isDark ? "bg-slate-800" : "bg-stone-100"}`}>
-                <FolderPlus className={`w-10 h-10 ${isDark ? "text-slate-600" : "text-slate-300"}`} />
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${textPrimary}`}>
-                {selectedFolder === "my-files" ? "Your library is empty" : "This folder is empty"}
-              </h3>
-              <p className={`text-sm max-w-sm mb-6 ${textTertiary}`}>
-                {selectedFolder === "my-files"
-                  ? "Get started by uploading media, creating a folder, or adding a document."
-                  : "Upload files or create folders to get started."}
-              </p>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setCreatingFolderInContent(true)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
-                    isDark ? "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  Add Folder
-                </button>
-                <button
-                  onClick={handleCreateDocument}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
-                    isDark ? "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <FilePlus className="w-4 h-4" />
-                  Add Document
-                </button>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload Media
-                </button>
-              </div>
-            </div>
-          )}
-
-          {searchQuery && filteredFiles.length === 0 && childFolders.length === 0 && (
-            <div className={`px-6 py-12 text-center ${textMuted} text-sm`}>
-              No files match your search.
-            </div>
-          )}
-        </div>
-      </main>
-        )}
-      </div>{/* end TAB CONTENT AREA */}
-
-      {/* ───── SIDEBAR POPUP ───── */}
-      {sidebarPopup && (
-        <>
-          <div className="fixed inset-0 z-[90]" onClick={() => setSidebarPopup(null)} />
-          <div
-            className={`fixed z-[100] border rounded-xl shadow-xl py-1.5 min-w-[180px] ${contextBg}`}
-            style={{ top: sidebarPopup.y, left: sidebarPopup.x }}
-          >
-            <button
-              onClick={() => {
-                setSidebarPopup(null);
-                setCreatingFolder(true);
-                setExpandedFolders((p) => new Set([...p, "my-files"]));
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textSecondary} ${contextHover}`}
-            >
-              <FolderPlus className={`w-4 h-4 ${textMuted}`} />
-              Add New Folder
-            </button>
-            <button
-              onClick={() => {
-                setSidebarPopup(null);
-                setSelectedFolder(sidebarPopup.folderId);
-                handleCreateDocument();
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textSecondary} ${contextHover}`}
-            >
-              <FilePlus className={`w-4 h-4 ${textMuted}`} />
-              Add New File
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* ───── CONTEXT MENU (Folder) ───── */}
-      {contextMenu && contextMenu.targetType === "folder" && (
-        <>
-          <div className="fixed inset-0 z-[90]" onClick={() => setContextMenu(null)} />
-          <div
-            className={`fixed z-[100] border rounded-xl shadow-xl py-1.5 min-w-[180px] ${contextBg}`}
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-          >
-            {[
-              { label: "Open", icon: FolderOpen, action: "Open" },
-              { label: "Rename", icon: Edit3, action: "Rename" },
-              { label: "Share", icon: Share2, action: "Share" },
-              { label: "Properties", icon: Info, action: "Properties" },
-            ].map(({ label, icon: Icon, action }) => (
-              <button
-                key={action}
-                onClick={() => handleFolderContextAction(action)}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textSecondary} ${contextHover}`}
-              >
-                <Icon className={`w-4 h-4 ${textMuted}`} />
-                {label}
-              </button>
-            ))}
-            <div className={`my-1 mx-3 border-t ${isDark ? "border-slate-600" : "border-slate-200"}`} />
-            <button
-              onClick={() => handleFolderContextAction("Delete")}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer text-red-500 ${contextHover}`}
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* ───── CONTEXT MENU (File) ───── */}
-      {contextMenu && contextMenu.targetType === "file" && (
-        <>
-          <div className="fixed inset-0 z-[90]" onClick={() => setContextMenu(null)} />
-          <div
-            className={`fixed z-[100] border rounded-xl shadow-xl py-1.5 min-w-[180px] ${contextBg}`}
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-          >
-            {[
-              { label: "Open", icon: FileText, action: "Open" },
-              { label: "Rename", icon: Edit3, action: "Rename" },
-              { label: "Share", icon: Share2, action: "Share" },
-              { label: "Move to...", icon: FolderOpen, action: "Move to..." },
-              { label: "Download", icon: Download, action: "Download" },
-              { label: "Properties", icon: Info, action: "Properties" },
-            ].map(({ label, icon: Icon, action }) => (
-              <button
-                key={action}
-                onClick={() => handleFileContextAction(action)}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textSecondary} ${contextHover}`}
-              >
-                <Icon className={`w-4 h-4 ${textMuted}`} />
-                {label}
-              </button>
-            ))}
-            <div className={`my-1 mx-3 border-t ${isDark ? "border-slate-600" : "border-slate-200"}`} />
-            {[
-              { label: "Move to AI Brain", icon: Brain, action: "Move to AI Brain" },
-              ...(isOrgAdmin ? [{ label: "Move to Org Brain", icon: Building2, action: "Move to Org Brain" }] : []),
-            ].map(({ label, icon: Icon, action }) => (
-              <button
-                key={action}
-                onClick={() => handleFileContextAction(action)}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-indigo-400" : "text-indigo-600"} ${contextHover}`}
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </button>
-            ))}
-            <button
-              onClick={() => handleFileContextAction("Delete")}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer text-red-500 ${contextHover}`}
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </button>
-          </div>
-        </>
-      )}
+      </div>
 
       {/* ───── CROSS-TAB MOVE DIALOG ───── */}
       {moveDialog && (
@@ -3210,15 +2483,6 @@ export default function MediaLibraryPage() {
             <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>
               Move to...
             </div>
-            {moveDialog.source !== "general-storage" && (
-              <button
-                onClick={() => handleCrossTabMove("general-storage", moveDialog.source, moveDialog.item)}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textSecondary} ${contextHover}`}
-              >
-                <HardDrive className={`w-4 h-4 ${textMuted}`} />
-                General Storage
-              </button>
-            )}
             {moveDialog.source !== "ai-brain" && (
               <button
                 onClick={() => handleCrossTabMove("ai-brain", moveDialog.source, moveDialog.item)}

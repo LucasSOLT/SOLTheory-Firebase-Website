@@ -239,7 +239,7 @@ export function InsightOmnibar({ isOpen, onClose, orgId, dashboardHome }: Insigh
     { id: "bi", label: "Business Intelligence", route: `${dashboardHome}/business-intelligence`, icon: <BarChart3 className="w-4 h-4" />, keywords: ["business", "intelligence", "reports", "analytics", "bi", "data"] },
     { id: "action-board", label: "Action Board", route: `${dashboardHome}/action-board`, icon: <LayoutDashboard className="w-4 h-4" />, keywords: ["action", "board", "kanban", "tasks", "todo"] },
     { id: "timesheets", label: "Timesheets", route: `${dashboardHome}/timesheets`, icon: <CalendarDays className="w-4 h-4" />, keywords: ["timesheets", "hours", "clock", "time", "tracking"] },
-    { id: "media", label: "Media Library", route: `${dashboardHome}/media-library`, icon: <HardDrive className="w-4 h-4" />, keywords: ["media", "library", "files", "assets", "uploads"] },
+    { id: "media", label: "AI Brain", route: `${dashboardHome}/media-library`, icon: <Brain className="w-4 h-4" />, keywords: ["ai", "brain", "knowledge", "documents", "uploads", "files"] },
     { id: "campaigning", label: "Agentic Campaigning", route: `${dashboardHome}/agentic-campaigning`, icon: <Send className="w-4 h-4" />, keywords: ["campaign", "instagram", "social", "content", "posting"] },
     { id: "prospecting", label: "Agentic Prospecting", route: `${dashboardHome}/agentic-prospecting`, icon: <Compass className="w-4 h-4" />, keywords: ["prospect", "grants", "funding", "opportunities", "search"] },
     { id: "calendar", label: "Google Calendar", route: `${dashboardHome}/calendar`, icon: <CalendarDays className="w-4 h-4" />, keywords: ["calendar", "events", "schedule", "meetings", "google"] },

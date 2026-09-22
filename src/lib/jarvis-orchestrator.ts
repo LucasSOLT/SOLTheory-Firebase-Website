@@ -94,7 +94,7 @@ Available domains and their capabilities:
 - EMAIL: Search emails, draft/send emails, delete emails, block senders, create folders
 - CALENDAR: List/create/update/delete calendar events, check availability, create Google Meet links
 - CRM: Create/update/delete/search contacts, analytics, batch updates, evaluate contacts, resolve names to emails/phones
-- WORKSPACE: Browse & read General Storage (Media Library), web search, recall past conversations
+- WORKSPACE: Web search, recall past conversations
 - GENERAL: Web search, recall past conversations
 
 Rules:

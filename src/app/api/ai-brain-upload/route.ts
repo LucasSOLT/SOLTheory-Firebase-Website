@@ -49,12 +49,54 @@ async function extractTextFromPDF(buffer: Buffer): Promise<{ text: string; pageC
 /**
  * Extract raw text from a DOCX buffer using mammoth.
  */
+async function fallbackDocxExtraction(buffer: Buffer): Promise<string> {
+  try {
+    const JSZip = (await import("jszip")).default || (await import("jszip"));
+    const zip = await JSZip.loadAsync(buffer);
+    const docXml = await zip.file("word/document.xml")?.async("text");
+    if (!docXml) return "";
+    // Extract text from <w:t> XML tags (Word's text runs)
+    const textRuns = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
+    const extracted = textRuns.map(t => t.replace(/<[^>]+>/g, '')).join(' ');
+    // Also try generic XML strip as a broader fallback
+    if (extracted.length < 20) {
+      return docXml
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+        .replace(/\s+/g, " ").trim();
+    }
+    return extracted;
+  } catch (err: any) {
+    console.error("[AI Brain Upload] Fallback DOCX extraction failed:", err.message);
+    return "";
+  }
+}
+
+/**
+ * Extract raw text from a DOCX buffer using mammoth, with ZIP fallback.
+ */
 async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
-  const mammothModule = await import("mammoth");
-  // mammoth is CommonJS — in ESM/Next.js bundler runtime, exports are under .default
-  const mammoth = (mammothModule as any).default || mammothModule;
-  const result = await mammoth.extractRawText({ buffer });
-  return result.value;
+  // Layer 1: Try mammoth (handles well-formed DOCX)
+  try {
+    const mammothModule = await import("mammoth");
+    const mammoth = (mammothModule as any).default || mammothModule;
+    const result = await mammoth.extractRawText({ buffer });
+    if (result.value && result.value.trim().length >= 20) {
+      console.log(`[AI Brain Upload] mammoth extracted ${result.value.length} chars`);
+      return result.value;
+    }
+    console.warn(`[AI Brain Upload] mammoth returned only ${result.value?.length || 0} chars, trying ZIP fallback`);
+  } catch (err: any) {
+    console.error("[AI Brain Upload] mammoth failed:", err.message);
+  }
+  // Layer 2: ZIP XML fallback
+  const fallbackText = await fallbackDocxExtraction(buffer);
+  if (fallbackText.length >= 20) {
+    console.log(`[AI Brain Upload] ZIP fallback extracted ${fallbackText.length} chars`);
+    return fallbackText;
+  }
+  return "";
 }
 
 /**
@@ -221,6 +263,8 @@ export async function POST(req: Request) {
       plaintext = `[File: ${fileName}. Text extraction not supported for .${extension} files.]`;
     }
 
+    console.log(`[AI Brain Upload] Final extraction: ${plaintext.length} chars, type=${docType}, first200="${plaintext.substring(0, 200)}"`);
+
     // ── Upload file to Firebase Storage ──────────────────────────────────
     await initAdmin();
     const bucket = getStorage().bucket(firebaseConfig.storageBucket);
@@ -280,6 +324,7 @@ export async function POST(req: Request) {
       uploadedBy: auth.uid,
       uploadedByEmail: auth.email,
       createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
       status: "processing", // Will be updated to "ready" after embedding
       vectorChunkCount: 0,
     };

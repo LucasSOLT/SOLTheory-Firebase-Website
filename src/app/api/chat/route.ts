@@ -185,35 +185,7 @@ const tools: any = [
       }
     }
   },
-  // ── General Storage (Media Library) — Read-Only Access ──
-  {
-    type: "function",
-    function: {
-      name: "list_storage_files",
-      description: "List all documents in the user's General Storage (Media Library). Returns file names, types, sizes, and IDs. Use when the user asks what files they have stored, references their storage, or wants to browse their documents.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Optional search term to filter files by name" }
-        },
-        required: []
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_storage_file",
-      description: "Read the full text content of a specific document from the user's General Storage by file ID. Use list_storage_files first to find the file ID, then call this to read it.",
-      parameters: {
-        type: "object",
-        properties: {
-          fileId: { type: "string", description: "The document ID from list_storage_files" }
-        },
-        required: ["fileId"]
-      }
-    }
-  },
+
   // ── CRM / Contacts Tools (gated behind feature flag) ──
   ...(process.env.NEXT_PUBLIC_ENABLE_CRM !== 'false' ? CRM_TOOL_DEFINITIONS : []),
   // ── Organization AI Brain — dynamic lookup for guided profile, values, escalation ──
@@ -1759,98 +1731,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
             } catch (searchErr: any) {
               functionResult = JSON.stringify({ error: "Failed to search past conversations: " + searchErr.message });
             }
-          } else if (functionName === "list_storage_files") {
-            // ── General Storage: List user's files from Media Library ──
-            try {
-              if (!uid) throw new Error("User not authenticated");
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const filesSnap = await adminDb
-                .collection("users")
-                .doc(uid)
-                .collection("media_library_files")
-                .get();
 
-              if (filesSnap.empty) {
-                functionResult = JSON.stringify({ result: "Your General Storage is empty. No files found." });
-              } else {
-                const searchQuery = (args.query || "").toLowerCase().trim();
-                const files = filesSnap.docs
-                  .map((d: any) => {
-                    const data = d.data();
-                    return {
-                      id: d.id,
-                      name: data.name || "Untitled",
-                      type: data.type || data.extension || "unknown",
-                      size: data.size || "0 KB",
-                      folder: data.folderId || "my-files",
-                      modified: data.modifiedDate?.toDate?.()?.toLocaleDateString?.() || data.modified || "unknown",
-                    };
-                  })
-                  .filter((f: any) => !searchQuery || f.name.toLowerCase().includes(searchQuery));
-
-                if (files.length === 0) {
-                  functionResult = JSON.stringify({ result: `No files matching "${args.query}" found in General Storage.` });
-                } else {
-                  const fileList = files.map((f: any, i: number) =>
-                    `${i + 1}. "${f.name}" (${f.type}) — ${f.size} — Modified: ${f.modified} — ID: ${f.id}`
-                  ).join("\n");
-                  functionResult = JSON.stringify({ result: `Found ${files.length} file(s) in General Storage:\n\n${fileList}` });
-                }
-              }
-            } catch (storageErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to list storage files: " + storageErr.message });
-            }
-          } else if (functionName === "read_storage_file") {
-            // ── General Storage: Read a specific file's content ──
-            try {
-              if (!uid) throw new Error("User not authenticated");
-              if (!args.fileId) throw new Error("fileId is required");
-              initAdmin();
-              const adminDb = getAdminFirestore();
-              const fileDoc = await adminDb
-                .collection("users")
-                .doc(uid)
-                .collection("media_library_files")
-                .doc(args.fileId)
-                .get();
-
-              if (!fileDoc.exists) {
-                functionResult = JSON.stringify({ error: "File not found. Use list_storage_files to see available files." });
-              } else {
-                const data = fileDoc.data() || {};
-                const fileName = data.name || "Untitled";
-                const rawContent = data.content || "";
-                // Strip HTML tags to extract plain text
-                const plainText = rawContent
-                  .replace(/<br\s*\/?>/gi, "\n")
-                  .replace(/<\/p>/gi, "\n")
-                  .replace(/<\/div>/gi, "\n")
-                  .replace(/<\/li>/gi, "\n")
-                  .replace(/<[^>]+>/g, "")
-                  .replace(/&nbsp;/g, " ")
-                  .replace(/&amp;/g, "&")
-                  .replace(/&lt;/g, "<")
-                  .replace(/&gt;/g, ">")
-                  .replace(/&quot;/g, '"')
-                  .replace(/&#39;/g, "'")
-                  .replace(/\n{3,}/g, "\n\n")
-                  .trim();
-
-                if (!plainText || plainText === "" || plainText === "\n") {
-                  // No text content — might be a binary file with only a download URL
-                  if (data.downloadUrl) {
-                    functionResult = JSON.stringify({ result: `"${fileName}" is a binary/uploaded file (${data.mimeType || data.type || "unknown type"}). It does not have extractable text content in storage. The file can be downloaded from its URL but cannot be read as text.` });
-                  } else {
-                    functionResult = JSON.stringify({ result: `"${fileName}" exists but is empty — no text content found.` });
-                  }
-                } else {
-                  functionResult = JSON.stringify({ result: `📄 Document: "${fileName}"\n\n${plainText.substring(0, 15000)}${plainText.length > 15000 ? "\n\n[... content truncated at 15,000 characters ...]" : ""}` });
-                }
-              }
-            } catch (readErr: any) {
-              functionResult = JSON.stringify({ error: "Failed to read storage file: " + readErr.message });
-            }
           } else if (functionName === "web_search") {
             try {
               const tavilyKey = process.env.TAVILY_API_KEY;
