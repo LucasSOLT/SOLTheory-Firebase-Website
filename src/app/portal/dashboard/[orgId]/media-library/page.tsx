@@ -1234,6 +1234,7 @@ export default function MediaLibraryPage() {
   // ─── Batch Actions Confirmation State ───
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
   const [batchMoveConfirm, setBatchMoveConfirm] = useState(false);
+  const [batchActionInProgress, setBatchActionInProgress] = useState(false);
 
   // ─── Cross-Tab Move Handler (AI Brain ↔ Org Brain only) ───
   const handleCrossTabMove = useCallback(async (target: MoveTarget, sourceOverride?: MoveSource, itemOverride?: AiBrainDoc) => {
@@ -1310,6 +1311,60 @@ export default function MediaLibraryPage() {
       setMoveInProgress(false);
     }
   }, [moveDialog, moveInProgress, firestore, user?.uid, storage, orgId, isOrgAdmin, showToast, handleAiBrainDelete, handleOrgBrainDelete]);
+
+  // ─── Batch Delete Handler ───
+  const handleBatchDelete = useCallback(async () => {
+    if (batchActionInProgress || selectedFileIds.size === 0) return;
+    setBatchActionInProgress(true);
+    try {
+      const ids = Array.from(selectedFileIds);
+      if (mediaTab === "ai-brain") {
+        const docsToDelete = aiBrainDocs.filter(d => ids.includes(d.id));
+        await Promise.all(docsToDelete.map(d => handleAiBrainDelete(d)));
+        showToast(`Deleted ${docsToDelete.length} document${docsToDelete.length !== 1 ? "s" : ""} from AI Brain`);
+      } else if (mediaTab === "org-brain") {
+        const docsToDelete = orgBrainDocs.filter(d => ids.includes(d.id));
+        await Promise.all(docsToDelete.map(d => handleOrgBrainDelete(d)));
+        showToast(`Deleted ${docsToDelete.length} document${docsToDelete.length !== 1 ? "s" : ""} from Org Brain`);
+      }
+      setSelectedFileIds(new Set());
+    } catch (err: any) {
+      console.error("[Batch Delete Error]:", err);
+      showToast(`Batch delete failed: ${err?.message || "Unknown error"}`);
+    } finally {
+      setBatchActionInProgress(false);
+      setBatchDeleteConfirm(false);
+    }
+  }, [batchActionInProgress, selectedFileIds, mediaTab, aiBrainDocs, orgBrainDocs, handleAiBrainDelete, handleOrgBrainDelete, showToast]);
+
+  // ─── Batch Move Handler ───
+  const handleBatchMove = useCallback(async () => {
+    if (batchActionInProgress || selectedFileIds.size === 0) return;
+    setBatchActionInProgress(true);
+    try {
+      const ids = Array.from(selectedFileIds);
+      if (mediaTab === "ai-brain") {
+        const docsToMove = aiBrainDocs.filter(d => ids.includes(d.id));
+        for (const d of docsToMove) {
+          await handleCrossTabMove("org-brain", "ai-brain", d);
+        }
+        showToast(`Moved ${docsToMove.length} document${docsToMove.length !== 1 ? "s" : ""} to Org Brain`);
+      } else if (mediaTab === "org-brain") {
+        const docsToMove = orgBrainDocs.filter(d => ids.includes(d.id));
+        for (const d of docsToMove) {
+          await handleCrossTabMove("ai-brain", "org-brain", d);
+        }
+        showToast(`Moved ${docsToMove.length} document${docsToMove.length !== 1 ? "s" : ""} to AI Brain`);
+      }
+      setSelectedFileIds(new Set());
+    } catch (err: any) {
+      console.error("[Batch Move Error]:", err);
+      showToast(`Batch move failed: ${err?.message || "Unknown error"}`);
+    } finally {
+      setBatchActionInProgress(false);
+      setBatchMoveConfirm(false);
+    }
+  }, [batchActionInProgress, selectedFileIds, mediaTab, aiBrainDocs, orgBrainDocs, handleCrossTabMove, showToast]);
 
   // ─── Load files from Firestore on mount ───
   useEffect(() => {
@@ -2916,6 +2971,129 @@ export default function MediaLibraryPage() {
                     </>
                   ) : (
                     "Yes, Delete"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ───── BATCH DELETE CONFIRMATION MODAL ───── */}
+      {batchDeleteConfirm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 z-[290] backdrop-blur-sm animate-in fade-in duration-150"
+            onClick={() => !batchActionInProgress && setBatchDeleteConfirm(false)}
+          />
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <div
+              className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-150 ${
+                isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-rose-500/15 text-rose-500">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold">Delete {selectedFileIds.size} Document{selectedFileIds.size !== 1 ? "s" : ""}</h3>
+                  <p className={`text-sm mt-1 leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    Are you sure you want to delete <span className="font-semibold text-rose-500">{selectedFileIds.size} item{selectedFileIds.size !== 1 ? "s" : ""}</span>? This will permanently remove the documents and their AI vector memory.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={batchActionInProgress}
+                  onClick={() => setBatchDeleteConfirm(false)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 ${
+                    isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={batchActionInProgress}
+                  onClick={handleBatchDelete}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {batchActionInProgress ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Yes, Delete All"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ───── BATCH MOVE CONFIRMATION MODAL ───── */}
+      {batchMoveConfirm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 z-[290] backdrop-blur-sm animate-in fade-in duration-150"
+            onClick={() => !batchActionInProgress && setBatchMoveConfirm(false)}
+          />
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <div
+              className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-150 ${
+                isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  mediaTab === "ai-brain" ? "bg-blue-500/15 text-blue-500" : "bg-indigo-500/15 text-indigo-500"
+                }`}>
+                  {mediaTab === "ai-brain" ? <Building2 className="w-6 h-6" /> : <Brain className="w-6 h-6" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold">Move {selectedFileIds.size} Document{selectedFileIds.size !== 1 ? "s" : ""}</h3>
+                  <p className={`text-sm mt-1 leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    Move <span className="font-semibold">{selectedFileIds.size} item{selectedFileIds.size !== 1 ? "s" : ""}</span> to{" "}
+                    <span className={`font-semibold ${mediaTab === "ai-brain" ? "text-blue-500" : "text-indigo-500"}`}>
+                      {mediaTab === "ai-brain" ? "Organization AI Brain" : "Personal AI Brain"}
+                    </span>? Documents will be copied to the destination and removed from the source.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={batchActionInProgress}
+                  onClick={() => setBatchMoveConfirm(false)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 ${
+                    isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={batchActionInProgress}
+                  onClick={handleBatchMove}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors cursor-pointer shadow-sm disabled:opacity-50 flex items-center gap-2 ${
+                    mediaTab === "ai-brain" ? "bg-blue-600 hover:bg-blue-700" : "bg-indigo-600 hover:bg-indigo-700"
+                  }`}
+                >
+                  {batchActionInProgress ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Moving...
+                    </>
+                  ) : (
+                    `Yes, Move All`
                   )}
                 </button>
               </div>
