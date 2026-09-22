@@ -1892,7 +1892,7 @@ export default function MediaLibraryPage() {
      ═══════════════════════════════════════════════════════════════ */
 
   return (
-    <div className={`-mx-4 -mb-4 md:-mx-10 md:-mb-10 flex flex-col h-full w-full ${bg} overflow-hidden rounded-xl border ${borderColor}`}>
+    <div className={`mx-0 mb-0 md:-mx-10 md:-mb-10 flex flex-col h-full w-full ${bg} overflow-hidden rounded-xl border ${borderColor}`}>
       {/* ───── TAB SELECTOR BAR ───── */}
       <div className={`flex items-center gap-1.5 px-4 pt-3 pb-0 shrink-0 overflow-x-auto`}>
         {/* ── AI Intelligence Group (AI Brain, Org Brain, P.A.C.T.) ── */}
@@ -1996,7 +1996,7 @@ export default function MediaLibraryPage() {
             />
 
             {/* Header bar */}
-            <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+            <div className={`flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-indigo-500/20" : "bg-indigo-50"}`}>
                   <Brain className={`w-4 h-4 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
@@ -2048,14 +2048,14 @@ export default function MediaLibraryPage() {
             )}
 
             {/* Content area */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {!aiBrainLoaded ? (
                 <div className="flex items-center justify-center h-48">
                   <span className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
                 </div>
               ) : aiBrainDocs.length === 0 && !aiBrainDragOver ? (
                 /* Empty state */
-                <div className="flex-1 flex flex-col items-center justify-center py-20">
+                <div className="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 px-4">
                   <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDark ? "bg-indigo-500/15" : "bg-indigo-50"}`}>
                     <Brain className={`w-10 h-10 ${isDark ? "text-indigo-400" : "text-indigo-500"}`} />
                   </div>
@@ -2266,7 +2266,7 @@ export default function MediaLibraryPage() {
             )}
 
             {/* Header bar */}
-            <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+            <div className={`flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20" : "bg-blue-50"}`}>
                   <Building2 className={`w-4 h-4 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
@@ -2320,14 +2320,14 @@ export default function MediaLibraryPage() {
             )}
 
             {/* Content area */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {!orgBrainLoaded ? (
                 <div className="flex items-center justify-center h-48">
                   <span className="w-6 h-6 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
                 </div>
               ) : orgBrainDocs.length === 0 && !orgBrainDragOver ? (
                 /* Empty state */
-                <div className="flex-1 flex flex-col items-center justify-center py-20">
+                <div className="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 px-4">
                   <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDark ? "bg-blue-500/15" : "bg-blue-50"}`}>
                     <Building2 className={`w-10 h-10 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
                   </div>
@@ -2467,7 +2467,9 @@ export default function MediaLibraryPage() {
 
         {/* ───── P.A.C.T. MEMORY VIEW ───── */}
         {mediaTab === "pact" && (
-          <PactMemoryView orgId={orgId} isDark={isDark} />
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <PactMemoryView orgId={orgId} isDark={isDark} />
+          </div>
         )}
 
       </div>
