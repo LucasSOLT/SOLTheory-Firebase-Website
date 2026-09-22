@@ -898,9 +898,14 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
         clean = clean.replace(/<em>(.*?)<\/em>/gi, '*$1*');
         clean = clean.replace(/<br\s*\/?>/gi, '\n');
         clean = clean.replace(/<\/?p>/gi, '\n');
-        clean = clean.replace(/<[^>]+>/g, '');
+        // Strip HTML tags BUT preserve <think> tags (handled by the think parser)
+        clean = clean.replace(/<(?!\/?think)[^>]+>/g, '');
         return clean;
       };
+
+      // Stateful parser for <think>...</think> tags in streaming content
+      let insideThinkBlock = false;
+      let thinkBuffer = '';
 
       const readableStream = new ReadableStream({
         async start(controller) {
@@ -926,10 +931,51 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
                 console.warn(`[STREAM] ⚠️ Model fallback: ${fb.requested} → ${fb.actual}`);
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'model_fallback', requested: fb.requested, actual: fb.actual, timestamp: Date.now() })}\n\n`));
               }
+              // Handle reasoning tokens from Groq (Qwen, DeepSeek reasoning models)
+              if ((chunk as any).reasoning) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'thinking_chunk', token: (chunk as any).reasoning })}\n\n`));
+                continue;
+              }
               if (chunk.token) {
-                const sanitized = sanitizeChunk(chunk.token);
-                fullResponse += sanitized;
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: sanitized })}\n\n`));
+                let tokenText = chunk.token;
+                // Parse <think>...</think> tags that may be inline in content
+                while (tokenText.length > 0) {
+                  if (insideThinkBlock) {
+                    const closeIdx = tokenText.indexOf('</think>');
+                    if (closeIdx >= 0) {
+                      // End of think block — emit remaining reasoning, switch to content mode
+                      const reasoningPart = tokenText.substring(0, closeIdx);
+                      if (reasoningPart) {
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'thinking_chunk', token: reasoningPart })}\n\n`));
+                      }
+                      insideThinkBlock = false;
+                      tokenText = tokenText.substring(closeIdx + '</think>'.length);
+                    } else {
+                      // Still inside think block — emit entire token as reasoning
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'thinking_chunk', token: tokenText })}\n\n`));
+                      tokenText = '';
+                    }
+                  } else {
+                    const openIdx = tokenText.indexOf('<think>');
+                    if (openIdx >= 0) {
+                      // Start of think block — emit content before it, then switch to reasoning mode
+                      const contentPart = tokenText.substring(0, openIdx);
+                      if (contentPart) {
+                        const sanitized = sanitizeChunk(contentPart);
+                        fullResponse += sanitized;
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: sanitized })}\n\n`));
+                      }
+                      insideThinkBlock = true;
+                      tokenText = tokenText.substring(openIdx + '<think>'.length);
+                    } else {
+                      // Normal content — no think tags
+                      const sanitized = sanitizeChunk(tokenText);
+                      fullResponse += sanitized;
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: sanitized })}\n\n`));
+                      tokenText = '';
+                    }
+                  }
+                }
               }
             }
 
@@ -1018,8 +1064,10 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       // Sanitize the response before streaming
       const sanitizeResponse = (text: string): string => {
         if (!text) return text;
+        // Strip <think>...</think> reasoning blocks (reasoning models like Qwen)
+        let clean = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
         // Convert HTML to markdown
-        let clean = text.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+        clean = clean.replace(/<b>(.*?)<\/b>/gi, '**$1**');
         clean = clean.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
         clean = clean.replace(/<i>(.*?)<\/i>/gi, '*$1*');
         clean = clean.replace(/<em>(.*?)<\/em>/gi, '*$1*');
@@ -2115,10 +2163,11 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
               localLoopCount++;
             }
             
-            // 4. Get final response text
-            const finalText = localResponseMessage?.content
+            // 4. Get final response text — strip reasoning blocks from reasoning models
+            let finalText = localResponseMessage?.content
               || responseMessage?.content
               || "I've completed the task. Is there anything else you'd like me to do?";
+            finalText = finalText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
             
             // 5. Stream final text as tokens
             const words = finalText.split(/(?<=\s)/);

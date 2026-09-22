@@ -83,6 +83,7 @@ export default function ThinkingDisplay({ events, isDarkMode, sendTimestamp }: T
   const parsed = useMemo(() => {
     let intent = '';
     let deliverables: string[] = [];
+    let rawReasoning = '';
     const thinking = events.find(e => e.type === 'thinking') as Extract<AgentEvent, { type: 'thinking' }> | undefined;
     if (thinking?.content) {
       const intentMatch = thinking.content.match(/INTENT:\s*([^\n]+)/i);
@@ -94,10 +95,16 @@ export default function ThinkingDisplay({ events, isDarkMode, sendTimestamp }: T
           .filter(l => l.match(/^\d+\./))
           .map(l => l.replace(/^\d+\.\s*/, '').trim());
       } else if (!intentMatch && thinking.content.trim()) {
-        intent = thinking.content.trim();
+        // Raw reasoning from reasoning models (Qwen, DeepSeek) — store as rawReasoning
+        // Only treat as raw reasoning if it's longer than a typical intent (>80 chars)
+        if (thinking.content.trim().length > 80) {
+          rawReasoning = thinking.content.trim();
+        } else {
+          intent = thinking.content.trim();
+        }
       }
     }
-    return { intent, deliverables };
+    return { intent, deliverables, rawReasoning };
   }, [events]);
 
   // Auto-collapse after completion
@@ -280,6 +287,12 @@ export default function ThinkingDisplay({ events, isDarkMode, sendTimestamp }: T
                   </div>
                 );
               })}
+            </div>
+          )}
+          {/* Raw reasoning from reasoning models (Qwen, DeepSeek) — shown as small grey text */}
+          {parsed.rawReasoning && (
+            <div className={`text-[11px] leading-relaxed max-h-32 overflow-y-auto ${muted} animate-in fade-in duration-500 whitespace-pre-wrap`}>
+              {parsed.rawReasoning}
             </div>
           )}
           {routingEvent && (

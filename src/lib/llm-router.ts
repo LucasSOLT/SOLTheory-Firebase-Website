@@ -285,7 +285,7 @@ export async function* createStreamingCompletion(options: CompletionOptions): As
   }
 }
 
-async function* streamFromGroq(config: ModelConfig, options: CompletionOptions): AsyncGenerator<{ token?: string; done?: boolean; usage?: number }> {
+async function* streamFromGroq(config: ModelConfig, options: CompletionOptions): AsyncGenerator<{ token?: string; reasoning?: string; done?: boolean; usage?: number }> {
   const groq = getGroqClient();
   const stream = await groq.chat.completions.create({
     messages: options.messages,
@@ -297,9 +297,15 @@ async function* streamFromGroq(config: ModelConfig, options: CompletionOptions):
   });
 
   for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content || "";
-    if (delta) {
-      yield { token: delta };
+    const delta = chunk.choices[0]?.delta as any;
+    // Capture reasoning tokens from reasoning models (Qwen, DeepSeek, etc.)
+    const reasoning = delta?.reasoning || delta?.reasoning_content || "";
+    if (reasoning) {
+      yield { reasoning };
+    }
+    const content = delta?.content || "";
+    if (content) {
+      yield { token: content };
     }
   }
   yield { done: true, usage: 0 };

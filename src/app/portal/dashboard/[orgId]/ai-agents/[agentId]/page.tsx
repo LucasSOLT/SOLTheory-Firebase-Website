@@ -1328,7 +1328,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const newMessages = [...realMessages, userMsg, ...extraUserMessages];
     // Create bot placeholder immediately so the ThinkingDisplay timer starts from 0s
     const botMsgIdEarly = uid();
-    const botPlaceholder: Message = { id: botMsgIdEarly, text: '', isSelf: false, sendTimestamp: msgSendTimestamp, agentEvents: [] };
+    const botPlaceholder: Message = { id: botMsgIdEarly, text: '', isSelf: false, sendTimestamp: msgSendTimestamp, agentEvents: [{ type: 'thinking' as const, content: '', timestamp: msgSendTimestamp }] };
     setMessages([...newMessages, botPlaceholder]); setIsTyping(false); setInputValue("");
 
     // ── IRIS: Image Generation Path ──
@@ -1562,6 +1562,23 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     : m
                 ));
                 continue; // Don't process as token
+              }
+
+              // Handle streamed reasoning/thinking chunks — append to the thinking event, NOT to visible text
+              if (payload.type === 'thinking_chunk' && payload.token) {
+                setMessages(prev => prev.map(m => {
+                  if (m.id !== botMsgId) return m;
+                  const events = [...(m.agentEvents || [])];
+                  const thinkIdx = events.findIndex(e => e.type === 'thinking');
+                  if (thinkIdx >= 0) {
+                    const existing = events[thinkIdx] as { type: 'thinking'; content: string; timestamp: number };
+                    events[thinkIdx] = { type: 'thinking' as const, content: (existing.content || '') + payload.token, timestamp: existing.timestamp };
+                  } else {
+                    events.push({ type: 'thinking' as const, content: payload.token, timestamp: Date.now() });
+                  }
+                  return { ...m, agentEvents: events };
+                }));
+                continue; // Don't process as token — this is internal reasoning
               }
 
               if (payload.token) {
@@ -2234,10 +2251,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       html, body {
         overflow: hidden !important;
         overscroll-behavior: none !important;
-        position: fixed !important;
-        width: 100% !important;
         height: 100% !important;
         height: 100dvh !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -3005,7 +3024,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <textarea
                           ref={textareaRef}
                           placeholder="Ask anything..."
-                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 pl-2 sm:pl-3 pr-20 sm:pr-24 min-h-[44px] sm:min-h-[52px] bg-transparent placeholder:text-slate-400 text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 min-w-0 pl-2 sm:pl-3 pr-16 sm:pr-24 min-h-[44px] sm:min-h-[52px] bg-transparent placeholder:text-slate-400 text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
                           value={inputValue}
                           onChange={e => setInputValue(e.target.value)}
                           onKeyDown={e => {
@@ -3024,12 +3043,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         />
 
                         {/* Mic & Send buttons — inside the input box on the right side */}
-                        <div className="absolute right-2 sm:right-3 bottom-1.5 sm:bottom-2 flex items-center gap-1">
+                        <div className="absolute right-1.5 sm:right-3 bottom-1.5 sm:bottom-2 flex items-center gap-0.5 sm:gap-1">
                           {/* STT Mic button — inside the text entry box, to the LEFT of the send arrow */}
                           {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
                             <button
                               onClick={toggleSpeechToText}
-                              className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-white bg-red-500 animate-pulse shadow-lg shadow-red-500/30' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
+                              className={`p-1.5 sm:p-2 rounded-full transition-all cursor-pointer ${isListening ? 'text-white bg-red-500 animate-pulse shadow-lg shadow-red-500/30' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}`}
                               title={isListening ? 'Stop listening' : 'Speech to text'}
                             >
                               {isListening ? <Square className="w-3.5 h-3.5 fill-current" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
@@ -3037,8 +3056,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           )}
 
                           {/* Send button — inside the text entry box */}
-                          <Button size="icon" onClick={() => { if (isListening) { speechRecRef.current?.stop(); setIsListening(false); } handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-9 h-9 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
-                            {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                          <Button size="icon" onClick={() => { if (isListening) { speechRecRef.current?.stop(); setIsListening(false); } handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+                            {isTyping ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
                           </Button>
                         </div>
                       </div>
