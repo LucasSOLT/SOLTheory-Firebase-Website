@@ -15,6 +15,7 @@ import {
   Code2,
   Presentation,
   AlertTriangle,
+  X,
 } from "lucide-react";
 
 export interface MediaCardItem {
@@ -47,6 +48,7 @@ interface MediaGridCardProps {
   onDelete?: (item: MediaCardItem) => void;
   onDownload?: (item: MediaCardItem) => void;
   onShare?: (item: MediaCardItem) => void;
+  onCancelUpload?: (item: MediaCardItem) => void;
   isDark?: boolean;
   extraBadge?: React.ReactNode;
 }
@@ -77,6 +79,7 @@ export default function MediaGridCard({
   onDelete,
   onDownload,
   onShare,
+  onCancelUpload,
   isDark = false,
   extraBadge,
 }: MediaGridCardProps) {
@@ -202,6 +205,28 @@ export default function MediaGridCard({
         {extraBadge && (
           <div className="absolute top-2.5 right-2.5 z-20">
             {extraBadge}
+          </div>
+        )}
+
+        {/* ── Cancel Upload Overlay Button ── */}
+        {onCancelUpload && (
+          <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 animate-in fade-in duration-200">
+            <span className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin mb-2" />
+            <span className="text-[11px] font-semibold text-white/90 mb-2 tracking-tight text-center truncate max-w-full">
+              Uploading...
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancelUpload(item);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-lg transition-all active:scale-95 cursor-pointer"
+              title="Cancel this upload"
+            >
+              <X className="w-3.5 h-3.5" />
+              Cancel upload
+            </button>
           </div>
         )}
 

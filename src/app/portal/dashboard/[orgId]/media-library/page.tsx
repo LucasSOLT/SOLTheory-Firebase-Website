@@ -773,6 +773,35 @@ export default function MediaLibraryPage() {
     return () => unsub();
   }, [firestore, user?.uid, mediaTab]);
 
+  // ─── In-Flight Upload Cancellation State ───
+  interface ActiveUpload {
+    abortController: AbortController;
+    tempId: string;
+    fileName: string;
+    scope: "personal" | "org";
+  }
+  const activeUploadRef = useRef<ActiveUpload | null>(null);
+  const [currentUploadingTempId, setCurrentUploadingTempId] = useState<string | null>(null);
+
+  const handleCancelActiveUpload = useCallback(() => {
+    if (activeUploadRef.current) {
+      const { abortController, tempId, fileName, scope } = activeUploadRef.current;
+      abortController.abort();
+      activeUploadRef.current = null;
+      setCurrentUploadingTempId(null);
+      if (scope === "personal") {
+        setAiBrainDocs(prev => prev.filter(d => d.id !== tempId));
+        setAiBrainUploading(false);
+        setAiBrainUploadProgress("");
+      } else {
+        setOrgBrainDocs(prev => prev.filter(d => d.id !== tempId));
+        setOrgBrainUploading(false);
+        setOrgBrainUploadProgress("");
+      }
+      showToast(`Upload cancelled: "${fileName}"`);
+    }
+  }, [showToast]);
+
   // ─── AI Brain Upload Handler ───
   const handleAiBrainUpload = useCallback(async (fileList: FileList | File[]) => {
     if (!user?.uid) {
@@ -787,6 +816,37 @@ export default function MediaLibraryPage() {
         showToast(`File too large: ${file.name} (max 50MB)`);
         continue;
       }
+
+      const abortController = new AbortController();
+      const tempId = `uploading_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      activeUploadRef.current = {
+        abortController,
+        tempId,
+        fileName: file.name,
+        scope: "personal",
+      };
+      setCurrentUploadingTempId(tempId);
+
+      // Optimistically show uploading item on card grid
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      const tempDoc: AiBrainDoc = {
+        id: tempId,
+        name: file.name,
+        type: ext,
+        extension: ext,
+        size: `${(file.size / 1024).toFixed(1)} KB`,
+        sizeBytes: file.size,
+        mimeType: file.type || "application/octet-stream",
+        downloadUrl: "",
+        storagePath: "",
+        plaintext: "",
+        pageCount: null,
+        uploadedBy: user.uid,
+        uploadedByEmail: user.email || "",
+        createdAt: new Date(),
+        status: "processing",
+      };
+      setAiBrainDocs(prev => [tempDoc, ...prev.filter(d => d.id !== tempId)]);
 
       setAiBrainUploading(true);
       setAiBrainUploadProgress(`Uploading ${file.name}...`);
@@ -804,18 +864,20 @@ export default function MediaLibraryPage() {
           method: "POST",
           headers,
           body: formData,
+          signal: abortController.signal,
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: "Upload failed" }));
           showToast(`Upload failed: ${errData.details || errData.error || res.statusText}`);
+          setAiBrainDocs(prev => prev.filter(d => d.id !== tempId));
           continue;
         }
 
         const data = await res.json();
         showToast(`Uploaded "${file.name}" — ${data.chunksCreated} vector chunks created`);
-        // Optimistic UI: immediately show the uploaded document
-        const ext = file.name.split(".").pop()?.toLowerCase() || "";
+        
+        // Final document record replacing the temporary card
         const newDoc: AiBrainDoc = {
           id: data.docId,
           name: file.name,
@@ -834,10 +896,20 @@ export default function MediaLibraryPage() {
           status: "ready",
           vectorChunkCount: data.chunksCreated,
         };
-        setAiBrainDocs(prev => [newDoc, ...prev.filter(d => d.id !== newDoc.id)]);
+        setAiBrainDocs(prev => [newDoc, ...prev.filter(d => d.id !== tempId && d.id !== newDoc.id)]);
       } catch (err: any) {
+        if (err.name === "AbortError" || abortController.signal.aborted) {
+          console.log("[AI Brain Upload] Upload cancelled by user");
+          return;
+        }
         console.error("[AI Brain Upload]", err);
         showToast(`Upload error: ${err?.message || "Unknown"}`);
+        setAiBrainDocs(prev => prev.filter(d => d.id !== tempId));
+      } finally {
+        if (activeUploadRef.current?.tempId === tempId) {
+          activeUploadRef.current = null;
+          setCurrentUploadingTempId(null);
+        }
       }
     }
 
@@ -989,6 +1061,37 @@ export default function MediaLibraryPage() {
         continue;
       }
 
+      const abortController = new AbortController();
+      const tempId = `uploading_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      activeUploadRef.current = {
+        abortController,
+        tempId,
+        fileName: file.name,
+        scope: "org",
+      };
+      setCurrentUploadingTempId(tempId);
+
+      // Optimistically show uploading item on org card grid
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      const tempDoc: AiBrainDoc = {
+        id: tempId,
+        name: file.name,
+        type: ext,
+        extension: ext,
+        size: `${(file.size / 1024).toFixed(1)} KB`,
+        sizeBytes: file.size,
+        mimeType: file.type || "application/octet-stream",
+        downloadUrl: "",
+        storagePath: "",
+        plaintext: "",
+        pageCount: null,
+        uploadedBy: user.uid,
+        uploadedByEmail: user.email || "",
+        createdAt: new Date(),
+        status: "processing",
+      };
+      setOrgBrainDocs(prev => [tempDoc, ...prev.filter(d => d.id !== tempId)]);
+
       setOrgBrainUploading(true);
       setOrgBrainUploadProgress(`Uploading ${file.name}...`);
 
@@ -1005,18 +1108,20 @@ export default function MediaLibraryPage() {
           method: "POST",
           headers,
           body: formData,
+          signal: abortController.signal,
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: "Upload failed" }));
           showToast(`Upload failed: ${errData.details || errData.error || res.statusText}`);
+          setOrgBrainDocs(prev => prev.filter(d => d.id !== tempId));
           continue;
         }
 
         const data = await res.json();
         showToast(`Uploaded "${file.name}" to Org Brain — ${data.chunksCreated} vector chunks created`);
-        // Optimistic UI: immediately show the uploaded document
-        const ext = file.name.split(".").pop()?.toLowerCase() || "";
+        
+        // Final document record replacing the temporary card
         const newDoc: AiBrainDoc = {
           id: data.docId,
           name: file.name,
@@ -1035,10 +1140,20 @@ export default function MediaLibraryPage() {
           status: "ready",
           vectorChunkCount: data.chunksCreated,
         };
-        setOrgBrainDocs(prev => [newDoc, ...prev.filter(d => d.id !== newDoc.id)]);
+        setOrgBrainDocs(prev => [newDoc, ...prev.filter(d => d.id !== tempId && d.id !== newDoc.id)]);
       } catch (err: any) {
+        if (err.name === "AbortError" || abortController.signal.aborted) {
+          console.log("[Org Brain Upload] Upload cancelled by user");
+          return;
+        }
         console.error("[Org Brain Upload]", err);
         showToast(`Upload error: ${err?.message || "Unknown"}`);
+        setOrgBrainDocs(prev => prev.filter(d => d.id !== tempId));
+      } finally {
+        if (activeUploadRef.current?.tempId === tempId) {
+          activeUploadRef.current = null;
+          setCurrentUploadingTempId(null);
+        }
       }
     }
 
@@ -2052,11 +2167,21 @@ export default function MediaLibraryPage() {
 
             {/* Upload progress banner */}
             {aiBrainUploading && aiBrainUploadProgress && (
-              <div className={`px-6 py-2.5 text-xs font-medium flex items-center gap-2 border-b ${
+              <div className={`px-6 py-2.5 text-xs font-medium flex items-center justify-between gap-2 border-b ${
                 isDark ? "bg-indigo-950/30 border-indigo-900/50 text-indigo-300" : "bg-indigo-50 border-indigo-100 text-indigo-700"
               }`}>
-                <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                {aiBrainUploadProgress}
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  <span>{aiBrainUploadProgress}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelActiveUpload}
+                  className="flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  Cancel Upload
+                </button>
               </div>
             )}
 
@@ -2108,6 +2233,11 @@ export default function MediaLibraryPage() {
                       item={mapAiBrainToCard(brainDoc)}
                       isDark={isDark}
                       isSelected={selectedFileIds.has(brainDoc.id)}
+                      onCancelUpload={
+                        brainDoc.id === currentUploadingTempId || brainDoc.id.startsWith("uploading_")
+                          ? () => handleCancelActiveUpload()
+                          : undefined
+                      }
                       onSelect={(id) => {
                         setSelectedFileIds((prev) => {
                           const next = new Set(prev);
@@ -2324,11 +2454,21 @@ export default function MediaLibraryPage() {
 
             {/* Upload progress banner */}
             {orgBrainUploading && orgBrainUploadProgress && (
-              <div className={`px-6 py-2.5 text-xs font-medium flex items-center gap-2 border-b ${
+              <div className={`px-6 py-2.5 text-xs font-medium flex items-center justify-between gap-2 border-b ${
                 isDark ? "bg-blue-950/30 border-blue-900/50 text-blue-300" : "bg-blue-50 border-blue-100 text-blue-700"
               }`}>
-                <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                {orgBrainUploadProgress}
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  <span>{orgBrainUploadProgress}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelActiveUpload}
+                  className="flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  Cancel Upload
+                </button>
               </div>
             )}
 
@@ -2382,6 +2522,11 @@ export default function MediaLibraryPage() {
                       item={mapAiBrainToCard(brainDoc)}
                       isDark={isDark}
                       isSelected={selectedFileIds.has(brainDoc.id)}
+                      onCancelUpload={
+                        brainDoc.id === currentUploadingTempId || brainDoc.id.startsWith("uploading_")
+                          ? () => handleCancelActiveUpload()
+                          : undefined
+                      }
                       onSelect={(id) => {
                         setSelectedFileIds((prev) => {
                           const next = new Set(prev);
