@@ -1251,7 +1251,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`}>
+    <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-[#f5f1e8] text-slate-900'}`} style={{ height: '100dvh' }}>
       {/* Radial vignette overlay — draws eye focus inward */}
       <div className={`fixed inset-0 pointer-events-none z-0 ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,6,23,0.35)_100%)]' : 'bg-[radial-gradient(ellipse_at_center,transparent_50%,rgba(0,0,0,0.02)_100%)]'}`} />
 
@@ -1858,7 +1858,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0 ${isMobile ? 'pt-14' : ''}`}>
+      <div className="flex-1 flex flex-col overflow-hidden w-full relative z-10 min-h-0 pt-14 md:pt-0">
         {/* Top Navbar — hidden on mobile */}
         <header className={`h-[72px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex ${isDarkMode ? 'bg-slate-900' : 'bg-[#f0e8d0]'}`}>
           <button

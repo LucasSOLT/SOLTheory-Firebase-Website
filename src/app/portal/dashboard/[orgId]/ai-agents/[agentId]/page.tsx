@@ -884,7 +884,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       // Close model dropdown if clicking outside it
-      if (isModelDropdownOpen && !target.closest('[data-dropdown="model"]')) {
+      if (isModelDropdownOpen && !target.closest('[data-dropdown="model"], [data-dropdown="model-mobile"]')) {
         setIsModelDropdownOpen(false);
       }
     };
@@ -2229,9 +2229,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     <>
     <style>{`
       /* Override dashboard layout padding for Agent Manager — fills edge-to-edge */
-      main.flex-1 { padding: 0 !important; overflow: hidden !important; }
-      /* Prevent horizontal scroll caused by absolutely-positioned elements extending past viewport */
-      html, body { overflow-x: hidden !important; }
+      main.flex-1 { padding: 0 !important; overflow: hidden !important; height: 100% !important; max-height: 100% !important; }
+      /* Lock the entire viewport — only the internal chat message list should scroll */
+      html, body {
+        overflow: hidden !important;
+        overscroll-behavior: none !important;
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        height: 100dvh !important;
+      }
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     `}</style>
@@ -2499,7 +2506,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         </div>
 
         {/* Top Navigator */}
-        <div className={`h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 shrink-0 z-20 backdrop-blur-xl ${isDarkMode ? 'bg-slate-900/80' : 'bg-slate-100'}`}>
+        <div className={`h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 shrink-0 z-20 sticky top-0 backdrop-blur-xl ${isDarkMode ? 'bg-slate-900/80' : 'bg-slate-100'}`}>
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Mobile hamburger menu */}
             <button
@@ -2519,7 +2526,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           </div>
           <div className="flex items-center gap-2">
             {/* Mobile-only model selector */}
-            <div className="relative md:hidden" data-dropdown="model-mobile">
+            <div className="relative md:hidden" data-dropdown="model">
               <button
                 onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-white text-slate-600 border border-slate-200'}`}
@@ -2600,7 +2607,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           {/* Chat Wrapper */}
           <div className={`flex-1 flex flex-col relative z-10 transition-all duration-500 overflow-x-hidden h-full overflow-hidden min-h-0`}>
               <div className="flex-1 flex flex-col relative min-h-0">
-                <div className={`flex-1 overflow-y-auto p-0 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'flex items-center justify-center' : ''}`} style={{ scrollbarGutter: 'stable' }}>
+                <div className={`flex-1 p-0 ${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'flex items-center justify-center overflow-hidden' : 'overflow-y-auto'}`} style={{ scrollbarGutter: 'stable' }}>
                   <div className={`${messages.length === 0 && !selectedExploreItem && !activeSessionId ? 'flex flex-col items-center justify-center w-full px-4' : 'mx-auto px-6 sm:px-8 md:px-12 pt-4 sm:pt-6 pb-4 sm:pb-8 max-w-4xl space-y-8'}`}>
                     {messages.length === 0 && !selectedExploreItem && !activeSessionId ? (
                       <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-xl mx-auto" style={{ fontFamily: 'var(--font-outfit), ui-sans-serif, system-ui, sans-serif' }}>
