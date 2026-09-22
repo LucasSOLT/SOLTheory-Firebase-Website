@@ -19,6 +19,7 @@
 import { NextResponse } from 'next/server';
 import { initAdmin } from '@/firebase/admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { verifyRole } from '@/lib/api-auth';
 import { getSystemTemplateById } from '@/lib/onboarding-templates-registry';
 import type { OnboardingInstance } from '@/types/onboarding-templates';
@@ -35,201 +36,255 @@ export async function POST(req: Request) {
       targetUserEmail,
       targetUserName,
       templateId,
+      templateIds,
       startDate,
       mentorUid,
       mentorEmail,
     } = body;
 
-    if (!orgId || !targetUserId || !targetUserEmail || !targetUserName || !templateId || !startDate) {
+    // Support both single templateId and multi templateIds[]
+    const resolvedTemplateIds: string[] = templateIds && Array.isArray(templateIds) && templateIds.length > 0
+      ? templateIds
+      : templateId
+        ? [templateId]
+        : [];
+
+    if (!orgId || !targetUserEmail || !targetUserName || resolvedTemplateIds.length === 0 || !startDate) {
       return NextResponse.json(
-        { error: 'Missing required fields: orgId, targetUserId, targetUserEmail, targetUserName, templateId, startDate' },
+        { error: 'Missing required fields: orgId, targetUserEmail, targetUserName, templateId (or templateIds[]), startDate' },
         { status: 400 },
       );
     }
 
     const auth = await verifyRole(req, orgId, 'admin');
 
-    // ── 2. Load the template ──
-    // First check system templates, then fall back to Firestore custom templates
-    let template = getSystemTemplateById(templateId);
+    // ── 2. Initialize Firebase Admin ──
+    initAdmin();
+    const db = getFirestore();
+    const startDateMs = new Date(startDate).getTime();
+    const MS_PER_DAY = 86_400_000;
 
-    if (!template) {
-      initAdmin();
-      const db = getFirestore();
-      const customDoc = await db
-        .collection('orgs')
-        .doc(orgId)
-        .collection('onboarding_templates')
-        .doc(templateId)
-        .get();
-
-      if (customDoc.exists) {
-        template = { id: customDoc.id, ...customDoc.data() } as any;
+    // ── 2b. Resolve real Firebase Auth UID from email ──
+    // The client may pass a dummy UID ("user_172...") or no UID at all.
+    // We look up the actual UID so onboarding tasks are correctly linked.
+    let resolvedUserId = targetUserId || '';
+    try {
+      const userRecord = await getAuth().getUserByEmail(targetUserEmail.trim().toLowerCase());
+      resolvedUserId = userRecord.uid;
+      console.log(`${LOG_PREFIX} Resolved UID for ${targetUserEmail}: ${resolvedUserId}`);
+    } catch (lookupErr: any) {
+      if (lookupErr.code === 'auth/user-not-found') {
+        console.warn(`${LOG_PREFIX} No Firebase Auth account found for ${targetUserEmail}. Using provided UID: ${resolvedUserId || '(none)'}`);
+        if (!resolvedUserId) {
+          return NextResponse.json(
+            { error: `No account found for ${targetUserEmail}. The employee must create their INSiGHT account first before you can start their onboarding.` },
+            { status: 400 },
+          );
+        }
+      } else {
+        console.error(`${LOG_PREFIX} UID lookup failed:`, lookupErr.message);
+        // Non-fatal — fall through with whatever UID we have
+        if (!resolvedUserId) {
+          return NextResponse.json(
+            { error: 'Failed to verify user account. Please try again.' },
+            { status: 500 },
+          );
+        }
       }
     }
 
-    if (!template) {
-      return NextResponse.json(
-        { error: `Template not found: "${templateId}". Check available templates for this organization.` },
-        { status: 404 },
+    // Track results for all templates
+    const createdInstances: { instanceId: string; tasksCreated: number; roleName: string; taskIds: string[] }[] = [];
+
+    // ── 3. Loop over each template to instantiate ──
+    for (const tplId of resolvedTemplateIds) {
+      // Load the template — system first, then custom Firestore
+      let template = getSystemTemplateById(tplId);
+
+      if (!template) {
+        const customDoc = await db
+          .collection('orgs')
+          .doc(orgId)
+          .collection('onboarding_templates')
+          .doc(tplId)
+          .get();
+
+        if (customDoc.exists) {
+          template = { id: customDoc.id, ...customDoc.data() } as any;
+        }
+      }
+
+      if (!template) {
+        return NextResponse.json(
+          { error: `Template not found: "${tplId}". Check available templates for this organization.` },
+          { status: 404 },
+        );
+      }
+
+      if (template.steps.length === 0) {
+        return NextResponse.json(
+          { error: `Template "${template.roleName}" has no steps defined. Cannot create empty onboarding track.` },
+          { status: 400 },
+        );
+      }
+
+      console.log(
+        `${LOG_PREFIX} Instantiating "${template.roleName}" for ${targetUserEmail} in ${orgId} (${template.steps.length} steps)`,
       );
-    }
 
-    if (template.steps.length === 0) {
-      return NextResponse.json(
-        { error: 'Template has no steps defined. Cannot create empty onboarding track.' },
-        { status: 400 },
-      );
-    }
+      // ── Calculate due dates and prepare task batch ──
+      const batch = db.batch();
+      const taskIds: string[] = [];
 
-    console.log(
-      `${LOG_PREFIX} Instantiating "${template.roleName}" for ${targetUserEmail} in ${orgId} (${template.steps.length} steps)`,
-    );
+      // Generate a unique instance ID
+      const instanceRef = db.collection('onboarding_instances').doc();
+      const instanceId = instanceRef.id;
 
-    // ── 3. Calculate due dates and prepare task batch ──
-    initAdmin();
-    const db = getFirestore();
-    const batch = db.batch();
-    const startDateMs = new Date(startDate).getTime();
-    const MS_PER_DAY = 86_400_000;
-    const taskIds: string[] = [];
+      for (const step of template.steps) {
+        const taskRef = db.collection('action_board_tasks').doc();
+        const taskId = taskRef.id;
+        taskIds.push(taskId);
 
-    // Generate a unique instance ID
-    const instanceRef = db.collection('onboarding_instances').doc();
-    const instanceId = instanceRef.id;
+        const dueDate = new Date(startDateMs + step.dayOffset * MS_PER_DAY);
 
-    for (const step of template.steps) {
-      const taskRef = db.collection('action_board_tasks').doc();
-      const taskId = taskRef.id;
-      taskIds.push(taskId);
+        batch.set(taskRef, {
+          // Standard Action Board fields
+          id: taskId,
+          orgId,
+          title: step.title,
+          description: step.description,
+          priority: step.priority,
+          column: 'todo',
 
-      const dueDate = new Date(startDateMs + step.dayOffset * MS_PER_DAY);
+          // Assignment — direct so it bypasses the approval inbox
+          assignedTo: resolvedUserId,
+          assignedToEmail: targetUserEmail,
+          assignedToName: targetUserName,
+          assignmentStatus: 'direct',
 
-      batch.set(taskRef, {
-        // Standard Action Board fields
-        id: taskId,
+          // Creator — the admin who initiated onboarding
+          createdBy: auth.uid,
+          createdByEmail: auth.email,
+          createdByName: '', // will be populated client-side if needed
+
+          // Dates
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          dueDate,
+          startDate: new Date(startDateMs),
+
+          // Time estimate
+          ...(step.estimatedMinutes ? { estimatedMinutes: step.estimatedMinutes } : {}),
+
+          // Onboarding metadata — used to connect tasks to the instance
+          category: 'onboarding',
+          metadata: {
+            onboardingInstanceId: instanceId,
+            stepId: step.id,
+            phase: step.phase,
+            requiresDocumentUpload: step.requiresDocumentUpload,
+            ...(step.documentCategory ? { documentCategory: step.documentCategory } : {}),
+            ...(step.sopUrl ? { sopUrl: step.sopUrl } : {}),
+            ...(step.itemType ? { itemType: step.itemType } : {}),
+            ...(step.completionGating ? { completionGating: step.completionGating } : {}),
+            ...(step.instructions ? { instructions: step.instructions } : {}),
+            ...(step.hyperlink ? { hyperlink: step.hyperlink } : {}),
+            ...(step.headerImageUrl ? { headerImageUrl: step.headerImageUrl } : {}),
+            ...(step.backgroundColor ? { backgroundColor: step.backgroundColor } : {}),
+            ...(step.mediaUrl ? { mediaUrl: step.mediaUrl } : {}),
+            ...(step.mediaType ? { mediaType: step.mediaType } : {}),
+            interactiveContent: step.interactiveContent || null,
+          },
+
+          // Automations — notify admin on completion
+          automations: {
+            emails: [auth.email],
+            emailTriggers: ['completed', 'overdue'],
+          },
+
+          // Clean defaults
+          comments: [],
+          attachments: [],
+          isArchived: false,
+          isLate: false,
+        });
+      }
+
+      // ── Create the OnboardingInstance tracking document ──
+      const instanceData: Omit<OnboardingInstance, 'startedAt' | 'completedAt'> & {
+        startedAt: ReturnType<typeof FieldValue.serverTimestamp>;
+        completedAt: null;
+      } = {
+        id: instanceId,
         orgId,
-        title: step.title,
-        description: step.description,
-        priority: step.priority,
-        column: 'todo',
+        userId: resolvedUserId,
+        userEmail: targetUserEmail,
+        userName: targetUserName,
+        templateId: template.id,
+        roleName: template.roleName,
+        status: 'in_progress',
+        startedAt: FieldValue.serverTimestamp(),
+        completedAt: null,
+        overallProgress: 0,
+        totalSteps: template.steps.length,
+        completedSteps: 0,
+        taskIds,
+        initiatedBy: auth.uid,
+        initiatedByEmail: auth.email,
+        ...(mentorUid ? { mentorUid } : {}),
+        ...(mentorEmail ? { mentorEmail } : {}),
+      };
 
-        // Assignment — direct so it bypasses the approval inbox
-        assignedTo: targetUserId,
-        assignedToEmail: targetUserEmail,
-        assignedToName: targetUserName,
-        assignmentStatus: 'direct',
+      batch.set(instanceRef, instanceData);
 
-        // Creator — the admin who initiated onboarding
-        createdBy: auth.uid,
-        createdByEmail: auth.email,
-        createdByName: '', // will be populated client-side if needed
-
-        // Dates
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        dueDate,
-        startDate: new Date(startDateMs),
-
-        // Time estimate
-        ...(step.estimatedMinutes ? { estimatedMinutes: step.estimatedMinutes } : {}),
-
-        // Onboarding metadata — used to connect tasks to the instance
-        category: 'onboarding',
+      // ── Log to audit trail ──
+      const auditRef = db.collection('activity_log').doc();
+      batch.set(auditRef, {
+        type: 'item_created',
+        userEmail: auth.email,
+        userName: auth.email.split('@')[0],
+        orgDomain: auth.email.split('@')[1] || orgId,
+        description: `${auth.email.split('@')[0]} started onboarding track "${template.roleName}" for ${targetUserName} (${targetUserEmail})`,
+        category: 'general',
+        timestamp: FieldValue.serverTimestamp(),
         metadata: {
+          action: 'onboarding_track_started',
           onboardingInstanceId: instanceId,
-          stepId: step.id,
-          phase: step.phase,
-          requiresDocumentUpload: step.requiresDocumentUpload,
-          ...(step.documentCategory ? { documentCategory: step.documentCategory } : {}),
-          ...(step.sopUrl ? { sopUrl: step.sopUrl } : {}),
-          ...(step.itemType ? { itemType: step.itemType } : {}),
-          ...(step.completionGating ? { completionGating: step.completionGating } : {}),
-          ...(step.instructions ? { instructions: step.instructions } : {}),
-          ...(step.hyperlink ? { hyperlink: step.hyperlink } : {}),
-          ...(step.headerImageUrl ? { headerImageUrl: step.headerImageUrl } : {}),
-          ...(step.backgroundColor ? { backgroundColor: step.backgroundColor } : {}),
-          ...(step.mediaUrl ? { mediaUrl: step.mediaUrl } : {}),
-          ...(step.mediaType ? { mediaType: step.mediaType } : {}),
-          interactiveContent: step.interactiveContent || null,
+          templateId: template.id,
+          roleName: template.roleName,
+          targetUserId,
+          targetUserEmail,
+          totalSteps: template.steps.length,
         },
+      });
 
-        // Automations — notify admin on completion
-        automations: {
-          emails: [auth.email],
-          emailTriggers: ['completed', 'overdue'],
-        },
+      // ── Commit the batch for this template ──
+      await batch.commit();
 
-        // Clean defaults
-        comments: [],
-        attachments: [],
-        isArchived: false,
-        isLate: false,
+      console.log(
+        `${LOG_PREFIX} ✅ Successfully created ${taskIds.length} tasks + instance ${instanceId} for ${targetUserEmail} (${template.roleName})`,
+      );
+
+      createdInstances.push({
+        instanceId,
+        tasksCreated: taskIds.length,
+        roleName: template.roleName,
+        taskIds,
       });
     }
 
-    // ── 4. Create the OnboardingInstance tracking document ──
-    const instanceData: Omit<OnboardingInstance, 'startedAt' | 'completedAt'> & {
-      startedAt: ReturnType<typeof FieldValue.serverTimestamp>;
-      completedAt: null;
-    } = {
-      id: instanceId,
-      orgId,
-      userId: targetUserId,
-      userEmail: targetUserEmail,
-      userName: targetUserName,
-      templateId: template.id,
-      roleName: template.roleName,
-      status: 'in_progress',
-      startedAt: FieldValue.serverTimestamp(),
-      completedAt: null,
-      overallProgress: 0,
-      totalSteps: template.steps.length,
-      completedSteps: 0,
-      taskIds,
-      initiatedBy: auth.uid,
-      initiatedByEmail: auth.email,
-      ...(mentorUid ? { mentorUid } : {}),
-      ...(mentorEmail ? { mentorEmail } : {}),
-    };
-
-    batch.set(instanceRef, instanceData);
-
-    // ── 5. Log to audit trail ──
-    const auditRef = db.collection('activity_log').doc();
-    batch.set(auditRef, {
-      type: 'item_created',
-      userEmail: auth.email,
-      userName: auth.email.split('@')[0],
-      orgDomain: auth.email.split('@')[1] || orgId,
-      description: `${auth.email.split('@')[0]} started onboarding track "${template.roleName}" for ${targetUserName} (${targetUserEmail})`,
-      category: 'general',
-      timestamp: FieldValue.serverTimestamp(),
-      metadata: {
-        action: 'onboarding_track_started',
-        onboardingInstanceId: instanceId,
-        templateId: template.id,
-        roleName: template.roleName,
-        targetUserId,
-        targetUserEmail,
-        totalSteps: template.steps.length,
-      },
-    });
-
-    // ── 6. Commit the batch ──
-    await batch.commit();
-
-    console.log(
-      `${LOG_PREFIX} ✅ Successfully created ${taskIds.length} tasks + instance ${instanceId} for ${targetUserEmail}`,
-    );
-
+    // ── Return combined results ──
+    const totalTasks = createdInstances.reduce((sum, i) => sum + i.tasksCreated, 0);
     return NextResponse.json({
       status: 'ok',
-      instanceId,
-      tasksCreated: taskIds.length,
-      roleName: template.roleName,
+      // Backward-compatible single-instance fields (first template)
+      instanceId: createdInstances[0]?.instanceId,
+      tasksCreated: totalTasks,
+      roleName: createdInstances.map(i => i.roleName).join(', '),
       startDate,
-      taskIds,
+      taskIds: createdInstances.flatMap(i => i.taskIds),
+      // New multi-instance field
+      instances: createdInstances,
     });
   } catch (err: any) {
     // Handle role verification errors cleanly

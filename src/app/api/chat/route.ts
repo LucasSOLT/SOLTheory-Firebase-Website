@@ -190,6 +190,8 @@ const tools: any = [
   ...(process.env.NEXT_PUBLIC_ENABLE_CRM !== 'false' ? CRM_TOOL_DEFINITIONS : []),
   // ── Organization AI Brain — dynamic lookup for guided profile, values, escalation ──
   ...ORG_BRAIN_TOOL_DEFINITIONS,
+  // ── Personal AI Brain — read user's uploaded personal documents ──
+  ...PERSONAL_BRAIN_TOOL_DEFINITIONS,
 ];
 
 // Increase serverless function timeout for multi-step orchestration with premium models

@@ -231,7 +231,49 @@ export async function POST(req: Request) {
         console.log(`[AI Brain Upload] PDF: ${pageCount} pages, ${plaintext.length} chars extracted`);
       } catch (err: any) {
         console.error(`[AI Brain Upload] PDF extraction failed:`, err.message);
-        plaintext = `[PDF file: ${fileName}. Text extraction encountered an error.]`;
+        plaintext = "";
+      }
+
+      // Fallback: If pdf2json returned empty/near-empty text (scanned or image-based PDF),
+      // use Gemini Vision to OCR the PDF content.
+      const cleanedLength = plaintext.replace(/\s+/g, " ").trim().length;
+      if (cleanedLength < 50) {
+        console.log(`[AI Brain Upload] PDF text too short (${cleanedLength} chars), falling back to Gemini Vision OCR...`);
+        try {
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (apiKey) {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const base64 = buffer.toString("base64");
+            const result = await model.generateContent([
+              {
+                inlineData: {
+                  data: base64,
+                  mimeType: "application/pdf",
+                },
+              },
+              "Extract ALL text content from this PDF document verbatim. " +
+              "Preserve the original structure, headings, bullet points, and formatting as closely as possible. " +
+              "If there are tables, reproduce them in a readable format. " +
+              "If there are handwritten notes, transcribe them. " +
+              "Be thorough — capture every piece of text visible in the document.",
+            ]);
+            const ocrText = result.response.text();
+            if (ocrText && ocrText.trim().length > cleanedLength) {
+              plaintext = ocrText;
+              console.log(`[AI Brain Upload] Gemini Vision OCR extracted ${plaintext.length} chars from PDF`);
+            }
+          } else {
+            console.warn("[AI Brain Upload] GEMINI_API_KEY not found; cannot OCR scanned PDF");
+          }
+        } catch (ocrErr: any) {
+          console.error("[AI Brain Upload] Gemini Vision OCR fallback failed:", ocrErr.message);
+        }
+
+        // If still empty after OCR attempt, set a descriptive placeholder
+        if (plaintext.replace(/\s+/g, " ").trim().length < 50) {
+          plaintext = `[PDF file: ${fileName}. Text extraction and OCR both failed to extract readable content. The PDF may be corrupted or contain only non-text elements.]`;
+        }
       }
     } else if (extension === "docx") {
       docType = "docx";

@@ -40,6 +40,7 @@ import InviteMemberModal from '@/components/onboarding/InviteMemberModal';
 import OnboardingItemPopup from '@/components/onboarding/OnboardingItemPopup';
 import AdminSubmissionViewer from '@/components/onboarding/AdminSubmissionViewer';
 import ScheduleOrientationModal from '@/components/onboarding/ScheduleOrientationModal';
+import ManageUserBlueprintsModal from '@/components/onboarding/ManageUserBlueprintsModal';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
 import { logActivity } from '@/lib/activity-logger';
@@ -162,6 +163,7 @@ export default function OnboardingPage() {
   const [nudgeStatusMap, setNudgeStatusMap] = useState<Record<string, string>>({});
   const [isGlobalNudging, setIsGlobalNudging] = useState(false);
   const [globalNudgeMessage, setGlobalNudgeMessage] = useState<string | null>(null);
+  const [manageBlueprintsInstance, setManageBlueprintsInstance] = useState<OnboardingInstanceDoc | null>(null);
   const isAdmin = role === 'admin' || role === 'oracle';
 
   const handleTriggerSingleNudge = async (instanceId: string) => {
@@ -830,7 +832,12 @@ export default function OnboardingPage() {
                           )}
                         </div>
                         <div className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {inst.roleName} • Started {formatDate(inst.startedAt)} • {inst.userEmail}
+                          {(() => {
+                            // Show all role names for this user
+                            const userInstances = instances.filter(i => i.userId === inst.userId);
+                            const roleNames = [...new Set(userInstances.map(i => i.roleName))];
+                            return roleNames.join(' + ');
+                          })()} • Started {formatDate(inst.startedAt)} • {inst.userEmail}
                         </div>
                       </div>
 
@@ -934,27 +941,94 @@ export default function OnboardingPage() {
                     {selectedAdminInstance.userName}
                   </div>
                   <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {selectedAdminInstance.userEmail} • {selectedAdminInstance.roleName}
+                    {selectedAdminInstance.userEmail}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className={`text-lg font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     {(() => {
-                      const instTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === selectedAdminInstance.id);
-                      const done = instTasks.filter(t => t.column === 'done').length;
-                      const total = instTasks.length;
+                      // Calculate progress across ALL instances for this user
+                      const userInstances = instances.filter(i => i.userId === selectedAdminInstance.userId);
+                      const allTaskIds = userInstances.flatMap(i => i.taskIds || []);
+                      const userTasks = tasks.filter(t => allTaskIds.includes(t.id) || userInstances.some(ui => t.metadata?.onboardingInstanceId === ui.id));
+                      const done = userTasks.filter(t => t.column === 'done').length;
+                      const total = userTasks.length;
                       return total > 0 ? `${Math.round((done / total) * 100)}%` : '0%';
                     })()}
                   </div>
-                  <div className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Progress</div>
+                  <div className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Overall Progress</div>
                 </div>
               </div>
             </div>
 
-            {/* Employee tasks by phase */}
+            {/* Blueprint management bar */}
             {(() => {
-              const instanceTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === selectedAdminInstance.id);
-              const phases = [1, 2, 3, 4];
+              const userInstances = instances.filter(i => i.userId === selectedAdminInstance.userId);
+              return (
+                <div className={`rounded-xl px-5 py-3 ${
+                  isDarkMode ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-slate-50/70 border border-slate-200/60'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Assigned Blueprints ({userInstances.length})
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManageBlueprintsInstance(selectedAdminInstance);
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                        isDarkMode
+                          ? 'bg-slate-800/80 border-slate-700 text-indigo-400 hover:bg-slate-700 hover:text-indigo-300'
+                          : 'bg-white border-slate-200 text-indigo-600 hover:bg-indigo-50'
+                      }`}
+                    >
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      Manage Blueprints
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {userInstances.map(ui => {
+                      const instTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === ui.id);
+                      const done = instTasks.filter(t => t.column === 'done').length;
+                      const total = instTasks.length;
+                      return (
+                        <div
+                          key={ui.id}
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                            isDarkMode
+                              ? 'bg-slate-700/50 border-slate-600/50 text-slate-200'
+                              : 'bg-white border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <GraduationCap className={`w-3.5 h-3.5 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                          <span>{ui.roleName}</span>
+                          <span className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {done}/{total}
+                          </span>
+                          {ui.status === 'completed' && (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Employee tasks by phase — across ALL instances for this user */}
+            {(() => {
+              const userInstances = instances.filter(i => i.userId === selectedAdminInstance.userId);
+              const instanceTasks = tasks.filter(t =>
+                userInstances.some(ui => t.metadata?.onboardingInstanceId === ui.id)
+              );
+
+              // Dynamically extract phase numbers from all tasks
+              const phaseNumbers = Array.from(new Set(
+                instanceTasks.map(t => t.metadata?.phase).filter(Boolean)
+              )).sort((a, b) => (a as number) - (b as number)) as number[];
+              const phases = phaseNumbers.length > 0 ? phaseNumbers : [1, 2, 3, 4];
 
               if (instanceTasks.length === 0) {
                 return (
@@ -1258,6 +1332,38 @@ export default function OnboardingPage() {
           }
           onReviewComplete={() => {
             setAdminReviewTask(null);
+            fetchServerData();
+          }}
+        />
+      )}
+
+      {/* ── Manage User Blueprints Modal ────────────────────────────────── */}
+      {manageBlueprintsInstance && (
+        <ManageUserBlueprintsModal
+          isOpen={!!manageBlueprintsInstance}
+          onClose={() => setManageBlueprintsInstance(null)}
+          orgId={orgId}
+          isDarkMode={isDarkMode}
+          userId={manageBlueprintsInstance.userId}
+          userName={manageBlueprintsInstance.userName}
+          userEmail={manageBlueprintsInstance.userEmail}
+          userInstances={instances
+            .filter(i => i.userId === manageBlueprintsInstance.userId)
+            .map(i => {
+              const instTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === i.id);
+              const done = instTasks.filter(t => t.column === 'done').length;
+              return {
+                id: i.id,
+                templateId: i.templateId,
+                roleName: i.roleName,
+                status: i.status,
+                computedProgress: instTasks.length > 0 ? Math.round((done / instTasks.length) * 100) : 0,
+                computedCompleted: done,
+                computedTotal: instTasks.length,
+              };
+            })
+          }
+          onSuccess={() => {
             fetchServerData();
           }}
         />

@@ -20,9 +20,13 @@ export async function GET(req: NextRequest) {
 
     initAdmin();
     const db = getFirestore();
-    const customDocs = await db.collection('orgs').doc(orgId).collection('onboarding_templates').where('deletedAt', '==', null).get();
+    // Fetch all custom templates and filter out soft-deleted ones in-memory.
+    // Using .where('deletedAt', '==', null) misses documents that don't have the field at all.
+    const customDocs = await db.collection('orgs').doc(orgId).collection('onboarding_templates').get();
     
-    const customBlueprints = customDocs.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const customBlueprints = customDocs.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter((bp: any) => !bp.deletedAt);
 
     return NextResponse.json({ blueprints: [...systemBlueprints, ...customBlueprints] });
   } catch (err: any) {

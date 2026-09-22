@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   GraduationCap,
@@ -12,9 +12,18 @@ import {
   Briefcase,
   Sparkles,
   AlertCircle,
+  Check,
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/api-auth-client';
-import { SYSTEM_TEMPLATES } from '@/lib/onboarding-templates-registry';
+
+interface BlueprintOption {
+  id: string;
+  roleName: string;
+  steps?: any[];
+  phases?: any[];
+  isSystem?: boolean;
+  isCustom?: boolean;
+}
 
 interface InviteMemberModalProps {
   isOpen: boolean;
@@ -39,14 +48,62 @@ export default function InviteMemberModal({
 }: InviteMemberModalProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [templateId, setTemplateId] = useState('nxtchapter_peer_recovery_coach');
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Dynamic blueprint loading
+  const [blueprints, setBlueprints] = useState<BlueprintOption[]>([]);
+  const [loadingBlueprints, setLoadingBlueprints] = useState(true);
+
+  // Fetch all available blueprints (system + custom) from the API
+  useEffect(() => {
+    if (!isOpen || !orgId) return;
+
+    const fetchBlueprints = async () => {
+      setLoadingBlueprints(true);
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/onboarding/blueprints?orgId=${orgId}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          const bps: BlueprintOption[] = data.blueprints || [];
+          setBlueprints(bps);
+          // Auto-select the first blueprint if none selected
+          if (bps.length > 0 && selectedTemplateIds.length === 0) {
+            setSelectedTemplateIds([bps[0].id]);
+          }
+        }
+      } catch (err) {
+        console.error('[InviteMemberModal] Failed to fetch blueprints:', err);
+      } finally {
+        setLoadingBlueprints(false);
+      }
+    };
+
+    fetchBlueprints();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, orgId]);
+
   if (!isOpen) return null;
 
-  const availableTemplates = SYSTEM_TEMPLATES.filter(t => t.orgId === orgId || t.orgId === 'nxtchapter');
+  const getStepCount = (bp: BlueprintOption): number => {
+    if (bp.steps?.length) return bp.steps.length;
+    if (bp.phases) return bp.phases.reduce((sum: number, p: any) => sum + (p.items?.length || 0), 0);
+    return 0;
+  };
+
+  const toggleBlueprint = (bpId: string) => {
+    setSelectedTemplateIds(prev => {
+      if (prev.includes(bpId)) {
+        // Don't allow deselecting the last one
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== bpId);
+      }
+      return [...prev, bpId];
+    });
+  };
 
   // Quick test fill helper
   const handleFillMyself = () => {
@@ -57,8 +114,8 @@ export default function InviteMemberModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !email.trim() || !startDate) {
-      setError('Please fill out all required fields.');
+    if (!fullName.trim() || !email.trim() || !startDate || selectedTemplateIds.length === 0) {
+      setError('Please fill out all required fields and select at least one blueprint.');
       return;
     }
 
@@ -67,9 +124,11 @@ export default function InviteMemberModal({
 
     try {
       const headers = await getAuthHeaders();
+      // UID resolution happens server-side via admin.auth().getUserByEmail()
+      // We only pass a hint if the admin is onboarding themselves
       const targetUid = (email.trim().toLowerCase() === currentUserEmail?.toLowerCase() && currentUserId)
         ? currentUserId
-        : `user_${Date.now()}`;
+        : '';
 
       const res = await fetch('/api/onboarding/instantiate', {
         method: 'POST',
@@ -79,10 +138,10 @@ export default function InviteMemberModal({
         },
         body: JSON.stringify({
           orgId,
-          targetUserId: targetUid,
+          targetUserId: targetUid || undefined,
           targetUserEmail: email.trim().toLowerCase(),
           targetUserName: fullName.trim(),
-          templateId,
+          templateIds: selectedTemplateIds,
           startDate,
         }),
       });
@@ -138,7 +197,7 @@ export default function InviteMemberModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {error && (
             <div className="flex items-center gap-2 p-3 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-xl">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -196,25 +255,107 @@ export default function InviteMemberModal({
             </div>
           </div>
 
-          {/* Template Selector */}
+          {/* Blueprint Multi-Select */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5">Role / Onboarding Blueprint *</label>
-            <div className="relative">
-              <Briefcase className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-              <select
-                value={templateId}
-                onChange={e => setTemplateId(e.target.value)}
-                className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-xs font-medium border appearance-none ${
-                  isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                } focus:outline-none focus:ring-2 focus:ring-indigo-500/20`}
-              >
-                {availableTemplates.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.roleName} ({t.steps.length} steps)
-                  </option>
-                ))}
-              </select>
-            </div>
+            <label className="block text-xs font-semibold mb-1.5">
+              Role / Onboarding Blueprint{selectedTemplateIds.length > 1 ? 's' : ''} *
+              {selectedTemplateIds.length > 1 && (
+                <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                  isDarkMode ? 'bg-indigo-900/40 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
+                }`}>
+                  {selectedTemplateIds.length} selected
+                </span>
+              )}
+            </label>
+            {loadingBlueprints ? (
+              <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${
+                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Loading blueprints...</span>
+              </div>
+            ) : blueprints.length === 0 ? (
+              <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${
+                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  No blueprints found. Create one in the Blueprints Library first.
+                </span>
+              </div>
+            ) : (
+              <div className={`rounded-xl border overflow-hidden ${
+                isDarkMode ? 'border-slate-700' : 'border-slate-200'
+              }`}>
+                <div className="max-h-[180px] overflow-y-auto">
+                  {blueprints.map(bp => {
+                    const isSelected = selectedTemplateIds.includes(bp.id);
+                    const stepCount = getStepCount(bp);
+                    return (
+                      <button
+                        key={bp.id}
+                        type="button"
+                        onClick={() => toggleBlueprint(bp.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors border-b last:border-b-0 cursor-pointer ${
+                          isSelected
+                            ? isDarkMode
+                              ? 'bg-indigo-900/30 border-slate-700/50'
+                              : 'bg-indigo-50/80 border-indigo-100'
+                            : isDarkMode
+                              ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/50'
+                              : 'bg-white hover:bg-slate-50 border-slate-100'
+                        }`}
+                      >
+                        {/* Checkbox indicator */}
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected
+                            ? 'bg-indigo-600 border-indigo-600'
+                            : isDarkMode
+                              ? 'border-slate-600 bg-slate-800'
+                              : 'border-slate-300 bg-white'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+
+                        {/* Blueprint info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Briefcase className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                            <span className={`text-xs font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                              {bp.roleName}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Step count + type badge */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {stepCount} steps
+                          </span>
+                          {bp.isSystem && (
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                              isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              System
+                            </span>
+                          )}
+                          {bp.isCustom && (
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                              isDarkMode ? 'bg-indigo-900/40 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
+                            }`}>
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <p className={`text-[10px] mt-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+              Select one or more blueprints to assign. Multiple blueprints will create separate tracks.
+            </p>
           </div>
 
           {/* Start Date */}
@@ -253,9 +394,9 @@ export default function InviteMemberModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || selectedTemplateIds.length === 0}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-[0.98] ${
-                isSubmitting
+                isSubmitting || selectedTemplateIds.length === 0
                   ? 'opacity-50 cursor-not-allowed bg-indigo-600 text-white'
                   : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
               }`}
@@ -263,12 +404,16 @@ export default function InviteMemberModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Creating Track...</span>
+                  <span>Creating Track{selectedTemplateIds.length > 1 ? 's' : ''}...</span>
                 </>
               ) : (
                 <>
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Start Onboarding Track</span>
+                  <span>
+                    Start {selectedTemplateIds.length > 1
+                      ? `${selectedTemplateIds.length} Onboarding Tracks`
+                      : 'Onboarding Track'}
+                  </span>
                 </>
               )}
             </button>
