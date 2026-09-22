@@ -387,7 +387,7 @@ export default function MediaGridCard({
               e.stopPropagation();
               onContextMenu?.(item, e);
             }}
-            className={`opacity-0 group-hover:opacity-100 p-0.5 rounded transition-opacity ${
+            className={`opacity-80 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-0.5 rounded transition-opacity ${
               isDark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
             }`}
             title="Options"

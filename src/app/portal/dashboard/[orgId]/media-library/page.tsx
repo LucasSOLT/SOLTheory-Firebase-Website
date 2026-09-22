@@ -848,6 +848,14 @@ export default function MediaLibraryPage() {
   // ─── AI Brain Delete Handler ───
   const handleAiBrainDelete = useCallback(async (docItem: AiBrainDoc) => {
     if (!firestore || !user?.uid) return;
+    // Optimistic UI removal
+    setAiBrainDocs(prev => prev.filter(d => d.id !== docItem.id));
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      next.delete(docItem.id);
+      return next;
+    });
+
     try {
       // Delete the metadata doc
       await deleteDoc(doc(firestore, `users/${user.uid}/ai_brain_docs`, docItem.id));
@@ -1045,6 +1053,14 @@ export default function MediaLibraryPage() {
       showToast("Only admins can delete from the Organization AI Brain");
       return;
     }
+    // Optimistic UI removal
+    setOrgBrainDocs(prev => prev.filter(d => d.id !== docItem.id));
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      next.delete(docItem.id);
+      return next;
+    });
+
     try {
       await deleteDoc(doc(firestore, `orgs/${orgId}/org_brain_docs`, docItem.id));
 
@@ -1091,6 +1107,14 @@ export default function MediaLibraryPage() {
   }
   const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
   const [moveInProgress, setMoveInProgress] = useState(false);
+
+  // ─── Single Delete Confirmation State ───
+  interface DeleteConfirmState {
+    source: MoveSource;
+    item: AiBrainDoc;
+  }
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
   // ─── Cross-Tab Move Handler (AI Brain ↔ Org Brain only) ───
   const handleCrossTabMove = useCallback(async (target: MoveTarget, sourceOverride?: MoveSource, itemOverride?: AiBrainDoc) => {
@@ -2474,42 +2498,165 @@ export default function MediaLibraryPage() {
 
       </div>
 
-      {/* ───── CROSS-TAB MOVE DIALOG ───── */}
+      {/* ───── 3-DOT / CONTEXT MENU FOR BRAIN DOCS ───── */}
       {moveDialog && (
         <>
           <div className="fixed inset-0 z-[90]" onClick={() => setMoveDialog(null)} />
           <div
-            className={`fixed z-[100] border rounded-xl shadow-xl py-1.5 min-w-[200px] ${contextBg}`}
-            style={{ top: Math.min(moveDialog.y, window.innerHeight - 200), left: Math.min(moveDialog.x, window.innerWidth - 220) }}
+            className={`fixed z-[100] border rounded-xl shadow-xl py-1.5 min-w-[210px] ${contextBg}`}
+            style={{
+              top: Math.max(70, Math.min(moveDialog.y || 100, typeof window !== "undefined" ? window.innerHeight - 250 : 300)),
+              left: Math.max(16, Math.min(moveDialog.x || 16, typeof window !== "undefined" ? window.innerWidth - 230 : 200)),
+            }}
           >
-            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>
-              Move to...
+            {/* Header: Document Name */}
+            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wider border-b ${isDark ? "border-slate-800" : "border-slate-100"} ${textMuted} truncate max-w-[220px]`}>
+              {moveDialog.item.name}
             </div>
+
+            {/* Move to Personal AI Brain */}
             {moveDialog.source !== "ai-brain" && (
               <button
                 onClick={() => handleCrossTabMove("ai-brain", moveDialog.source, moveDialog.item)}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-indigo-400" : "text-indigo-600"} ${contextHover}`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-indigo-400 hover:bg-slate-800" : "text-indigo-600 hover:bg-slate-50"}`}
               >
-                <Brain className="w-4 h-4" />
-                Personal AI Brain
+                <Brain className="w-4 h-4 shrink-0" />
+                Move to Personal AI Brain
               </button>
             )}
+
+            {/* Move to Org AI Brain */}
             {moveDialog.source !== "org-brain" && isOrgAdmin && (
               <button
                 onClick={() => handleCrossTabMove("org-brain", moveDialog.source, moveDialog.item)}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-blue-400" : "text-blue-600"} ${contextHover}`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-blue-400 hover:bg-slate-800" : "text-blue-600 hover:bg-slate-50"}`}
               >
-                <Building2 className="w-4 h-4" />
-                Org AI Brain
+                <Building2 className="w-4 h-4 shrink-0" />
+                Move to Org AI Brain
               </button>
             )}
-            <div className={`my-1 mx-3 border-t ${isDark ? "border-slate-600" : "border-slate-200"}`} />
+
+            {/* Download File */}
+            {moveDialog.item.downloadUrl && (
+              <button
+                onClick={() => {
+                  if (moveDialog.item.downloadUrl) {
+                    const a = document.createElement("a");
+                    a.href = moveDialog.item.downloadUrl;
+                    a.download = moveDialog.item.name;
+                    a.target = "_blank";
+                    a.rel = "noopener noreferrer";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }
+                  setMoveDialog(null);
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors cursor-pointer ${isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"}`}
+              >
+                <Download className="w-4 h-4 shrink-0" />
+                Download
+              </button>
+            )}
+
+            {/* Divider */}
+            {(moveDialog.source === "ai-brain" || isOrgAdmin) && (
+              <div className={`my-1 mx-3 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`} />
+            )}
+
+            {/* Delete Option */}
+            {(moveDialog.source === "ai-brain" || isOrgAdmin) && (
+              <button
+                onClick={() => {
+                  const itemToDelete = moveDialog.item;
+                  const sourceToDelete = moveDialog.source;
+                  setMoveDialog(null);
+                  setDeleteConfirm({ source: sourceToDelete, item: itemToDelete });
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors cursor-pointer text-rose-500 hover:bg-rose-500/10"
+              >
+                <Trash2 className="w-4 h-4 shrink-0 text-rose-500" />
+                Delete
+              </button>
+            )}
+
+            <div className={`my-1 mx-3 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`} />
             <button
               onClick={() => setMoveDialog(null)}
               className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${textMuted} ${contextHover}`}
             >
               Cancel
             </button>
+          </div>
+        </>
+      )}
+
+      {/* ───── SINGLE DELETE CONFIRMATION POPUP ───── */}
+      {deleteConfirm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 z-[290] backdrop-blur-sm animate-in fade-in duration-150"
+            onClick={() => !deleteInProgress && setDeleteConfirm(null)}
+          />
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <div
+              className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-150 ${
+                isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-rose-500/15 text-rose-500">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold">Delete Document</h3>
+                  <p className={`text-sm mt-1 leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    Are you sure you want to delete <span className="font-semibold text-rose-500 break-all">{deleteConfirm.item.name}</span>? This will permanently remove the document and its AI vector memory.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={deleteInProgress}
+                  onClick={() => setDeleteConfirm(null)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 ${
+                    isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteInProgress}
+                  onClick={async () => {
+                    setDeleteInProgress(true);
+                    try {
+                      if (deleteConfirm.source === "ai-brain") {
+                        await handleAiBrainDelete(deleteConfirm.item);
+                      } else {
+                        await handleOrgBrainDelete(deleteConfirm.item);
+                      }
+                    } finally {
+                      setDeleteInProgress(false);
+                      setDeleteConfirm(null);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deleteInProgress ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Yes, Delete"
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}
