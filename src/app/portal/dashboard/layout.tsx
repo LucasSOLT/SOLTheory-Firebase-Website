@@ -15,7 +15,7 @@ import { useTranslation, TIMEZONE_OPTIONS } from "@/lib/i18n";
 import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
 import { FEATURE_FLAGS } from '@/lib/feature-flags';
-import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, isOracle, DEVELOPER_EMAIL } from "@/lib/org-config";
+import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, isOracle, DEVELOPER_EMAIL, getOrgByEmailDomain } from "@/lib/org-config";
 import { OrgProvider } from "@/contexts/OrgContext";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { getAuthHeaders } from "@/lib/api-auth-client";
@@ -313,16 +313,58 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userMemberRole, setUserMemberRole] = useState<string | null>(null);
   useEffect(() => {
     if (!firestore || !user?.uid || !currentOrgId) return;
+    const email = (user.email || "").toLowerCase();
+
+    // ── SINGLE-ORGANIZATION ENFORCEMENT ──
+    // Lucas is Oracle — belongs exclusively to 'soltheory'.
+    // Never auto-provision Lucas into secondary orgs (nxtchapter, lnu, etc.)!
+    if (email === "lucas@soltheory.com") {
+      setUserMemberRole("oracle");
+      setIsMemberReady(true);
+      if (currentOrgId === "soltheory") {
+        const memberDocRef = doc(firestore, `orgs/soltheory/members`, user.uid);
+        getDoc(memberDocRef).then((snap) => {
+          if (!snap.exists()) {
+            setDoc(memberDocRef, {
+              uid: user.uid,
+              email: user.email || "",
+              displayName: user.displayName || "",
+              role: "oracle",
+              joinedAt: new Date().toISOString(),
+            }).catch(console.error);
+          }
+        });
+      }
+      return;
+    }
+
+    // For other users: check if currentOrgId matches their single designated organization
+    const domainOrg = getOrgByEmailDomain(email);
+    if (domainOrg && domainOrg.id !== currentOrgId) {
+      // User belongs to another organization by domain! Do not auto-provision here.
+      setIsMemberReady(true);
+      return;
+    }
+
     const memberDocRef = doc(firestore, `orgs/${currentOrgId}/members`, user.uid);
-    getDoc(memberDocRef).then((snap) => {
+    getDoc(memberDocRef).then(async (snap) => {
       if (!snap.exists()) {
-        const email = (user.email || "").toLowerCase();
-        // Determine role based on org config
+        // Also check if user has a different organization in their /users/{uid} document
+        try {
+          const userDocRef = doc(firestore, "users", user.uid);
+          const userSnap = await getDoc(userDocRef);
+          const userData = userSnap.data();
+
+          if (userData?.organization && userData.organization !== currentOrgId) {
+            // User belongs to another org! Do not auto-provision into currentOrgId.
+            setIsMemberReady(true);
+            return;
+          }
+        } catch {}
+
         let defaultRole = "user";
         const orgConfig = ORG_REGISTRY[currentOrgId];
-        if (email === "lucas@soltheory.com") {
-          defaultRole = "oracle";
-        } else if (orgConfig?.adminEmails?.includes(email)) {
+        if (orgConfig?.adminEmails?.includes(email)) {
           defaultRole = "admin";
         }
         setDoc(memberDocRef, {

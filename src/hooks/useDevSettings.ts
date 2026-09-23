@@ -130,10 +130,19 @@ export function useDevSettings() {
     return () => unsubscribers.forEach(u => u());
   }, [firestore, isDeveloper]);
 
-  // Assign a user to an org with a specific role
+  // Assign a user to an org with a specific role (enforcing strictly ONE organization)
   const assignUserToOrg = useCallback(async (uid: string, orgId: string, role: OrgRole) => {
     if (!firestore) return;
     const globalUser = allUsers.find(u => u.uid === uid);
+
+    // ── SINGLE-ORGANIZATION ENFORCEMENT ──
+    // Remove from all other orgs so user belongs strictly to ONE organization
+    for (const otherOrg of ALL_ORGS) {
+      if (otherOrg.id === orgId) continue;
+      const otherRef = doc(firestore, `orgs/${otherOrg.id}/members`, uid);
+      await deleteDoc(otherRef).catch(() => {});
+    }
+
     const memberDocRef = doc(firestore, `orgs/${orgId}/members`, uid);
     await setDoc(memberDocRef, {
       uid,
@@ -144,6 +153,14 @@ export function useDevSettings() {
       promotedBy: user?.uid || "",
       promotedAt: new Date().toISOString(),
     });
+
+    // Sync /users/{uid} document
+    const userDocRef = doc(firestore, "users", uid);
+    await setDoc(userDocRef, {
+      organization: orgId,
+      allowedOrgs: [orgId],
+      [`orgRoles.${orgId}`]: role,
+    }, { merge: true }).catch(() => {});
   }, [firestore, allUsers, user?.uid]);
 
   // Remove a user from an org
@@ -151,6 +168,13 @@ export function useDevSettings() {
     if (!firestore) return;
     const memberDocRef = doc(firestore, `orgs/${orgId}/members`, uid);
     await deleteDoc(memberDocRef);
+
+    // Clear organization if it matched orgId
+    const userDocRef = doc(firestore, "users", uid);
+    await setDoc(userDocRef, {
+      organization: null,
+      allowedOrgs: [],
+    }, { merge: true }).catch(() => {});
   }, [firestore]);
 
   // Update a user's role in an org

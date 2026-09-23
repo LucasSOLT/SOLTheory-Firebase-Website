@@ -16,11 +16,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useUser, useFirestore } from "@/firebase";
-import { doc, collection, onSnapshot, query, setDoc, Timestamp } from "firebase/firestore";
+import { doc, collection, onSnapshot, query, setDoc, getDoc, deleteDoc, Timestamp } from "firebase/firestore";
 import type { OrgRole, OrgMember } from "@/lib/rbac";
 import { hasPermission, ROLE_HIERARCHY } from "@/lib/rbac";
 import { ADMIN_EMAILS } from "@/lib/admin";
-import { ORG_REGISTRY, isOracle as checkIsOracle } from "@/lib/org-config";
+import { ORG_REGISTRY, isOracle as checkIsOracle, getOrgByEmailDomain } from "@/lib/org-config";
 import { useOrgId } from "@/contexts/OrgContext";
 
 /* ─── Protected Admins ──────────────────────────────────────────────────────
@@ -79,6 +79,43 @@ export function useOrgRole(orgId?: string): UseOrgRoleReturn {
       return;
     }
 
+    // ── ORACLE ENFORCEMENT ──
+    // The Oracle (lucas@soltheory.com) ALWAYS has trueRole = "oracle" across ALL orgs!
+    // But Oracle belongs EXCLUSIVELY to "soltheory".
+    if (isOracleUser) {
+      setTrueRole("oracle");
+      setEffectiveRoleState("oracle");
+      setIsLoading(false);
+
+      if (effectiveOrgId === "soltheory") {
+        const memberDocRef = doc(firestore, `orgs/soltheory/members`, user.uid);
+        getDoc(memberDocRef).then((snap) => {
+          if (!snap.exists()) {
+            setDoc(memberDocRef, {
+              uid: user.uid,
+              email: user.email || "",
+              displayName: user.displayName || "",
+              role: "oracle",
+              joinedAt: new Date().toISOString(),
+            }).catch(console.error);
+          } else if (snap.data()?.role !== "oracle") {
+            setDoc(memberDocRef, { role: "oracle" }, { merge: true }).catch(console.error);
+          }
+        });
+      } else {
+        // Oracle is visiting a secondary org (e.g. nxtchapter, lnu).
+        // Oracle must NOT be a member of this org. Clean up any accidental member doc!
+        const memberDocRef = doc(firestore, `orgs/${effectiveOrgId}/members`, user.uid);
+        getDoc(memberDocRef).then((snap) => {
+          if (snap.exists()) {
+            deleteDoc(memberDocRef).catch(console.error);
+          }
+        });
+      }
+      return;
+    }
+
+    // ── NON-ORACLE USERS: SINGLE-ORGANIZATION LISTENER & AUTO-SEED ──
     const memberDocRef = doc(firestore, `orgs/${effectiveOrgId}/members`, user.uid);
 
     const unsub = onSnapshot(
@@ -89,23 +126,7 @@ export function useOrgRole(orgId?: string): UseOrgRoleReturn {
           const firestoreRole = (data.role as OrgRole) || "user";
           const firestoreEffectiveRole = data.effectiveRole as OrgRole | undefined;
 
-          if (isOracleUser) {
-            // ── ORACLE ENFORCEMENT ──
-            // Oracle's true role is ALWAYS "oracle" regardless of Firestore
-            if (firestoreRole !== "oracle") {
-              console.warn(`[useOrgRole] Oracle ${email} had role "${firestoreRole}" — auto-correcting to "oracle"`);
-              try {
-                await setDoc(memberDocRef, { role: "oracle" }, { merge: true });
-              } catch (err) {
-                console.error("[useOrgRole] Failed to auto-correct oracle role:", err);
-              }
-            }
-            setTrueRole("oracle");
-            // If Oracle has an effectiveRole set (fake-demote), use that; otherwise use oracle
-            setEffectiveRoleState(firestoreEffectiveRole || "oracle");
-          } else if (isProtectedAdmin(effectiveOrgId, email) && firestoreRole !== "admin" && firestoreRole !== "oracle") {
-            // ── PROTECTED ADMIN ENFORCEMENT ──
-            // Protected admins are always at least "admin"
+          if (isProtectedAdmin(effectiveOrgId, email) && firestoreRole !== "admin" && firestoreRole !== "oracle") {
             console.warn(`[useOrgRole] Protected admin ${email} had role "${firestoreRole}" — auto-correcting to "admin"`);
             try {
               await setDoc(memberDocRef, { role: "admin" }, { merge: true });
@@ -119,20 +140,39 @@ export function useOrgRole(orgId?: string): UseOrgRoleReturn {
             setEffectiveRoleState(firestoreRole);
           }
         } else {
-          // Auto-seed: determine role based on email
-          let defaultRole: OrgRole = "user";
-
-          if (isOracleUser) {
-            defaultRole = "oracle";
-          } else if (isProtectedAdmin(effectiveOrgId, email)) {
-            defaultRole = "admin";
-          } else if (ORG_REGISTRY[effectiveOrgId]?.adminEmails.includes(email)) {
-            defaultRole = "admin";
-          } else if (ADMIN_EMAILS.some(ae => ae.toLowerCase() === email)) {
-            defaultRole = "admin";
+          // Document does not exist.
+          // SINGLE-ORG ENFORCEMENT: Only auto-seed if this org matches the user's single organization!
+          const domainOrg = getOrgByEmailDomain(email);
+          if (domainOrg && domainOrg.id !== effectiveOrgId) {
+            // User belongs to another organization by domain!
+            setTrueRole("read-only");
+            setEffectiveRoleState("read-only");
+            setIsLoading(false);
+            return;
           }
 
+          // Check user document in /users/{uid}
           try {
+            const userRef = doc(firestore, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            const userData = userSnap.data();
+
+            if (userData?.organization && userData.organization !== effectiveOrgId) {
+              // User is already registered with another organization!
+              setTrueRole("read-only");
+              setEffectiveRoleState("read-only");
+              setIsLoading(false);
+              return;
+            }
+
+            // Determine role within their designated org
+            let defaultRole: OrgRole = "user";
+            if (isProtectedAdmin(effectiveOrgId, email)) {
+              defaultRole = "admin";
+            } else if (ORG_REGISTRY[effectiveOrgId]?.adminEmails.includes(email)) {
+              defaultRole = "admin";
+            }
+
             await setDoc(memberDocRef, {
               uid: user.uid,
               email: user.email || "",
@@ -140,10 +180,17 @@ export function useOrgRole(orgId?: string): UseOrgRoleReturn {
               role: defaultRole,
               joinedAt: new Date().toISOString(),
             });
+
+            // Lock /users/{uid} to this single organization
+            await setDoc(userRef, {
+              organization: effectiveOrgId,
+              allowedOrgs: [effectiveOrgId],
+            }, { merge: true });
+
             setTrueRole(defaultRole);
             setEffectiveRoleState(defaultRole);
           } catch (err) {
-            console.error("[useOrgRole] Failed to auto-seed member doc:", err);
+            console.error("[useOrgRole] Failed to check/auto-seed member doc:", err);
             setTrueRole("user");
             setEffectiveRoleState("user");
           }
@@ -206,8 +253,8 @@ export function useOrgRole(orgId?: string): UseOrgRoleReturn {
     }
 
     // ── PROTECTED ADMIN GUARD ──
-    // Block demotion of protected admins below admin
-    if (targetMember && isProtectedAdmin(effectiveOrgId, targetMember.email) && ROLE_HIERARCHY[newRole] < ROLE_HIERARCHY["admin"]) {
+    // Block demotion of protected admins below admin (Oracle can manage anyone)
+    if (!isOracleUser && targetMember && isProtectedAdmin(effectiveOrgId, targetMember.email) && ROLE_HIERARCHY[newRole] < ROLE_HIERARCHY["admin"]) {
       console.warn(`[useOrgRole] Blocked attempt to demote protected admin ${targetMember.email}`);
       throw new Error("Cannot demote a protected admin below admin level. This can only be changed in the source code.");
     }

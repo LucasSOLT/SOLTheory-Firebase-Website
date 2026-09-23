@@ -26,6 +26,7 @@ import {
   UserPlus,
   Info,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 import type { OrgRole, OrgMember } from "@/lib/rbac";
 import {
@@ -155,26 +156,64 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
     [setMemberRole]
   );
 
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+
+  const handleCleanupDuplicates = useCallback(async () => {
+    if (!window.confirm("Clean up cross-org duplicate memberships across all organizations? Accounts will be restricted strictly to their single primary organization.")) return;
+    setIsCleaningDuplicates(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/org/members", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify({ action: "cleanup-duplicates" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Cleanup failed");
+      const removedCount = data.report?.removed?.length || 0;
+      alert(`Cleanup complete! Removed ${removedCount} duplicate membership(s). Each account is now locked to its single organization.`);
+    } catch (err: any) {
+      console.error("[OrgRBACPanel] Cleanup error:", err);
+      alert(err.message || "Failed to clean up duplicates");
+    } finally {
+      setIsCleaningDuplicates(false);
+    }
+  }, []);
+
   const handleAssignUser = useCallback(
     async (user: { uid: string; email: string; displayName: string }, role: OrgRole) => {
-      if (!firestore) return;
       setAssigningUid(user.uid);
       try {
-        const memberDocRef = doc(firestore, "orgs", orgId, "members", user.uid);
-        await setDoc(memberDocRef, {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          role,
-          joinedAt: new Date().toISOString(),
+        const headers = await getAuthHeaders();
+        const res = await fetch("/api/org/members", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...headers,
+          },
+          body: JSON.stringify({
+            orgId,
+            targetUid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            role,
+          }),
         });
-      } catch (err) {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to assign user to organization");
+        }
+      } catch (err: any) {
         console.error("[OrgRBACPanel] Failed to assign user:", err);
+        alert(err.message || "Failed to assign user");
       } finally {
         setAssigningUid(null);
       }
     },
-    [firestore, orgId]
+    [orgId]
   );
 
   const assignableRoles = getAssignableRoles(currentUserRole);
@@ -259,6 +298,25 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
             )}
           </p>
         </div>
+        {currentUserRole === "oracle" && (
+          <button
+            onClick={handleCleanupDuplicates}
+            disabled={isCleaningDuplicates}
+            title="Clean up cross-org duplicate accounts across all organizations"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+              isDarkMode
+                ? "bg-slate-800 hover:bg-slate-700 border-slate-700 text-amber-400"
+                : "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-700"
+            }`}
+          >
+            {isCleaningDuplicates ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            <span>Clean Duplicates</span>
+          </button>
+        )}
         <Users
           className={`w-4 h-4 ${
             isDarkMode ? "text-slate-500" : "text-slate-400"
@@ -491,9 +549,10 @@ function MemberRow({
   const isOracleMember = safeRole === "oracle";
   
   const [isRemoving, setIsRemoving] = useState(false);
-  const { user } = useUser();
   const isCurrentUser = user?.uid === member.uid;
-  const canRemove = canModify && !isOracleMember && !isCurrentUser;
+  const isUserOracle = currentUserRole === "oracle";
+  const canRemove = (isUserOracle && (orgId !== "soltheory" || (!isOracleMember && !isCurrentUser))) ||
+                    (canModify && !isOracleMember && !isCurrentUser);
 
   const handleRemove = async () => {
     const confirm = window.confirm(`Remove ${member.displayName || member.email} from this organization?`);

@@ -223,15 +223,14 @@ export default function SystemHealthPage() {
 
   const handleToggleOrgAccess = async (uid: string, allowedOrgs: string[], orgToToggle: string) => {
     try {
-      const newOrgs = allowedOrgs.includes(orgToToggle) 
-        ? allowedOrgs.filter(o => o !== orgToToggle)
-        : [...allowedOrgs, orgToToggle];
+      // Single-org enforcement: an account belongs strictly to at most ONE organization
+      const newOrgs = allowedOrgs.includes(orgToToggle) ? [] : [orgToToggle];
         
       const baseHeaders = await getAuthHeaders();
       const res = await fetch("/api/admin/users", {
         method: "PUT",
         headers: { ...baseHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ uid, updates: { allowedOrgs: newOrgs } }),
+        body: JSON.stringify({ uid, updates: { allowedOrgs: newOrgs, organization: newOrgs[0] || null } }),
       });
       if (res.ok) fetchUsers();
     } catch (err: any) {

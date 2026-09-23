@@ -61,11 +61,19 @@ export async function PUT(req: NextRequest) {
     }
 
     // Only allow specific fields to be updated
-    const allowedFields = ["allowedOrgs", "orgRoles", "role", "accessLevel", "frozenAt", "frozenBy", "frozenReason"];
+    const allowedFields = ["organization", "allowedOrgs", "orgRoles", "role", "accessLevel", "frozenAt", "frozenBy", "frozenReason"];
     const sanitized: Record<string, any> = {};
     for (const key of allowedFields) {
       if (key in updates) {
         sanitized[key] = updates[key];
+      }
+    }
+
+    // ── Single-org enforcement: restrict to at most 1 org ──
+    if (sanitized.allowedOrgs && Array.isArray(sanitized.allowedOrgs)) {
+      sanitized.allowedOrgs = sanitized.allowedOrgs.slice(0, 1);
+      if (sanitized.allowedOrgs.length > 0) {
+        sanitized.organization = sanitized.allowedOrgs[0];
       }
     }
 
