@@ -392,9 +392,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     });
   }, [firestore, user?.uid, user?.email, user?.displayName, currentOrgId]);
 
-  // Dual-org users: anyone who appears in adminEmails across multiple orgs
+  // Dual-org / cross-org users: Oracle or anyone who appears in adminEmails across multiple orgs
   const isDualOrgUser = (() => {
     if (!user?.email) return false;
+    if (isOracle(user.email)) return true; // Oracle can switch between ALL orgs!
     const email = user.email.toLowerCase();
     let count = 0;
     for (const org of Object.values(ORG_REGISTRY)) {
@@ -2097,22 +2098,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           <span>{t.contentManager}</span>
                           {contentManagerActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-green-500" />}
                         </button>
-                        <Link
-                          href={`${dashboardHome}/activity-log`}
-                          onClick={() => setIsDevToolsOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
-                        >
-                          <Activity className="w-4 h-4 text-slate-400" />
-                          {t.sessionAuditor}
-                        </Link>
-                        <Link
-                          href={`${dashboardHome}/end-users`}
-                          onClick={() => setIsDevToolsOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-[#f2ece0]'}`}
-                        >
-                          <Users className="w-4 h-4 text-slate-400" />
-                          {t.endUserDashboard}
-                        </Link>
                       </div>
                     </>
                   )}
