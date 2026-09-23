@@ -20,7 +20,7 @@ import { doc, collection, onSnapshot, query, setDoc, getDoc, deleteDoc, Timestam
 import type { OrgRole, OrgMember } from "@/lib/rbac";
 import { hasPermission, ROLE_HIERARCHY } from "@/lib/rbac";
 import { ADMIN_EMAILS } from "@/lib/admin";
-import { ORG_REGISTRY, isOracle as checkIsOracle, getOrgByEmailDomain } from "@/lib/org-config";
+import { ORG_REGISTRY, isOracle as checkIsOracle, getOrgByEmailDomain, resolveUserOrg } from "@/lib/org-config";
 import { useOrgId } from "@/contexts/OrgContext";
 
 /* ─── Protected Admins ──────────────────────────────────────────────────────
@@ -156,8 +156,9 @@ export function useOrgRole(orgId?: string): UseOrgRoleReturn {
             const userRef = doc(firestore, "users", user.uid);
             const userSnap = await getDoc(userRef);
             const userData = userSnap.data();
+            const userOrg = resolveUserOrg(userData, email);
 
-            if (userData?.organization && userData.organization !== effectiveOrgId) {
+            if (userOrg && userOrg !== effectiveOrgId) {
               // User is already registered with another organization!
               setTrueRole("read-only");
               setEffectiveRoleState("read-only");

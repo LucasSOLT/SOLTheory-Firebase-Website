@@ -24,6 +24,7 @@ import {
   Video,
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import { safeExternalUrl } from '@/lib/utils';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -401,7 +402,7 @@ function ExternalVerificationViewer({ response, content, isDarkMode }: { respons
       {content?.externalUrl && (
         <div className="mb-3">
           <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>External URL</div>
-          <a href={content.externalUrl} target="_blank" rel="noopener noreferrer"
+          <a href={safeExternalUrl(content.externalUrl)} target="_blank" rel="noopener noreferrer"
             className={`text-sm underline ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
             {content.externalUrl}
           </a>
@@ -628,7 +629,7 @@ export default function AdminSubmissionViewer({
               </div>
               {certUrl ? (
                 <a
-                  href={certUrl}
+                  href={safeExternalUrl(certUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${

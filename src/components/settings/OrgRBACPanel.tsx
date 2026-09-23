@@ -3,9 +3,11 @@
 /**
  * @file OrgRBACPanel.tsx
  * @description Settings panel for managing organizational Role-Based Access Control.
- * Shows all org members in a table with role badges and allows admins/oracle
- * to change member roles via a dropdown. Also cross-references the global /users
- * collection to surface unassigned users that can be added to the org.
+ * Renders a full-page "End User Dashboard" style UI with:
+ *   - Oracle Mode card (for Oracle users to test different role perspectives)
+ *   - 4-column member table (First Name, Last Name, Email, Access Level)
+ *   - Unassigned users section for domain-matching users not yet in the org
+ *   - Sticky Access Levels reference panel
  * Intended to be embedded inside the Settings > Security page — the parent page
  * handles visibility gating.
  */
@@ -18,13 +20,14 @@ import { collection, query, onSnapshot, doc, setDoc } from "firebase/firestore";
 import {
   Users,
   Shield,
+  ShieldAlert,
+  Eye,
+  Settings,
   ChevronDown,
-  ChevronUp,
   Crown,
   Check,
   Loader2,
   UserPlus,
-  Info,
   Trash2,
   Sparkles,
 } from "lucide-react";
@@ -33,17 +36,17 @@ import {
   ROLE_LABELS,
   ROLE_COLORS,
   ALL_ROLES,
+  ACCESS_LEVELS,
+  ACCESS_LEVEL_INFO,
   canModifyMember,
   getAssignableRoles,
   hasPermission,
 } from "@/lib/rbac";
-import { getOrgConfig, getOrgLabel } from "@/lib/org-config";
+import { getOrgConfig, getOrgLabel, isOracle as checkIsOracle } from "@/lib/org-config";
 import { useOrgId } from "@/contexts/OrgContext";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 
-
-
-/* ─── Role descriptions for guide ────────────────────────────────────────────── */
+/* ─── Role descriptions for reference panel ──────────────────────────────────── */
 
 const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
   oracle: "Platform god-mode. Cross-org management. Can modify anyone's role. Reserved for lucas@soltheory.com.",
@@ -51,6 +54,16 @@ const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
   user: "View and edit contacts. Basic CRM access. Import and export.",
   "read-only": "View contacts and dashboards only. No modifications allowed.",
 };
+
+/* ─── Extended user type with name fields ────────────────────────────────────── */
+
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  firstName: string;
+  lastName: string;
+}
 
 /* ─── Props ──────────────────────────────────────────────────────────────────── */
 
@@ -64,18 +77,22 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
   const contextOrgId = useOrgId();
   const orgId = orgIdProp || contextOrgId;
   const { isDarkMode } = useTheme();
-  const { role: currentUserRole, members, setMemberRole, isLoading } = useOrgRole(orgId);
+  const { role: currentUserRole, members, setMemberRole, isLoading, setEffectiveRole } = useOrgRole(orgId);
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const [openDropdownUid, setOpenDropdownUid] = useState<string | null>(null);
   const [changingRoleFor, setChangingRoleFor] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  /* ─── New state for cross-referencing /users and role guide ───────────────── */
-  const [globalUsers, setGlobalUsers] = useState<{ uid: string; email: string; displayName: string }[]>([]);
+  /* ─── State for cross-referencing /users and Oracle mode ──────────────────── */
+  const [globalUsers, setGlobalUsers] = useState<UserProfile[]>([]);
   const [assigningUid, setAssigningUid] = useState<string | null>(null);
-  const [assignRole, setAssignRole] = useState<OrgRole>("user");
-  const [showRoleGuide, setShowRoleGuide] = useState(false);
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+
+  // Oracle effective role — derived from useOrgRole
+  const trueIsOracle = checkIsOracle(user?.email);
+  const { role: effectiveRole } = useOrgRole(orgId);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -105,7 +122,7 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
       q,
       (snapshot) => {
         try {
-          const filtered: { uid: string; email: string; displayName: string }[] = [];
+          const filtered: UserProfile[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
             const email = (data.email || "").toLowerCase();
@@ -115,6 +132,8 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
                 uid: docSnap.id,
                 email: data.email || "",
                 displayName: data.displayName || data.name || "",
+                firstName: data.firstName || "",
+                lastName: data.lastName || "",
               });
             }
           });
@@ -139,6 +158,15 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
     [globalUsers, memberUids]
   );
 
+  /* ─── Build a map from uid → {firstName, lastName} for member table ──────── */
+  const userProfileMap = useMemo(() => {
+    const map = new Map<string, { firstName: string; lastName: string }>();
+    for (const u of globalUsers) {
+      map.set(u.uid, { firstName: u.firstName, lastName: u.lastName });
+    }
+    return map;
+  }, [globalUsers]);
+
   /* ─── Handlers ────────────────────────────────────────────────────────────── */
 
   const handleRoleChange = useCallback(
@@ -155,8 +183,6 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
     },
     [setMemberRole]
   );
-
-  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
 
   const handleCleanupDuplicates = useCallback(async () => {
     if (!window.confirm("Clean up cross-org duplicate memberships across all organizations? Accounts will be restricted strictly to their single primary organization.")) return;
@@ -184,8 +210,8 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
   }, []);
 
   const handleAssignUser = useCallback(
-    async (user: { uid: string; email: string; displayName: string }, role: OrgRole) => {
-      setAssigningUid(user.uid);
+    async (assignUser: UserProfile, role: OrgRole) => {
+      setAssigningUid(assignUser.uid);
       try {
         const headers = await getAuthHeaders();
         const res = await fetch("/api/org/members", {
@@ -196,9 +222,9 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
           },
           body: JSON.stringify({
             orgId,
-            targetUid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
+            targetUid: assignUser.uid,
+            email: assignUser.email,
+            displayName: assignUser.displayName,
             role,
           }),
         });
@@ -216,6 +242,33 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
     [orgId]
   );
 
+  const handleRemoveMember = useCallback(
+    async (member: OrgMember) => {
+      const confirm = window.confirm(`Remove ${member.displayName || member.email} from this organization?`);
+      if (!confirm) return;
+
+      setChangingRoleFor(member.uid);
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch("/api/org/members", {
+          method: "DELETE",
+          headers,
+          body: JSON.stringify({ orgId, targetUid: member.uid }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to remove member");
+        }
+      } catch (err: any) {
+        console.error("[OrgRBACPanel] Remove error:", err);
+        alert(err.message || "Failed to remove member");
+      } finally {
+        setChangingRoleFor(null);
+      }
+    },
+    [orgId]
+  );
+
   const assignableRoles = getAssignableRoles(currentUserRole);
   const orgDisplayName = getOrgLabel(orgId);
 
@@ -223,23 +276,9 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
 
   if (isLoading) {
     return (
-      <div
-        className={`rounded-xl border p-8 flex items-center justify-center ${
-          isDarkMode
-            ? "bg-slate-900/80 border-slate-700/60"
-            : "bg-white border-[#ede8da]/80"
-        }`}
-      >
-        <Loader2
-          className={`w-5 h-5 animate-spin ${
-            isDarkMode ? "text-slate-400" : "text-slate-500"
-          }`}
-        />
-        <span
-          className={`ml-2 text-sm ${
-            isDarkMode ? "text-slate-400" : "text-slate-500"
-          }`}
-        >
+      <div className={`flex items-center justify-center py-16 ${isDarkMode ? "bg-slate-900" : "bg-[#faf6ed]"}`}>
+        <Loader2 className={`w-5 h-5 animate-spin ${isDarkMode ? "text-slate-400" : "text-slate-500"}`} />
+        <span className={`ml-2 text-sm ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
           Loading members…
         </span>
       </div>
@@ -249,53 +288,18 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
   /* ─── Main Render ──────────────────────────────────────────────────────────── */
 
   return (
-    <div
-      className={`rounded-xl border transition-shadow ${
-        isDarkMode
-          ? "bg-slate-900/80 border-slate-700/60"
-          : "bg-white border-[#ede8da]/80"
-      }`}
-    >
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="px-5 py-4 flex items-center gap-3 border-b"
-        style={{
-          borderColor: isDarkMode ? "rgba(51,65,85,0.6)" : "rgba(237,232,218,0.8)",
-        }}
-      >
-        <div
-          className={`p-2 rounded-lg ${
-            isDarkMode ? "bg-indigo-900/40" : "bg-indigo-50"
-          }`}
-        >
-          <Shield
-            className={`w-4 h-4 ${
-              isDarkMode ? "text-indigo-400" : "text-indigo-600"
-            }`}
-          />
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
+          <Users className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3
-            className={`text-sm font-semibold ${
-              isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-          >
+          <h3 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
             {orgDisplayName} — Access Control
           </h3>
-          <p
-            className={`text-xs mt-0.5 ${
-              isDarkMode ? "text-slate-400" : "text-slate-500"
-            }`}
-          >
-            {members.length} active member{members.length !== 1 ? "s" : ""}
-            {unassignedUsers.length > 0 && (
-              <span
-                className={`ml-1 ${
-                  isDarkMode ? "text-amber-400/80" : "text-amber-600/80"
-                }`}
-              >
-                · {unassignedUsers.length} unassigned
-              </span>
-            )}
+          <p className={`text-sm mt-0.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+            All registered members and their access levels.
           </p>
         </div>
         {currentUserRole === "oracle" && (
@@ -303,7 +307,7 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
             onClick={handleCleanupDuplicates}
             disabled={isCleaningDuplicates}
             title="Clean up cross-org duplicate accounts across all organizations"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
               isDarkMode
                 ? "bg-slate-800 hover:bg-slate-700 border-slate-700 text-amber-400"
                 : "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-700"
@@ -317,73 +321,236 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
             <span>Clean Duplicates</span>
           </button>
         )}
-        <Users
-          className={`w-4 h-4 ${
-            isDarkMode ? "text-slate-500" : "text-slate-400"
-          }`}
-        />
       </div>
 
-      {/* ── Role Guide (collapsible) ────────────────────────────────────────── */}
-      <div
-        className="px-5 py-3 border-b"
-        style={{
-          borderColor: isDarkMode ? "rgba(51,65,85,0.4)" : "rgba(237,232,218,0.6)",
-        }}
-      >
-        <button
-          onClick={() => setShowRoleGuide((prev) => !prev)}
-          className={`
-            flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer
-            ${isDarkMode ? "text-slate-400 hover:text-slate-300" : "text-slate-500 hover:text-slate-700"}
-          `}
-        >
-          <Info className="w-3.5 h-3.5" />
-          <span>📖 Understanding Roles</span>
-          <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform duration-200 ${
-              showRoleGuide ? "rotate-180" : ""
-            }`}
-          />
-        </button>
+      {/* Oracle Mode Card */}
+      {trueIsOracle && (
+        <div className={`p-4 sm:p-6 border rounded-lg shadow-sm ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-[#faf6ed] border-slate-900"}`}>
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldAlert className="w-5 h-5 text-amber-500" />
+            <h2 className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Oracle Mode</h2>
+            <div className="ml-auto flex items-center gap-2">
+              <span className={`text-xs font-semibold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Effective Role:</span>
+              <span className="px-2 py-1 text-xs font-bold rounded bg-amber-100 text-amber-800 border border-amber-300">
+                {effectiveRole}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => setEffectiveRole("read-only")}
+              className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${effectiveRole === "read-only" ? "bg-orange-100 text-orange-700 border-orange-300 border" : isDarkMode ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-transparent" : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent"}`}
+            >
+              <Eye className="w-4 h-4" />
+              Read-Only
+            </button>
+            <button
+              onClick={() => setEffectiveRole("user")}
+              className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${effectiveRole === "user" ? "bg-blue-100 text-blue-700 border-blue-300 border" : isDarkMode ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-transparent" : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent"}`}
+            >
+              <Users className="w-4 h-4" />
+              User
+            </button>
+            <button
+              onClick={() => setEffectiveRole("admin")}
+              className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${effectiveRole === "admin" ? "bg-slate-800 text-white border-slate-900 border" : isDarkMode ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-transparent" : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent"}`}
+            >
+              <Settings className="w-4 h-4" />
+              Admin
+            </button>
+            <button
+              onClick={() => setEffectiveRole("oracle")}
+              className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${effectiveRole === "oracle" ? "bg-amber-100 text-amber-800 border border-amber-300" : isDarkMode ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-transparent" : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent"}`}
+            >
+              <Shield className="w-4 h-4" />
+              Oracle (Restore)
+            </button>
+          </div>
+        </div>
+      )}
 
-        {/* Expanded guide content */}
-        <div
-          className={`overflow-hidden transition-all duration-300 ease-in-out ${
-            showRoleGuide ? "max-h-[500px] opacity-100 mt-3" : "max-h-0 opacity-0"
-          }`}
-        >
-          <div
-            className={`rounded-xl border p-4 ${
-              isDarkMode
-                ? "bg-slate-800/60 border-slate-700/50"
-                : "bg-slate-50/80 border-[#ede8da]/60"
-            }`}
-          >
-            <div className="space-y-2.5">
-              {(["oracle", "admin", "user", "read-only"] as OrgRole[]).map((role) => {
-                const colors = ROLE_COLORS[role];
+      {/* Main 2-column layout: Table + Access Levels Panel */}
+      <div className="flex gap-6 min-h-0 flex-1">
+        {/* Left Column: Member Table */}
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* Active Members Table */}
+          <div className={`border rounded-lg overflow-hidden ${isDarkMode ? "border-slate-700" : "border-slate-900"}`}>
+            {/* Table Header */}
+            <div className="grid grid-cols-[1fr_1fr_1.5fr_auto_auto] bg-slate-800 text-white text-xs font-bold uppercase tracking-wider">
+              <div className={`px-4 py-3 border-r border-slate-700`}>First Name</div>
+              <div className={`px-4 py-3 border-r border-slate-700`}>Last Name</div>
+              <div className={`px-4 py-3 border-r border-slate-700`}>Email</div>
+              <div className="px-4 py-3 border-r border-slate-700 min-w-[120px]">Access Level</div>
+              <div className="px-4 py-3 w-12"></div>
+            </div>
+
+            {/* Table Body */}
+            {members.length === 0 ? (
+              <div className={`px-4 py-8 text-center text-sm ${isDarkMode ? "text-slate-400 bg-slate-900" : "text-slate-400 bg-[#faf6ed]"}`}>
+                No members found. Users appear here after they log in.
+              </div>
+            ) : (
+              members.map((member, idx) => {
+                const profile = userProfileMap.get(member.uid);
+                const firstName = profile?.firstName || "";
+                const lastName = profile?.lastName || "";
+                const safeRole: OrgRole = (member.role in ROLE_COLORS) ? member.role : "user";
+                const canModify = canModifyMember(currentUserRole, safeRole);
+                const isOracleMember = safeRole === "oracle";
+                const isCurrentUser = user?.uid === member.uid;
+                const isUserOracle = currentUserRole === "oracle";
+                const canRemove = (isUserOracle && (orgId !== "soltheory" || (!isOracleMember && !isCurrentUser))) ||
+                                  (canModify && !isOracleMember && !isCurrentUser);
+                const isChanging = changingRoleFor === member.uid;
+                const isDropdownOpen = openDropdownUid === member.uid;
+
                 return (
-                  <div key={role} className="flex items-start gap-3">
-                    <span
-                      className={`
-                        inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border shrink-0 mt-0.5
-                        ${isDarkMode
-                          ? `${colors.darkBg} ${colors.darkText} ${colors.darkBorder}`
-                          : `${colors.bg} ${colors.text} ${colors.border}`
-                        }
-                      `}
-                      style={{ minWidth: "72px", justifyContent: "center" }}
-                    >
-                      {ROLE_LABELS[role]}
-                    </span>
-                    <span
-                      className={`text-xs leading-relaxed ${
-                        isDarkMode ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {ROLE_DESCRIPTIONS[role]}
-                    </span>
+                  <div
+                    key={member.uid}
+                    className={`grid grid-cols-[1fr_1fr_1.5fr_auto_auto] text-sm border-t ${isDarkMode ? "border-slate-700" : "border-slate-900"} ${idx % 2 === 0 ? (isDarkMode ? "bg-slate-900" : "bg-[#faf6ed]") : (isDarkMode ? "bg-slate-800/50" : "bg-[#f5f0e1]")}`}
+                  >
+                    <div className={`px-4 py-3 border-r font-medium truncate ${isDarkMode ? "border-slate-700 text-slate-200" : "border-slate-200 text-slate-800"}`}>
+                      {firstName || "—"}
+                    </div>
+                    <div className={`px-4 py-3 border-r font-medium truncate ${isDarkMode ? "border-slate-700 text-slate-200" : "border-slate-200 text-slate-800"}`}>
+                      {lastName || "—"}
+                    </div>
+                    <div className={`px-4 py-3 border-r truncate ${isDarkMode ? "border-slate-700 text-slate-400" : "border-slate-200 text-slate-600"}`}>
+                      {member.email}
+                    </div>
+                    <div className="px-4 py-3 relative min-w-[120px] border-r border-slate-200 dark:border-slate-700">
+                      {isChanging ? (
+                        <Loader2 className={`w-4 h-4 animate-spin ${isDarkMode ? "text-slate-400" : "text-slate-500"}`} />
+                      ) : (
+                        <>
+                          <button
+                            title={isOracleMember ? "Oracle role cannot be changed from the UI" : undefined}
+                            onClick={() => {
+                              if (!canModify) return;
+                              setOpenDropdownUid(isDropdownOpen ? null : member.uid);
+                            }}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold transition-colors ${
+                              isOracleMember
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : safeRole === "admin"
+                                ? "bg-slate-800 text-white"
+                                : safeRole === "read-only"
+                                ? "bg-orange-100 text-orange-700 border border-orange-300"
+                                : "bg-slate-100 text-slate-600"
+                            } ${!canModify ? "cursor-default" : "cursor-pointer hover:opacity-80"}`}
+                          >
+                            {isOracleMember ? "Oracle" : ROLE_LABELS[safeRole]}
+                            {canModify && <ChevronDown className="w-3 h-3 opacity-50" />}
+                          </button>
+
+                          {/* Role Dropdown */}
+                          {isDropdownOpen && canModify && (
+                            <>
+                              <div className="fixed inset-0 z-30" onClick={() => setOpenDropdownUid(null)} />
+                              <div
+                                ref={openDropdownUid === member.uid ? dropdownRef : undefined}
+                                className={`absolute left-4 top-full mt-1 w-40 border rounded-lg shadow-lg z-40 py-1 animate-in fade-in slide-in-from-top-1 duration-100 ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-[#faf8f3] border-slate-200"}`}
+                              >
+                                {assignableRoles.map((level) => (
+                                  <button
+                                    key={level}
+                                    onClick={() => handleRoleChange(member.uid, level)}
+                                    className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors ${
+                                      safeRole === level
+                                        ? (isDarkMode ? "bg-slate-700 text-white font-bold" : "bg-slate-100 text-slate-900 font-bold")
+                                        : (isDarkMode ? "text-slate-300 hover:bg-slate-700 hover:text-white" : "text-slate-600 hover:bg-[#f2ece0] hover:text-slate-900")
+                                    }`}
+                                  >
+                                    {ROLE_LABELS[level]}
+                                    {safeRole === level && <span className="ml-1 text-green-600">✓</span>}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="px-2 py-3 w-12 flex items-center justify-center">
+                      {canRemove && !isChanging && (
+                        <button
+                          onClick={() => handleRemoveMember(member)}
+                          className={`p-1 rounded transition-colors cursor-pointer ${
+                            isDarkMode
+                              ? "text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                              : "text-slate-400 hover:bg-red-50 hover:text-red-500"
+                          }`}
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Unassigned Users Table */}
+          {unassignedUsers.length > 0 && (
+            <div>
+              <div className={`flex items-center gap-2 mb-3 ${isDarkMode ? "text-amber-400" : "text-amber-700"}`}>
+                <UserPlus className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  Unassigned Users ({unassignedUsers.length})
+                </span>
+              </div>
+              <div className={`border rounded-lg overflow-hidden ${isDarkMode ? "border-slate-700" : "border-slate-900"}`}>
+                {/* Table Header */}
+                <div className="grid grid-cols-[1fr_1fr_1.5fr_auto] bg-slate-800 text-white text-xs font-bold uppercase tracking-wider">
+                  <div className={`px-4 py-3 border-r border-slate-700`}>First Name</div>
+                  <div className={`px-4 py-3 border-r border-slate-700`}>Last Name</div>
+                  <div className={`px-4 py-3 border-r border-slate-700`}>Email</div>
+                  <div className="px-4 py-3 min-w-[120px]">Action</div>
+                </div>
+
+                {unassignedUsers.map((u, idx) => (
+                  <UnassignedTableRow
+                    key={u.uid}
+                    user={u}
+                    idx={idx}
+                    isDarkMode={isDarkMode}
+                    assignableRoles={assignableRoles}
+                    isAssigning={assigningUid === u.uid}
+                    onAssign={handleAssignUser}
+                    canAssign={hasPermission(currentUserRole, "admin")}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Access Levels Reference Panel */}
+        <div className="w-72 shrink-0 hidden lg:block">
+          <div className={`border rounded-lg overflow-hidden sticky top-6 ${isDarkMode ? "border-slate-700" : "border-slate-900"}`}>
+            <div className="bg-slate-800 text-white px-4 py-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider">Access Levels</h3>
+            </div>
+            <div className={`divide-y ${isDarkMode ? "divide-slate-700" : "divide-slate-300"}`}>
+              {ACCESS_LEVELS.map((level) => {
+                const info = ACCESS_LEVEL_INFO[level];
+                return (
+                  <div key={level} className={`px-4 py-3 ${isDarkMode ? "bg-slate-800" : "bg-[#faf6ed]"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-bold ${
+                        level === "Admin-Level"
+                          ? (isDarkMode ? "text-slate-200" : "text-slate-900")
+                          : level === "Oracle"
+                          ? "text-amber-500"
+                          : (isDarkMode ? "text-slate-400" : "text-slate-600")
+                      }`}>{level}</span>
+                      {info.functional && (
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Active</span>
+                      )}
+                    </div>
+                    <p className={`text-[11px] leading-relaxed ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>{info.description}</p>
                   </div>
                 );
               })}
@@ -391,468 +558,67 @@ export default function OrgRBACPanel({ orgId: orgIdProp }: OrgRBACPanelProps) {
           </div>
         </div>
       </div>
-
-      {/* ── Active Members Section ──────────────────────────────────────────── */}
-      <div>
-        <div
-          className={`px-5 py-2.5 flex items-center gap-2 ${
-            isDarkMode ? "bg-slate-800/30" : "bg-slate-50/50"
-          }`}
-          style={{
-            borderBottom: `1px solid ${isDarkMode ? "rgba(51,65,85,0.4)" : "rgba(237,232,218,0.6)"}`,
-          }}
-        >
-          <Shield
-            className={`w-3.5 h-3.5 ${
-              isDarkMode ? "text-emerald-400/70" : "text-emerald-600/70"
-            }`}
-          />
-          <span
-            className={`text-xs font-semibold uppercase tracking-wider ${
-              isDarkMode ? "text-slate-400" : "text-slate-500"
-            }`}
-          >
-            Active Members ({members.length})
-          </span>
-        </div>
-
-        {members.length === 0 ? (
-          /* Empty State */
-          <div className="px-5 py-10 flex flex-col items-center justify-center gap-2">
-            <Users
-              className={`w-8 h-8 ${
-                isDarkMode ? "text-slate-600" : "text-slate-300"
-              }`}
-            />
-            <p
-              className={`text-sm ${
-                isDarkMode ? "text-slate-500" : "text-slate-400"
-              }`}
-            >
-              No members found
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y"
-            style={{
-              borderColor: isDarkMode ? "rgba(51,65,85,0.4)" : "rgba(237,232,218,0.6)",
-            }}
-          >
-            {members.map((member) => (
-              <MemberRow
-                key={member.uid}
-                member={member}
-                currentUserRole={currentUserRole}
-                assignableRoles={assignableRoles}
-                isDarkMode={isDarkMode}
-                isOpen={openDropdownUid === member.uid}
-                isChanging={changingRoleFor === member.uid}
-                onToggleDropdown={() =>
-                  setOpenDropdownUid((prev) =>
-                    prev === member.uid ? null : member.uid
-                  )
-                }
-                onRoleChange={handleRoleChange}
-                dropdownRef={openDropdownUid === member.uid ? dropdownRef : undefined}
-                orgId={orgId}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Unassigned Users Section ────────────────────────────────────────── */}
-      {unassignedUsers.length > 0 && (
-        <div>
-          {/* Section divider */}
-          <div
-            className={`px-5 py-2.5 flex items-center gap-2 ${
-              isDarkMode ? "bg-amber-900/10" : "bg-amber-50/60"
-            }`}
-            style={{
-              borderTop: `1px solid ${isDarkMode ? "rgba(51,65,85,0.4)" : "rgba(237,232,218,0.6)"}`,
-              borderBottom: `1px solid ${isDarkMode ? "rgba(51,65,85,0.4)" : "rgba(237,232,218,0.6)"}`,
-            }}
-          >
-            <UserPlus
-              className={`w-3.5 h-3.5 ${
-                isDarkMode ? "text-amber-400/70" : "text-amber-600/70"
-              }`}
-            />
-            <span
-              className={`text-xs font-semibold uppercase tracking-wider ${
-                isDarkMode ? "text-amber-400/80" : "text-amber-700/70"
-              }`}
-            >
-              Unassigned Users ({unassignedUsers.length})
-            </span>
-          </div>
-
-          <div
-            className="divide-y"
-            style={{
-              borderColor: isDarkMode ? "rgba(51,65,85,0.4)" : "rgba(237,232,218,0.6)",
-            }}
-          >
-            {unassignedUsers.map((user) => (
-              <UnassignedRow
-                key={user.uid}
-                user={user}
-                isDarkMode={isDarkMode}
-                assignableRoles={assignableRoles}
-                isAssigning={assigningUid === user.uid}
-                assignRole={assignRole}
-                onAssignRoleChange={setAssignRole}
-                onAssign={handleAssignUser}
-                canAssign={hasPermission(currentUserRole, "admin")}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-/* ─── Member Row ─────────────────────────────────────────────────────────────── */
+/* ─── Unassigned User Table Row ──────────────────────────────────────────────── */
 
-interface MemberRowProps {
-  member: OrgMember;
-  currentUserRole: OrgRole;
-  assignableRoles: OrgRole[];
-  isDarkMode: boolean;
-  isOpen: boolean;
-  isChanging: boolean;
-  onToggleDropdown: () => void;
-  onRoleChange: (uid: string, newRole: OrgRole) => void;
-  dropdownRef?: React.RefObject<HTMLDivElement | null>;
-  orgId: string;
-}
-
-function MemberRow({
-  member,
-  currentUserRole,
-  assignableRoles,
-  isDarkMode,
-  isOpen,
-  isChanging,
-  onToggleDropdown,
-  onRoleChange,
-  dropdownRef,
-  orgId,
-}: MemberRowProps) {
-  // Normalize legacy roles (Oracle, Admin-Level, etc.) to valid OrgRole for display
-  const safeRole: OrgRole = (member.role in ROLE_COLORS) ? member.role : "user";
-  const canModify = canModifyMember(currentUserRole, safeRole);
-  const initial = (member.displayName || member.email || "?").charAt(0).toUpperCase();
-  const colors = ROLE_COLORS[safeRole];
-  const isOracleMember = safeRole === "oracle";
-  
-  const [isRemoving, setIsRemoving] = useState(false);
-  const { user } = useUser();
-  const isCurrentUser = user?.uid === member.uid;
-  const isUserOracle = currentUserRole === "oracle";
-  const canRemove = (isUserOracle && (orgId !== "soltheory" || (!isOracleMember && !isCurrentUser))) ||
-                    (canModify && !isOracleMember && !isCurrentUser);
-
-  const handleRemove = async () => {
-    const confirm = window.confirm(`Remove ${member.displayName || member.email} from this organization?`);
-    if (!confirm) return;
-    
-    setIsRemoving(true);
-    try {
-      const headers = await getAuthHeaders();
-      const res = await fetch("/api/org/members", {
-        method: "DELETE",
-        headers,
-        body: JSON.stringify({ orgId, targetUid: member.uid }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to remove member");
-      }
-      // Success: Firestore listener will auto-remove the row
-    } catch (err: any) {
-      console.error("[OrgRBACPanel] Remove error:", err);
-      alert(err.message || "Failed to remove member");
-      setIsRemoving(false);
-    }
-  };
-
-  return (
-    <div
-      className={`relative px-5 py-3 flex items-center gap-3 transition-colors ${
-        isDarkMode
-          ? "hover:bg-slate-800/50"
-          : "hover:bg-slate-50/80"
-      }`}
-    >
-      {/* Avatar */}
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
-          isDarkMode
-            ? "bg-slate-700 text-slate-300"
-            : "bg-slate-100 text-slate-600"
-        }`}
-      >
-        {initial}
-      </div>
-
-      {/* Name + Email */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`text-sm font-medium truncate ${
-              isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-          >
-            {member.displayName || member.email}
-          </span>
-          {isOracleMember && (
-            <Crown
-              className={`w-3 h-3 shrink-0 ${
-                isDarkMode ? "text-amber-400" : "text-amber-500"
-              }`}
-            />
-          )}
-        </div>
-        {member.displayName && (
-          <p
-            className={`text-xs truncate mt-0.5 ${
-              isDarkMode ? "text-slate-500" : "text-slate-400"
-            }`}
-          >
-            {member.email}
-          </p>
-        )}
-      </div>
-
-      {/* Role Badge / Dropdown Trigger & Remove Button */}
-      <div className="relative shrink-0 flex items-center gap-2" ref={dropdownRef}>
-        {isChanging || isRemoving ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-1">
-            <Loader2
-              className={`w-3 h-3 animate-spin ${
-                isDarkMode ? "text-slate-400" : "text-slate-500"
-              }`}
-            />
-          </div>
-        ) : canModify ? (
-          <button
-            onClick={onToggleDropdown}
-            className={`
-              inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold
-              border transition-all cursor-pointer
-              ${isDarkMode
-                ? `${colors.darkBg} ${colors.darkText} ${colors.darkBorder} hover:brightness-125`
-                : `${colors.bg} ${colors.text} ${colors.border} hover:brightness-95`
-              }
-            `}
-          >
-            {ROLE_LABELS[safeRole]}
-            <ChevronDown
-              className={`w-3 h-3 transition-transform ${
-                isOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-        ) : (
-          <span
-            className={`
-              inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-semibold border
-              ${isDarkMode
-                ? `${colors.darkBg} ${colors.darkText} ${colors.darkBorder}`
-                : `${colors.bg} ${colors.text} ${colors.border}`
-              }
-            `}
-          >
-            {ROLE_LABELS[safeRole]}
-          </span>
-        )}
-
-        {/* Dropdown */}
-        {isOpen && canModify && (
-          <div
-            className={`
-              absolute right-0 top-full mt-1 z-50 min-w-[140px]
-              rounded-lg border shadow-lg overflow-hidden
-              animate-in fade-in slide-in-from-top-1 duration-150
-              ${isDarkMode
-                ? "bg-slate-800 border-slate-700 shadow-black/40"
-                : "bg-white border-slate-200 shadow-slate-200/60"
-              }
-            `}
-          >
-            {assignableRoles.map((r) => {
-              const rColors = ROLE_COLORS[r];
-              const isCurrentRole = r === member.role;
-
-              return (
-                <button
-                  key={r}
-                  onClick={() => onRoleChange(member.uid, r)}
-                  disabled={isCurrentRole}
-                  className={`
-                    w-full px-3 py-2 flex items-center justify-between gap-2
-                    text-xs font-medium transition-colors
-                    ${isCurrentRole
-                      ? isDarkMode
-                        ? "bg-slate-700/50 cursor-default"
-                        : "bg-slate-50 cursor-default"
-                      : isDarkMode
-                        ? "hover:bg-slate-700/70 cursor-pointer"
-                        : "hover:bg-slate-50 cursor-pointer"
-                    }
-                    ${isDarkMode ? rColors.darkText : rColors.text}
-                  `}
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        isDarkMode ? rColors.darkBg : rColors.bg
-                      }`}
-                      style={{
-                        // Ensure the dot is visible even when bg class is semi-transparent
-                        boxShadow: `inset 0 0 0 1px ${
-                          isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"
-                        }`,
-                      }}
-                    />
-                    {ROLE_LABELS[r]}
-                  </span>
-                  {isCurrentRole && (
-                    <Check
-                      className={`w-3 h-3 ${
-                        isDarkMode ? "text-emerald-400" : "text-emerald-600"
-                      }`}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        
-        {/* Remove Button */}
-        {canRemove && (
-          <button
-            onClick={handleRemove}
-            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-              isDarkMode
-                ? "text-slate-500 hover:bg-red-500/10 hover:text-red-400"
-                : "text-slate-400 hover:bg-red-50 hover:text-red-500"
-            }`}
-            title="Remove member"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Unassigned User Row ────────────────────────────────────────────────────── */
-
-interface UnassignedRowProps {
-  user: { uid: string; email: string; displayName: string };
+interface UnassignedTableRowProps {
+  user: UserProfile;
+  idx: number;
   isDarkMode: boolean;
   assignableRoles: OrgRole[];
   isAssigning: boolean;
-  assignRole: OrgRole;
-  onAssignRoleChange: (role: OrgRole) => void;
-  onAssign: (user: { uid: string; email: string; displayName: string }, role: OrgRole) => void;
+  onAssign: (user: UserProfile, role: OrgRole) => void;
   canAssign: boolean;
 }
 
-function UnassignedRow({
+function UnassignedTableRow({
   user,
+  idx,
   isDarkMode,
   assignableRoles,
   isAssigning,
-  assignRole,
-  onAssignRoleChange,
   onAssign,
   canAssign,
-}: UnassignedRowProps) {
-  const initial = (user.displayName || user.email || "?").charAt(0).toUpperCase();
+}: UnassignedTableRowProps) {
   const [showRoleSelect, setShowRoleSelect] = useState(false);
   const [localRole, setLocalRole] = useState<OrgRole>("user");
 
   return (
     <div
-      className={`relative px-5 py-3 flex items-center gap-3 transition-colors ${
-        isDarkMode
-          ? "hover:bg-slate-800/30 bg-amber-950/5"
-          : "hover:bg-amber-50/40 bg-amber-50/20"
-      }`}
+      className={`grid grid-cols-[1fr_1fr_1.5fr_auto] text-sm border-t ${isDarkMode ? "border-slate-700" : "border-slate-900"} ${idx % 2 === 0 ? (isDarkMode ? "bg-slate-900" : "bg-[#faf6ed]") : (isDarkMode ? "bg-slate-800/50" : "bg-[#f5f0e1]")}`}
     >
-      {/* Avatar */}
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+      <div className={`px-4 py-3 border-r font-medium truncate ${isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700"}`}>
+        {user.firstName || "—"}
+      </div>
+      <div className={`px-4 py-3 border-r font-medium truncate ${isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700"}`}>
+        {user.lastName || "—"}
+      </div>
+      <div className={`px-4 py-3 border-r truncate ${isDarkMode ? "border-slate-700 text-slate-400" : "border-slate-200 text-slate-600"}`}>
+        {user.email}
+        <span className={`ml-2 inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium ${
           isDarkMode
-            ? "bg-amber-900/30 text-amber-300/70 border border-amber-800/40"
-            : "bg-amber-100/60 text-amber-700/70 border border-amber-200/60"
-        }`}
-      >
-        {initial}
+            ? "bg-amber-900/30 text-amber-400/80 border border-amber-800/40"
+            : "bg-amber-100/70 text-amber-700/80 border border-amber-200/60"
+        }`}>
+          Unassigned
+        </span>
       </div>
-
-      {/* Name + Email */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`text-sm font-medium truncate ${
-              isDarkMode ? "text-slate-300" : "text-slate-700"
-            }`}
-          >
-            {user.displayName || user.email}
-          </span>
-          <span
-            className={`inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium ${
-              isDarkMode
-                ? "bg-amber-900/30 text-amber-400/80 border border-amber-800/40"
-                : "bg-amber-100/70 text-amber-700/80 border border-amber-200/60"
-            }`}
-          >
-            Unassigned
-          </span>
-        </div>
-        {user.displayName && (
-          <p
-            className={`text-xs truncate mt-0.5 ${
-              isDarkMode ? "text-slate-500" : "text-slate-400"
-            }`}
-          >
-            {user.email}
-          </p>
-        )}
-      </div>
-
-      {/* Assign controls */}
-      <div className="shrink-0 flex items-center gap-2">
+      <div className="px-4 py-3 min-w-[120px]">
         {isAssigning ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-1">
-            <Loader2
-              className={`w-3 h-3 animate-spin ${
-                isDarkMode ? "text-amber-400" : "text-amber-600"
-              }`}
-            />
-          </div>
+          <Loader2 className={`w-4 h-4 animate-spin ${isDarkMode ? "text-amber-400" : "text-amber-600"}`} />
         ) : showRoleSelect && canAssign ? (
-          /* Inline role selector */
           <div className="flex items-center gap-1.5">
             <select
               value={localRole}
               onChange={(e) => setLocalRole(e.target.value as OrgRole)}
-              className={`
-                text-[11px] font-medium rounded-md px-2 py-1 border cursor-pointer
-                transition-colors appearance-none
-                ${isDarkMode
+              className={`text-[11px] font-medium rounded-md px-2 py-1 border cursor-pointer transition-colors appearance-none ${
+                isDarkMode
                   ? "bg-slate-800 text-slate-300 border-slate-600 focus:border-amber-500"
                   : "bg-white text-slate-700 border-slate-300 focus:border-amber-500"
-                }
-              `}
+              }`}
             >
               {assignableRoles.map((r) => (
                 <option key={r} value={r}>
@@ -865,27 +631,19 @@ function UnassignedRow({
                 onAssign(user, localRole);
                 setShowRoleSelect(false);
               }}
-              className={`
-                inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold
-                border transition-all cursor-pointer
-                ${isDarkMode
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                isDarkMode
                   ? "bg-emerald-900/40 text-emerald-300 border-emerald-800 hover:bg-emerald-900/60"
                   : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                }
-              `}
+              }`}
             >
               <Check className="w-3 h-3" />
-              Confirm
             </button>
             <button
               onClick={() => setShowRoleSelect(false)}
-              className={`
-                px-1.5 py-1 rounded-md text-[10px] font-medium transition-colors cursor-pointer
-                ${isDarkMode
-                  ? "text-slate-500 hover:text-slate-300"
-                  : "text-slate-400 hover:text-slate-600"
-                }
-              `}
+              className={`px-1.5 py-1 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
+                isDarkMode ? "text-slate-500 hover:text-slate-300" : "text-slate-400 hover:text-slate-600"
+              }`}
             >
               ✕
             </button>
@@ -893,24 +651,17 @@ function UnassignedRow({
         ) : canAssign ? (
           <button
             onClick={() => setShowRoleSelect(true)}
-            className={`
-              inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold
-              border transition-all cursor-pointer
-              ${isDarkMode
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+              isDarkMode
                 ? "bg-amber-900/30 text-amber-300 border-amber-800/60 hover:bg-amber-900/50"
                 : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-              }
-            `}
+            }`}
           >
             <UserPlus className="w-3 h-3" />
             Assign
           </button>
         ) : (
-          <span
-            className={`text-[10px] ${
-              isDarkMode ? "text-slate-600" : "text-slate-400"
-            }`}
-          >
+          <span className={`text-[10px] ${isDarkMode ? "text-slate-600" : "text-slate-400"}`}>
             No permission
           </span>
         )}

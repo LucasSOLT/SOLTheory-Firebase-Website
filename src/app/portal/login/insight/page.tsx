@@ -12,7 +12,7 @@ import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "fir
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
-import { getOrgByEmailDomain, isDeveloper } from "@/lib/org-config";
+import { getOrgByEmailDomain, isDeveloper, normalizeAllowedOrgs, resolveUserOrg } from "@/lib/org-config";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -197,10 +197,9 @@ export default function InsightLoginPage() {
         throw new Error("Account frozen");
       }
 
-      // Route using allowedOrgs if available, then legacy org field, then email domain
-      const rawAllowed = userData?.allowedOrgs;
-      const allowedOrgs: string[] = Array.isArray(rawAllowed) ? rawAllowed : (typeof rawAllowed === 'string' ? [rawAllowed] : []);
-      const legacyOrg = userData?.organization;
+      // Route using allowedOrgs if available, then resolved org, then email domain
+      const allowedOrgs = normalizeAllowedOrgs(userData?.allowedOrgs);
+      const resolvedOrg = resolveUserOrg(userData, emailLower);
 
       // Developer always goes to soltheory
       const matchedOrgRoute = getOrgByEmailDomain(emailLower);
@@ -209,8 +208,8 @@ export default function InsightLoginPage() {
       } else if (allowedOrgs.length > 0) {
         // Use first allowed org as the landing page
         navigateTo(`/portal/dashboard/${allowedOrgs[0]}`);
-      } else if (legacyOrg) {
-        navigateTo(`/portal/dashboard/${legacyOrg}`);
+      } else if (resolvedOrg) {
+        navigateTo(`/portal/dashboard/${resolvedOrg}`);
       } else if (matchedOrgRoute) {
         navigateTo(`/portal/dashboard/${matchedOrgRoute.id}`);
       } else {

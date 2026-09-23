@@ -18,6 +18,7 @@ import { InteractiveContentBuilder } from './InteractiveBuilders';
 import { ITEM_TYPE_DEFAULT_GATING } from '@/types/onboarding-templates';
 import { useStorage } from '@/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { safeExternalUrl } from '@/lib/utils';
 
 interface BlueprintItem {
   id: string;
@@ -597,6 +598,11 @@ export default function BlueprintEditor({
                                     type="url"
                                     value={item.hyperlink}
                                     onChange={(e) => handleUpdateItem(phase.id, item.id, { hyperlink: e.target.value })}
+                                    onBlur={(e) => {
+                                      if (e.target.value.trim()) {
+                                        handleUpdateItem(phase.id, item.id, { hyperlink: safeExternalUrl(e.target.value) });
+                                      }
+                                    }}
                                     className={inputClass()}
                                     placeholder="https://... (training portal, Google Doc, SOP link)"
                                   />

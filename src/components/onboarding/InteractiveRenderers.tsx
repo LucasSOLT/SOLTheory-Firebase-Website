@@ -24,6 +24,7 @@ import {
   ExternalVerificationContent,
   RecordedResponseContent
 } from '@/types/onboarding-templates';
+import { safeExternalUrl } from '@/lib/utils';
 
 // ----------------------------------------------------------------------
 // 1. QuizRenderer
@@ -442,7 +443,7 @@ export function ChecklistRenderer({
                 </span>
                 {item.linkUrl && (
                   <a 
-                    href={item.linkUrl} 
+                    href={safeExternalUrl(item.linkUrl)} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
@@ -709,7 +710,7 @@ export function ExternalVerificationRenderer({
   const [codeError, setCodeError] = useState(false);
 
   const handleOpenExternal = () => {
-    window.open(content.externalUrl, '_blank', 'noopener,noreferrer');
+    window.open(safeExternalUrl(content.externalUrl), '_blank', 'noopener,noreferrer');
   };
 
   const handleSubmitCode = () => {

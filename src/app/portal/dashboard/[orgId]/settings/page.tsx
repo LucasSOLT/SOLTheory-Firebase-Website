@@ -200,6 +200,12 @@ function SettingsContent() {
     if (tabParam && ['general', 'profile'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
+
+    // Support deep linking to subPages (e.g. ?subPage=org-rbac from /end-users redirect)
+    const subPageParam = searchParams.get('subPage') as SubPage;
+    if (subPageParam && ['personal-info', 'sign-in-security', 'integrations', 'org-rbac', 'dev-settings', 'audit-log'].includes(subPageParam)) {
+      setSubPage(subPageParam);
+    }
   }, [searchParams]);
 
   // Read 2FA status from Firestore user doc

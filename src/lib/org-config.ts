@@ -37,7 +37,7 @@ export const ORG_REGISTRY: Record<string, OrgConfig> = {
     id: "soltheory",
     label: "SOL Theory",
     emailDomains: ["soltheory.com", "soltheory.org"],
-    adminEmails: ["lucas@soltheory.com", "steve@soltheory.com", "gerard@soltheory.com"],
+    adminEmails: ["lucas@soltheory.com", "steve@soltheory.com", "gerard@soltheory.com", "steve@rellafit.com"],
     supportEmail: "lucas@soltheory.com",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com",
     knowledgeModule: "soltheory",
@@ -47,7 +47,7 @@ export const ORG_REGISTRY: Record<string, OrgConfig> = {
     id: "nxtchapter",
     label: "NXT Chapter",
     emailDomains: ["nxtchapter.com", "nxtchapter.org"],
-    adminEmails: ["nxtchapter@nxtchapter.org", "nxtchapterorg@gmail.com", "josie.burton@nxtchapter.org", "josie@nxtchapter.org"],
+    adminEmails: ["nxtchapter@nxtchapter.org", "nxtchapterorg@gmail.com", "josie.burton@nxtchapter.org", "josie@nxtchapter.org", "steve@rellafit.com", "gerardrickjardin24@gmail.com"],
     supportEmail: "nxtchapterorg@gmail.com",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com",
     knowledgeModule: "nxtchapter",
@@ -128,6 +128,76 @@ export function getDefaultAllowedOrgs(email: string): string[] {
   const matched = getOrgByEmailDomain(email);
   return matched ? [matched.id] : [];
 }
+
+/**
+ * Normalizes allowedOrgs from any raw format (array, string, JSON stringified, malformed)
+ * into a clean array of valid org IDs.
+ */
+export function normalizeAllowedOrgs(raw: any): string[] {
+  if (!raw) return [];
+  let items: string[] = [];
+  if (Array.isArray(raw)) {
+    items = raw.map(String);
+  } else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) items = parsed.map(String);
+      else items = [String(parsed)];
+    } catch {
+      items = [raw];
+    }
+  }
+
+  const validOrgIds = getAllOrgIds();
+  const result: string[] = [];
+
+  for (const item of items) {
+    if (!item) continue;
+    let clean = item.trim();
+    // Handle nested stringified JSON like '["nxtchapter"]'
+    if (clean.startsWith("[") && clean.endsWith("]")) {
+      try {
+        const inner = JSON.parse(clean);
+        if (Array.isArray(inner)) {
+          for (const sub of inner) {
+            const subClean = String(sub).replace(/[^a-zA-Z0-9_-]/g, "").toLowerCase().trim();
+            if (validOrgIds.includes(subClean) && !result.includes(subClean)) {
+              result.push(subClean);
+            }
+          }
+          continue;
+        }
+      } catch {}
+    }
+    clean = clean.replace(/[^a-zA-Z0-9_-]/g, "").toLowerCase().trim();
+    if (validOrgIds.includes(clean) && !result.includes(clean)) {
+      result.push(clean);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Resolves a user's designated org ID from their Firestore user document.
+ * Checks allowedOrgs (normalized), then organization / Organization, then email domain.
+ */
+export function resolveUserOrg(userData: any, email?: string): string | null {
+  if (!userData) return email ? (getOrgByEmailDomain(email)?.id || null) : null;
+  const allowed = normalizeAllowedOrgs(userData.allowedOrgs);
+  if (allowed.length > 0) return allowed[0];
+
+  const orgVal = (userData.organization || userData.Organization || "").toString().toLowerCase().replace(/\s+/g, "");
+  const matched = getAllOrgIds().find((id) => orgVal.includes(id));
+  if (matched) return matched;
+
+  if (email) {
+    const domainOrg = getOrgByEmailDomain(email);
+    if (domainOrg) return domainOrg.id;
+  }
+  return null;
+}
+
 
 /**
  * Developer email — the platform owner who bypasses org checks.

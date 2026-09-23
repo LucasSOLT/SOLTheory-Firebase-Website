@@ -15,7 +15,7 @@ import { useTranslation, TIMEZONE_OPTIONS } from "@/lib/i18n";
 import { logDigestEntry } from "@/components/portal/DailyDigest";
 import { isAdmin } from "@/lib/admin";
 import { FEATURE_FLAGS } from '@/lib/feature-flags';
-import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, isOracle, DEVELOPER_EMAIL, getOrgByEmailDomain } from "@/lib/org-config";
+import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, isOracle, DEVELOPER_EMAIL, getOrgByEmailDomain, normalizeAllowedOrgs, resolveUserOrg } from "@/lib/org-config";
 import { OrgProvider } from "@/contexts/OrgContext";
 import { useContentManagerStore } from "@/stores/content-manager-store";
 import { getAuthHeaders } from "@/lib/api-auth-client";
@@ -143,6 +143,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
+    // Safety fallback: ensure checking state never hangs indefinitely (e.g. on route change)
+    const safetyTimer = setTimeout(() => {
+      setIsCheckingOrg(false);
+    }, 4000);
+
     const checkOrgAccess = async () => {
       try {
         const userRef = doc(firestore, "users", user.uid);
@@ -165,20 +170,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           // Extract orgId dynamically from URL path
           const pathSegments = pathname.split('/');
           const dashIdx = pathSegments.indexOf('dashboard');
-          const currentOrgUrl = dashIdx >= 0 && pathSegments[dashIdx + 1] ? pathSegments[dashIdx + 1] : '';
+          const rawOrgUrl = dashIdx >= 0 && pathSegments[dashIdx + 1] ? pathSegments[dashIdx + 1] : '';
+          const currentOrgUrl = decodeURIComponent(rawOrgUrl).toLowerCase().replace(/[^a-z0-9_-]/g, '');
           
-          let allowed: string[] = [];
-          if (data.allowedOrgs && Array.isArray(data.allowedOrgs)) {
-            allowed = data.allowedOrgs;
-          } else if (data.allowedOrgs && typeof data.allowedOrgs === 'string') {
-            // Handle manually-created user docs where allowedOrgs is a string instead of array
-            allowed = [data.allowedOrgs];
-          } else if (data.organization) {
-            const orgVal = data.organization.toLowerCase().replace(/\s+/g, '');
-            // Try to match against known org IDs
-            const matchedOrg = getAllOrgIds().find(id => orgVal.includes(id));
-            if (matchedOrg) allowed.push(matchedOrg);
-            else allowed.push(orgVal || currentOrgUrl);
+          let allowed = normalizeAllowedOrgs(data.allowedOrgs);
+          if (allowed.length === 0) {
+            const resolved = resolveUserOrg(data, user.email || undefined);
+            if (resolved) allowed = [resolved];
           }
 
           if (allowed.length === 0) {
@@ -188,7 +186,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }
 
           if (!allowed.includes(currentOrgUrl)) {
-            router.push(`/portal/dashboard/${allowed[0]}`);
+            const targetOrg = allowed[0];
+            setIsCheckingOrg(false);
+            router.push(`/portal/dashboard/${targetOrg}`);
             return;
           }
         } else {
@@ -198,11 +198,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
       } catch (err) {
         console.error("Org check error", err);
+      } finally {
+        setIsCheckingOrg(false);
       }
-      setIsCheckingOrg(false);
     };
 
     checkOrgAccess();
+    return () => clearTimeout(safetyTimer);
   }, [user, isUserLoading, pathname, firestore, router]);
 
 
@@ -302,7 +304,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Extract the current org from the URL path dynamically
   const pathSegments = pathname.split('/');
   const dashIdx = pathSegments.indexOf('dashboard');
-  const currentOrgId = dashIdx >= 0 && pathSegments[dashIdx + 1] ? pathSegments[dashIdx + 1] : getAllOrgIds()[0];
+  const rawOrg = dashIdx >= 0 && pathSegments[dashIdx + 1] ? pathSegments[dashIdx + 1] : getAllOrgIds()[0];
+  const currentOrgId = decodeURIComponent(rawOrg).toLowerCase().replace(/[^a-z0-9_-]/g, '') || getAllOrgIds()[0];
   const isNxtChapter = currentOrgId === 'nxtchapter';
 
   // ── Auto-provision org member doc on dashboard load ──
@@ -354,8 +357,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           const userDocRef = doc(firestore, "users", user.uid);
           const userSnap = await getDoc(userDocRef);
           const userData = userSnap.data();
+          const userOrg = resolveUserOrg(userData, email);
 
-          if (userData?.organization && userData.organization !== currentOrgId) {
+          if (userOrg && userOrg !== currentOrgId) {
             // User belongs to another org! Do not auto-provision into currentOrgId.
             setIsMemberReady(true);
             return;

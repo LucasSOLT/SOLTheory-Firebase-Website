@@ -341,8 +341,6 @@ export const dictionaries = {
     devTools: "Dev Tools",
     developerTools: "Developer Tools",
     contentManager: "Content Manager",
-    sessionAuditor: "Session Auditor",
-    endUserDashboard: "End User Dashboard",
     skipForNow: "Skip for now",
 
     /* ── Chat Interface ── */
@@ -1066,8 +1064,6 @@ export const dictionaries = {
     devTools: "Herramientas Dev",
     developerTools: "Herramientas de Desarrollo",
     contentManager: "Gestor de Contenido",
-    sessionAuditor: "Auditor de Sesiones",
-    endUserDashboard: "Panel de Usuario Final",
     skipForNow: "Saltar por ahora",
 
     /* ── Chat Interface ── */

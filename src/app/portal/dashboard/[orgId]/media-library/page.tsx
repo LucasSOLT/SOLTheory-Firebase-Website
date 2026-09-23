@@ -51,6 +51,8 @@ import type { MediaCardItem } from "@/components/media-library/MediaGridCard";
 import PactMemoryView from "@/components/media-library/PactMemoryView";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { ADMIN_EMAILS } from "@/lib/admin";
+import { useOrgRole, isProtectedAdmin } from "@/hooks/useOrgRole";
+import { hasPermission } from "@/lib/rbac";
 
 /* ═══════════════════════════════════════════════════════════════
    TYPES
@@ -992,19 +994,12 @@ export default function MediaLibraryPage() {
   const orgBrainFileRef = useRef<HTMLInputElement>(null);
 
   // ─── Admin Detection ───
-  const [currentUserRole, setCurrentUserRole] = useState<string>("member");
-  useEffect(() => {
-    if (!firestore || !user?.uid) return;
-    const fetchRole = async () => {
-      try {
-        const userDoc = await getDoc(doc(firestore, "users", user.uid));
-        const data = userDoc.data();
-        setCurrentUserRole(data?.role || "member");
-      } catch { setCurrentUserRole("member"); }
-    };
-    fetchRole();
-  }, [firestore, user?.uid]);
-  const isOrgAdmin = currentUserRole === "admin" || ADMIN_EMAILS.includes(user?.email || "");
+  const { role: orgRole, isOracleUser } = useOrgRole(orgId);
+  const isOrgAdmin =
+    hasPermission(orgRole, "admin") ||
+    isOracleUser ||
+    ADMIN_EMAILS.includes(user?.email || "") ||
+    isProtectedAdmin(orgId, user?.email || "");
 
   // ─── Load Org AI Brain Docs from Firestore ───
   useEffect(() => {
@@ -1237,80 +1232,80 @@ export default function MediaLibraryPage() {
   const [batchActionInProgress, setBatchActionInProgress] = useState(false);
 
   // ─── Cross-Tab Move Handler (AI Brain ↔ Org Brain only) ───
-  const handleCrossTabMove = useCallback(async (target: MoveTarget, sourceOverride?: MoveSource, itemOverride?: AiBrainDoc) => {
+  // ─── Cross-Tab Move Handler (AI Brain ↔ Org Brain only) ───
+  const handleCrossTabMove = useCallback(async (target: MoveTarget, sourceOverride?: MoveSource, itemOverride?: AiBrainDoc): Promise<boolean> => {
     const source = sourceOverride || moveDialog?.source;
     const item = itemOverride || moveDialog?.item;
-    if (!source || !item || moveInProgress || !firestore || !user?.uid) return;
+    if (!source || !item || !firestore || !user?.uid) return false;
 
     setMoveInProgress(true);
     setMoveDialog(null);
 
     try {
       const sourceDoc = item as AiBrainDoc;
+      const sourceScope = source === "ai-brain" ? "personal" : "org";
+      const targetScope = target === "ai-brain" ? "personal" : "org";
 
-      if (target === "org-brain" && source === "ai-brain") {
-        // ── AI Brain → Org Brain (admin only) ──
-        if (!isOrgAdmin) { showToast("Only admins can move to Org Brain"); setMoveInProgress(false); return; }
-        if (!sourceDoc.downloadUrl) { showToast("Document has no download URL"); setMoveInProgress(false); return; }
-
-        showToast("Moving to Org Brain...");
-        const response = await fetch(sourceDoc.downloadUrl);
-        const blob = await response.blob();
-
-        const formData = new FormData();
-        formData.append("file", blob, sourceDoc.name);
-        formData.append("scope", "org");
-        formData.append("orgId", orgId);
-
-        const headers = await getAuthHeaders();
-        delete (headers as Record<string, string>)["Content-Type"];
-
-        const res = await fetch("/api/ai-brain-upload", { method: "POST", headers, body: formData });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
-          showToast(`Move failed: ${errData.error || res.statusText}`);
-          setMoveInProgress(false);
-          return;
-        }
-
-        await handleAiBrainDelete(sourceDoc);
-        showToast(`Moved "${sourceDoc.name}" to Org Brain`);
-
-      } else if (target === "ai-brain" && source === "org-brain") {
-        // ── Org Brain → AI Brain ──
-        if (!sourceDoc.downloadUrl) { showToast("Document has no download URL"); setMoveInProgress(false); return; }
-
-        showToast("Moving to AI Brain...");
-        const response = await fetch(sourceDoc.downloadUrl);
-        const blob = await response.blob();
-
-        const formData = new FormData();
-        formData.append("file", blob, sourceDoc.name);
-        formData.append("scope", "personal");
-
-        const headers = await getAuthHeaders();
-        delete (headers as Record<string, string>)["Content-Type"];
-
-        const res = await fetch("/api/ai-brain-upload", { method: "POST", headers, body: formData });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
-          showToast(`Move failed: ${errData.error || res.statusText}`);
-          setMoveInProgress(false);
-          return;
-        }
-
-        if (isOrgAdmin) {
-          await handleOrgBrainDelete(sourceDoc);
-        }
-        showToast(`Moved "${sourceDoc.name}" to AI Brain`);
+      if (target === "org-brain" && !isOrgAdmin) {
+        showToast("Only admins can move to Org Brain");
+        setMoveInProgress(false);
+        return false;
       }
+
+      showToast(`Moving "${sourceDoc.name}" to ${target === "org-brain" ? "Org Brain" : "Personal Brain"}...`);
+
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/ai-brain-move", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          docId: sourceDoc.id,
+          sourceScope,
+          targetScope,
+          orgId,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "Move failed" }));
+        showToast(`Move failed: ${errData.details || errData.error || res.statusText}`);
+        return false;
+      }
+
+      const resData = await res.json();
+
+      // Optimistic local state update
+      if (source === "ai-brain") {
+        setAiBrainDocs(prev => prev.filter(d => d.id !== sourceDoc.id));
+        if (resData.doc) {
+          setOrgBrainDocs(prev => [resData.doc, ...prev.filter(d => d.id !== sourceDoc.id)]);
+        }
+      } else {
+        setOrgBrainDocs(prev => prev.filter(d => d.id !== sourceDoc.id));
+        if (resData.doc) {
+          setAiBrainDocs(prev => [resData.doc, ...prev.filter(d => d.id !== sourceDoc.id)]);
+        }
+      }
+
+      setSelectedFileIds(prev => {
+        const next = new Set(prev);
+        next.delete(sourceDoc.id);
+        return next;
+      });
+
+      showToast(`Moved "${sourceDoc.name}" to ${target === "org-brain" ? "Org Brain" : "Personal Brain"}`);
+      return true;
     } catch (err: any) {
       console.error("[Cross-Tab Move Error]:", err);
       showToast(`Move failed: ${err?.message || "Unknown error"}`);
+      return false;
     } finally {
       setMoveInProgress(false);
     }
-  }, [moveDialog, moveInProgress, firestore, user?.uid, storage, orgId, isOrgAdmin, showToast, handleAiBrainDelete, handleOrgBrainDelete]);
+  }, [moveDialog, firestore, user?.uid, orgId, isOrgAdmin, showToast]);
 
   // ─── Batch Delete Handler ───
   const handleBatchDelete = useCallback(async () => {
@@ -1343,20 +1338,34 @@ export default function MediaLibraryPage() {
     setBatchActionInProgress(true);
     try {
       const ids = Array.from(selectedFileIds);
+      let successCount = 0;
+      let failCount = 0;
+
       if (mediaTab === "ai-brain") {
         const docsToMove = aiBrainDocs.filter(d => ids.includes(d.id));
         for (const d of docsToMove) {
-          await handleCrossTabMove("org-brain", "ai-brain", d);
+          const ok = await handleCrossTabMove("org-brain", "ai-brain", d);
+          if (ok) successCount++;
+          else failCount++;
         }
-        showToast(`Moved ${docsToMove.length} document${docsToMove.length !== 1 ? "s" : ""} to Org Brain`);
+        if (successCount > 0 && docsToMove.length > 1) {
+          showToast(`Moved ${successCount} document${successCount !== 1 ? "s" : ""} to Org Brain${failCount > 0 ? ` (${failCount} failed)` : ""}`);
+        }
       } else if (mediaTab === "org-brain") {
         const docsToMove = orgBrainDocs.filter(d => ids.includes(d.id));
         for (const d of docsToMove) {
-          await handleCrossTabMove("ai-brain", "org-brain", d);
+          const ok = await handleCrossTabMove("ai-brain", "org-brain", d);
+          if (ok) successCount++;
+          else failCount++;
         }
-        showToast(`Moved ${docsToMove.length} document${docsToMove.length !== 1 ? "s" : ""} to AI Brain`);
+        if (successCount > 0 && docsToMove.length > 1) {
+          showToast(`Moved ${successCount} document${successCount !== 1 ? "s" : ""} to AI Brain${failCount > 0 ? ` (${failCount} failed)` : ""}`);
+        }
       }
-      setSelectedFileIds(new Set());
+
+      if (successCount > 0) {
+        setSelectedFileIds(new Set());
+      }
     } catch (err: any) {
       console.error("[Batch Move Error]:", err);
       showToast(`Batch move failed: ${err?.message || "Unknown error"}`);

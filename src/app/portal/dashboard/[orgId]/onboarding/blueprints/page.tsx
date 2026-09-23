@@ -13,6 +13,7 @@ import {
   Edit2,
   Trash2,
   FileText,
+  ArrowLeft,
 } from 'lucide-react';
 import BlueprintEditor from '@/components/onboarding/BlueprintEditor';
 
@@ -137,6 +138,16 @@ export default function BlueprintsLibraryPage() {
       <div className={`shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <button
+                onClick={() => router.push(`/portal/dashboard/${orgId}/onboarding`)}
+                className={`flex items-center gap-1 text-xs font-semibold transition-colors cursor-pointer ${
+                  isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Onboarding
+              </button>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`} onClick={() => router.push(`/portal/dashboard/${orgId}/onboarding`)}>
                 <GraduationCap className="w-5 h-5" />

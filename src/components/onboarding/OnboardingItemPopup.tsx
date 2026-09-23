@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { InteractiveContentRenderer } from './InteractiveRenderers';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import { safeExternalUrl } from '@/lib/utils';
 
 interface OnboardingItemPopupProps {
   isOpen: boolean;
@@ -59,6 +60,31 @@ interface OnboardingItemPopupProps {
   };
   onComplete: (taskId: string) => void;
   onUploadClick: (taskId: string) => void;
+}
+
+/** Render text with clickable external links */
+function renderTextWithLinks(text?: string | null) {
+  if (!text) return null;
+  const tokens = text.split(/(https?:\/\/[^\s]+|www\.[^\s]+)/g);
+  return tokens.map((part, i) => {
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      const cleanHref = safeExternalUrl(part);
+      return (
+        <a
+          key={i}
+          href={cleanHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-indigo-500 hover:text-indigo-600 underline font-medium inline-flex items-center gap-0.5 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+          <ExternalLink className="w-3 h-3 inline shrink-0" />
+        </a>
+      );
+    }
+    return part;
+  });
 }
 
 export default function OnboardingItemPopup({
@@ -307,7 +333,7 @@ export default function OnboardingItemPopup({
             </h2>
             {task.description && (
               <p className={`mt-2 text-sm sm:text-base ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                {task.description}
+                {renderTextWithLinks(task.description)}
               </p>
             )}
           </div>
@@ -322,7 +348,7 @@ export default function OnboardingItemPopup({
                 Instructions
               </h4>
               <div className={`text-sm whitespace-pre-wrap leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                {meta.instructions}
+                {renderTextWithLinks(meta.instructions)}
               </div>
             </div>
           )}
@@ -331,7 +357,7 @@ export default function OnboardingItemPopup({
           {meta.hyperlink && (
             <div>
               <a
-                href={meta.hyperlink}
+                href={safeExternalUrl(meta.hyperlink)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${
@@ -389,7 +415,7 @@ export default function OnboardingItemPopup({
                   }`}>
                     <FileText className={`w-12 h-12 mb-3 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                     <a
-                      href={meta.mediaUrl}
+                      href={safeExternalUrl(meta.mediaUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${

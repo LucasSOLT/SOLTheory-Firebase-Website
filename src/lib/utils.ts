@@ -137,3 +137,17 @@ export function parseCSV(text: string): string[][] {
   
   return result;
 }
+
+/**
+ * Safely normalizes an external URL to ensure it has an explicit protocol (e.g. https://).
+ * Prevents browsers from interpreting domain strings (e.g. app.casemanagement.com)
+ * as relative paths on the current origin.
+ */
+export function safeExternalUrl(url?: string | null): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^(mailto:|tel:)/i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}

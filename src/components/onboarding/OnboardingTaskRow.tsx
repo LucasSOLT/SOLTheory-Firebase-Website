@@ -20,6 +20,7 @@ import {
   BookOpen,
   ArrowRight,
 } from 'lucide-react';
+import { safeExternalUrl } from '@/lib/utils';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -435,7 +436,7 @@ export default function OnboardingTaskRow({
           {/* SOP link */}
           {sopUrl && (
             <a
-              href={sopUrl}
+              href={safeExternalUrl(sopUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${

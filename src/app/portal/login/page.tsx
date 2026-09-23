@@ -12,7 +12,7 @@ import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "fir
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
-import { getOrgByEmailDomain, ORG_REGISTRY } from "@/lib/org-config";
+import { getOrgByEmailDomain, ORG_REGISTRY, resolveUserOrg } from "@/lib/org-config";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -114,7 +114,7 @@ export default function LoginPage() {
           const userRef = doc(firestore, 'users', uid);
           const userSnap = await getDoc(userRef);
           const userData = userSnap.exists() ? userSnap.data() : null;
-          const mappedOrg = userData?.organization;
+          const mappedOrg = resolveUserOrg(userData, emailLower);
 
           if (mappedOrg && ORG_REGISTRY[mappedOrg]) {
             router.push(`/portal/dashboard/${mappedOrg}`);

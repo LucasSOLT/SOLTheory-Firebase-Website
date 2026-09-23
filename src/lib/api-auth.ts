@@ -16,10 +16,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initAdmin } from "@/firebase/admin";
 import { getAuth } from "firebase-admin/auth";
-import { isGlobalAdmin, DEVELOPER_EMAIL, getOrgByEmailDomain } from "@/lib/org-config";
+import { isGlobalAdmin, DEVELOPER_EMAIL, getOrgByEmailDomain, isDeveloper, isOracle, normalizeAllowedOrgs, resolveUserOrg } from "@/lib/org-config";
 import { getFirestore } from "firebase-admin/firestore";
 import { OrgRole, hasPermission } from "./rbac";
-import { isDeveloper, isOracle } from "./org-config";
 
 type AuthSuccess = { ok: true; uid: string; email: string };
 type AuthFailure = { ok: false; response: NextResponse };
@@ -174,21 +173,15 @@ export async function verifyOrgMember(req: Request | NextRequest, orgId: string)
       };
     }
 
-    // Check org membership — handle both array and string allowedOrgs
-    const rawAllowed = userData.allowedOrgs;
-    const allowedOrgs: string[] = Array.isArray(rawAllowed) ? rawAllowed : (typeof rawAllowed === "string" ? [rawAllowed] : []);
-
+    // Check org membership — robustly handle normalized allowedOrgs & organization fields
+    const allowedOrgs = normalizeAllowedOrgs(userData.allowedOrgs);
     if (allowedOrgs.includes(orgId)) {
       return { ok: true, uid: auth.uid, email: auth.email };
     }
 
-    // Fallback: check legacy `organization` field with fuzzy matching
-    // Legacy field stores display names like "SOL Theory" — normalize and check
-    if (userData.organization) {
-      const orgVal = userData.organization.toLowerCase().replace(/\s+/g, "");
-      if (orgVal.includes(orgId) || orgId === orgVal) {
-        return { ok: true, uid: auth.uid, email: auth.email };
-      }
+    const resolvedOrg = resolveUserOrg(userData, auth.email);
+    if (resolvedOrg === orgId) {
+      return { ok: true, uid: auth.uid, email: auth.email };
     }
 
     console.warn(`[API Auth] Org access denied: uid=${auth.uid}, email=${auth.email}, orgId=${orgId}, allowedOrgs=${JSON.stringify(allowedOrgs)}, organization=${userData.organization || "none"}`);
