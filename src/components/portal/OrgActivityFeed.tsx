@@ -157,7 +157,7 @@ export function OrgActivityFeed() {
             <Clock className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => router.push(`${dashboardHome}/activity-log`)}
+            onClick={() => router.push(`${dashboardHome}/settings?tab=profile&subPage=audit-log`)}
             className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-colors cursor-pointer ${
               isDarkMode 
                 ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-350 hover:text-white' 

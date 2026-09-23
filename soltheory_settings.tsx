@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { logActivity } from '@/lib/activity-logger';
 import { useTheme } from '@/components/ThemeProvider';
@@ -19,7 +19,6 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useCrmPermissions } from "@/hooks/useCrmPermissions";
 import OrgRBACPanel from "@/components/settings/OrgRBACPanel";
-import DevSettingsPanel from "@/components/settings/DevSettingsPanel";
 import AuditLogPanel from "@/components/settings/AuditLogPanel";
 import TwoFactorSetup from "@/components/settings/TwoFactorSetup";
 import { isDeveloper, DEVELOPER_COLORS, ROLE_COLORS, ROLE_LABELS, ORG_LABELS, OrgRole } from "@/lib/rbac";
@@ -849,15 +848,7 @@ function SettingsContent() {
                     </div>
                   )}
 
-                  {/* ====== SUB-PAGE: Developer Settings ====== */}
-                  {subPage === 'dev-settings' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
-                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver al Perfil' : 'Back to Profile'}
-                      </button>
-                      <DevSettingsPanel />
-                    </div>
-                  )}
+
 
                   {/* ====== SUB-PAGE: Third-Party Integrations ====== */}
                   {subPage === 'integrations' && (

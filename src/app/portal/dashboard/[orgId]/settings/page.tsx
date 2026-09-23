@@ -22,7 +22,6 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useCrmPermissions } from "@/hooks/useCrmPermissions";
 import OrgRBACPanel from "@/components/settings/OrgRBACPanel";
-import DevSettingsPanel from "@/components/settings/DevSettingsPanel";
 import AuditLogPanel from "@/components/settings/AuditLogPanel";
 import TwoFactorSetup from "@/components/settings/TwoFactorSetup";
 import { isDeveloper, isOracle, DEVELOPER_COLORS, ORACLE_COLORS, ROLE_COLORS, ROLE_LABELS, ORG_LABELS, OrgRole } from "@/lib/rbac";
@@ -121,7 +120,7 @@ const localDict = {
 
 type Lang = 'en' | 'es';
 type Tab = 'general' | 'profile';
-type SubPage = null | 'personal-info' | 'sign-in-security' | 'integrations' | 'org-rbac' | 'dev-settings' | 'audit-log';
+type SubPage = null | 'personal-info' | 'sign-in-security' | 'integrations' | 'org-rbac' | 'audit-log';
 
 export default function SettingsPage() {
   const orgId = useOrgId();
@@ -861,15 +860,7 @@ function SettingsContent() {
                     </div>
                   )}
 
-                  {/* ====== SUB-PAGE: Developer Settings ====== */}
-                  {subPage === 'dev-settings' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
-                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver al Perfil' : 'Back to Profile'}
-                      </button>
-                      <DevSettingsPanel />
-                    </div>
-                  )}
+
 
                   {/* ====== SUB-PAGE: Third-Party Integrations ====== */}
                   {subPage === 'integrations' && (
@@ -1116,7 +1107,7 @@ function SettingsContent() {
                   {isOracle(user?.email) && (
                     <div className={`${isDarkMode ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-indigo-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                       <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
-                        <button onClick={() => setSubPage('dev-settings')} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-indigo-50/50'}`}>
+                        <button onClick={() => setSubPage('org-rbac')} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-indigo-50/50'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
                             <Code className="w-4 h-4" />
                           </div>
