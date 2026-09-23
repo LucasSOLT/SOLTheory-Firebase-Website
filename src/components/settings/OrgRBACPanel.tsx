@@ -549,6 +549,7 @@ function MemberRow({
   const isOracleMember = safeRole === "oracle";
   
   const [isRemoving, setIsRemoving] = useState(false);
+  const { user } = useUser();
   const isCurrentUser = user?.uid === member.uid;
   const isUserOracle = currentUserRole === "oracle";
   const canRemove = (isUserOracle && (orgId !== "soltheory" || (!isOracleMember && !isCurrentUser))) ||
