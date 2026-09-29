@@ -91,6 +91,10 @@ export async function POST(req: Request) {
     }
 
     let sent: any;
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const appUrl = process.env.APP_URL || (host ? `${proto}://${host}` : "");
+    const statusCallback = appUrl ? `${appUrl}/api/sms/status` : undefined;
 
     // Strategy 1: Use Messaging Service SID (A2P compliant)
     if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
@@ -99,6 +103,7 @@ export async function POST(req: Request) {
           body: message,
           to: normalizedTo,
           messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+          ...(statusCallback ? { statusCallback } : {}),
         });
         console.log(`[SMS Send] via MessagingService → ${normalizedTo}: ${sent.sid} (status: ${sent.status})`);
       } catch (msErr: any) {
@@ -117,6 +122,7 @@ export async function POST(req: Request) {
           body: message,
           to: normalizedTo,
           from: normalizedFrom,
+          ...(statusCallback ? { statusCallback } : {}),
         });
         console.log(`[SMS Send] via direct number ${normalizedFrom} → ${normalizedTo}: ${sent.sid} (status: ${sent.status})`);
       } catch (directErr: any) {

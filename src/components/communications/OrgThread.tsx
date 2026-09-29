@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, useStorage } from "@/firebase";
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove, updateDoc, doc, deleteDoc, getDocs, setDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, ChevronDown, Pencil, Check, Paperclip, Wrench, CornerDownRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,45 +38,196 @@ interface ThreadMessage {
 
 type Role = "admin" | "executive" | "member";
 
-const ChatToolsMenu = ({ onInsertList, isDarkMode }: { onInsertList: (rows: number, isCheckbox: boolean) => void, isDarkMode: boolean }) => {
+const ChatToolsMenu = ({
+  onInsertList,
+  onInsertPoll,
+  onCreateThread,
+  isDarkMode,
+}: {
+  onInsertList: (rows: number, isCheckbox: boolean) => void;
+  onInsertPoll?: (question: string, options: string[]) => void;
+  onCreateThread?: () => void;
+  isDarkMode: boolean;
+}) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState<'menu' | 'listForm'>('menu');
+  const [view, setView] = useState<'menu' | 'listForm' | 'pollForm'>('menu');
   const [rows, setRows] = useState(5);
   const [isCheckbox, setIsCheckbox] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState("Option 1\nOption 2");
+  const menuRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setView('menu');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
   return (
-    <div className="relative z-20">
-      <button onClick={() => setIsOpen(!isOpen)} className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors flex items-center justify-center cursor-pointer" title={t.otTools}>
-        <Wrench className="w-4 h-4 text-slate-600" />
+    <div ref={menuRef} className="relative z-20">
+      <button
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) setView('menu');
+        }}
+        className={`w-8 h-8 rounded-full transition-colors flex items-center justify-center cursor-pointer ${
+          isDarkMode
+            ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+            : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
+        }`}
+        title={t.otTools || "Tools"}
+      >
+        <Wrench className="w-4 h-4" />
       </button>
+
       {isOpen && (
-        <div className={`absolute bottom-12 left-0 w-64 rounded-xl shadow-xl p-2 z-50 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+        <div
+          className={`absolute bottom-12 left-0 w-64 rounded-xl shadow-xl p-2 z-50 border ${
+            isDarkMode
+              ? 'bg-slate-800 border-slate-700 text-slate-100'
+              : 'bg-white border-slate-200 text-slate-800'
+          }`}
+        >
           {view === 'menu' ? (
             <div className="flex flex-col gap-1">
-              <button onClick={() => setView('listForm')} className="text-left px-3 py-2 text-[15px] font-medium text-slate-700 hover:bg-slate-100 rounded-md">{t.otCreateList}</button>
-              <button disabled className="text-left px-3 py-2 text-[15px] font-medium text-slate-400 opacity-50 cursor-not-allowed">{t.otCreatePoll}</button>
-              <button disabled className="text-left px-3 py-2 text-[15px] font-medium text-slate-400 opacity-50 cursor-not-allowed">Create Thread</button>
+              <button
+                onClick={() => setView('listForm')}
+                className={`text-left px-3 py-2 text-[15px] font-medium rounded-md transition-colors ${
+                  isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {t.otCreateList}
+              </button>
+              <button
+                onClick={() => setView('pollForm')}
+                className={`text-left px-3 py-2 text-[15px] font-medium rounded-md transition-colors ${
+                  isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {t.otCreatePoll || "Create Poll"}
+              </button>
+              {onCreateThread && (
+                <button
+                  onClick={() => {
+                    onCreateThread();
+                    setIsOpen(false);
+                  }}
+                  className={`text-left px-3 py-2 text-[15px] font-medium rounded-md transition-colors ${
+                    isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {t.otCreateSubthread || "Create Thread"}
+                </button>
+              )}
+            </div>
+          ) : view === 'listForm' ? (
+            <div className="p-2 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-700'}`}>
+                  {t.otNewList}
+                </span>
+                <button onClick={() => setView('menu')} className="hover:opacity-75">
+                  <X className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                </button>
+              </div>
+              <div>
+                <label className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {t.otRowsMax50}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={rows}
+                  onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className={`w-full mt-1 border rounded-md p-1.5 text-[15px] outline-none focus:ring-1 focus:ring-indigo-500 ${
+                    isDarkMode ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-800'
+                  }`}
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer mt-3 mb-1">
+                <input
+                  type="checkbox"
+                  checked={isCheckbox}
+                  onChange={e => setIsCheckbox(e.target.checked)}
+                  className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer"
+                />
+                <span className={`text-[13px] font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                  {t.otAddCheckboxes}
+                </span>
+              </label>
+              <Button
+                size="sm"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium h-9"
+                onClick={() => {
+                  onInsertList(rows, isCheckbox);
+                  setIsOpen(false);
+                  setView('menu');
+                }}
+              >
+                {t.otSendList}
+              </Button>
             </div>
           ) : (
             <div className="p-2 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-slate-700">{t.otNewList}</span>
-                <button onClick={() => { setView('menu'); setIsOpen(false); }} className="hover:text-slate-600"><X className="w-4 h-4 text-slate-400" /></button>
+                <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-700'}`}>
+                  {t.otCreatePoll || "Create Poll"}
+                </span>
+                <button onClick={() => setView('menu')} className="hover:opacity-75">
+                  <X className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                </button>
               </div>
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otRowsMax50}</label>
-                <input type="number" min="1" max="50" value={rows} onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} className="w-full mt-1 border border-slate-200 bg-slate-50 rounded-md p-1.5 text-[15px] outline-none focus:ring-1 focus:ring-indigo-500" />
+                <label className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Poll Question
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Preferred meeting time?"
+                  value={pollQuestion}
+                  onChange={e => setPollQuestion(e.target.value)}
+                  className={`w-full mt-1 border rounded-md p-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 ${
+                    isDarkMode ? 'border-slate-600 bg-slate-700 text-white placeholder-slate-400' : 'border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400'
+                  }`}
+                />
               </div>
-              <label className="flex items-center gap-2 cursor-pointer mt-3 mb-1">
-                <input type="checkbox" checked={isCheckbox} onChange={e => setIsCheckbox(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer" />
-                <span className="text-[13px] font-medium text-slate-700">{t.otAddCheckboxes}</span>
-              </label>
-              <Button size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium h-9" onClick={() => {
-                onInsertList(rows, isCheckbox);
-                setIsOpen(false);
-                setView('menu');
-              }}>{t.otSendList}</Button>
+              <div>
+                <label className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Options (one per line)
+                </label>
+                <textarea
+                  rows={3}
+                  value={pollOptions}
+                  onChange={e => setPollOptions(e.target.value)}
+                  placeholder="Option 1&#10;Option 2"
+                  className={`w-full mt-1 border rounded-md p-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 resize-none ${
+                    isDarkMode ? 'border-slate-600 bg-slate-700 text-white placeholder-slate-400' : 'border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400'
+                  }`}
+                />
+              </div>
+              <Button
+                size="sm"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium h-9"
+                onClick={() => {
+                  const opts = pollOptions.split('\n').map(o => o.trim()).filter(Boolean);
+                  if (onInsertPoll) {
+                    onInsertPoll(pollQuestion.trim(), opts.length > 0 ? opts : ['Yes', 'No']);
+                  }
+                  setIsOpen(false);
+                  setView('menu');
+                  setPollQuestion('');
+                }}
+              >
+                Send Poll
+              </Button>
             </div>
           )}
         </div>
@@ -186,6 +338,7 @@ const ROLE_COLORS: Record<Role, string> = {
 export function OrgThread() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   const { t } = useTranslation();
 
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -519,27 +672,61 @@ export function OrgThread() {
     }
   };
 
-  const processImageFile = (file: File) => {
-    if (file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          let width = img.width;
-          let height = img.height;
-          const MAX = 800; // max size to keep base64 under reasonable limits for firestore
-          if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
-          else if (height > MAX) { width *= MAX / height; height = MAX; }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
+  const handleCreateThreadFromTools = async () => {
+    if (!firestore || !userDomain || !activeChannelId) return;
+    const name = window.prompt("Enter a name for the new thread / sub-channel:");
+    if (!name || !name.trim()) return;
+    const cleanName = name.trim().toLowerCase().replace(/\s+/g, "-");
+    try {
+      const docRef = await addDoc(collection(firestore, "org_channels"), {
+        name: cleanName,
+        domain: userDomain,
+        createdBy: user?.email,
+        parentId: activeChannelId,
+        invitedUsers: activeChannel?.invitedUsers || [],
+        bannedUsers: activeChannel?.bannedUsers || [],
+        roles: activeChannel?.roles || { [user?.email || ""]: "admin" },
+        createdAt: serverTimestamp(),
+      });
+      setActiveChannelId(docRef.id);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to create thread.");
+    }
+  };
+
+  const processImageFile = async (file: File) => {
+    if (!storage || !user?.email || !activeChannelId) return;
+    try {
+      // Upload to Firebase Storage instead of base64 (avoids Firestore 1MB doc limit)
+      const path = `org_attachments/${user.uid || "anon"}/${activeChannelId}/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      handleSendMessage(downloadUrl, file.name || "uploaded-image.jpg");
+    } catch (err) {
+      console.warn("Storage upload failed, falling back to compressed canvas:", err);
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            let width = img.width;
+            let height = img.height;
+            const MAX = 800; // max size to keep base64 under reasonable limits for firestore
+            if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+            else if (height > MAX) { width *= MAX / height; height = MAX; }
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+            handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
+          };
+          img.src = event.target?.result as string;
         };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -1039,16 +1226,30 @@ export function OrgThread() {
                       <Paperclip className="w-4 h-4 text-slate-600" />
                       <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
                     </label>
-                    <ChatToolsMenu isDarkMode={isDarkMode} onInsertList={async (rows, isCheckbox) => {
-                       const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
-                       const msgData = {
-                         text: payload,
-                         senderEmail: user?.email,
-                         createdAt: serverTimestamp()
-                       };
-                       await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
-                       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                     }} />
+                    <ChatToolsMenu
+                      isDarkMode={isDarkMode}
+                      onInsertList={async (rows, isCheckbox) => {
+                        const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
+                        const msgData = {
+                          text: payload,
+                          senderEmail: user?.email,
+                          createdAt: serverTimestamp()
+                        };
+                        await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
+                        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      onInsertPoll={async (question, options) => {
+                        const formatted = `📊 **${question || 'Poll'}**\n` + options.map(o => `- [ ] ${o}`).join('\n');
+                        const msgData = {
+                          text: formatted,
+                          senderEmail: user?.email,
+                          createdAt: serverTimestamp()
+                        };
+                        await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
+                        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      onCreateThread={handleCreateThreadFromTools}
+                    />
                   </div>
                   <Input
                     value={inputText}

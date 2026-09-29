@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { getAuthHeaders } from "@/lib/api-auth-client";
-import { usePathname, useSearchParams, useParams } from "next/navigation";
+import { usePathname, useSearchParams, useParams, useRouter } from "next/navigation";
 import { useUser, useFirestore, useStorage } from "@/firebase";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
@@ -58,6 +58,9 @@ import {
   FileUp,
   Eye,
   FileText,
+  Bot,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from '@/lib/i18n';
@@ -308,12 +311,20 @@ return (
 
 function ActionBoardContent() {
   const { orgId } = useParams<{ orgId: string }>();
+  const router = useRouter();
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = useStorage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
+
+  // ── Jarvis AI Side Panel States ──
+  const [isJarvisPanelOpen, setIsJarvisPanelOpen] = useState(false);
+  const [jarvisInput, setJarvisInput] = useState("");
+  const [isJarvisThinking, setIsJarvisThinking] = useState(false);
+  const [jarvisMessages, setJarvisMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const jarvisChatBottomRef = useRef<HTMLDivElement>(null);
 
   // ── Dark Mode ──
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -1233,6 +1244,73 @@ function ActionBoardContent() {
 
   const visibleTasks = getVisibleBoardTasks();
   const tasksForColumn = (colId: ColumnId) => visibleTasks.filter(t => t.column === colId);
+
+  const handleSendJarvis = async (queryText?: string) => {
+    const textToSend = (queryText || jarvisInput).trim();
+    if (!textToSend || isJarvisThinking) return;
+
+    setJarvisInput("");
+    const newHistory = [...jarvisMessages, { role: "user" as const, text: textToSend }];
+    setJarvisMessages(newHistory);
+    setIsJarvisThinking(true);
+
+    setTimeout(() => {
+      jarvisChatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+
+    try {
+      const todoCount = tasksForColumn("todo").length;
+      const doingCount = tasksForColumn("doing").length;
+      const doneCount = tasksForColumn("done").length;
+      const lateTasks = tasks.filter(t => getLifecycleStatus(t) === "late").map(t => `"${t.title}" (due: ${t.dueDate ? t.dueDate.toDate().toLocaleDateString() : 'N/A'})`);
+      const highPriorityTasks = tasks.filter(t => t.priority === "High" && t.column !== "done").map(t => `"${t.title}" (${t.column})`);
+
+      const boardContext = `[ACTION BOARD CONTEXT for organization ${orgId}]:
+Total Tasks: ${tasks.length}
+Columns: To Do (${todoCount}), In Progress (${doingCount}), Completed (${doneCount})
+Late / Overdue Tasks (${lateTasks.length}): ${lateTasks.join(", ") || "None"}
+High Priority Active Tasks (${highPriorityTasks.length}): ${highPriorityTasks.join(", ") || "None"}
+Current User: ${user?.displayName || user?.email || "User"}`;
+
+      const apiMessages = [
+        {
+          role: "system",
+          content: `You are Jarvis, the executive AI assistant integrated into the Action Board. You assist users with organizing their workload, prioritizing tasks, diagnosing bottlenecks, and taking action. You have direct knowledge of the user's action board:\n\n${boardContext}\n\nBe concise, professional, proactive, and actionable.`
+        },
+        ...newHistory.map(m => ({ role: m.role, content: m.text }))
+      ];
+
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          messages: apiMessages,
+          agentId: "jarvis",
+          stream: false,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Chat request failed");
+      }
+
+      const data = await res.json();
+      const reply = data.response || "I processed your request, but could not generate a response. Please try again.";
+      setJarvisMessages(prev => [...prev, { role: "assistant", text: reply }]);
+    } catch (err: any) {
+      console.error("[ActionBoard] Jarvis chat error:", err);
+      setJarvisMessages(prev => [
+        ...prev,
+        { role: "assistant", text: "I encountered an issue connecting to the Jarvis service. You can also open the full Jarvis Agent chat or press ⌘K for the Command Palette." }
+      ]);
+    } finally {
+      setIsJarvisThinking(false);
+      setTimeout(() => {
+        jarvisChatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+    }
+  };
 
   const filteredAssignees = orgMembers.filter(m => {
     if (!assigneeSearch.trim()) return true;
@@ -2302,6 +2380,228 @@ function ActionBoardContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Jarvis AI Floating Action Button (FAB) ── */}
+      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
+        <button
+          onClick={() => setIsJarvisPanelOpen(true)}
+          className={`group flex items-center gap-2.5 px-4 py-3 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer ${
+            isDarkMode
+              ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-indigo-900/50 hover:shadow-indigo-800/80 border border-indigo-400/30'
+              : 'bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 text-white shadow-slate-900/40 hover:shadow-indigo-950/50 border border-indigo-500/20'
+          }`}
+          title="Ask Jarvis AI (Action Board Copilot)"
+        >
+          <div className="relative">
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+              <Bot className="w-4 h-4 text-white" />
+            </div>
+            <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="text-xs font-bold tracking-wide flex items-center gap-1">
+              Ask Jarvis <Sparkles className="w-3 h-3 text-amber-300" />
+            </span>
+            <span className="text-[10px] text-white/70 font-medium">Task Copilot</span>
+          </div>
+        </button>
+      </div>
+
+      {/* ── Jarvis AI Side Panel (Slide-Over Drawer) ── */}
+      {isJarvisPanelOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 transition-opacity"
+            onClick={() => setIsJarvisPanelOpen(false)}
+          />
+          <div
+            className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] shadow-2xl flex flex-col transition-transform duration-300 animate-in slide-in-from-right ${
+              isDarkMode ? 'bg-slate-900 border-l border-slate-700 text-slate-100' : 'bg-white border-l border-slate-200 text-slate-800'
+            }`}
+          >
+            {/* Panel Header */}
+            <div className={`p-4 border-b flex items-center justify-between shrink-0 ${
+              isDarkMode ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-white/90'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+                    <Bot className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm font-bold">Jarvis Task Copilot</h3>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Active on Action Board • {tasks.length} tasks
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("open-omnibar"));
+                    }
+                  }}
+                  className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
+                    isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+                  }`}
+                  title="Open Command Palette (⌘K)"
+                >
+                  <kbd className="text-[10px] px-1 py-0.5 rounded border border-current">⌘K</kbd>
+                </button>
+                <button
+                  onClick={() => router.push(`/portal/dashboard/${orgId}/ai-agents/jarvis`)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+                  }`}
+                  title="Open Full Agent Manager"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsJarvisPanelOpen(false)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Board Snapshot Metric Bar */}
+            <div className={`px-4 py-2.5 border-b grid grid-cols-3 gap-2 text-center text-xs shrink-0 ${
+              isDarkMode ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50/80 border-slate-100'
+            }`}>
+              <div className="flex flex-col">
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>To Do</span>
+                <span className="font-extrabold text-blue-500 text-sm">{tasksForColumn("todo").length}</span>
+              </div>
+              <div className="flex flex-col border-x border-slate-200/20">
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Doing</span>
+                <span className="font-extrabold text-amber-500 text-sm">{tasksForColumn("doing").length}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Overdue</span>
+                <span className="font-extrabold text-red-500 text-sm">{tasks.filter(t => getLifecycleStatus(t) === "late").length}</span>
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+              {jarvisMessages.length === 0 ? (
+                <div className="space-y-4 pt-2">
+                  <div className={`p-4 rounded-2xl border text-sm leading-relaxed ${
+                    isDarkMode ? 'bg-slate-800/60 border-slate-700/80 text-slate-200' : 'bg-indigo-50/50 border-indigo-100 text-slate-700'
+                  }`}>
+                    <p className="font-semibold text-sm mb-1.5 flex items-center gap-1.5 text-indigo-500">
+                      <Sparkles className="w-4 h-4" /> How can I help with your board?
+                    </p>
+                    <p className="text-xs leading-relaxed">
+                      I have full visibility of all {tasks.length} tasks on your Action Board. Ask me to prioritize tasks, summarize overdue items, or outline next steps.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${
+                      isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                    }`}>Suggested actions:</p>
+                    <div className="flex flex-col gap-1.5">
+                      {[
+                        "What should I prioritize next?",
+                        "Which tasks are late or overdue?",
+                        "Summarize my board status",
+                        "Show all high priority items",
+                      ].map((prompt, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSendJarvis(prompt)}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors border flex items-center justify-between ${
+                            isDarkMode
+                              ? 'border-slate-700 bg-slate-800/40 hover:bg-slate-800 text-slate-200'
+                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <span>{prompt}</span>
+                          <ChevronRight className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                jarvisMessages.map((m, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
+                        m.role === 'user'
+                          ? 'bg-indigo-600 text-white rounded-br-xs'
+                          : isDarkMode
+                          ? 'bg-slate-800 border border-slate-700 text-slate-200 rounded-bl-xs'
+                          : 'bg-slate-100 text-slate-800 rounded-bl-xs'
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {isJarvisThinking && (
+                <div className="flex items-center gap-2 text-xs text-indigo-400 py-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Jarvis is thinking...</span>
+                </div>
+              )}
+              <div ref={jarvisChatBottomRef} />
+            </div>
+
+            {/* Input Box */}
+            <div className={`p-3 border-t shrink-0 ${
+              isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
+            }`}>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={jarvisInput}
+                  onChange={e => setJarvisInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendJarvis();
+                    }
+                  }}
+                  placeholder="Ask Jarvis about your tasks..."
+                  className={`flex-1 text-xs px-3.5 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all ${
+                    isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                  }`}
+                />
+                <button
+                  onClick={() => handleSendJarvis()}
+                  disabled={!jarvisInput.trim() || isJarvisThinking}
+                  className="h-9 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-bold transition-colors flex items-center justify-center cursor-pointer shadow-sm"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className={`text-[10px] mt-1.5 text-center ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                Press Enter to send • ⌘K for Command Palette
+              </p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -22,6 +22,7 @@ import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 import { InsightOmnibar } from "@/components/portal/InsightOmnibar";
 import { BetaDisclaimerModal } from "@/components/portal/BetaDisclaimerModal";
+import { PushNotificationPrompt } from "@/components/notifications/PushNotificationPrompt";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useTranslation();
@@ -80,8 +81,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setIsOmnibarOpen(prev => !prev);
       }
     };
+    const handleOpenOmnibar = () => setIsOmnibarOpen(true);
     window.addEventListener('keydown', handleOmnibarKey);
-    return () => window.removeEventListener('keydown', handleOmnibarKey);
+    window.addEventListener('open-omnibar', handleOpenOmnibar);
+    return () => {
+      window.removeEventListener('keydown', handleOmnibarKey);
+      window.removeEventListener('open-omnibar', handleOpenOmnibar);
+    };
   }, []);
 
   const pathname = usePathname();
@@ -1509,6 +1515,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Hash className="w-5 h-5 text-slate-500" />
                       <span>{t.orgThread || 'Org Thread'}</span>
                     </Link>
+                    <Link href={`${dashboardHome}/communications/imessage`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.endsWith('/communications/imessage') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                      <Smartphone className="w-5 h-5 text-slate-500" />
+                      <span>SMS</span>
+                    </Link>
                   </div>
                 </div>
 
@@ -1804,6 +1814,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Hash className={`w-3.5 h-3.5 shrink-0 ${pathname.endsWith('/communications/org-thread') ? 'text-indigo-600' : ''}`} />
                     <span className="text-xs font-medium whitespace-nowrap">{t.orgThread}</span>
                   </Link>
+                  <Link href={`${dashboardHome}/communications/imessage`} className={getSidebarSubLinkClass(pathname.endsWith('/communications/imessage'))}>
+                    <Smartphone className={`w-3.5 h-3.5 shrink-0 ${pathname.endsWith('/communications/imessage') ? 'text-indigo-600' : ''}`} />
+                    <span className="text-xs font-medium whitespace-nowrap">SMS</span>
+                  </Link>
                 </div>
               )}
               </>
@@ -1998,6 +2012,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
 
+              {/* Push Notification Quick Toggle */}
+              <PushNotificationPrompt variant="button" />
+
               {/* Notifications Bell */}
               <div className="relative">
                 <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`p-2.5 text-slate-400 transition-colors shadow-sm border rounded-full flex items-center justify-center relative ${isDarkMode ? 'hover:text-white hover:bg-slate-800 bg-slate-800 border-slate-700' : 'hover:text-slate-700 hover:bg-[#faf8f3] bg-[#faf8f3] border-slate-100'}`}>
@@ -2143,6 +2160,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Dynamic Page Content */}
         <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative z-[1] w-full min-h-0 focus:outline-none`} tabIndex={-1}>
+          <div className="w-full pt-2 pb-3">
+            <PushNotificationPrompt variant="banner" />
+          </div>
 
           <OrgProvider orgId={currentOrgId}>
             {children}

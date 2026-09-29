@@ -1105,6 +1105,7 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
             <div className="flex-1 overflow-hidden flex flex-col">
               <ActivityTimeline
                 customerId={customer.id}
+                contactEmail={customer.email}
                 onInsightClick={(activityId) => {
                   setSelectedInsightId(activityId);
                   setInsightExpanded(true);

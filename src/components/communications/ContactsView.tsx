@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, query, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from "firebase/firestore";
 import { logActivity } from "@/lib/activity-logger";
-import { Users, Mail, User, BookUser, Plus, Trash2, Settings2 } from "lucide-react";
+import { Users, Mail, User, BookUser, Plus, Trash2, Settings2, Phone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 import ManageFieldsSidebar from "@/components/crm/ManageFieldsSidebar";
 import { useOrgId } from "@/contexts/OrgContext";
@@ -17,6 +18,7 @@ interface Contact {
   name: string;
   aliases: string;
   email: string;
+  phone?: string;
   ignore: boolean;
 }
 
@@ -29,6 +31,7 @@ export function ContactsView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [aliases, setAliases] = useState("");
 
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -74,6 +77,7 @@ export function ContactsView() {
           id: d.id,
           name: fullName,
           email: data.email || "",
+          phone: data.phone || data.mobilePhone || data.workPhone || "",
           aliases: data.aliases || fullName,
           ignore: false
         } as Contact;
@@ -96,6 +100,7 @@ export function ContactsView() {
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPhone = phone.trim();
     const trimmedAliases = aliases.trim() || trimmedName;
     const nameParts = trimmedName.split(" ");
     const firstName = nameParts[0] || trimmedName;
@@ -106,6 +111,7 @@ export function ContactsView() {
       await addDoc(collection(firestore, `users/${user.uid}/contacts`), {
         name: trimmedName,
         email: trimmedEmail,
+        phone: trimmedPhone,
         aliases: trimmedAliases,
         ignore: false,
         createdAt: serverTimestamp()
@@ -117,6 +123,7 @@ export function ContactsView() {
         lastName,
         name: trimmedName,
         email: trimmedEmail,
+        phone: trimmedPhone,
         leadStatus: "Warm Lead",
         createdAt: serverTimestamp()
       });
@@ -124,6 +131,7 @@ export function ContactsView() {
       logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName || '' }, `Created contact "${trimmedName}" (${trimmedEmail})`);
       setName("");
       setEmail("");
+      setPhone("");
       setAliases("");
     } catch(e) {
       console.error(e);
@@ -201,6 +209,20 @@ export function ContactsView() {
             </div>
 
             <div>
+              <label className={`text-xs font-bold mb-1.5 block uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Phone Number</label>
+              <div className="relative">
+                <Input 
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="+1 (555) 000-0000"
+                  className={`pl-9 h-11 text-sm focus-visible:ring-indigo-100 shadow-sm rounded-xl ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                />
+                <Phone className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+              </div>
+            </div>
+
+            <div>
               <label className={`text-xs font-bold mb-1.5 block uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.cbAliases}</label>
               <Input 
                 value={aliases}
@@ -241,14 +263,31 @@ export function ContactsView() {
                        <div className="flex flex-col">
                          <span className={`font-bold text-[15px] ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{contact.name || "Unnamed"}</span>
                          <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{contact.email}</span>
+                         {contact.phone && (
+                           <span className={`text-xs font-semibold mt-0.5 flex items-center gap-1.5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                             <Phone className="w-3 h-3" />
+                             <span>{contact.phone}</span>
+                           </span>
+                         )}
                        </div>
                      </div>
-                     <button 
-                       onClick={() => handleDeleteContact(contact.id)}
-                       className={`p-2 -mt-1 -mr-1 rounded-xl transition-colors opacity-0 group-hover:opacity-100 ${isDarkMode ? 'text-slate-500 hover:text-rose-400 hover:bg-rose-900/30' : 'text-slate-300 hover:text-rose-500 hover:bg-rose-50'}`}
-                     >
-                       <Trash2 className="w-4 h-4" />
-                     </button>
+                     <div className="flex items-center gap-1.5">
+                       {contact.phone && (
+                         <Link
+                           href={`/portal/dashboard/${orgId}/communications/imessage`}
+                           className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
+                           title="Send SMS"
+                         >
+                           SMS
+                         </Link>
+                       )}
+                       <button 
+                         onClick={() => handleDeleteContact(contact.id)}
+                         className={`p-2 -mt-1 -mr-1 rounded-xl transition-colors opacity-0 group-hover:opacity-100 ${isDarkMode ? 'text-slate-500 hover:text-rose-400 hover:bg-rose-900/30' : 'text-slate-300 hover:text-rose-500 hover:bg-rose-50'}`}
+                       >
+                         <Trash2 className="w-4 h-4" />
+                       </button>
+                     </div>
                    </div>
                    {contact.aliases && contact.aliases !== contact.name && (
                      <div className={`mt-4 pt-3 border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc, setDoc, addDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, addDoc, collection, query, orderBy, limit, getDocs, onSnapshot, updateDoc } from "firebase/firestore";
 import { logActivity } from "@/lib/activity-logger";
 import { playMessageSendSound } from "@/lib/send-sound";
 import {
@@ -17,7 +17,9 @@ import {
   ArrowLeft,
   Loader2,
   RefreshCw,
+  Check,
   CheckCheck,
+  Clock,
   Phone,
   Plus,
   Wifi,
@@ -42,8 +44,9 @@ type Message = {
   body: string;
   direction: string;
   createdAt: string;
-  read: boolean;
+  read?: boolean;
   mediaUrls?: string[];
+  status?: "sending" | "sent" | "delivered" | "failed" | "undelivered";
 };
 
 export default function IMessagePage() {
@@ -85,122 +88,168 @@ export default function IMessagePage() {
     });
   }, [user?.uid, firestore]);
 
-  // Load conversations from client-side Firestore
-  const loadConversations = useCallback(async () => {
-    if (!user?.uid || !firestore) return;
+  // Real-time live subscription for conversations list
+  useEffect(() => {
+    if (!user?.uid || !firestore || !isProvisioned) return;
     setIsLoadingConvos(true);
     setError("");
-    try {
-      const q = query(
-        collection(firestore, "users", user.uid, "sms_messages"),
-        orderBy("createdAt", "desc"),
-        limit(500)
-      );
-      const snapshot = await getDocs(q);
-      const convMap = new Map<string, Conversation>();
-      snapshot.docs.forEach((d) => {
-        const data = d.data();
-        const contact = data.direction === "inbound" ? data.from : data.to;
-        if (!convMap.has(contact)) {
-          convMap.set(contact, {
-            contact,
-            lastMessage: data.body || (data.mediaUrls?.length ? "Media" : ""),
-            lastTime: data.createdAt,
-            direction: data.direction,
-            unreadCount: 0,
-            messageCount: 0,
-          });
-        }
-        const conv = convMap.get(contact)!;
-        conv.messageCount++;
-        if (data.direction === "inbound" && !data.read) conv.unreadCount++;
-      });
-      const sorted = Array.from(convMap.values()).sort(
-        (a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime()
-      );
-      setConversations(sorted);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoadingConvos(false);
-    }
-  }, [user?.uid, firestore]);
 
+    const q = query(
+      collection(firestore, "users", user.uid, "sms_messages"),
+      orderBy("createdAt", "desc"),
+      limit(300)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const convMap = new Map<string, Conversation>();
+        snapshot.docs.forEach((d) => {
+          const data = d.data();
+          const contact = data.direction === "inbound" ? data.from : data.to;
+          if (!contact) return;
+          if (!convMap.has(contact)) {
+            convMap.set(contact, {
+              contact,
+              lastMessage: data.body || (data.mediaUrls?.length ? "Media" : ""),
+              lastTime: data.createdAt,
+              direction: data.direction,
+              unreadCount: 0,
+              messageCount: 0,
+            });
+          }
+          const conv = convMap.get(contact)!;
+          conv.messageCount++;
+          if (data.direction === "inbound" && !data.read) conv.unreadCount++;
+        });
+
+        const sorted = Array.from(convMap.values()).sort(
+          (a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime()
+        );
+        setConversations(sorted);
+        setIsLoadingConvos(false);
+      },
+      (err) => {
+        console.warn("[SMS] Live conversations listener error:", err);
+        setError(err.message);
+        setIsLoadingConvos(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, firestore, isProvisioned]);
+
+  // Real-time live subscription for active contact messages
   useEffect(() => {
-    if (isProvisioned) loadConversations();
-  }, [isProvisioned, loadConversations]);
+    if (!user?.uid || !firestore || !activeContact) {
+      if (!activeContact) setMessages([]);
+      return;
+    }
 
-  // Load messages for a contact from client-side Firestore
-  const loadMessages = useCallback(async (contact: string) => {
-    if (!user?.uid || !firestore) return;
     setIsLoadingMessages(true);
-    try {
-      const q = query(
-        collection(firestore, "users", user.uid, "sms_messages"),
-        orderBy("createdAt", "desc"),
-        limit(100)
-      );
-      const snapshot = await getDocs(q);
-      const normalizedContact = contact.replace(/[^+\d]/g, "");
-      let msgs: Message[] = snapshot.docs
-        .map((d) => ({ id: d.id, ...d.data() } as Message))
-        .filter((m) => m.from?.includes(normalizedContact) || m.to?.includes(normalizedContact))
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      setMessages(msgs);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  }, [user?.uid, firestore]);
+    const q = query(
+      collection(firestore, "users", user.uid, "sms_messages"),
+      orderBy("createdAt", "desc"),
+      limit(150)
+    );
 
-  useEffect(() => {
-    if (activeContact) loadMessages(activeContact);
-  }, [activeContact, loadMessages]);
+    const normalizedContact = activeContact.replace(/[^+\d]/g, "");
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const msgs: Message[] = snapshot.docs
+          .map((d) => ({ id: d.id, ...d.data() } as Message))
+          .filter((m) => {
+            const cleanFrom = (m.from || "").replace(/[^+\d]/g, "");
+            const cleanTo = (m.to || "").replace(/[^+\d]/g, "");
+            return cleanFrom.includes(normalizedContact) || cleanTo.includes(normalizedContact);
+          })
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+        setMessages(msgs);
+        setIsLoadingMessages(false);
+
+        // Auto-mark inbound messages as read
+        snapshot.docs.forEach((d) => {
+          const data = d.data();
+          if (data.direction === "inbound" && !data.read) {
+            const cleanFrom = (data.from || "").replace(/[^+\d]/g, "");
+            if (cleanFrom.includes(normalizedContact)) {
+              updateDoc(d.ref, { read: true }).catch(() => {});
+            }
+          }
+        });
+      },
+      (err) => {
+        console.warn("[SMS] Live messages listener error:", err);
+        setError(err.message);
+        setIsLoadingMessages(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, firestore, activeContact]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send message â€” calls Twilio API, then saves to client-side Firestore
+  // Send message — optimistic UI + Twilio API + client-side Firestore write
   const handleSend = async () => {
     const targetNumber = activeContact || (showNewConversation ? newContactNumber : null);
     if (!newMessage.trim() || !targetNumber || !user?.uid || !phoneNumber || !firestore) return;
+
+    const textToSend = newMessage.trim();
+    setNewMessage("");
     setIsSending(true);
+
+    // Optimistic UI update: message appears immediately
+    const tempId = "opt-" + Date.now();
+    const optimisticMsg: Message = {
+      id: tempId,
+      from: phoneNumber,
+      to: targetNumber,
+      body: textToSend,
+      direction: "outbound",
+      status: "sending" as any,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    playMessageSendSound();
+
     try {
       const res = await fetch("/api/sms/send", {
         method: "POST",
         headers: await getAuthHeaders(),
-        body: JSON.stringify({ from: phoneNumber, to: targetNumber, message: newMessage }),
+        body: JSON.stringify({ from: phoneNumber, to: targetNumber, message: textToSend }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      playMessageSendSound();
 
       // Save to Firestore client-side
       await addDoc(collection(firestore, "users", user.uid, "sms_messages"), {
         sid: data.sid,
         from: phoneNumber,
         to: data.to || targetNumber,
-        body: newMessage,
+        body: textToSend,
         direction: "outbound",
         status: "sent",
         createdAt: new Date().toISOString(),
       });
 
-      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName || '' }, `Sent SMS message to ${targetNumber}`, { messagePreview: newMessage.substring(0, 200) });
+      logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName || '' }, `Sent SMS message to ${targetNumber}`, { messagePreview: textToSend.substring(0, 200) });
 
-      setNewMessage("");
       if (showNewConversation) {
         setShowNewConversation(false);
         const normalized = targetNumber.startsWith("+") ? targetNumber : "+1" + targetNumber.replace(/\D/g, "");
         setActiveContact(normalized);
         setNewContactNumber("");
       }
-      if (activeContact) await loadMessages(activeContact);
-      await loadConversations();
     } catch (err: any) {
       setError(err.message);
+      // Remove optimistic message if failed
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } finally {
       setIsSending(false);
     }
@@ -381,9 +430,10 @@ export default function IMessagePage() {
                   <span className="text-xs bg-[#faf8f3] text-slate-500 px-2 py-0.5 rounded-full">{conversations.length}</span>
                 )}
               </CardTitle>
-              <Button variant="ghost" size="sm" onClick={loadConversations} disabled={isLoadingConvos} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-700">
-                <RefreshCw className={`w-4 h-4 ${isLoadingConvos ? "animate-spin" : ""}`} />
-              </Button>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200/60" title="Messages sync in real time">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">Live</span>
+              </div>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -479,11 +529,11 @@ export default function IMessagePage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-bold text-slate-900 truncate">{formatPhoneDisplay(activeContact || "")}</h3>
-                      <p className="text-[10px] text-slate-400">SMS Â· {phoneNumber ? `from ${formatPhoneDisplay(phoneNumber)}` : ""}</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <p className="text-[10px] text-slate-400">Live SMS · {phoneNumber ? `from ${formatPhoneDisplay(phoneNumber)}` : ""}</p>
+                      </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => loadMessages(activeContact!)} disabled={isLoadingMessages} className="h-8 w-8 p-0 text-slate-400">
-                      <RefreshCw className={`w-4 h-4 ${isLoadingMessages ? "animate-spin" : ""}`} />
-                    </Button>
                   </>
                 )}
               </div>
@@ -527,7 +577,19 @@ export default function IMessagePage() {
                               <span className="text-[9px] text-slate-500">
                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                               </span>
-                              {isMe && <CheckCheck className="w-3 h-3 text-[#53BDEB]" />}
+                              {isMe && (
+                                <span className="inline-flex items-center ml-0.5" title={msg.status || "sent"}>
+                                  {msg.status === "sending" ? (
+                                    <Clock className="w-3 h-3 text-slate-400 animate-spin" />
+                                  ) : msg.status === "failed" || msg.status === "undelivered" ? (
+                                    <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                  ) : msg.status === "delivered" ? (
+                                    <CheckCheck className="w-3 h-3 text-[#53BDEB]" />
+                                  ) : (
+                                    <Check className="w-3 h-3 text-slate-500" />
+                                  )}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

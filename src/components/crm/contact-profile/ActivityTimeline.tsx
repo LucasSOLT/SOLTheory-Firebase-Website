@@ -10,10 +10,12 @@ import {
   User, Send, Check, Brain, Sparkles, Tag, FileText, ArrowRightLeft,
   CheckSquare, Upload, TrendingUp, Filter,
 } from "lucide-react";
+import ActivityEmailsTab from "./ActivityEmailsTab";
 
 interface ActivityTimelineProps {
   customerId: string;
   onInsightClick?: (activityId: string) => void;
+  contactEmail?: string;
 }
 
 const ACTIVITY_ICON_MAP: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
@@ -39,7 +41,7 @@ function getDateGroupLabel(date: Date): string {
   return "Older";
 }
 
-export default function ActivityTimeline({ customerId, onInsightClick }: ActivityTimelineProps) {
+export default function ActivityTimeline({ customerId, onInsightClick, contactEmail }: ActivityTimelineProps) {
   const { isDarkMode } = useTheme();
   const activities = useCRMStore(s => s.activities.filter(a => a.customerId === customerId));
   const addActivity = useCRMStore(s => s.addActivity);
@@ -129,7 +131,13 @@ export default function ActivityTimeline({ customerId, onInsightClick }: Activit
         </div>
       </div>
       
-      {/* Activity List */}
+      {/* Gmail Emails Tab — renders real Gmail data instead of CrmActivity records */}
+      {filterType === "email" && contactEmail ? (
+        <div className="flex-1 overflow-y-auto p-4">
+          <ActivityEmailsTab contactEmail={contactEmail} isDarkMode={isDarkMode} />
+        </div>
+      ) : (
+      /* Activity List */
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {groupedActivities.length === 0 ? (
           <div className="text-center py-10">
@@ -220,6 +228,7 @@ export default function ActivityTimeline({ customerId, onInsightClick }: Activit
           ))
         )}
       </div>
+      )}
 
       {/* Note Input */}
       <div className={`p-4 border-t ${isDarkMode ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>

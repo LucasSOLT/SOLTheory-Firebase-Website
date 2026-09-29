@@ -28,6 +28,7 @@ export const metadata: Metadata = {
       sizes: '180x180',
     },
   },
+  manifest: '/manifest.json',
 };
 
 export const viewport: Viewport = {

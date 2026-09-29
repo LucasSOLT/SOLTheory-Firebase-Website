@@ -1331,7 +1331,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           try {
             const formData = new FormData();
             formData.append("file", att.file);
-            const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
+            const headers = await getAuthHeaders();
+            delete (headers as Record<string, string>)["Content-Type"];
+            const res = await fetch("/api/knowledge/ingest", { method: "POST", headers, body: formData });
             const data = await res.json();
             if (res.ok && data.chunks) {
               const fullText = data.chunks.map((c: any) => c.text).join(" ");
@@ -2013,7 +2015,9 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/knowledge/ingest", { method: "POST", body: formData });
+      const headers = await getAuthHeaders();
+      delete (headers as Record<string, string>)["Content-Type"];
+      const res = await fetch("/api/knowledge/ingest", { method: "POST", headers, body: formData });
       const data = await res.json();
       if (res.ok && data.chunks) {
         const fullText = data.chunks.map((c: any) => c.text).join(" ");

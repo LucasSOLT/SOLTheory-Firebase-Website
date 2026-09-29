@@ -4,6 +4,7 @@ import { firebaseConfig } from "@/firebase/config";
 import { initializeApp as initAdmin, cert, getApps as getAdminApps } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
 import { getOrgLabel, getOrgConfig, DEVELOPER_EMAIL } from "@/lib/org-config";
+import { sendPushToUser } from "@/lib/fcm-notify";
 
 // Use a named app to avoid conflicts with other Firebase instances
 const WEBHOOK_APP_NAME = "sms-webhook";
@@ -84,6 +85,22 @@ export async function POST(req: Request) {
 
     console.log(`[SMS Webhook] Stored inbound message ${docRef.id} for user ${uid}`);
 
+    // Trigger instant background push notification to user's phone & computer
+    const userData = usersSnapshot.docs[0].data();
+    const orgId = userData.organization || (userData.allowedOrgs ? userData.allowedOrgs[0] : "soltheory");
+    const orgLabel = getOrgLabel(orgId);
+
+    sendPushToUser(uid, {
+      title: `SMS from ${from}`,
+      body: body || (mediaUrls.length > 0 ? "📷 Photo message" : "New message"),
+      url: `/portal/dashboard/${orgId}/communications/imessage`,
+      chatId: from,
+      type: "sms",
+      tag: `sms-${from}`,
+    }).catch((pushErr) => {
+      console.warn("[SMS Webhook] Push notification dispatch failed:", pushErr?.message);
+    });
+
     // --- Handle STOP / HELP keywords for A2P compliance ---
     const normalizedBody = (body || "").trim().toLowerCase();
     const senderDigits = from.replace(/\D/g, "");
@@ -132,10 +149,6 @@ export async function POST(req: Request) {
         { headers: { "Content-Type": "text/xml" } }
       );
     }
-
-    const userData = usersSnapshot.docs[0].data();
-    const orgId = userData.organization || (userData.allowedOrgs ? userData.allowedOrgs[0] : "soltheory");
-    const orgLabel = getOrgLabel(orgId);
 
     // --- Handle START / YES opt-in keywords ---
     if (OPT_IN_KEYWORDS.includes(normalizedBody)) {

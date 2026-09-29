@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 import { firebaseConfig } from "@/firebase/config";
 import * as fs from "fs";
 import * as path from "path";
@@ -77,4 +78,4 @@ export function initAdmin() {
   }
 }
 
-export { getFirestore };
+export { getFirestore, getMessaging };

@@ -14,12 +14,13 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { TIMEZONE_OPTIONS, useTranslation } from "@/lib/i18n";
-import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield, Users as UsersIcon, Code, Clock, Copy, Check } from "lucide-react";
-import { useUser, useFirestore, useAuth } from "@/firebase";
+import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield, Users as UsersIcon, Code, Clock, Copy, Check, Camera } from "lucide-react";
+import { useUser, useFirestore, useAuth, useStorage } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile, sendPasswordResetEmail } from "firebase/auth";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useCrmPermissions } from "@/hooks/useCrmPermissions";
 import OrgRBACPanel from "@/components/settings/OrgRBACPanel";
 import AuditLogPanel from "@/components/settings/AuditLogPanel";
@@ -70,7 +71,8 @@ const localDict = {
     languageSelect: "Select Interface Language",
     languageSelectDesc: "Choose your preferred language for the entire platform interface.",
     english: "English (US)",
-    spanish: "Español (ES)"
+    spanish: "Español (ES)",
+    changePhoto: "Change Photo"
   },
   es: {
     settings: "Configuración",
@@ -114,7 +116,8 @@ const localDict = {
     languageSelect: "Seleccionar Idioma de la Interfaz",
     languageSelectDesc: "Elige tu idioma preferido para toda la interfaz de la plataforma.",
     english: "Inglés (US)",
-    spanish: "Español (ES)"
+    spanish: "Español (ES)",
+    changePhoto: "Cambiar Foto"
   }
 };
 
@@ -137,6 +140,7 @@ function SettingsContent() {
   const { t } = useTranslation();
   const auth = useAuth();
   const firestore = useFirestore();
+  const storage = useStorage();
   const searchParams = useSearchParams();
   
   // States
@@ -151,6 +155,59 @@ function SettingsContent() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [copiedUid, setCopiedUid] = useState(false);
+
+  // Avatar / Profile picture states & handlers
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !storage) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError(lang === 'es' ? 'Por favor selecciona un archivo de imagen válido.' : 'Please select a valid image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError(lang === 'es' ? 'La imagen no debe superar los 5MB.' : 'Image must be under 5MB.');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setAvatarError('');
+
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const storageRef = ref(storage, `profile_pictures/${user.uid}/avatar.${ext}`);
+      await uploadBytes(storageRef, file, { contentType: file.type });
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // 1. Update Firebase Auth user
+      if (auth?.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL: downloadURL });
+      }
+
+      // 2. Update Firestore user document
+      if (firestore) {
+        const userRef = doc(firestore, 'users', user.uid);
+        await setDoc(userRef, { photoURL: downloadURL, updatedAt: new Date().toISOString() }, { merge: true });
+        logActivity(firestore, 'settings_changed', { email: user.email || '', displayName: user.displayName || '' }, 'Updated profile picture');
+      }
+
+      setAvatarUrl(downloadURL);
+    } catch (err: any) {
+      console.error('Error uploading avatar:', err);
+      setAvatarError(lang === 'es' ? 'Error al subir la foto de perfil. Inténtalo de nuevo.' : 'Failed to upload profile picture. Please try again.');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+    }
+  };
   
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [subPage, setSubPage] = useState<SubPage>(null);
@@ -172,6 +229,8 @@ function SettingsContent() {
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmailInput, setResetEmailInput] = useState('');
+  const [resetSending, setResetSending] = useState(false);
+  const [resetError, setResetError] = useState('');
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
 
@@ -226,6 +285,7 @@ function SettingsContent() {
 
   useEffect(() => {
     if (user) {
+      if (user.photoURL) setAvatarUrl(user.photoURL);
       const rawName = user.displayName || "";
       const translatedName = rawName.replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke');
       setDisplayName(translatedName);
@@ -235,6 +295,7 @@ function SettingsContent() {
         getDoc(doc(firestore, "users", user.uid)).then(docSnap => {
           if (docSnap.exists()) {
             const data = docSnap.data();
+            if (data.photoURL) setAvatarUrl(data.photoURL);
             setBio(data.bio || "");
             setLocation(data.location || "");
             if (data.accountName) {
@@ -511,11 +572,23 @@ function SettingsContent() {
             
             {/* Sidebar Navigation */}
             <div className="w-full md:w-56 flex flex-col gap-4 shrink-0">
-              
               {/* User Profile Box */}
               <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200/80'} border rounded-2xl p-5 shadow-sm flex flex-col items-center text-center`}>
-                <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-white'} border-4 shadow-lg overflow-hidden flex items-center justify-center text-xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
-                  {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : (user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+                <div 
+                  onClick={() => avatarInputRef.current?.click()}
+                  className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-white'} border-4 shadow-lg overflow-hidden flex items-center justify-center text-xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} mb-2 relative group cursor-pointer`}
+                  title={dict.changePhoto || "Change Photo"}
+                >
+                  {isUploadingAvatar ? (
+                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                  ) : (avatarUrl || user?.photoURL) ? (
+                    <img src={avatarUrl || user?.photoURL || undefined} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    (user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <Camera className="w-4 h-4" />
+                  </div>
                 </div>
                 <h3 className={`font-bold text-base line-clamp-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{(user?.displayName || "User").replace(/\bLuke\b/g, lang === 'es' ? 'Lucas' : 'Luke')}</h3>
                 <p className={`text-[10px] font-medium uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{user?.email}</p>
@@ -747,13 +820,16 @@ function SettingsContent() {
                                       )}
                                     </div>
                                     <div className="flex gap-2 justify-end">
-                                      <Button variant="ghost" onClick={() => { setShowResetModal(false); setResetEmailInput(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
+                                      <Button variant="ghost" onClick={() => { setShowResetModal(false); setResetEmailInput(''); setResetError(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
                                       <Button
-                                        disabled={!resetEmailInput || resetEmailInput.toLowerCase() !== (user?.email || '').toLowerCase()}
-                                        onClick={async () => { if (auth && user?.email && resetEmailInput.toLowerCase() === user.email.toLowerCase()) { try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/${orgId}/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'settings_changed', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e) { console.error(e); }}}}
-                                        className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                      >{t.sendResetEmail}</Button>
+                                        disabled={!resetEmailInput || resetEmailInput.toLowerCase() !== (user?.email || '').toLowerCase() || resetSending}
+                                        onClick={async () => { if (auth && user?.email && resetEmailInput.toLowerCase() === user.email.toLowerCase()) { setResetSending(true); setResetError(''); try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/${orgId}/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'settings_changed', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e: any) { console.error(e); const msg = e?.code === 'auth/too-many-requests' ? (lang === 'es' ? 'Demasiados intentos. Inténtalo de nuevo más tarde.' : 'Too many attempts. Please try again later.') : e?.code === 'auth/network-request-failed' ? (lang === 'es' ? 'Error de red. Verifica tu conexión.' : 'Network error. Check your connection.') : (lang === 'es' ? 'No se pudo enviar el correo de restablecimiento. Inténtalo de nuevo.' : 'Failed to send reset email. Please try again.'); setResetError(msg); } finally { setResetSending(false); }}}}
+                                        className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                      >{resetSending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}{t.sendResetEmail}</Button>
                                     </div>
+                                    {resetError && (
+                                      <p className="text-xs text-red-500 font-medium mt-2 text-center">{resetError}</p>
+                                    )}
                                   </>
                                 ) : (
                                   <>
@@ -971,17 +1047,68 @@ function SettingsContent() {
                   <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                     <div className={`h-24 w-full ${isDarkMode ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' : 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900'} relative`}>
                       <div className="absolute -bottom-8 left-8">
-                        <div className={`w-16 h-16 rounded-full border-4 ${isDarkMode ? 'border-slate-900 bg-slate-700' : 'border-white bg-slate-100'} flex items-center justify-center text-2xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-900'} shadow-lg overflow-hidden`}>
-                          {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : (displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+                        <div className="relative group">
+                          <div 
+                            onClick={() => avatarInputRef.current?.click()}
+                            className={`w-16 h-16 rounded-full border-4 ${isDarkMode ? 'border-slate-900 bg-slate-700' : 'border-white bg-slate-100'} flex items-center justify-center text-2xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-900'} shadow-lg overflow-hidden cursor-pointer relative`}
+                            title={dict.changePhoto || "Change Photo"}
+                          >
+                            {isUploadingAvatar ? (
+                              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                            ) : (avatarUrl || user?.photoURL) ? (
+                              <img src={avatarUrl || user?.photoURL || undefined} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              (displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <Camera className="w-4 h-4" />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            disabled={isUploadingAvatar}
+                            className={`absolute bottom-0 right-0 p-1.5 rounded-full shadow-md transition-transform hover:scale-105 ${
+                              isDarkMode ? 'bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                            }`}
+                            title={dict.changePhoto || "Change Photo"}
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     </div>
                     
                     <div className="pt-12 pb-6 px-8 space-y-5">
-                      <div>
-                        <h2 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{dict.publicProfile}</h2>
-                        <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.personalizeInfo}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h2 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{dict.publicProfile}</h2>
+                          <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.personalizeInfo}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAvatarUpload}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => avatarInputRef.current?.click()}
+                            disabled={isUploadingAvatar}
+                            className={`h-9 text-xs font-semibold gap-1.5 ${isDarkMode ? 'border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'}`}
+                          >
+                            {isUploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5 text-blue-500" />}
+                            {dict.changePhoto || (lang === 'es' ? "Cambiar Foto" : "Change Photo")}
+                          </Button>
+                        </div>
                       </div>
+                      {avatarError && (
+                        <p className="text-xs text-red-500 font-medium">{avatarError}</p>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="space-y-1.5">
@@ -1044,17 +1171,20 @@ function SettingsContent() {
                   <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                     <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
                       {[
-                        { icon: <User className="w-4 h-4" />, label: t.personalInfo, desc: t.personalInfoDescShort, action: () => setSubPage('personal-info') },
-                        { icon: <Lock className="w-4 h-4" />, label: t.security, desc: t.securityDescShort, action: () => setSubPage('sign-in-security') },
-                        { icon: <Smartphone className="w-4 h-4" />, label: t.paymentShipping, desc: t.paymentShippingDesc, action: undefined },
-                        { icon: <Bell className="w-4 h-4" />, label: t.subscriptionsLabel, desc: t.subscriptionsDesc, action: undefined },
+                        { icon: <User className="w-4 h-4" />, label: t.personalInfo, desc: t.personalInfoDescShort, action: () => setSubPage('personal-info'), comingSoon: false },
+                        { icon: <Lock className="w-4 h-4" />, label: t.security, desc: t.securityDescShort, action: () => setSubPage('sign-in-security'), comingSoon: false },
+                        { icon: <Smartphone className="w-4 h-4" />, label: t.paymentShipping, desc: t.paymentShippingDesc, action: undefined, comingSoon: true },
+                        { icon: <Bell className="w-4 h-4" />, label: t.subscriptionsLabel, desc: t.subscriptionsDesc, action: undefined, comingSoon: true },
                       ].map((item, i) => (
-                        <button key={i} onClick={item.action} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.action ? 'cursor-pointer' : 'cursor-default'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
+                        <button key={i} onClick={item.action} disabled={item.comingSoon} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.comingSoon ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                             {item.icon}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{item.label}</div>
+                            <div className={`text-sm font-medium flex items-center gap-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              {item.label}
+                              {item.comingSoon && <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-400'}`}>{lang === 'es' ? 'Próximamente' : 'Coming Soon'}</span>}
+                            </div>
                             <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{item.desc}</div>
                           </div>
                           <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
@@ -1067,16 +1197,19 @@ function SettingsContent() {
                   <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                     <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
                       {[
-                        { icon: <HardDrive className="w-4 h-4" />, label: t.cloudStorage, desc: t.cloudStorageDesc, action: undefined },
-                        { icon: <Globe className="w-4 h-4" />, label: t.integrations, desc: t.integrationsDescShort, action: () => setSubPage('integrations') },
-                        { icon: <Smartphone className="w-4 h-4" />, label: t.signedInDevices, desc: t.signedInDevicesDesc, action: undefined },
+                        { icon: <HardDrive className="w-4 h-4" />, label: t.cloudStorage, desc: t.cloudStorageDesc, action: undefined, comingSoon: true },
+                        { icon: <Globe className="w-4 h-4" />, label: t.integrations, desc: t.integrationsDescShort, action: () => setSubPage('integrations'), comingSoon: false },
+                        { icon: <Smartphone className="w-4 h-4" />, label: t.signedInDevices, desc: t.signedInDevicesDesc, action: undefined, comingSoon: true },
                       ].map((item, i) => (
-                        <button key={i} onClick={item.action} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.action ? 'cursor-pointer' : 'cursor-default'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
+                        <button key={i} onClick={item.action} disabled={item.comingSoon} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.comingSoon ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                             {item.icon}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{item.label}</div>
+                            <div className={`text-sm font-medium flex items-center gap-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              {item.label}
+                              {item.comingSoon && <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-400'}`}>{lang === 'es' ? 'Próximamente' : 'Coming Soon'}</span>}
+                            </div>
                             <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{item.desc}</div>
                           </div>
                           <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
