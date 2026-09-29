@@ -352,6 +352,21 @@ export const CRM_TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "crm_get_contact_profile",
+      description: "Retrieve the complete dossier for a CRM contact, including full biographical details, contact info, notes, AI web-research/enrichment notes (aiNotes), custom fields, and the recent activity/interaction timeline. Use this whenever the user asks for background information, research findings, personal preferences, interests, or past interactions with a specific contact (e.g., 'what do we know about John?', 'what sports does he like?', 'pull up John's profile and notes', 'what was our last meeting with Sarah about?').",
+      parameters: {
+        type: "object",
+        properties: {
+          searchQuery: { type: "string", description: "Name, email, or company to identify the contact" },
+          contactBookName: { type: "string", description: "Optional: specific contact book to search in. If omitted, searches across ALL contact books." },
+        },
+        required: ["searchQuery"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "crm_list_contact_books",
       description: "List all available contact book versions/databases. Use this when the user asks 'what contact books do I have?', 'show me my contact books', or when you need to find which contact book to write to.",
       parameters: {
@@ -598,10 +613,12 @@ export const CRM_TOOL_DEFINITIONS = [
  */
 export function buildCrmSystemPrompt(
   activeInstanceId: string,
-  instances: CrmInstance[]
+  instances: CrmInstance[],
+  currentDateStr?: string
 ): string {
   const activeName = instances.find(i => i.id === activeInstanceId)?.name || "All Contacts";
   const bookList = instances.map(i => `  - "${i.name}" (ID: ${i.id})${i.id === activeInstanceId ? " ← ACTIVE" : ""}`).join("\n");
+  const todayStr = currentDateStr || new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   return `\n\n[CRM MANAGEMENT TOOLS]
 You have FULL CRM management capabilities. You can create, update, delete, search, and analyze contacts in the user's CRM database across ALL contact books.
@@ -683,7 +700,18 @@ FOLLOW-UP TASKS:
 - crm_schedule_followup: Create follow-up tasks with type, due date, priority
 - crm_complete_task: Mark tasks as complete or delete them
 - Task types: Call, Email, Meeting, Send Proposal, Check-in, Message, Onboard
-- Priorities: Low, Normal, High, Urgent`;
+- Priorities: Low, Normal, High, Urgent
+
+CONTACT DOSSIERS & RESEARCH (AI NOTES):
+- Use crm_get_contact_profile to retrieve a contact's complete dossier, including biographical details, notes, AI web-research/enrichment notes (aiNotes), custom fields, and full interaction timeline.
+- Use this whenever the user asks for background information, research findings, personal preferences, interests, or past interactions with a specific contact (e.g. "what do we know about Steve?", "what sports does he like?", "check Steve's notes/research", "what was our last meeting with Sarah about?").
+- When answering from aiNotes or research, explain what was discovered and reference any relevant timeline dates naturally.
+
+TEMPORAL RELATIONSHIP RECALL:
+- Today is ${todayStr}.
+- When answering questions about a contact using past research, notes, or activities (e.g. "what sports does this customer like?"), adopt a warm, collaborative relationship memory tone.
+- Reference when the discovery or activity took place relative to today (e.g. "Oh yeah, John loves football and is a huge Denver Broncos fan — we discovered this together a few days ago (on September 26th)! Anything else you'd like to follow up on?").
+- If a discovery was recent (e.g. earlier today, yesterday, a few days ago, last week), mention that temporal context naturally so the user feels Jarvis has genuine continuity and long-term memory.`;
 }
 
 /**
@@ -702,6 +730,7 @@ After every CRM action, confirm what you did and which contact book. Split full 
 MANDATORY: When asked to email/text someone by name, you MUST ALWAYS call crm_resolve_contact first. NEVER guess or fabricate email addresses. Only use the exact email returned by crm_resolve_contact or explicitly provided by the user. If multiple matches found, NUMBER them (1, 2, 3...) and ask which one — do NOT pick yourself.
 For analytics questions (how many contacts, revenue totals, lead breakdown), use crm_get_analytics.
 Use crm_evaluate_contacts for CRM health audits, stale lead alerts, and priority lists. Use crm_batch_update for bulk tagging/status changes (always preview first).
+Use crm_get_contact_profile to retrieve full background, AI research notes, and activity timeline for a contact.
 After CRM tasks, you may suggest one relevant insight if genuinely helpful (e.g. stale leads, missing fields). Don't over-suggest.
 Merge duplicates with crm_merge_contacts (preview first). Manage contact books with create/rename/delete tools. Log notes with crm_add_activity. Schedule follow-ups with crm_schedule_followup.`;
 }
@@ -763,13 +792,20 @@ async function searchContactsInFirestore(
 
   snap.docs.forEach(doc => {
     const d = doc.data();
+    const customFieldValues = d.customFields && typeof d.customFields === "object"
+      ? Object.values(d.customFields)
+      : [];
+
     const searchableFields = [
       d.firstName, d.lastName, `${d.firstName || ""} ${d.lastName || ""}`.trim(),
       d.email, d.secondaryEmail, d.tertiaryEmail,
       d.phone, d.mobilePhone, d.workPhone,
       d.company, d.jobTitle, d.department, d.industry,
       d.location, d.city, d.state, d.nickname,
+      d.notes,
+      d.aiNotes,
       ...(Array.isArray(d.tags) ? d.tags : []),
+      ...customFieldValues,
     ].filter(Boolean).map(v => String(v).toLowerCase());
 
     if (searchableFields.some(field => field.includes(q))) {
@@ -856,6 +892,11 @@ function formatContactSummary(data: Record<string, any>, contactId: string): str
   if (data.leadStatus && data.leadStatus !== "Cold Lead") parts.push(`Status: ${data.leadStatus}`);
   if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) parts.push(`Tags: [${data.tags.join(", ")}]`);
   if (data.notes) parts.push(`Notes: ${data.notes}`);
+  if (data.aiNotes) {
+    const cleanNotes = String(data.aiNotes).replace(/\s+/g, " ").trim();
+    const snippet = cleanNotes.length > 150 ? cleanNotes.slice(0, 150) + "..." : cleanNotes;
+    parts.push(`AI Research: ${snippet}`);
+  }
   if (data.website) parts.push(`Website: ${data.website}`);
   if (data.linkedinUrl) parts.push(`LinkedIn: ${data.linkedinUrl}`);
   return parts.join(" | ");
@@ -1464,6 +1505,8 @@ export async function executeCrmResolveContact(
         jobTitle: r.data.jobTitle || null,
         book: r.bookName,
         contactId: r.id,
+        notes: r.data.notes || null,
+        aiNotes: r.data.aiNotes ? (r.data.aiNotes.slice(0, 300) + (r.data.aiNotes.length > 300 ? "..." : "")) : null,
       });
     }
 
@@ -2016,9 +2059,11 @@ export async function executeCrmMergeContacts(orgId: string, instanceId: string,
     batch.set(activityRef, {
       id: activityRef.id,
       contactId: primary.id,
+      customerId: primary.id,
       type: "note",
       content: `Merged duplicate record for ${secondaryData.firstName || ''} ${secondaryData.lastName || ''} (${secondaryData.email || 'no email'}) into this contact.`,
       createdAt: Date.now(),
+      timestamp: Date.now(),
       source: "jarvis"
     });
 
@@ -2052,9 +2097,11 @@ export async function executeCrmAddActivity(orgId: string, instanceId: string, a
     await activityRef.set({
       id: activityRef.id,
       contactId: contact.id,
+      customerId: contact.id,
       type,
       content,
       createdAt: Date.now(),
+      timestamp: Date.now(),
       source: "jarvis"
     });
 
@@ -2220,9 +2267,11 @@ export async function executeCrmScheduleFollowup(orgId: string, instanceId: stri
     batch.set(activityRef, {
       id: activityRef.id,
       contactId: contact.id,
+      customerId: contact.id,
       type: "task",
       content: `Scheduled ${taskType} follow-up: ${title} (Due: ${dueDate})`,
       createdAt: Date.now(),
+      timestamp: Date.now(),
       source: "jarvis"
     });
 
@@ -2269,9 +2318,11 @@ export async function executeCrmCompleteTask(orgId: string, instanceId: string, 
       batch.set(activityRef, {
         id: activityRef.id,
         contactId: contact.id,
+        customerId: contact.id,
         type: "task",
         content: `Completed task: ${taskDoc.data().title}`,
         createdAt: Date.now(),
+        timestamp: Date.now(),
         source: "jarvis"
       });
     } else if (action === "delete") {
@@ -2285,3 +2336,239 @@ export async function executeCrmCompleteTask(orgId: string, instanceId: string, 
     return JSON.stringify({ success: false, error: `Failed to ${args.action} task: ${error.message}` });
   }
 }
+
+/**
+ * Calculates a human-readable relative time string (e.g. "just now", "2 hours ago", "3 days ago").
+ */
+function formatRelativeTime(date: Date, now: Date): string {
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 0) return "just now";
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSec < 60) return "just now";
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
+  }
+  if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} month${months === 1 ? "" : "s"} ago`;
+  }
+  const years = Math.floor(diffDays / 365);
+  return `${years} year${years === 1 ? "" : "s"} ago`;
+}
+
+/**
+ * Retrieves the complete profile dossier for a contact, including full bio,
+ * AI web research / enrichment notes (aiNotes), custom fields, and recent activities.
+ */
+export async function executeCrmGetContactProfile(
+  orgId: string,
+  activeInstanceId: string,
+  args: Record<string, any>,
+  instances: CrmInstance[]
+): Promise<string> {
+  const now = new Date();
+  try {
+    const { searchQuery, contactBookName } = args;
+
+    if (!searchQuery) {
+      return JSON.stringify({ success: false, error: "searchQuery is required to look up a contact profile." });
+    }
+
+    await initAdmin();
+    const db = getAdminFirestore();
+
+    let allResults: Array<{ id: string; data: Record<string, any>; bookId: string; bookName: string }> = [];
+
+    if (contactBookName) {
+      const resolved = resolveContactBookByName(contactBookName, instances);
+      const targetBookId = resolved || activeInstanceId;
+      const targetBookName = instances.find(i => i.id === targetBookId)?.name || contactBookName;
+      const results = await searchContactsInFirestore(orgId, targetBookId, searchQuery);
+      allResults = results.map(r => ({ ...r, bookId: targetBookId, bookName: targetBookName }));
+    } else {
+      allResults = await searchContactsAllBooks(orgId, instances, searchQuery);
+    }
+
+    if (allResults.length === 0) {
+      return JSON.stringify({
+        success: false,
+        found: false,
+        message: `No contact found matching "${searchQuery}" in any of your contact books.`,
+      });
+    }
+
+    if (allResults.length > 1) {
+      const matches = allResults.slice(0, 8).map(r => ({
+        id: r.id,
+        name: [r.data.firstName, r.data.lastName].filter(Boolean).join(" ") || "Unnamed",
+        email: r.data.email || null,
+        company: r.data.company || null,
+        book: r.bookName,
+      }));
+      const numberedList = matches.map((m, i) => `${i + 1}. **${m.name}** — ${m.email || 'no email'}, ${m.company || 'no company'} [${m.book}]`).join("\n");
+      return JSON.stringify({
+        success: false,
+        found: true,
+        multipleMatches: true,
+        count: allResults.length,
+        matches,
+        message: `Multiple contacts match "${searchQuery}". Please ask the user to clarify which contact they want to inspect:\n\n${numberedList}`,
+      });
+    }
+
+    const matched = allResults[0];
+    const contact = matched.data;
+    const contactId = matched.id;
+    const bookId = matched.bookId;
+    const bookName = matched.bookName;
+
+    // Fetch activities for this contact
+    let activities: Array<Record<string, any>> = [];
+    try {
+      const activitiesRef = db.collection(`orgs/${orgId}/crm-instances/${bookId}/activities`);
+      const [snapCust, snapContact] = await Promise.all([
+        activitiesRef.where("customerId", "==", contactId).limit(30).get().catch(() => null),
+        activitiesRef.where("contactId", "==", contactId).limit(30).get().catch(() => null),
+      ]);
+
+      const seenIds = new Set<string>();
+      const combined: Array<Record<string, any>> = [];
+
+      const addDocs = (snap: any) => {
+        if (!snap || snap.empty) return;
+        snap.docs.forEach((doc: any) => {
+          if (!seenIds.has(doc.id)) {
+            seenIds.add(doc.id);
+            combined.push({ id: doc.id, ...doc.data() });
+          }
+        });
+      };
+
+      addDocs(snapCust);
+      addDocs(snapContact);
+
+      // Sort by createdAt / timestamp descending
+      combined.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.createdAt || a.timestamp || 0));
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.createdAt || b.timestamp || 0));
+        return Number(timeB) - Number(timeA);
+      });
+
+      activities = combined.slice(0, 20).map(act => {
+        const rawDate = act.createdAt?.toDate ? act.createdAt.toDate() : (act.timestamp?.toDate ? act.timestamp.toDate() : (act.createdAt || act.timestamp));
+        const dateObj = rawDate ? new Date(rawDate) : null;
+        const formattedDate = dateObj && !isNaN(dateObj.getTime())
+          ? dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "Unknown date";
+        const relativeTime = dateObj && !isNaN(dateObj.getTime())
+          ? formatRelativeTime(dateObj, now)
+          : "unknown time";
+
+        return {
+          id: act.id,
+          type: act.type || "note",
+          title: act.title || undefined,
+          content: act.content || act.description || act.title || "",
+          date: formattedDate,
+          relativeTime,
+          source: act.source || act.createdBy || "unknown",
+        };
+      });
+    } catch (actErr) {
+      console.warn("[CRM] Failed to fetch activities for profile:", actErr);
+    }
+
+    const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Unnamed";
+
+    // Parse known facts from aiNotes and calculate relative time if date is present
+    const extractedMemoryItems: Array<{ fact: string; date?: string; relativeTime?: string; category?: string }> = [];
+    if (contact.aiNotes) {
+      const factLines = String(contact.aiNotes).split("\n").filter(l => l.trim().startsWith("•") || l.trim().startsWith("-"));
+      for (const line of factLines) {
+        const dateMatch = line.match(/[•-]\s*\(([^)]+)\)\s*(.*?)(?:\[([a-z]+)\])?$/i);
+        if (dateMatch) {
+          const datePart = dateMatch[1].trim();
+          const factText = dateMatch[2].trim();
+          const category = dateMatch[3]?.trim();
+
+          let parsedDate: Date | null = null;
+          if (/^\d{4}-\d{2}-\d{2}/.test(datePart)) {
+            parsedDate = new Date(datePart);
+          } else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(datePart)) {
+            const [d, m, y] = datePart.split("/").map(Number);
+            parsedDate = new Date(y, m - 1, d);
+          }
+
+          const rel = parsedDate && !isNaN(parsedDate.getTime()) ? formatRelativeTime(parsedDate, now) : undefined;
+          extractedMemoryItems.push({
+            fact: factText,
+            date: datePart,
+            relativeTime: rel,
+            category,
+          });
+        }
+      }
+    }
+
+    return JSON.stringify({
+      success: true,
+      found: true,
+      contactId,
+      bookId,
+      bookName,
+      profile: {
+        name: fullName,
+        firstName: contact.firstName || "",
+        lastName: contact.lastName || "",
+        email: contact.email || "",
+        secondaryEmail: contact.secondaryEmail || "",
+        phone: contact.phone || "",
+        mobilePhone: contact.mobilePhone || "",
+        workPhone: contact.workPhone || "",
+        company: contact.company || "",
+        jobTitle: contact.jobTitle || "",
+        department: contact.department || "",
+        industry: contact.industry || "",
+        leadStatus: contact.leadStatus || "Cold Lead",
+        leadSource: contact.leadSource || "",
+        tags: Array.isArray(contact.tags) ? contact.tags : [],
+        location: contact.location || "",
+        city: contact.city || "",
+        state: contact.state || "",
+        country: contact.country || "",
+        website: contact.website || "",
+        linkedinUrl: contact.linkedinUrl || "",
+        twitterHandle: contact.twitterHandle || "",
+        notes: contact.notes || "",
+        aiNotes: contact.aiNotes || "", // Complete AI web research & enrichment dossier
+        relationshipMemories: extractedMemoryItems,
+        customFields: contact.customFields || {},
+        totalRevenue: contact.totalRevenue || 0,
+        dealValue: contact.dealValue || 0,
+        lastContactedDate: contact.lastContactedDate || "",
+        birthday: contact.birthday || "",
+      },
+      recentActivities: activities,
+      message: `Complete profile and dossier retrieved for "${fullName}" in "${bookName}".
+Answer the user's question using the contact's background, notes, AI research (aiNotes), and activity timeline.
+TEMPORAL RELATIONSHIP RECALL INSTRUCTIONS:
+- Today's date is ${now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.
+- When answering questions about discoveries, personal interests, or activities (e.g. "what sports does this customer like?"), adopt a warm, collaborative relationship memory tone.
+- Reference when the discovery was made relative to today (e.g. "Oh yeah, John loves football and is a huge Denver Broncos fan — we discovered this together a few days ago on September 26th!").
+- If multiple activities exist, mention the most recent touchpoint and how long ago it happened.`,
+    });
+  } catch (error: any) {
+    console.error("[CRM] Get contact profile error:", error);
+    return JSON.stringify({ success: false, error: `Failed to get contact profile: ${error.message}` });
+  }
+}
+

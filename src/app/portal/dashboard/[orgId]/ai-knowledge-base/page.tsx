@@ -858,7 +858,7 @@ export default function AIKnowledgeBasePage() {
                           </div>
                           <div>
                             <div className={`font-bold text-sm ${textPrimary}`}>{ragDoc.title}</div>
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-0.5">{(ragDoc.size / 1024).toFixed(1)} KB â€¢ {ragDoc.type === 'pdf' ? 'PDF' : 'Text'} â€¢ Synced</div>
+                            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-0.5">{(ragDoc.size / 1024).toFixed(1)} KB • {ragDoc.type === 'pdf' ? 'PDF' : 'Text'} • Synced</div>
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-400" onClick={async () => {

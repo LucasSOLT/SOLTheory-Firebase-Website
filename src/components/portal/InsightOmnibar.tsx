@@ -1221,7 +1221,7 @@ Keep it concise and professional. Write ONLY the email body text (no subject lin
             onKeyDown={handleKeyDown}
             placeholder={getPlaceholder()}
             className={`flex-1 bg-transparent outline-none text-sm font-medium placeholder:font-normal ${
-              isDarkMode ? "text-slate-100 placeholder:text-slate-500" : "text-slate-900 placeholder:text-slate-400"
+              isDarkMode ? "text-slate-100 placeholder:text-slate-400" : "text-slate-900 placeholder:text-slate-500"
             }`}
             autoComplete="off"
             spellCheck={false}

@@ -90,34 +90,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isHoverExpanded, setIsHoverExpanded] = useState(false);
   const [isSidebarPinned, setIsSidebarPinned] = useState(false);
   const sidebarLeaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const sidebarEnterTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Effective collapsed state: collapsed unless hovered or pinned open
   const isEffectiveCollapsed = !isSidebarPinned && !isHoverExpanded;
 
   const handleSidebarMouseEnter = () => {
+    // Cancel any pending collapse timer
     if (sidebarLeaveTimerRef.current) {
       clearTimeout(sidebarLeaveTimerRef.current);
       sidebarLeaveTimerRef.current = null;
     }
-    setIsHoverExpanded(true);
+    // If already expanded (e.g. pinned or re-entered during leave grace period), keep open immediately
+    if (isHoverExpanded) return;
+
+    // Gentle 75ms buffer so fast cursor sweeps across screen don't trigger expansion
+    sidebarEnterTimerRef.current = setTimeout(() => {
+      setIsHoverExpanded(true);
+    }, 75);
   };
 
   const handleSidebarMouseLeave = () => {
+    // Cancel any pending enter timer
+    if (sidebarEnterTimerRef.current) {
+      clearTimeout(sidebarEnterTimerRef.current);
+      sidebarEnterTimerRef.current = null;
+    }
     if (isSidebarPinned) return;
     if (sidebarLeaveTimerRef.current) {
       clearTimeout(sidebarLeaveTimerRef.current);
       sidebarLeaveTimerRef.current = null;
     }
-    // Smooth collapse begins immediately without artificial waiting delay
+    // Half-second (500ms) grace period before collapsing so menu doesn't slam shut
     sidebarLeaveTimerRef.current = setTimeout(() => {
       setIsHoverExpanded(false);
-    }, 40);
+    }, 500);
   };
 
   useEffect(() => {
     return () => {
       if (sidebarLeaveTimerRef.current) {
         clearTimeout(sidebarLeaveTimerRef.current);
+      }
+      if (sidebarEnterTimerRef.current) {
+        clearTimeout(sidebarEnterTimerRef.current);
       }
     };
   }, []);
@@ -1540,9 +1556,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           maxWidth: isEffectiveCollapsed ? 64 : 500,
           transition: sidebarResizeRef.current
             ? 'none'
-            : isEffectiveCollapsed
-              ? 'width 0.7s cubic-bezier(0.25, 1, 0.5, 1), min-width 0.7s cubic-bezier(0.25, 1, 0.5, 1), max-width 0.7s cubic-bezier(0.25, 1, 0.5, 1)'
-              : 'width 0.45s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
+            : 'width 0.5s cubic-bezier(0.25, 1, 0.5, 1), min-width 0.5s cubic-bezier(0.25, 1, 0.5, 1), max-width 0.5s cubic-bezier(0.25, 1, 0.5, 1)',
           willChange: 'width, min-width',
         }}
         onMouseEnter={handleSidebarMouseEnter}
@@ -1586,48 +1600,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         <aside className={`w-full flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-          <div style={{ width: isEffectiveCollapsed ? 64 : sidebarWidth, minWidth: isEffectiveCollapsed ? 64 : sidebarWidth, transition: 'width 0.45s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.45s cubic-bezier(0.16, 1, 0.3, 1)' }} className="flex flex-col h-full overflow-hidden">
+          <div style={{ width: isEffectiveCollapsed ? 64 : sidebarWidth, minWidth: isEffectiveCollapsed ? 64 : sidebarWidth, transition: sidebarResizeRef.current ? 'none' : 'width 0.5s cubic-bezier(0.25, 1, 0.5, 1), min-width 0.5s cubic-bezier(0.25, 1, 0.5, 1)' }} className="flex flex-col h-full overflow-hidden">
             {isDualOrgUser ? (
-              /* ── Dual-org: org switcher with pin/collapse button overlay ── */
-              <div ref={orgSwitcherRef} className={`relative shrink-0 ${isEffectiveCollapsed ? 'p-2 pt-4 pb-2 flex justify-center' : 'p-4 pt-6 pb-4'}`}>
-                {/* Pin / Collapse toggle button — floating top-right, visible only when expanded */}
-                {!isEffectiveCollapsed && (
+              /* ── Dual-org: org switcher with pin/collapse button ── */
+              <div ref={orgSwitcherRef} className={`relative shrink-0 ${isEffectiveCollapsed ? 'p-2 pt-4 pb-2 flex justify-center' : 'p-3 pt-5 pb-3'}`}>
+                <div className={`flex items-center ${isEffectiveCollapsed ? 'justify-center w-full' : 'gap-1.5 w-full'}`}>
                   <button
-                    onClick={() => {
-                      if (isSidebarPinned) {
-                        setIsSidebarPinned(false);
-                        setIsHoverExpanded(false);
-                      } else {
-                        setIsSidebarPinned(true);
-                      }
-                    }}
-                    className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      isSidebarPinned
-                        ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
-                        : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
-                    }`}
-                    title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
+                    onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
+                    className={`${isEffectiveCollapsed ? 'justify-center p-1 w-full' : 'flex-1 min-w-0 gap-2.5 px-2.5 py-2'} flex items-center rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}
                   >
-                    {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                    <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
+                      <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                    </div>
+                    {!isEffectiveCollapsed && (
+                      <>
+                        <span className={`font-bold text-sm tracking-tight flex-1 text-left whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
+                        <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
+                      </>
+                    )}
                   </button>
-                )}
-                <button
-                  onClick={() => setIsOrgSwitcherOpen(!isOrgSwitcherOpen)}
-                  className={`w-full flex items-center ${isEffectiveCollapsed ? 'justify-center p-1' : 'gap-3 px-2 py-2'} rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-[#e0ddd4] bg-[#f2efe8] hover:bg-[#f0ede4]'}`}
-                >
-                  <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
-                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-8 h-8 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
-                  </div>
+
+                  {/* Pin / Collapse toggle button — placed cleanly beside the org switcher, visible only when expanded */}
                   {!isEffectiveCollapsed && (
-                    <>
-                      <span className={`font-bold text-base tracking-tight flex-1 text-left whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
-                      <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
-                    </>
+                    <button
+                      onClick={() => {
+                        if (isSidebarPinned) {
+                          setIsSidebarPinned(false);
+                          setIsHoverExpanded(false);
+                        } else {
+                          setIsSidebarPinned(true);
+                        }
+                      }}
+                      className={`shrink-0 p-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center ${
+                        isSidebarPinned
+                          ? (isDarkMode ? 'text-indigo-400 bg-slate-800 border-slate-700 hover:bg-slate-700' : 'text-indigo-600 bg-[#f2efe8] border-[#e0ddd4] hover:bg-[#ebe7de]')
+                          : (isDarkMode ? 'text-slate-400 hover:text-slate-200 bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 hover:border-slate-700' : 'text-slate-400 hover:text-slate-700 bg-[#f2efe8]/60 hover:bg-[#f2efe8] border-[#e0ddd4]/60 hover:border-[#e0ddd4]')
+                      }`}
+                      title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
+                    >
+                      {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                    </button>
                   )}
-                </button>
+                </div>
 
                 {isOrgSwitcherOpen && !isEffectiveCollapsed && (
-                  <div className={`absolute left-4 right-4 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-[#e0ddd4]'}`}>
+                  <div className={`absolute left-3 right-3 top-full mt-1.5 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-[#faf8f3] border border-[#e0ddd4]'}`}>
                     {getAllOrgIds().map((orgId, idx) => {
                       const isCurrent = currentOrgId === orgId;
                       return (
@@ -1637,10 +1654,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             setIsOrgSwitcherOpen(false);
                             if (!isCurrent) router.push(`/portal/dashboard/${orgId}`);
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
+                          className={`w-full flex items-center gap-3 px-3.5 py-2.5 transition-colors cursor-pointer ${idx > 0 ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''} ${isCurrent ? (isDarkMode ? 'bg-slate-700' : 'bg-[#f0ede4]') : (isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-[#f2efe8]')}`}
                         >
                           <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
-                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                            <img src={getOrgConfig(orgId)?.theme.icon} alt={`${getOrgLabel(orgId)} Logo`} className="w-6 h-6 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
                           </div>
                           <span className={`text-sm font-semibold flex-1 text-left whitespace-nowrap ${isCurrent ? (isDarkMode ? 'text-white' : 'text-stone-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>{getOrgLabel(orgId)}</span>
                           {isCurrent && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
@@ -1651,37 +1668,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
             ) : (
-              /* ── Single-org: logo with pin/collapse button overlay ── */
-              <div className="relative shrink-0">
-                {/* Pin / Collapse toggle button — floating top-right, visible only when expanded */}
-                {!isEffectiveCollapsed && (
-                  <button
-                    onClick={() => {
-                      if (isSidebarPinned) {
-                        setIsSidebarPinned(false);
-                        setIsHoverExpanded(false);
-                      } else {
-                        setIsSidebarPinned(true);
-                      }
-                    }}
-                    className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      isSidebarPinned
-                        ? (isDarkMode ? 'text-indigo-400 bg-slate-700' : 'text-indigo-600 bg-[#e0ddd4]')
-                        : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-[#e8e4d9]')
-                    }`}
-                    title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
+              /* ── Single-org: logo with pin/collapse button ── */
+              <div className={`relative shrink-0 ${isEffectiveCollapsed ? 'p-2 pt-4 pb-2 flex justify-center' : 'p-3 pt-5 pb-3'}`}>
+                <div className={`flex items-center ${isEffectiveCollapsed ? 'justify-center w-full' : 'gap-1.5 w-full'}`}>
+                  <Link
+                    href={dashboardHome}
+                    className={`${isEffectiveCollapsed ? 'justify-center p-1 w-full' : 'flex-1 min-w-0 gap-2.5 px-2.5 py-2'} flex items-center rounded-xl transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}
                   >
-                    {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
-                  </button>
-                )}
-                <Link href={dashboardHome} className={`${isEffectiveCollapsed ? 'p-2 pt-4 pb-2 justify-center' : 'px-4 pt-6 pb-4'} flex items-center gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}>
-                  <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
-                    <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-8 h-8 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
-                  </div>
+                    <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
+                      <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                    </div>
+                    {!isEffectiveCollapsed && (
+                      <span className={`font-bold text-base tracking-tight truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
+                    )}
+                  </Link>
+
+                  {/* Pin / Collapse toggle button — placed cleanly beside the logo, visible only when expanded */}
                   {!isEffectiveCollapsed && (
-                    <span className={`font-bold text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
+                    <button
+                      onClick={() => {
+                        if (isSidebarPinned) {
+                          setIsSidebarPinned(false);
+                          setIsHoverExpanded(false);
+                        } else {
+                          setIsSidebarPinned(true);
+                        }
+                      }}
+                      className={`shrink-0 p-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center ${
+                        isSidebarPinned
+                          ? (isDarkMode ? 'text-indigo-400 bg-slate-800 border-slate-700 hover:bg-slate-700' : 'text-indigo-600 bg-[#f2efe8] border-[#e0ddd4] hover:bg-[#ebe7de]')
+                          : (isDarkMode ? 'text-slate-400 hover:text-slate-200 bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 hover:border-slate-700' : 'text-slate-400 hover:text-slate-700 bg-[#f2efe8]/60 hover:bg-[#f2efe8] border-[#e0ddd4]/60 hover:border-[#e0ddd4]')
+                      }`}
+                      title={isSidebarPinned ? "Unpin sidebar (auto-tray)" : "Pin sidebar open"}
+                    >
+                      {isSidebarPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                    </button>
                   )}
-                </Link>
+                </div>
               </div>
             )}
 
@@ -1910,11 +1933,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className={`h-[72px] items-center justify-between px-4 md:px-10 shrink-0 hidden md:flex ${isDarkMode ? 'bg-slate-900' : 'bg-[#f0e8d0]'}`}>
           <button
               onClick={() => setIsOmnibarOpen(true)}
-              className={`flex-grow max-w-[480px] flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-colors cursor-pointer group ${isDarkMode ? 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600 text-slate-400' : 'bg-white/60 border-slate-200/60 hover:bg-white hover:border-slate-300 text-slate-400'}`}
+              className={`flex-grow max-w-[480px] flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-colors cursor-pointer group shadow-sm ${isDarkMode ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-800 hover:border-slate-500 text-slate-300' : 'bg-white/90 border-slate-300/80 hover:bg-white hover:border-slate-400 text-slate-600'}`}
             >
-              <Search className="w-4 h-4 shrink-0 opacity-60" />
-              <span className="text-sm font-medium flex-1 text-left">Search or ask Jarvis...</span>
-              <kbd className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md hidden sm:inline-block ${isDarkMode ? 'bg-slate-700 text-slate-500 border border-slate-600' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>⌘K</kbd>
+              <Search className={`w-4 h-4 shrink-0 transition-colors ${isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700'}`} />
+              <span className={`text-sm font-medium flex-1 text-left transition-colors ${isDarkMode ? 'text-slate-300 group-hover:text-slate-100' : 'text-slate-600 group-hover:text-slate-800'}`}>Search or ask Jarvis...</span>
+              <kbd className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md hidden sm:inline-block ${isDarkMode ? 'bg-slate-700 text-slate-300 border border-slate-600' : 'bg-slate-100 text-slate-600 border border-slate-300'}`}>⌘K</kbd>
             </button>
           <div className="flex items-center gap-3">
               {/* Live Clock */}

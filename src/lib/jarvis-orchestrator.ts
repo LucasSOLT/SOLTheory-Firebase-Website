@@ -10,7 +10,6 @@
  * Used by chat/route.ts when the router classifies intent as MULTI.
  */
 
-import { Groq } from "groq-sdk";
 import { createCompletion } from "./llm-router";
 import { filterToolsForDomain, getDomainPrompt } from "./jarvis-agents";
 import type { JarvisDomain } from "./jarvis-router";
@@ -59,28 +58,16 @@ export type ToolExecutor = (
 
 // ── Constants ──
 
-// Models that the Groq SDK can execute (used for planner + mechanical steps)
-const GROQ_COMPATIBLE_MODELS = new Set([
-  "openai/gpt-oss-120b",
-  "qwen/qwen3.6-27b",
-]);
-
-/** Ensure the model is Groq-compatible for the planner step only. */
-function ensureGroqModel(model: string): string {
-  if (GROQ_COMPATIBLE_MODELS.has(model)) return model;
-  return "openai/gpt-oss-120b";
-}
-
 // Domains that require creative intelligence → use the user's premium model
 const PREMIUM_DOMAINS = new Set(["WORKSPACE", "EMAIL"]);
-// Domains that are mechanical lookups → always use fast cheap Groq
+// Domains that are mechanical lookups → use fast cheap Gemini 2.5 Flash
 const FAST_DOMAINS = new Set(["CRM", "CALENDAR", "GENERAL"]);
 
-/** Pick the right model for a step based on its complexity: premium model for creative work, fast Groq for simple tasks. */
+/** Pick the right model for a step based on its complexity: premium model for creative work, fast Gemini 2.5 Flash for simple tasks. */
 function pickModelForStep(step: OrchestratorStep, userSelectedModel: string): string {
   if (step.complexity === "simple") {
-    // Mechanical steps — use fast Groq to save cost
-    return "openai/gpt-oss-120b";
+    // Mechanical steps — use fast Gemini 2.5 Flash to save cost
+    return "gemini-2.5-flash";
   }
   // Creative/content steps — use the user's selected premium model
   return userSelectedModel;
@@ -117,25 +104,24 @@ Respond with ONLY valid JSON (no markdown, no explanation):
  */
 async function decomposePlan(
   userMessage: string,
-  groqClient: Groq,
-  groqModel: string,
+  plannerModel: string,
   conversationContext?: string
 ): Promise<OrchestratorPlan> {
   const userContent = conversationContext
     ? `Recent conversation context:\n${conversationContext}\n\nUser request: ${userMessage}`
     : `User request: ${userMessage}`;
 
-  const response = await groqClient.chat.completions.create({
-    model: groqModel,
+  const response = await createCompletion({
+    model: plannerModel,
     messages: [
       { role: "system", content: PLANNER_PROMPT },
       { role: "user", content: userContent },
     ],
-    max_tokens: 600,
+    maxTokens: 600,
     temperature: 0.1,
   });
 
-  const raw = response.choices[0]?.message?.content || "";
+  const raw = response.content || "";
   console.log(`[ORCHESTRATOR] Planner raw response: ${raw.substring(0, 500)}`);
 
   // Use lazy regex to avoid over-matching if LLM appends extra text
@@ -375,21 +361,14 @@ export async function orchestrateMultiStep(
   const t0 = Date.now();
   console.log(`[ORCHESTRATOR] Starting multi-step orchestration for: "${userMessage.substring(0, 100)}..."`);
 
-  // Validate GROQ_API_KEY early
-  if (!process.env.GROQ_API_KEY) {
-    throw new Error("GROQ_API_KEY is not set — orchestrator cannot function");
-  }
-
-  // Planner always uses fast Groq model for speed (planning is simple JSON generation)
-  const plannerModel = ensureGroqModel(groqModel);
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  // Step execution uses the user's actual selected model via llm-router
+  // Planner uses fast Gemini 2.5 Flash for speed and high context
+  const plannerModel = "gemini-2.5-flash";
   console.log(`[ORCHESTRATOR] Planner model: ${plannerModel} | Step execution model: ${groqModel}`);
 
   // 1. Decompose into a plan
   let plan: OrchestratorPlan;
   try {
-    plan = await decomposePlan(userMessage, groq, plannerModel, conversationContext);
+    plan = await decomposePlan(userMessage, plannerModel, conversationContext);
   } catch (planErr) {
     console.error("[ORCHESTRATOR] Planning failed:", planErr);
     plan = {
@@ -492,7 +471,7 @@ export async function orchestrateMultiStep(
           content: `Original request: "${userMessage}"\n\nCompleted steps:\n${stepSummaries}`,
         },
       ],
-      model: "openai/gpt-oss-120b", // Synthesis uses fast Groq to save cost
+      model: "gemini-2.5-flash", // Synthesis uses fast Gemini 2.5 Flash with automatic fallback
       temperature: 0.5,
       maxTokens: 2048,
     });

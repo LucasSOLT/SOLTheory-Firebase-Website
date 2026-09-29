@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
-import { Groq } from "groq-sdk";
+import { createCompletion } from "@/lib/llm-router";
 import { searchAllSources } from "@/services/grant-sources/orchestrator";
 import type { GrantSearchParams, NormalizedGrant } from "@/types/grants";
 import { getKeywordsForServiceAreas, getCfdaCodesForServiceAreas } from "@/data/service-areas";
@@ -257,12 +257,6 @@ async function batchAIRelevanceScore(
   if (grants.length === 0) return resultMap;
 
   try {
-    if (!process.env.GROQ_API_KEY) {
-      console.warn("[GrantSearch] No GROQ_API_KEY set — skipping AI scoring");
-      return resultMap;
-    }
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
     // Process in batches of 20
     const BATCH_SIZE = 20;
     for (let batchStart = 0; batchStart < grants.length; batchStart += BATCH_SIZE) {
@@ -363,7 +357,7 @@ Respond with ONLY a valid JSON array, no markdown, no explanation:
 [{"id": "...", "score": 85, "explanation": "..."}, ...]`;
 
       try {
-        const completion = await groq.chat.completions.create({
+        const completion = await createCompletion({
           messages: [
             {
               role: "system",
@@ -372,12 +366,12 @@ Respond with ONLY a valid JSON array, no markdown, no explanation:
             },
             { role: "user", content: prompt },
           ],
-          model: "openai/gpt-oss-120b",
+          model: "gemini-2.5-flash",
           temperature: 0.1,
-          max_tokens: 2048,
+          maxTokens: 2048,
         });
 
-        const rawResponse = completion.choices[0]?.message?.content || "";
+        const rawResponse = completion.content || "";
         console.log(
           `[GrantSearch] AI scoring batch response (${batch.length} grants): ${rawResponse.substring(0, 200)}`
         );

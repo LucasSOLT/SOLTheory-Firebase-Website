@@ -27,6 +27,7 @@ import { FEATURE_FLAGS } from '@/lib/feature-flags';
 import ThinkingDisplay from './_components/ThinkingDisplay';
 import ScopeToggle from '@/components/chat/ScopeToggle';
 import type { AgentEvent } from '@/lib/agent-events';
+import { createStreamThrottle } from './utils/stream-throttle';
 
 let _msgCounter = 0;
 const uid = () => `msg-${Date.now()}-${++_msgCounter}-${Math.random().toString(36).substring(2, 7)}`;
@@ -466,7 +467,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const crmRef = collection(firestore, `orgs/${orgId}/crm-instances/${crmActiveInstanceId}/contacts`);
         const snap = await getDocs(query(crmRef, firestoreLimit(500)));
         if (snap.empty) return;
-        // Build compact contact lines for LLM context — includes key CRM fields
+        // Build compact contact lines for LLM context — includes key CRM fields & relationship memories
         const lines = snap.docs.map(d => {
           const c = d.data();
           const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || '';
@@ -479,6 +480,50 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           if (c.jobTitle) parts.push(c.jobTitle);
           if (c.leadStatus && c.leadStatus !== 'Cold Lead') parts.push(c.leadStatus);
           if (c.tags && Array.isArray(c.tags) && c.tags.length > 0) parts.push(`[${c.tags.join(',')}]`);
+
+          // 1. Extract personal facts, sports, hobbies, or conversation starters
+          const rawAiNotes = String(c.aiNotes || '');
+          const factMatches = rawAiNotes.match(/[•-]\s*(?:\([^)]+\)\s*)?([^•\n\r]+)/g);
+          if (factMatches && factMatches.length > 0) {
+            const cleanFacts = factMatches
+              .slice(0, 3)
+              .map(f => f.replace(/^[•-]\s*(?:\([^)]+\)\s*)?/, '').trim())
+              .filter(Boolean)
+              .join('; ');
+            if (cleanFacts) {
+              const snippet = cleanFacts.length > 90 ? cleanFacts.slice(0, 90) + '...' : cleanFacts;
+              parts.push(`Facts: [${snippet}]`);
+            }
+          } else {
+            // Check for **Personal Interests section from enrichment
+            const interestMatch = rawAiNotes.match(/\*\*Personal Interests[^*]*\*\*([^*]+)/i);
+            if (interestMatch && interestMatch[1]) {
+              const cleanInterests = interestMatch[1].replace(/\s+/g, ' ').trim();
+              if (cleanInterests && !cleanInterests.toLowerCase().includes("no personal interests identified")) {
+                const snippet = cleanInterests.length > 80 ? cleanInterests.slice(0, 80) + '...' : cleanInterests;
+                parts.push(`Interests: ${snippet}`);
+              }
+            }
+          }
+
+          if (c.customFields?.interests) {
+            parts.push(`Interests: ${String(c.customFields.interests).slice(0, 60)}`);
+          }
+
+          // 2. Add concise professional summary snippet
+          const summaryMatch = rawAiNotes.match(/\*\*Professional Summary\*\*([^*]+)/i);
+          const professionalSnippet = summaryMatch && summaryMatch[1]
+            ? summaryMatch[1].replace(/\s+/g, ' ').trim()
+            : rawAiNotes.replace(/\s+/g, ' ').trim();
+
+          if (professionalSnippet && !professionalSnippet.startsWith('**Key Facts')) {
+            const snippet = professionalSnippet.length > 80 ? professionalSnippet.slice(0, 80) + '...' : professionalSnippet;
+            parts.push(`Research: ${snippet}`);
+          } else if (c.notes) {
+            const cleanNotes = String(c.notes).replace(/\s+/g, ' ').trim();
+            const snippet = cleanNotes.length > 80 ? cleanNotes.slice(0, 80) + '...' : cleanNotes;
+            parts.push(`Notes: ${snippet}`);
+          }
           return parts.join(' | ');
         }).filter(l => l.length > 2);
         setCrmContacts(lines.join('\n'));
@@ -488,7 +533,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       }
     };
     fetchCrm();
-  }, [firestore, user?.uid, orgId]);
+  }, [firestore, user?.uid, orgId, crmActiveInstanceId]);
 
   const toggleSelection = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -1488,7 +1533,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `${orgId}_${params.agentId}`,
-          soul: `${agentConfig.soul ? `[ORGANIZATION VOICE & PERSONALITY]\n${agentConfig.soul}\n\n` : ''}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'qwen/qwen3.6-27b': 'Qwen 3.6 27B (Groq)', 'nemotron-3-ultra': 'Nemotron 3 Ultra (NVIDIA via OpenRouter)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul ? `[ORGANIZATION VOICE & PERSONALITY]\n${agentConfig.soul}\n\n` : ''}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[RELATIONSHIP & CRM INTELLIGENCE]\nYou have direct access to the user's CRM contact database and relationship memories (personal facts, sports fandom, hobbies, background). When asked about contacts, leverage these details naturally. For deep contact history, research dossiers, or past interaction timelines, ALWAYS call crm_get_contact_profile.\n\n[MODEL IDENTITY]\nYou are currently powered by ${(() => { const names: Record<string, string> = { 'openai/gpt-oss-120b': 'GPT OSS 120B (Groq)', 'qwen/qwen3.6-27b': 'Qwen 3.6 27B (Groq)', 'nemotron-3-ultra': 'Nemotron 3 Ultra (NVIDIA via OpenRouter)', 'claude-opus-5': 'Claude Opus 5 (Anthropic via OpenRouter)', 'gpt-5.6-sol': 'GPT-5.6 Sol (OpenAI via OpenRouter)', 'gemini-3.5-flash': 'Gemini 3.5 Flash (Google via OpenRouter)' }; return names[selectedModel] || selectedModel; })()}. If a user asks what model you are, tell them truthfully.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,
@@ -1532,6 +1577,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         const decoder = new TextDecoder();
         let buffer = '';
 
+        // Frame-throttled rendering: batch SSE updates into ~30fps React state flushes
+        // instead of re-rendering on every single token (~100+ times/sec)
+        const throttle = createStreamThrottle(setMessages, botMsgId);
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -1554,38 +1603,21 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 continue;
               }
 
-              // Handle agent events
+              // Handle agent events — queue via throttle instead of per-event setState
               if (payload.type && ['routing', 'plan', 'step_start', 'step_complete', 'tool_call', 'thinking', 'done'].includes(payload.type)) {
-                setMessages(prev => prev.map(m => 
-                  m.id === botMsgId 
-                    ? { ...m, agentEvents: [...(m.agentEvents || []), payload as AgentEvent] } 
-                    : m
-                ));
+                throttle.addEvent(payload as AgentEvent);
                 continue; // Don't process as token
               }
 
               // Handle streamed reasoning/thinking chunks — append to the thinking event, NOT to visible text
               if (payload.type === 'thinking_chunk' && payload.token) {
-                setMessages(prev => prev.map(m => {
-                  if (m.id !== botMsgId) return m;
-                  const events = [...(m.agentEvents || [])];
-                  const thinkIdx = events.findIndex(e => e.type === 'thinking');
-                  if (thinkIdx >= 0) {
-                    const existing = events[thinkIdx] as { type: 'thinking'; content: string; timestamp: number };
-                    events[thinkIdx] = { type: 'thinking' as const, content: (existing.content || '') + payload.token, timestamp: existing.timestamp };
-                  } else {
-                    events.push({ type: 'thinking' as const, content: payload.token, timestamp: Date.now() });
-                  }
-                  return { ...m, agentEvents: events };
-                }));
+                throttle.appendThinking(payload.token);
                 continue; // Don't process as token — this is internal reasoning
               }
 
               if (payload.token) {
                 fullText += payload.token;
-                setMessages(prev => prev.map(m =>
-                  m.id === botMsgId ? { ...m, text: fullText } : m
-                ));
+                throttle.appendText(payload.token);
               }
               if (payload.done) {
                 // Final metadata event — capture citations, tools, enrichment, usage
@@ -1596,18 +1628,14 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   enrichmentUrls: payload.enrichmentUrls,
                   citations: payload.citations,
                 };
-                // Update message with citations if present
+                // Queue citations via throttle if present
                 if (payload.citations && payload.citations.length > 0) {
-                  setMessages(prev => prev.map(m =>
-                    m.id === botMsgId ? { ...m, citations: payload.citations } : m
-                  ));
+                  throttle.setCitations(payload.citations);
                 }
               }
               if (payload.error) {
                 fullText += '\n\nI had a momentary hiccup. Could you try asking me that again?';
-                setMessages(prev => prev.map(m =>
-                  m.id === botMsgId ? { ...m, text: fullText } : m
-                ));
+                throttle.appendError('\n\nI had a momentary hiccup. Could you try asking me that again?');
               }
             } catch (parseErr) {
               // Skip malformed SSE lines
@@ -1623,23 +1651,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               const payload = JSON.parse(remainingLine.slice(6));
               if (payload.token) {
                 fullText += payload.token;
-                setMessages(prev => prev.map(m =>
-                  m.id === botMsgId ? { ...m, text: fullText } : m
-                ));
+                throttle.appendText(payload.token);
               }
               if (payload.done) {
                 // Process done event from remaining buffer
                 if (payload.usage) data.usage = payload.usage;
                 if (payload.citations) {
                   data.citations = payload.citations;
-                  setMessages(prev => prev.map(m =>
-                    m.id === botMsgId ? { ...m, citations: payload.citations } : m
-                  ));
+                  throttle.setCitations(payload.citations);
                 }
               }
             } catch (e) { /* ignore parse errors in trailing buffer */ }
           }
         }
+
+        // Synchronously flush any remaining throttled updates before post-stream processing
+        throttle.flush();
+        throttle.dispose();
+
         // If the stream ended with no text tokens (e.g., orchestration completed but synthesis was empty),
         // ensure the user always sees a response
         if (!fullText.trim()) {
@@ -1888,7 +1917,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         body: JSON.stringify({
           messages: apiMessages,
           agentId: `${orgId}_${params.agentId}`,
-          soul: `${agentConfig.soul ? `[ORGANIZATION VOICE & PERSONALITY]\n${agentConfig.soul}\n\n` : ''}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
+          soul: `${agentConfig.soul ? `[ORGANIZATION VOICE & PERSONALITY]\n${agentConfig.soul}\n\n` : ''}${sessionInstructions ? `\n\n[SESSION INSTRUCTIONS]\n${sessionInstructions}` : ''}\n\n[RELATIONSHIP & CRM INTELLIGENCE]\nYou have direct access to the user's CRM contact database and relationship memories (personal facts, sports fandom, hobbies, background). When asked about contacts, leverage these details naturally. For deep contact history, research dossiers, or past interaction timelines, ALWAYS call crm_get_contact_profile.\n\n[USER CONTEXT]\nAct on behalf of this user. The user's email address is: ${user?.email || 'Unknown'}. Do not ask them for their email.`,
           brain: agentConfig.brain,
           uid: user?.uid,
           refreshToken: rToken,

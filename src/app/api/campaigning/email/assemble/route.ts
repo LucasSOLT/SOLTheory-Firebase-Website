@@ -1,10 +1,9 @@
-import { Groq } from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { SKELETON_REGISTRY, renderSkeleton } from "@/lib/email-skeletons";
 import { verifyRequest } from "@/lib/api-auth";
+import { createCompletion } from "@/lib/llm-router";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const MODEL = "openai/gpt-oss-120b";
+const MODEL = "gemini-2.5-flash";
 
 interface BrandSettings {
   primaryColor?: string;
@@ -333,7 +332,7 @@ export async function POST(req: NextRequest) {
       // Check if any images are attached to the latest message
       const latestImages: string[] = (body as any).imageUrls || [];
       const hasImages = latestImages.length > 0;
-      const visionModel = "openai/gpt-oss-120b"; // Note: vision-specific models removed from Groq; using text fallback
+      const visionModel = "gemini-2.5-flash"; // Gemini 2.5 Flash has native multimodal vision support
 
       // Truncate HTML for context window (keep first 12k chars — most emails are 5-20KB)
       const truncatedHtml = currentHtml.length > 12000 ? currentHtml.substring(0, 12000) + '\n<!-- ... truncated ... -->' : currentHtml;
@@ -421,14 +420,14 @@ ${body.subject || '(no subject set)'}`;
         }
       }
 
-      const completion = await groq.chat.completions.create({
+      const completion = await createCompletion({
         messages,
         model: hasImages ? visionModel : MODEL,
         temperature: 0.6,
-        max_tokens: 8000,
+        maxTokens: 8000,
       });
 
-      const rawResponse = completion.choices[0]?.message?.content || "";
+      const rawResponse = completion.content || "";
 
       // Parse the response
       try {
@@ -506,14 +505,14 @@ ${body.subject || '(no subject set)'}`;
       // Add the current user message if it's not already in the history
       // (The frontend adds it to history before sending, so we just use history as-is)
 
-      const completion = await groq.chat.completions.create({
+      const completion = await createCompletion({
         messages,
         model: MODEL,
         temperature: 0.7,
-        max_tokens: 2048,
+        maxTokens: 2048,
       });
 
-      const rawResponse = completion.choices[0]?.message?.content || "";
+      const rawResponse = completion.content || "";
       const chatResult = parseChatResponse(rawResponse);
 
       // If the AI wants to render/iterate, actually build the HTML
@@ -599,18 +598,18 @@ ${JSON.stringify(body.currentSlotData, null, 2)}
 Edit Instruction: ${body.editInstruction}`;
     }
 
-    // Call Groq
-    const completion = await groq.chat.completions.create({
+    // Call LLM
+    const completion = await createCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       model: MODEL,
       temperature: 0.7,
-      max_tokens: 2048,
+      maxTokens: 2048,
     });
 
-    const rawResponse = completion.choices[0]?.message?.content || "";
+    const rawResponse = completion.content || "";
 
     // Parse AI response as JSON
     const { skeletonId, subject, slotData } = parseAIResponse(rawResponse);

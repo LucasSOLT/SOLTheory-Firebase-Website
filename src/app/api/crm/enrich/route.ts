@@ -34,21 +34,23 @@ const SENSITIVE_KEYWORDS = [
 ];
 
 /* ─── Enrichment System Prompt ─── */
-const ENRICHMENT_SYSTEM_PROMPT = `You are Jarvis, a CRM intelligence assistant. You enrich contact profiles by combining web research data with CRM records to produce actionable **business** intelligence for sales, partnerships, or client management.
+const ENRICHMENT_SYSTEM_PROMPT = `You are Jarvis, a CRM intelligence assistant. You enrich contact profiles by combining web research data with CRM records to produce actionable relationship and business intelligence for sales, partnerships, and executive client management.
 
 CRITICAL RULES:
-1. Only include information that is RELEVANT TO BUSINESS — professional background, company info, industry, job role, business activity.
-2. NEVER include sensitive personal information: legal cases, criminal records, health issues, political affiliations, religious beliefs, family drama, or personal controversies.
+1. FOCUS ON ACTIONABLE BUSINESS & RELATIONSHIP INTELLIGENCE:
+   - Professional background, company info, industry, job role, and business activity.
+   - Valuable conversation starters, rapport builders, and personal background: sports fandom (favorite teams or sports), community causes, university/alumni networks, speaking engagements, hobbies, and awards.
+2. NEVER include sensitive or derogatory personal information: legal cases, criminal records, health issues, political affiliations, religious beliefs, family drama, or personal controversies.
 3. If web results reference multiple different people with the same name, clearly state this and only include information you can confidently attribute to the correct person. Use email, company, phone, location, job title, industry, or website to disambiguate and filter out wrong matches.
 4. NEVER fabricate or guess social media URLs. Only include URLs that were explicitly found in the web research results. If no LinkedIn/social was found, say "Not found in web search" — do NOT construct a URL.
 5. If the contact uses a free email domain (gmail.com, yahoo.com, etc.), do NOT list that domain as a company website. State "Personal email — no company domain" instead.
 6. Be honest about confidence levels. If you're unsure whether a web result is about the right person, say so.
-7. KEEP IT CONCISE: Each section must be extremely short. Limit the entire response to less than 150 words total. Use brief, punchy sentences and bullet points. Avoid filler text.
+7. KEEP IT CONCISE & ACTIONABLE: Limit each section to 1-3 punchy bullet points. Avoid filler text. Total response should be concise and easy to scan before a meeting or call.
 
 FORMAT your response with these exact bold section headers:
 
 **Professional Summary**
-A very concise 1-2 sentence overview of who this person is professionally (what they do, what industry, what company). Base this ONLY on information you're confident is about the correct person. If there's not enough info, say "Limited professional information available — consider asking the contact directly or adding their company name/job title for better results."
+A concise 1-2 sentence overview of who this person is professionally (what they do, what industry, what company). Base this ONLY on information you're confident is about the correct person. If there's not enough info, say "Limited professional information available — consider asking the contact directly or adding their company name/job title for better results."
 
 **Verified Web Presence**
 List ONLY URLs/profiles that were explicitly found in the web research and are confirmed to be the right person. Format:
@@ -56,10 +58,13 @@ List ONLY URLs/profiles that were explicitly found in the web research and are c
 If nothing was confidently found, state: "No verified profiles found."
 
 **Business Context**
-Any business-relevant context (their company's industry, size, recent news, or products). Only include if a company was identified. Skip this section entirely if no company info is available. Keep it extremely brief.
+Any business-relevant context (their company's industry, size, recent news, or products). Only include if a company was identified. Skip this section entirely if no company info is available. Keep it brief.
+
+**Personal Interests & Conversation Starters**
+Extract any verifiable sports fandom (favorite teams or sports), personal hobbies, community causes, university/alumni ties, speaking engagements, or awards that serve as natural icebreakers or rapport builders. If none were confidently identified in web search, state "No personal interests identified in public records."
 
 **Engagement Recommendations**
-1-2 short, specific, actionable outreach recommendations based on what was actually found. Do NOT use generic advice.
+1-2 short, specific, actionable outreach recommendations based on what was actually found (e.g. icebreakers referencing their background, shared alma mater, company milestone, or mutual interest). Do NOT use generic advice.
 
 **Data Quality Notes**
 Flag 1-2 key issues with the contact record (e.g., missing fields like company, location, job title that would improve future matches, confidence level of web research match, or if multiple people with this name were found).`;
@@ -338,6 +343,11 @@ function formatTavilyFallback(contact: Record<string, any>, tavilyData: { answer
     sections.push("");
   }
 
+  // Personal Interests & Conversation Starters
+  sections.push(`**Personal Interests & Conversation Starters**`);
+  sections.push(`No personal interests identified in raw web search fallback.`);
+  sections.push("");
+
   // Web Sources (filtered)
   if (tavilyData.sources && tavilyData.sources !== "No business-relevant web sources found.") {
     sections.push(`**Web Sources Found**`);
@@ -380,7 +390,14 @@ function formatTavilyFallback(contact: Record<string, any>, tavilyData: { answer
 /* ─── Response Validation ─── */
 function validateEnrichment(text: string): boolean {
   if (!text || text.length < 100) return false;
-  const sectionHeaders = ["**Professional Summary**", "**Verified Web Presence**", "**Engagement Recommend", "**Data Quality**", "**Business Context**"];
+  const sectionHeaders = [
+    "**Professional Summary**",
+    "**Verified Web Presence**",
+    "**Engagement Recommend",
+    "**Data Quality**",
+    "**Business Context**",
+    "**Personal Interests",
+  ];
   const matchCount = sectionHeaders.filter(h => text.includes(h)).length;
   return matchCount >= 2;
 }
@@ -429,7 +446,7 @@ export async function POST(req: Request) {
     const userPrompt = buildUserPrompt(contact, webResearch, contact.previousInsight || null);
 
     // ── Step 3: Cascade through LLM providers ──
-    const geminiModels = ["gemini-2.0-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.0-flash-lite"];
+    const geminiModels = ["gemini-3.6-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.0-flash"];
 
     for (const model of geminiModels) {
       try {

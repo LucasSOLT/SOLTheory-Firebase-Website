@@ -1,7 +1,6 @@
-import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
-import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
-
+import { logAIUsage } from "@/lib/log-ai-usage";
+import { createCompletion, calculateCost } from "@/lib/llm-router";
 import { verifyRequest } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
@@ -26,47 +25,45 @@ export async function POST(req: Request) {
       systemPrompt += "\n\n[SESSION INSTRUCTIONS]\n" + systemInstructions;
     }
 
-
-
     if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
-      systemPrompt += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + knowledgeBaseText.substring(0, 50000);
+      systemPrompt += "\n\n[EDITABLE ORGANIZATIONAL KNOWLEDGE BASE]\n" + knowledgeBaseText.substring(0, 8000);
     }
 
     if (pactText && typeof pactText === "string" && pactText.trim().length > 0) {
-      systemPrompt += "\n\n[USER MEMORY]\nFacts about this user from past conversations. Weave in naturally when relevant. Never interrogate about these facts.\n\n" + pactText.substring(0, 5000);
+      systemPrompt += "\n\n[USER MEMORY]\nFacts about this user from past conversations. Weave in naturally when relevant. Never interrogate about these facts.\n\n" + pactText.substring(0, 3000);
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const voiceModel = "gemini-2.5-flash";
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
       ],
-      model: "openai/gpt-oss-120b",
+      model: voiceModel,
       temperature: 0.5,
-      max_tokens: 150,
+      maxTokens: 150,
     });
 
-    const inputTokens = completion.usage?.prompt_tokens || 0;
-    const outputTokens = completion.usage?.completion_tokens || 0;
-    const totalTokens = completion.usage?.total_tokens || 0;
-    const voiceModel = "openai/gpt-oss-120b";
+    const inputTokens = completion.usage?.promptTokens || 0;
+    const outputTokens = completion.usage?.completionTokens || 0;
+    const totalTokens = completion.usage?.totalTokens || 0;
+
     logAIUsage({
       userId: uid || "anonymous",
       orgId: isNxt ? "nxtchapter" : "soltheory",
       model: voiceModel,
-      provider: "groq",
+      provider: completion.provider,
       endpoint: "/api/voice-chat",
       inputTokens,
       outputTokens,
       totalTokens,
-      costUsd: calculateGroqCost(voiceModel, inputTokens, outputTokens),
+      costUsd: calculateCost(voiceModel, inputTokens, outputTokens),
       timestamp: new Date(),
     });
 
     return NextResponse.json({
-      response: completion.choices[0]?.message?.content || "I couldn't process that.",
+      response: completion.content || "I couldn't process that.",
       usage: totalTokens
     });
   } catch (error: any) {

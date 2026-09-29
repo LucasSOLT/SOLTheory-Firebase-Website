@@ -28,6 +28,7 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     // Shared: resolve contact names to emails
     "crm_resolve_contact",
     "crm_search_contacts",
+    "crm_get_contact_profile",
     // Organization & personal knowledge
     "search_org_brain",
     "search_personal_brain",
@@ -56,6 +57,7 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     "crm_update_contact",
     "crm_delete_contact",
     "crm_search_contacts",
+    "crm_get_contact_profile",
     "crm_list_contact_books",
     "crm_get_analytics",
     "crm_resolve_contact",
@@ -98,6 +100,8 @@ export const DOMAIN_TOOLS: Record<JarvisDomain, string[]> = {
     // Organization & personal knowledge — core values, escalation, mission, documents
     "search_org_brain",
     "search_personal_brain",
+    "crm_get_contact_profile",
+    "crm_search_contacts",
   ],
 
   // MULTI loads all tools (same as current behavior)

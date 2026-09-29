@@ -13,6 +13,18 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import ActivityTimeline from "./ActivityTimeline";
 import { getAuthHeaders } from "@/lib/api-auth-client";
+import {
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import { useOrgId } from "@/contexts/OrgContext";
+import { useFirestore } from "@/firebase";
 
 /* ═══════════════════════════════════════════════════════════════════
    Types
@@ -27,21 +39,23 @@ interface ContactProfilePanelProps {
 type TabId = "chat" | "insights" | "activity";
 
 interface ChatMessage {
+  id?: string;
   role: "user" | "assistant";
   content: string;
+  timestamp?: any;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
    Helpers
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ─── Markdown-lite: **bold**, URLs, bullets ─── */
+/* ─── Markdown-lite: **bold**, markdown links [title](url), URLs, bullets ─── */
 function renderMarkdown(text: string, isDarkMode: boolean) {
   return text.split("\n").map((line, i) => {
     if (line.trim() === "") return <div key={i} className="h-2" />;
 
     const segments: React.ReactNode[] = [];
-    const regex = /(\*\*(.+?)\*\*)|(https?:\/\/[^\s,)]+)/g;
+    const regex = /(\*\*(.+?)\*\*)|\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)|(https?:\/\/[^\s,)]+)/g;
     let lastIdx = 0;
     let match;
 
@@ -53,8 +67,17 @@ function renderMarkdown(text: string, isDarkMode: boolean) {
             {match[2]}
           </strong>
         );
-      } else if (match[3]) {
-        const url = match[3].replace(/[.,;:!?)]+$/, "");
+      } else if (match[3] && match[4]) {
+        const linkText = match[3];
+        const url = match[4].replace(/[.,;:!?)]+$/, "");
+        segments.push(
+          <a key={`mdl-${i}-${match.index}`} href={url} target="_blank" rel="noopener noreferrer"
+            className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 decoration-indigo-400/50 hover:decoration-indigo-300 transition-colors inline-flex items-center gap-0.5 break-all">
+            {linkText}<ExternalLink className="w-3 h-3 shrink-0 inline-block" />
+          </a>
+        );
+      } else if (match[5]) {
+        const url = match[5].replace(/[.,;:!?)]+$/, "");
         segments.push(
           <a key={`u-${i}-${match.index}`} href={url} target="_blank" rel="noopener noreferrer"
             className="text-indigo-500 hover:text-indigo-600 underline underline-offset-2 decoration-indigo-300/50 hover:decoration-indigo-500 transition-colors inline-flex items-center gap-0.5 break-all">
@@ -134,7 +157,13 @@ function CopyButton({ text, isDarkMode }: { text: string; isDarkMode: boolean })
 
 function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelProps) {
   const { isDarkMode } = useTheme();
-  const { updateCustomer, addActivity, showToast, activities } = useCRMStore();
+  const { updateCustomer, addActivity, showToast, activities, _db, _orgId, activeInstanceId: storeInstanceId } = useCRMStore();
+  const contextOrgId = useOrgId();
+  const firestoreDb = useFirestore();
+
+  const orgId = _orgId || contextOrgId;
+  const db = _db || firestoreDb;
+  const activeInstanceId = storeInstanceId || "default";
 
   /* ─── Tab state ─── */
   const [activeTab, setActiveTab] = useState<TabId>("chat");
@@ -149,10 +178,12 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
   const lastEnrichTime = useRef<number>(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  /* ─── Chat state (ephemeral — NOT persisted to Firestore) ─── */
+  /* ─── Chat state (persisted to Firestore subcollection) ─── */
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [isClearingChat, setIsClearingChat] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -164,9 +195,8 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
     }
   }, [customer]);
 
-  /* Reset state when customer changes */
+  /* Reset non-persisted input & tabs on customer change */
   useEffect(() => {
-    setChatMessages([]);
     setChatInput("");
     setActiveTab("chat");
     setSelectedInsightId(null);
@@ -175,10 +205,57 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
     setSearchContext("");
   }, [customer?.id]);
 
+  /* Real-time subscription to contact chat messages */
+  useEffect(() => {
+    if (!customer?.id || !db || !orgId) {
+      setChatMessages([]);
+      setIsMessagesLoading(false);
+      return;
+    }
+
+    setIsMessagesLoading(true);
+    const messagesRef = collection(
+      db,
+      "orgs",
+      orgId,
+      "crm-instances",
+      activeInstanceId,
+      "contacts",
+      customer.id,
+      "chat_messages"
+    );
+
+    const q = query(messagesRef, orderBy("timestamp", "asc"));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const loaded: ChatMessage[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            role: data.role as "user" | "assistant",
+            content: data.content || "",
+            timestamp: data.timestamp || (data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now()),
+          };
+        }).sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));
+
+        setChatMessages(loaded);
+        setIsMessagesLoading(false);
+      },
+      (err) => {
+        console.error("[CRM Contact Chat] Snapshot error:", err);
+        setIsMessagesLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [customer?.id, db, orgId, activeInstanceId]);
+
   /* Scroll chat to bottom */
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+  }, [chatMessages, isMessagesLoading]);
 
   if (!customer) return null;
 
@@ -284,7 +361,20 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
         createdBy: "jarvis"
       });
 
-      await updateCustomer(customer.id, { aiNotes: data.enrichment });
+      let updatedAiNotes = data.enrichment;
+      if (customer.aiNotes) {
+        // Preserve any previously recorded bulleted facts or memory items
+        const existingFactLines = customer.aiNotes
+          .split("\n")
+          .filter((l: string) => l.trim().startsWith("• ") || l.trim().startsWith("- ("))
+          .filter((l: string) => !data.enrichment.includes(l.trim()));
+
+        if (existingFactLines.length > 0) {
+          updatedAiNotes += `\n\n**Known Personal Facts & Relationship Memory:**\n${existingFactLines.join("\n")}`;
+        }
+      }
+
+      await updateCustomer(customer.id, { aiNotes: updatedAiNotes });
 
       await addActivity({
         customerId: customer.id,
@@ -309,18 +399,41 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
     }
   };
 
-  /* ─── AI Chat ─── */
+  /* ─── AI Chat (Persisted to Firestore subcollection) ─── */
   const handleSendChat = async (overrideMessage?: string) => {
     const msg = overrideMessage || chatInput.trim();
-    if (!msg || isChatLoading) return;
+    if (!msg || isChatLoading || !customer || !db || !orgId) return;
 
-    const userMessage: ChatMessage = { role: "user", content: msg };
-    const updatedMessages = [...chatMessages, userMessage];
-    setChatMessages(updatedMessages);
     setChatInput("");
     setIsChatLoading(true);
 
+    const messagesRef = collection(
+      db,
+      "orgs",
+      orgId,
+      "crm-instances",
+      activeInstanceId,
+      "contacts",
+      customer.id,
+      "chat_messages"
+    );
+
     try {
+      // 1. Save user message to Firestore
+      const now = Date.now();
+      await addDoc(messagesRef, {
+        role: "user",
+        content: msg,
+        timestamp: now,
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Prepare conversation history for the AI endpoint
+      const historyForAi = [
+        ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+        { role: "user" as const, content: msg }
+      ];
+
       const authHeaders = await getAuthHeaders();
 
       // Build activity summary for context
@@ -339,7 +452,7 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
-          messages: updatedMessages,
+          messages: historyForAi,
           contactData: {
             firstName: customer.firstName,
             lastName: customer.lastName,
@@ -363,7 +476,20 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
       const data = await res.json();
       let responseText = data.response || "I'm sorry, I couldn't process that request.";
 
-      // Handle action responses from AI
+      // 1. Handle action responses from AI
+      const action = data.action;
+      const content = data.content;
+
+      if (action === "add_note" && content) {
+        await addActivity({ customerId: customer.id, type: "note", content, createdBy: "jarvis" });
+        responseText = `✅ Note added: "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`;
+        showToast("Note saved to activity timeline", "success");
+      } else if (action === "generate_insights") {
+        responseText = "Starting insight generation now...";
+        setTimeout(() => { setActiveTab("insights"); handleEnrich(); }, 500);
+      }
+
+      // Support legacy JSON action string if responseText was raw JSON
       try {
         const parsed = JSON.parse(responseText);
         if (parsed.action === "add_note" && parsed.content) {
@@ -375,15 +501,96 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
           setTimeout(() => { setActiveTab("insights"); handleEnrich(); }, 500);
         }
       } catch {
-        // Not JSON — it's a normal text response, which is fine
+        // Not JSON string — normal text response
       }
 
-      setChatMessages(prev => [...prev, { role: "assistant", content: responseText }]);
+      // 2. Handle automatically extracted relationship facts (Automated Memory Logging)
+      if (Array.isArray(data.extractedFacts) && data.extractedFacts.length > 0) {
+        let updatedNotes = customer.aiNotes || "";
+        const dateLabel = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+        for (const factItem of data.extractedFacts) {
+          if (!factItem.fact) continue;
+          const categoryTag = factItem.category ? ` [${factItem.category.toUpperCase()}]` : "";
+          const activityContent = `Discovered fact${categoryTag}: ${factItem.fact}`;
+
+          // Log to contact timeline
+          await addActivity({
+            customerId: customer.id,
+            type: "insight",
+            content: activityContent,
+            createdBy: "jarvis",
+          });
+
+          // Append to contact aiNotes dossier if not already present
+          const noteEntry = `• (${dateLabel}) ${factItem.fact}${categoryTag}`;
+          if (!updatedNotes.toLowerCase().includes(factItem.fact.toLowerCase())) {
+            updatedNotes = updatedNotes
+              ? `${updatedNotes}\n${noteEntry}`
+              : `**Key Facts & Relationship Notes:**\n${noteEntry}`;
+          }
+
+          showToast(`Jarvis remembered: "${factItem.fact}"`, "success");
+        }
+
+        if (updatedNotes !== (customer.aiNotes || "")) {
+          await updateCustomer(customer.id, { aiNotes: updatedNotes });
+        }
+      }
+
+      // Notify if live web research was performed
+      if (data.webSearchExecuted && data.searchSources && data.searchSources.length > 0) {
+        showToast(`Jarvis researched the web across ${data.searchSources.length} sources`, "info");
+      }
+
+      // 3. Save assistant reply to Firestore
+      await addDoc(messagesRef, {
+        role: "assistant",
+        content: responseText,
+        timestamp: Date.now(),
+        createdAt: serverTimestamp(),
+      });
     } catch (err) {
       console.error("[Contact Chat] Error:", err);
-      setChatMessages(prev => [...prev, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
+      await addDoc(messagesRef, {
+        role: "assistant",
+        content: "Sorry, I encountered an error. Please try again.",
+        timestamp: Date.now(),
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
     } finally {
       setIsChatLoading(false);
+    }
+  };
+
+  /* ─── Clear Chat History ─── */
+  const handleClearChat = async () => {
+    if (!customer?.id || !db || !orgId || isClearingChat) return;
+    if (!window.confirm(`Clear chat history with ${customer.firstName || "this contact"}?`)) return;
+
+    setIsClearingChat(true);
+    try {
+      const messagesRef = collection(
+        db,
+        "orgs",
+        orgId,
+        "crm-instances",
+        activeInstanceId,
+        "contacts",
+        customer.id,
+        "chat_messages"
+      );
+      const snap = await getDocs(messagesRef);
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      setChatMessages([]);
+      showToast("Chat history cleared", "info");
+    } catch (err: any) {
+      console.error("[CRM] Failed to clear chat:", err);
+      showToast("Failed to clear chat history", "error");
+    } finally {
+      setIsClearingChat(false);
     }
   };
 
@@ -408,6 +615,7 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
 
   const quickChips = [
     { label: "Generate insights", action: () => { setActiveTab("insights"); handleEnrich(); } },
+    { label: "Research online", action: () => handleSendChat(`Search the web for background, recent news, and personal interests for ${customer.firstName} ${customer.lastName}${customer.company ? ` at ${customer.company}` : ""}`) },
     { label: "Find LinkedIn", action: () => handleSendChat(`Find LinkedIn profile for ${customer.firstName} ${customer.lastName}${customer.company ? ` at ${customer.company}` : ""}`) },
     { label: "Draft follow-up email", action: () => handleSendChat(`Draft a professional follow-up email to ${customer.firstName} ${customer.lastName}`) },
     { label: "Summarize activity", action: () => handleSendChat(`Summarize all activity and notes for ${customer.firstName} ${customer.lastName}`) },
@@ -466,26 +674,44 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
           </div>
         </div>
 
-        {/* ─── Tab Carousel ─── */}
-        <div className={`flex gap-1 px-4 py-2 shrink-0 border-b ${isDarkMode ? 'border-white/10 bg-slate-900/80' : 'border-slate-100 bg-slate-50/50'}`}>
-          {tabs.map(tab => (
+        {/* ─── Tab Carousel & Chat Controls ─── */}
+        <div className={`flex items-center justify-between px-4 py-2 shrink-0 border-b ${isDarkMode ? 'border-white/10 bg-slate-900/80' : 'border-slate-100 bg-slate-50/50'}`}>
+          <div className="flex gap-1">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-semibold rounded-lg transition-all cursor-pointer ${
+                  activeTab === tab.id
+                    ? isDarkMode
+                      ? 'bg-indigo-500/15 text-indigo-300 shadow-sm'
+                      : 'bg-indigo-50 text-indigo-700 shadow-sm'
+                    : isDarkMode
+                      ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === "chat" && chatMessages.length > 0 && (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-semibold rounded-lg transition-all cursor-pointer ${
-                activeTab === tab.id
-                  ? isDarkMode
-                    ? 'bg-indigo-500/15 text-indigo-300 shadow-sm'
-                    : 'bg-indigo-50 text-indigo-700 shadow-sm'
-                  : isDarkMode
-                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+              onClick={handleClearChat}
+              disabled={isClearingChat}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
+                isDarkMode
+                  ? 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
+                  : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
               }`}
+              title="Clear conversation history"
             >
-              {tab.icon}
-              {tab.label}
+              <RotateCw className={`w-3 h-3 ${isClearingChat ? 'animate-spin' : ''}`} />
+              <span>Clear</span>
             </button>
-          ))}
+          )}
         </div>
 
         {/* ─── Tab Content ─── */}
@@ -496,7 +722,14 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Chat messages */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                {chatMessages.length === 0 ? (
+                {isMessagesLoading ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                    <Loader2 className="w-6 h-6 text-indigo-500 animate-spin mb-2" />
+                    <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Loading conversation...
+                    </p>
+                  </div>
+                ) : chatMessages.length === 0 ? (
                   /* Welcome state */
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${isDarkMode ? 'bg-indigo-500/10' : 'bg-indigo-50'}`}>
@@ -533,7 +766,7 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
                   /* Chat messages */
                   <>
                     {chatMessages.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div key={msg.id || idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                         <div className={`max-w-[85%] px-4 py-2.5 text-sm leading-relaxed ${
                           msg.role === "user"
                             ? `rounded-2xl rounded-br-md ${isDarkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'}`

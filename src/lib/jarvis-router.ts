@@ -15,7 +15,7 @@
  * - MULTI: requests spanning 2+ domains (future orchestrator)
  */
 
-import { Groq } from "groq-sdk";
+import { createCompletion } from "@/lib/llm-router";
 
 export type JarvisDomain = 
   | "EMAIL"
@@ -38,10 +38,10 @@ const DOMAIN_PATTERNS: Array<{ domain: JarvisDomain; pattern: RegExp }> = [
     domain: "CALENDAR",
     pattern: /\b(schedule|calendar|meeting|event|appointment|book\s*(a\s*)?(time|meeting|call)|reschedule|cancel\s*(the\s*)?(meeting|event|appointment)|what('s| is)\s*(on\s*)?(my\s*)?calendar|availability|free\s*time|busy|block\s*off\s*time|google\s*meet)\b/i,
   },
-  // CRM — contact management, leads, tags, analytics
+  // CRM — contact management, leads, tags, analytics, dossiers
   {
     domain: "CRM",
-    pattern: /\b(add\s*(a\s*)?(new\s*)?(contact|person|lead)|delete\s*(the\s*)?(contact|person)|contacts?\s*(book|list|database)|crm|lead\s*(status|score|source)|tag\s*(them|this|contacts?)|update\s*(the\s*)?(contact|person|lead)|search\s*(for\s*)?(contacts?|people|leads?)|find\s*(me\s*)?(contacts?|people|leads?)|contact\s*analytics|how\s*many\s*(contacts?|leads?|people)|stale\s*leads?|health\s*score|batch\s*update|evaluate\s*(contacts?|leads?)|merge\s*(the\s*)?(contacts?|duplicates?|records?)|move\s*(the\s*)?(contact|person)|follow[\s-]?up|log\s*(a\s*)?(note|call|activity|meeting)|schedule\s*(a\s*)?(follow|call|check)|create\s*(a\s*)?(new\s*)?contact\s*book|rename\s*(the\s*)?(contact\s*)?book|delete\s*(the\s*)?(contact\s*)?book|complete\s*(the\s*)?(task|follow))\b/i,
+    pattern: /\b(add\s*(a\s*)?(new\s*)?(contact|person|lead)|delete\s*(the\s*)?(contact|person)|contacts?\s*(book|list|database)|crm|lead\s*(status|score|source)|tag\s*(them|this|contacts?)|update\s*(the\s*)?(contact|person|lead)|search\s*(for\s*)?(contacts?|people|leads?)|find\s*(me\s*)?(contacts?|people|leads?)|contact\s*(analytics|profile|dossier)|how\s*many\s*(contacts?|leads?|people)|stale\s*leads?|health\s*score|batch\s*update|evaluate\s*(contacts?|leads?)|merge\s*(the\s*)?(contacts?|duplicates?|records?)|move\s*(the\s*)?(contact|person)|follow[\s-]?up|log\s*(a\s*)?(note|call|activity|meeting)|schedule\s*(a\s*)?(follow|call|check)|create\s*(a\s*)?(new\s*)?contact\s*book|rename\s*(the\s*)?(contact\s*)?book|delete\s*(the\s*)?(contact\s*)?book|complete\s*(the\s*)?(task|follow)|dossier|what\s*(do\s*we\s*know|information\s*do\s*we\s*have)\s*about|(background|research|notes)\s*(on|about))\b/i,
   },
   // WORKSPACE — Google Docs, Slides, Sheets, YouTube, Survey, Drive
   {
@@ -110,18 +110,17 @@ Respond with exactly one word: EMAIL, CALENDAR, CRM, WORKSPACE, GENERAL, or MULT
  */
 async function llmClassify(message: string): Promise<JarvisDomain> {
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const result = await groq.chat.completions.create({
-      model: "openai/gpt-oss-120b",
+    const result = await createCompletion({
+      model: "gemini-2.5-flash",
       messages: [
         { role: "system", content: ROUTER_SYSTEM_PROMPT },
         { role: "user", content: message },
       ],
-      max_tokens: 10,
+      maxTokens: 10,
       temperature: 0,
     });
 
-    const response = result.choices[0]?.message?.content?.trim().toUpperCase() || "GENERAL";
+    const response = result.content?.trim().toUpperCase() || "GENERAL";
     const validDomains: JarvisDomain[] = ["EMAIL", "CALENDAR", "CRM", "WORKSPACE", "GENERAL", "MULTI"];
     
     if (validDomains.includes(response as JarvisDomain)) {

@@ -1,6 +1,6 @@
-import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
-import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
+import { logAIUsage } from "@/lib/log-ai-usage";
+import { createCompletion, calculateCost } from "@/lib/llm-router";
 import { verifyRequest } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
@@ -17,9 +17,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Description and orgId are required" }, { status: 400 });
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-    const completion = await groq.chat.completions.create({
+    const completion = await createCompletion({
       messages: [
         {
           role: "system",
@@ -58,13 +56,12 @@ Make the survey professional and perfectly tailored to their request.`
           content: description
         }
       ],
-      model: "openai/gpt-oss-120b",
+      model: "gemini-2.5-flash",
       temperature: 0.7,
-      response_format: { type: "json_object" }
     });
 
-    let jsonString = completion.choices[0]?.message?.content;
-    if (!jsonString) throw new Error("No response from Groq");
+    let jsonString = completion.content;
+    if (!jsonString) throw new Error("No response from AI");
 
     // Remove markdown code blocks if the model mistakenly wraps it
     jsonString = jsonString.trim();
@@ -81,19 +78,19 @@ Make the survey professional and perfectly tailored to their request.`
 
     const surveyData = JSON.parse(jsonString);
 
-    const surveyModel = "openai/gpt-oss-120b";
-    const inputTokens = completion.usage?.prompt_tokens || 0;
-    const outputTokens = completion.usage?.completion_tokens || 0;
+    const surveyModel = "gemini-2.5-flash";
+    const inputTokens = completion.usage.promptTokens;
+    const outputTokens = completion.usage.completionTokens;
     logAIUsage({
       userId: uid || "anonymous",
       orgId: orgId,
       model: surveyModel,
-      provider: "groq",
+      provider: completion.provider,
       endpoint: "/api/generate-survey",
       inputTokens,
       outputTokens,
-      totalTokens: completion.usage?.total_tokens || 0,
-      costUsd: calculateGroqCost(surveyModel, inputTokens, outputTokens),
+      totalTokens: completion.usage.totalTokens,
+      costUsd: calculateCost(surveyModel, inputTokens, outputTokens),
       timestamp: new Date(),
     });
 

@@ -1,11 +1,9 @@
-import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
+import { createCompletion } from "@/lib/llm-router";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// Use fast model for inline assists, powerful model for campaign strategy
-const FAST_MODEL = "openai/gpt-oss-120b";
+// Use fast Gemini 2.5 Flash with multi-provider failover
+const FAST_MODEL = "gemini-2.5-flash";
 
 interface AIRequest {
   action: "subject_lines" | "draft_body" | "rewrite" | "smart_reply" | "campaign_suggest";
@@ -115,17 +113,17 @@ export async function POST(req: Request) {
     if (kbText) systemPrompt += `\n\nContext about the user and their business:\n${kbText}`;
     if (pactTextVal) systemPrompt += `\n\nKnown facts about the user:\n${pactTextVal}`;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       model: FAST_MODEL,
       temperature: 0.7,
-      max_tokens: 1024,
+      maxTokens: 1024,
     });
 
-    const rawResponse = completion.choices[0]?.message?.content || "";
+    const rawResponse = completion.content || "";
 
     // Parse response into suggestions array
     let suggestions: string[];

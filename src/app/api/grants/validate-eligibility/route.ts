@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Groq } from "groq-sdk";
+import { createCompletion } from "@/lib/llm-router";
 import { verifyRequest } from "@/lib/api-auth";
 
 /**
@@ -43,8 +43,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
     // Build a clear description of what the user's organization is
     const orgTypeDescription = [
       body.companyDescription,
@@ -73,17 +71,17 @@ ANALYSIS RULES:
 You MUST respond with ONLY valid JSON in this exact format, nothing else:
 {"eligible": true, "confidence": 85, "eligibility": "Nonprofits with 501(c)(3) status, state governments, tribal organizations", "reasoning": "The grant explicitly lists 501(c)(3) nonprofits as eligible applicants and the organization's mission aligns with the grant's focus area."}`;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createCompletion({
       messages: [
         { role: "system", content: "You are a precise JSON-only responder. Output ONLY valid JSON with no markdown, no explanation, no code blocks." },
         { role: "user", content: prompt }
       ],
-      model: "openai/gpt-oss-120b",
+      model: "gemini-2.5-flash",
       temperature: 0.1,
-      max_tokens: 512,
+      maxTokens: 512,
     });
 
-    const rawResponse = completion.choices[0]?.message?.content || "";
+    const rawResponse = completion.content || "";
     console.log(`[GrantValidation] Raw LLM response: ${rawResponse.substring(0, 300)}`);
 
     // Parse the JSON response

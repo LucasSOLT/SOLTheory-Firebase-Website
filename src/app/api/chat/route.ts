@@ -1,4 +1,3 @@
-import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
@@ -12,7 +11,7 @@ import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
-import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, executeCrmMergeContacts, executeCrmAddActivity, executeCrmCreateContactBook, executeCrmRenameContactBook, executeCrmDeleteContactBook, executeCrmMoveContact, executeCrmScheduleFollowup, executeCrmCompleteTask, CrmInstance } from "@/lib/jarvis-crm-tools";
+import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmGetContactProfile, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, executeCrmMergeContacts, executeCrmAddActivity, executeCrmCreateContactBook, executeCrmRenameContactBook, executeCrmDeleteContactBook, executeCrmMoveContact, executeCrmScheduleFollowup, executeCrmCompleteTask, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
 import { ORG_BRAIN_TOOL_DEFINITIONS, PERSONAL_BRAIN_TOOL_DEFINITIONS, executeSearchOrgBrain, executeSearchPersonalBrain } from "@/lib/jarvis-org-brain-tools";
@@ -217,9 +216,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Validate model against registry, default to openai/gpt-oss-120b
+    // Validate model against registry, default to gemini-2.5-flash (cheapest, most reliable)
     const ALLOWED_MODELS = [...Object.keys(MODEL_REGISTRY), 'auto'];
-    let selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'openai/gpt-oss-120b';
+    let selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'gemini-2.5-flash';
     // Budget models run in lite mode — Google Suite tools only, no CRM, no planner, minimal context
     const LITE_MODELS = new Set(['nemotron-3-ultra', 'qwen/qwen3.6-27b']);
     const isLiteMode = LITE_MODELS.has(selectedModel);
@@ -390,9 +389,7 @@ The current date/time for the user is: ${monicaTime}.`;
     }
 
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-    // Unified completion function that routes to correct provider (Groq or OpenRouter)
+    // Unified completion function that routes to correct provider (Gemini, OpenRouter, or Groq)
     // The selected model handles EVERYTHING — including tool calls.
     const createCompletionWithRetry = async (messagesArray: any[], useTools: boolean, maxRetries = 2) => {
       let attempts = 0;
@@ -558,7 +555,7 @@ The current date/time for the user is: ${monicaTime}.`;
     } else if (!semanticResult) {
       // Fallback: use client-provided knowledge base text (capped)
       if (knowledgeBaseText && typeof knowledgeBaseText === "string" && knowledgeBaseText.trim().length > 0) {
-        combinedKnowledge = knowledgeBaseText.substring(0, 8000);
+        combinedKnowledge = knowledgeBaseText.substring(0, 3000);
       }
     }
     // --- P.A.C.T.: Personalized AI Conversation Training (Scope-Aware Working Memory) ---
@@ -570,7 +567,7 @@ The current date/time for the user is: ${monicaTime}.`;
         : `[PERSONAL USER MEMORY (PRIVATE)]\nFacts about this specific user from their private conversations. This is personal context — use it naturally but NEVER share or reference these facts in organizational/team conversations.`;
       groqMessages.push({
         role: "system",
-        content: `${memoryHeader}\n\n${pactText.substring(0, 5000)}`
+        content: `${memoryHeader}\n\n${pactText.substring(0, 2000)}`
       });
     }
 
@@ -579,25 +576,22 @@ The current date/time for the user is: ${monicaTime}.`;
     if (personalBrainText && typeof personalBrainText === "string" && personalBrainText.trim().length > 0 && chatScope !== 'org') {
       groqMessages.push({
         role: "system",
-        content: `[PERSONAL AI BRAIN PROFILE]\nCore information the user provided about their role, work style, communication preferences, and guidelines. Use this to personalize every response — match their preferred communication style, respect their boundaries, and reference their priorities naturally.\n\n${personalBrainText.substring(0, 6000)}`
+        content: `[PERSONAL AI BRAIN PROFILE]\nCore information the user provided about their role, work style, communication preferences, and guidelines. Use this to personalize every response — match their preferred communication style, respect their boundaries, and reference their priorities naturally.\n\n${personalBrainText.substring(0, 2500)}`
       });
       console.log(`[Brain Profile] Injected ${personalBrainText.length} chars of personal brain profile`);
     }
 
-    // --- CRM DATABASE: Inject user's CRM contacts so Jarvis can answer questions about them ---
-    if (crmData && typeof crmData === "string" && crmData.trim().length > 0) {
-      const cappedCrm = crmData.substring(0, 16000);
-      groqMessages.push({
-        role: "system",
-        content: `[CRM DATABASE]\nContact database. Fields: Name | Email | Phone | Mobile | Company | Title | Lead Status | [Tags]. Search all fields when looking up a person. If not found, say so — never fabricate contacts.\n\n${cappedCrm}`
-      });
-      console.log(`[CRM] Injected ${cappedCrm.length} chars of CRM data into context`);
-    }
+    // --- CRM DATABASE: Deferred to after domain routing for context pruning ---
+    // CRM data (up to 16k chars) is only injected when routedDomain is CRM/EMAIL
+    // or the user query contains contact-related keywords. See "CONTEXT PRUNING" below.
+    const hasCrmData = crmData && typeof crmData === "string" && crmData.trim().length > 0;
 
     // --- CRM TOOLS CONTEXT: Inject active contact book and field mapping into Jarvis ---
     if (crmInstanceId && agentId === "jarvis") {
       const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
-      const crmToolPrompt = buildCrmSystemPrompt(crmInstanceId, parsedInstances);
+      const userTz = userTimezone || "America/Denver";
+      const currentDateStr = new Date().toLocaleDateString("en-US", { timeZone: userTz, weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const crmToolPrompt = buildCrmSystemPrompt(crmInstanceId, parsedInstances, currentDateStr);
       groqMessages.push({
         role: "system",
         content: crmToolPrompt,
@@ -634,70 +628,48 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
       });
     }
 
-    // Email behavior rules
-    groqMessages.push({
-      role: "system",
-      content: `[EMAIL BEHAVIOR RULES]
-- Use the "email" tool for ALL email tasks (sending, drafting, previewing).
-- ALWAYS call with action='preview' FIRST to show the user the email before executing. NEVER send or draft without showing a preview first.
-- After previewing, you MUST display the FULL email to the user using this EXACT format — never skip showing the email content:
-  "Here is the email I've prepared:"
-  Then show the email in a blockquote (> lines) with To, Subject, and the full body. The user needs to SEE the email before confirming.
-- DETECT USER INTENT from their original request to determine what to ask after preview:
-  • DRAFT intent (user said "draft", "save a draft", "write a draft", "draft an email", "prepare a draft") → after preview, ask: "Ready to save as draft?" Do NOT mention sending.
-  • SEND intent (user said "send", "fire off", "email them", "shoot an email", "send an email", "message them") → after preview, ask: "Ready to send?" Do NOT mention drafting.
-  • AMBIGUOUS (user said "write me an email", "compose an email", or intent is unclear) → after preview, ask: "Would you like me to send this now, or save it as a draft?"
-- After user confirms → call with action='send' or action='draft' matching the detected intent. Do NOT call action='preview' again — the user has already seen the email. Go directly to action='send' or action='draft'.
-- CRITICAL: If the conversation history already shows a preview was displayed (you previously called action='preview'), and the user replies with confirmation like "yes", "send it", "go ahead", "do it", "yes send it", "1", etc. — you MUST call action='send' or action='draft' immediately with the SAME to/subject/body from the earlier preview. NEVER re-preview.
-- IMPORTANT: Email body text must be PLAIN TEXT only. Do NOT use markdown (**bold**, *italic*, ## headers, - bullets) because Gmail renders these as literal characters. For emphasis, use CAPS or plain wording instead.
-- After sending an email, the tool result will contain a "📬 [View sent email](...)" link. You MUST copy that EXACT link into your response to the user. If the tool result contains a link, relay it verbatim. NEVER say you don't have a link or tell the user to check their Sent folder when the link is in the tool result.
-- When the user asks to include a Google Meet link but does NOT specify a specific time (e.g. "tomorrow" without a clock time, or "next week"), ASK: "What time should I schedule the meeting for?" Do NOT guess or use a default time. You need a full date and time to create the calendar event.
-- When showing email search results, ALWAYS include the gmailUrl as a clickable link so the user can open it: [Subject](gmailUrl). Format like: "**Subject** — From sender — [Open in Gmail](url)"
-- NEVER offer to "log this as an activity" on a CRM record, "add a note to their CRM record", or suggest any CRM write operations. The CRM is read-only — you can ONLY look up contacts, never write to CRM records.
+    // --- EMAIL BEHAVIOR RULES: Deferred to after domain routing ---
+    // Email rules (~3k chars) only injected when routedDomain is EMAIL. See "CONTEXT PRUNING" below.
 
-[CONTACT DISAMBIGUATION — MANDATORY]
-When a CRM tool returns contact results (search OR disambiguation), you MUST:
-1. Show the pre-formatted numbered list from the tool result EXACTLY as-is — do NOT reformat, re-order, or remove the numbers.
-2. If multiple contacts are returned, ask: "Reply with a number to select a contact."
-3. When the user replies with "1", "2", "the first one", "second", etc., map that to the corresponding contact and proceed.
-NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the numbered format from the tool result so the user can reply with just a number.`
-    });
+    // --- CONTACT DISAMBIGUATION: Deferred with email rules ---
 
     // --- KNOWLEDGE BASE: Injected LAST so it's closest to conversation (better LLM attention) ---
+    // CONTEXT PRUNING: Capped at 3,000 chars (down from 16k). Semantic retrieval already
+    // returns query-matched chunks, so 3k is sufficient and saves ~13k tokens.
     const defaultKnowledge = orgProfileData?.defaultKnowledge || "";
     const finalKnowledge = [defaultKnowledge, combinedKnowledge].filter(k => k.trim().length > 0).join("\n\n---\n\n");
     
     if (finalKnowledge.length > 0) {
       groqMessages.push({
         role: "system",
-        content: `[KNOWLEDGE BASE]\nAuthoritative org data — overrides your training data. Reference sources naturally. If not covered here, use general knowledge.\n\n${finalKnowledge.substring(0, 16000)}`
+        content: `[KNOWLEDGE BASE]\nAuthoritative org data — overrides your training data. Reference sources naturally. If not covered here, use general knowledge.\n\n${finalKnowledge.substring(0, 3000)}`
       });
     }
 
 
     // --- SMART CONTEXT WINDOW MANAGEMENT ---
-    // Keep the conversation focused by managing message history intelligently
-    const MAX_CONTEXT_MESSAGES = 32; // Expanded from 24 → 32 for better continuity
-
-    // Topic tracker removed for speed — minimal benefit, adds prompt tokens
+    // CONTEXT PRUNING: Reduced from 32 → 16 messages to cut prompt payload in half
+    // for long conversations. 16 recent messages provides strong continuity while
+    // keeping the prompt lean enough for fast time-to-first-token.
+    const MAX_CONTEXT_MESSAGES = 16;
 
     if (messages.length > MAX_CONTEXT_MESSAGES) {
       const oldMessages = messages.slice(0, messages.length - MAX_CONTEXT_MESSAGES);
       const recentMessages = messages.slice(messages.length - MAX_CONTEXT_MESSAGES);
 
-      // Build a structured narrative summary of older messages
+      // Build a compact narrative summary of older messages
       const userQuestions = oldMessages
         .filter((m: any) => m.role === 'user')
-        .map((m: any) => (m.content || '').substring(0, 120))
-        .slice(-8); // last 8 user messages from old section
+        .map((m: any) => (m.content || '').substring(0, 100))
+        .slice(-5); // last 5 user messages from old section
       const assistantHighlights = oldMessages
         .filter((m: any) => m.role === 'assistant')
-        .map((m: any) => (m.content || '').substring(0, 120))
-        .slice(-5); // last 5 assistant messages from old section
+        .map((m: any) => (m.content || '').substring(0, 100))
+        .slice(-3); // last 3 assistant messages from old section
 
       groqMessages.push({
         role: "system",
-        content: `[EARLIER CONVERSATION MEMORY]\nThe user previously asked these questions (oldest first):\n${userQuestions.map((q: string, i: number) => `${i + 1}. ${q}${q.length >= 120 ? '...' : ''}`).join('\n')}\n\nKey points from your earlier responses:\n${assistantHighlights.map((a: string, i: number) => `- ${a}${a.length >= 120 ? '...' : ''}`).join('\n')}\n\nMaintain continuity with these earlier exchanges.`
+        content: `[EARLIER CONVERSATION MEMORY]\nThe user previously asked these questions (oldest first):\n${userQuestions.map((q: string, i: number) => `${i + 1}. ${q}${q.length >= 100 ? '...' : ''}`).join('\n')}\n\nKey points from your earlier responses:\n${assistantHighlights.map((a: string, i: number) => `- ${a}${a.length >= 100 ? '...' : ''}`).join('\n')}\n\nMaintain continuity with these earlier exchanges.`
       });
       groqMessages.push(...recentMessages);
     } else {
@@ -745,7 +717,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     const hasToolApis = !!(gmail || calendar);
     const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     let routedDomain: JarvisDomain = await routeIntent(lastUserText2);
-    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we|merge|move\s+(the\s+)?contact|follow[\s-]?up|log\s+(a\s+)?(note|call|activity)|schedule\s+(a\s+)?follow|complete\s+(the\s+)?task|contact\s*book/i;
+    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|dossier|profile|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|what\s*do\s*we\s*know|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we|merge|move\s+(the\s+)?contact|follow[\s-]?up|log\s+(a\s+)?(note|call|activity)|schedule\s+(a\s+)?follow|complete\s+(the\s+)?task|contact\s*book/i;
     let forceTools = toolKeywords.test(lastUserText2);
 
     // ── CONVERSATION-AWARE ROUTING FIX ──
@@ -826,21 +798,76 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       console.log(`[ROUTER] Injected domain prompt for: ${routedDomain}`);
     }
 
+    // ── CONTEXT PRUNING: Domain-Aware Heavy Context Injection ──
+    // CRM data and Email rules are only injected when the routed domain needs them.
+    // This eliminates ~19k chars of prompt bloat for GENERAL/CALENDAR/WORKSPACE queries.
+    const CRM_RELEVANT_DOMAINS = new Set<JarvisDomain>(['CRM', 'EMAIL', 'MULTI']);
+    const contactKeywords = /\b(contact|crm|dossier|lead|pipeline|follow.?up|client|prospect|who is|who's|find\s+(the\s+)?person|know about|what do we know)\b/i;
+    const needsCrm = CRM_RELEVANT_DOMAINS.has(routedDomain) || contactKeywords.test(lastUserText2);
+
+    if (hasCrmData && needsCrm) {
+      // Cap at 8k (down from 16k) — CRM data is a summary, detailed lookups use crm_get_contact_profile
+      const cappedCrm = crmData.substring(0, 8000);
+      groqMessages.push({
+        role: "system",
+        content: `[CRM DATABASE]\nContact database. Fields: Name | Email | Phone | Mobile | Company | Title | Lead Status | [Tags] | Facts | Interests | Research/Notes. Search all fields when looking up a person.
+You have proactive high-level awareness of these contacts, including their known personal facts, interests, and research.
+When the user asks for deep background details, complete interaction timeline history, or specific personal facts beyond this summary, ALWAYS call crm_get_contact_profile to retrieve their full dossier. If not found, say so — never fabricate contacts.\n\n${cappedCrm}`
+      });
+      console.log(`[CRM PRUNING] ✅ Injected ${cappedCrm.length} chars of CRM data (domain: ${routedDomain})`);
+    } else if (hasCrmData) {
+      console.log(`[CRM PRUNING] ⏭️ Skipped CRM injection — domain "${routedDomain}" doesn't need 8k of contact data`);
+    }
+
+    // Email behavior rules only needed for EMAIL domain
+    if (routedDomain === 'EMAIL' || routedDomain === 'MULTI') {
+      groqMessages.push({
+        role: "system",
+        content: `[EMAIL BEHAVIOR RULES]
+- Use the "email" tool for ALL email tasks (sending, drafting, previewing).
+- ALWAYS call with action='preview' FIRST to show the user the email before executing. NEVER send or draft without showing a preview first.
+- After previewing, you MUST display the FULL email to the user using this EXACT format — never skip showing the email content:
+  "Here is the email I've prepared:"
+  Then show the email in a blockquote (> lines) with To, Subject, and the full body. The user needs to SEE the email before confirming.
+- DETECT USER INTENT from their original request to determine what to ask after preview:
+  • DRAFT intent (user said "draft", "save a draft", "write a draft", "draft an email", "prepare a draft") → after preview, ask: "Ready to save as draft?" Do NOT mention sending.
+  • SEND intent (user said "send", "fire off", "email them", "shoot an email", "send an email", "message them") → after preview, ask: "Ready to send?" Do NOT mention drafting.
+  • AMBIGUOUS (user said "write me an email", "compose an email", or intent is unclear) → after preview, ask: "Would you like me to send this now, or save it as a draft?"
+- After user confirms → call with action='send' or action='draft' matching the detected intent. Do NOT call action='preview' again — the user has already seen the email. Go directly to action='send' or action='draft'.
+- CRITICAL: If the conversation history already shows a preview was displayed (you previously called action='preview'), and the user replies with confirmation like "yes", "send it", "go ahead", "do it", "yes send it", "1", etc. — you MUST call action='send' or action='draft' immediately with the SAME to/subject/body from the earlier preview. NEVER re-preview.
+- IMPORTANT: Email body text must be PLAIN TEXT only. Do NOT use markdown (**bold**, *italic*, ## headers, - bullets) because Gmail renders these as literal characters. For emphasis, use CAPS or plain wording instead.
+- After sending an email, the tool result will contain a "📬 [View sent email](...)" link. You MUST copy that EXACT link into your response to the user. If the tool result contains a link, relay it verbatim. NEVER say you don't have a link or tell the user to check their Sent folder when the link is in the tool result.
+- When the user asks to include a Google Meet link but does NOT specify a specific time (e.g. "tomorrow" without a clock time, or "next week"), ASK: "What time should I schedule the meeting for?" Do NOT guess or use a default time. You need a full date and time to create the calendar event.
+- When showing email search results, ALWAYS include the gmailUrl as a clickable link so the user can open it: [Subject](gmailUrl). Format like: "**Subject** — From sender — [Open in Gmail](url)"
+- NEVER offer to "log this as an activity" on a CRM record, "add a note to their CRM record", or suggest any CRM write operations. The CRM is read-only — you can ONLY look up contacts, never write to CRM records.
+
+[CONTACT DISAMBIGUATION — MANDATORY]
+When a CRM tool returns contact results (search OR disambiguation), you MUST:
+1. Show the pre-formatted numbered list from the tool result EXACTLY as-is — do NOT reformat, re-order, or remove the numbers.
+2. If multiple contacts are returned, ask: "Reply with a number to select a contact."
+3. When the user replies with "1", "2", "the first one", "second", etc., map that to the corresponding contact and proceed.
+NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the numbered format from the tool result so the user can reply with just a number.`
+      });
+      console.log(`[EMAIL PRUNING] ✅ Injected email behavior rules (domain: ${routedDomain})`);
+    } else {
+      console.log(`[EMAIL PRUNING] ⏭️ Skipped email rules — domain "${routedDomain}" doesn't need email flow instructions`);
+    }
+
     // ── Agentic Planning Step: Generate intent understanding + deliverables ──
     // Skipped for lite mode models to reduce latency
     let planningText = '';
     if (useTools && wantStream && routedDomain !== 'MULTI' && !isLiteMode) {
       try {
-        const planningCompletion = await groq.chat.completions.create({
-          model: 'openai/gpt-oss-120b',
+        const planningCompletion = await createCompletion({
+          model: 'gemini-2.5-flash',
           messages: [
             { role: 'system', content: `You are a concise task planner. Given the user's request, respond with EXACTLY this format (no extra text):\n\nINTENT: [One sentence describing what the user is requesting]\n\nDELIVERABLES:\n1. [First step/action to take]\n2. [Second step/action if applicable]\n3. [Third step if applicable]\n\nKeep it brief. Max 3-4 deliverables. If the request is simple (single action), just list 1 deliverable.` },
             { role: 'user', content: lastUserText2 }
           ],
-          max_tokens: 150,
+          maxTokens: 150,
           temperature: 0,
         });
-        planningText = planningCompletion.choices[0]?.message?.content?.trim() || '';
+        planningText = planningCompletion.content?.trim() || '';
       } catch (planErr) {
         console.log('[PLANNING] Planning step failed, continuing without plan:', planErr);
       }
@@ -1818,6 +1845,14 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
               console.log(`[CRM TOOL] Searched contacts: ${args.query}`);
             } catch (crmErr: any) {
               functionResult = JSON.stringify({ error: "Failed to search contacts: " + crmErr.message });
+            }
+          } else if (functionName === "crm_get_contact_profile") {
+            try {
+              const parsedInstances: CrmInstance[] = Array.isArray(crmInstances) ? crmInstances : [{ id: "default", name: "All Contacts" }];
+              functionResult = await executeCrmGetContactProfile(orgId, crmInstanceId || "default", args, parsedInstances);
+              console.log(`[CRM TOOL] Retrieved contact profile for: ${args.searchQuery}`);
+            } catch (crmErr: any) {
+              functionResult = JSON.stringify({ error: "Failed to retrieve contact profile: " + crmErr.message });
             }
           } else if (functionName === "crm_list_contact_books") {
             try {

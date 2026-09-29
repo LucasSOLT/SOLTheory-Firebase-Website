@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
 import { google } from "googleapis";
-import { Groq } from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { createCompletion } from "@/lib/llm-router";
 
 export async function POST(req: NextRequest) {
   const auth = await verifyRequest(req);
@@ -104,18 +102,18 @@ export async function POST(req: NextRequest) {
           dynamicRole += `\n\n[USER FACTS]\nKnown facts about the user and their preferences:\n${pactText.substring(0, 10000)}`;
         }
 
-        // Generate Reply via Groq
+        // Generate Reply via LLM (Gemini 2.5 Flash with multi-provider failover)
         const prompt = `You are replying to an email.\nFrom: ${from}\nSubject: ${subject}\n\nEmail Content:\n${emailContent}\n\nPlease generate a polite, helpful reply. Do not include subject line in your response, just the body.`;
 
-        const completion = await groq.chat.completions.create({
+        const completion = await createCompletion({
           messages: [
             { role: "system", content: dynamicRole },
             { role: "user", content: prompt }
           ],
-          model: "openai/gpt-oss-120b",
+          model: "gemini-2.5-flash",
         });
 
-        const replyText = completion.choices[0]?.message?.content || "Thank you for reaching out. We will get back to you shortly.";
+        const replyText = completion.content || "Thank you for reaching out. We will get back to you shortly.";
 
         // Construct email message to send
         const replyMessage = [

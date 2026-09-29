@@ -47,7 +47,7 @@ const localDict = {
     integrations: "Integrations",
     gmailConnection: "Google Account Connection",
     gmailDesc: "Connect your Google account to let the AI agent read and reply to your inbound emails automatically.",
-    gmailConnected: "Ã¢Å“â€œ Google Account Connected Successfully",
+    gmailConnected: "✓ Google Account Connected Successfully",
     connectGmail: "Connect Google Account",
     connected: "Connected",
     syncInbox: "Refresh Account",
@@ -70,51 +70,51 @@ const localDict = {
     languageSelect: "Select Interface Language",
     languageSelectDesc: "Choose your preferred language for the entire platform interface.",
     english: "English (US)",
-    spanish: "EspaÃƒÂ±ol (ES)"
+    spanish: "Español (ES)"
   },
   es: {
-    settings: "ConfiguraciÃƒÂ³n",
+    settings: "Configuración",
     profile: "Perfil",
     notifications: "Notificaciones",
     security: "Seguridad",
-    regionLanguage: "RegiÃƒÂ³n e Idioma",
-    publicProfile: "Perfil PÃƒÂºblico",
-    personalizeInfo: "Personaliza cÃƒÂ³mo te presentas ante tu organizaciÃƒÂ³n y los agentes de IA.",
+    regionLanguage: "Región e Idioma",
+    publicProfile: "Perfil Público",
+    personalizeInfo: "Personaliza cómo te presentas ante tu organización y los agentes de IA.",
     displayName: "Nombre para Mostrar",
     accountEmail: "Correo de la Cuenta (Solo Lectura)",
-    location: "UbicaciÃƒÂ³n / Zona Horaria",
-    bio: "BiografÃƒÂ­a y Contexto",
-    bioPlaceholder: "Escribe una breve biografÃƒÂ­a. Los agentes de IA internos pueden usar esto para entender tu contexto.",
+    location: "Ubicación / Zona Horaria",
+    bio: "Biografía y Contexto",
+    bioPlaceholder: "Escribe una breve biografía. Los agentes de IA internos pueden usar esto para entender tu contexto.",
     cancel: "Cancelar",
     saveChanges: "Guardar Cambios",
     saving: "Guardando...",
     integrations: "Integraciones",
-    gmailConnection: "ConexiÃƒÂ³n de Google",
-    gmailDesc: "Conecta tu cuenta de Google para permitir que el agente de IA lea y responda tus correos entrantes automÃƒÂ¡ticamente.",
-    gmailConnected: "Ã¢Å“â€œ Google Conectado Exitosamente",
+    gmailConnection: "Conexión de Google",
+    gmailDesc: "Conecta tu cuenta de Google para permitir que el agente de IA lea y responda tus correos entrantes automáticamente.",
+    gmailConnected: "✓ Google Conectado Exitosamente",
     connectGmail: "Conectar Google",
     connected: "Conectado",
     syncInbox: "Sincronizar Bandeja",
     syncing: "Sincronizando...",
     dailyDigest: "Resumen Diario",
-    dailyDigestDesc: "Recibe un resumen diario de las mÃƒÂ©tricas de tu organizaciÃƒÂ³n.",
+    dailyDigestDesc: "Recibe un resumen diario de las métricas de tu organización.",
     systemAlerts: "Alertas del Sistema",
-    systemAlertsDesc: "Notificaciones crÃƒÂ­ticas sobre actualizaciones de la plataforma.",
+    systemAlertsDesc: "Notificaciones críticas sobre actualizaciones de la plataforma.",
     smsAlerts: "Alertas SMS",
     smsAlertsDesc: "Recibe mensajes de texto para eventos urgentes de seguridad.",
-    passwordReset: "Restablecer ContraseÃƒÂ±a",
-    passwordResetDesc: "Actualiza la contraseÃƒÂ±a de tu cuenta de forma segura.",
+    passwordReset: "Restablecer Contraseña",
+    passwordResetDesc: "Actualiza la contraseña de tu cuenta de forma segura.",
     sendResetLink: "Enviar Enlace",
-    twoFactor: "AutenticaciÃƒÂ³n de Dos Factores",
-    twoFactorDesc: "AÃƒÂ±ade una capa extra de seguridad a tu cuenta.",
+    twoFactor: "Autenticación de Dos Factores",
+    twoFactorDesc: "Añade una capa extra de seguridad a tu cuenta.",
     enable2fa: "Activar 2FA",
     activeSessions: "Sesiones Activas",
-    activeSessionsDesc: "Gestiona los dispositivos con sesiÃƒÂ³n iniciada en tu cuenta.",
+    activeSessionsDesc: "Gestiona los dispositivos con sesión iniciada en tu cuenta.",
     logoutAll: "Cerrar Todas las Sesiones",
     languageSelect: "Seleccionar Idioma de la Interfaz",
     languageSelectDesc: "Elige tu idioma preferido para toda la interfaz de la plataforma.",
-    english: "InglÃƒÂ©s (US)",
-    spanish: "EspaÃƒÂ±ol (ES)"
+    english: "Inglés (US)",
+    spanish: "Español (ES)"
   }
 };
 
@@ -296,7 +296,7 @@ function SettingsContent() {
     }
   }, [searchParams, user, firestore, isUserLoading]);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ QuickBooks OAuth callback handling Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── QuickBooks OAuth callback handling ───
   useEffect(() => {
     if (isUserLoading) return;
 
@@ -404,7 +404,7 @@ function SettingsContent() {
     }
   };
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ iMessage / BlueBubbles handlers Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── iMessage / BlueBubbles handlers ───
   const handleTestImessage = async () => {
     if (!imServerUrl.trim() || !imPassword.trim()) {
       setImMessage("Please enter both server URL and password.");
@@ -416,12 +416,12 @@ function SettingsContent() {
       const res = await fetch(`/api/imessage/ping?serverUrl=${encodeURIComponent(imServerUrl.trim())}&password=${encodeURIComponent(imPassword.trim())}`);
       const data = await res.json();
       if (data.connected) {
-        setImMessage("Ã¢Å“â€œ Connection successful!");
+        setImMessage("✓ Connection successful!");
       } else {
-        setImMessage(`Ã¢Å“â€” ${data.message || "Connection failed."}`);
+        setImMessage(`✗ ${data.message || "Connection failed."}`);
       }
     } catch (err: any) {
-      setImMessage(`Ã¢Å“â€” ${err.message}`);
+      setImMessage(`✗ ${err.message}`);
     } finally {
       setImTesting(false);
     }
@@ -438,9 +438,9 @@ function SettingsContent() {
       }, { merge: true });
       logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Saved iMessage connection');
       setImConnected(true);
-      setImMessage("âœ“ iMessage connection saved!");
+      setImMessage("✓ iMessage connection saved!");
     } catch (err: any) {
-      setImMessage(`âœ— Failed to save: ${err.message}`);
+      setImMessage(`✗ Failed to save: ${err.message}`);
     } finally {
       setImSaving(false);
       setTimeout(() => setImMessage(""), 4000);
@@ -460,7 +460,7 @@ function SettingsContent() {
       setImPassword("");
       setImMessage("");
     } catch (err: any) {
-      setImMessage(`Ã¢Å“â€” Failed to disconnect: ${err.message}`);
+      setImMessage(`✗ Failed to disconnect: ${err.message}`);
     }
   };
 
@@ -686,14 +686,14 @@ function SettingsContent() {
 
                             <div className={`flex items-center gap-3 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border`}>
                               <Key className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                              <span className={`text-sm flex-1 ${passwordVerified && showPassword ? (isDarkMode ? 'text-slate-200' : 'text-slate-700') : 'tracking-[4px] ' + (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`}>{passwordVerified && showPassword ? passwordVerify : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢'}</span>
+                              <span className={`text-sm flex-1 ${passwordVerified && showPassword ? (isDarkMode ? 'text-slate-200' : 'text-slate-700') : 'tracking-[4px] ' + (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`}>{passwordVerified && showPassword ? passwordVerify : '••••••••••••'}</span>
                               <button onClick={() => { if (passwordVerified) { setShowPassword(!showPassword); } else { setShowPasswordModal(true); }}} className={`${isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'} transition-colors p-1 rounded-md ${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-100/50'}`}>
                                 {passwordVerified && showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
                             </div>
 
                             <button onClick={() => setShowResetModal(true)} className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors">
-                              {lang === 'es' ? "Restablecer mi contraseÃ±a" : "Reset my password"}
+                              {lang === 'es' ? "Restablecer mi contraseña" : "Reset my password"}
                             </button>
                           </div>
 
@@ -702,8 +702,8 @@ function SettingsContent() {
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
                               <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}>
                                 <h3 className={`text-base font-semibold mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.verifyIdentity}</h3>
-                                <p className={`text-xs mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? "Ingresa tu contraseÃ±a actual para verla. Se ocultarÃ¡ automÃ¡ticamente despuÃ©s de 30 segundos por seguridad." : "Enter your current password to reveal it. It will auto-hide after 30 seconds for security."}</p>
-                                <Input type="password" value={passwordVerify} onChange={e => setPasswordVerify(e.target.value)} placeholder={lang === 'es' ? "Ingresa la contraseÃ±a actual" : "Enter current password"} autoFocus onKeyDown={e => { if (e.key === 'Enter' && passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10 mb-4`} />
+                                <p className={`text-xs mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? "Ingresa tu contraseña actual para verla. Se ocultará automáticamente después de 30 segundos por seguridad." : "Enter your current password to reveal it. It will auto-hide after 30 seconds for security."}</p>
+                                <Input type="password" value={passwordVerify} onChange={e => setPasswordVerify(e.target.value)} placeholder={lang === 'es' ? "Ingresa la contraseña actual" : "Enter current password"} autoFocus onKeyDown={e => { if (e.key === 'Enter' && passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className={`${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200'} focus-visible:ring-slate-400 h-10 mb-4`} />
                                 <div className="flex gap-2 justify-end">
                                   <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setPasswordVerify(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
                                   <Button onClick={() => { if (passwordVerify.length >= 1) { setPasswordVerified(true); setShowPassword(true); setShowPasswordModal(false); setTimeout(() => { setShowPassword(false); setPasswordVerified(false); setPasswordVerify(''); }, 30000); }}} className="h-9 text-sm bg-slate-900 hover:bg-slate-800 text-white px-5 rounded-lg shadow-sm">{t.confirm}</Button>
@@ -723,11 +723,11 @@ function SettingsContent() {
                                     </div>
                                     <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.resetPassword}</h3>
                                     <p className={`text-xs text-center mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                      {lang === 'es' ? 'Confirma tu correo electrÃ³nico para recibir el enlace de restablecimiento.' : 'Confirm your email address to receive the reset link.'}
+                                      {lang === 'es' ? 'Confirma tu correo electrónico para recibir el enlace de restablecimiento.' : 'Confirm your email address to receive the reset link.'}
                                     </p>
                                     <div className="mb-4">
                                       <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                        {lang === 'es' ? 'Tu correo electrÃ³nico' : 'Your email address'}
+                                        {lang === 'es' ? 'Tu correo electrónico' : 'Your email address'}
                                       </label>
                                       <input
                                         type="email"
@@ -743,7 +743,7 @@ function SettingsContent() {
                                         </p>
                                       )}
                                       {resetEmailInput && resetEmailInput.toLowerCase() === (user?.email || '').toLowerCase() && (
-                                        <p className="text-xs text-emerald-500 mt-1.5 font-medium">âœ“ {lang === 'es' ? 'Coincide' : 'Email matches'}</p>
+                                        <p className="text-xs text-emerald-500 mt-1.5 font-medium">✓ {lang === 'es' ? 'Coincide' : 'Email matches'}</p>
                                       )}
                                     </div>
                                     <div className="flex gap-2 justify-end">
@@ -761,8 +761,8 @@ function SettingsContent() {
                                       <Mail className="w-6 h-6" />
                                     </div>
                                     <h3 className={`text-base font-semibold text-center mb-1 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.checkEmail}</h3>
-                                    <p className={`text-xs text-center mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? <>Hemos enviado un enlace de restablecimiento a <span className="font-semibold">{user?.email}</span>. Haz clic en el enlace del correo para crear una nueva contraseÃ±a.</> : <>We&apos;ve sent a password reset link to <span className="font-semibold">{user?.email}</span>. Click the link in the email to create a new password.</>}</p>
-                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-amber-400/80' : 'text-amber-600'}`}>{lang === 'es' ? <>ðŸ’¡ Â¿No lo ves? Revisa tu <span className="font-semibold">carpeta de correo no deseado o spam</span>.</> : <>ðŸ’¡ Don&apos;t see it? Check your <span className="font-semibold">spam or junk folder</span>.</>}</p>
+                                    <p className={`text-xs text-center mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{lang === 'es' ? <>Hemos enviado un enlace de restablecimiento a <span className="font-semibold">{user?.email}</span>. Haz clic en el enlace del correo para crear una nueva contraseña.</> : <>We&apos;ve sent a password reset link to <span className="font-semibold">{user?.email}</span>. Click the link in the email to create a new password.</>}</p>
+                                    <p className={`text-xs text-center mb-5 ${isDarkMode ? 'text-amber-400/80' : 'text-amber-600'}`}>{lang === 'es' ? <>💡 ¿No lo ves? Revisa tu <span className="font-semibold">carpeta de correo no deseado o spam</span>.</> : <>💡 Don&apos;t see it? Check your <span className="font-semibold">spam or junk folder</span>.</>}</p>
                                     <div className="flex justify-center">
                                       <Button onClick={() => { setShowResetModal(false); setResetEmailSent(false); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); }} className={`h-9 text-sm px-6 rounded-lg shadow-sm ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>{t.doneBtnLabel}</Button>
                                     </div>
@@ -786,7 +786,7 @@ function SettingsContent() {
                               </div>
                               <div className="flex items-center gap-3">
                                 {is2FAEnabled ? (
-                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>âœ… {lang === 'es' ? 'Activa' : 'Enabled'}</span>
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>✅ {lang === 'es' ? 'Activa' : 'Enabled'}</span>
                                 ) : (
                                   <>
                                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>{t.notEnabled}</span>
@@ -806,7 +806,7 @@ function SettingsContent() {
                                 </div>
                                 <div>
                                   <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{lang === 'es' ? 'Control de Acceso Organizacional' : 'Organizational RBAC'}</h3>
-                                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{lang === 'es' ? 'Gestiona roles y permisos de los miembros de tu organizaciÃ³n.' : 'Manage roles and permissions for your organization members.'}</p>
+                                  <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{lang === 'es' ? 'Gestiona roles y permisos de los miembros de tu organización.' : 'Manage roles and permissions for your organization members.'}</p>
                                 </div>
                               </div>
                               <Button variant="outline" onClick={() => setSubPage('org-rbac')} className={`h-9 text-sm ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
@@ -824,7 +824,7 @@ function SettingsContent() {
                                   <Clock className="w-5 h-5" />
                                 </div>
                                 <div>
-                                  <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{lang === 'es' ? 'Registro de AuditorÃ­a' : 'Audit Log'}</h3>
+                                  <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{lang === 'es' ? 'Registro de Auditoría' : 'Audit Log'}</h3>
                                   <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{lang === 'es' ? 'Ver eventos de seguridad y actividad de usuarios.' : 'View security events and user activity.'}</p>
                                 </div>
                               </div>
@@ -886,7 +886,7 @@ function SettingsContent() {
                                 <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.smsIntegration}</h3>
                                 <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.smsIntegrationDesc}</p>
                                 {imConnected && imServerUrl && (
-                                  <p className="text-xs text-emerald-500 font-medium mt-1 flex items-center gap-1"><Wifi className="w-3 h-3" /> Active Â· <span className="font-mono text-emerald-600">{imServerUrl}</span></p>
+                                  <p className="text-xs text-emerald-500 font-medium mt-1 flex items-center gap-1"><Wifi className="w-3 h-3" /> Active · <span className="font-mono text-emerald-600">{imServerUrl}</span></p>
                                 )}
                               </div>
                             </div>
@@ -911,8 +911,8 @@ function SettingsContent() {
                               <div>
                                 <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.googleAccount}</h3>
                                 <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.googleAccountDesc}</p>
-                                {gmailConnected && <p className="text-xs text-emerald-500 font-medium mt-1">âœ“ Connected Successfully</p>}
-                                {oauthError && <p className="text-xs text-red-400 font-medium mt-1">âœ— {oauthError}</p>}
+                                {gmailConnected && <p className="text-xs text-emerald-500 font-medium mt-1">✓ Connected Successfully</p>}
+                                {oauthError && <p className="text-xs text-red-400 font-medium mt-1">✗ {oauthError}</p>}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -941,8 +941,8 @@ function SettingsContent() {
                               <div>
                                 <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{t.quickbooksLabel}</h3>
                                 <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.quickbooksDesc}</p>
-                                {qbConnected && <p className="text-xs text-emerald-500 font-medium mt-1">âœ“ Connected Successfully</p>}
-                                {qbError && <p className="text-xs text-red-400 font-medium mt-1">âœ— {qbError}</p>}
+                                {qbConnected && <p className="text-xs text-emerald-500 font-medium mt-1">✓ Connected Successfully</p>}
+                                {qbError && <p className="text-xs text-red-400 font-medium mt-1">✗ {qbError}</p>}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1097,7 +1097,7 @@ function SettingsContent() {
                           className={`text-sm font-medium rounded-lg border px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
                         >
                           <option value="en">English</option>
-                          <option value="es">EspaÃ±ol</option>
+                          <option value="es">Español</option>
                         </select>
                       </div>
                     </div>
@@ -1113,7 +1113,7 @@ function SettingsContent() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={`text-sm font-medium ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>Developer Settings</div>
-                            <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Platform admin tools â€” cross-org management</div>
+                            <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Platform admin tools — cross-org management</div>
                           </div>
                           <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-indigo-500' : 'text-indigo-300'}`} />
                         </button>

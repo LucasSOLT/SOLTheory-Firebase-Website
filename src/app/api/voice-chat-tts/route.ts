@@ -1,10 +1,10 @@
-import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
-import { logAIUsage, calculateGroqCost, calculateElevenLabsCost } from "@/lib/log-ai-usage";
+import { logAIUsage, calculateElevenLabsCost } from "@/lib/log-ai-usage";
+import { createCompletion, calculateCost } from "@/lib/llm-router";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
 import { verifyRequest } from "@/lib/api-auth";
-import { CRM_TOOL_DEFINITIONS, buildCrmVoicePrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
+import { CRM_TOOL_DEFINITIONS, buildCrmVoicePrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmGetContactProfile, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, CrmInstance } from "@/lib/jarvis-crm-tools";
 
 /**
  * Combined Voice Chat + TTS endpoint.
@@ -75,28 +75,26 @@ export async function POST(req: Request) {
     const isComplexVoiceQ = voiceQuery.length > 50 && (voiceQuery.includes('?') || voiceQuery.toLowerCase().match(/^(why|how|what|explain|compare|should)/));
     const voiceMaxTokens = isComplexVoiceQ ? 250 : 150;
 
-    // ── Step 1: LLM Call (Groq) ──
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    // ── Step 1: LLM Call ──
+    const voiceModel = "gemini-2.5-flash";
 
-    const completionParams: any = {
+    let completion = await createCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
       ],
-      model: "openai/gpt-oss-120b",
+      model: voiceModel,
       temperature: 0.5,
-      max_tokens: voiceMaxTokens,
+      maxTokens: voiceMaxTokens,
       tools: CRM_TOOL_DEFINITIONS,
-      tool_choice: "auto",
-    };
+      toolChoice: "auto",
+    });
 
-    let completion = await groq.chat.completions.create(completionParams);
-    let responseMessage = completion.choices[0]?.message;
-    let responseText = responseMessage?.content || "";
+    let responseText = completion.content || "";
 
     // Mini tool execution loop for CRM operations (max 1 iteration for voice latency)
-    if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
-      const toolCall = responseMessage.tool_calls[0];
+    if (completion.toolCalls && completion.toolCalls.length > 0) {
+      const toolCall = completion.toolCalls[0];
       const functionName = toolCall.function.name;
       console.log(`[VOICE CRM] Tool requested: ${functionName}`);
 
@@ -113,6 +111,8 @@ export async function POST(req: Request) {
           toolResult = await executeCrmDeleteContact(orgId, activeCrmId, toolArgs, parsedCrmInstances);
         } else if (functionName === "crm_search_contacts") {
           toolResult = await executeCrmSearchContacts(orgId, activeCrmId, toolArgs, parsedCrmInstances);
+        } else if (functionName === "crm_get_contact_profile") {
+          toolResult = await executeCrmGetContactProfile(orgId, activeCrmId, toolArgs, parsedCrmInstances);
         } else if (functionName === "crm_list_contact_books") {
           toolResult = await executeCrmListContactBooks(orgId, activeCrmId, parsedCrmInstances);
         } else if (functionName === "crm_get_analytics") {
@@ -135,48 +135,52 @@ export async function POST(req: Request) {
       const followUpMessages = [
         { role: "system", content: systemPrompt },
         ...messages,
-        responseMessage,
+        {
+          role: "assistant",
+          content: completion.content,
+          tool_calls: completion.toolCalls,
+        },
         { role: "tool", content: toolResult, tool_call_id: toolCall.id },
       ];
 
-      // Track initial call usage before overwriting
-      const initialInputTokens = completion.usage?.prompt_tokens || 0;
-      const initialOutputTokens = completion.usage?.completion_tokens || 0;
+      const initialInputTokens = completion.usage.promptTokens;
+      const initialOutputTokens = completion.usage.completionTokens;
 
-      const followUp = await groq.chat.completions.create({
+      const followUp = await createCompletion({
         messages: followUpMessages,
-        model: "openai/gpt-oss-120b",
+        model: voiceModel,
         temperature: 0.5,
-        max_tokens: 150,
+        maxTokens: 150,
         tools: CRM_TOOL_DEFINITIONS,
       });
 
-      responseText = followUp.choices[0]?.message?.content || "Done.";
-      // Sum token usage from both calls for accurate cost tracking
-      completion = followUp as any;
-      if (completion.usage) {
-        completion.usage.prompt_tokens = (completion.usage.prompt_tokens || 0) + initialInputTokens;
-        completion.usage.completion_tokens = (completion.usage.completion_tokens || 0) + initialOutputTokens;
-        completion.usage.total_tokens = (completion.usage.prompt_tokens || 0) + (completion.usage.completion_tokens || 0);
-      }
+      responseText = followUp.content || "Done.";
+      completion = {
+        ...followUp,
+        usage: {
+          promptTokens: followUp.usage.promptTokens + initialInputTokens,
+          completionTokens: followUp.usage.completionTokens + initialOutputTokens,
+          totalTokens: followUp.usage.totalTokens + (initialInputTokens + initialOutputTokens),
+        },
+      };
     }
 
     if (!responseText) responseText = "I couldn't process that.";
-    const inputTokens = completion.usage?.prompt_tokens || 0;
-    const outputTokens = completion.usage?.completion_tokens || 0;
-    const totalTokens = completion.usage?.total_tokens || 0;
+    const inputTokens = completion.usage.promptTokens;
+    const outputTokens = completion.usage.completionTokens;
+    const totalTokens = completion.usage.totalTokens;
 
     // Log LLM usage (non-blocking)
     logAIUsage({
       userId: uid || "anonymous",
       orgId: isNxt ? "nxtchapter" : "soltheory",
-      model: "openai/gpt-oss-120b",
-      provider: "groq",
+      model: voiceModel,
+      provider: completion.provider,
       endpoint: "/api/voice-chat-tts",
       inputTokens,
       outputTokens,
       totalTokens,
-      costUsd: calculateGroqCost("openai/gpt-oss-120b", inputTokens, outputTokens),
+      costUsd: calculateCost(voiceModel, inputTokens, outputTokens),
       timestamp: new Date(),
     });
 

@@ -695,70 +695,70 @@ export function TimesheetGrid({ users, firestore, orgDomain, userEmail }: Timesh
 
           {/* Average Summary Row */}
           <div
-            className={`grid border-t-2 ${isDarkMode ? 'border-slate-600' : 'border-slate-200'}`}
+            className={`grid border-t-[3px] ${isDarkMode ? 'border-indigo-500/60' : 'border-indigo-300/70'}`}
             style={{
               gridTemplateColumns: `${nameColWidth}px repeat(${columnCount}, 1fr) ${summaryColWidth}px ${summaryColWidth}px`,
               transition: "grid-template-columns 300ms ease",
             }}
           >
-            <div className={`px-4 py-3 flex items-center sticky left-0 z-10 border-r ${isDarkMode ? 'bg-slate-700/60 border-slate-600' : 'bg-[#f5f0e8] border-slate-200'}`}>
-              <span className={`text-[12px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.averageLabel}</span>
+            <div className={`px-4 py-3 flex items-center sticky left-0 z-10 border-r ${isDarkMode ? 'bg-indigo-950/60 border-indigo-500/40' : 'bg-indigo-50/80 border-indigo-200/60'}`}>
+              <span className={`text-[12px] font-extrabold uppercase tracking-wide ${isDarkMode ? 'text-indigo-300' : 'text-indigo-600'}`}>{t.averageLabel}</span>
             </div>
             {dateTotals.map((dt, i) => (
-              <div key={i} className={`py-3 px-1 flex items-center justify-center border-r ${isDarkMode ? 'bg-slate-700/60 border-slate-600' : 'bg-[#f5f0e8] border-slate-200'}`}>
+              <div key={i} className={`py-3 px-1 flex items-center justify-center border-r ${isDarkMode ? 'bg-indigo-950/60 border-indigo-500/40' : 'bg-indigo-50/80 border-indigo-200/60'}`}>
                 {dt.totalMins > 0 && users.length > 0 ? (
-                  <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{formatDuration(Math.round(dt.totalMins / users.length))}</span>
+                  <span className={`text-[11px] font-bold ${isDarkMode ? 'text-indigo-200' : 'text-indigo-700'}`}>{formatDuration(Math.round(dt.totalMins / users.length))}</span>
                 ) : (
                   <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
                 )}
               </div>
             ))}
-            <div className={`py-3 px-2 flex items-center justify-center border-r ${isDarkMode ? 'bg-slate-700/40 border-slate-600' : 'bg-[#f0eadc] border-slate-200'}`}>
+            <div className={`py-3 px-2 flex items-center justify-center border-r ${isDarkMode ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-indigo-50/60 border-indigo-200/60'}`}>
               <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
             </div>
-            <div className={`py-3 px-2 flex items-center justify-center ${isDarkMode ? 'bg-slate-700/40' : 'bg-[#f0eadc]'}`}>
+            <div className={`py-3 px-2 flex items-center justify-center ${isDarkMode ? 'bg-indigo-950/40' : 'bg-indigo-50/60'}`}>
               <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
             </div>
           </div>
 
           {/* Total Summary Row */}
           <div
-            className={`grid border-t ${isDarkMode ? 'border-slate-600' : 'border-slate-200'}`}
+            className={`grid border-t-[3px] ${isDarkMode ? 'border-amber-500/50' : 'border-amber-400/60'}`}
             style={{
               gridTemplateColumns: `${nameColWidth}px repeat(${columnCount}, 1fr) ${summaryColWidth}px ${summaryColWidth}px`,
               transition: "grid-template-columns 300ms ease",
             }}
           >
-            <div className={`px-4 py-3 flex items-center sticky left-0 z-10 border-r ${isDarkMode ? 'bg-slate-700/80 border-slate-600' : 'bg-[#eee8d9] border-slate-200'}`}>
-              <span className={`text-[12px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{t.totalLabel}</span>
+            <div className={`px-4 py-3.5 flex items-center sticky left-0 z-10 border-r ${isDarkMode ? 'bg-slate-900/90 border-amber-500/30' : 'bg-amber-50/80 border-amber-200/60'}`}>
+              <span className={`text-[13px] font-black uppercase tracking-wide ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`}>{t.totalLabel}</span>
             </div>
             {dateTotals.map((dt, i) => (
-              <div key={i} className={`py-2 px-1 flex flex-col items-center justify-center border-r ${isDarkMode ? 'bg-slate-700/80 border-slate-600' : 'bg-[#eee8d9] border-slate-200'}`}>
+              <div key={i} className={`py-2.5 px-1 flex flex-col items-center justify-center border-r ${isDarkMode ? 'bg-slate-900/90 border-amber-500/30' : 'bg-amber-50/80 border-amber-200/60'}`}>
                 {dt.totalMins > 0 ? (
                   <>
-                    <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>{formatDuration(dt.totalMins)}</span>
+                    <span className={`text-[12px] font-black ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>{formatDuration(dt.totalMins)}</span>
                     {dt.totalEarnings > 0 && (
-                      <span className="text-[9px] text-green-600 font-semibold">{formatMoney(dt.totalEarnings)}</span>
+                      <span className="text-[9px] text-green-500 font-bold">{formatMoney(dt.totalEarnings)}</span>
                     )}
                   </>
                 ) : (
-                  <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
+                  <span className={`text-[12px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>-</span>
                 )}
               </div>
             ))}
-            <div className={`py-3 px-2 flex items-center justify-center border-r ${isDarkMode ? 'bg-slate-600/60 border-slate-600' : 'bg-[#e8e1d0] border-slate-200'}`}>
+            <div className={`py-3.5 px-2 flex items-center justify-center border-r ${isDarkMode ? 'bg-slate-900/80 border-amber-500/30' : 'bg-amber-50/60 border-amber-200/60'}`}>
               <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
             </div>
-            <div className={`py-2 px-2 flex flex-col items-center justify-center ${isDarkMode ? 'bg-slate-600/60' : 'bg-[#e8e1d0]'}`}>
+            <div className={`py-2.5 px-2 flex flex-col items-center justify-center ${isDarkMode ? 'bg-slate-900/80' : 'bg-amber-50/60'}`}>
               {grandTotal.mins > 0 ? (
                 <>
-                  <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-700'}`}>{formatDuration(grandTotal.mins)}</span>
+                  <span className={`text-[13px] font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{formatDuration(grandTotal.mins)}</span>
                   {grandTotal.earnings > 0 && (
-                    <span className="text-[9px] text-green-600 font-semibold">{formatMoney(grandTotal.earnings)}</span>
+                    <span className="text-[10px] text-green-500 font-bold">{formatMoney(grandTotal.earnings)}</span>
                   )}
                 </>
               ) : (
-                <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
+                <span className={`text-[12px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
               )}
             </div>
           </div>

@@ -1,7 +1,7 @@
-import { Groq } from "groq-sdk";
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
-import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
+import { logAIUsage } from "@/lib/log-ai-usage";
+import { createCompletion, calculateCost } from "@/lib/llm-router";
 import { initAdmin, getFirestore } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { verifyRequest } from "@/lib/api-auth";
@@ -825,8 +825,7 @@ export async function POST(req: Request) {
 
     // ─── Mode 4: Batch reply to selected emails ─────────────────
     if (action === "batch_reply" && body.selectedEmails && body.selectedEmails.length > 0) {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const model = "openai/gpt-oss-120b";
+      const model = "gemini-2.5-flash";
 
       const emailList = body.selectedEmails
         .map((e) => `- EmailID: ${e.id} | From: ${e.from} | Subject: ${e.subject} | Snippet: ${e.snippet}`)
@@ -846,14 +845,14 @@ ${emailList}`
 + (pactTextVal ? `\n\n<user_facts>\n${pactTextVal.slice(0, 10000)}\n</user_facts>` : "")
 + (orgBrainVal ? `\n\n<organization_context>\n${orgBrainVal.slice(0, 10000)}\n</organization_context>` : "");
 
-      const completion = await groq.chat.completions.create({
+      const completion = await createCompletion({
         messages: [{ role: "system", content: batchPrompt }],
         model,
         temperature: 0.4,
-        max_tokens: 4096,
+        maxTokens: 4096,
       });
 
-      const rawBatch = completion.choices[0]?.message?.content || "[]";
+      const rawBatch = completion.content || "[]";
       let batchDrafts: { emailId: string; to: string; subject: string; body: string }[] = [];
 
       try {
@@ -879,19 +878,19 @@ ${emailList}`
       } catch { /* non-blocking */ }
 
       // Log AI usage
-      const inputTokens = completion.usage?.prompt_tokens || 0;
-      const outputTokens = completion.usage?.completion_tokens || 0;
+      const inputTokens = completion.usage.promptTokens;
+      const outputTokens = completion.usage.completionTokens;
       logAIUsage({
         userId: uid,
         userEmail: userEmail || undefined,
         orgId: orgId,
         model,
-        provider: "groq",
+        provider: completion.provider,
         endpoint: "/api/gmail-ai (batch_reply)",
         inputTokens,
         outputTokens,
         totalTokens: inputTokens + outputTokens,
-        costUsd: calculateGroqCost(model, inputTokens, outputTokens),
+        costUsd: calculateCost(model, inputTokens, outputTokens),
         timestamp: new Date(),
       });
 
@@ -909,8 +908,7 @@ ${emailList}`
       return NextResponse.json({ error: "Messages required" }, { status: 400 });
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const model = "openai/gpt-oss-120b";
+    const model = "gemini-2.5-flash";
 
     // If frontend passed empty/missing email context, fetch real emails server-side
     // This is the critical fix: prevents AI from hallucinating fake emails
@@ -941,35 +939,35 @@ ${emailList}`
 
     const systemPrompt = buildSystemPrompt(resolvedEmailContext, body.contacts, emailMemory, existingTags, body.dashboardId, kbText, pactTextVal, orgBrainVal, defaultKnowledge);
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
       ],
       model,
       temperature: 0.3,
-      max_tokens: 4096,
+      maxTokens: 4096,
     });
 
-    const rawContent = completion.choices[0]?.message?.content || "";
+    const rawContent = completion.content || "";
     const aiResponse = parseAIResponse(rawContent);
 
     // Log AI usage
-    const inputTokens = completion.usage?.prompt_tokens || 0;
-    const outputTokens = completion.usage?.completion_tokens || 0;
-    const totalTokens = completion.usage?.total_tokens || 0;
+    const inputTokens = completion.usage.promptTokens;
+    const outputTokens = completion.usage.completionTokens;
+    const totalTokens = completion.usage.totalTokens;
 
     logAIUsage({
       userId: uid,
       userEmail: userEmail || undefined,
       orgId: orgId,
       model,
-      provider: "groq",
+      provider: completion.provider,
       endpoint: "/api/gmail-ai",
       inputTokens,
       outputTokens,
       totalTokens,
-      costUsd: calculateGroqCost(model, inputTokens, outputTokens),
+      costUsd: calculateCost(model, inputTokens, outputTokens),
       timestamp: new Date(),
     });
 

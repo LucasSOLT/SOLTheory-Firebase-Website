@@ -1,8 +1,10 @@
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 
-// Groq + OpenRouter pricing per 1M tokens (verified Aug 2026)
+// Groq + OpenRouter + Gemini pricing per 1M tokens (verified Sep 2026)
 // Keys must match MODEL_REGISTRY keys (what selectedModel contains)
 const GROQ_PRICING: Record<string, { input: number; output: number }> = {
+  // Primary (Gemini Direct)
+  "gemini-2.5-flash":          { input: 0.075,  output: 0.30   },
   // Budget (Groq)
   "openai/gpt-oss-120b":  { input: 0.59,   output: 0.79   },
   "qwen/qwen3.6-27b":       { input: 0.18,   output: 0.50   },
@@ -21,7 +23,7 @@ export interface AIUsageEntry {
   userEmail?: string;
   orgId: string; // "soltheory" | "nxtchapter"
   model: string;
-  provider: "groq" | "elevenlabs";
+  provider: "groq" | "openrouter" | "gemini" | "elevenlabs";
   endpoint: string; // which API route triggered this
   inputTokens?: number;
   outputTokens?: number;

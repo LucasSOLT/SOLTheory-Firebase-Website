@@ -1,4 +1,4 @@
-import { Groq } from "groq-sdk";
+import { createCompletion } from "@/lib/llm-router";
 
 /**
  * P.A.C.T. — Personalized AI Conversation Training
@@ -87,8 +87,6 @@ export async function extractPACTFacts(
   if (isTaskOnly) return [];
 
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
     const userLabel = userName ? `User (${userName})` : "User";
 
     // Build conversation context — include recent history for multi-turn extraction
@@ -103,7 +101,7 @@ export async function extractPACTFacts(
     }
     conversationContext += `${userLabel}: "${userMessage}"\nAI: "${aiResponse}"`;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createCompletion({
       messages: [
         { role: "system", content: EXTRACTION_PROMPT },
         {
@@ -111,12 +109,12 @@ export async function extractPACTFacts(
           content: conversationContext,
         },
       ],
-      model: "openai/gpt-oss-120b",
+      model: "gemini-2.5-flash",
       temperature: 0.1,
-      max_tokens: 1200, // Increased from 800 to capture more facts with richer schema
+      maxTokens: 1200, // Increased from 800 to capture more facts with richer schema
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim() || "[]";
+    const raw = completion.content?.trim() || "[]";
 
     // Parse — handle potential markdown wrapping
     let cleaned = raw;
