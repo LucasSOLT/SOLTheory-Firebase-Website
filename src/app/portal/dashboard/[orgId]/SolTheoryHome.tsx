@@ -10,6 +10,7 @@ import { doc, updateDoc, setDoc, onSnapshot, getDoc, collection, getDocs, query,
 import { Clock, ExternalLink, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
+import { getOrgLabel } from "@/lib/org-config";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
@@ -108,6 +109,7 @@ function ConfettiCanvas({ onDone }: { onDone: () => void }) {
 
 export function SolTheoryHome() {
   const { orgId } = useParams<{ orgId: string }>();
+  const orgLabel = getOrgLabel(orgId);
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -162,9 +164,9 @@ export function SolTheoryHome() {
 
   // News slideshow data from Firestore
   const DEFAULT_SLIDES: SlideData[] = [
-    { headline: "NXT Chapter × Advanced Pathways", subtitle: "New Denver Shelter Partnership — Expanding capacity to 3 additional locations across the metro area.", gradient: "from-indigo-600 via-violet-600 to-purple-700", badge: "PARTNERSHIP", date: "June 2025" },
-    { headline: "AI Grant Discovery Launched", subtitle: "SOL Theory's autonomous grant agents now scan Grants.gov 24/7 — surfacing federal funding opportunities in real time.", gradient: "from-emerald-600 via-teal-600 to-cyan-700", badge: "PRODUCT", date: "May 2025" },
-    { headline: "Q2 Impact Report: 1,200+ Served", subtitle: "Across all partner shelters, NXT Chapter programs reached over 1,200 individuals with housing, workforce, and behavioral health services.", gradient: "from-amber-500 via-orange-500 to-red-500", badge: "IMPACT", date: "April 2025" },
+    { headline: `${orgLabel} × Advanced Pathways`, subtitle: `New Denver Shelter Partnership — Expanding capacity to 3 additional locations across the metro area.`, gradient: "from-indigo-600 via-violet-600 to-purple-700", badge: "PARTNERSHIP", date: "June 2025" },
+    { headline: "AI Grant Discovery Launched", subtitle: `${orgLabel}'s autonomous grant agents now scan Grants.gov 24/7 — surfacing federal funding opportunities in real time.`, gradient: "from-emerald-600 via-teal-600 to-cyan-700", badge: "PRODUCT", date: "May 2025" },
+    { headline: "Q2 Impact Report: 1,200+ Served", subtitle: `Across all partner shelters, ${orgLabel} programs reached over 1,200 individuals with housing, workforce, and behavioral health services.`, gradient: "from-amber-500 via-orange-500 to-red-500", badge: "IMPACT", date: "April 2025" },
     { headline: "Community Resource Fair — July 2025", subtitle: "Save the date: Denver Community Resource Fair bringing together 40+ service providers, employers, and housing partners.", gradient: "from-rose-500 via-pink-500 to-fuchsia-600", badge: "EVENT", date: "Upcoming" },
     { headline: "Dashboard v2.0 — Real-Time Analytics", subtitle: "New grant status tracking, Action Board with email triggers, and AI-powered insights rolling out across all client dashboards.", gradient: "from-sky-500 via-blue-600 to-indigo-700", badge: "TECH UPDATE", date: "June 2025" },
   ];
@@ -189,7 +191,15 @@ export function SolTheoryHome() {
         const userSnap = await getDoc(doc(firestore, "users", user.uid));
         const userData = userSnap.data();
         if (!userData) return;
-        const rToken = userData?.gmailOAuth_jarvis?.refreshToken || userData?.gmailOAuth_morpheus?.refreshToken || userData?.gmailOAuth?.refreshToken;
+        const rToken =
+          userData?.gmailOAuth_jarvis?.refreshToken ||
+          userData?.gmailOAuth_morpheus?.refreshToken ||
+          userData?.gmailOAuth_campaigning?.refreshToken ||
+          userData?.gmailOAuth_email?.refreshToken ||
+          userData?.["gmailOAuth_inbound-email"]?.refreshToken ||
+          userData?.gmailOAuth_youtube?.refreshToken ||
+          userData?.youtubeOAuth?.refreshToken ||
+          userData?.gmailOAuth?.refreshToken;
         if (!rToken) return;
         setYtConnected(true);
 
@@ -528,7 +538,7 @@ export function SolTheoryHome() {
             </CmsTileWrapper>
 
             {/* Slot: News Slideshow (Tile 6) — compact inline */}
-            <CmsTileWrapper tileId="tile-6" tileName="SOL Theory News" className="flex-[6] h-full">
+            <CmsTileWrapper tileId="tile-6" tileName={`${orgLabel} News`} className="flex-[6] h-full">
             <div className="relative w-full h-full rounded-2xl overflow-hidden">
               <NewsSlideshow />
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
@@ -612,17 +622,15 @@ export function SolTheoryHome() {
                       </div>
                     ))
                   ) : !ytConnected ? (
-                    <>
-                      {[0,1,2].map(i => (
-                        <div key={i} className="flex gap-3">
-                          <div className={`w-24 h-16 rounded-md shrink-0 ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-200/80'}`} />
-                          <div className="flex flex-col gap-2 pt-1 w-full">
-                            <div className={`h-2.5 w-3/4 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                            <div className={`h-2 w-1/2 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
-                          </div>
-                        </div>
-                      ))}
-                    </>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2.5 ${isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-500'}`}>
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                      </div>
+                      <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>YouTube Not Connected</span>
+                      <span className={`text-[10px] mt-1 max-w-[210px] leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Connect your YouTube account to automatically display published videos and live channel analytics.
+                      </span>
+                    </div>
                   ) : (
                     <div className={`flex-1 flex items-center justify-center text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>No videos yet</div>
                   )}
@@ -705,11 +713,15 @@ export function SolTheoryHome() {
                     </>
                   ) : !igConnected ? (
                     /* Not connected — show connect prompt */
-                    <>
-                      {Array.from({ length: 9 }).map((_, i) => (
-                        <div key={`sk-${i}`} className={`rounded-lg aspect-square ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-200/60'}`} />
-                      ))}
-                    </>
+                    <div className="col-span-3 py-6 flex flex-col items-center justify-center text-center">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400/10 via-pink-500/10 to-purple-500/10 flex items-center justify-center mb-2 text-pink-500">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                      </div>
+                      <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Instagram Not Connected</span>
+                      <span className={`text-[10px] mt-1 max-w-[210px] leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Connect your Instagram account to view recent posts and campaign media.
+                      </span>
+                    </div>
                   ) : (
                     /* Connected but no published media yet */
                     <>

@@ -7,6 +7,7 @@ import { getAuthHeaders } from '@/lib/api-auth-client';
 import { getGmailConnectUrl } from '@/lib/gmail-api';
 import { useUser } from '@/firebase';
 import { useOrgId } from '@/contexts/OrgContext';
+import ActivityJarvisChat from './ActivityJarvisChat';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ interface EmailsApiResponse {
 
 interface ActivityEmailsTabProps {
   contactEmail: string;
+  contactId: string;
   isDarkMode: boolean;
 }
 
@@ -80,6 +82,7 @@ function isSentEmail(email: EmailMessage): boolean {
 
 export default function ActivityEmailsTab({
   contactEmail,
+  contactId,
   isDarkMode,
 }: ActivityEmailsTabProps) {
   const { user } = useUser();
@@ -475,6 +478,15 @@ export default function ActivityEmailsTab({
                     </div>
                   </div>
                 )}
+
+                {/* JARVIS Chat — contextual AI Q&A for this email */}
+                <ActivityJarvisChat
+                  emailContent={email.body}
+                  emailSubject={email.subject}
+                  contactId={contactId}
+                  orgId={orgId}
+                  isDarkMode={isDarkMode}
+                />
 
                 {/* Collapse button */}
                 <button

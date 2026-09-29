@@ -1,9 +1,15 @@
 "use client";
 
-export function SolTheoryLogoText() {
+import { cn } from "@/lib/utils";
+
+interface SolTheoryLogoTextProps {
+  className?: string;
+}
+
+export function SolTheoryLogoText({ className }: SolTheoryLogoTextProps = {}) {
   return (
     <div className="relative">
-      <span className="font-nunito text-2xl tracking-wider text-foreground font-bold">
+      <span className={cn("font-nunito text-2xl tracking-wider text-white font-bold", className)}>
         SOL
       </span>
     </div>

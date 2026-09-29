@@ -71,8 +71,9 @@ const ChatToolsMenu = ({
   }, [isOpen]);
 
   return (
-    <div ref={menuRef} className="relative z-20">
+    <div ref={menuRef} className="relative z-30">
       <button
+        type="button"
         onClick={() => {
           setIsOpen(!isOpen);
           if (!isOpen) setView('menu');
@@ -1198,7 +1199,7 @@ export function OrgThread() {
 
             {/* Message Input */}
             <div className={`px-6 pb-6 pt-2 shrink-0 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
-              <div className={`flex flex-col rounded-xl border border-transparent focus-within:border-indigo-200 transition-colors overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+              <div className={`flex flex-col rounded-xl border border-transparent focus-within:border-indigo-200 transition-colors relative overflow-visible ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
                 {pendingAttachments.length > 0 && (
                   <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200/60 bg-slate-50/50">
                     {pendingAttachments.map((att, idx) => (

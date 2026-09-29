@@ -338,6 +338,16 @@ export function NearestDueTasksWidget({ orgId: orgIdProp }: { orgId?: string }) 
               <CheckCircle2 className="w-7 h-7 text-emerald-500 mb-2" />
               <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>{t.allCaughtUp}</p>
               <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{t.noTasksNeedAttention}</p>
+              <button
+                onClick={() => router.push(`/portal/dashboard/${orgId}/action-board`)}
+                className={`mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                  isDarkMode
+                    ? 'bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40'
+                    : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
+                }`}
+              >
+                Go to Action Board <ExternalLink className="w-3.5 h-3.5" />
+              </button>
             </div>
           ) : (
             displayedTasks.map((task) => {

@@ -121,7 +121,7 @@ export function YouTubeDashboard() {
         const docSnap = await getDoc(doc(firestore, "users", user.uid));
         const docData = docSnap.data();
         if (!docData) return;
-        const rToken = docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken;
+        const rToken = docData?.gmailOAuth_youtube?.refreshToken || docData?.youtubeOAuth?.refreshToken || docData?.gmailOAuth_jarvis?.refreshToken || docData?.gmailOAuth_morpheus?.refreshToken || docData?.gmailOAuth?.refreshToken;
         if (!rToken) return;
         
         const res = await fetch("/api/youtube/stats", {
@@ -183,12 +183,14 @@ export function YouTubeDashboard() {
       
       // Check all possible token locations
       const tokenLocations = {
+        gmailOAuth_youtube: docData?.gmailOAuth_youtube?.refreshToken || null,
+        youtubeOAuth: docData?.youtubeOAuth?.refreshToken || null,
         gmailOAuth_jarvis: docData?.gmailOAuth_jarvis?.refreshToken || null,
         gmailOAuth_morpheus: docData?.gmailOAuth_morpheus?.refreshToken || null,
         gmailOAuth: docData?.gmailOAuth?.refreshToken || null,
       };
       
-      const rToken = tokenLocations.gmailOAuth_jarvis || tokenLocations.gmailOAuth_morpheus || tokenLocations.gmailOAuth;
+      const rToken = tokenLocations.gmailOAuth_youtube || tokenLocations.youtubeOAuth || tokenLocations.gmailOAuth_jarvis || tokenLocations.gmailOAuth_morpheus || tokenLocations.gmailOAuth;
       
       if (!rToken) { 
         setYtTestResult(`âŒ No Google OAuth token found.\n\nToken locations checked:\n- gmailOAuth_jarvis: ${tokenLocations.gmailOAuth_jarvis ? 'âœ… found' : 'âŒ empty'}\n- gmailOAuth_morpheus: ${tokenLocations.gmailOAuth_morpheus ? 'âœ… found' : 'âŒ empty'}\n- gmailOAuth: ${tokenLocations.gmailOAuth ? 'âœ… found' : 'âŒ empty'}\n\nâ†’ Go to Dashboard Settings and connect your Google account.`); 

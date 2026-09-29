@@ -21,23 +21,29 @@ export async function GET(req: Request) {
 
   const statePayload = Buffer.from(JSON.stringify({ uid, agentId, origin, returnTo })).toString('base64');
 
-  // Generate a url that asks permissions for Gmail scopes
-  const scopes = [
-    'https://mail.google.com/',                             // Full Gmail access (read, send, delete, manage)
-    'https://www.googleapis.com/auth/gmail.modify',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.settings.basic',
-    'https://www.googleapis.com/auth/gmail.labels',         // Manage labels
-    'https://www.googleapis.com/auth/calendar',
-    'https://www.googleapis.com/auth/contacts.readonly',    // Read contacts
-    'https://www.googleapis.com/auth/documents',
-    'https://www.googleapis.com/auth/presentations',
-    'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/youtube.upload',
-    'https://www.googleapis.com/auth/youtube'
-  ];
+  const service = url.searchParams.get("service") || "workspace";
+
+  // Google OAuth forbids combining sensitive Google Drive and YouTube upload scopes in a single authorization request.
+  // When service === 'youtube', request YouTube specific scopes; otherwise request standard Workspace (Gmail, Calendar, Contacts, Docs).
+  const scopes = service === "youtube"
+    ? [
+        'https://www.googleapis.com/auth/youtube.readonly',
+        'https://www.googleapis.com/auth/youtube.upload',
+        'https://www.googleapis.com/auth/youtube',
+      ]
+    : [
+        'https://mail.google.com/',                             // Full Gmail access (read, send, delete, manage)
+        'https://www.googleapis.com/auth/gmail.modify',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.settings.basic',
+        'https://www.googleapis.com/auth/gmail.labels',         // Manage labels
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/contacts.readonly',    // Read contacts
+        'https://www.googleapis.com/auth/documents',
+        'https://www.googleapis.com/auth/presentations',
+        'https://www.googleapis.com/auth/spreadsheets',
+      ];
 
   const authorizationUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline', // getting a refresh token

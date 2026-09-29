@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { TIMEZONE_OPTIONS, useTranslation } from "@/lib/i18n";
-import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield, Users as UsersIcon, Code, Clock, Copy, Check, Camera } from "lucide-react";
+import { ArrowLeft, Bell, Lock, User, Globe, Mail, RefreshCw, Loader2, Key, Smartphone, ShieldCheck, Settings, MessageCircle, Wifi, WifiOff, ChevronRight, HardDrive, Eye, EyeOff, Phone, MapPin, Plus, X, Shield, Users as UsersIcon, Code, Clock, Copy, Check, Camera, Monitor } from "lucide-react";
 import { useUser, useFirestore, useAuth, useStorage } from "@/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile, sendPasswordResetEmail } from "firebase/auth";
@@ -123,7 +123,7 @@ const localDict = {
 
 type Lang = 'en' | 'es';
 type Tab = 'general' | 'profile';
-type SubPage = null | 'personal-info' | 'sign-in-security' | 'integrations' | 'org-rbac' | 'audit-log';
+type SubPage = null | 'personal-info' | 'sign-in-security' | 'integrations' | 'org-rbac' | 'audit-log' | 'payment-shipping' | 'subscriptions' | 'cloud-storage' | 'signed-in-devices';
 
 export default function SettingsPage() {
   const orgId = useOrgId();
@@ -765,7 +765,7 @@ function SettingsContent() {
                               </button>
                             </div>
 
-                            <button onClick={() => setShowResetModal(true)} className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors">
+                            <button onClick={() => { setShowResetModal(true); setResetEmailInput(user?.email || ''); setResetError(''); setResetEmailSent(false); }} className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors">
                               {lang === 'es' ? "Restablecer mi contraseña" : "Reset my password"}
                             </button>
                           </div>
@@ -810,20 +810,40 @@ function SettingsContent() {
                                         autoFocus
                                         className={`w-full h-10 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-700 placeholder:text-slate-400'}`}
                                       />
-                                      {resetEmailInput && resetEmailInput.toLowerCase() !== (user?.email || '').toLowerCase() && (
+                                      {resetEmailInput.trim() && resetEmailInput.trim().toLowerCase() !== (user?.email || '').trim().toLowerCase() && (
                                         <p className="text-xs text-red-500 mt-1.5 font-medium">
                                           {lang === 'es' ? 'El correo no coincide con tu cuenta.' : "Email doesn't match your account."}
                                         </p>
                                       )}
-                                      {resetEmailInput && resetEmailInput.toLowerCase() === (user?.email || '').toLowerCase() && (
+                                      {resetEmailInput.trim() && resetEmailInput.trim().toLowerCase() === (user?.email || '').trim().toLowerCase() && (
                                         <p className="text-xs text-emerald-500 mt-1.5 font-medium">✓ {lang === 'es' ? 'Coincide' : 'Email matches'}</p>
                                       )}
                                     </div>
                                     <div className="flex gap-2 justify-end">
                                       <Button variant="ghost" onClick={() => { setShowResetModal(false); setResetEmailInput(''); setResetError(''); }} className={`h-9 text-sm ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800'}`}>{t.cancel}</Button>
                                       <Button
-                                        disabled={!resetEmailInput || resetEmailInput.toLowerCase() !== (user?.email || '').toLowerCase() || resetSending}
-                                        onClick={async () => { if (auth && user?.email && resetEmailInput.toLowerCase() === user.email.toLowerCase()) { setResetSending(true); setResetError(''); try { await sendPasswordResetEmail(auth, user.email, { url: `${window.location.origin}/portal/dashboard/${orgId}/settings?tab=profile&passwordReset=success`, handleCodeInApp: false }); setResetEmailSent(true); setPasswordVerified(false); setPasswordVerify(''); setShowPassword(false); if (firestore) logActivity(firestore, 'settings_changed', { email: user.email, displayName: user.displayName }, 'Password reset email sent'); } catch(e: any) { console.error(e); const msg = e?.code === 'auth/too-many-requests' ? (lang === 'es' ? 'Demasiados intentos. Inténtalo de nuevo más tarde.' : 'Too many attempts. Please try again later.') : e?.code === 'auth/network-request-failed' ? (lang === 'es' ? 'Error de red. Verifica tu conexión.' : 'Network error. Check your connection.') : (lang === 'es' ? 'No se pudo enviar el correo de restablecimiento. Inténtalo de nuevo.' : 'Failed to send reset email. Please try again.'); setResetError(msg); } finally { setResetSending(false); }}}}
+                                        disabled={!resetEmailInput.trim() || resetEmailInput.trim().toLowerCase() !== (user?.email || '').trim().toLowerCase() || resetSending}
+                                        onClick={async () => {
+                                          const targetEmail = (user?.email || resetEmailInput).trim();
+                                          if (auth && targetEmail) {
+                                            setResetSending(true);
+                                            setResetError('');
+                                            try {
+                                              await sendPasswordResetEmail(auth, targetEmail);
+                                              setResetEmailSent(true);
+                                              setPasswordVerified(false);
+                                              setPasswordVerify('');
+                                              setShowPassword(false);
+                                              if (firestore) logActivity(firestore, 'settings_changed', { email: targetEmail, displayName: user?.displayName || '' }, 'Password reset email sent');
+                                            } catch(e: any) {
+                                              console.error('[Settings] Password reset error:', e);
+                                              const msg = e?.code === 'auth/too-many-requests' ? (lang === 'es' ? 'Demasiados intentos. Inténtalo de nuevo más tarde.' : 'Too many attempts. Please try again later.') : e?.code === 'auth/network-request-failed' ? (lang === 'es' ? 'Error de red. Verifica tu conexión.' : 'Network error. Check your connection.') : (lang === 'es' ? 'No se pudo enviar el correo de restablecimiento. Inténtalo de nuevo.' : 'Failed to send reset email. Please try again.');
+                                              setResetError(msg);
+                                            } finally {
+                                              setResetSending(false);
+                                            }
+                                          }
+                                        }}
                                         className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                       >{resetSending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}{t.sendResetEmail}</Button>
                                     </div>
@@ -1040,6 +1060,255 @@ function SettingsContent() {
                     </div>
                   )}
 
+                  {/* ====== SUB-PAGE: Payment & Shipping ====== */}
+                  {subPage === 'payment-shipping' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver al Perfil' : 'Back to Profile'}
+                      </button>
+
+                      <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl p-6 shadow-sm space-y-6`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-3">
+                          <div>
+                            <h2 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.paymentShipping}</h2>
+                            <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.paymentShippingDesc}</p>
+                          </div>
+                          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold">
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Payment Method
+                          </Button>
+                        </div>
+
+                        {/* Payment Method Card */}
+                        <div className={`p-4 rounded-xl border flex items-center justify-between ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50'}`}>
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-8 rounded-md bg-gradient-to-r from-blue-700 to-indigo-800 text-white flex items-center justify-center font-bold text-xs tracking-wider shadow-sm">
+                              VISA
+                            </div>
+                            <div>
+                              <p className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Visa ending in 4242</p>
+                              <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Expires 08/29 • Default Method</p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">Active</span>
+                        </div>
+
+                        {/* Billing Address & Tax ID */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          <div className={`p-4 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-white'}`}>
+                            <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Billing Address</h4>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                              1200 17th St, Suite 100<br />
+                              Denver, CO 80202<br />
+                              United States
+                            </p>
+                          </div>
+                          <div className={`p-4 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-white'}`}>
+                            <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Tax Status & Currency</h4>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                              Tax ID: US-94-3829104<br />
+                              Currency: USD ($)<br />
+                              Status: 501(c)(3) Tax Exempt
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Subscriptions ====== */}
+                  {subPage === 'subscriptions' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver al Perfil' : 'Back to Profile'}
+                      </button>
+
+                      <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl p-6 shadow-sm space-y-6`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-3">
+                          <div>
+                            <h2 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.subscriptionsLabel}</h2>
+                            <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.subscriptionsDesc}</p>
+                          </div>
+                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            Enterprise Tier
+                          </span>
+                        </div>
+
+                        {/* Active Plan Overview */}
+                        <div className={`p-5 rounded-2xl border ${isDarkMode ? 'border-slate-700 bg-gradient-to-br from-slate-800 to-indigo-950/30' : 'border-slate-200 bg-gradient-to-br from-slate-50 to-indigo-50/50'}`}>
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h3 className={`text-base font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOLTheory INSiGHT Platform</h3>
+                              <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Billed monthly • Renews Oct 15, 2026</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-2xl font-black text-indigo-500">$450</span>
+                              <span className="text-xs text-slate-400 font-medium">/mo</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200/20 text-xs">
+                            <div className="space-y-0.5">
+                              <span className="text-slate-400 block font-medium">Agent Slots</span>
+                              <span className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Unlimited Autonomous</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-slate-400 block font-medium">Dual-Scope Memory</span>
+                              <span className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Active (Supabase + RAG)</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-slate-400 block font-medium">Live SMS & Voice</span>
+                              <span className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Included (Twilio Multi-Line)</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                          <Button variant="outline" size="sm" className="rounded-xl text-xs font-semibold">Change Billing Cycle</Button>
+                          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold">Manage Enterprise Seats</Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Cloud Storage ====== */}
+                  {subPage === 'cloud-storage' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver al Perfil' : 'Back to Profile'}
+                      </button>
+
+                      <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl p-6 shadow-sm space-y-6`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-3">
+                          <div>
+                            <h2 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.cloudStorage}</h2>
+                            <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.cloudStorageDesc}</p>
+                          </div>
+                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Healthy (4.8% Used)
+                          </span>
+                        </div>
+
+                        {/* Storage Meter */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className={`font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>2.4 GB of 50.0 GB Total Storage</span>
+                            <span className="text-slate-400">47.6 GB Available</span>
+                          </div>
+                          <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full" style={{ width: '4.8%' }}></div>
+                          </div>
+                        </div>
+
+                        {/* Storage Categories */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                          <div className={`p-4 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/40' : 'border-slate-200 bg-slate-50/60'}`}>
+                            <span className="text-xs text-slate-400 font-medium">Direct Messages & Voice Notes</span>
+                            <p className={`text-sm font-bold mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>840 MB (Firebase Storage)</p>
+                          </div>
+                          <div className={`p-4 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/40' : 'border-slate-200 bg-slate-50/60'}`}>
+                            <span className="text-xs text-slate-400 font-medium">Channel Media & Attachments</span>
+                            <p className={`text-sm font-bold mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>620 MB (Firebase Storage)</p>
+                          </div>
+                          <div className={`p-4 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/40' : 'border-slate-200 bg-slate-50/60'}`}>
+                            <span className="text-xs text-slate-400 font-medium">AI Brain Embeddings & Docs</span>
+                            <p className={`text-sm font-bold mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>710 MB (PostgreSQL Vector + Docs)</p>
+                          </div>
+                          <div className={`p-4 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/40' : 'border-slate-200 bg-slate-50/60'}`}>
+                            <span className="text-xs text-slate-400 font-medium">System Video Walkthroughs</span>
+                            <p className={`text-sm font-bold mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>230 MB (CDN Stream)</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                          <Button variant="outline" size="sm" onClick={() => window.location.href = `/portal/dashboard/${orgId}/drive`} className="rounded-xl text-xs font-semibold">
+                            Open DRiVE
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => window.location.href = `/portal/dashboard/${orgId}/media-library`} className="rounded-xl text-xs font-semibold">
+                            Open Media Library
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ====== SUB-PAGE: Signed-In Devices ====== */}
+                  {subPage === 'signed-in-devices' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <button onClick={() => setSubPage(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-4 h-4" /> {lang === 'es' ? 'Volver al Perfil' : 'Back to Profile'}
+                      </button>
+
+                      <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl p-6 shadow-sm space-y-6`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-3">
+                          <div>
+                            <h2 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{t.signedInDevices}</h2>
+                            <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.signedInDevicesDesc}</p>
+                          </div>
+                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            3 Active Devices
+                          </span>
+                        </div>
+
+                        {/* Devices List */}
+                        <div className="space-y-3">
+                          <div className={`p-4 rounded-xl border flex items-center justify-between ${isDarkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200 bg-slate-50'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                                <Monitor className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Windows PC • Chrome 130</p>
+                                  <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400">Current Device</span>
+                                </div>
+                                <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Denver, Colorado • Active now</p>
+                              </div>
+                            </div>
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          </div>
+
+                          <div className={`p-4 rounded-xl border flex items-center justify-between ${isDarkMode ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-white'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                                <Smartphone className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>iPhone 16 Pro • Mobile PWA</p>
+                                  <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-indigo-500/10 text-indigo-400">Push Enabled</span>
+                                </div>
+                                <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Denver, Colorado • Last active 2h ago</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className={`p-4 rounded-xl border flex items-center justify-between ${isDarkMode ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-white'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-slate-500/10 text-slate-400 flex items-center justify-center">
+                                <Monitor className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>Mac Studio • macOS Sonoma</p>
+                                <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Denver, Colorado • Last active 3 days ago</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => alert("Logged out of all other remote device sessions.")}
+                            className="rounded-xl text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50"
+                          >
+                            Sign Out All Other Sessions
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* ====== MAIN PROFILE VIEW (when no subPage) ====== */}
                   {subPage === null && (
                     <>
@@ -1173,8 +1442,8 @@ function SettingsContent() {
                       {[
                         { icon: <User className="w-4 h-4" />, label: t.personalInfo, desc: t.personalInfoDescShort, action: () => setSubPage('personal-info'), comingSoon: false },
                         { icon: <Lock className="w-4 h-4" />, label: t.security, desc: t.securityDescShort, action: () => setSubPage('sign-in-security'), comingSoon: false },
-                        { icon: <Smartphone className="w-4 h-4" />, label: t.paymentShipping, desc: t.paymentShippingDesc, action: undefined, comingSoon: true },
-                        { icon: <Bell className="w-4 h-4" />, label: t.subscriptionsLabel, desc: t.subscriptionsDesc, action: undefined, comingSoon: true },
+                        { icon: <Smartphone className="w-4 h-4" />, label: t.paymentShipping, desc: t.paymentShippingDesc, action: () => setSubPage('payment-shipping'), comingSoon: false },
+                        { icon: <Bell className="w-4 h-4" />, label: t.subscriptionsLabel, desc: t.subscriptionsDesc, action: () => setSubPage('subscriptions'), comingSoon: false },
                       ].map((item, i) => (
                         <button key={i} onClick={item.action} disabled={item.comingSoon} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.comingSoon ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
@@ -1197,9 +1466,9 @@ function SettingsContent() {
                   <div className={`${isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/60'} border rounded-2xl shadow-sm overflow-hidden`}>
                     <div className={`divide-y ${isDarkMode ? 'divide-slate-700/40' : 'divide-slate-100'}`}>
                       {[
-                        { icon: <HardDrive className="w-4 h-4" />, label: t.cloudStorage, desc: t.cloudStorageDesc, action: undefined, comingSoon: true },
+                        { icon: <HardDrive className="w-4 h-4" />, label: t.cloudStorage, desc: t.cloudStorageDesc, action: () => setSubPage('cloud-storage'), comingSoon: false },
                         { icon: <Globe className="w-4 h-4" />, label: t.integrations, desc: t.integrationsDescShort, action: () => setSubPage('integrations'), comingSoon: false },
-                        { icon: <Smartphone className="w-4 h-4" />, label: t.signedInDevices, desc: t.signedInDevicesDesc, action: undefined, comingSoon: true },
+                        { icon: <Smartphone className="w-4 h-4" />, label: t.signedInDevices, desc: t.signedInDevicesDesc, action: () => setSubPage('signed-in-devices'), comingSoon: false },
                       ].map((item, i) => (
                         <button key={i} onClick={item.action} disabled={item.comingSoon} className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${item.comingSoon ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>

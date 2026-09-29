@@ -11,6 +11,7 @@ import {
   CheckSquare, Upload, TrendingUp, Filter,
 } from "lucide-react";
 import ActivityEmailsTab from "./ActivityEmailsTab";
+import ActivityItemExpander from "./ActivityItemExpander";
 
 interface ActivityTimelineProps {
   customerId: string;
@@ -48,6 +49,16 @@ export default function ActivityTimeline({ customerId, onInsightClick, contactEm
   const [newNote, setNewNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
@@ -134,7 +145,7 @@ export default function ActivityTimeline({ customerId, onInsightClick, contactEm
       {/* Gmail Emails Tab — renders real Gmail data instead of CrmActivity records */}
       {filterType === "email" && contactEmail ? (
         <div className="flex-1 overflow-y-auto p-4">
-          <ActivityEmailsTab contactEmail={contactEmail} isDarkMode={isDarkMode} />
+          <ActivityEmailsTab contactEmail={contactEmail} contactId={customerId} isDarkMode={isDarkMode} />
         </div>
       ) : (
       /* Activity List */
@@ -156,73 +167,16 @@ export default function ActivityTimeline({ customerId, onInsightClick, contactEm
                 <div className={`flex-1 h-px ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`} />
               </div>
               <div className="space-y-2.5">
-                {group.items.map((activity) => {
-                  const dateObj = activity.timestamp?.toDate ? activity.timestamp.toDate() : new Date();
-                  const isInsight = activity.type === "insight";
-                  const iconConfig = ACTIVITY_ICON_MAP[activity.type] || ACTIVITY_ICON_MAP.note;
-                  const IconComp = iconConfig.icon;
-
-                  return (
-                    <div
-                      key={activity.id}
-                      className={`p-3.5 rounded-xl border transition-all ${
-                        isInsight
-                          ? isDarkMode ? "bg-indigo-950/30 border-indigo-800/50 hover:border-indigo-700 hover:shadow-md cursor-pointer" : "bg-indigo-50/50 border-indigo-200 hover:border-indigo-300 hover:shadow-md cursor-pointer"
-                          : isDarkMode ? "bg-slate-800/50 border-slate-700/60 hover:shadow-sm hover:border-slate-600" : "bg-white border-slate-100 hover:shadow-sm hover:border-slate-200"
-                      }`}
-                      onClick={isInsight && onInsightClick ? () => onInsightClick(activity.id) : undefined}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center ${iconConfig.bg}`}>
-                            <IconComp className={`w-4 h-4 ${iconConfig.color}`} />
-                          </div>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                            isInsight
-                              ? isDarkMode ? "text-indigo-400" : "text-indigo-600"
-                              : isDarkMode ? "text-slate-400" : "text-slate-400"
-                          }`}>
-                            {isInsight ? "Insight Report" : activity.type.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        <span className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {format(dateObj, "MMM d, h:mm a")}
-                        </span>
-                      </div>
-
-                      <p className={`text-sm leading-relaxed ${
-                        isInsight
-                          ? isDarkMode ? "text-indigo-200 line-clamp-2" : "text-indigo-800 line-clamp-2"
-                          : isDarkMode ? "text-slate-300 whitespace-pre-wrap" : "text-slate-700 whitespace-pre-wrap"
-                      }`}>
-                        {isInsight
-                          ? activity.content.replace(/\*\*/g, "").slice(0, 120) + "..."
-                          : activity.content
-                        }
-                      </p>
-
-                      {isInsight && onInsightClick && (
-                        <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 uppercase tracking-wider">
-                          <Sparkles className="w-3 h-3" /> Click to view full report
-                        </div>
-                      )}
-
-                      {activity.createdBy === "jarvis" && !isInsight && (
-                        <div className={`mt-2 flex items-center gap-1.5 text-[10px] font-semibold w-fit px-2 py-0.5 rounded-md ${isDarkMode ? 'text-indigo-400 bg-indigo-950/40' : 'text-indigo-600 bg-indigo-50'}`}>
-                          <User className="w-2.5 h-2.5" />
-                          Jarvis
-                        </div>
-                      )}
-
-                      {activity.createdBy === "system" && (
-                        <div className={`mt-2 flex items-center gap-1.5 text-[10px] font-semibold w-fit px-2 py-0.5 rounded-md ${isDarkMode ? 'text-slate-400 bg-slate-800' : 'text-slate-500 bg-slate-50'}`}>
-                          <ActivityIcon className="w-2.5 h-2.5" />
-                          System
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {group.items.map((activity) => (
+                  <ActivityItemExpander
+                    key={activity.id}
+                    activity={activity}
+                    isDarkMode={isDarkMode}
+                    isExpanded={expandedIds.has(activity.id)}
+                    onToggle={() => toggleExpand(activity.id)}
+                    onInsightClick={onInsightClick}
+                  />
+                ))}
               </div>
             </div>
           ))

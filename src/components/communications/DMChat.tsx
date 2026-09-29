@@ -657,24 +657,36 @@ export function DMChat() {
   };
 
   const processImageFile = async (file: File) => {
-    if (!storage || !user?.email || !activeChatId) return;
-    try {
-      const path = `dm_attachments/${user.uid}/${activeChatId}/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
-      handleSendMessage(downloadUrl, file.name || "uploaded-image.jpg");
-    } catch (err) {
-      console.error("Upload failed:", err);
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
+    if (!user?.email || !activeChatId) return;
+    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9._-]/g, "_") : `file_${Date.now()}`;
+    
+    // 1. Try Firebase Storage upload
+    if (storage && user.uid) {
+      try {
+        const path = `dm_attachments/${user.uid}/${activeChatId}/${Date.now()}_${safeName}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, file, { contentType: file.type || "application/octet-stream" });
+        const downloadUrl = await getDownloadURL(storageRef);
+        handleSendMessage(downloadUrl, safeName);
+        return;
+      } catch (err) {
+        console.warn("Storage upload failed, attempting fallback:", err);
+      }
+    }
+
+    // 2. Client-side data URL fallback
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (!result) return;
+        const img = new Image();
+        img.onload = () => {
+          try {
             const canvas = document.createElement("canvas");
             let width = img.width;
             let height = img.height;
-            const MAX = 800;
+            const MAX = 1200;
             if (width > height && width > MAX) {
               height *= MAX / width;
               width = MAX;
@@ -686,15 +698,26 @@ export function DMChat() {
             canvas.height = height;
             const ctx = canvas.getContext("2d");
             ctx?.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-            handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
-          };
-          img.src = event.target?.result as string;
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+            handleSendMessage(dataUrl, safeName);
+          } catch {
+            handleSendMessage(result, safeName);
+          }
         };
-        reader.readAsDataURL(file);
-      } else {
-        alert("Failed to upload file. Please try again.");
-      }
+        img.onerror = () => handleSendMessage(result, safeName);
+        img.src = result;
+      };
+      reader.readAsDataURL(file);
+    } else if (file.size <= 2 * 1024 * 1024) {
+      // Small documents/files fallback
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) handleSendMessage(result, safeName);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      alert("Failed to upload file. Please ensure file is under 50MB and try again.");
     }
   };
 

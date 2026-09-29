@@ -198,6 +198,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [isListening, setIsListening] = useState(false);
   const speechRecRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const plusMenuFileInputRef = useRef<HTMLInputElement>(null);
   const VOICE_CHAT_ENABLED = false; // Disabled: voice-to-voice JARVIS is too slow/clunky for now
 
   // ── Voice-over (TTS on JARVIS responses) ──
@@ -2958,7 +2959,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               key={i}
                               onClick={() => {
                                 if (item.action === 'upload') {
-                                  (document.getElementById('plus-menu-file-input') as HTMLInputElement)?.click();
+                                  plusMenuFileInputRef.current?.click();
                                 } else if (item.action === 'reauth') {
                                   window.location.href = `/api/auth/google?uid=${user?.uid || ""}&agentId=${params.agentId}&origin=${orgId}`;
                                 }
@@ -2973,16 +2974,24 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               {!item.active && <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Soon</span>}
                             </button>
                           ))}
-                          <input id="plus-menu-file-input" type="file" accept="image/jpeg, image/png, application/pdf, text/plain" className="hidden" onChange={(e) => {
-                            if (e.target.files?.length) {
-                              const file = e.target.files[0];
-                              const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
-                              setPendingAttachments(prev => [...prev, { file, preview: previewUrl }]);
-                              e.target.value = "";
-                            }
-                          }} />
                         </div>
                       )}
+
+                      <input
+                        ref={plusMenuFileInputRef}
+                        id="plus-menu-file-input"
+                        type="file"
+                        accept="image/jpeg, image/png, application/pdf, text/plain"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files?.length) {
+                            const file = e.target.files[0];
+                            const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+                            setPendingAttachments(prev => [...prev, { file, preview: previewUrl }]);
+                            e.target.value = "";
+                          }
+                        }}
+                      />
 
                       <div className="flex items-center w-full relative">
                         <button

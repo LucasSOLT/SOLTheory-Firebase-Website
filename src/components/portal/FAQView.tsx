@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { HelpCircle, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { HelpCircle, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, ArrowRight, LifeBuoy } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -63,63 +63,62 @@ export function FAQView() {
   };
 
   const handleSupportClick = () => {
-    // Navigate to the support ticket page within settings
     router.push(`/portal/dashboard/${orgId}/settings?tab=support`);
   };
 
   const containerClass = isDarkMode
-    ? "bg-slate-800 rounded-3xl border border-slate-600 shadow-sm overflow-hidden mix-blend-multiply"
-    : "bg-[#faf8f3] rounded-3xl border border-slate-200 shadow-sm overflow-hidden mix-blend-multiply";
+    ? "bg-slate-800/90 rounded-3xl border border-slate-700/80 shadow-md overflow-hidden"
+    : "bg-[#faf8f3] rounded-3xl border border-slate-200 shadow-sm overflow-hidden";
 
   const headerClass = isDarkMode
-    ? "p-6 border-b border-slate-700 bg-slate-700/50"
+    ? "p-6 border-b border-slate-700 bg-slate-800/90"
     : "p-6 border-b border-slate-100 bg-[#faf6ed]/50";
 
-  const questionTextClass = isDarkMode ? "font-bold text-slate-200 text-[15px] pr-8" : "font-bold text-slate-800 text-[15px] pr-8";
-  const answerTextClass = isDarkMode ? "text-sm text-slate-300 leading-relaxed font-medium" : "text-sm text-slate-600 leading-relaxed font-medium";
-  const ctaTextClass = isDarkMode ? "text-xs font-bold text-slate-300 uppercase tracking-widest" : "text-xs font-bold text-slate-400 uppercase tracking-widest";
+  const questionTextClass = isDarkMode ? "font-bold text-slate-100 text-[15px] pr-8" : "font-bold text-slate-800 text-[15px] pr-8";
+  const answerTextClass = isDarkMode ? "text-sm text-slate-200 leading-relaxed font-medium" : "text-sm text-slate-600 leading-relaxed font-medium";
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 animate-in fade-in duration-700 h-full overflow-y-auto pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 mb-8 pt-6 gap-4">
+    <div className="w-full max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500 pb-16">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between pb-4 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'} mb-8 pt-6 gap-4`}>
         <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
-            Help <span className="text-indigo-600">FAQ</span>
+          <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+            Help & <span className="text-indigo-500">FAQ</span>
           </h1>
-          <p className="text-slate-500 text-sm font-medium mt-1">
+          <p className={`text-sm font-medium mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             Common troubleshooting solutions and operational guides for your workspace.
           </p>
         </div>
-        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-          <HelpCircle className="w-6 h-6 text-indigo-600" />
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-indigo-950/60 border-indigo-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'}`}>
+          <HelpCircle className="w-6 h-6" />
         </div>
       </div>
 
       <div className={containerClass}>
         <div className={headerClass}>
-          <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+          <h2 className={`text-sm font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             <AlertCircle className="w-4 h-4 text-amber-500" /> Top 10 Common Issues
           </h2>
         </div>
 
-        <div className="divide-y divide-slate-100">
+        <div className={`divide-y ${isDarkMode ? 'divide-slate-700/60' : 'divide-slate-100'}`}>
           {FAQ_LIST.map((faq, index) => (
-            <div key={index} className="transition-colors hover:bg-[#f2ece0] dark:hover:bg-slate-700">
+            <div key={index} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-750/70' : 'hover:bg-[#f2ece0]'}`}>
               <button
+                type="button"
                 onClick={() => toggleOpen(index)}
-                className="w-full flex items-center justify-between p-6 text-left focus:outline-none"
+                className="w-full flex items-center justify-between p-6 text-left focus:outline-none cursor-pointer"
               >
                 <span className={questionTextClass}>{faq.question}</span>
                 {openIndex === index ? (
                   <ChevronUp className="w-5 h-5 text-indigo-500 shrink-0" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
+                  <ChevronDown className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                 )}
               </button>
 
               {openIndex === index && (
                 <div className="px-6 pb-6 animate-in slide-in-from-top-2 fade-in duration-200">
-                  <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-xl p-5 flex items-start gap-4">
+                  <div className={`rounded-2xl p-5 flex items-start gap-4 border ${isDarkMode ? 'bg-indigo-950/40 border-indigo-900/60 text-indigo-100' : 'bg-indigo-50/70 border-indigo-100 text-slate-700'}`}>
                     <CheckCircle2 className="w-5 h-5 text-indigo-500 mt-0.5 shrink-0" />
                     <p className={answerTextClass}>{faq.answer}</p>
                   </div>
@@ -130,9 +129,19 @@ export function FAQView() {
         </div>
       </div>
 
-      <div className="pt-8 pb-4 text-center">
-        <button onClick={handleSupportClick} className={ctaTextClass}>
-          Need more help? Submit a support ticket!
+      {/* Prominent clickable support ticket button */}
+      <div className="pt-6 pb-4 flex flex-col items-center justify-center gap-3">
+        <p className={`text-xs uppercase tracking-wider font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          Didn&apos;t find what you need?
+        </p>
+        <button
+          type="button"
+          onClick={handleSupportClick}
+          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer hover:scale-105 active:scale-95 transition-all duration-200"
+        >
+          <LifeBuoy className="w-4 h-4" />
+          <span>Submit a Support Ticket</span>
+          <ArrowRight className="w-4 h-4 ml-0.5" />
         </button>
       </div>
     </div>
