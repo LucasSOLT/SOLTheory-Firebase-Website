@@ -629,13 +629,13 @@ function ContactProfilePanel({ customer, onClose, onEdit }: ContactProfilePanelP
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${isDarkMode ? 'bg-black/40' : 'bg-black/20'} backdrop-blur-sm`}
+        className={`fixed inset-0 z-[85] transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${isDarkMode ? 'bg-black/40' : 'bg-black/20'} backdrop-blur-sm`}
         onClick={handleClose}
       />
 
       {/* Panel */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 flex flex-col transition-transform duration-300 ease-out
+        className={`fixed inset-y-0 right-0 z-[90] flex flex-col transition-transform duration-300 ease-out
           w-full sm:max-w-[520px]
           ${isDarkMode ? 'bg-slate-900 border-l border-white/10' : 'bg-white border-l border-slate-200'}
           shadow-2xl ${isVisible ? 'translate-x-0' : 'translate-x-full'}`}

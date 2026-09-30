@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useFirestore, useUser, useStorage } from "@/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
@@ -9,7 +9,8 @@ import {
 } from "firebase/firestore";
 import {
   Send, UserCircle, Plus, Search, MessageSquareX, Paperclip, X, Wrench,
-  Smile, Reply, Mic, Check, CheckCheck, Clock, ArrowLeft
+  Smile, Reply, Mic, Check, CheckCheck, Clock, ArrowLeft,
+  Pin, ChevronDown, ChevronUp, FileText, Download, Copy
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,51 @@ function formatMessageTime(val: any): string {
   }
 }
 
+function getMessageDateGroup(val: any): string {
+  if (!val) return "";
+  try {
+    const d = val?.toDate ? val.toDate() : (val instanceof Date ? val : new Date(val));
+    if (isNaN(d.getTime())) return "";
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (d.toDateString() === today.toDateString()) return "Today";
+    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return format(d, "EEEE, MMMM d, yyyy");
+  } catch {
+    return "";
+  }
+}
+
+function isImageAttachment(url?: string, text?: string): boolean {
+  if (!url) return false;
+  if (url.startsWith("data:image/")) return true;
+  if (/\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url)) return true;
+  if (text && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(text.trim())) return true;
+  if (url.startsWith("data:")) return false;
+  if (/\.(pdf|docx?|xlsx?|pptx?|zip|csv|txt)($|\?)/i.test(url)) return false;
+  return true;
+}
+
+function highlightMatch(text: string, query?: string) {
+  if (!query || !query.trim()) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-amber-300 text-slate-900 rounded-xs px-0.5 font-bold">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 interface Chat {
   id: string;
   participants: string[];
@@ -58,6 +104,9 @@ interface Chat {
   typing?: Record<string, any>;
   lastMessageText?: string;
   lastMessageBy?: string;
+  pinnedMessageId?: string | null;
+  pinnedMessageText?: string | null;
+  pinnedMessageSender?: string | null;
 }
 
 export interface MessageReplyTo {
@@ -189,10 +238,12 @@ const InteractiveMessageBody = ({
   text,
   isMe,
   onUpdate,
+  searchQuery,
 }: {
   text: string;
   isMe: boolean;
   onUpdate: (text: string) => void;
+  searchQuery?: string;
 }) => {
   const [localLines, setLocalLines] = useState<string[]>(text.split("\n"));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -219,7 +270,7 @@ const InteractiveMessageBody = ({
 
   const isListMessage = localLines.some((l) => /^- \[[ x]\]/.test(l.trimStart()) || l.trimStart().startsWith("- •"));
   if (!isListMessage) {
-    return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{text}</p>;
+    return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{highlightMatch(text, searchQuery)}</p>;
   }
 
   const handleCheckToggle = (idx: number) => {
@@ -333,8 +384,7 @@ export function DMChat() {
   const [newContactEmail, setNewContactEmail] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showContactsDropdown, setShowContactsDropdown] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msgId: string; isMe: boolean } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msgId: string; isMe: boolean; message?: Message } | null>(null);
 
   // WhatsApp-grade state
   const [replyingTo, setReplyingTo] = useState<MessageReplyTo | null>(null);
@@ -342,6 +392,18 @@ export function DMChat() {
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [justSentIds, setJustSentIds] = useState<Set<string>>(new Set());
   const [pendingAttachments, setPendingAttachments] = useState<{ file: File; preview: string }[]>([]);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name?: string } | null>(null);
+
+  // Search state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+
+  // Scroll to bottom state
+  const feedRef = useRef<HTMLDivElement>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [newMessagesWhileScrolled, setNewMessagesWhileScrolled] = useState(0);
+  const prevMsgCountRef = useRef(0);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -367,10 +429,71 @@ export function DMChat() {
     return contact?.name || email || "?";
   };
 
-  // Auto scroll to bottom
+  // Search matches
+  const searchMatches = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return messages
+      .filter((m) => !(m.hiddenFor || []).includes(user?.email || ""))
+      .filter((m) => m.text?.toLowerCase().includes(q))
+      .map((m) => m.id);
+  }, [messages, searchQuery, user?.email]);
+
+  const handleNextSearchMatch = () => {
+    if (searchMatches.length === 0) return;
+    const nextIdx = (searchMatchIndex + 1) % searchMatches.length;
+    setSearchMatchIndex(nextIdx);
+    document.getElementById(`msg-${searchMatches[nextIdx]}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handlePrevSearchMatch = () => {
+    if (searchMatches.length === 0) return;
+    const prevIdx = (searchMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    setSearchMatchIndex(prevIdx);
+    document.getElementById(`msg-${searchMatches[prevIdx]}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handleScrollFeed = () => {
+    const el = feedRef.current;
+    if (!el) return;
+    const isUp = el.scrollHeight - el.scrollTop - el.clientHeight > 220;
+    setShowScrollBottom(isUp);
+    if (!isUp) {
+      setNewMessagesWhileScrolled(0);
+    }
+  };
+
+  // Smart auto scroll
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (messages.length > prevMsgCountRef.current) {
+      const el = feedRef.current;
+      const isScrolledUp = el && el.scrollHeight - el.scrollTop - el.clientHeight > 220;
+      const lastMsg = messages[messages.length - 1];
+      const isSentByMe = lastMsg?.senderEmail === user?.email;
+
+      if (!isScrolledUp || isSentByMe) {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        setNewMessagesWhileScrolled(0);
+      } else {
+        setNewMessagesWhileScrolled((prev) => prev + (messages.length - prevMsgCountRef.current));
+      }
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages, user?.email]);
+
+  const handleTogglePinMessage = async (msgId: string, msgText: string) => {
+    if (!firestore || !activeChatId) return;
+    const isPinned = activeChat?.pinnedMessageId === msgId;
+    try {
+      await updateDoc(doc(firestore, `dms/${activeChatId}`), {
+        pinnedMessageId: isPinned ? null : msgId,
+        pinnedMessageText: isPinned ? null : (msgText || "Attachment"),
+        pinnedMessageSender: isPinned ? null : user?.email,
+      });
+    } catch (err) {
+      console.error("Failed to toggle pin message:", err);
+    }
+  };
 
   // Fetch list of chats
   useEffect(() => {
@@ -1002,197 +1125,393 @@ export function DMChat() {
                   )}
                 </div>
               </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSearchOpen(!isSearchOpen);
+                    if (isSearchOpen) setSearchQuery("");
+                  }}
+                  className={`p-2 rounded-full transition-colors cursor-pointer ${
+                    isSearchOpen
+                      ? isDarkMode ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-900"
+                      : isDarkMode ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Search in conversation"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+
+            {/* In-Chat Search Bar */}
+            {isSearchOpen && (
+              <div className={`px-4 py-2 border-b flex items-center justify-between gap-3 text-xs animate-in slide-in-from-top-2 duration-150 ${
+                isDarkMode ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-800"
+              }`}>
+                <div className="flex items-center gap-2 flex-1 max-w-md">
+                  <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <Input
+                    autoFocus
+                    placeholder="Search messages..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setSearchMatchIndex(0);
+                    }}
+                    className="h-7 text-xs border-none bg-transparent shadow-none focus-visible:ring-0 p-0"
+                  />
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {searchQuery && (
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {searchMatches.length > 0 ? `${searchMatchIndex + 1} of ${searchMatches.length}` : "No matches"}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handlePrevSearchMatch}
+                    disabled={searchMatches.length === 0}
+                    className="p-1 rounded-md hover:bg-slate-200/50 dark:hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+                    title="Previous match"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextSearchMatch}
+                    disabled={searchMatches.length === 0}
+                    className="p-1 rounded-md hover:bg-slate-200/50 dark:hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+                    title="Next match"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      setSearchQuery("");
+                    }}
+                    className="p-1 rounded-md hover:bg-slate-200/50 dark:hover:bg-slate-700 text-slate-400 cursor-pointer ml-1"
+                    title="Close search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Pinned Message Sticky Banner */}
+            {activeChat?.pinnedMessageId && (
+              <div
+                onClick={() => {
+                  document.getElementById(`msg-${activeChat.pinnedMessageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                className={`px-4 py-2 border-b flex items-center justify-between text-xs cursor-pointer transition-colors shadow-xs ${
+                  isDarkMode
+                    ? "bg-slate-800/90 hover:bg-slate-800 border-slate-700 text-slate-200"
+                    : "bg-emerald-50/70 hover:bg-emerald-50 border-emerald-100 text-slate-800"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0 pr-3">
+                  <Pin className="w-3.5 h-3.5 text-emerald-500 shrink-0 rotate-45" />
+                  <span className="font-bold text-[11px] text-emerald-600 dark:text-emerald-400 shrink-0">Pinned Message</span>
+                  <span className="truncate opacity-80">{activeChat.pinnedMessageText}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateDoc(doc(firestore!, `dms/${activeChatId}`), {
+                      pinnedMessageId: null,
+                      pinnedMessageText: null,
+                      pinnedMessageSender: null,
+                    });
+                  }}
+                  className="p-1 rounded-md hover:bg-slate-200/50 dark:hover:bg-slate-700 text-slate-400"
+                  title="Unpin message"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Messages Feed */}
             <div
-              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"
+              ref={feedRef}
+              onScroll={handleScrollFeed}
+              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 relative"
               onClick={() => {
                 setContextMenu(null);
                 setActiveReactionMsgId(null);
               }}
             >
-              {messages
-                .filter((m) => !(m.hiddenFor || []).includes(user?.email || ""))
-                .map((msg, idx) => {
-                  const isMe = msg.senderEmail === user?.email;
-                  const isJustSent = justSentIds.has(msg.id);
-                  const isPickerOpen = activeReactionMsgId === msg.id;
+              {(() => {
+                let lastDateGroup = "";
+                return messages
+                  .filter((m) => !(m.hiddenFor || []).includes(user?.email || ""))
+                  .map((msg, idx) => {
+                    const isMe = msg.senderEmail === user?.email;
+                    const isJustSent = justSentIds.has(msg.id);
+                    const isPickerOpen = activeReactionMsgId === msg.id;
+                    const isHighlighted = searchMatches.includes(msg.id);
+                    const dateGroup = getMessageDateGroup(msg.createdAt);
+                    const showDateDivider = dateGroup && dateGroup !== lastDateGroup;
+                    lastDateGroup = dateGroup;
 
-                  return (
-                    <div
-                      key={msg.id || idx}
-                      className={`flex flex-col ${isMe ? "items-end" : "items-start"} group relative`}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isMe });
-                      }}
-                      style={
-                        isJustSent
-                          ? { animation: "dm-bubble-rise 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both" }
-                          : undefined
-                      }
-                    >
-                      <div className="relative max-w-[85%] sm:max-w-[70%]">
-                        {/* Reaction Picker floating popover */}
-                        {isPickerOpen && (
-                          <div
-                            className={`absolute -top-12 z-30 ${isMe ? "right-0" : "left-0"}`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <QuickReactionPicker
-                              onReact={(emoji: string) => handleToggleReaction(msg.id, emoji)}
-                              onClose={() => setActiveReactionMsgId(null)}
-                              isDarkMode={isDarkMode}
-                            />
+                    const isImg = isImageAttachment(msg.imageUrl, msg.text);
+                    const attachmentName = msg.text.replace("Uploaded image: ", "").replace("Uploaded file: ", "");
+
+                    return (
+                      <React.Fragment key={msg.id || idx}>
+                        {showDateDivider && (
+                          <div className="flex justify-center my-3 sticky top-2 z-10 pointer-events-none">
+                            <span className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide shadow-sm border pointer-events-auto ${
+                              isDarkMode
+                                ? "bg-slate-800/95 text-slate-300 border-slate-700/80 backdrop-blur-md"
+                                : "bg-white/95 text-slate-600 border-slate-200/80 backdrop-blur-md"
+                            }`}>
+                              {dateGroup}
+                            </span>
                           </div>
                         )}
 
-                        {/* Hover Quick Actions (Reply & React) */}
                         <div
-                          className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 z-20 ${
-                            isMe ? "-left-16" : "-right-16"
-                          }`}
-                          onClick={(e) => e.stopPropagation()}
+                          id={`msg-${msg.id}`}
+                          className={`flex flex-col ${isMe ? "items-end" : "items-start"} group relative`}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isMe, message: msg });
+                          }}
+                          style={
+                            isJustSent
+                              ? { animation: "dm-bubble-rise 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both" }
+                              : undefined
+                          }
                         >
-                          <button
-                            onClick={() => setActiveReactionMsgId(isPickerOpen ? null : msg.id)}
-                            className={`p-1.5 rounded-full shadow-sm hover:scale-110 transition-transform ${
-                              isDarkMode
-                                ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
-                            }`}
-                            title="React"
-                          >
-                            <Smile className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              setReplyingTo({
-                                id: msg.id,
-                                text: msg.voiceNoteUrl
-                                  ? "🎤 Voice note"
-                                  : msg.imageUrl
-                                  ? "📷 Photo"
-                                  : msg.text,
-                                senderEmail: msg.senderEmail,
-                              })
-                            }
-                            className={`p-1.5 rounded-full shadow-sm hover:scale-110 transition-transform ${
-                              isDarkMode
-                                ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
-                            }`}
-                            title="Reply"
-                          >
-                            <Reply className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        {/* Message Bubble */}
-                        <div
-                          className={`rounded-2xl px-4 py-2.5 shadow-sm transition-all ${
-                            isMe
-                              ? "bg-emerald-600 text-white rounded-br-xs"
-                              : isDarkMode
-                              ? "bg-slate-800 text-slate-100 rounded-bl-xs border border-slate-700/60"
-                              : "bg-white text-slate-800 rounded-bl-xs border border-slate-200/80 shadow-xs"
-                          }`}
-                        >
-                          {/* Quoted Reply Banner inside bubble */}
-                          {msg.replyTo && (
-                            <div
-                              className={`mb-2 p-2 rounded-xl text-xs border-l-4 ${
-                                isMe
-                                  ? "bg-emerald-700/70 border-emerald-300 text-emerald-100"
-                                  : isDarkMode
-                                  ? "bg-slate-900/80 border-indigo-500 text-slate-300"
-                                  : "bg-slate-100 border-indigo-500 text-slate-700"
-                              }`}
-                            >
-                              <p className="font-bold text-[11px] truncate">
-                                {msg.replyTo.senderEmail === user?.email
-                                  ? "You"
-                                  : getContactName(msg.replyTo.senderEmail)}
-                              </p>
-                              <p className="truncate opacity-80 mt-0.5">{msg.replyTo.text}</p>
-                            </div>
-                          )}
-
-                          {/* Message Body Content */}
-                          {msg.voiceNoteUrl ? (
-                            <VoiceNotePlayer
-                              audioUrl={msg.voiceNoteUrl}
-                              duration={msg.voiceDuration}
-                              isMe={isMe}
-                              isDarkMode={isDarkMode}
-                            />
-                          ) : msg.imageUrl ? (
-                            <div className="flex flex-col mt-1 mb-1">
-                              <span
-                                className={`text-xs font-semibold mb-2 truncate max-w-[200px] ${
-                                  isMe ? "text-emerald-100" : "text-slate-500"
-                                }`}
+                          <div className={`relative max-w-[85%] sm:max-w-[70%] transition-all ${
+                            isHighlighted ? "ring-2 ring-amber-400/80 rounded-2xl" : ""
+                          }`}>
+                            {/* Reaction Picker floating popover */}
+                            {isPickerOpen && (
+                              <div
+                                className={`absolute -top-12 z-30 ${isMe ? "right-0" : "left-0"}`}
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                {msg.text.replace("Uploaded image: ", "")}
-                              </span>
-                              <img
-                                src={msg.imageUrl}
-                                alt="Attachment"
-                                className="max-w-[260px] max-h-[260px] object-cover rounded-xl shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                                <QuickReactionPicker
+                                  onReact={(emoji: string) => handleToggleReaction(msg.id, emoji)}
+                                  onClose={() => setActiveReactionMsgId(null)}
+                                  isDarkMode={isDarkMode}
+                                />
+                              </div>
+                            )}
+
+                            {/* Hover Quick Actions (Reply & React) */}
+                            <div
+                              className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 z-20 ${
+                                isMe ? "-left-16" : "-right-16"
+                              }`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                onClick={() => setActiveReactionMsgId(isPickerOpen ? null : msg.id)}
+                                className={`p-1.5 rounded-full shadow-sm hover:scale-110 transition-transform ${
+                                  isDarkMode
+                                    ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                    : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+                                }`}
+                                title="React"
+                              >
+                                <Smile className="w-3.5 h-3.5" />
+                              </button>
+                              <button
                                 onClick={() =>
-                                  setLightboxImage({
-                                    url: msg.imageUrl!,
-                                    name: msg.text.replace("Uploaded image: ", ""),
+                                  setReplyingTo({
+                                    id: msg.id,
+                                    text: msg.voiceNoteUrl
+                                      ? "🎤 Voice note"
+                                      : msg.imageUrl
+                                      ? isImg ? "📷 Photo" : "📄 Document"
+                                      : msg.text,
+                                    senderEmail: msg.senderEmail,
                                   })
                                 }
-                              />
+                                className={`p-1.5 rounded-full shadow-sm hover:scale-110 transition-transform ${
+                                  isDarkMode
+                                    ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                    : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+                                }`}
+                                title="Reply"
+                              >
+                                <Reply className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                          ) : (
-                            <InteractiveMessageBody
-                              text={msg.text}
-                              isMe={isMe}
-                              onUpdate={(t) => handleToggleCheckbox(msg.id, t)}
-                            />
-                          )}
 
-                          {/* Timestamp and Delivery Receipts */}
-                          <div
-                            className={`flex items-center justify-end gap-1 mt-1 text-[10px] select-none ${
-                              isMe ? "text-emerald-100/80" : isDarkMode ? "text-slate-400" : "text-slate-500"
-                            }`}
-                          >
-                            <span>{formatMessageTime(msg.createdAt)}</span>
-                            {isMe && (
-                              <span title={msg.read ? "Read" : msg.status === "sending" ? "Sending" : "Delivered"}>
-                                {msg.read ? (
-                                  <CheckCheck className="w-3.5 h-3.5 text-sky-300 inline shrink-0" />
-                                ) : msg.status === "sending" ? (
-                                  <Clock className="w-3.5 h-3.5 text-white/60 inline shrink-0" />
+                            {/* Message Bubble */}
+                            <div
+                              className={`rounded-2xl px-4 py-2.5 shadow-sm transition-all ${
+                                isMe
+                                  ? "bg-emerald-600 text-white rounded-br-xs"
+                                  : isDarkMode
+                                  ? "bg-slate-800 text-slate-100 rounded-bl-xs border border-slate-700/60"
+                                  : "bg-white text-slate-800 rounded-bl-xs border border-slate-200/80 shadow-xs"
+                              }`}
+                            >
+                              {/* Quoted Reply Banner inside bubble */}
+                              {msg.replyTo && (
+                                <div
+                                  className={`mb-2 p-2 rounded-xl text-xs border-l-4 cursor-pointer hover:opacity-90 ${
+                                    isMe
+                                      ? "bg-emerald-700/70 border-emerald-300 text-emerald-100"
+                                      : isDarkMode
+                                      ? "bg-slate-900/80 border-indigo-500 text-slate-300"
+                                      : "bg-slate-100 border-indigo-500 text-slate-700"
+                                  }`}
+                                  onClick={() => {
+                                    document.getElementById(`msg-${msg.replyTo?.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  }}
+                                >
+                                  <p className="font-bold text-[11px] truncate">
+                                    {msg.replyTo.senderEmail === user?.email
+                                      ? "You"
+                                      : getContactName(msg.replyTo.senderEmail)}
+                                  </p>
+                                  <p className="truncate opacity-80 mt-0.5">{msg.replyTo.text}</p>
+                                </div>
+                              )}
+
+                              {/* Message Body Content */}
+                              {msg.voiceNoteUrl ? (
+                                <VoiceNotePlayer
+                                  audioUrl={msg.voiceNoteUrl}
+                                  duration={msg.voiceDuration}
+                                  isMe={isMe}
+                                  isDarkMode={isDarkMode}
+                                />
+                              ) : msg.imageUrl ? (
+                                isImg ? (
+                                  <div className="flex flex-col mt-1 mb-1">
+                                    <span
+                                      className={`text-xs font-semibold mb-2 truncate max-w-[200px] ${
+                                        isMe ? "text-emerald-100" : "text-slate-500"
+                                      }`}
+                                    >
+                                      {attachmentName}
+                                    </span>
+                                    <img
+                                      src={msg.imageUrl}
+                                      alt="Attachment"
+                                      className="max-w-[260px] max-h-[260px] object-cover rounded-xl shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() =>
+                                        setLightboxImage({
+                                          url: msg.imageUrl!,
+                                          name: attachmentName,
+                                        })
+                                      }
+                                    />
+                                  </div>
                                 ) : (
-                                  <CheckCheck className="w-3.5 h-3.5 text-white/70 inline shrink-0" />
+                                  <div className={`p-3 rounded-xl border flex items-center gap-3 my-1.5 transition-colors ${
+                                    isMe
+                                      ? "bg-emerald-700/60 border-emerald-500/40 text-white"
+                                      : isDarkMode
+                                      ? "bg-slate-900/60 border-slate-700 text-slate-100"
+                                      : "bg-slate-50 border-slate-200 text-slate-900"
+                                  }`}>
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                                      isMe ? "bg-emerald-800 text-white" : "bg-indigo-500/10 text-indigo-500"
+                                    }`}>
+                                      <FileText className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold truncate">
+                                        {attachmentName || "Document"}
+                                      </p>
+                                      <p className="text-[10px] opacity-75">Document attachment</p>
+                                    </div>
+                                    <a
+                                      href={msg.imageUrl}
+                                      download={attachmentName || "download"}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`p-1.5 rounded-lg transition-transform active:scale-95 ${
+                                        isMe ? "hover:bg-emerald-600 text-white" : "hover:bg-slate-200/50 text-indigo-500"
+                                      }`}
+                                      title="Download"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </a>
+                                  </div>
+                                )
+                              ) : (
+                                <InteractiveMessageBody
+                                  text={msg.text}
+                                  isMe={isMe}
+                                  onUpdate={(t) => handleToggleCheckbox(msg.id, t)}
+                                  searchQuery={searchQuery}
+                                />
+                              )}
+
+                              {/* Timestamp and Delivery Receipts */}
+                              <div
+                                className={`flex items-center justify-end gap-1 mt-1 text-[10px] select-none ${
+                                  isMe ? "text-emerald-100/80" : isDarkMode ? "text-slate-400" : "text-slate-500"
+                                }`}
+                              >
+                                <span>{formatMessageTime(msg.createdAt)}</span>
+                                {isMe && (
+                                  <span title={msg.read ? "Read" : msg.status === "sending" ? "Sending" : "Delivered"}>
+                                    {msg.read ? (
+                                      <CheckCheck className="w-3.5 h-3.5 text-sky-300 inline shrink-0" />
+                                    ) : msg.status === "sending" ? (
+                                      <Clock className="w-3.5 h-3.5 text-white/60 inline shrink-0" />
+                                    ) : (
+                                      <CheckCheck className="w-3.5 h-3.5 text-white/70 inline shrink-0" />
+                                    )}
+                                  </span>
                                 )}
-                              </span>
+                              </div>
+                            </div>
+
+                            {/* Reaction Badges Below Bubble */}
+                            {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                              <div className={`mt-1 flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                <ReactionBadges
+                                  reactions={msg.reactions}
+                                  currentEmail={user?.email || ""}
+                                  onToggle={(emoji: string) => handleToggleReaction(msg.id, emoji)}
+                                  isDarkMode={isDarkMode}
+                                />
+                              </div>
                             )}
                           </div>
                         </div>
-
-                        {/* Reaction Badges Below Bubble */}
-                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                          <div className={`mt-1 flex ${isMe ? "justify-end" : "justify-start"}`}>
-                            <ReactionBadges
-                              reactions={msg.reactions}
-                              currentEmail={user?.email || ""}
-                              onToggle={(emoji: string) => handleToggleReaction(msg.id, emoji)}
-                              isDarkMode={isDarkMode}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                      </React.Fragment>
+                    );
+                  });
+              })()}
               <div ref={bottomRef} className="h-1" />
+
+              {/* Floating Jump to Bottom Button */}
+              {showScrollBottom && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                    setShowScrollBottom(false);
+                    setNewMessagesWhileScrolled(0);
+                  }}
+                  className="sticky bottom-4 ml-auto mr-2 z-30 p-2.5 rounded-full shadow-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all animate-in fade-in zoom-in duration-150 cursor-pointer hover:scale-105 active:scale-95"
+                  title="Jump to latest"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                  {newMessagesWhileScrolled > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black shadow-sm animate-pulse">
+                      {newMessagesWhileScrolled}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Context Menu */}
@@ -1204,8 +1523,55 @@ export function DMChat() {
                 style={{ left: contextMenu.x, top: contextMenu.y }}
               >
                 <button
+                  onClick={() => {
+                    if (contextMenu.message) {
+                      navigator.clipboard.writeText(contextMenu.message.text || "");
+                    }
+                    setContextMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+                    isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Copy text</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (contextMenu.message) {
+                      setReplyingTo({
+                        id: contextMenu.message.id,
+                        text: contextMenu.message.text,
+                        senderEmail: contextMenu.message.senderEmail,
+                      });
+                    }
+                    setContextMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+                    isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <Reply className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Reply</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (contextMenu.message) {
+                      handleTogglePinMessage(contextMenu.message.id, contextMenu.message.text);
+                    }
+                    setContextMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+                    isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <Pin className="w-3.5 h-3.5 text-slate-400 rotate-45" />
+                  <span>{activeChat?.pinnedMessageId === contextMenu.msgId ? "Unpin message" : "Pin message"}</span>
+                </button>
+                <div className={`h-px my-1 ${isDarkMode ? "bg-slate-700" : "bg-slate-100"}`} />
+                <button
                   onClick={() => handleDeleteForMe(contextMenu.msgId)}
-                  className={`w-full text-left px-4 py-2 text-sm font-medium ${
+                  className={`w-full text-left px-4 py-2 text-xs font-medium cursor-pointer ${
                     isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
@@ -1214,8 +1580,8 @@ export function DMChat() {
                 {contextMenu.isMe && (
                   <button
                     onClick={() => handleDeleteForEveryone(contextMenu.msgId)}
-                    className={`w-full text-left px-4 py-2 text-sm text-red-600 font-medium ${
-                      isDarkMode ? "hover:bg-red-900/30" : "hover:bg-red-50"
+                    className={`w-full text-left px-4 py-2 text-xs text-rose-500 font-medium cursor-pointer ${
+                      isDarkMode ? "hover:bg-rose-950/30" : "hover:bg-rose-50"
                     }`}
                   >
                     Delete for everyone

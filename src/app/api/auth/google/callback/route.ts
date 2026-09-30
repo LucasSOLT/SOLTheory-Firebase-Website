@@ -12,27 +12,37 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state"); 
-
-  if (!code || !state) {
-    return NextResponse.json({ error: "Missing code or state" }, { status: 400 });
-  }
+  const errorParam = url.searchParams.get("error");
 
   let agentId = "inbound-email";
   let origin = getAllOrgIds()[0];
   let returnTo = "settings";
 
-  try {
-    const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
-    if (decoded.agentId) agentId = decoded.agentId;
-    if (decoded.origin) origin = decoded.origin;
-    if (decoded.returnTo) returnTo = decoded.returnTo;
-  } catch(e) {
-    // Fallback if legacy state format string was passed instead of base64
+  if (state) {
+    try {
+      const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+      if (decoded.agentId) agentId = decoded.agentId;
+      if (decoded.origin) origin = decoded.origin;
+      if (decoded.returnTo) returnTo = decoded.returnTo;
+    } catch(e) {
+      // Fallback if legacy state format string was passed instead of base64
+    }
   }
 
   const subpath = returnTo; // "settings" or "calendar"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const redirectBase = `${appUrl}/portal/dashboard/${origin}/${subpath}`;
 
-  const redirectBase = `${process.env.NEXT_PUBLIC_APP_URL}/portal/dashboard/${origin}/${subpath}`;
+  if (errorParam) {
+    const errorMsg = errorParam === 'access_denied'
+      ? 'Access blocked: Your Google account must be added as a Test User in Google Cloud Console > OAuth consent screen.'
+      : `Google authorization failed: ${errorParam}`;
+    return NextResponse.redirect(`${redirectBase}?gmail_connected=false&error=${encodeURIComponent(errorMsg)}&agent=${agentId}`);
+  }
+
+  if (!code) {
+    return NextResponse.redirect(`${redirectBase}?gmail_connected=false&error=${encodeURIComponent("Missing authorization code from Google.")}&agent=${agentId}`);
+  }
 
   try {
     const { tokens } = await oauth2Client.getToken(code);

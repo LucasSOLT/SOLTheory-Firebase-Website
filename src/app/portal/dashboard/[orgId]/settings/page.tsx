@@ -336,6 +336,7 @@ function SettingsContent() {
     const agent = searchParams.get("agent") || "jarvis";
 
     if (rt && user?.uid && firestore) {
+      setSubPage('integrations');
       setDoc(doc(firestore, "users", user.uid), {
         id: user.uid,
         [`gmailOAuth_${agent}`]: { refreshToken: rt, connectedAt: new Date().toISOString() }
@@ -345,9 +346,11 @@ function SettingsContent() {
         logActivity(firestore, 'settings_changed', { email: user?.email || '', displayName: user?.displayName }, 'Connected Google account');
       }).catch(err => setOauthError("Failed to save credentials: " + err.message));
     } else if (isConnectedParam) {
+      setSubPage('integrations');
       setGmailConnected(true);
     } else if (errorParam) {
-      setOauthError(errorParam || "Failed to connect Gmail");
+      setSubPage('integrations');
+      setOauthError(decodeURIComponent(errorParam) || "Failed to connect Gmail");
     } else if (user?.uid && firestore) {
       getDoc(doc(firestore, "users", user.uid)).then(userDoc => {
         if (userDoc.exists() && userDoc.data()?.[`gmailOAuth_${agent}`]?.refreshToken) {

@@ -1783,7 +1783,7 @@ export default function CRMPage() {
       )}
 
       {/* ──── CRM Sidebar ──── */}
-      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] flex flex-col ${isSidebarCollapsed ? 'w-[60px]' : 'w-[220px]'} ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#f5f0e6] border-[#e8e0cc]'} border-r shrink-0 transition-all duration-300 ease-in-out ${
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-[81] lg:z-20 flex flex-col ${isSidebarCollapsed ? 'w-[60px]' : 'w-[220px]'} ${isDarkMode ? 'bg-slate-900 border-slate-850' : 'bg-[#f5f0e6] border-[#e8e0cc]'} border-r shrink-0 transition-all duration-300 ease-in-out ${
         isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}>
         {/* Sidebar Header */}

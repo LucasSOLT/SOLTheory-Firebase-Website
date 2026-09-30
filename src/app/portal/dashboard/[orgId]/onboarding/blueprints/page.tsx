@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import { getAllOrgIds, getOrgLabel } from '@/lib/org-config';
 import {
   GraduationCap,
   Loader2,
@@ -14,6 +15,10 @@ import {
   Trash2,
   FileText,
   ArrowLeft,
+  Send,
+  Check,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import BlueprintEditor from '@/components/onboarding/BlueprintEditor';
 
@@ -34,6 +39,80 @@ export default function BlueprintsLibraryPage() {
     isOpen: false,
     existingBlueprint: null,
   });
+
+  const [pushModalState, setPushModalState] = useState<{
+    isOpen: boolean;
+    blueprint: any;
+    targetOrgId: string;
+    roleName: string;
+    isPushing: boolean;
+    successMessage?: string | null;
+    errorMessage?: string | null;
+  }>({
+    isOpen: false,
+    blueprint: null,
+    targetOrgId: '',
+    roleName: '',
+    isPushing: false,
+    successMessage: null,
+    errorMessage: null,
+  });
+
+  const handlePushBlueprint = async () => {
+    if (!pushModalState.blueprint || !pushModalState.targetOrgId) return;
+    setPushModalState(prev => ({ ...prev, isPushing: true, errorMessage: null, successMessage: null }));
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/onboarding/blueprints/clone', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sourceOrgId: orgId,
+          targetOrgId: pushModalState.targetOrgId,
+          sourceTemplateId: pushModalState.blueprint.id,
+          newRoleName: pushModalState.roleName || pushModalState.blueprint.roleName,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const targetLabel = getOrgLabel(pushModalState.targetOrgId);
+        setPushModalState(prev => ({
+          ...prev,
+          isPushing: false,
+          successMessage: `Successfully deployed to ${targetLabel}!`,
+        }));
+        if (pushModalState.targetOrgId === orgId) {
+          fetchBlueprints();
+        }
+        setTimeout(() => {
+          setPushModalState({
+            isOpen: false,
+            blueprint: null,
+            targetOrgId: '',
+            roleName: '',
+            isPushing: false,
+            successMessage: null,
+            errorMessage: null,
+          });
+        }, 1500);
+      } else {
+        setPushModalState(prev => ({
+          ...prev,
+          isPushing: false,
+          errorMessage: data.error || 'Failed to push blueprint',
+        }));
+      }
+    } catch (err: any) {
+      setPushModalState(prev => ({
+        ...prev,
+        isPushing: false,
+        errorMessage: err.message || 'An unexpected error occurred.',
+      }));
+    }
+  };
 
   const fetchBlueprints = useCallback(async () => {
     if (!orgId) return;
@@ -257,6 +336,27 @@ export default function BlueprintsLibraryPage() {
                   >
                     <Copy className="w-3.5 h-3.5" /> Clone
                   </button>
+                  <button
+                    onClick={() => {
+                      const allOrgs = getAllOrgIds();
+                      const defaultTarget = allOrgs.find(o => o !== orgId) || orgId;
+                      setPushModalState({
+                        isOpen: true,
+                        blueprint: bp,
+                        targetOrgId: defaultTarget,
+                        roleName: bp.roleName,
+                        isPushing: false,
+                        successMessage: null,
+                        errorMessage: null,
+                      });
+                    }}
+                    className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                      isDarkMode ? 'hover:bg-slate-700 text-indigo-400' : 'hover:bg-slate-200 text-indigo-600'
+                    }`}
+                    title="Push / Copy to another organization"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
                   {!isSystem && (
                     <button
                       onClick={() => handleDelete(bp.id)}
@@ -284,6 +384,136 @@ export default function BlueprintsLibraryPage() {
           orgId={orgId as string}
           existingBlueprint={editorState.existingBlueprint}
         />
+      )}
+
+      {/* Push Blueprint to Org Modal */}
+      {pushModalState.isOpen && pushModalState.blueprint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div
+            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+              isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                  <Send className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Push Blueprint</h3>
+                  <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Copy track to another organization
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPushModalState(prev => ({ ...prev, isOpen: false }))}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {pushModalState.successMessage ? (
+              <div className="py-6 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3">
+                  <Check className="w-6 h-6" />
+                </div>
+                <p className="font-semibold text-base text-emerald-500">{pushModalState.successMessage}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {pushModalState.errorMessage && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{pushModalState.errorMessage}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Source Blueprint
+                  </label>
+                  <p className="text-sm font-semibold">{pushModalState.blueprint.roleName}</p>
+                </div>
+
+                <div>
+                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Target Organization
+                  </label>
+                  <select
+                    value={pushModalState.targetOrgId}
+                    onChange={e => setPushModalState(prev => ({ ...prev, targetOrgId: e.target.value }))}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                      isDarkMode
+                        ? 'bg-slate-800 border-slate-700 text-white focus:border-indigo-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600'
+                    }`}
+                  >
+                    {getAllOrgIds().map(targetId => (
+                      <option key={targetId} value={targetId}>
+                        {getOrgLabel(targetId)} {targetId === orgId ? '(Current Org)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Role Name in Target Org
+                  </label>
+                  <input
+                    type="text"
+                    value={pushModalState.roleName}
+                    onChange={e => setPushModalState(prev => ({ ...prev, roleName: e.target.value }))}
+                    placeholder="Enter role name"
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                      isDarkMode
+                        ? 'bg-slate-800 border-slate-700 text-white focus:border-indigo-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600'
+                    }`}
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPushModalState(prev => ({ ...prev, isOpen: false }))}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                      isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pushModalState.isPushing || !pushModalState.targetOrgId}
+                    onClick={handlePushBlueprint}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 ${
+                      isDarkMode
+                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                        : 'bg-slate-900 hover:bg-slate-800 text-white'
+                    }`}
+                  >
+                    {pushModalState.isPushing ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Pushing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        Push Blueprint
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -25,6 +25,7 @@ export default function TwoFactorSetup({ onClose, onEnabled }: TwoFactorSetupPro
   const [step, setStep] = useState<Step>("intro");
   const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -46,6 +47,9 @@ export default function TwoFactorSetup({ onClose, onEnabled }: TwoFactorSetupPro
         setErrorMessage(data.error || "Failed to send code.");
         setStep("error");
         return;
+      }
+      if (data.devOtp) {
+        setDevOtp(data.devOtp);
       }
       setStep("verify");
     } catch (err: any) {
@@ -195,6 +199,26 @@ export default function TwoFactorSetup({ onClose, onEnabled }: TwoFactorSetupPro
                 />
               ))}
             </div>
+
+            {devOtp && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const digits = devOtp.split("").slice(0, 6);
+                    setOtpDigits(digits);
+                    handleVerifyOtp(devOtp);
+                  }}
+                  className={`text-[11px] font-mono px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                    isDarkMode
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                      : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                  }`}
+                >
+                  ⚡ Dev Code: {devOtp} (Click to auto-fill)
+                </button>
+              </div>
+            )}
 
             {errorMessage && (
               <p className="text-xs text-red-500 font-medium mb-3">{errorMessage}</p>

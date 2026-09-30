@@ -579,7 +579,37 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     const { _db, _uid, _orgId } = get();
     if (!_db || !_uid || !_orgId) return;
     try {
+      const customer = get().customers.find(c => c.id === id);
       await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), id), updates as any);
+
+      // Log tag changes to activity timeline
+      if (updates.tags && Array.isArray(updates.tags) && customer?.tags) {
+        const oldTags = customer.tags;
+        const newTags = updates.tags;
+        const added = newTags.filter(t => !oldTags.includes(t));
+        const removed = oldTags.filter(t => !newTags.includes(t));
+        if (added.length > 0 || removed.length > 0) {
+          const parts: string[] = [];
+          if (added.length > 0) parts.push(`Added: ${added.join(', ')}`);
+          if (removed.length > 0) parts.push(`Removed: ${removed.join(', ')}`);
+          get().addActivity({
+            customerId: id,
+            type: "tag_change",
+            content: `Tags updated — ${parts.join('; ')}`,
+            createdBy: "user",
+          });
+        }
+      }
+
+      // Log status changes if passed via direct updates
+      if (updates.leadStatus && customer && customer.leadStatus !== updates.leadStatus) {
+        get().addActivity({
+          customerId: id,
+          type: "status_change",
+          content: `Status changed from "${customer.leadStatus || 'None'}" to "${updates.leadStatus}".`,
+          createdBy: "user",
+        });
+      }
     } catch (error) {
       console.error("updateCustomer error:", error);
       get().showToast("⚠️ Failed to update contact", "error");
@@ -604,7 +634,17 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     if (!_db || !_uid || !_orgId) return;
     set({ isUpdatingStatus: true });
     try {
+      const customer = get().customers.find(c => c.id === id);
+      const oldStatus = customer?.leadStatus;
       await updateDoc(doc(_db, crmPath(_uid, "contacts", _orgId, get().activeInstanceId), id), { leadStatus: status });
+      if (oldStatus !== status) {
+        get().addActivity({
+          customerId: id,
+          type: "status_change",
+          content: oldStatus ? `Status changed from "${oldStatus}" to "${status}".` : `Status set to "${status}".`,
+          createdBy: "user"
+        });
+      }
       get().showToast(`📊 Status updated to ${status}`);
     } catch (error) {
       console.error("updateStatus error:", error);
@@ -662,6 +702,17 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     } else {
       set(state => ({ meetings: [...state.meetings, meeting] }));
     }
+
+    // Record meeting in contact activity timeline
+    if (meeting.customerId) {
+      get().addActivity({
+        customerId: meeting.customerId,
+        type: "meeting",
+        content: `Meeting scheduled: "${meeting.title}" on ${meeting.date} at ${meeting.time}${meeting.syncToGoogle ? " (synced to Google Calendar)" : ""}.`,
+        createdBy: meeting.createdBy || "user",
+      });
+    }
+
     get().addNotification(
       `📅 ${meeting.title} with ${meeting.customerName} scheduled for ${meeting.date} at ${meeting.time}${meeting.syncToGoogle ? " (synced to Google Calendar)" : ""}`,
       "meeting"
@@ -682,6 +733,17 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
         console.error("addTask error:", error);
       }
     }
+
+    // Record task creation in contact activity timeline
+    if (task.customerId) {
+      get().addActivity({
+        customerId: task.customerId,
+        type: "task",
+        content: `Task created: "${task.title}"${task.dueDate ? ` (due ${task.dueDate})` : ''}`,
+        createdBy: "user",
+      });
+    }
+
     return task;
   },
 
@@ -690,6 +752,19 @@ export const useCRMStore = create<CrmStore>((set, get) => ({
     if (!_db || !_uid || !_orgId) return;
     try {
       await updateDoc(doc(_db, crmPath(_uid, "tasks", _orgId, get().activeInstanceId), id), updates);
+
+      // Record task completion/reopening in contact activity timeline
+      if (updates.completed !== undefined) {
+        const task = get().tasks.find(t => t.id === id);
+        if (task?.customerId) {
+          get().addActivity({
+            customerId: task.customerId,
+            type: "task",
+            content: updates.completed ? `Completed task: "${task.title}"` : `Reopened task: "${task.title}"`,
+            createdBy: "user",
+          });
+        }
+      }
     } catch (error) {
       console.error("updateTask error:", error);
     }

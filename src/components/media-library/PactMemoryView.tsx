@@ -208,10 +208,11 @@ export default function PactMemoryView({ orgId, isDark = false }: { orgId: strin
         setAddForm({ question: '', answer: '', category: 'preference' });
         fetchEntries();
       } else {
-        showToast("Failed to add fact", "error");
+        const errorData = await res.json().catch(() => null);
+        showToast(errorData?.error || "Failed to add fact", "error");
       }
-    } catch (err) {
-      showToast("Error adding fact", "error");
+    } catch (err: any) {
+      showToast(err?.message || "Error adding fact", "error");
     }
   };
 

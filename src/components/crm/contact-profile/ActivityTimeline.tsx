@@ -49,6 +49,7 @@ export default function ActivityTimeline({ customerId, onInsightClick, contactEm
   const [newNote, setNewNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
+  const [logType, setLogType] = useState<"note" | "call" | "meeting">("note");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const toggleExpand = (id: string) => {
@@ -60,12 +61,19 @@ export default function ActivityTimeline({ customerId, onInsightClick, contactEm
     });
   };
 
+  const handleSelectFilter = (type: string) => {
+    setFilterType(type);
+    if (type === "call" || type === "meeting" || type === "note") {
+      setLogType(type);
+    }
+  };
+
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
     setIsSubmitting(true);
     await addActivity({
       customerId,
-      type: "note",
+      type: logType,
       content: newNote.trim(),
       createdBy: "user"
     });
@@ -129,7 +137,7 @@ export default function ActivityTimeline({ customerId, onInsightClick, contactEm
           {filterTypes.map(type => (
             <button
               key={type}
-              onClick={() => setFilterType(type)}
+              onClick={() => handleSelectFilter(type)}
               className={`text-[10px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap transition-colors cursor-pointer ${
                 filterType === type
                   ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
@@ -184,13 +192,42 @@ export default function ActivityTimeline({ customerId, onInsightClick, contactEm
       </div>
       )}
 
-      {/* Note Input */}
+      {/* Activity Input */}
       <div className={`p-4 border-t ${isDarkMode ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+        {/* Log Type Selector */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Log:
+          </span>
+          {(["note", "call", "meeting"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setLogType(type)}
+              className={`text-[10px] font-medium px-2 py-0.5 rounded-md capitalize transition-colors cursor-pointer ${
+                logType === type
+                  ? "bg-indigo-600 text-white shadow-xs font-semibold"
+                  : isDarkMode
+                    ? "bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+                    : "bg-slate-200/60 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+
         <div className="relative">
           <textarea
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
-            placeholder="Log a note or call..."
+            placeholder={
+              logType === "call"
+                ? "Log call summary, outcome, or talking points..."
+                : logType === "meeting"
+                  ? "Log meeting notes, key decisions, or next steps..."
+                  : "Log a note..."
+            }
             className={`w-full text-sm rounded-xl border resize-none pr-12 p-3 shadow-sm min-h-[80px] focus:ring-2 focus:ring-indigo-500/20 ${
               isDarkMode
                 ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-indigo-500'

@@ -61,6 +61,7 @@ import {
   Bot,
   Loader2,
   ExternalLink,
+  RotateCcw,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
 import { useTranslation } from '@/lib/i18n';
@@ -409,6 +410,8 @@ function ActionBoardContent() {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("my_tasks");
   const [filterUserId, setFilterUserId] = useState<string>("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [boardPriorityFilter, setBoardPriorityFilter] = useState<Priority | "all">("all");
+  const [boardStatusFilter, setBoardStatusFilter] = useState<"all" | "overdue">("all");
 
   // â”€â”€ Form State â”€â”€
   const [newTitle, setNewTitle] = useState("");
@@ -650,8 +653,17 @@ function ActionBoardContent() {
     } else if (viewFilter === "specific_user" && filterUserId) {
       filtered = filtered.filter(t => t.assignedTo === filterUserId || t.createdBy === filterUserId);
     }
+
+    if (boardPriorityFilter !== "all") {
+      filtered = filtered.filter(t => t.priority === boardPriorityFilter);
+    }
+
+    if (boardStatusFilter === "overdue") {
+      filtered = filtered.filter(t => getLifecycleStatus(t) === "late");
+    }
+
     return filtered;
-  }, [tasks, user?.uid, viewFilter, filterUserId]);
+  }, [tasks, user?.uid, viewFilter, filterUserId, boardPriorityFilter, boardStatusFilter]);
 
   const pendingTasks = tasks.filter(
     t => t.assignedTo === user?.uid && t.assignmentStatus === "pending_approval"
@@ -1262,15 +1274,24 @@ function ActionBoardContent() {
       const todoCount = tasksForColumn("todo").length;
       const doingCount = tasksForColumn("doing").length;
       const doneCount = tasksForColumn("done").length;
-      const lateTasks = tasks.filter(t => getLifecycleStatus(t) === "late").map(t => `"${t.title}" (due: ${t.dueDate ? t.dueDate.toDate().toLocaleDateString() : 'N/A'})`);
-      const highPriorityTasks = tasks.filter(t => t.priority === "High" && t.column !== "done").map(t => `"${t.title}" (${t.column})`);
+      const lateTaskList = tasks.filter(t => getLifecycleStatus(t) === "late").map(t => {
+        const assignee = orgMembers.find(m => m.uid === t.assignedTo)?.displayName || t.assignedTo || "Unassigned";
+        return `"${t.title}" (assigned: ${assignee}, due: ${t.dueDate ? t.dueDate.toDate().toLocaleDateString() : 'N/A'}, priority: ${t.priority})`;
+      });
+      const highPriorityTasks = tasks.filter(t => t.priority === "High" && t.column !== "done").map(t => {
+        const assignee = orgMembers.find(m => m.uid === t.assignedTo)?.displayName || t.assignedTo || "Unassigned";
+        return `"${t.title}" (column: ${t.column}, assigned: ${assignee})`;
+      });
+      const myActiveTasks = tasks.filter(t => t.assignedTo === user?.uid && t.column !== "done").map(t => `"${t.title}" (${t.column})`);
+      const activeFilterSummary = `Active Filter: view=${viewFilter}${boardPriorityFilter !== "all" ? `, priority=${boardPriorityFilter}` : ""}${boardStatusFilter !== "all" ? `, status=${boardStatusFilter}` : ""}`;
 
       const boardContext = `[ACTION BOARD CONTEXT for organization ${orgId}]:
 Total Tasks: ${tasks.length}
 Columns: To Do (${todoCount}), In Progress (${doingCount}), Completed (${doneCount})
-Late / Overdue Tasks (${lateTasks.length}): ${lateTasks.join(", ") || "None"}
-High Priority Active Tasks (${highPriorityTasks.length}): ${highPriorityTasks.join(", ") || "None"}
-Current User: ${user?.displayName || user?.email || "User"}`;
+Late / Overdue Tasks (${lateTaskList.length}): ${lateTaskList.join("; ") || "None"}
+High Priority Active Tasks (${highPriorityTasks.length}): ${highPriorityTasks.join("; ") || "None"}
+Current User (${user?.displayName || user?.email || "User"}) Active Tasks: ${myActiveTasks.join("; ") || "None"}
+${activeFilterSummary}`;
 
       const apiMessages = [
         {
@@ -1442,6 +1463,53 @@ Current User: ${user?.displayName || user?.email || "User"}`;
             </button>
           </div>
         </div>
+
+        {/* Active Board Filters Indicator */}
+        {(boardPriorityFilter !== "all" || boardStatusFilter !== "all") && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap animate-in fade-in duration-200">
+            <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Active filters:</span>
+            {boardPriorityFilter !== "all" && (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
+                isDarkMode ? 'bg-amber-900/40 text-amber-300 border border-amber-800' : 'bg-amber-50 text-amber-800 border border-amber-200'
+              }`}>
+                Priority: {boardPriorityFilter}
+                <button
+                  type="button"
+                  onClick={() => setBoardPriorityFilter("all")}
+                  className="hover:opacity-75 cursor-pointer font-bold ml-0.5"
+                  title="Remove priority filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {boardStatusFilter !== "all" && (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
+                isDarkMode ? 'bg-red-900/40 text-red-300 border border-red-800' : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                Status: Overdue
+                <button
+                  type="button"
+                  onClick={() => setBoardStatusFilter("all")}
+                  className="hover:opacity-75 cursor-pointer font-bold ml-0.5"
+                  title="Remove overdue filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setBoardPriorityFilter("all");
+                setBoardStatusFilter("all");
+              }}
+              className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 underline cursor-pointer ml-1"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* â•â• Board Columns â•â• */}
@@ -2446,6 +2514,28 @@ Current User: ${user?.displayName || user?.email || "User"}`;
               </div>
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
+                  onClick={() => openNewTaskModal()}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+                  }`}
+                  title="Create New Task"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                {jarvisMessages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setJarvisMessages([])}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+                    }`}
+                    title="Clear Conversation"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                )}
+                <button
                   onClick={() => {
                     if (typeof window !== "undefined") {
                       window.dispatchEvent(new CustomEvent("open-omnibar"));
@@ -2494,6 +2584,67 @@ Current User: ${user?.displayName || user?.email || "User"}`;
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Overdue</span>
                 <span className="font-extrabold text-red-500 text-sm">{tasks.filter(t => getLifecycleStatus(t) === "late").length}</span>
               </div>
+            </div>
+
+            {/* Quick Board View Controls */}
+            <div className={`px-4 py-2 border-b flex items-center gap-1.5 overflow-x-auto text-[11px] shrink-0 ${
+              isDarkMode ? 'bg-slate-800/20 border-slate-800' : 'bg-slate-50/50 border-slate-100'
+            }`}>
+              <span className={`text-[10px] font-semibold uppercase tracking-wider mr-1 shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                Filter Board:
+              </span>
+              <button
+                type="button"
+                onClick={() => setBoardStatusFilter(prev => prev === "overdue" ? "all" : "overdue")}
+                className={`px-2 py-0.5 rounded-md font-medium shrink-0 transition-colors cursor-pointer flex items-center gap-1 ${
+                  boardStatusFilter === "overdue"
+                    ? 'bg-red-600 text-white shadow-xs font-semibold'
+                    : isDarkMode
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                🔴 Overdue
+              </button>
+              <button
+                type="button"
+                onClick={() => setBoardPriorityFilter(prev => prev === "High" ? "all" : "High")}
+                className={`px-2 py-0.5 rounded-md font-medium shrink-0 transition-colors cursor-pointer flex items-center gap-1 ${
+                  boardPriorityFilter === "High"
+                    ? 'bg-amber-600 text-white shadow-xs font-semibold'
+                    : isDarkMode
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                ⚡ High Priority
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewFilter("my_tasks")}
+                className={`px-2 py-0.5 rounded-md font-medium shrink-0 transition-colors cursor-pointer flex items-center gap-1 ${
+                  viewFilter === "my_tasks"
+                    ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                    : isDarkMode
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                👤 My Tasks
+              </button>
+              {(boardPriorityFilter !== "all" || boardStatusFilter !== "all" || viewFilter !== "my_tasks") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBoardPriorityFilter("all");
+                    setBoardStatusFilter("all");
+                    setViewFilter("my_tasks");
+                  }}
+                  className="px-1.5 py-0.5 rounded-md font-medium shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer underline text-[10px]"
+                >
+                  Reset
+                </button>
+              )}
             </div>
 
             {/* Messages Area */}

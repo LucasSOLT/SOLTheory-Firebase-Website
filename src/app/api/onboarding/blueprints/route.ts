@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing orgId' }, { status: 400 });
     }
 
-    const systemBlueprints = SYSTEM_TEMPLATES.filter(t => t.orgId === orgId || t.orgId === 'nxtchapter');
+    const systemBlueprints = SYSTEM_TEMPLATES.filter(t => t.orgId === orgId || t.orgId === 'global' || t.orgId === 'nxtchapter' || t.orgId === 'soltheory');
 
     initAdmin();
     const db = getFirestore();

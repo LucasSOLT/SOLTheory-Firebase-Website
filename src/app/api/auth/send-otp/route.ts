@@ -84,13 +84,22 @@ export async function POST(req: NextRequest) {
       } catch (sgError: any) {
         console.warn("[send-otp] SendGrid dispatch error, falling back to local verification:", sgError?.message || sgError);
         console.log(`[2FA] OTP for ${email}: ${otp}`);
+        return NextResponse.json({
+          success: true,
+          message: "OTP generated (local fallback).",
+          devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+        });
       }
     } else {
       // Development fallback — log OTP to console
       console.log(`[2FA] OTP for ${email}: ${otp}`);
     }
 
-    return NextResponse.json({ success: true, message: "OTP sent to your email address." });
+    return NextResponse.json({
+      success: true,
+      message: "OTP sent to your email address.",
+      devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+    });
   } catch (error: any) {
     console.error("[send-otp] Error:", error);
     return NextResponse.json({ error: "Failed to send OTP." }, { status: 500 });
