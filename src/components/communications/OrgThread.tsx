@@ -1,19 +1,60 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useFirestore, useUser, useStorage } from "@/firebase";
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove, updateDoc, doc, deleteDoc, getDocs, setDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  orderBy,
+  arrayUnion,
+  arrayRemove,
+  updateDoc,
+  doc,
+  deleteDoc,
+  getDocs,
+  setDoc,
+} from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Hash, Plus, Send, MessagesSquare, Trash2, UserPlus, Info, Shield, X, ChevronDown, Pencil, Check, Paperclip, Wrench, CornerDownRight } from "lucide-react";
+import {
+  Hash,
+  Plus,
+  Send,
+  MessagesSquare,
+  Trash2,
+  UserPlus,
+  Info,
+  Shield,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  Check,
+  Paperclip,
+  Wrench,
+  CornerDownRight,
+  Search,
+  Smile,
+  Reply,
+  Mic,
+  Pin,
+  FileText,
+  Download,
+  Copy,
+} from "lucide-react";
+import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { playMessageSendSound } from "@/lib/send-sound";
-import { logActivity } from '@/lib/activity-logger';
+import { logActivity } from "@/lib/activity-logger";
 import { useTranslation } from "@/lib/i18n";
 import { isDeveloper } from "@/lib/org-config";
+import { VoiceNotePlayer } from "./VoiceNotePlayer";
+import { VoiceNoteRecorder } from "./VoiceNoteRecorder";
+import { QuickReactionPicker, ReactionBadges } from "./ReactionBar";
 
 interface Channel {
   id: string;
@@ -25,6 +66,16 @@ interface Channel {
   roles?: Record<string, "admin" | "executive" | "member">;
   parentId?: string;
   createdAt: any;
+  pinnedMessageId?: string | null;
+  pinnedMessageText?: string | null;
+  pinnedMessageSender?: string | null;
+  typing?: Record<string, number>;
+}
+
+export interface ThreadReplyTo {
+  id: string;
+  text: string;
+  senderEmail: string;
 }
 
 interface ThreadMessage {
@@ -33,10 +84,59 @@ interface ThreadMessage {
   senderEmail: string;
   createdAt: any;
   imageUrl?: string;
+  voiceNoteUrl?: string;
+  voiceDuration?: number;
   hiddenFor?: string[];
+  replyTo?: ThreadReplyTo;
+  reactions?: Record<string, string[]>;
 }
 
 type Role = "admin" | "executive" | "member";
+
+function getMessageDateGroup(val: any): string {
+  if (!val) return "";
+  try {
+    const d = val?.toDate ? val.toDate() : val instanceof Date ? val : new Date(val);
+    if (isNaN(d.getTime())) return "";
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (d.toDateString() === today.toDateString()) return "Today";
+    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return format(d, "EEEE, MMMM d, yyyy");
+  } catch {
+    return "";
+  }
+}
+
+function isImageAttachment(url?: string, text?: string): boolean {
+  if (!url) return false;
+  if (url.startsWith("data:image/")) return true;
+  if (/\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url)) return true;
+  if (text && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(text.trim())) return true;
+  if (url.startsWith("data:")) return false;
+  if (/\.(pdf|docx?|xlsx?|pptx?|zip|csv|txt)($|\?)/i.test(url)) return false;
+  return true;
+}
+
+function highlightMatch(text: string, query?: string) {
+  if (!query || !query.trim()) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-amber-300 text-slate-900 rounded-xs px-0.5 font-bold">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
 
 const ChatToolsMenu = ({
   onInsertList,
@@ -50,7 +150,7 @@ const ChatToolsMenu = ({
   isDarkMode: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState<'menu' | 'listForm' | 'pollForm'>('menu');
+  const [view, setView] = useState<"menu" | "listForm" | "pollForm">("menu");
   const [rows, setRows] = useState(5);
   const [isCheckbox, setIsCheckbox] = useState(false);
   const [pollQuestion, setPollQuestion] = useState("");
@@ -63,11 +163,11 @@ const ChatToolsMenu = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsOpen(false);
-        setView('menu');
+        setView("menu");
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   return (
@@ -76,12 +176,12 @@ const ChatToolsMenu = ({
         type="button"
         onClick={() => {
           setIsOpen(!isOpen);
-          if (!isOpen) setView('menu');
+          if (!isOpen) setView("menu");
         }}
-        className={`w-8 h-8 rounded-full transition-colors flex items-center justify-center cursor-pointer ${
+        className={`w-9 h-9 rounded-full transition-colors flex items-center justify-center cursor-pointer ${
           isDarkMode
-            ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-            : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
+            ? "bg-slate-700 hover:bg-slate-600 text-slate-200"
+            : "bg-slate-200 hover:bg-slate-300 text-slate-600"
         }`}
         title={t.otTools || "Tools"}
       >
@@ -92,24 +192,24 @@ const ChatToolsMenu = ({
         <div
           className={`absolute bottom-12 left-0 w-64 rounded-xl shadow-xl p-2 z-50 border ${
             isDarkMode
-              ? 'bg-slate-800 border-slate-700 text-slate-100'
-              : 'bg-white border-slate-200 text-slate-800'
+              ? "bg-slate-800 border-slate-700 text-slate-100"
+              : "bg-white border-slate-200 text-slate-800"
           }`}
         >
-          {view === 'menu' ? (
+          {view === "menu" ? (
             <div className="flex flex-col gap-1">
               <button
-                onClick={() => setView('listForm')}
-                className={`text-left px-3 py-2 text-[15px] font-medium rounded-md transition-colors ${
-                  isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'
+                onClick={() => setView("listForm")}
+                className={`text-left px-3 py-2 text-[14px] font-medium rounded-md transition-colors cursor-pointer ${
+                  isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
                 }`}
               >
-                {t.otCreateList}
+                {t.otCreateList || "Create List"}
               </button>
               <button
-                onClick={() => setView('pollForm')}
-                className={`text-left px-3 py-2 text-[15px] font-medium rounded-md transition-colors ${
-                  isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'
+                onClick={() => setView("pollForm")}
+                className={`text-left px-3 py-2 text-[14px] font-medium rounded-md transition-colors cursor-pointer ${
+                  isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
                 }`}
               >
                 {t.otCreatePoll || "Create Poll"}
@@ -120,36 +220,42 @@ const ChatToolsMenu = ({
                     onCreateThread();
                     setIsOpen(false);
                   }}
-                  className={`text-left px-3 py-2 text-[15px] font-medium rounded-md transition-colors ${
-                    isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'
+                  className={`text-left px-3 py-2 text-[14px] font-medium rounded-md transition-colors cursor-pointer ${
+                    isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   {t.otCreateSubthread || "Create Thread"}
                 </button>
               )}
             </div>
-          ) : view === 'listForm' ? (
+          ) : view === "listForm" ? (
             <div className="p-2 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-700'}`}>
-                  {t.otNewList}
+                <span className={`text-sm font-bold ${isDarkMode ? "text-slate-100" : "text-slate-700"}`}>
+                  {t.otNewList || "New List"}
                 </span>
-                <button onClick={() => setView('menu')} className="hover:opacity-75">
-                  <X className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                <button onClick={() => setView("menu")} className="hover:opacity-75 cursor-pointer">
+                  <X className={`w-4 h-4 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`} />
                 </button>
               </div>
               <div>
-                <label className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {t.otRowsMax50}
+                <label
+                  className={`text-[11px] font-bold uppercase tracking-wider ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  {t.otRowsMax50 || "Rows (Max 50)"}
                 </label>
                 <input
                   type="number"
                   min="1"
                   max="50"
                   value={rows}
-                  onChange={e => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className={`w-full mt-1 border rounded-md p-1.5 text-[15px] outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    isDarkMode ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-800'
+                  onChange={(e) => setRows(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className={`w-full mt-1 border rounded-md p-1.5 text-[14px] outline-none focus:ring-1 focus:ring-indigo-500 ${
+                    isDarkMode
+                      ? "border-slate-600 bg-slate-700 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-800"
                   }`}
                 />
               </div>
@@ -157,11 +263,11 @@ const ChatToolsMenu = ({
                 <input
                   type="checkbox"
                   checked={isCheckbox}
-                  onChange={e => setIsCheckbox(e.target.checked)}
+                  onChange={(e) => setIsCheckbox(e.target.checked)}
                   className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer"
                 />
-                <span className={`text-[13px] font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                  {t.otAddCheckboxes}
+                <span className={`text-[13px] font-medium ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
+                  {t.otAddCheckboxes || "Add Checkboxes"}
                 </span>
               </label>
               <Button
@@ -170,47 +276,59 @@ const ChatToolsMenu = ({
                 onClick={() => {
                   onInsertList(rows, isCheckbox);
                   setIsOpen(false);
-                  setView('menu');
+                  setView("menu");
                 }}
               >
-                {t.otSendList}
+                {t.otSendList || "Send List"}
               </Button>
             </div>
           ) : (
             <div className="p-2 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-700'}`}>
+                <span className={`text-sm font-bold ${isDarkMode ? "text-slate-100" : "text-slate-700"}`}>
                   {t.otCreatePoll || "Create Poll"}
                 </span>
-                <button onClick={() => setView('menu')} className="hover:opacity-75">
-                  <X className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                <button onClick={() => setView("menu")} className="hover:opacity-75 cursor-pointer">
+                  <X className={`w-4 h-4 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`} />
                 </button>
               </div>
               <div>
-                <label className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                <label
+                  className={`text-[11px] font-bold uppercase tracking-wider ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
                   Poll Question
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. Preferred meeting time?"
                   value={pollQuestion}
-                  onChange={e => setPollQuestion(e.target.value)}
+                  onChange={(e) => setPollQuestion(e.target.value)}
                   className={`w-full mt-1 border rounded-md p-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    isDarkMode ? 'border-slate-600 bg-slate-700 text-white placeholder-slate-400' : 'border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400'
+                    isDarkMode
+                      ? "border-slate-600 bg-slate-700 text-white placeholder-slate-400"
+                      : "border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400"
                   }`}
                 />
               </div>
               <div>
-                <label className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                <label
+                  className={`text-[11px] font-bold uppercase tracking-wider ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
                   Options (one per line)
                 </label>
                 <textarea
                   rows={3}
                   value={pollOptions}
-                  onChange={e => setPollOptions(e.target.value)}
-                  placeholder="Option 1&#10;Option 2"
+                  onChange={(e) => setPollOptions(e.target.value)}
+                  placeholder={"Option 1\nOption 2"}
                   className={`w-full mt-1 border rounded-md p-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 resize-none ${
-                    isDarkMode ? 'border-slate-600 bg-slate-700 text-white placeholder-slate-400' : 'border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400'
+                    isDarkMode
+                      ? "border-slate-600 bg-slate-700 text-white placeholder-slate-400"
+                      : "border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400"
                   }`}
                 />
               </div>
@@ -218,13 +336,16 @@ const ChatToolsMenu = ({
                 size="sm"
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium h-9"
                 onClick={() => {
-                  const opts = pollOptions.split('\n').map(o => o.trim()).filter(Boolean);
+                  const opts = pollOptions
+                    .split("\n")
+                    .map((o) => o.trim())
+                    .filter(Boolean);
                   if (onInsertPoll) {
-                    onInsertPoll(pollQuestion.trim(), opts.length > 0 ? opts : ['Yes', 'No']);
+                    onInsertPoll(pollQuestion.trim(), opts.length > 0 ? opts : ["Yes", "No"]);
                   }
                   setIsOpen(false);
-                  setView('menu');
-                  setPollQuestion('');
+                  setView("menu");
+                  setPollQuestion("");
                 }}
               >
                 Send Poll
@@ -237,38 +358,59 @@ const ChatToolsMenu = ({
   );
 };
 
-const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: boolean, onUpdate: (text: string) => void }) => {
-  const [localLines, setLocalLines] = useState<string[]>(text.split('\n'));
+const InteractiveMessageBody = ({
+  text,
+  isMe,
+  onUpdate,
+  searchQuery,
+}: {
+  text: string;
+  isMe: boolean;
+  onUpdate: (text: string) => void;
+  searchQuery?: string;
+}) => {
+  const [localLines, setLocalLines] = useState<string[]>(text.split("\n"));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(text);
   const { t: translate } = useTranslation();
 
   useEffect(() => {
     if (text !== lastSavedRef.current) {
-      setLocalLines(text.split('\n'));
+      setLocalLines(text.split("\n"));
       lastSavedRef.current = text;
     }
   }, [text]);
 
-  const saveToFirestore = useCallback((newLines: string[]) => {
-    const joined = newLines.join('\n');
-    lastSavedRef.current = joined;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => { onUpdate(joined); }, 500);
-  }, [onUpdate]);
+  const saveToFirestore = useCallback(
+    (newLines: string[]) => {
+      const joined = newLines.join("\n");
+      lastSavedRef.current = joined;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        onUpdate(joined);
+      }, 500);
+    },
+    [onUpdate]
+  );
 
-  const isListMessage = localLines.some(l => /^- \[[ x]\]/.test(l.trimStart()) || l.trimStart().startsWith('- •'));
+  const isListMessage = localLines.some(
+    (l) => /^- \[[ x]\]/.test(l.trimStart()) || l.trimStart().startsWith("- •")
+  );
   if (!isListMessage) {
-    return <p className="text-slate-700 text-[15px] leading-relaxed mt-0.5 whitespace-pre-wrap">{text}</p>;
+    return (
+      <p className="text-slate-800 dark:text-slate-200 text-[14.5px] leading-relaxed mt-0.5 whitespace-pre-wrap break-words">
+        {highlightMatch(text, searchQuery)}
+      </p>
+    );
   }
 
   const handleCheckToggle = (idx: number) => {
     const newLines = [...localLines];
     const ln = newLines[idx];
-    if (/^\s*- \[ \]/.test(ln)) newLines[idx] = ln.replace('- [ ]', '- [x]');
-    else if (/^\s*- \[x\]/.test(ln)) newLines[idx] = ln.replace('- [x]', '- [ ]');
+    if (/^\s*- \[ \]/.test(ln)) newLines[idx] = ln.replace("- [ ]", "- [x]");
+    else if (/^\s*- \[x\]/.test(ln)) newLines[idx] = ln.replace("- [x]", "- [ ]");
     setLocalLines(newLines);
-    const joined = newLines.join('\n');
+    const joined = newLines.join("\n");
     lastSavedRef.current = joined;
     onUpdate(joined);
   };
@@ -276,7 +418,7 @@ const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: 
   const handleTextChange = (idx: number, val: string) => {
     const newLines = [...localLines];
     const m = newLines[idx].trimStart().match(/^(- \[[ x]\]\s?|- •\s?)/);
-    const pfx = m ? (m[1].endsWith(' ') ? m[1] : m[1] + ' ') : '- • ';
+    const pfx = m ? (m[1].endsWith(" ") ? m[1] : m[1] + " ") : "- • ";
     newLines[idx] = pfx + val;
     setLocalLines(newLines);
     saveToFirestore(newLines);
@@ -288,40 +430,65 @@ const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: 
   };
 
   return (
-    <div className="space-y-1 mt-0.5 text-[15px] leading-relaxed flex flex-col">
+    <div className="space-y-1 mt-0.5 text-[14.5px] leading-relaxed flex flex-col">
       {localLines.map((line, i) => {
         const tVal = line.trimStart();
         const isUnchecked = /^- \[ \]/.test(tVal);
         const isChecked = /^- \[x\]/.test(tVal);
-        const isBullet = tVal.startsWith('- •');
-        if (!(isUnchecked || isChecked || isBullet)) return <span key={i} className="block text-slate-700">{line}</span>;
+        const isBullet = tVal.startsWith("- •");
+        if (!(isUnchecked || isChecked || isBullet))
+          return (
+            <span key={i} className="block text-slate-800 dark:text-slate-200">
+              {highlightMatch(line, searchQuery)}
+            </span>
+          );
         const content = getContent(line);
         return (
           <div key={i} className="flex items-start gap-2 group">
             {isBullet ? (
-              <span className="w-4 h-4 mt-0.5 flex items-center justify-center text-slate-500 opacity-60 text-lg leading-none shrink-0">•</span>
+              <span className="w-4 h-4 mt-0.5 flex items-center justify-center text-slate-500 opacity-60 text-lg leading-none shrink-0">
+                •
+              </span>
             ) : (
-              <input type="checkbox" checked={isChecked} onChange={() => handleCheckToggle(i)} onClick={e => e.stopPropagation()} className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer bg-white shrink-0" />
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => handleCheckToggle(i)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer bg-white shrink-0"
+              />
             )}
             {isMe ? (
               <textarea
                 value={content}
-                onChange={e => handleTextChange(i, e.target.value)}
+                onChange={(e) => handleTextChange(i, e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.preventDefault();
+                  if (e.key === "Enter") e.preventDefault();
                 }}
                 ref={(el) => {
                   if (el) {
-                    el.style.height = 'auto';
+                    el.style.height = "auto";
                     el.style.height = `${el.scrollHeight}px`;
                   }
                 }}
                 rows={1}
-                className={`flex-1 bg-transparent border-none outline-none focus:ring-0 p-0 m-0 text-[15px] resize-none overflow-hidden leading-snug ${isChecked ? 'line-through opacity-60' : 'text-slate-800 placeholder-slate-400'}`}
-                placeholder={translate.otTypeTask}
+                className={`flex-1 bg-transparent border-none outline-none focus:ring-0 p-0 m-0 text-[14.5px] resize-none overflow-hidden leading-snug ${
+                  isChecked
+                    ? "line-through opacity-60"
+                    : "text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                }`}
+                placeholder={translate.otTypeTask || "Type a task..."}
               />
             ) : (
-              <span className={`flex-1 text-[15px] leading-snug ${isChecked ? 'line-through opacity-60' : 'text-slate-800'}`}>{content || <span className="opacity-40 italic">{translate.otEmpty}</span>}</span>
+              <span
+                className={`flex-1 text-[14.5px] leading-snug ${
+                  isChecked ? "line-through opacity-60" : "text-slate-800 dark:text-slate-200"
+                }`}
+              >
+                {highlightMatch(content, searchQuery) || (
+                  <span className="opacity-40 italic">{translate.otEmpty || "Empty"}</span>
+                )}
+              </span>
             )}
           </div>
         );
@@ -331,9 +498,9 @@ const InteractiveMessageBody = ({ text, isMe, onUpdate }: { text: string, isMe: 
 };
 
 const ROLE_COLORS: Record<Role, string> = {
-  admin: "text-red-600 bg-red-50 border-red-200",
-  executive: "text-amber-600 bg-amber-50 border-amber-200",
-  member: "text-slate-500 bg-slate-50 border-slate-200",
+  admin: "text-red-600 bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300",
+  executive: "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300",
+  member: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400",
 };
 
 export function OrgThread() {
@@ -343,11 +510,21 @@ export function OrgThread() {
   const { t } = useTranslation();
 
   const [isDarkMode, setIsDarkMode] = useState(false);
-  useEffect(() => { const check = () => setIsDarkMode(localStorage.getItem('insight_theme') === 'dark'); check(); const interval = setInterval(check, 500); window.addEventListener('storage', check); return () => { clearInterval(interval); window.removeEventListener('storage', check); }; }, []);
+  useEffect(() => {
+    const check = () => setIsDarkMode(localStorage.getItem("insight_theme") === "dark");
+    check();
+    const interval = setInterval(check, 500);
+    window.addEventListener("storage", check);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", check);
+    };
+  }, []);
 
   const [internalChannels, setInternalChannels] = useState<Channel[]>([]);
   const [guestChannels, setGuestChannels] = useState<Channel[]>([]);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [activeChannelDoc, setActiveChannelDoc] = useState<Channel | null>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("st_active_channel");
@@ -358,6 +535,7 @@ export function OrgThread() {
     if (activeChannelId) sessionStorage.setItem("st_active_channel", activeChannelId);
     else sessionStorage.removeItem("st_active_channel");
   }, [activeChannelId]);
+
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [newChannelName, setNewChannelName] = useState("");
@@ -374,11 +552,32 @@ export function OrgThread() {
   // Role popup state
   const [rolePopupEmail, setRolePopupEmail] = useState<string | null>(null);
 
-  const [lightboxImage, setLightboxImage] = useState<{url: string, name: string} | null>(null);
-  const [contextMenu, setContextMenu] = useState<{x: number, y: number, msgId: string, isMe: boolean} | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    msgId: string;
+    isMe: boolean;
+    message?: ThreadMessage;
+  } | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<{ file: File; preview: string }[]>([]);
 
+  // WhatsApp upgrades state
+  const [replyingTo, setReplyingTo] = useState<ThreadReplyTo | null>(null);
+  const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+
+  // Scroll to bottom state
+  const feedRef = useRef<HTMLDivElement>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [newMessagesWhileScrolled, setNewMessagesWhileScrolled] = useState(0);
+  const prevMsgCountRef = useRef(0);
+
   const bottomRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const userDomain = user?.email?.split("@")[1] || "";
   const getUserRole = (channel: Channel, email: string): Role => {
@@ -388,14 +587,12 @@ export function OrgThread() {
     return "member";
   };
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
   // Persist current user's email to their Firestore doc so domain queries can find them
   useEffect(() => {
     if (!firestore || !user?.uid || !user?.email) return;
-    setDoc(doc(firestore, "users", user.uid), { id: user.uid, email: user.email }, { merge: true }).catch(console.error);
+    setDoc(doc(firestore, "users", user.uid), { id: user.uid, email: user.email }, { merge: true }).catch(
+      console.error
+    );
   }, [firestore, user?.uid, user?.email]);
 
   // Fetch channels for the current user's domain
@@ -435,6 +632,20 @@ export function OrgThread() {
     return () => unsub();
   }, [firestore, user?.email, userDomain]);
 
+  // Real-time channel doc subscription (for instant typing indicators and pinned messages)
+  useEffect(() => {
+    if (!firestore || !activeChannelId) {
+      setActiveChannelDoc(null);
+      return;
+    }
+    const unsub = onSnapshot(doc(firestore, "org_channels", activeChannelId), (snap) => {
+      if (snap.exists()) {
+        setActiveChannelDoc({ id: snap.id, ...snap.data() } as Channel);
+      }
+    });
+    return () => unsub();
+  }, [firestore, activeChannelId]);
+
   // Fetch messages for active channel
   useEffect(() => {
     if (!firestore || !activeChannelId) return;
@@ -449,11 +660,58 @@ export function OrgThread() {
     return () => unsub();
   }, [firestore, activeChannelId]);
 
+  // Smart scroll effect on message changes
+  useEffect(() => {
+    if (messages.length > prevMsgCountRef.current) {
+      if (showScrollBottom) {
+        setNewMessagesWhileScrolled((prev) => prev + (messages.length - prevMsgCountRef.current));
+      } else {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages, showScrollBottom]);
+
+  const handleFeedScroll = () => {
+    if (!feedRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = feedRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 220;
+    setShowScrollBottom(!isNearBottom);
+    if (isNearBottom) {
+      setNewMessagesWhileScrolled(0);
+    }
+  };
+
+  // Search match computation
+  const matchingMessageIds = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return messages.filter((m) => m.text?.toLowerCase().includes(q)).map((m) => m.id);
+  }, [messages, searchQuery]);
+
+  const handleNextMatch = () => {
+    if (matchingMessageIds.length === 0) return;
+    const nextIdx = (searchMatchIndex + 1) % matchingMessageIds.length;
+    setSearchMatchIndex(nextIdx);
+    const targetId = matchingMessageIds[nextIdx];
+    const el = document.getElementById(`msg-${targetId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handlePrevMatch = () => {
+    if (matchingMessageIds.length === 0) return;
+    const prevIdx = (searchMatchIndex - 1 + matchingMessageIds.length) % matchingMessageIds.length;
+    setSearchMatchIndex(prevIdx);
+    const targetId = matchingMessageIds[prevIdx];
+    const el = document.getElementById(`msg-${targetId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   // Fetch users for Channel Info Panel
   useEffect(() => {
     const fetchOrgUsers = async () => {
       if (!firestore || !activeChannelId || !showChannelInfo) return;
-      const actChannel = [...internalChannels, ...guestChannels].find((c) => c.id === activeChannelId);
+      const actChannel = activeChannelDoc || [...internalChannels, ...guestChannels].find((c) => c.id === activeChannelId);
       if (!actChannel) return;
       try {
         const membersSet = new Set<string>();
@@ -491,7 +749,7 @@ export function OrgThread() {
       }
     };
     fetchOrgUsers();
-  }, [firestore, activeChannelId, showChannelInfo, internalChannels, guestChannels, messages, user?.email]);
+  }, [firestore, activeChannelId, showChannelInfo, internalChannels, guestChannels, messages, user?.email, activeChannelDoc]);
 
   const handleCreateChannel = async () => {
     if (!firestore || !userDomain || !newChannelName.trim()) return;
@@ -522,7 +780,7 @@ export function OrgThread() {
       const channelRef = doc(firestore, "org_channels", activeChannelId);
       await updateDoc(channelRef, {
         invitedUsers: arrayUnion(email),
-        bannedUsers: arrayRemove(email), // Clear from kicked list if they were removed before
+        bannedUsers: arrayRemove(email),
       });
       setInviteEmail("");
     } catch (e) {
@@ -535,12 +793,11 @@ export function OrgThread() {
     if (!firestore || !activeChannelId || !activeChannel) return;
     try {
       const channelRef = doc(firestore, "org_channels", activeChannelId);
-      // We must spread activeChannel.roles instead of dot notation because targetEmail contains dots (.)
       await updateDoc(channelRef, {
         roles: {
           ...(activeChannel.roles || {}),
-          [targetEmail]: role
-        }
+          [targetEmail]: role,
+        },
       });
       setRolePopupEmail(null);
     } catch (e) {
@@ -608,24 +865,32 @@ export function OrgThread() {
 
   const handleSendMessage = async (customImageUrl?: string, customFileName?: string) => {
     if (!firestore || !user?.email || !activeChannelId) return;
-    const textToSend = customImageUrl ? `Uploaded image: ${customFileName}` : inputText.trim();
+    const textToSend = customImageUrl ? (customFileName || "Attachment") : inputText.trim();
     if (!textToSend && !customImageUrl && pendingAttachments.length === 0) return;
+
     setInputText("");
     playMessageSendSound();
 
-    // Send any pending paste attachments (image-only sends with no text)
+    const currentReply = replyingTo;
+    setReplyingTo(null);
+
+    // Clear typing indicator on send
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    const cleanUserEmail = user.email.replace(/[.@]/g, "_");
+    updateDoc(doc(firestore, "org_channels", activeChannelId), {
+      [`typing.${cleanUserEmail}`]: 0,
+    }).catch(() => {});
+
+    // Send any pending paste attachments
     if (!customImageUrl && pendingAttachments.length > 0) {
       const toProcess = [...pendingAttachments];
       setPendingAttachments([]);
       for (const att of toProcess) {
         if (att.preview) URL.revokeObjectURL(att.preview);
-        if (att.file.type.startsWith('image/')) {
-          processImageFile(att.file);
-        }
+        await processUploadedFile(att.file);
       }
     }
 
-    // Send text message (or the customImageUrl message)
     if (textToSend || customImageUrl) {
       try {
         const payload: any = {
@@ -634,13 +899,23 @@ export function OrgThread() {
           createdAt: serverTimestamp(),
         };
         if (customImageUrl) payload.imageUrl = customImageUrl;
+        if (currentReply) payload.replyTo = currentReply;
+
         await addDoc(collection(firestore, `org_channels/${activeChannelId}/messages`), payload);
-        logActivity(firestore, 'item_created', { email: user?.email || '', displayName: user?.displayName }, 'Sent org thread message', { messagePreview: textToSend.substring(0, 200) });
+        logActivity(
+          firestore,
+          "item_created",
+          { email: user?.email || "", displayName: user?.displayName },
+          "Sent org thread message",
+          { messagePreview: textToSend.substring(0, 200) }
+        );
+
         // Update channel metadata for notification bell
         await updateDoc(doc(firestore, "org_channels", activeChannelId), {
           lastMessageBy: user.email,
           lastMessageAt: serverTimestamp(),
         }).catch(() => {});
+
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       } catch (e) {
         console.error(e);
@@ -649,10 +924,102 @@ export function OrgThread() {
     }
   };
 
+  const handleSendVoiceNote = async (audioBlob: Blob, durationSeconds: number) => {
+    if (!storage || !user?.email || !activeChannelId || !firestore) return;
+    setIsRecordingVoice(false);
+    playMessageSendSound();
+
+    const currentReply = replyingTo;
+    setReplyingTo(null);
+
+    try {
+      const filePath = `org_voice_notes/${user.uid || "anon"}/${activeChannelId}/${Date.now()}.webm`;
+      const storageRef = ref(storage, filePath);
+      await uploadBytes(storageRef, audioBlob, { contentType: audioBlob.type || "audio/webm" });
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      const payload: any = {
+        text: "🎤 Voice note",
+        voiceNoteUrl: downloadUrl,
+        voiceDuration: durationSeconds,
+        senderEmail: user.email,
+        createdAt: serverTimestamp(),
+      };
+      if (currentReply) payload.replyTo = currentReply;
+
+      await addDoc(collection(firestore, `org_channels/${activeChannelId}/messages`), payload);
+      await updateDoc(doc(firestore, "org_channels", activeChannelId), {
+        lastMessageBy: user.email,
+        lastMessageAt: serverTimestamp(),
+      }).catch(() => {});
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch (err) {
+      console.error("Failed to send voice note:", err);
+    }
+  };
+
+  const handleToggleReaction = async (msgId: string, emoji: string) => {
+    if (!firestore || !activeChannelId || !user?.email) return;
+    const targetMsg = messages.find((m) => m.id === msgId);
+    const currentReactions = targetMsg?.reactions || {};
+    const usersWhoReacted = currentReactions[emoji] || [];
+    const hasReacted = usersWhoReacted.includes(user.email);
+
+    try {
+      await updateDoc(doc(firestore, `org_channels/${activeChannelId}/messages`, msgId), {
+        [`reactions.${emoji}`]: hasReacted ? arrayRemove(user.email) : arrayUnion(user.email),
+      });
+    } catch (err) {
+      console.error("Failed to update reaction:", err);
+    }
+    setActiveReactionMsgId(null);
+  };
+
+  const handleTogglePinMessage = async (msgId: string, msgText: string, msgSender: string) => {
+    if (!firestore || !activeChannelId) return;
+    const isAlreadyPinned = activeChannel?.pinnedMessageId === msgId;
+    try {
+      await updateDoc(doc(firestore, "org_channels", activeChannelId), {
+        pinnedMessageId: isAlreadyPinned ? null : msgId,
+        pinnedMessageText: isAlreadyPinned ? null : (msgText || "Attachment"),
+        pinnedMessageSender: isAlreadyPinned ? null : msgSender,
+      });
+    } catch (e) {
+      console.error("Failed to toggle pin:", e);
+    }
+    setContextMenu(null);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputText(e.target.value);
+    if (!firestore || !activeChannelId || !user?.email) return;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    const cleanEmail = user.email.replace(/[.@]/g, "_");
+    updateDoc(doc(firestore, "org_channels", activeChannelId), {
+      [`typing.${cleanEmail}`]: Date.now(),
+    }).catch(() => {});
+
+    typingTimeoutRef.current = setTimeout(() => {
+      updateDoc(doc(firestore, "org_channels", activeChannelId), {
+        [`typing.${cleanEmail}`]: 0,
+      }).catch(() => {});
+    }, 3500);
+  };
+
   const handleCreateSubthread = async (msg: ThreadMessage) => {
     if (!firestore || !userDomain || !activeChannelId) return;
-    const baseText = msg.text ? msg.text.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 3).join('-').toLowerCase() : "thread";
-    const threadName = `${baseText || 'thread'}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const baseText = msg.text
+      ? msg.text
+          .replace(/[^a-zA-Z0-9\s]/g, "")
+          .trim()
+          .split(/\s+/)
+          .slice(0, 3)
+          .join("-")
+          .toLowerCase()
+      : "thread";
+    const threadName = `${baseText || "thread"}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     try {
       const docRef = await addDoc(collection(firestore, "org_channels"), {
@@ -696,38 +1063,49 @@ export function OrgThread() {
     }
   };
 
-  const processImageFile = async (file: File) => {
-    if (!storage || !user?.email || !activeChannelId) return;
-    try {
-      // Upload to Firebase Storage instead of base64 (avoids Firestore 1MB doc limit)
-      const path = `org_attachments/${user.uid || "anon"}/${activeChannelId}/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
-      handleSendMessage(downloadUrl, file.name || "uploaded-image.jpg");
-    } catch (err) {
-      console.warn("Storage upload failed, falling back to compressed canvas:", err);
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            let width = img.width;
-            let height = img.height;
-            const MAX = 800; // max size to keep base64 under reasonable limits for firestore
-            if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
-            else if (height > MAX) { width *= MAX / height; height = MAX; }
-            canvas.width = width; canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            ctx?.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-            handleSendMessage(dataUrl, file.name || "pasted-image.jpg");
-          };
-          img.src = event.target?.result as string;
-        };
-        reader.readAsDataURL(file);
+  const processUploadedFile = async (file: File) => {
+    if (!user?.email || !activeChannelId) return;
+    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9._-]/g, "_") : `file_${Date.now()}`;
+
+    if (storage) {
+      try {
+        const path = `org_attachments/${user.uid || "anon"}/${activeChannelId}/${Date.now()}_${safeName}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, file, { contentType: file.type || "application/octet-stream" });
+        const downloadUrl = await getDownloadURL(storageRef);
+        await handleSendMessage(downloadUrl, file.name);
+        return;
+      } catch (err) {
+        console.warn("Storage upload failed, attempting fallback:", err);
       }
+    }
+
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const MAX = 800;
+          if (width > height && width > MAX) {
+            height *= MAX / width;
+            width = MAX;
+          } else if (height > MAX) {
+            width *= MAX / height;
+            height = MAX;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          handleSendMessage(dataUrl, file.name || "image.jpg");
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -743,8 +1121,12 @@ export function OrgThread() {
   const handleDeleteForMe = async (msgId: string) => {
     if (!firestore || !activeChannelId || !user?.email) return;
     try {
-      await updateDoc(doc(firestore, `org_channels/${activeChannelId}/messages`, msgId), { hiddenFor: arrayUnion(user.email) });
-    } catch (e) { console.error(e); }
+      await updateDoc(doc(firestore, `org_channels/${activeChannelId}/messages`, msgId), {
+        hiddenFor: arrayUnion(user.email),
+      });
+    } catch (e) {
+      console.error(e);
+    }
     setContextMenu(null);
   };
 
@@ -752,13 +1134,15 @@ export function OrgThread() {
     if (!firestore || !activeChannelId) return;
     try {
       await deleteDoc(doc(firestore, `org_channels/${activeChannelId}/messages`, msgId));
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
     setContextMenu(null);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) processImageFile(file);
+    if (file) processUploadedFile(file);
     e.target.value = "";
   };
 
@@ -767,23 +1151,23 @@ export function OrgThread() {
     if (!items) return;
     const files: File[] = [];
     for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file') {
+      if (items[i].kind === "file") {
         const file = items[i].getAsFile();
         if (file) files.push(file);
       }
     }
     if (files.length > 0) {
       e.preventDefault();
-      const previews = files.map(f => ({
+      const previews = files.map((f) => ({
         file: f,
-        preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : '',
+        preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : "",
       }));
-      setPendingAttachments(prev => [...prev, ...previews]);
+      setPendingAttachments((prev) => [...prev, ...previews]);
     }
   };
 
   const removePendingAttachment = (idx: number) => {
-    setPendingAttachments(prev => {
+    setPendingAttachments((prev) => {
       const removed = prev[idx];
       if (removed?.preview) URL.revokeObjectURL(removed.preview);
       return prev.filter((_, i) => i !== idx);
@@ -791,7 +1175,7 @@ export function OrgThread() {
   };
 
   const channels = [...internalChannels, ...guestChannels];
-  const activeChannel = channels.find((c) => c.id === activeChannelId);
+  const activeChannel = activeChannelDoc || channels.find((c) => c.id === activeChannelId);
 
   const guestChannelsByDomain = guestChannels.reduce((acc, channel) => {
     if (!acc[channel.domain]) acc[channel.domain] = [];
@@ -803,32 +1187,48 @@ export function OrgThread() {
   const isActiveUserExecutive = activeChannel ? getUserRole(activeChannel, user?.email || "") === "executive" : false;
   const canInvite = isActiveUserAdmin || isActiveUserExecutive;
 
-  // ---- Role popup component ----
+  // Typing indicator active typers calculation
+  const activeTypers = useMemo(() => {
+    if (!activeChannel?.typing || !user?.email) return [];
+    const cleanUserEmail = user.email.replace(/[.@]/g, "_");
+    const now = Date.now();
+    return Object.entries(activeChannel.typing)
+      .filter(([k, timestamp]) => k !== cleanUserEmail && typeof timestamp === "number" && now - timestamp < 4000)
+      .map(([k]) => k.split("_")[0]);
+  }, [activeChannel?.typing, user?.email]);
+
+  // Role popup component
   const RolePopup = ({ email, channel }: { email: string; channel: Channel }) => {
     const currentRole = getUserRole(channel, email);
     const roles: Role[] = ["member", "executive", "admin"];
     return (
-      <div className={`absolute right-0 top-full mt-1 w-48 border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+      <div
+        className={`absolute right-0 top-full mt-1 w-48 border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${
+          isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
+        }`}
+      >
         <div className="px-3 py-2 border-b border-slate-100">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.otSetRole}</p>
-          <p className="text-xs font-bold text-slate-700 truncate">{email.split("@")[0]}</p>
+          <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{email.split("@")[0]}</p>
         </div>
         {roles.map((r) => (
           <button
             key={r}
             onClick={() => handleSetRole(email, r)}
-            className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold capitalize transition-colors ${
-              currentRole === r ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-50 text-slate-600"
+            className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold capitalize transition-colors cursor-pointer ${
+              currentRole === r
+                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
+                : "hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
             }`}
           >
             <span>{r}</span>
             {currentRole === r && <Check className="w-3.5 h-3.5" />}
           </button>
         ))}
-        <div className="border-t border-slate-100">
+        <div className="border-t border-slate-100 dark:border-slate-700">
           <button
             onClick={() => handleRemove(email)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3 h-3" /> {t.otRemoveFromChannel}
           </button>
@@ -837,10 +1237,9 @@ export function OrgThread() {
     );
   };
 
-  // ---- Sidebar channel item ----
-  const ChannelItem = ({ channel, isSubthread }: { channel: Channel, isSubthread?: boolean }) => {
+  // Sidebar channel item
+  const ChannelItem = ({ channel, isSubthread }: { channel: Channel; isSubthread?: boolean }) => {
     const isActive = channel.id === activeChannelId;
-    const isChAdmin = getUserRole(channel, user?.email || "") === "admin";
     return (
       <div
         onClick={() => {
@@ -848,35 +1247,45 @@ export function OrgThread() {
           setRolePopupEmail(null);
         }}
         className={`flex items-center justify-between gap-1 py-1 px-2 rounded-md cursor-pointer transition-colors group ${
-          isActive ? (isDarkMode ? "bg-slate-600 text-white" : "bg-indigo-100 text-indigo-900") : (isDarkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200/50 text-slate-600")
+          isActive
+            ? isDarkMode
+              ? "bg-slate-700 text-white font-bold"
+              : "bg-indigo-100 text-indigo-900 font-bold"
+            : isDarkMode
+            ? "hover:bg-slate-700/60 text-slate-400"
+            : "hover:bg-slate-200/50 text-slate-600"
         } ${isSubthread ? "ml-4 my-0.5" : "my-0.5 py-1.5"}`}
       >
         <div className="flex items-center gap-2 overflow-hidden flex-1">
           {isSubthread ? (
-             <CornerDownRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+            <CornerDownRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-indigo-500" : "text-slate-400"}`} />
           ) : (
-             <Hash className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+            <Hash className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-500" : "text-slate-400"}`} />
           )}
-          <span className={`font-medium truncate ${isActive ? "font-bold" : ""} ${isSubthread ? "text-[11.5px]" : "text-[13px]"}`}>{channel.name}</span>
+          <span className={`truncate ${isSubthread ? "text-[12px]" : "text-[13px]"}`}>{channel.name}</span>
         </div>
         <Trash2
-          className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all shrink-0 z-10"
+          className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all shrink-0 z-10 cursor-pointer"
           onClick={(e) => handleDeleteChannel(e, channel.id)}
         />
       </div>
     );
   };
 
-  // ---- Member row in info panel ----
+  // Member row in info panel
   const MemberRow = ({ email, channel, label }: { email: string; channel: Channel; label?: string }) => {
     const role = getUserRole(channel, email);
     const isPopupOpen = rolePopupEmail === email;
     const isSelf = email === user?.email;
 
     return (
-      <div className={`flex items-center justify-between py-2 px-2.5 rounded-lg shadow-sm hover:border-indigo-200 transition-all relative ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+      <div
+        className={`flex items-center justify-between py-2 px-2.5 rounded-lg shadow-xs hover:border-indigo-200 transition-all relative ${
+          isDarkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"
+        }`}
+      >
         <div className="flex flex-col min-w-0 pr-2 overflow-hidden flex-1">
-          <span className="text-[13px] font-bold text-slate-800 truncate">{email.split("@")[0]}</span>
+          <span className="text-[13px] font-bold text-slate-800 dark:text-slate-200 truncate">{email.split("@")[0]}</span>
           {label && <span className="text-[10px] font-semibold text-slate-400">{label}</span>}
         </div>
         <div className="flex items-center gap-1">
@@ -886,12 +1295,14 @@ export function OrgThread() {
                 e.stopPropagation();
                 setRolePopupEmail(isPopupOpen ? null : email);
               }}
-              className={`flex items-center gap-1 h-6 px-2 rounded border text-[10px] font-bold uppercase tracking-wider transition-colors ${ROLE_COLORS[role]}`}
+              className={`flex items-center gap-1 h-6 px-2 rounded border text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${ROLE_COLORS[role]}`}
             >
               {role} <ChevronDown className="w-3 h-3" />
             </button>
           ) : (
-            <span className={`flex items-center h-6 px-2 rounded border text-[10px] font-bold uppercase tracking-wider ${ROLE_COLORS[role]}`}>
+            <span
+              className={`flex items-center h-6 px-2 rounded border text-[10px] font-bold uppercase tracking-wider ${ROLE_COLORS[role]}`}
+            >
               {role}
             </span>
           )}
@@ -902,72 +1313,103 @@ export function OrgThread() {
   };
 
   return (
-    <div className={`flex h-full w-full rounded-[2rem] overflow-hidden shadow-sm relative ${isDarkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+    <div
+      className={`flex h-full w-full rounded-[2rem] overflow-hidden shadow-sm relative ${
+        isDarkMode ? "bg-slate-900 border border-slate-700" : "bg-white border border-slate-200"
+      }`}
+    >
       {/* Left Pane: Server Sidebar */}
-      <div className={`w-64 flex flex-col border-r shrink-0 relative z-20 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-[#f8f9fa]'}`}>
-        <div className={`h-16 px-4 border-b flex items-center shadow-sm shrink-0 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+      <div
+        className={`w-64 flex flex-col border-r shrink-0 relative z-20 ${
+          isDarkMode ? "border-slate-700 bg-slate-800" : "border-slate-100 bg-[#f8f9fa]"
+        }`}
+      >
+        <div
+          className={`h-16 px-4 border-b flex items-center shadow-xs shrink-0 ${
+            isDarkMode ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-white"
+          }`}
+        >
           <div className="flex flex-col min-w-0">
-            <h2 className={`text-[13px] font-black truncate uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{userDomain || t.otOrganization}</h2>
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{t.otInternalServer}</span>
+            <h2 className={`text-[13px] font-black truncate uppercase tracking-widest ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+              {userDomain || t.otOrganization}
+            </h2>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              {t.otInternalServer || "Internal Server"}
+            </span>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
           <div className="flex items-center justify-between px-2 pt-2 pb-1">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otChannels}</span>
-            <Plus className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-800 transition-colors" onClick={() => setIsCreatingChannel(!isCreatingChannel)} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otChannels || "Channels"}</span>
+            <Plus
+              className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors"
+              onClick={() => setIsCreatingChannel(!isCreatingChannel)}
+            />
           </div>
 
           {isCreatingChannel && (
             <div className="px-2 py-2 mb-2 flex flex-col gap-2">
               <Input
                 autoFocus
-                placeholder={t.otNewChannelPlaceholder}
+                placeholder={t.otNewChannelPlaceholder || "channel-name"}
                 value={newChannelName}
                 onChange={(e) => setNewChannelName(e.target.value)}
-                className="h-8 text-xs rounded-md focus-visible:ring-indigo-200 bg-white shadow-sm font-medium border-slate-200"
+                className="h-8 text-xs rounded-md focus-visible:ring-indigo-200 bg-white dark:bg-slate-700 shadow-sm font-medium border-slate-200 dark:border-slate-600"
                 onKeyDown={(e) => e.key === "Enter" && handleCreateChannel()}
               />
               <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setIsCreatingChannel(false)} className="h-7 text-xs flex-1">
-                  {t.otCancel}
+                  {t.otCancel || "Cancel"}
                 </Button>
-                <Button size="sm" onClick={handleCreateChannel} className="h-7 text-xs flex-1 bg-slate-800 hover:bg-slate-900 text-white shadow-none">
-                  {t.otCreate}
+                <Button
+                  size="sm"
+                  onClick={handleCreateChannel}
+                  className="h-7 text-xs flex-1 bg-indigo-600 hover:bg-indigo-700 text-white shadow-none"
+                >
+                  {t.otCreate || "Create"}
                 </Button>
               </div>
             </div>
           )}
 
-          {internalChannels.filter(c => !c.parentId).map((channel) => (
-            <React.Fragment key={channel.id}>
-              <ChannelItem channel={channel} />
-              {internalChannels.filter(s => s.parentId === channel.id).map(sub => (
-                <ChannelItem key={sub.id} channel={sub} isSubthread={true} />
-              ))}
-            </React.Fragment>
-          ))}
+          {internalChannels
+            .filter((c) => !c.parentId)
+            .map((channel) => (
+              <React.Fragment key={channel.id}>
+                <ChannelItem channel={channel} />
+                {internalChannels
+                  .filter((s) => s.parentId === channel.id)
+                  .map((sub) => (
+                    <ChannelItem key={sub.id} channel={sub} isSubthread={true} />
+                  ))}
+              </React.Fragment>
+            ))}
 
           {Object.keys(guestChannelsByDomain).length > 0 && (
             <div className="mt-6">
               <div className="flex items-center justify-between px-2 pt-2 pb-1">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otGuestAccess}</span>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otGuestAccess || "Guest Access"}</span>
               </div>
               {Object.entries(guestChannelsByDomain).map(([domain, domainChannels]) => (
                 <div key={domain} className="mb-3">
                   <div className="px-2 py-1 flex items-center gap-2">
-                    <div className="h-px bg-slate-200 flex-1"></div>
+                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{domain}</div>
-                    <div className="h-px bg-slate-200 flex-1"></div>
+                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
                   </div>
-                  {domainChannels.filter(c => !c.parentId).map((channel) => (
-                    <React.Fragment key={channel.id}>
-                      <ChannelItem channel={channel} />
-                      {domainChannels.filter(s => s.parentId === channel.id).map(sub => (
-                        <ChannelItem key={sub.id} channel={sub} isSubthread={true} />
-                      ))}
-                    </React.Fragment>
-                  ))}
+                  {domainChannels
+                    .filter((c) => !c.parentId)
+                    .map((channel) => (
+                      <React.Fragment key={channel.id}>
+                        <ChannelItem channel={channel} />
+                        {domainChannels
+                          .filter((s) => s.parentId === channel.id)
+                          .map((sub) => (
+                            <ChannelItem key={sub.id} channel={sub} isSubthread={true} />
+                          ))}
+                      </React.Fragment>
+                    ))}
                 </div>
               ))}
             </div>
@@ -976,20 +1418,98 @@ export function OrgThread() {
       </div>
 
       {/* Center Pane: Channel Feed */}
-      <div className={`flex-1 flex flex-col relative min-w-0 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
+      <div className={`flex-1 flex flex-col relative min-w-0 ${isDarkMode ? "bg-slate-900" : "bg-white"}`}>
         {activeChannelId && activeChannel ? (
           <>
             {/* Header */}
-            <div className={`h-16 border-b px-6 flex items-center justify-between shrink-0 shadow-sm z-10 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
-              <div className={`flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                <Hash className="w-5 h-5 text-slate-400" />
-                <h3 className="text-[15px] font-bold">{activeChannel.name}</h3>
+            <div
+              className={`h-16 border-b px-6 flex items-center justify-between shrink-0 shadow-xs z-10 ${
+                isDarkMode ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-white"
+              }`}
+            >
+              <div className={`flex items-center gap-2 min-w-0 ${isDarkMode ? "text-white" : "text-slate-800"}`}>
+                <Hash className="w-5 h-5 text-slate-400 shrink-0" />
+                <h3 className="text-[15px] font-bold truncate">{activeChannel.name}</h3>
                 {activeChannel.domain !== userDomain && (
-                  <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-bold uppercase border border-slate-200">{t.otGuest}</span>
+                  <span className="ml-2 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-md text-[10px] font-bold uppercase border border-slate-200 dark:border-slate-600">
+                    {t.otGuest || "Guest"}
+                  </span>
                 )}
               </div>
+
+              {/* In-chat search bar or toggle actions */}
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline-block">{t.otChannelInfo}</span>
+                {isSearchOpen ? (
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm ${
+                      isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
+                    }`}
+                  >
+                    <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Search channel..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setSearchMatchIndex(0);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleNextMatch();
+                        if (e.key === "Escape") {
+                          setIsSearchOpen(false);
+                          setSearchQuery("");
+                        }
+                      }}
+                      className="w-32 sm:w-44 text-xs bg-transparent border-none outline-none focus:ring-0 text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                    />
+                    {matchingMessageIds.length > 0 && (
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400 font-semibold border-l border-slate-200 dark:border-slate-700 pl-2">
+                        <span>
+                          {searchMatchIndex + 1}/{matchingMessageIds.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handlePrevMatch}
+                          className="hover:text-indigo-500 cursor-pointer p-0.5"
+                          title="Previous match"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNextMatch}
+                          className="hover:text-indigo-500 cursor-pointer p-0.5"
+                          title="Next match"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSearchOpen(false);
+                        setSearchQuery("");
+                      }}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 ml-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsSearchOpen(true)}
+                    className="h-8 w-8 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-700"
+                    title="Search messages"
+                  >
+                    <Search className="w-4 h-4" />
+                  </Button>
+                )}
+
                 <Button
                   variant="ghost"
                   size="icon"
@@ -997,104 +1517,468 @@ export function OrgThread() {
                     setShowChannelInfo(!showChannelInfo);
                     setRolePopupEmail(null);
                   }}
-                  className={`h-8 w-8 transition-colors ${showChannelInfo ? "bg-indigo-50 text-indigo-600" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"}`}
+                  className={`h-8 w-8 transition-colors ${
+                    showChannelInfo
+                      ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300"
+                      : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-700"
+                  }`}
+                  title={t.otChannelInfo || "Channel Info"}
                 >
-                  <Info className="w-5 h-5" />
+                  <Info className="w-4 h-4" />
                 </Button>
               </div>
             </div>
 
+            {/* Pinned Message Sticky Banner */}
+            {activeChannel.pinnedMessageId && activeChannel.pinnedMessageText && (
+              <div
+                className={`px-6 py-2 border-b flex items-center justify-between text-xs backdrop-blur-md transition-colors z-10 ${
+                  isDarkMode
+                    ? "bg-indigo-950/40 border-slate-700/80 text-slate-200"
+                    : "bg-indigo-50/70 border-indigo-100 text-slate-700"
+                }`}
+              >
+                <div
+                  className="flex items-center gap-2 cursor-pointer truncate flex-1 mr-3"
+                  onClick={() => {
+                    const el = document.getElementById(`msg-${activeChannel.pinnedMessageId}`);
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    el?.classList.add("ring-2", "ring-indigo-400");
+                    setTimeout(() => el?.classList.remove("ring-2", "ring-indigo-400"), 2000);
+                  }}
+                >
+                  <Pin className="w-3.5 h-3.5 text-indigo-500 shrink-0 rotate-45" />
+                  <span className="font-semibold shrink-0 text-indigo-600 dark:text-indigo-400">Pinned:</span>
+                  <span className="truncate opacity-90">{activeChannel.pinnedMessageText}</span>
+                </div>
+                {canInvite && (
+                  <button
+                    onClick={() => handleTogglePinMessage(activeChannel.pinnedMessageId!, "", "")}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-[11px] font-semibold cursor-pointer shrink-0"
+                  >
+                    Unpin
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex-1 flex overflow-hidden" onClick={() => setContextMenu(null)}>
               {/* Main Chat Stream */}
-              <div className="flex-1 overflow-y-auto p-0 flex flex-col relative min-w-0">
-                <div className="mt-auto px-6 pt-10 pb-4 space-y-6">
+              <div
+                ref={feedRef}
+                onScroll={handleFeedScroll}
+                className="flex-1 overflow-y-auto p-0 flex flex-col relative min-w-0"
+              >
+                <div className="mt-auto px-6 pt-10 pb-4 space-y-4">
                   <div className="pb-4">
-                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
                       <Hash className="w-8 h-8 text-slate-400" />
                     </div>
-                    <h1 className={`text-3xl font-black mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.otWelcomeTo}{activeChannel.name}!</h1>
+                    <h1 className={`text-3xl font-black mb-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                      {t.otWelcomeTo || "Welcome to #"}
+                      {activeChannel.name}!
+                    </h1>
                     <p className="text-slate-500 text-sm font-medium">
-                      {t.otStartOfChannel}{activeChannel.name} {t.otChannelFor} {activeChannel.domain}{t.otOrganizationPeriod}
+                      {t.otStartOfChannel || "This is the start of #"}
+                      {activeChannel.name}{" "}
+                      {t.otChannelFor || "channel for"}{" "}
+                      {activeChannel.domain}
+                      {t.otOrganizationPeriod || " organization."}
                     </p>
                   </div>
-                  <div className="h-px bg-slate-100 w-full mb-6"></div>
-                  {messages.filter(m => !(m.hiddenFor || []).includes(user?.email || '')).map((msg, idx) => {
-                    const isMe = msg.senderEmail === user?.email;
-                    return (
-                    <div key={msg.id || idx} className={`group rounded-lg transition-colors flex gap-4 pr-4 py-2 ${isDarkMode ? (isMe ? 'bg-slate-800/50 hover:bg-slate-800' : 'hover:bg-slate-800/50') : (isMe ? 'bg-[#F8FAFF] hover:bg-[#F4F7FF]' : 'hover:bg-[#F4F7FF]')}`}
-                      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: 0, y: 0, msgId: msg.id, isMe }); }}
-                    >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isDarkMode ? 'bg-indigo-900/40' : 'bg-indigo-50'}`}>
-                        <span className={`font-bold text-sm ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{msg.senderEmail.charAt(0).toUpperCase()}</span>
-                      </div>
-                      <div className="flex flex-col min-w-0 flex-1 relative">
-                        {contextMenu?.msgId === msg.id && (
-                            <div className={`absolute top-6 left-0 z-[9999] rounded-xl shadow-lg py-1 w-48 overflow-hidden pointer-events-auto ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
-                               <button onClick={(e) => { e.stopPropagation(); handleCreateSubthread(msg); }} className={`w-full text-left px-4 py-2.5 text-sm font-medium ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>{t.otCreateSubthread}</button>
-                               <button onClick={(e) => { e.stopPropagation(); handleDeleteForMe(contextMenu.msgId); }} className={`w-full text-left px-4 py-2.5 text-sm font-medium ${isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>{t.otDeleteForMe}</button>
-                               {contextMenu.isMe && <button onClick={(e) => { e.stopPropagation(); handleDeleteForEveryone(contextMenu.msgId); }} className={`w-full text-left px-4 py-2.5 text-sm text-red-600 font-medium ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>{t.otDeleteForEveryone}</button>}
+                  <div className="h-px bg-slate-100 dark:bg-slate-800 w-full mb-4"></div>
+
+                  {(() => {
+                    let lastDateGroup = "";
+                    return messages
+                      .filter((m) => !(m.hiddenFor || []).includes(user?.email || ""))
+                      .map((msg, idx) => {
+                        const isMe = msg.senderEmail === user?.email;
+                        const dateGroup = getMessageDateGroup(msg.createdAt);
+                        const showDivider = dateGroup && dateGroup !== lastDateGroup;
+                        if (dateGroup) lastDateGroup = dateGroup;
+
+                        const isSearchMatch =
+                          searchQuery.trim().length > 0 &&
+                          msg.text?.toLowerCase().includes(searchQuery.toLowerCase());
+                        const isCurrentMatch =
+                          matchingMessageIds[searchMatchIndex] === msg.id && searchQuery.trim().length > 0;
+                        const isPinned = activeChannel?.pinnedMessageId === msg.id;
+
+                        const isImg = isImageAttachment(msg.imageUrl, msg.text);
+                        const attachmentName = msg.text?.replace(/^Uploaded image:\s*/i, "") || "Attachment";
+
+                        return (
+                          <React.Fragment key={msg.id || idx}>
+                            {showDivider && (
+                              <div className="flex items-center justify-center my-4 sticky top-2 z-10 pointer-events-none">
+                                <span
+                                  className={`text-[11px] font-bold px-3 py-1 rounded-full shadow-xs border pointer-events-auto ${
+                                    isDarkMode
+                                      ? "bg-slate-800/95 text-slate-300 border-slate-700/80 backdrop-blur-md"
+                                      : "bg-white/95 text-slate-600 border-slate-200/80 backdrop-blur-md"
+                                  }`}
+                                >
+                                  {dateGroup}
+                                </span>
+                              </div>
+                            )}
+
+                            <div
+                              id={`msg-${msg.id}`}
+                              className={`group rounded-xl transition-all flex gap-3.5 pr-4 py-2 relative ${
+                                isPinned ? "border-l-4 border-indigo-500 pl-2 bg-indigo-50/20 dark:bg-indigo-950/20" : ""
+                              } ${
+                                isCurrentMatch
+                                  ? "ring-2 ring-amber-400 bg-amber-50/30 dark:bg-amber-950/20"
+                                  : isSearchMatch
+                                  ? "bg-amber-50/15"
+                                  : isDarkMode
+                                  ? isMe
+                                    ? "bg-slate-800/40 hover:bg-slate-800"
+                                    : "hover:bg-slate-800/40"
+                                  : isMe
+                                  ? "bg-[#F8FAFF] hover:bg-[#F4F7FF]"
+                                  : "hover:bg-[#F4F7FF]"
+                              }`}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                setContextMenu({
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                  msgId: msg.id,
+                                  isMe,
+                                  message: msg,
+                                });
+                              }}
+                            >
+                              <div
+                                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                                  isDarkMode ? "bg-indigo-900/50" : "bg-indigo-50"
+                                }`}
+                              >
+                                <span
+                                  className={`font-bold text-xs ${
+                                    isDarkMode ? "text-indigo-400" : "text-indigo-600"
+                                  }`}
+                                >
+                                  {msg.senderEmail.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-col min-w-0 flex-1 relative">
+                                {/* Hover quick action pill */}
+                                <div
+                                  className={`absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 z-20 ${
+                                    isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
+                                  } rounded-full border px-1.5 py-0.5 shadow-sm`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    onClick={() =>
+                                      setActiveReactionMsgId(activeReactionMsgId === msg.id ? null : msg.id)
+                                    }
+                                    className="p-1 hover:text-amber-500 transition-colors cursor-pointer text-slate-400"
+                                    title="React"
+                                  >
+                                    <Smile className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setReplyingTo({
+                                        id: msg.id,
+                                        text: msg.text,
+                                        senderEmail: msg.senderEmail,
+                                      })
+                                    }
+                                    className="p-1 hover:text-indigo-500 transition-colors cursor-pointer text-slate-400"
+                                    title="Reply"
+                                  >
+                                    <Reply className="w-3.5 h-3.5" />
+                                  </button>
+                                  {canInvite && (
+                                    <button
+                                      onClick={() =>
+                                        handleTogglePinMessage(msg.id, msg.text, msg.senderEmail)
+                                      }
+                                      className="p-1 hover:text-indigo-500 transition-colors cursor-pointer text-slate-400"
+                                      title={
+                                        activeChannel?.pinnedMessageId === msg.id ? "Unpin message" : "Pin message"
+                                      }
+                                    >
+                                      <Pin className="w-3.5 h-3.5 rotate-45" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Reaction Picker floating popover */}
+                                {activeReactionMsgId === msg.id && (
+                                  <div
+                                    className="absolute -top-10 right-0 z-30"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <QuickReactionPicker
+                                      onReact={(emoji: string) => handleToggleReaction(msg.id, emoji)}
+                                      onClose={() => setActiveReactionMsgId(null)}
+                                      isDarkMode={isDarkMode}
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="flex items-baseline gap-2">
+                                  <span
+                                    className={`font-bold text-[14px] truncate max-w-[200px] capitalize ${
+                                      isDarkMode ? "text-white" : "text-slate-900"
+                                    }`}
+                                  >
+                                    {msg.senderEmail.split("@")[0]}
+                                  </span>
+                                  <span className="text-[11px] font-medium text-slate-400">
+                                    {msg.createdAt
+                                      ? new Date(msg.createdAt.toMillis?.() || Date.now()).toLocaleTimeString(
+                                          [],
+                                          { hour: "2-digit", minute: "2-digit" }
+                                        )
+                                      : "Just now"}
+                                  </span>
+                                </div>
+
+                                {/* Quoted Reply Preview */}
+                                {msg.replyTo && (
+                                  <div
+                                    onClick={() => {
+                                      const el = document.getElementById(`msg-${msg.replyTo?.id}`);
+                                      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                      el?.classList.add("ring-2", "ring-indigo-400");
+                                      setTimeout(() => el?.classList.remove("ring-2", "ring-indigo-400"), 2000);
+                                    }}
+                                    className={`my-1.5 p-2 rounded-lg border-l-4 border-indigo-500 cursor-pointer text-xs transition-opacity hover:opacity-90 ${
+                                      isDarkMode
+                                        ? "bg-slate-800/80 text-slate-300"
+                                        : "bg-slate-100 text-slate-700"
+                                    }`}
+                                  >
+                                    <div className="font-bold text-indigo-600 dark:text-indigo-400 mb-0.5 truncate">
+                                      {msg.replyTo.senderEmail.split("@")[0]}
+                                    </div>
+                                    <div className="truncate opacity-80">{msg.replyTo.text}</div>
+                                  </div>
+                                )}
+
+                                {/* Voice Note Player */}
+                                {msg.voiceNoteUrl && (
+                                  <div className="my-1.5 min-w-[240px] max-w-[340px]">
+                                    <VoiceNotePlayer
+                                      audioUrl={msg.voiceNoteUrl}
+                                      duration={msg.voiceDuration || 0}
+                                      isMe={isMe}
+                                      isDarkMode={isDarkMode}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Image or Document Attachment */}
+                                {msg.imageUrl && (
+                                  <>
+                                    {isImg ? (
+                                      <div className="flex flex-col mt-2">
+                                        <span className="text-xs font-semibold text-slate-500 mb-1 truncate max-w-[240px]">
+                                          {attachmentName}
+                                        </span>
+                                        <img
+                                          src={msg.imageUrl}
+                                          alt="Uploaded Preview"
+                                          className="max-w-[420px] max-h-[380px] object-cover rounded-xl shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                                          onClick={() =>
+                                            setLightboxImage({
+                                              url: msg.imageUrl!,
+                                              name: attachmentName,
+                                            })
+                                          }
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div
+                                        className={`p-3 rounded-xl border flex items-center gap-3 my-1.5 transition-colors max-w-[380px] ${
+                                          isMe
+                                            ? isDarkMode
+                                              ? "bg-indigo-950/40 border-indigo-700/50"
+                                              : "bg-indigo-50/70 border-indigo-200/70"
+                                            : isDarkMode
+                                            ? "bg-slate-800 border-slate-700"
+                                            : "bg-white border-slate-200"
+                                        }`}
+                                      >
+                                        <div
+                                          className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                                            isDarkMode
+                                              ? "bg-indigo-900/50 text-indigo-300"
+                                              : "bg-indigo-100 text-indigo-600"
+                                          }`}
+                                        >
+                                          <FileText className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0 pr-2">
+                                          <div
+                                            className={`text-xs font-bold truncate ${
+                                              isDarkMode ? "text-slate-100" : "text-slate-900"
+                                            }`}
+                                          >
+                                            {attachmentName}
+                                          </div>
+                                          <div className="text-[10px] text-slate-400 font-medium">Document</div>
+                                        </div>
+                                        <a
+                                          href={msg.imageUrl}
+                                          download={attachmentName}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`p-2 rounded-lg transition-colors cursor-pointer shrink-0 ${
+                                            isDarkMode
+                                              ? "hover:bg-slate-700 text-slate-300"
+                                              : "hover:bg-slate-200 text-slate-600"
+                                          }`}
+                                          title="Download attachment"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </a>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+
+                                {/* Interactive / Normal Text Body */}
+                                {!msg.voiceNoteUrl && !msg.imageUrl && (
+                                  <InteractiveMessageBody
+                                    text={msg.text}
+                                    isMe={isMe}
+                                    onUpdate={(t) => handleToggleCheckbox(msg.id, t)}
+                                    searchQuery={searchQuery}
+                                  />
+                                )}
+
+                                {/* Reaction Badges Underneath Message */}
+                                {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                  <div className="mt-1.5">
+                                    <ReactionBadges
+                                      reactions={msg.reactions}
+                                      currentEmail={user?.email || ""}
+                                      onToggle={(emoji: string) => handleToggleReaction(msg.id, emoji)}
+                                      isDarkMode={isDarkMode}
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                        )}
-                        <div className="flex items-baseline gap-2">
-                          <span className={`font-bold text-[15px] truncate max-w-[200px] capitalize ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{msg.senderEmail.split("@")[0]}</span>
-                          <span className="text-xs font-medium text-slate-400">
-                            {msg.createdAt ? new Date(msg.createdAt.toMillis?.() || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now"}
-                          </span>
-                        </div>
-                        {msg.imageUrl ? (
-                          <div className="flex flex-col mt-2">
-                            <span className="text-xs font-semibold text-slate-500 mb-1 truncate max-w-[200px]">{msg.text.replace('Uploaded image: ', '')}</span>
-                            <img 
-                              src={msg.imageUrl} 
-                              alt="Uploaded Preview" 
-                              className="max-w-[480px] max-h-[480px] object-cover rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity" 
-                              onClick={() => setLightboxImage({ url: msg.imageUrl!, name: msg.text.replace('Uploaded image: ', '') })}
-                            />
-                          </div>
-                        ) : (
-                          <InteractiveMessageBody text={msg.text} isMe={isMe} onUpdate={(t) => handleToggleCheckbox(msg.id, t)} />
-                        )}
-                      </div>
+                          </React.Fragment>
+                        );
+                      });
+                  })()}
+
+                  {/* Active Typers Indicator */}
+                  {activeTypers.length > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-slate-400 italic px-2 py-1 animate-pulse">
+                      <span>
+                        {activeTypers.join(", ")} {activeTypers.length === 1 ? "is" : "are"} typing
+                      </span>
+                      <span className="flex gap-0.5">
+                        <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                        <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                        <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce"></span>
+                      </span>
                     </div>
-                    );
-                  })}
+                  )}
+
                   <div ref={bottomRef} className="h-4" />
                 </div>
+
+                {/* Floating Jump to Bottom Button */}
+                {showScrollBottom && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                      setShowScrollBottom(false);
+                      setNewMessagesWhileScrolled(0);
+                    }}
+                    className="sticky bottom-4 ml-auto mr-4 z-30 p-2.5 rounded-full shadow-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition-all animate-in fade-in zoom-in duration-150 cursor-pointer hover:scale-105 active:scale-95"
+                    title="Jump to latest"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                    {newMessagesWhileScrolled > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full shadow-sm">
+                        {newMessagesWhileScrolled}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Right Pane: Channel Info */}
               {showChannelInfo && (
-                <div className={`w-80 border-l flex flex-col shrink-0 animate-in slide-in-from-right-4 duration-300 relative z-20 overflow-y-auto ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                  <div className={`p-4 border-b flex justify-between items-center sticky top-0 z-10 ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
-                    <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.otChannelInfo}</h3>
-                    <Button variant="ghost" size="icon" onClick={() => setShowChannelInfo(false)} className="h-6 w-6 text-slate-400">
+                <div
+                  className={`w-80 border-l flex flex-col shrink-0 animate-in slide-in-from-right-4 duration-300 relative z-20 overflow-y-auto ${
+                    isDarkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200"
+                  }`}
+                >
+                  <div
+                    className={`p-4 border-b flex justify-between items-center sticky top-0 z-10 ${
+                      isDarkMode ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>
+                      {t.otChannelInfo || "Channel Info"}
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowChannelInfo(false)}
+                      className="h-6 w-6 text-slate-400"
+                    >
                       <X className="w-3.5 h-3.5" />
                     </Button>
                   </div>
 
                   <div className="p-4 flex flex-col gap-5">
                     {/* Channel Name (editable) */}
-                    <div className={`p-3 rounded-xl shadow-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.otChannelName}</p>
+                    <div
+                      className={`p-3 rounded-xl shadow-xs ${
+                        isDarkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"
+                      }`}
+                    >
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        {t.otChannelName || "Channel Name"}
+                      </p>
                       {isRenaming ? (
                         <div className="flex gap-2">
                           <Input
                             autoFocus
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            className="h-8 text-sm flex-1 bg-slate-50 font-bold"
+                            className="h-8 text-sm flex-1 bg-slate-50 dark:bg-slate-700 font-bold"
                             onKeyDown={(e) => e.key === "Enter" && handleRenameChannel()}
                           />
-                          <Button size="icon" onClick={handleRenameChannel} className="h-8 w-8 bg-indigo-600 hover:bg-indigo-700 shadow-none">
+                          <Button
+                            size="icon"
+                            onClick={handleRenameChannel}
+                            className="h-8 w-8 bg-indigo-600 hover:bg-indigo-700 shadow-none"
+                          >
                             <Check className="w-4 h-4 text-white" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => setIsRenaming(false)} className="h-8 w-8 text-slate-400">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setIsRenaming(false)}
+                            className="h-8 w-8 text-slate-400"
+                          >
                             <X className="w-4 h-4" />
                           </Button>
                         </div>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <span className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>#{activeChannel.name}</span>
+                          <span className={`text-sm font-black ${isDarkMode ? "text-white" : "text-slate-800"}`}>
+                            #{activeChannel.name}
+                          </span>
                           {isActiveUserAdmin && (
                             <Button
                               variant="ghost"
@@ -1113,33 +1997,51 @@ export function OrgThread() {
                     </div>
 
                     {/* Member count */}
-                    <div className={`p-3 rounded-xl shadow-sm flex items-center gap-3 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
-                      <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
+                    <div
+                      className={`p-3 rounded-xl shadow-xs flex items-center gap-3 ${
+                        isDarkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center">
                         <Shield className="w-5 h-5 text-indigo-500" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.otTotalMembers}</p>
-                        <p className="text-sm font-black text-slate-700">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {t.otTotalMembers || "Total Members"}
+                        </p>
+                        <p className="text-sm font-black text-slate-700 dark:text-slate-200">
                           {orgUsersArray.filter((u) => !activeChannel.bannedUsers?.includes(u.email)).length +
-                            (activeChannel.invitedUsers?.filter((e) => !activeChannel.bannedUsers?.includes(e)).length || 0)}
+                            (activeChannel.invitedUsers?.filter(
+                              (e) => !activeChannel.bannedUsers?.includes(e)
+                            ).length || 0)}
                         </p>
                       </div>
                     </div>
 
                     {/* Add People */}
                     {canInvite && (
-                      <div className={`p-3.5 rounded-xl shadow-sm flex flex-col gap-3 ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t.otAddPeople}</p>
+                      <div
+                        className={`p-3.5 rounded-xl shadow-xs flex flex-col gap-3 ${
+                          isDarkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"
+                        }`}
+                      >
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          {t.otAddPeople || "Add People"}
+                        </p>
                         <div className="flex gap-2">
                           <Input
                             value={inviteEmail}
                             onChange={(e) => setInviteEmail(e.target.value)}
-                            placeholder={t.otEmailAddressPlaceholder}
-                            className="h-8 text-xs flex-1 bg-slate-50 shadow-inner"
+                            placeholder={t.otEmailAddressPlaceholder || "colleague@organization.com"}
+                            className="h-8 text-xs flex-1 bg-slate-50 dark:bg-slate-700 shadow-inner"
                             onKeyDown={(e) => e.key === "Enter" && handleInviteUser()}
                           />
-                          <Button size="sm" onClick={handleInviteUser} className="h-8 px-4 bg-indigo-600 hover:bg-indigo-700 text-xs shadow-none">
-                            {t.otAdd}
+                          <Button
+                            size="sm"
+                            onClick={handleInviteUser}
+                            className="h-8 px-4 bg-indigo-600 hover:bg-indigo-700 text-xs shadow-none"
+                          >
+                            {t.otAdd || "Add"}
                           </Button>
                         </div>
                       </div>
@@ -1147,7 +2049,9 @@ export function OrgThread() {
 
                     {/* Internal Org Members */}
                     <div>
-                      <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">{t.otOrganization} ({activeChannel.domain})</h4>
+                      <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
+                        {t.otOrganization || "Organization"} ({activeChannel.domain})
+                      </h4>
                       <div className="space-y-2">
                         {orgUsersArray
                           .filter((u) => !activeChannel.bannedUsers?.includes(u.email))
@@ -1158,62 +2062,115 @@ export function OrgThread() {
                     </div>
 
                     {/* External Guests */}
-                    {activeChannel.invitedUsers && activeChannel.invitedUsers.filter((e) => !activeChannel.bannedUsers?.includes(e)).length > 0 && (
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">{t.otExternalGuests}</h4>
-                        <div className="space-y-2">
-                          {activeChannel.invitedUsers
-                            .filter((e) => !activeChannel.bannedUsers?.includes(e))
-                            .map((guestEmail) => (
-                              <MemberRow key={guestEmail} email={guestEmail} channel={activeChannel} label={t.otGuest} />
-                            ))}
+                    {activeChannel.invitedUsers &&
+                      activeChannel.invitedUsers.filter((e) => !activeChannel.bannedUsers?.includes(e)).length >
+                        0 && (
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
+                            {t.otExternalGuests || "External Guests"}
+                          </h4>
+                          <div className="space-y-2">
+                            {activeChannel.invitedUsers
+                              .filter((e) => !activeChannel.bannedUsers?.includes(e))
+                              .map((guestEmail) => (
+                                <MemberRow
+                                  key={guestEmail}
+                                  email={guestEmail}
+                                  channel={activeChannel}
+                                  label={t.otGuest || "Guest"}
+                                />
+                              ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Removed Users */}
-                    {isActiveUserAdmin && activeChannel.bannedUsers && activeChannel.bannedUsers.length > 0 && (
-                      <div className="mt-2">
-                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.otRemoved}</h4>
-                        <div className="space-y-2">
-                          {activeChannel.bannedUsers.map((removed) => (
-                            <div key={removed} className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white border border-dashed border-slate-200">
-                              <span className="text-[12px] font-bold text-slate-400 truncate">{removed.split("@")[0]}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleReAdd(removed)}
-                                className="h-5 px-2 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50"
+                    {isActiveUserAdmin &&
+                      activeChannel.bannedUsers &&
+                      activeChannel.bannedUsers.length > 0 && (
+                        <div className="mt-2">
+                          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                            {t.otRemoved || "Removed"}
+                          </h4>
+                          <div className="space-y-2">
+                            {activeChannel.bannedUsers.map((removed) => (
+                              <div
+                                key={removed}
+                                className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white dark:bg-slate-800 border border-dashed border-slate-200 dark:border-slate-700"
                               >
-                                {t.otReAdd}
-                              </Button>
-                            </div>
-                          ))}
+                                <span className="text-[12px] font-bold text-slate-400 truncate">
+                                  {removed.split("@")[0]}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleReAdd(removed)}
+                                  className="h-5 px-2 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-700"
+                                >
+                                  {t.otReAdd || "Re-add"}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Message Input */}
-            <div className={`px-6 pb-6 pt-2 shrink-0 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
-              <div className={`flex flex-col rounded-xl border border-transparent focus-within:border-indigo-200 transition-colors relative overflow-visible ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+            {/* Message Input Area */}
+            <div className={`px-6 pb-6 pt-2 shrink-0 ${isDarkMode ? "bg-slate-900" : "bg-white"}`}>
+              {/* Quoted reply banner */}
+              {replyingTo && (
+                <div
+                  className={`flex items-center justify-between px-4 py-2 mb-2 rounded-xl text-xs border ${
+                    isDarkMode
+                      ? "bg-slate-800/90 border-slate-700 text-slate-200"
+                      : "bg-indigo-50/80 border-indigo-100 text-slate-700"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate flex-1 mr-2">
+                    <Reply className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-400 shrink-0">
+                      Replying to {replyingTo.senderEmail.split("@")[0]}:
+                    </span>
+                    <span className="truncate opacity-80">{replyingTo.text}</span>
+                  </div>
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Input container */}
+              <div
+                className={`flex flex-col rounded-2xl border border-transparent focus-within:border-indigo-300 dark:focus-within:border-indigo-600 transition-all relative overflow-visible shadow-xs ${
+                  isDarkMode ? "bg-slate-800" : "bg-slate-100"
+                }`}
+              >
+                {/* Pending attachments preview strip */}
                 {pendingAttachments.length > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200/60 bg-slate-50/50">
+                  <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
                     {pendingAttachments.map((att, idx) => (
                       <div key={idx} className="relative shrink-0 group">
                         {att.preview ? (
-                          <img src={att.preview} alt="" className="w-14 h-14 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                          <img
+                            src={att.preview}
+                            alt=""
+                            className="w-14 h-14 rounded-lg object-cover border border-slate-200 shadow-xs"
+                          />
                         ) : (
-                          <div className="w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
-                            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                          <div className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-xs">
+                            <FileText className="w-5 h-5 text-slate-400" />
                           </div>
                         )}
                         <button
                           onClick={() => removePendingAttachment(idx)}
-                          className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer"
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity shadow-xs cursor-pointer"
                         >
                           ×
                         </button>
@@ -1221,76 +2178,258 @@ export function OrgThread() {
                     ))}
                   </div>
                 )}
-                <div className="flex items-center h-12">
-                  <div className="flex items-center gap-1 pl-3 shrink-0">
-                    <label className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors flex items-center justify-center cursor-pointer" title={t.otUploadPhoto}>
-                      <Paperclip className="w-4 h-4 text-slate-600" />
-                      <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageUpload} />
-                    </label>
-                    <ChatToolsMenu
+
+                {/* Voice Note Recorder Mode or Standard Input */}
+                {isRecordingVoice ? (
+                  <div className="p-2">
+                    <VoiceNoteRecorder
                       isDarkMode={isDarkMode}
-                      onInsertList={async (rows, isCheckbox) => {
-                        const payload = Array.from({length:rows}).fill(isCheckbox ? '- [ ] ' : '- • ').join('\n');
-                        const msgData = {
-                          text: payload,
-                          senderEmail: user?.email,
-                          createdAt: serverTimestamp()
-                        };
-                        await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
-                        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                      }}
-                      onInsertPoll={async (question, options) => {
-                        const formatted = `📊 **${question || 'Poll'}**\n` + options.map(o => `- [ ] ${o}`).join('\n');
-                        const msgData = {
-                          text: formatted,
-                          senderEmail: user?.email,
-                          createdAt: serverTimestamp()
-                        };
-                        await addDoc(collection(firestore!, `org_channels/${activeChannelId}/messages`), msgData);
-                        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                      }}
-                      onCreateThread={handleCreateThreadFromTools}
+                      onRecorded={handleSendVoiceNote}
+                      onCancel={() => setIsRecordingVoice(false)}
                     />
                   </div>
-                  <Input
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onPaste={handlePaste}
-                    placeholder={`${t.otMessagePlaceholder}${activeChannel.name}`}
-                    className={`flex-1 bg-transparent border-transparent focus-visible:ring-0 h-12 pl-3 pr-4 shadow-none text-[15px] placeholder:text-slate-500 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}
-                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                  />
-                </div>
+                ) : (
+                  <div className="flex items-center h-12">
+                    <div className="flex items-center gap-1 pl-3 shrink-0">
+                      <label
+                        className={`w-9 h-9 rounded-full transition-colors flex items-center justify-center cursor-pointer ${
+                          isDarkMode
+                            ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
+                            : "bg-slate-200 hover:bg-slate-300 text-slate-600"
+                        }`}
+                        title={t.otUploadPhoto || "Attach file"}
+                      >
+                        <Paperclip className="w-4 h-4" />
+                        <input
+                          type="file"
+                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                        />
+                      </label>
+
+                      <ChatToolsMenu
+                        isDarkMode={isDarkMode}
+                        onInsertList={async (rows, isCheckbox) => {
+                          const payload = Array.from({ length: rows })
+                            .fill(isCheckbox ? "- [ ] " : "- • ")
+                            .join("\n");
+                          const msgData = {
+                            text: payload,
+                            senderEmail: user?.email,
+                            createdAt: serverTimestamp(),
+                          };
+                          await addDoc(
+                            collection(firestore!, `org_channels/${activeChannelId}/messages`),
+                            msgData
+                          );
+                          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        onInsertPoll={async (question, options) => {
+                          const formatted =
+                            `📊 **${question || "Poll"}**\n` + options.map((o) => `- [ ] ${o}`).join("\n");
+                          const msgData = {
+                            text: formatted,
+                            senderEmail: user?.email,
+                            createdAt: serverTimestamp(),
+                          };
+                          await addDoc(
+                            collection(firestore!, `org_channels/${activeChannelId}/messages`),
+                            msgData
+                          );
+                          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        onCreateThread={handleCreateThreadFromTools}
+                      />
+                    </div>
+
+                    <Input
+                      value={inputText}
+                      onChange={handleInputChange}
+                      onPaste={handlePaste}
+                      placeholder={`${t.otMessagePlaceholder || "Message #"}${activeChannel.name}`}
+                      className={`flex-1 bg-transparent border-transparent focus-visible:ring-0 h-12 pl-3 pr-2 shadow-none text-[15px] placeholder:text-slate-500 ${
+                        isDarkMode ? "text-white" : "text-slate-800"
+                      }`}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                    />
+
+                    <div className="flex items-center gap-1 pr-3 shrink-0">
+                      {inputText.trim().length > 0 || pendingAttachments.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSendMessage()}
+                          className="w-9 h-9 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-md cursor-pointer transition-transform hover:scale-105"
+                          title="Send message"
+                        >
+                          <Send className="w-4 h-4 ml-0.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIsRecordingVoice(true)}
+                          className={`w-9 h-9 rounded-full transition-colors flex items-center justify-center cursor-pointer ${
+                            isDarkMode
+                              ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
+                              : "bg-slate-200 hover:bg-slate-300 text-slate-600"
+                          }`}
+                          title="Record voice note"
+                        >
+                          <Mic className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </>
         ) : (
-          <div className={`flex-1 flex flex-col items-center justify-center text-center px-6 ${isDarkMode ? 'bg-slate-900/50' : 'bg-slate-50/50'}`}>
-            <div className={`w-20 h-20 rounded-[2rem] shadow-sm flex items-center justify-center mb-6 rotate-12 transition-transform hover:rotate-0 duration-300 ${isDarkMode ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-white text-slate-300 border border-slate-100'}`}>
+          <div
+            className={`flex-1 flex flex-col items-center justify-center text-center px-6 ${
+              isDarkMode ? "bg-slate-900/50" : "bg-slate-50/50"
+            }`}
+          >
+            <div
+              className={`w-20 h-20 rounded-[2rem] shadow-xs flex items-center justify-center mb-6 rotate-12 transition-transform hover:rotate-0 duration-300 ${
+                isDarkMode
+                  ? "bg-slate-800 text-slate-500 border border-slate-700"
+                  : "bg-white text-slate-300 border border-slate-100"
+              }`}
+            >
               <MessagesSquare className="w-10 h-10" />
             </div>
-            <h2 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.otNoChannelSelected}</h2>
+            <h2 className={`text-2xl font-black ${isDarkMode ? "text-white" : "text-slate-800"}`}>
+              {t.otNoChannelSelected || "No Channel Selected"}
+            </h2>
             <p className="text-slate-500 mt-2 max-w-sm font-medium">
-              {t.otNoChannelSelectedDesc}
+              {t.otNoChannelSelectedDesc || "Select a channel from the left sidebar to start messaging your team."}
             </p>
           </div>
         )}
       </div>
 
+      {/* Global Context Menu */}
+      {contextMenu && (
+        <div
+          className={`fixed z-[9999] rounded-2xl shadow-2xl border py-1.5 w-52 overflow-hidden backdrop-blur-md ${
+            isDarkMode ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-slate-200"
+          }`}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={() => {
+              if (contextMenu.message) {
+                navigator.clipboard.writeText(contextMenu.message.text || "");
+              }
+              setContextMenu(null);
+            }}
+            className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+              isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <Copy className="w-3.5 h-3.5 text-slate-400" />
+            <span>Copy text</span>
+          </button>
+          <button
+            onClick={() => {
+              if (contextMenu.message) {
+                setReplyingTo({
+                  id: contextMenu.message.id,
+                  text: contextMenu.message.text,
+                  senderEmail: contextMenu.message.senderEmail,
+                });
+              }
+              setContextMenu(null);
+            }}
+            className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+              isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <Reply className="w-3.5 h-3.5 text-slate-400" />
+            <span>Reply</span>
+          </button>
+          {canInvite && contextMenu.message && (
+            <button
+              onClick={() => {
+                handleTogglePinMessage(
+                  contextMenu.message!.id,
+                  contextMenu.message!.text,
+                  contextMenu.message!.senderEmail
+                );
+              }}
+              className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+                isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <Pin className="w-3.5 h-3.5 text-slate-400 rotate-45" />
+              <span>
+                {activeChannel?.pinnedMessageId === contextMenu.msgId ? "Unpin from channel" : "Pin to channel"}
+              </span>
+            </button>
+          )}
+          {contextMenu.message && (
+            <button
+              onClick={() => handleCreateSubthread(contextMenu.message!)}
+              className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+                isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <CornerDownRight className="w-3.5 h-3.5 text-slate-400" />
+              <span>{t.otCreateSubthread || "Create Thread"}</span>
+            </button>
+          )}
+          <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
+          <button
+            onClick={() => handleDeleteForMe(contextMenu.msgId)}
+            className={`w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium cursor-pointer ${
+              isDarkMode ? "text-slate-200 hover:bg-slate-700" : "text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+            <span>{t.otDeleteForMe || "Delete for me"}</span>
+          </button>
+          {(contextMenu.isMe || isActiveUserAdmin) && (
+            <button
+              onClick={() => handleDeleteForEveryone(contextMenu.msgId)}
+              className="w-full flex items-center gap-2 text-left px-4 py-2 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+              <span>{t.otDeleteForEveryone || "Delete for everyone"}</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
       {lightboxImage && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={() => setLightboxImage(null)}>
-          <div className="relative max-w-full max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-full max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-full flex justify-between items-center mb-4">
               <span className="text-white text-lg font-semibold drop-shadow-md">{lightboxImage.name}</span>
             </div>
-            <img src={lightboxImage.url} alt="Expanded Preview" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+            <img
+              src={lightboxImage.url}
+              alt="Expanded Preview"
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+            />
           </div>
-          <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white hover:bg-white/20" onClick={() => setLightboxImage(null)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 text-white hover:bg-white/20 cursor-pointer"
+            onClick={() => setLightboxImage(null)}
+          >
             <X className="w-6 h-6" />
           </Button>
         </div>
       )}
-
     </div>
   );
 }
